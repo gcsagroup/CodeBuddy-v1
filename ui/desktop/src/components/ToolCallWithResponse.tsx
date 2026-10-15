@@ -6,6 +6,7 @@ import {
   hasReadableToolContent,
   isPlanTool,
   isProgressTool,
+  toolPlanContent,
 } from './codepro/CodeProToolContent';
 import { AppEvents } from '../constants/events';
 import { ToolIconWithStatus, ToolCallStatus } from './ToolCallStatusIndicator';
@@ -361,6 +362,7 @@ export default function ToolCallWithResponse({
                 : undefined,
             isPendingApproval,
             requestId: toolRequest.id,
+            toolRequest,
             toolCall,
             toolResponse,
             notifications,
@@ -417,6 +419,7 @@ interface ToolCallViewProps {
   compact?: boolean;
   displayTitle?: string;
   requestId: string;
+  toolRequest: ToolRequestMessageContent;
   isPendingApproval: boolean;
   isCancelledMessage: boolean;
   toolCall: {
@@ -543,6 +546,7 @@ function ToolCallView({
   compact = false,
   displayTitle,
   requestId,
+  toolRequest,
   isPendingApproval,
   isCancelledMessage,
   toolCall,
@@ -672,8 +676,11 @@ function ToolCallView({
             'write',
             'edit',
             'read_document',
+            'read',
             'tree',
             'shell',
+            'pwsh',
+            'bash',
             'task_contract',
             'delegate',
             'delegate_readonly',
@@ -735,7 +742,7 @@ function ToolCallView({
     businessOutcome === 'unknown' || partialSubagent || internalCheckError
       ? 'warning'
       : getToolCallStatus(loadingStatus);
-  const change = fileChangeReceipt(toolResponse);
+  const change = fileChangeReceipt(toolResponse, toolRequest);
   const toolLabel = (
     <span
       data-tool-call-id={requestId}
@@ -775,11 +782,10 @@ function ToolCallView({
         <CodeProPlan
           active={false}
           requestId={requestId}
-          content={
-            typeof toolCall.arguments?.content === 'string' ? toolCall.arguments.content : undefined
-          }
+          content={toolPlanContent(toolCall.arguments ?? {}, toolResponse)}
         >
           <CodeProToolContent
+            request={toolRequest}
             name={toolCall.name}
             args={toolCall.arguments ?? {}}
             response={toolResponse}
@@ -829,6 +835,7 @@ function ToolCallView({
           )}
           {readable && (
             <CodeProToolContent
+              request={toolRequest}
               name={toolCall.name}
               args={toolCall.arguments ?? {}}
               response={toolResponse}
@@ -888,6 +895,7 @@ function ToolCallView({
       >
         {readable && (
           <CodeProToolContent
+            request={toolRequest}
             name={toolCall.name}
             args={toolCall.arguments ?? {}}
             response={toolResponse}

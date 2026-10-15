@@ -1529,6 +1529,9 @@
   "conversationFiles.files": {
     "defaultMessage": "本輪寫入檔案 · {count}"
   },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "再顯示 {count} 個檔案"
+  },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "對話限制"
   },

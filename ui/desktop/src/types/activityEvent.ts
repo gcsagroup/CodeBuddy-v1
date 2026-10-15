@@ -129,6 +129,7 @@ export function isTerminalActivityEventStatus(status: ActivityEventStatus): bool
 export interface ActivityEvent {
   schema_version: typeof ACTIVITY_EVENT_SCHEMA_VERSION;
   event_id: string;
+  tool_call_id?: string;
   event_type: ActivityEventType;
   session_id: string;
   run_id: string;
@@ -172,6 +173,7 @@ export function isActivityEvent(value: unknown): value is ActivityEvent {
   return (
     event.schema_version === ACTIVITY_EVENT_SCHEMA_VERSION &&
     typeof event.event_id === 'string' &&
+    (event.tool_call_id === undefined || typeof event.tool_call_id === 'string') &&
     normalizeActivityEventType(event.event_type) === event.event_type &&
     typeof event.session_id === 'string' &&
     typeof event.run_id === 'string' &&

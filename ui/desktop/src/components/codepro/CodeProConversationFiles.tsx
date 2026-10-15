@@ -17,6 +17,10 @@ const i18n = defineMessages({
     id: 'conversationFiles.changes',
     defaultMessage: 'Changes per operation (not a net workspace diff)',
   },
+  moreFiles: {
+    id: 'conversationFiles.moreFiles',
+    defaultMessage: 'Show {count} more files',
+  },
 });
 
 function fileIdentity(path: string, workspaceRoot?: string) {
@@ -36,15 +40,17 @@ export function CodeProConversationFiles({
   workspaceRoot?: string;
 }) {
   const intl = useIntl();
-  const [expanded, setExpanded] = useState(false);
-  const changes = useMemo(
-    () =>
-      messages.flatMap(getToolResponses).flatMap((response) => {
-        const change = fileChangeReceipt(response);
-        return change ? [{ id: response.id, change }] : [];
-      }),
-    [messages]
-  );
+  const [expanded, setExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
+  const changes = useMemo(() => {
+    const requests = new Map(
+      messages.flatMap(getToolRequests).map((request) => [request.id, request])
+    );
+    return messages.flatMap(getToolResponses).flatMap((response) => {
+      const change = fileChangeReceipt(response, requests.get(response.id));
+      return change ? [{ id: response.id, change }] : [];
+    });
+  }, [messages]);
   const files = useMemo(() => {
     const responses = new Map(
       messages.flatMap((message) =>
@@ -59,11 +65,19 @@ export function CodeProConversationFiles({
         const call = presentedToolCall(request);
         const response = responses.get(request.id);
         const audit = parseToolAuditReceipt(response?.metadata?.toolAudit);
+        if (!call) continue;
+        const result = response?.toolResult;
+        const nativeReceipt =
+          request.metadata?.extensionName === 'harness' &&
+          result?.status === 'success' &&
+          result.value &&
+          typeof result.value === 'object' &&
+          (result.value as Record<string, unknown>).isError !== true;
         if (
-          !call ||
-          !audit ||
-          audit.outcome !== 'success' ||
-          !['platform', 'builtin'].includes(audit.extensionSource)
+          !nativeReceipt &&
+          (!audit ||
+            audit.outcome !== 'success' ||
+            !['platform', 'builtin'].includes(audit.extensionSource))
         )
           continue;
         const name = call.name.split(/__|::/).pop();
@@ -72,9 +86,10 @@ export function CodeProConversationFiles({
           name === 'edit' ||
           (name === 'text_editor' &&
             ['write', 'str_replace', 'insert'].includes(String(call.arguments.command)));
-        if (write && typeof call.arguments.path === 'string') {
-          const identity = fileIdentity(call.arguments.path, workspaceRoot);
-          if (!paths.has(identity)) paths.set(identity, call.arguments.path);
+        const path = call.arguments.file_path ?? call.arguments.path;
+        if (write && typeof path === 'string') {
+          const identity = fileIdentity(path, workspaceRoot);
+          if (!paths.has(identity)) paths.set(identity, path);
         }
       }
     }
@@ -122,7 +137,7 @@ export function CodeProConversationFiles({
       <CollapsibleContent className="codepro-disclosure-content">
         <div className="border-t border-border-subtle py-1">
           <CodeProFileViewer
-            files={files}
+            files={showAll ? files : files.slice(0, 3)}
             workspaceRoot={workspaceRoot}
             changesForFile={(path) =>
               changes
@@ -133,6 +148,15 @@ export function CodeProConversationFiles({
                 .map(({ change }) => change)
             }
           />
+          {!showAll && files.length > 3 && (
+            <button
+              type="button"
+              className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
+              onClick={() => setShowAll(true)}
+            >
+              {intl.formatMessage(i18n.moreFiles, { count: files.length - 3 })}
+            </button>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

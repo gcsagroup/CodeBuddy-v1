@@ -8,6 +8,7 @@ export function CodeProWorkStep({
   streaming,
   settled,
   summary,
+  operationCount,
   storageKey,
   children,
 }: {
@@ -15,6 +16,7 @@ export function CodeProWorkStep({
   streaming: boolean;
   settled: boolean;
   summary: string;
+  operationCount: number;
   storageKey: string;
   children?: ReactNode;
 }) {
@@ -36,7 +38,7 @@ export function CodeProWorkStep({
           scrollable={false}
           storageKey={storageKey}
           label={summary}
-          collapsible={settled && !!summary}
+          collapsible={settled && operationCount > 1 && !!summary}
         >
           {operations}
         </ToolCallExpandable>

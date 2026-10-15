@@ -1529,6 +1529,9 @@
   "conversationFiles.files": {
     "defaultMessage": "Modified {count} files this turn"
   },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "Show {count} more files"
+  },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Conversation Limits"
   },

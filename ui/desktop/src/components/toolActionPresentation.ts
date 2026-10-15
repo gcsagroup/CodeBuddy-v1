@@ -93,18 +93,25 @@ export function formatToolActionSummary(
   for (const call of calls) {
     const name = call.name.split(/__|::/).pop();
     let kind: Kind =
-      name === 'read_document'
+      name === 'read_document' || name === 'read'
         ? 'read'
         : name === 'write' || name === 'edit' || name === 'shell'
           ? name
-          : 'other';
+          : name === 'pwsh' || name === 'bash'
+            ? 'shell'
+            : 'other';
     if (name === 'text_editor') {
       if (call.arguments.command === 'view') kind = 'read';
       else if (call.arguments.command === 'write') kind = 'write';
       else if (call.arguments.command === 'str_replace' || call.arguments.command === 'insert')
         kind = 'edit';
     }
-    const path = typeof call.arguments.path === 'string' ? call.arguments.path.trim() : '';
+    const path =
+      typeof call.arguments.file_path === 'string'
+        ? call.arguments.file_path.trim()
+        : typeof call.arguments.path === 'string'
+          ? call.arguments.path.trim()
+          : '';
     if ((kind === 'read' || kind === 'write' || kind === 'edit') && !path) kind = 'other';
     const group = groups.get(kind) ?? { paths: new Set<string>(), count: 0 };
     if (kind === 'read' || kind === 'write' || kind === 'edit')
@@ -133,8 +140,8 @@ export function formatToolAction(
   let target = '';
   const fileAction = (kind: 'read' | 'write' | 'edit') => {
     action = kind;
-    if (typeof args.path === 'string')
-      target = args.path.split(/[\\/]/).filter(Boolean).pop() ?? '';
+    const path = args.file_path ?? args.path;
+    if (typeof path === 'string') target = path.split(/[\\/]/).filter(Boolean).pop() ?? '';
   };
   switch (name) {
     case 'task_contract':
@@ -148,6 +155,7 @@ export function formatToolAction(
               : 'contract';
       break;
     case 'read_document':
+    case 'read':
       fileAction('read');
       break;
     case 'write':
@@ -162,6 +170,8 @@ export function formatToolAction(
       else if (args.command === 'str_replace' || args.command === 'insert') fileAction('edit');
       break;
     case 'shell':
+    case 'pwsh':
+    case 'bash':
       action = 'shell';
       if (presentation === 'detail' && typeof args.command === 'string')
         target = args.command.split(/\r?\n/)[0];

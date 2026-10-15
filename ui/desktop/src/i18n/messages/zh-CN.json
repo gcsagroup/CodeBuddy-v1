@@ -1529,6 +1529,9 @@
   "conversationFiles.files": {
     "defaultMessage": "本轮修改了 {count} 个文件"
   },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "再显示 {count} 个文件"
+  },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "对话限制"
   },

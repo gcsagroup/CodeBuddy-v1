@@ -94,18 +94,14 @@ describe('CodeProActivity', () => {
       'false'
     );
     expect(screen.queryByRole('region', { name: 'Execution log' })).not.toBeInTheDocument();
-    expect(screen.getByText('Edit operations completed')).toBeVisible();
-    expect(screen.getByText('Tool receipts, not a verified diff')).toBeVisible();
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'View operation receipt for D:\\project\\app.ts',
-      })
-    );
+    expect(screen.queryByText('Edit operations completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tool receipts, not a verified diff')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Operations recorded · 2 actions' }));
     expect(screen.getByRole('button', { name: 'Operations recorded · 2 actions' })).toHaveAttribute(
       'aria-expanded',
       'true'
     );
-    expect(screen.getByText('Exit code')).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(2);
   });
 
   it('does not present a failed edit as a completed change', () => {
@@ -127,7 +123,7 @@ describe('CodeProActivity', () => {
     );
 
     expect(screen.queryByText('1 failed action')).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Execution log' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Execution log' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^Activity:/ }));
     expect(screen.getByText('1 test failed')).toBeVisible();
     expect(screen.queryByText('Edit operations completed')).not.toBeInTheDocument();

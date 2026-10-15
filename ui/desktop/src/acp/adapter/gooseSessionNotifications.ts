@@ -1,6 +1,6 @@
 import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
 import type { MessageUsage } from '../../types/message';
-import { parseActivityEvent } from '../../types/activityEvent';
+import { isTerminalActivityEventStatus, parseActivityEvent } from '../../types/activityEvent';
 import { parseTestExecutionProgress } from '../../types/testExecutionProgress';
 import { parsePublicProgress } from '../../types/publicProgress';
 import { parseCompactionLifecycle } from '../../types/compactionLifecycle';
@@ -335,8 +335,21 @@ function upsertCodeProActivity(
   message: string,
   activityEvent: NonNullable<ReturnType<typeof parseActivityEvent>>
 ): AcpChatStateChange[] {
-  const messageId = `acp_codepro_activity_${sessionId}_${activityEvent.event_id}`;
+  const identity =
+    activityEvent.tool_call_id === undefined
+      ? activityEvent.event_id
+      : `${activityEvent.run_id}:tool:${activityEvent.tool_call_id}`;
+  const messageId = `acp_codepro_activity_${sessionId}_${identity}`;
   const existing = state.messages.find((item) => item.id === messageId);
+  const previous = existing?.content.find((content) => content.type === 'systemNotification');
+  const previousEvent =
+    previous?.type === 'systemNotification' ? parseActivityEvent(previous.data) : null;
+  if (
+    previousEvent &&
+    isTerminalActivityEventStatus(previousEvent.status) &&
+    !isTerminalActivityEventStatus(activityEvent.status)
+  )
+    return [];
   const content = {
     type: 'systemNotification' as const,
     notificationType: 'codeProActivity' as const,

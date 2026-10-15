@@ -596,12 +596,12 @@ describe('CodePro ordinary tool message presentation', () => {
         isUserMessage: (item: Message) => item.role === 'user',
       };
       const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
-      const toggle = screen.getByRole('button', { name: 'Completed 1 other operation' });
+      const toggle = screen.getByRole('button', { name: 'Read file README.md' });
       const group = toggle.closest('[data-testid="message-container"]')!;
       fireEvent.click(group.querySelector('button')!);
       const before = group.innerHTML;
       view.rerender(<ProgressiveMessageList {...props} sessionType={sessionType} />);
-      expect(screen.getByRole('button', { name: 'Completed 1 other operation' })).toBe(toggle);
+      expect(screen.getByRole('button', { name: 'Read file README.md' })).toBe(toggle);
       expect(group.innerHTML).toBe(before);
       expect(group.querySelector('button')).toHaveAttribute('aria-expanded', 'true');
     }
@@ -897,7 +897,7 @@ describe('CodePro ordinary tool message presentation', () => {
     const view = render(renderTrace(changeTrace), { wrapper: IntlTestWrapper });
     const group = compactGroups()[0];
     expect(screen.queryByTestId('work-plan')).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: 'Completed 2 other operations' });
+    const toggle = screen.getByRole('button', { name: 'Completed 1 other operation Read 1 file' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -969,10 +969,9 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.getByText('Failed')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Run command/ }));
     expect(screen.getByText('npm.cmd test')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Completed 2 other operations' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(
+      screen.getByRole('button', { name: 'Completed 1 other operation Read 1 file' })
+    ).toHaveAttribute('aria-expanded', 'false');
     expect(compactGroups()).toHaveLength(1);
   });
 
@@ -982,7 +981,7 @@ describe('CodePro ordinary tool message presentation', () => {
       toolTransportMessage(index * 2 + 1, `read-${index}`, 'response'),
     ]).flat();
     render(renderTrace(records), { wrapper: IntlTestWrapper });
-    const toggle = screen.getByRole('button', { name: 'Completed 100 other operations' });
+    const toggle = screen.getByRole('button', { name: 'Read 1 file' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     const region = compactGroups()[0].querySelector('.codepro-operation-details')!;
@@ -1075,7 +1074,7 @@ describe('ProgressiveMessageList retention window', () => {
       { wrapper: IntlTestWrapper }
     );
     expect(compactGroups()).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Completed 25 other operations' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
     expect(compactGroups()[0].querySelectorAll('.goose-message-tool')).toHaveLength(25);
   });
 
@@ -1194,9 +1193,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    expect(screen.getAllByRole('button', { name: 'Operations recorded · 1 action' })).toHaveLength(
-      2
-    );
+    expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(2);
   });
 
   it('merges lifecycles and shows mixed actions in one expandable timeline without hiding failures', () => {
@@ -1315,9 +1312,10 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    const timeline = screen.getByRole('button', { name: 'Operations recorded · 1 action' });
+    const timeline = screen.getByRole('button', {
+      name: 'Activity: Run pnpm test --filter boundary · Completed',
+    });
     expect(timeline).toBeVisible();
-    fireEvent.click(timeline);
     expect(
       screen.getByRole('button', {
         name: 'Activity: Run pnpm test --filter boundary · Completed',
@@ -1415,7 +1413,6 @@ describe('tool cards across active-turn notification messages', () => {
     ).toBeVisible();
     const response = toolTransportMessage(6, 'current-call', 'response');
     view.rerender(card([old, user, current, notice, response], true));
-    fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
     expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();
     view.rerender(card([old, user, current, notice, response], false));
     expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();

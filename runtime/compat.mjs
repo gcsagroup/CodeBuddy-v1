@@ -89,7 +89,7 @@ function toolResultUpdate(event, metadata) {
       type: "text",
       text: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
     } }],
-    rawOutput: event.mcpResult ? event.mcpResult.structuredContent : event.result,
+    rawOutput: event.mcpResult ? event.mcpResult.structuredContent : event.structuredContent ?? event.result,
     _meta: { goose: { ...metadata, ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}) } },
   };
 }

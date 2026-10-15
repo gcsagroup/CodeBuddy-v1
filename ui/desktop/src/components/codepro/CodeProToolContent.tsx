@@ -45,6 +45,36 @@ export function isProgressTool(name: string): boolean {
   return name === 'codepro__publish_progress';
 }
 
+export function toolPlanContent(
+  args: Record<string, unknown>,
+  response?: ToolResponseMessageContent
+): string | undefined {
+  if (typeof args.content === 'string') return args.content;
+  const result = response?.toolResult;
+  const value =
+    result?.status === 'success' && result.value && typeof result.value === 'object'
+      ? (result.value as Record<string, unknown>)
+      : undefined;
+  const raw = value?.structuredContent;
+  const todos = raw && typeof raw === 'object' && 'todos' in raw ? raw.todos : args.todos;
+  if (
+    !Array.isArray(todos) ||
+    !todos.every(
+      (item) =>
+        item &&
+        typeof item.content === 'string' &&
+        ['pending', 'in_progress', 'completed'].includes(item.status)
+    )
+  )
+    return;
+  return todos
+    .map(
+      (item) =>
+        `- [${item.status === 'completed' ? 'x' : item.status === 'in_progress' ? '-' : ' '}] ${item.content}`
+    )
+    .join('\n');
+}
+
 export function presentedToolCall(
   request: ToolRequestMessageContent
 ): { name: string; arguments: Record<string, unknown> } | undefined {
@@ -62,7 +92,7 @@ export function presentedToolCall(
 }
 
 export function hasReadableToolContent(name: string): boolean {
-  return ['shell', 'write', 'edit', 'read_document', 'todo_write'].includes(
+  return ['shell', 'pwsh', 'bash', 'write', 'edit', 'read', 'read_document', 'todo_write'].includes(
     name.split(/__|::/).pop() ?? ''
   );
 }
@@ -73,14 +103,17 @@ export function CodeProToolContent({
   name,
   args,
   response,
+  request,
 }: {
   name: string;
   args: Record<string, unknown>;
   response?: ToolResponseMessageContent;
+  request?: ToolRequestMessageContent;
 }) {
   const intl = useIntl();
   const kind = name.split(/__|::/).pop();
-  const change = fileChangeReceipt(response);
+  const change = fileChangeReceipt(response, request);
+  const planContent = toolPlanContent(args, response);
   const result = response?.toolResult;
   const value = result?.status === 'success' ? result.value : undefined;
   const receipt =
@@ -111,19 +144,21 @@ export function CodeProToolContent({
 
   return (
     <div className="space-y-3 py-2 text-sm text-text-primary" data-testid="readable-tool-content">
-      {isPlanTool(name) && typeof args.content === 'string' ? (
+      {isPlanTool(name) && planContent !== undefined ? (
         <>
           {!confirmed && (
             <p className="text-xs text-text-secondary">{intl.formatMessage(messages.proposed)}</p>
           )}
-          <MarkdownContent content={args.content} />
+          <MarkdownContent content={planContent} />
         </>
       ) : (
         <>
-          {typeof args.path === 'string' && (
-            <p className="font-mono text-xs break-all">{args.path}</p>
+          {typeof (args.file_path ?? args.path) === 'string' && (
+            <p className="font-mono text-xs break-all">{String(args.file_path ?? args.path)}</p>
           )}
-          {kind === 'shell' && typeof args.command === 'string' && code(args.command)}
+          {['shell', 'pwsh', 'bash'].includes(kind ?? '') &&
+            typeof args.command === 'string' &&
+            code(args.command)}
           {change && <FileChangeDiff change={change} />}
           {!change && kind === 'write' && typeof args.content === 'string' && (
             <>

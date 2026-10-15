@@ -101,6 +101,10 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
   const bypass = reduced || hidden || !following || urgent;
   useLayoutEffect(() => {
     const state = cursor.current;
+    const currentKeys = new Set(units.map((unit) => unit.key));
+    for (const key of state.shown.keys()) if (!currentKeys.has(key)) state.shown.delete(key);
+    for (const key of state.thoughtBoundaries)
+      if (!currentKeys.has(key)) state.thoughtBoundaries.delete(key);
     urgentKeys.forEach((key) => seenUrgent.current.add(key));
     const newTurn = state.user !== user;
     const hadPending = units.some(

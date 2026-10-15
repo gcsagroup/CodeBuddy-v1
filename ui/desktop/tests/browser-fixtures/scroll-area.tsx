@@ -9,6 +9,7 @@ import ThinkingContent from '../../src/components/ThinkingContent';
 import { ToolActivityIcon } from '../../src/components/ToolActivityIcon';
 import MarkdownContent from '../../src/components/MarkdownContent';
 import '../../src/components/conversation-presentation.css';
+import '../../src/workspace-panel/workspacePanel.css';
 import { CodeProConversationFiles } from '../../src/components/codepro/CodeProConversationFiles';
 import type { Message } from '../../src/types/message';
 import { CodeProFileViewer } from '../../src/components/codepro/CodeProFileViewer';
@@ -246,10 +247,13 @@ function FileCardFixture() {
   );
 }
 
-function PresentationFixture() {
+function PresentationFixture({ subagent = false }: { subagent?: boolean }) {
   return (
     <IntlTestWrapper>
-      <main className="codepro-conversation" style={{ padding: 24, width: 760 }}>
+      <main
+        className={subagent ? 'workspace-panel codepro-conversation' : 'codepro-conversation'}
+        style={{ padding: 24, width: 760 }}
+      >
         <div className="codepro-chat-history">
           <MarkdownContent
             className="codepro-assistant-prose"
@@ -343,7 +347,7 @@ createRoot(document.getElementById('root')!).render(
   query.has('file-card') ? (
     <FileCardFixture />
   ) : query.has('presentation') ? (
-    <PresentationFixture />
+    <PresentationFixture subagent={query.has('subagent')} />
   ) : query.has('toast') ? (
     <ToastFixture />
   ) : query.has('sidebar') ? (

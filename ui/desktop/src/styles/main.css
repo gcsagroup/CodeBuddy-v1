@@ -277,10 +277,8 @@
   padding-bottom: 2px;
 }
 
-/* Conversation density is local: do not shrink navigation, input controls, or
-   the user's window zoom. Technical details remain subordinate to prose. */
+/* Conversation colors are local. Record typography lives in conversation-presentation.css. */
 .codepro-conversation {
-  --conversation-code-size: 0.8125rem;
   --color-text-secondary: var(--color-neutral-500);
 }
 
@@ -288,14 +286,7 @@
   --color-text-secondary: var(--color-neutral-300);
 }
 
-.codepro-conversation .prose {
-  font-size: 0.9375rem;
-  line-height: 1.65;
-}
-
 .codepro-conversation .codepro-assistant-prose {
-  font-size: 0.875rem;
-  font-weight: 500;
   color: var(--color-neutral-950);
 }
 
@@ -311,49 +302,22 @@
   color: var(--color-text-primary);
 }
 
-.codepro-conversation .codepro-operation-details {
-  font-size: 0.8125rem;
-}
-
-.codepro-conversation .codepro-operation-details .text-sm {
-  font-size: inherit;
-}
-
-.codepro-conversation .codepro-operation-details .prose {
-  font-size: 0.8125rem;
-}
-
-.codepro-conversation .codepro-secondary-label {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-}
-
 .codepro-conversation .codepro-group-heading {
-  font-size: 0.8125rem;
-  line-height: 1.5;
   font-weight: 400;
   color: var(--color-text-secondary);
 }
 
-.codepro-conversation .prose :where(h1, h2, h3, h4) {
-  font-weight: 500;
-  line-height: 1.5;
-}
-
 .codepro-conversation .prose :where(h1) {
-  font-size: 1.125rem;
   margin-top: 0;
   margin-bottom: 0.625rem;
 }
 
 .codepro-conversation .prose :where(h2) {
-  font-size: 1rem;
   margin-top: 0.875rem;
   margin-bottom: 0.5rem;
 }
 
 .codepro-conversation .prose :where(h3, h4) {
-  font-size: 0.875rem;
   margin-top: 0.75rem;
   margin-bottom: 0.375rem;
 }

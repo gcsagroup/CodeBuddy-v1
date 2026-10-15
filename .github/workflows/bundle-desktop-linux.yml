@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload .deb package
         if: matrix.variant == 'standard'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-deb
           path: ui/desktop/out/make/deb/x64/*.deb
@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload .deb package (Vulkan)
         if: matrix.variant == 'vulkan'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-vulkan-deb
           path: ui/desktop/out/make/deb/x64/*-vulkan.deb
@@ -229,7 +229,7 @@ jobs:
 
       - name: Upload .rpm package
         if: matrix.variant == 'standard'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-rpm
           path: ui/desktop/out/make/rpm/x64/*.rpm
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload .rpm package (Vulkan)
         if: matrix.variant == 'vulkan'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-vulkan-rpm
           path: ui/desktop/out/make/rpm/x64/*-vulkan.rpm
@@ -245,7 +245,7 @@ jobs:
 
       - name: Upload .flatpak package
         if: matrix.variant == 'standard'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-flatpak
           path: ui/desktop/out/make/flatpak/x86_64/*.flatpak
@@ -253,7 +253,7 @@ jobs:
 
       - name: Upload .flatpak package (Vulkan)
         if: matrix.variant == 'vulkan'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: Goose-linux-x64-vulkan-flatpak
           path: ui/desktop/out/make/flatpak/x86_64/*-vulkan.flatpak

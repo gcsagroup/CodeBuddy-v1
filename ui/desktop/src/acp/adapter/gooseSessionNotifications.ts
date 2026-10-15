@@ -1,0 +1,407 @@
+import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
+import type { MessageUsage } from '../../types/message';
+import { parseActivityEvent } from '../../types/activityEvent';
+import { parseTestExecutionProgress } from '../../types/testExecutionProgress';
+import { parsePublicProgress } from '../../types/publicProgress';
+import { parseCompactionLifecycle } from '../../types/compactionLifecycle';
+import { parseWorkerUsage } from '../../types/workerUsage';
+import { parsePlanContext } from '../../types/codeproPlan';
+import { parseResponsePhase } from '../../types/responsePhase';
+import {
+  getTurnTerminalRecord,
+  isTurnTerminalRecord,
+  type TurnTerminalRecord,
+} from '../../types/turnTerminal';
+import { adaptLegacyCodeProActivity } from './legacyCodeProActivityAdapter';
+import { type AcpChatStateChange, type AdapterState, messagesChange } from './shared';
+
+export function applyGooseSessionNotification(
+  state: AdapterState,
+  notification: GooseSessionNotification_unstable,
+  isSessionReplay = false
+): AcpChatStateChange[] {
+  const update = notification.update;
+
+  switch (update.sessionUpdate) {
+    case 'usage_update':
+      return [
+        {
+          type: 'tokenState',
+          tokenState: {
+            totalTokens: update.used,
+            contextLimit: update.contextLimit,
+            accumulatedInputTokens: update.accumulatedInputTokens,
+            accumulatedOutputTokens: update.accumulatedOutputTokens,
+            accumulatedTotalTokens: update.accumulatedInputTokens + update.accumulatedOutputTokens,
+            ...(update.accumulatedCost !== undefined
+              ? { accumulatedCost: update.accumulatedCost }
+              : {}),
+          },
+        },
+      ];
+    case 'status_message':
+      return applyStatusMessage(state, notification.sessionId, update, isSessionReplay);
+    case 'message_usage':
+      return applyMessageUsage(state, update);
+    case 'test_execution_progress':
+      return upsertTestExecutionProgress(state, update.progress);
+    case 'public_progress':
+      return upsertPublicProgress(state, update.progress);
+    default:
+      return [];
+  }
+}
+
+function upsertPublicProgress(state: AdapterState, value: unknown): AcpChatStateChange[] {
+  const progress = parsePublicProgress(value);
+  if (!progress) return [];
+  const messageId = `acp_codepro_progress_${progress.runId}_${progress.attemptId}`;
+  const content = {
+    type: 'systemNotification' as const,
+    notificationType: 'codeProActivity' as const,
+    msg: progress.summary,
+    data: progress,
+  };
+  const existing = state.messages.find((item) => item.id === messageId);
+  if (existing) {
+    existing.content = [content];
+    existing.created = Math.floor(Date.now() / 1000);
+  } else {
+    state.messages.push({
+      id: messageId,
+      role: 'assistant',
+      created: Math.floor(Date.now() / 1000),
+      content: [content],
+      metadata: { userVisible: true, agentVisible: false },
+    });
+  }
+  return messagesChange(state);
+}
+
+function upsertTestExecutionProgress(state: AdapterState, value: unknown): AcpChatStateChange[] {
+  const progress = parseTestExecutionProgress(value);
+  if (!progress) return [];
+  const messageId = `acp_codepro_test_${progress.runId}_${progress.attemptId}`;
+  const content = {
+    type: 'systemNotification' as const,
+    notificationType: 'codeProActivity' as const,
+    msg: 'CodePro test execution progress',
+    data: progress,
+  };
+  const existing = state.messages.find((item) => item.id === messageId);
+  if (existing) {
+    existing.content = [content];
+    existing.created = Math.floor(Date.now() / 1000);
+  } else {
+    state.messages.push({
+      id: messageId,
+      role: 'assistant',
+      created: Math.floor(Date.now() / 1000),
+      content: [content],
+      metadata: { userVisible: true, agentVisible: false },
+    });
+  }
+  return messagesChange(state);
+}
+
+function applyStatusMessage(
+  state: AdapterState,
+  sessionId: string,
+  update: Extract<GooseSessionNotification_unstable['update'], { sessionUpdate: 'status_message' }>,
+  isSessionReplay: boolean
+): AcpChatStateChange[] {
+  if (update.status.type === 'progress') {
+    const responsePhase = parseResponsePhase(update.status.data);
+    if (responsePhase && responsePhase.session_id === sessionId) {
+      const id = `acp_response_phase_${responsePhase.event_id}`;
+      if (!state.messages.some((message) => message.id === id))
+        state.messages.push({
+          id,
+          role: 'assistant',
+          created: responsePhase.created_at,
+          content: [
+            {
+              type: 'systemNotification',
+              notificationType: 'progressMessage',
+              msg: '',
+              data: responsePhase,
+            },
+          ],
+          metadata: { userVisible: true, agentVisible: false },
+        });
+      return messagesChange(state);
+    }
+    const planContext = parsePlanContext(update.status.data);
+    if (planContext && planContext.session_id === sessionId) {
+      const id = `acp_plan_context_${planContext.event_id}`;
+      if (!state.messages.some((message) => message.id === id))
+        state.messages.push({
+          id,
+          role: 'assistant',
+          created: Date.now() / 1000,
+          content: [
+            {
+              type: 'systemNotification',
+              notificationType: 'progressMessage',
+              msg: '',
+              data: planContext,
+            },
+          ],
+          metadata: { userVisible: true, agentVisible: false },
+        });
+      return messagesChange(state);
+    }
+    if (isTurnTerminalRecord(update.status.data)) {
+      return upsertTurnTerminal(state, update.status.message, update.status.data, isSessionReplay);
+    }
+
+    const compaction = parseCompactionLifecycle(update.status.data);
+    if (compaction) {
+      const id = `acp_compaction_${compaction.operationId}`;
+      const existing = state.messages.find((item) => item.id === id);
+      const previous = existing?.content.find((item) => item.type === 'systemNotification');
+      const previousLifecycle = parseCompactionLifecycle(previous?.data);
+      if (previousLifecycle && previousLifecycle.status !== 'started') return [];
+      const content = {
+        type: 'systemNotification' as const,
+        notificationType: 'progressMessage' as const,
+        msg: update.status.message,
+        data: update.status.data,
+      };
+      if (existing) existing.content = [content];
+      else
+        state.messages.push({
+          id,
+          role: 'assistant',
+          created: Date.now() / 1000,
+          content: [content],
+          metadata: { userVisible: true, agentVisible: false },
+        });
+      return [...messagesChange(state), { type: 'compactionLifecycle', lifecycle: compaction }];
+    }
+
+    const workerUsage = parseWorkerUsage(update.status.data);
+    if (workerUsage) {
+      const id = `acp_worker_usage_${workerUsage.runId}_${workerUsage.workerSessionId}`;
+      const existing = state.messages.find((item) => item.id === id);
+      const msg = `${workerUsage.role} · ${workerUsage.taskId} · ${workerUsage.isCompaction ? '压缩请求' : '最近模型请求'}：输入 ${workerUsage.inputTokens ?? '未知'} / ${workerUsage.contextLimit} token，输出 ${workerUsage.outputTokens ?? '未知'} token。不是累计消耗或父会话占用。`;
+      const content = {
+        type: 'systemNotification' as const,
+        notificationType: 'inlineMessage' as const,
+        msg,
+        data: update.status.data,
+      };
+      if (existing) existing.content = [content];
+      else
+        state.messages.push({
+          id,
+          role: 'assistant',
+          created: Date.now() / 1000,
+          content: [content],
+          metadata: { userVisible: true, agentVisible: false },
+        });
+      return messagesChange(state);
+    }
+
+    const structuredEvent = parseActivityEvent(update.status.data);
+    if (structuredEvent) {
+      return upsertCodeProActivity(state, sessionId, update.status.message, structuredEvent);
+    }
+    if (!update.status.message.trim().startsWith('CodePro')) {
+      return [{ type: 'progressMessage', message: update.status.message }];
+    }
+    if (hasLegacyCodeProActivityId(update.status.message)) {
+      return upsertCodeProToolActivity(state, sessionId, update.status.message);
+    }
+    return [{ type: 'progressMessage', message: update.status.message }];
+  }
+
+  state.messages.push({
+    id: `acp_status_${sessionId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    role: 'assistant',
+    created: Math.floor(Date.now() / 1000),
+    content: [
+      {
+        type: 'systemNotification',
+        notificationType: 'inlineMessage',
+        msg: update.status.message,
+        data: update.status.data,
+      },
+    ],
+    metadata: {
+      userVisible: true,
+      agentVisible: false,
+    },
+  });
+
+  return messagesChange(state);
+}
+
+function upsertTurnTerminal(
+  state: AdapterState,
+  message: string,
+  record: TurnTerminalRecord,
+  isSessionReplay: boolean
+): AcpChatStateChange[] {
+  const content = {
+    type: 'systemNotification' as const,
+    notificationType: 'turnTerminal' as const,
+    msg: message,
+    data: record,
+  };
+  const existingById = state.messages.find((item) => item.id === record.terminal_message_id);
+  const optimisticCancellation = state.messages.find((item) => {
+    const current = getTurnTerminalRecord(item);
+    return (
+      record.status === 'cancelled' &&
+      record.checkpoint_id === null &&
+      current?.status === 'cancelled' &&
+      current.checkpoint_id === null &&
+      current.session_id === record.session_id &&
+      current.run_id === record.run_id &&
+      current.source_user_message_id === record.source_user_message_id
+    );
+  });
+  const existing = existingById ?? optimisticCancellation;
+
+  if (existing) {
+    if (existing.id !== record.terminal_message_id) {
+      existing.id = record.terminal_message_id;
+      existing.created = Math.floor(new Date(record.finished_at).getTime() / 1000);
+      existing.content = [content];
+      existing.metadata = { userVisible: true, agentVisible: false };
+    } else {
+      existing.content = [
+        ...existing.content.filter(
+          (item) => item.type !== 'systemNotification' || item.notificationType !== 'turnTerminal'
+        ),
+        content,
+      ];
+      if (isSessionReplay) {
+        state.messages.splice(state.messages.indexOf(existing), 1);
+        state.messages.push(existing);
+      }
+    }
+  } else {
+    state.messages.push({
+      id: record.terminal_message_id,
+      role: 'assistant',
+      created: Math.floor(new Date(record.finished_at).getTime() / 1000),
+      content: [content],
+      metadata: {
+        userVisible: true,
+        agentVisible: false,
+      },
+    });
+  }
+
+  return messagesChange(state);
+}
+
+function hasLegacyCodeProActivityId(message: string): boolean {
+  return /^活动ID：.+$/m.test(message);
+}
+
+function upsertCodeProToolActivity(
+  state: AdapterState,
+  sessionId: string,
+  message: string
+): AcpChatStateChange[] {
+  const receivedAt = new Date().toISOString();
+  const initialEvent = adaptLegacyCodeProActivity(message, { sessionId, receivedAt });
+  if (!initialEvent) {
+    return [];
+  }
+
+  const messageId = `acp_codepro_activity_${sessionId}_${initialEvent.event_id}`;
+  const existing = state.messages.find((item) => item.id === messageId);
+  const previousData = existing?.content.find((item) => item.type === 'systemNotification')?.data;
+  const previousEvent = parseActivityEvent(previousData);
+  const activityEvent = adaptLegacyCodeProActivity(message, {
+    sessionId,
+    receivedAt,
+    previous: previousEvent,
+  });
+  if (!activityEvent) {
+    return [];
+  }
+
+  return upsertCodeProActivity(state, sessionId, message, activityEvent);
+}
+
+function upsertCodeProActivity(
+  state: AdapterState,
+  sessionId: string,
+  message: string,
+  activityEvent: NonNullable<ReturnType<typeof parseActivityEvent>>
+): AcpChatStateChange[] {
+  const messageId = `acp_codepro_activity_${sessionId}_${activityEvent.event_id}`;
+  const existing = state.messages.find((item) => item.id === messageId);
+  const content = {
+    type: 'systemNotification' as const,
+    notificationType: 'codeProActivity' as const,
+    msg: message,
+    data: activityEvent,
+  };
+
+  if (existing) {
+    existing.content = [content];
+    existing.created = Math.floor(Date.now() / 1000);
+  } else {
+    state.messages.push({
+      id: messageId,
+      role: 'assistant',
+      created: Math.floor(Date.now() / 1000),
+      content: [content],
+      metadata: {
+        userVisible: true,
+        agentVisible: false,
+      },
+    });
+  }
+
+  return messagesChange(state);
+}
+
+function applyMessageUsage(
+  state: AdapterState,
+  update: Extract<GooseSessionNotification_unstable['update'], { sessionUpdate: 'message_usage' }>
+): AcpChatStateChange[] {
+  // Live tool-call turns carry a server-side id the client never saw, so an
+  // id miss falls back to the most recent assistant message with provider
+  // content - skipping client-made rows (approval cards, status notices).
+  const byId = update.messageId
+    ? state.messages.find((message) => message.id === update.messageId)
+    : undefined;
+  const target =
+    byId ??
+    [...state.messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === 'assistant' &&
+          message.content.some(
+            (content) => content.type !== 'actionRequired' && content.type !== 'systemNotification'
+          )
+      );
+
+  if (!target) {
+    return [];
+  }
+
+  const usage: MessageUsage = {
+    inputTokens: update.usage.inputTokens,
+    outputTokens: update.usage.outputTokens,
+    totalTokens: update.usage.totalTokens,
+    cacheReadTokens: update.usage.cacheReadTokens,
+    cacheWriteTokens: update.usage.cacheWriteTokens,
+    cost: update.usage.cost,
+    costSource: update.usage.costSource,
+    elapsedMs: update.usage.elapsedMs,
+    timeToFirstTokenMs: update.usage.timeToFirstTokenMs,
+    isCompaction: update.usage.isCompaction,
+  };
+
+  target.metadata = { ...target.metadata, usage };
+  return messagesChange(state);
+}

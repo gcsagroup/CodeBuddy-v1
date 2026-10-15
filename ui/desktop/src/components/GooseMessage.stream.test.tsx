@@ -1,0 +1,52 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { IntlTestWrapper } from '../i18n/test-utils';
+import type { Message } from '../types/message';
+import GooseMessage from './GooseMessage';
+
+const text = 'A received answer that should appear at a readable pace. '.repeat(2);
+const message: Message = {
+  id: 'paced-answer',
+  role: 'assistant',
+  created: 1,
+  content: [{ type: 'text', text }],
+  metadata: {
+    userVisible: true,
+    agentVisible: true,
+    usage: { inputTokens: 1200, outputTokens: 340, totalTokens: 1540 },
+  },
+};
+function answer(streaming: boolean, running: boolean) {
+  return (
+    <GooseMessage
+      compactTools
+      sessionId="paced-session"
+      message={message}
+      messages={[message]}
+      toolCallNotifications={new Map()}
+      append={() => {}}
+      isStreaming={streaming}
+      isTurnRunning={running}
+    />
+  );
+}
+
+describe('persistent answer actions', () => {
+  it('shows actions once the caller has finished presenting the answer', async () => {
+    const view = render(answer(true, true), { wrapper: IntlTestWrapper });
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull();
+    expect(screen.queryByText('Input 1.2k')).toBeNull();
+    view.rerender(answer(false, false));
+    expect(await screen.findByRole('button', { name: 'Copy' }, { timeout: 5000 })).toBeVisible();
+    expect(screen.getByText('Input 1.2k')).toBeVisible();
+  });
+  it('does not expose a finished message footer while the current turn is still executing', async () => {
+    const view = render(answer(false, true), { wrapper: IntlTestWrapper });
+    expect(screen.getByText(text.trim())).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull();
+    expect(screen.queryByText('Input 1.2k')).toBeNull();
+    view.rerender(answer(false, false));
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeVisible();
+    expect(screen.getByText('Input 1.2k')).toBeVisible();
+  });
+});

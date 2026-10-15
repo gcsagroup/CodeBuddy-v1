@@ -1,0 +1,47 @@
+[
+  {
+    "id": "developer",
+    "name": "Developer",
+    "description": "General development tools useful for software engineering.",
+    "enabled": true,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300
+  },
+  {
+    "id": "qwen_computer",
+    "name": "Computer Use MCP",
+    "description": "Standalone Windows computer control through MCP.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 60
+  },
+  {
+    "id": "computercontroller",
+    "name": "Computer Controller",
+    "description": "General computer control tools that don't require you to be a developer or engineer.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300
+  },
+  {
+    "id": "autovisualiser",
+    "name": "Auto Visualiser",
+    "description": "Automatically see your data with this UI generation extension.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300
+  },
+  {
+    "id": "memory",
+    "name": "Memory",
+    "description": "Teach CodeBuddy your preferences as you go.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "productName": "CodeBuddy",
+  "packageName": "codebuddy-desktop",
+  "description": "CodeBuddy Desktop Research Build",
+  "executableName": "CodeBuddy",
+  "protocol": "codebuddy",
+  "backendProfileDirectoryName": "backend",
+  "updatesEnabled": false,
+  "telemetryUiEnabled": false,
+  "defaultModel": {
+    "providerId": "custom_codebuddy_lan",
+    "baseUrl": "http://192.168.9.120:8001",
+    "modelId": "qwen3.8-flash-next"
+  }
+}

@@ -1,0 +1,57 @@
+import { errorMessage } from '../utils/conversionUtils';
+import type { ToolboxModel } from '../types/toolbox';
+import { buildToolboxModel } from '../components/toolbox/toolboxModel';
+import { getConfiguredExtensions } from './extensions';
+import { listCapabilityUsage } from './capabilityUsage';
+import { listManagedSkills } from './skillManagement';
+
+export type ToolboxLoadErrors = Partial<
+  Record<'capabilities' | 'methods' | 'apps' | 'external', string>
+>;
+
+export interface ToolboxLoadResult {
+  model: ToolboxModel;
+  errors: ToolboxLoadErrors;
+  warnings: string[];
+}
+
+export async function loadToolbox(
+  projectDir: string,
+  _sessionId?: string
+): Promise<ToolboxLoadResult> {
+  const [skillsResult, extensionsResult, usageResult] = await Promise.allSettled([
+    listManagedSkills(projectDir),
+    getConfiguredExtensions(),
+    listCapabilityUsage(),
+  ]);
+  const errors: ToolboxLoadErrors = {};
+
+  if (skillsResult.status === 'rejected') errors.methods = errorMessage(skillsResult.reason);
+  if (extensionsResult.status === 'rejected') {
+    const message = errorMessage(extensionsResult.reason);
+    errors.external = message;
+  }
+
+  const extensions =
+    extensionsResult.status === 'fulfilled'
+      ? extensionsResult.value
+      : { extensions: [], warnings: [] };
+
+  return {
+    model: buildToolboxModel({
+      skills: skillsResult.status === 'fulfilled' ? skillsResult.value.skills : [],
+      apps: [],
+      extensions: extensions.extensions,
+      usage: usageResult.status === 'fulfilled' ? usageResult.value.records : [],
+    }),
+    errors,
+    warnings: [
+      ...extensions.warnings,
+      ...(usageResult.status === 'fulfilled' && usageResult.value.warning
+        ? [usageResult.value.warning]
+        : usageResult.status === 'rejected'
+          ? [errorMessage(usageResult.reason)]
+          : []),
+    ],
+  };
+}

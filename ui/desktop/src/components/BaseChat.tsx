@@ -1,0 +1,913 @@
+import { AppEvents } from '../constants/events';
+import { useWorkStatus } from './codepro/useWorkStatus';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { defineMessages, useIntl } from '../i18n';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { SearchView } from './conversation/SearchView';
+import LoadingGoose, {
+  getLoadingIndicatorPresentation,
+  isCheckingExecutionResults,
+} from './LoadingGoose';
+import ProgressiveMessageList from './ProgressiveMessageList';
+import ElicitationDock, { partitionElicitationMessages } from './ElicitationDock';
+import { elicitationContent } from '../acp/adapter/elicitations';
+import { MainPanelLayout } from './Layout/MainPanelLayout';
+import ChatInput from './ChatInput';
+import { ChatInputCard } from './ChatInputCard';
+import { SessionPermissionSummary } from './SessionPermissionSummary';
+import { CodeProPlanDock } from './codepro/CodeProPlanDock';
+import { currentWorkStage } from './codepro/currentWorkStage';
+import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
+import { useFileDrop } from '../hooks/useFileDrop';
+import { ChatState } from '../types/chatState';
+import { ChatType } from '../types/chat';
+import { useIsMobile } from '../hooks/use-mobile';
+import { useNavigationContextSafe } from './Layout/NavigationContext';
+import { cn } from '../utils';
+import { useChatSession } from '../hooks/useChatSession';
+import { acpDeleteSession, acpUpdateWorkingDir } from '../acp/sessions';
+import { useNavigation } from '../hooks/useNavigation';
+import { RecipeHeader } from './RecipeHeader';
+import { RecipeWarningModal } from './ui/RecipeWarningModal';
+import { scanRecipe } from '../recipe';
+import type { Recipe } from '../recipe';
+import RecipeActivities from './recipes/RecipeActivities';
+import {
+  getTextAndImageContent,
+  getToolRequests,
+  type Message,
+  type UserInput,
+} from '../types/message';
+import { presentedToolCall } from './codepro/CodeProToolContent';
+import { formatToolAction } from './toolActionPresentation';
+import { substituteParameters } from '../utils/parameterSubstitution';
+import { useAutoSubmit } from '../hooks/useAutoSubmit';
+import { CodeBuddyMark } from './CodeBuddyMark';
+import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
+import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
+import { CodeProStepSummary } from './codepro/CodeProStepSummary';
+import { shouldShowFloatingProgress } from './codepro/CodeProProgress';
+import { PromptErrorBanner } from './PromptErrorBanner';
+import { shouldUpdateSessionWorkingDir } from '../codepro/sessionWorkspace';
+import { CodeProWorkspaceReconfirmation } from './codepro/CodeProWorkspaceReconfirmation';
+import type { CodeProWorkspaceInspection } from '../codepro/projectWorkspace';
+import { errorMessage } from '../utils/conversionUtils';
+import { createChatInputSubmitHandler } from './baseChatSubmission';
+import './chat-history.css';
+import './conversation-presentation.css';
+
+const i18n = defineMessages({
+  readonlyHistory: {
+    id: 'baseChat.readonlyHistory',
+    defaultMessage: 'Imported history is read-only. Start a new task to continue working.',
+  },
+  awaitingModel: {
+    id: 'baseChat.awaitingModel',
+    defaultMessage: 'Waiting for the model response…',
+  },
+  receivingReasoning: { id: 'baseChat.receivingReasoning', defaultMessage: 'Receiving reasoning…' },
+  checkingResults: {
+    id: 'baseChat.checkingResults',
+    defaultMessage: 'Checking execution results…',
+  },
+  lastStage: { id: 'baseChat.lastStage', defaultMessage: 'Last update: {stage}' },
+  changingPermissions: { id: 'sessionPermissions.saving', defaultMessage: 'Changing permissions…' },
+  failedToLoadSession: {
+    id: 'baseChat.failedToLoadSession',
+    defaultMessage: 'Failed to Load Session',
+  },
+  goHome: {
+    id: 'baseChat.goHome',
+    defaultMessage: 'Go home',
+  },
+  dismissPromptError: {
+    id: 'baseChat.dismissPromptError',
+    defaultMessage: 'Dismiss error',
+  },
+  reconnecting: {
+    id: 'baseChat.reconnecting',
+    defaultMessage: 'Connection lost. Reconnecting…',
+  },
+});
+
+interface BaseChatProps {
+  setChat: (chat: ChatType) => void;
+  onMessageSubmit?: (message: string) => void;
+  renderHeader?: () => React.ReactNode;
+  customChatInputProps?: Record<string, unknown>;
+  customMainLayoutProps?: Record<string, unknown>;
+  contentClassName?: string;
+  disableSearch?: boolean;
+  suppressEmptyState: boolean;
+  sessionId: string;
+  isActiveSession: boolean;
+  initialMessage?: UserInput;
+  noAutoSubmit?: boolean;
+}
+
+export default function BaseChat({
+  setChat,
+  renderHeader,
+  customChatInputProps = {},
+  customMainLayoutProps = {},
+  sessionId,
+  initialMessage,
+  noAutoSubmit,
+  isActiveSession,
+}: BaseChatProps) {
+  const intl = useIntl();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const scrollRef = useRef<ScrollAreaHandle>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+  const disableAnimation = location.state?.disableAnimation || false;
+  const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
+  const [hasNotAcceptedRecipe, setHasNotAcceptedRecipe] = useState<boolean>();
+  const [hasRecipeSecurityWarnings, setHasRecipeSecurityWarnings] = useState(false);
+  const [acpRecovering, setAcpRecovering] = useState(isAcpRecovering);
+  const [savingModeSessionId, setSavingModeSessionId] = useState<string>();
+  const modeSaving = savingModeSessionId === sessionId;
+  const isMobile = useIsMobile();
+  const navContext = useNavigationContextSafe();
+  const setView = useNavigation();
+  const isNavCollapsed = !navContext?.isNavExpanded;
+  const contentClassName = cn('pr-1 pb-10 pt-12', (isMobile || isNavCollapsed) && 'pt-16');
+  const { droppedFiles, setDroppedFiles, handleDrop, handleDragOver } = useFileDrop();
+  const onStreamFinish = useCallback(() => {}, []);
+
+  useEffect(() => subscribeToAcpRecovery(setAcpRecovering), []);
+
+  const {
+    session,
+    messages,
+    chatState,
+    progressMessage,
+    compactionLifecycle,
+    updateSession,
+    handleSubmit,
+    resumeAfterWorkspace,
+    onSteerQueuedMessage,
+    submitElicitationResponse,
+    pendingElicitationRequests,
+    stopStreaming,
+    sessionLoadError,
+    workspaceReconfirmation,
+    reconfirmCodeProWorkspace,
+    promptError,
+    clearPromptError,
+    tokenState,
+    notifications: toolCallNotifications,
+    activeToolCallIds,
+    thinkingActivity,
+    promptActivity,
+    cancelling,
+    activeRunId,
+    pauseQueueOnStop,
+    queueProcessingBlocked,
+    canSubmitQueuedMessageWhileLoading,
+    onMessageUpdate,
+  } = useChatSession({
+    sessionId,
+    onStreamFinish,
+  });
+  const readonlyHistory = session?.extension_data.readonlyHistory === true;
+  const elicitationPresentation = useMemo(
+    () =>
+      partitionElicitationMessages(
+        messages,
+        (pendingElicitationRequests ?? []).map(elicitationContent)
+      ),
+    [messages, pendingElicitationRequests]
+  );
+  const [workspaceReconfirmationPending, setWorkspaceReconfirmationPending] = useState(false);
+  const [workspaceReconfirmationError, setWorkspaceReconfirmationError] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    setWorkspaceReconfirmationPending(false);
+    setWorkspaceReconfirmationError(null);
+  }, [workspaceReconfirmation?.sessionId, workspaceReconfirmation?.workingDir]);
+
+  const handleWorkspaceReconfirmation = useCallback(
+    async (candidate: CodeProWorkspaceInspection) => {
+      setWorkspaceReconfirmationPending(true);
+      setWorkspaceReconfirmationError(null);
+      try {
+        await reconfirmCodeProWorkspace(candidate);
+      } catch (error) {
+        setWorkspaceReconfirmationError(errorMessage(error));
+      } finally {
+        setWorkspaceReconfirmationPending(false);
+      }
+    },
+    [reconfirmCodeProWorkspace]
+  );
+  const loadingIndicatorPresentation = getLoadingIndicatorPresentation(
+    location.pathname,
+    progressMessage
+  );
+  const showFloatingProgress = shouldShowFloatingProgress(location.pathname);
+  const conversationLayout =
+    location.pathname.startsWith('/codepro') ||
+    session?.session_type === 'code_pro' ||
+    session?.session_type === 'sub_agent';
+  const currentTool = useMemo(() => {
+    if (chatState === ChatState.WaitingForUserInput || chatState === ChatState.Compacting)
+      return undefined;
+    const active = new Set(activeToolCallIds ?? []);
+    const request = messages.flatMap(getToolRequests).find((item) => active.has(item.id));
+    const call = request ? presentedToolCall(request) : undefined;
+    return call && request
+      ? {
+          id: request.id,
+          title: formatToolAction(intl, call.name, call.arguments, 'running', 'headline'),
+          awaitingResult: call.arguments.__inputPreview !== true,
+        }
+      : undefined;
+  }, [messages, activeToolCallIds, chatState, intl]);
+  const currentAction = currentTool?.title;
+  const currentStage = useMemo(
+    () =>
+      promptActivity ? currentWorkStage(messages, promptActivity.sourceUserMessageId) : undefined,
+    [messages, promptActivity]
+  );
+  // Translate the existing host-owned progress notice, never infer completion
+  // from model prose. The host clears this notice after the check returns.
+  const checkingResults = isCheckingExecutionResults(progressMessage);
+  const workStatus = useWorkStatus({
+    chatState,
+    activity: promptActivity,
+    stage: currentStage,
+    action: currentAction,
+    actionId: currentTool?.id,
+    checking: checkingResults,
+    cancelling,
+    toolPending: currentTool?.awaitingResult,
+    thinking: !!thinkingActivity,
+  });
+
+  const activityProbe = useRef('');
+  useEffect(() => {
+    if (!import.meta.env.DEV || !conversationLayout) return;
+    // Observe the presentation selector. This is a React
+    // commit, not proof of screen paint or of the model's internal activity.
+    const visible = !acpRecovering && (chatState !== ChatState.Idle || cancelling);
+    const source = visible ? workStatus.source : 'hidden';
+    const fields = {
+      session_id: sessionId,
+      run_id: activeRunId ?? null,
+      chat_state: chatState,
+      source,
+      active_tool_ids: activeToolCallIds ?? [],
+      has_presentable_tool: Boolean(currentAction),
+      has_host_progress: Boolean(progressMessage),
+      has_published_stage: Boolean(currentStage),
+      published_stage: currentStage ?? null,
+      last_stage_visible: visible && source === 'stage',
+      prolonged_silence: 'quietSeconds' in workStatus && workStatus.quietSeconds !== undefined,
+    };
+    const key = JSON.stringify(fields);
+    if (activityProbe.current === key) return;
+    activityProbe.current = key;
+    try {
+      window.electron.logInfo(
+        JSON.stringify({
+          tag: 'stream_timing',
+          stage: 'ui_activity_selection',
+          at_ms: Date.now(),
+          ...fields,
+          last_thought_message_id: thinkingActivity?.messageId ?? null,
+          last_thought_received_at_ms: thinkingActivity?.receivedAt ?? null,
+          prompt_attempt_id: promptActivity?.promptAttemptId ?? null,
+          last_output_received_at_ms: promptActivity?.receivedAt ?? null,
+          last_output_kind: promptActivity?.kind ?? null,
+          document_visibility: document.visibilityState,
+        })
+      );
+    } catch {
+      /* Diagnostics must not affect the status or the execution. */
+    }
+  }, [
+    sessionId,
+    activeRunId,
+    conversationLayout,
+    acpRecovering,
+    chatState,
+    currentAction,
+    checkingResults,
+    workStatus,
+    promptActivity,
+    activeToolCallIds,
+    progressMessage,
+    currentStage,
+    thinkingActivity,
+    cancelling,
+  ]);
+
+  const handleWorkingDirChange = useCallback(
+    async (newDir: string) => {
+      if (!session) {
+        throw new Error('Cannot update working directory before ACP session is loaded');
+      }
+      if (
+        !shouldUpdateSessionWorkingDir({
+          isCodePro: location.pathname.startsWith('/codepro'),
+          currentWorkingDir: session.working_dir,
+          nextWorkingDir: newDir,
+        })
+      ) {
+        return;
+      }
+      await acpUpdateWorkingDir(session.id, newDir);
+      updateSession((currentSession) => ({ ...currentSession, working_dir: newDir }));
+    },
+    [location.pathname, session, updateSession]
+  );
+
+  const recipe = session?.recipe as Recipe | null | undefined;
+
+  const chatInputSubmit = useMemo(
+    () =>
+      createChatInputSubmitHandler(handleSubmit, Boolean(recipe), () =>
+        setHasStartedUsingRecipe(true)
+      ),
+    [handleSubmit, recipe]
+  );
+
+  const resolvedInitialMessage = useMemo((): UserInput | undefined => {
+    if (!initialMessage) return undefined;
+    if (recipe?.prompt && session?.user_recipe_values) {
+      return {
+        ...initialMessage,
+        msg: substituteParameters(initialMessage.msg, session.user_recipe_values),
+      };
+    }
+    return initialMessage;
+  }, [initialMessage, recipe?.prompt, session?.user_recipe_values]);
+
+  // noAutoSubmit only suppresses auto-submitting the initial prompt of a fresh session
+  // (codebuddy://new-session?prompt=...). Once the conversation has messages, later flows
+  // such as forks or resumes should auto-submit normally.
+  const suppressInitialAutoSubmit = noAutoSubmit && messages.length === 0;
+  const canAutoSubmit =
+    !readonlyHistory &&
+    !acpRecovering &&
+    !suppressInitialAutoSubmit &&
+    (session?.session_type === 'scheduled' || !recipe || hasNotAcceptedRecipe === false);
+
+  useAutoSubmit({
+    sessionId,
+    session,
+    messages,
+    chatState,
+    initialMessage: resolvedInitialMessage,
+    canAutoSubmit,
+    handleSubmit: chatInputSubmit,
+  });
+
+  useEffect(() => {
+    let streamState: 'idle' | 'loading' | 'streaming' | 'error' = 'idle';
+    if (chatState === ChatState.LoadingConversation) {
+      streamState = 'loading';
+    } else if (
+      chatState === ChatState.Streaming ||
+      chatState === ChatState.Thinking ||
+      chatState === ChatState.Compacting
+    ) {
+      streamState = 'streaming';
+    } else if (sessionLoadError) {
+      streamState = 'error';
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(AppEvents.SESSION_STATUS_UPDATE, {
+        detail: {
+          sessionId,
+          streamState,
+          messageCount: messages.length,
+        },
+      })
+    );
+  }, [sessionId, chatState, messages.length, sessionLoadError]);
+
+  // Generate command history from user messages (most recent first)
+  const commandHistory = useMemo(() => {
+    return messages
+      .reduce<string[]>((history, message) => {
+        if (message.role === 'user') {
+          const text = getTextAndImageContent(message).textContent.trim();
+          if (text) {
+            history.push(text);
+          }
+        }
+        return history;
+      }, [])
+      .reverse();
+  }, [messages]);
+
+  const sessionModel = session?.model_config?.model_name ?? null;
+  const sessionProvider = session?.provider_name ?? null;
+  const sessionLoaded = session !== undefined;
+  const latestInference = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (
+        message.role === 'assistant' &&
+        message.metadata.userVisible &&
+        message.metadata.inference
+      ) {
+        return message.metadata.inference;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  useEffect(() => {
+    if (!recipe || !isActiveSession || session?.session_type === 'scheduled') return;
+
+    (async () => {
+      const accepted = await window.electron.hasAcceptedRecipeBefore(recipe);
+      setHasNotAcceptedRecipe(!accepted);
+
+      if (!accepted) {
+        const scanResult = await scanRecipe(recipe);
+        setHasRecipeSecurityWarnings(scanResult.has_security_warnings);
+      }
+    })();
+  }, [recipe, isActiveSession, session?.session_type]);
+
+  const handleRecipeAccept = async (accept: boolean) => {
+    if (recipe && accept) {
+      await window.electron.recordRecipeHash(recipe);
+      setHasNotAcceptedRecipe(false);
+      return;
+    }
+
+    if (sessionId) {
+      try {
+        await acpDeleteSession(sessionId);
+        window.dispatchEvent(new CustomEvent(AppEvents.SESSION_DELETED, { detail: { sessionId } }));
+      } catch (error) {
+        console.error('Failed to delete declined recipe session:', error);
+      }
+    }
+    setView('chat');
+  };
+
+  // Track if this is the initial render for session resuming
+  const initialRenderRef = useRef(true);
+
+  // Auto-scroll when messages are loaded (for session resuming)
+  const handleRenderingComplete = React.useCallback(() => {
+    // Only force scroll on the very first render
+    if (initialRenderRef.current && messages.length > 0) {
+      initialRenderRef.current = false;
+      if (scrollRef.current?.scrollToBottom) {
+        scrollRef.current.scrollToBottom();
+      }
+    } else if (scrollRef.current?.isFollowing) {
+      if (scrollRef.current?.scrollToBottom) {
+        scrollRef.current.scrollToBottom();
+      }
+    }
+  }, [messages.length]);
+
+  // Listen for global scroll-to-bottom requests (e.g., from MCP App message actions)
+  useEffect(() => {
+    const handleGlobalScrollRequest = () => {
+      // Add a small delay to ensure content has been rendered
+      setTimeout(() => {
+        if (scrollRef.current?.scrollToBottom) {
+          scrollRef.current.scrollToBottom();
+        }
+      }, 200);
+    };
+
+    window.addEventListener(AppEvents.SCROLL_CHAT_TO_BOTTOM, handleGlobalScrollRequest);
+    return () =>
+      window.removeEventListener(AppEvents.SCROLL_CHAT_TO_BOTTOM, handleGlobalScrollRequest);
+  }, []);
+
+  useEffect(() => {
+    if (
+      isActiveSession &&
+      sessionId &&
+      chatInputRef.current &&
+      chatState !== ChatState.LoadingConversation
+    ) {
+      const timeoutId = setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+    return undefined;
+  }, [isActiveSession, sessionId, chatState]);
+
+  useEffect(() => {
+    const handleSessionForked = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        newSessionId: string;
+        shouldStartAgent?: boolean;
+        editedMessage?: string;
+      }>;
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
+      const { newSessionId, shouldStartAgent, editedMessage } = customEvent.detail;
+
+      const params = new URLSearchParams();
+      params.set('resumeSessionId', newSessionId);
+      if (shouldStartAgent) {
+        params.set('shouldStartAgent', 'true');
+      }
+
+      navigate(`/pair?${params.toString()}`, {
+        state: {
+          disableAnimation: true,
+          initialMessage: editedMessage ? { msg: editedMessage, images: [] } : undefined,
+        },
+      });
+    };
+
+    window.addEventListener(AppEvents.SESSION_FORKED, handleSessionForked);
+
+    return () => {
+      window.removeEventListener(AppEvents.SESSION_FORKED, handleSessionForked);
+    };
+  }, [location.pathname, navigate]);
+
+  const lastSetNameRef = useRef<string>('');
+
+  useEffect(() => {
+    const currentSessionName = session?.name;
+    if (currentSessionName && currentSessionName !== lastSetNameRef.current) {
+      lastSetNameRef.current = currentSessionName;
+      setChat({
+        messages,
+        recipe,
+        sessionId,
+        name: currentSessionName,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.name, setChat]);
+
+  // If we have a recipe prompt and user recipe values, substitute parameters
+  let recipePrompt = '';
+  if (messages.length === 0 && recipe?.prompt) {
+    recipePrompt = session?.user_recipe_values
+      ? substituteParameters(recipe.prompt, session.user_recipe_values)
+      : recipe.prompt;
+  }
+
+  const initialPrompt =
+    noAutoSubmit && messages.length === 0 && resolvedInitialMessage?.msg
+      ? resolvedInitialMessage.msg
+      : recipePrompt;
+
+  if (workspaceReconfirmation) {
+    return (
+      <div className="h-full flex flex-col min-h-0">
+        <MainPanelLayout
+          backgroundColor={'bg-background-primary'}
+          removeTopPadding={true}
+          {...customMainLayoutProps}
+        >
+          {renderHeader && renderHeader()}
+          <div className="flex flex-col flex-1 min-h-0 relative">
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="w-full max-w-2xl">
+                <CodeProWorkspaceReconfirmation
+                  request={workspaceReconfirmation}
+                  confirming={workspaceReconfirmationPending}
+                  error={workspaceReconfirmationError}
+                  onConfirm={handleWorkspaceReconfirmation}
+                  onCancel={() => setView('chat')}
+                />
+              </div>
+            </div>
+          </div>
+        </MainPanelLayout>
+      </div>
+    );
+  }
+
+  if (sessionLoadError) {
+    return (
+      <div className="h-full flex flex-col min-h-0">
+        <MainPanelLayout
+          backgroundColor={'bg-background-primary'}
+          removeTopPadding={true}
+          {...customMainLayoutProps}
+        >
+          {renderHeader && renderHeader()}
+          <div className="flex flex-col flex-1 min-h-0 relative">
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center p-8">
+                <div className="text-red-700 dark:text-red-300 bg-red-400/50 p-4 rounded-lg mb-4 max-w-md">
+                  <h3 className="font-semibold mb-2">
+                    {intl.formatMessage(i18n.failedToLoadSession)}
+                  </h3>
+                  <p className="text-sm">{sessionLoadError}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setView('chat');
+                  }}
+                  className="px-4 py-2 text-center cursor-pointer text-text-primary border border-border-primary hover:bg-background-secondary rounded-lg transition-all duration-150"
+                >
+                  {intl.formatMessage(i18n.goHome)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </MainPanelLayout>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`h-full flex flex-col min-h-0 ${conversationLayout ? 'codepro-conversation' : ''}`}
+    >
+      <MainPanelLayout
+        backgroundColor={'bg-background-primary'}
+        removeTopPadding={true}
+        {...customMainLayoutProps}
+      >
+        {/* Custom header */}
+        {renderHeader && renderHeader()}
+        {conversationLayout && !renderHeader && (
+          <header className="flex h-12 shrink-0 items-center gap-3 px-6 pr-16 pl-[var(--navigation-toolbar-inset,3.5rem)]">
+            <h1
+              className="min-w-0 truncate text-base font-medium text-text-primary"
+              title={session?.name}
+            >
+              {session?.name || 'CodeBuddy'}
+            </h1>
+          </header>
+        )}
+
+        {/* Chat container with sticky recipe header */}
+        <div className="flex flex-col flex-1 min-h-0 relative">
+          {/* Product watermark - top right */}
+          {!conversationLayout && (
+            <div className="absolute top-[14px] right-4 z-[60] flex flex-row items-center gap-1">
+              <div className="no-drag flex flex-row items-center gap-1">
+                <CodeBuddyMark className="size-5" />
+                <span className="text-sm leading-none text-text-secondary -translate-y-px">
+                  CodeBuddy
+                </span>
+              </div>
+              <EnvironmentBadge className="translate-y-px" />
+            </div>
+          )}
+
+          <ScrollArea
+            ref={scrollRef}
+            className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-6 pt-3' : contentClassName}`}
+            autoScroll
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            data-drop-zone="true"
+            paddingX={6}
+            paddingY={0}
+          >
+            {recipe?.title && (
+              <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
+                <RecipeHeader title={recipe.title} />
+              </div>
+            )}
+
+            {recipe && !readonlyHistory && (
+              <div className={hasStartedUsingRecipe ? 'mb-6' : ''}>
+                <RecipeActivities
+                  append={(text: string) => handleSubmit({ msg: text, images: [] })}
+                  activities={Array.isArray(recipe.activities) ? recipe.activities : null}
+                  title={recipe.title}
+                  parameterValues={session?.user_recipe_values || {}}
+                />
+              </div>
+            )}
+
+            {messages.length > 0 || recipe ? (
+              <>
+                <div
+                  className={cn(
+                    'codepro-chat-history',
+                    conversationLayout && 'mx-auto w-full max-w-[52rem]',
+                    isActiveSession && !disableAnimation && 'chat-history-enter'
+                  )}
+                >
+                  <SearchView>
+                    <ProgressiveMessageList
+                      messages={elicitationPresentation.history}
+                      sessionType={session?.session_type}
+                      workspaceRoot={session?.working_dir}
+                      chat={{ sessionId }}
+                      activeRunId={activeRunId}
+                      toolCallNotifications={toolCallNotifications}
+                      append={
+                        readonlyHistory
+                          ? undefined
+                          : (text: string) => handleSubmit({ msg: text, images: [] })
+                      }
+                      isUserMessage={(m: Message) => m.role === 'user'}
+                      isStreamingMessage={chatState !== ChatState.Idle}
+                      planRunning={
+                        !acpRecovering &&
+                        (chatState === ChatState.Thinking || chatState === ChatState.Streaming)
+                      }
+                      activeToolCallIds={activeToolCallIds}
+                      thinkingActivity={thinkingActivity}
+                      onRenderingComplete={handleRenderingComplete}
+                      onMessageUpdate={readonlyHistory ? undefined : onMessageUpdate}
+                      submitElicitationResponse={
+                        readonlyHistory ? undefined : submitElicitationResponse
+                      }
+                      resubmitMessage={readonlyHistory ? undefined : handleSubmit}
+                      resumeAfterWorkspace={readonlyHistory ? undefined : resumeAfterWorkspace}
+                    />
+                  </SearchView>
+                </div>
+
+                <div className="block h-8" />
+              </>
+            ) : null}
+          </ScrollArea>
+
+          {chatState !== ChatState.Idle && showFloatingProgress && !conversationLayout && (
+            <div className="absolute bottom-1 left-4 right-4 z-20 pointer-events-none">
+              <LoadingGoose
+                chatState={chatState}
+                compactionLifecycle={compactionLifecycle}
+                {...loadingIndicatorPresentation}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className={conversationLayout ? 'mx-auto w-full max-w-[55rem] px-2' : undefined}>
+          {acpRecovering && (
+            <div role="status" className="mx-4 mb-2 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.reconnecting)}
+            </div>
+          )}
+
+          {conversationLayout
+            ? !acpRecovering &&
+              (chatState !== ChatState.Idle || cancelling) && (
+                <div className="mx-4">
+                  <LoadingGoose
+                    key={sessionId}
+                    chatState={chatState}
+                    compactionLifecycle={compactionLifecycle}
+                    message={workStatus.message}
+                    announcement={workStatus.announcement}
+                    assistantName="CodePro"
+                  />
+                  {!currentAction &&
+                    !checkingResults &&
+                    currentStage &&
+                    (chatState === ChatState.Thinking || chatState === ChatState.Streaming) && (
+                      <p className="pb-2 text-xs text-text-secondary truncate" title={currentStage}>
+                        {intl.formatMessage(i18n.lastStage, { stage: currentStage })}
+                      </p>
+                    )}
+                </div>
+              )
+            : location.pathname.startsWith('/codepro') && (
+                <CodeProStepSummary sessionId={sessionId} />
+              )}
+
+          {promptError && (
+            <PromptErrorBanner
+              message={promptError}
+              dismissLabel={intl.formatMessage(i18n.dismissPromptError)}
+              onDismiss={clearPromptError}
+            />
+          )}
+
+          {conversationLayout && !readonlyHistory && (
+            <CodeProPlanDock
+              key={`plan:${sessionId}`}
+              sessionId={sessionId}
+              activeRunId={activeRunId}
+              messages={messages}
+              running={
+                !acpRecovering &&
+                (chatState === ChatState.Thinking || chatState === ChatState.Streaming)
+              }
+            />
+          )}
+
+          {!readonlyHistory && (
+            <ElicitationDock
+              key={`elicitation:${sessionId}`}
+              requests={elicitationPresentation.requests}
+              onSubmit={submitElicitationResponse}
+            />
+          )}
+
+          {readonlyHistory ? (
+            <div role="status" className="mx-4 mb-4 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.readonlyHistory)}
+            </div>
+          ) : (
+            <ChatInputCard
+              className={cn(
+                'relative z-10 mx-4 mb-4',
+                !disableAnimation && 'animate-[fadein_400ms_ease-in_forwards]'
+              )}
+            >
+              <ChatInput
+                modelToolbarSlot={
+                  session && (
+                    <SessionPermissionSummary
+                      inline
+                      key={sessionId}
+                      session={session}
+                      busy={chatState !== ChatState.Idle || acpRecovering}
+                      onSavingChange={(saving) =>
+                        setSavingModeSessionId((current) =>
+                          saving ? sessionId : current === sessionId ? undefined : current
+                        )
+                      }
+                    />
+                  )
+                }
+                inputRef={chatInputRef}
+                sessionId={sessionId}
+                handleSubmit={chatInputSubmit}
+                chatState={chatState}
+                onStop={stopStreaming}
+                onSteerQueuedMessage={onSteerQueuedMessage}
+                pauseQueueOnStop={pauseQueueOnStop}
+                queueProcessingBlocked={queueProcessingBlocked || acpRecovering || modeSaving}
+                queueBlockedReason={
+                  modeSaving ? intl.formatMessage(i18n.changingPermissions) : undefined
+                }
+                canSubmitQueuedMessageWhileLoading={
+                  canSubmitQueuedMessageWhileLoading && !acpRecovering
+                }
+                commandHistory={commandHistory}
+                initialValue={initialPrompt}
+                setView={setView}
+                totalTokens={
+                  tokenState.contextUsageKnown === false
+                    ? (session?.usage?.total_tokens ?? undefined)
+                    : tokenState.totalTokens
+                }
+                contextLimit={
+                  tokenState.contextLimit ?? session?.model_config?.context_limit ?? undefined
+                }
+                accumulatedInputTokens={
+                  tokenState?.accumulatedInputTokens ??
+                  session?.accumulated_usage?.input_tokens ??
+                  undefined
+                }
+                accumulatedOutputTokens={
+                  tokenState?.accumulatedOutputTokens ??
+                  session?.accumulated_usage?.output_tokens ??
+                  undefined
+                }
+                accumulatedCost={
+                  tokenState?.accumulatedCost ?? session?.accumulated_cost ?? undefined
+                }
+                droppedFiles={droppedFiles}
+                onFilesProcessed={() => setDroppedFiles([])} // Clear dropped files after processing
+                messages={messages}
+                disableAnimation={disableAnimation}
+                recipe={recipe}
+                recipeAccepted={!hasNotAcceptedRecipe}
+                initialPrompt={initialPrompt}
+                sessionModel={sessionModel}
+                sessionProvider={sessionProvider}
+                sessionLoaded={sessionLoaded}
+                workingDir={session?.working_dir}
+                onWorkingDirChange={
+                  location.pathname.startsWith('/codepro') ? undefined : handleWorkingDirChange
+                }
+                latestInference={latestInference}
+                {...customChatInputProps}
+              />
+            </ChatInputCard>
+          )}
+        </div>
+      </MainPanelLayout>
+
+      {recipe && isActiveSession && session?.session_type !== 'scheduled' && (
+        <RecipeWarningModal
+          isOpen={!!hasNotAcceptedRecipe}
+          onConfirm={() => handleRecipeAccept(true)}
+          onCancel={() => handleRecipeAccept(false)}
+          recipeDetails={{
+            title: recipe.title,
+            description: recipe.description,
+            instructions: recipe.instructions || undefined,
+          }}
+          hasSecurityWarnings={hasRecipeSecurityWarnings}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,130 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const test = require('node:test');
+const { previewEnvironment, startPreview } = require('./start-harness-preview.cjs');
+
+function fixture(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-harness-launcher-'));
+  t.after(() => {
+    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(root).startsWith('codebuddy-harness-launcher-'));
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const serverPath = path.join(root, 'server.cjs');
+  const desktopPath = path.join(root, 'desktop.cjs');
+  fs.writeFileSync(serverPath, `
+    const http = require('node:http');
+    const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
+    http.createServer((req, res) => {
+      const url = new URL(req.url, 'http://127.0.0.1');
+      const valid = (req.headers['x-secret-key'] || url.searchParams.get('token')) === process.env.CODEBUDDY_SERVER__SECRET_KEY;
+      if (!valid) { res.writeHead(401); res.end(); return; }
+      if (url.pathname === '/status') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ modelConfigured: process.env.FIXTURE_CONFIGURED === '1' }));
+      } else { res.writeHead(406); res.end(); }
+    }).listen(port, '127.0.0.1');
+  `);
+  fs.writeFileSync(desktopPath, `
+    const fs = require('node:fs');
+    const path = require('node:path');
+    let stdinEnded = false;
+    process.stdin.on('end', () => { stdinEnded = true; });
+    process.stdin.resume();
+    setTimeout(() => {
+      fs.writeFileSync(path.join(process.cwd(), 'desktop-observed.json'), JSON.stringify({
+      home: process.env.CODEBUDDY_HOME,
+      workspaceRoot: process.env.CODEBUDDY_WORKSPACE_ROOT,
+      workingDir: process.env.GOOSE_WORKING_DIR,
+      preview: process.env.CODEBUDDY_HARNESS_PREVIEW,
+      initialRoute: process.env.CODEBUDDY_PREVIEW_INITIAL_ROUTE || null,
+      protocol: process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION,
+      legacyRoot: process.env.GOOSE_PATH_ROOT || null,
+      electronRunAsNode: process.env.ELECTRON_RUN_AS_NODE || null,
+      stdinEnded,
+      }));
+      process.exit(0);
+    }, 100);
+  `);
+  return {
+    root,
+    options: {
+      repoRoot: root, serverPath,
+      env: { ...process.env, CODEBUDDY_WORKSPACE_ROOT: path.join(root, 'user-workspace') },
+      commands: { prepare: [], desktop: { args: [desktopPath], cwd: root } },
+      readinessTimeoutMs: 5000,
+    },
+  };
+}
+
+test('preview isolates inherited legacy profile, migration and update settings', () => {
+  const inherited = {
+    Path: process.env.Path || process.env.PATH,
+    CODEBUDDY_HOME: 'legacy-profile', CODEBUDDY_USER_DATA_DIR: 'legacy-ui',
+    CODEAGENTPRO_HOME: 'legacy-alias', GOOSE_PATH_ROOT: 'legacy-root',
+    CODEBUDDY_MIGRATE_LEGACY: 'true', CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION: 'false',
+    ELECTRON_RUN_AS_NODE: '1', ENABLE_DEV_UPDATES: 'true',
+  };
+  const root = path.resolve('preview-fixture');
+  const env = previewEnvironment(root, 12345, 'fixture-secret', inherited);
+  assert.equal(env.CODEBUDDY_HOME, path.join(root, '.preview-data'));
+  assert.equal(env.CODEBUDDY_USER_DATA_DIR, path.join(root, '.preview-data', 'state', 'electron-app'));
+  assert.equal(env.CODEBUDDY_MIGRATE_LEGACY, 'false');
+  assert.equal(env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION, 'true');
+  assert.equal(env.ENABLE_DEV_UPDATES, 'false');
+  assert.equal(env.CODEAGENTPRO_HOME, undefined);
+  assert.equal(env.GOOSE_PATH_ROOT, undefined);
+  assert.equal(env.ELECTRON_RUN_AS_NODE, undefined);
+  assert.equal(inherited.CODEBUDDY_HOME, 'legacy-profile');
+  const isolatedHome = path.join(root, '.controlled-e2e');
+  const isolated = previewEnvironment(root, 12346, 'fixture-secret', inherited, isolatedHome);
+  assert.equal(isolated.CODEBUDDY_HOME, isolatedHome);
+  assert.equal(isolated.CODEBUDDY_USER_DATA_DIR, path.join(isolatedHome, 'state', 'electron-app'));
+  assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', inherited, 'relative-data'), /absolute path/);
+});
+
+for (const configured of [false, true]) {
+  test(`starts authenticated bridge, sets configuration route=${!configured}, then reaps owned runtime`, async (t) => {
+    const { root, options } = fixture(t);
+    const dataDirectory = configured ? undefined : path.join(root, '.controlled-e2e');
+    const expectedHome = dataDirectory || path.join(root, '.preview-data');
+    const code = await startPreview({ ...options, dataDirectory, env: { ...options.env, FIXTURE_CONFIGURED: configured ? '1' : '0' } });
+    assert.equal(code, 0);
+    const observed = JSON.parse(fs.readFileSync(path.join(root, 'desktop-observed.json'), 'utf8'));
+    assert.equal(observed.home, expectedHome);
+    assert.equal(observed.workspaceRoot, path.join(root, 'user-workspace'));
+    assert.equal(observed.workingDir, observed.workspaceRoot);
+    assert.notEqual(observed.workingDir, root);
+    assert.ok(fs.statSync(observed.workspaceRoot).isDirectory());
+    assert.ok(fs.statSync(path.join(expectedHome, 'state', 'electron-app')).isDirectory());
+    assert.ok(fs.statSync(path.join(expectedHome, 'profiles', 'local', 'state', 'electron')).isDirectory());
+    assert.equal(observed.preview, '1');
+    assert.equal(observed.initialRoute, configured ? null : '/configure-providers');
+    assert.equal(observed.protocol, 'true');
+    assert.equal(observed.legacyRoot, null);
+    assert.equal(observed.electronRunAsNode, null);
+    assert.equal(observed.stdinEnded, false, 'Vite must not receive parent stdin EOF during startup');
+    const receiptText = fs.readFileSync(path.join(expectedHome, 'logs', 'preview', 'launch.json'), 'utf8');
+    const receipt = JSON.parse(receiptText);
+    assert.equal(receipt.status, 'stopped');
+    assert.ok(receipt.runtimePid > 0);
+    assert.ok(receipt.desktopPid > 0);
+    assert.throws(() => process.kill(receipt.runtimePid, 0));
+    assert.equal(receiptText.includes('SECRET_KEY'), false);
+    assert.equal(receiptText.includes('?token='), false);
+  });
+}
+
+test('failed bridge startup never launches desktop and records a failed receipt', async (t) => {
+  const { root, options } = fixture(t);
+  fs.writeFileSync(options.serverPath, 'process.exit(7);');
+  await assert.rejects(startPreview(options), /exited before readiness/);
+  assert.equal(fs.existsSync(path.join(root, 'desktop-observed.json')), false);
+  const receipt = JSON.parse(fs.readFileSync(path.join(root, '.preview-data', 'logs', 'preview', 'launch.json'), 'utf8'));
+  assert.equal(receipt.status, 'failed');
+  assert.equal(receipt.desktopPid, null);
+});

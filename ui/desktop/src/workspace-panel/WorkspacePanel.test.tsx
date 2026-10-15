@@ -4,6 +4,11 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
+vi.mock('./WorkspaceSubagent', () => ({
+  WorkspaceSubagent: ({ childSessionId }: { childSessionId: string }) => (
+    <div>child-conversation:{childSessionId}</div>
+  ),
+}));
 const snapshotMock = vi.hoisted(() => ({ binding: 'project_container', readonlyHistory: false }));
 vi.mock('../acp/chatSessionStore', () => ({
   useAcpChatSessionSnapshot: () => ({
@@ -73,6 +78,45 @@ async function edit() {
     target: { value: 'local draft' },
   });
 }
+it('opens only this parent child in the existing panel and reuses its tab', async () => {
+  const { scope } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: { parentSessionId: 'other-parent', childSessionId: 'foreign', title: 'Foreign' },
+    })
+  );
+  expect(screen.queryByText('child-conversation:foreign')).not.toBeInTheDocument();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: {
+        parentSessionId: scope.sessionId,
+        childSessionId: 'child-1',
+        title: 'Read-only review',
+      },
+    })
+  );
+  expect(screen.getByText('child-conversation:child-1')).toBeVisible();
+  // Repeated clicks activate the same tab. Closing it must not close a runtime
+  // terminal/browser or cancel the child Agent.
+  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: {
+        parentSessionId: scope.sessionId,
+        childSessionId: 'child-1',
+        title: 'Read-only review',
+      },
+    })
+  );
+  expect(screen.getAllByRole('tab', { name: 'Read-only review' })).toHaveLength(1);
+  const before = invoke.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Close Read-only review' }));
+  expect(screen.queryByText('child-conversation:child-1')).not.toBeInTheDocument();
+  expect(invoke.mock.calls.length).toBe(before);
+});
 it('opens the existing Git and review panel with the active session workspace', () => {
   const { scope } = panel();
   fireEvent.click(screen.getByRole('button', { name: /Git and review\s*Inspect/ }));

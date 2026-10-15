@@ -11,6 +11,8 @@ interface SearchViewProps {
   className?: string;
   /** Optional callback for search term changes */
   onSearch?: (term: string, caseSensitive: boolean) => void;
+  /** Exposes the search UI state to content that loads history on demand. */
+  onVisibilityChange?: (visible: boolean) => void;
   /** Optional callback for navigating between search results */
   onNavigate?: (direction: 'next' | 'prev') => void;
   /** Current search results state */
@@ -42,6 +44,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
   className = '',
   children,
   onSearch,
+  onVisibilityChange,
   onNavigate,
   searchResults,
   placeholder,
@@ -50,6 +53,9 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
   highlightMatches = true,
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  useEffect(() => {
+    onVisibilityChange?.(isSearchVisible);
+  }, [isSearchVisible, onVisibilityChange]);
   const [initialSearchTerm, setInitialSearchTerm] = useState('');
   const [internalSearchResults, setInternalSearchResults] = useState<{
     currentIndex: number;

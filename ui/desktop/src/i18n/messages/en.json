@@ -8371,5 +8371,23 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workspaceSubagent.empty": {
+    "defaultMessage": "No conversation records yet."
+  },
+  "workspaceSubagent.readonly": {
+    "defaultMessage": "Read only"
+  },
+  "workspaceSubagent.refresh": {
+    "defaultMessage": "Refresh conversation"
+  },
+  "workspaceSubagent.status": {
+    "defaultMessage": "{state, select, running {Working} completed {Completed} failed {Failed} interrupted {Interrupted} other {Status not yet available}}"
+  },
+  "workspaceSubagent.title": {
+    "defaultMessage": "Subagent conversation"
+  },
+  "workspaceSubagent.truncated": {
+    "defaultMessage": "Some long records are shortened."
   }
 }

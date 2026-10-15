@@ -1,11 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ToolCallWithResponse from './ToolCallWithResponse';
 import computerUnknown from './fixtures/computer-unknown.json';
 import type { ToolResponseMessageContent } from '../types/message';
 import zhCN from '../i18n/messages/zh-CN.json';
 import zhTW from '../i18n/messages/zh-TW.json';
+vi.mock('../acp/permissionRequests', async (original) => ({
+  ...(await original<typeof import('../acp/permissionRequests')>()),
+  isAcpPermissionRequestPending: () => true,
+}));
 
 const expand = (button: HTMLElement) => {
   if (button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button);
@@ -37,6 +41,7 @@ const card = (
   return (
     <IntlProvider locale={locale} messages={messages}>
       <ToolCallWithResponse
+        sessionId="tool-presentation"
         toolRequest={request}
         isCancelledMessage={false}
         isPendingApproval={false}

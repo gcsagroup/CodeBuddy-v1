@@ -11,7 +11,12 @@ import {
 import { AppEvents } from '../constants/events';
 import { ToolIconWithStatus, ToolCallStatus } from './ToolCallStatusIndicator';
 import { getToolCallIcon } from '../utils/toolIconMapping';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  isAcpPermissionRequestPending,
+  subscribeAcpPermissionRequests,
+} from '../acp/permissionRequests';
+import { openSubagentConversation } from '../workspace-panel/subagentPanel';
 import { ToolCallArguments, ToolCallArgumentValue } from './ToolCallArguments';
 import MarkdownContent from './MarkdownContent';
 import {
@@ -27,7 +32,7 @@ import {
   isTaskContractCheck,
 } from './toolActionPresentation';
 import type { LoadingStatus as ExecutionLoadingStatus } from './ui/Dot';
-import { ExternalLink } from 'lucide-react';
+import { Bot, ExternalLink } from 'lucide-react';
 import { TooltipWrapper } from './settings/providers/subcomponents/buttons/TooltipWrapper';
 import { ToolCallExpandable } from './ToolCallExpandable';
 import { ToolActivityIcon } from './ToolActivityIcon';
@@ -213,6 +218,16 @@ function getSubagentSessionId(
   const sessionId =
     result?.status === 'success' ? result?.value?._meta?.subagent_session_id : undefined;
   if (typeof sessionId === 'string') return sessionId;
+  const native = toolResponse?.metadata?.rawOutput;
+  if (
+    native &&
+    typeof native === 'object' &&
+    'kind' in native &&
+    native.kind === 'activation' &&
+    'subagentId' in native &&
+    typeof native.subagentId === 'string'
+  )
+    return native.subagentId;
 
   // Fallback: extract from subagent notifications (e.g. when delegate was cancelled mid-stream)
   if (notifications) {
@@ -322,11 +337,18 @@ export default function ToolCallWithResponse({
   toolResponse,
   notifications,
   isStreamingMessage,
-  isPendingApproval,
+  isPendingApproval: requestedApproval,
   append,
   confirmationContent,
   isApprovalClicked,
 }: ToolCallWithResponseProps) {
+  const liveApproval = useSyncExternalStore(
+    subscribeAcpPermissionRequests,
+    () =>
+      !!sessionId &&
+      isAcpPermissionRequestPending(sessionId, confirmationContent?.id ?? toolRequest.id)
+  );
+  const isPendingApproval = requestedApproval && liveApproval;
   // Handle both the wrapped ToolResult format and the unwrapped format
   // The server serializes ToolResult<T> as { status: "success", value: T } or { status: "error", error: string }
   const toolCallData = toolRequest.toolCall as Record<string, unknown>;
@@ -819,6 +841,31 @@ function ToolCallView({
     );
   }
   const readable = compact && (hasReadableToolContent(toolCall.name) || loadingStatus === 'error');
+  const childSessionId = getSubagentSessionId(toolResponse, notifications);
+  const childTitle =
+    typeof toolCall.arguments?.description === 'string'
+      ? toolCall.arguments.description
+      : compactTitle;
+  if (compact && sessionId && childSessionId) {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 py-1 text-left text-text-secondary hover:text-text-primary"
+        onClick={() =>
+          openSubagentConversation({
+            parentSessionId: sessionId,
+            childSessionId,
+            title: childTitle,
+          })
+        }
+        title={intl.formatMessage(i18n.viewSubagentSession)}
+      >
+        <Bot className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{childTitle}</span>
+        <ExternalLink className="h-3 w-3 shrink-0" />
+      </button>
+    );
+  }
   if (compact) {
     const preview = toolCall.arguments?.__inputPreview === true;
     if (
@@ -884,9 +931,11 @@ function ToolCallView({
               type="button"
               className="text-xs text-text-secondary underline"
               onClick={() =>
-                window.electron.createChatWindow({
-                  resumeSessionId: getSubagentSessionId(toolResponse, notifications)!,
-                  viewType: 'pair',
+                sessionId &&
+                openSubagentConversation({
+                  parentSessionId: sessionId,
+                  childSessionId: getSubagentSessionId(toolResponse, notifications)!,
+                  title: childTitle,
                 })
               }
             >
@@ -998,10 +1047,12 @@ function ToolCallView({
             <div className="border-t border-border-primary">
               <button
                 onClick={() => {
-                  window.electron.createChatWindow({
-                    resumeSessionId: subagentSessionId,
-                    viewType: 'pair',
-                  });
+                  if (sessionId)
+                    openSubagentConversation({
+                      parentSessionId: sessionId,
+                      childSessionId: subagentSessionId,
+                      title: childTitle,
+                    });
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
               >

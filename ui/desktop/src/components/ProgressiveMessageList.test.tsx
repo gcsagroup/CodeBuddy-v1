@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { ActivityEvent } from '../types/activityEvent';
@@ -8,6 +8,11 @@ import ProgressiveMessageList from './ProgressiveMessageList';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
 import type { AdapterState } from '../acp/adapter/shared';
+import {
+  cancelAcpPermissionRequestsForSession,
+  requestAcpPermission,
+  resolveAcpPermissionRequest,
+} from '../acp/permissionRequests';
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -1325,7 +1330,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
 });
 
 describe('tool cards across active-turn notification messages', () => {
-  it('tracks current tools across approval and notification messages without reviving old unknown calls', () => {
+  it('tracks current tools across approval and notification messages without reviving old unknown calls', async () => {
     const old = toolTransportMessage(1, 'old-call', 'request');
     old.content = [
       {
@@ -1405,19 +1410,63 @@ describe('tool cards across active-turn notification messages', () => {
     };
     view.rerender(card([old, user, current, notice, matchingApproval], true));
     expect(
-      screen.getByRole('button', { name: /Read file current-fixture.txt.*Pending/ })
-    ).toBeVisible();
-    view.rerender(card([old, user, current, notice], true));
-    expect(
       screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
     ).toBeVisible();
-    const response = toolTransportMessage(6, 'current-call', 'response');
-    view.rerender(card([old, user, current, notice, response], true));
-    expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();
-    view.rerender(card([old, user, current, notice, response], false));
-    expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
-    ).toBeVisible();
+    let permissionResponse: ReturnType<typeof requestAcpPermission> | undefined;
+    try {
+      act(() => {
+        permissionResponse = requestAcpPermission({
+          sessionId: 'native-display-turn',
+          toolCall: {
+            toolCallId: 'current-call',
+            title: 'read_document',
+            rawInput: { path: 'current-fixture.txt' },
+          },
+          options: [{ optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' }],
+        });
+      });
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Pending/ })
+      ).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
+      ).toBeVisible();
+      act(() => {
+        expect(
+          resolveAcpPermissionRequest('native-display-turn', 'current-call', 'allow_once')
+        ).toBe(true);
+      });
+      await expect(permissionResponse).resolves.toEqual({
+        outcome: { outcome: 'selected', optionId: 'allow-once' },
+      });
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
+      ).toBeVisible();
+      view.rerender(card([old, user, current, notice], true));
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
+      ).toBeVisible();
+      const response = toolTransportMessage(6, 'current-call', 'response');
+      view.rerender(card([old, user, current, notice, response], true));
+      const settledTool = screen.getByRole('button', { name: 'Read file current-fixture.txt' });
+      expect(settledTool).toBeVisible();
+      expect(settledTool.querySelector('[data-tool-call-id="current-call"]')).toHaveAttribute(
+        'data-tool-phase',
+        'success'
+      );
+      view.rerender(card([old, user, current, notice, response], false));
+      expect(
+        screen
+          .getByRole('button', { name: 'Read file current-fixture.txt' })
+          .querySelector('[data-tool-call-id="current-call"]')
+      ).toHaveAttribute('data-tool-phase', 'success');
+      expect(screen.getByRole('button', { name: 'Read file current-fixture.txt' })).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
+      ).toBeVisible();
+    } finally {
+      act(() => cancelAcpPermissionRequestsForSession('native-display-turn'));
+      await permissionResponse;
+    }
   });
 });

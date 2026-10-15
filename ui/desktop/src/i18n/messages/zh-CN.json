@@ -8371,5 +8371,23 @@
   },
   "workStatus.thought": {
     "defaultMessage": "正在思考"
+  },
+  "workspaceSubagent.empty": {
+    "defaultMessage": "暂无对话记录。"
+  },
+  "workspaceSubagent.readonly": {
+    "defaultMessage": "只读"
+  },
+  "workspaceSubagent.refresh": {
+    "defaultMessage": "刷新对话"
+  },
+  "workspaceSubagent.status": {
+    "defaultMessage": "{state, select, running {执行中} completed {已完成} failed {失败} interrupted {已中断} other {状态待确认}}"
+  },
+  "workspaceSubagent.title": {
+    "defaultMessage": "子智能体对话"
+  },
+  "workspaceSubagent.truncated": {
+    "defaultMessage": "部分较长记录已省略。"
   }
 }

@@ -126,6 +126,7 @@ export default function BaseChat({
   const [hasRecipeSecurityWarnings, setHasRecipeSecurityWarnings] = useState(false);
   const [acpRecovering, setAcpRecovering] = useState(isAcpRecovering);
   const [savingModeSessionId, setSavingModeSessionId] = useState<string>();
+  const [searchActive, setSearchActive] = useState(false);
   const modeSaving = savingModeSessionId === sessionId;
   const isMobile = useIsMobile();
   const navContext = useNavigationContextSafe();
@@ -170,6 +171,10 @@ export default function BaseChat({
     sessionId,
     onStreamFinish,
   });
+  const sessionTitle = session?.name || 'CodeBuddy';
+  const titleCharacters = Array.from(sessionTitle);
+  const displayTitle =
+    titleCharacters.length > 28 ? `${titleCharacters.slice(0, 28).join('')}…` : sessionTitle;
   const readonlyHistory = session?.extension_data.readonlyHistory === true;
   const elicitationPresentation = useMemo(
     () =>
@@ -642,7 +647,7 @@ export default function BaseChat({
               className="min-w-0 truncate text-base font-medium text-text-primary"
               title={session?.name}
             >
-              {session?.name || 'CodeBuddy'}
+              {displayTitle}
             </h1>
           </header>
         )}
@@ -698,8 +703,9 @@ export default function BaseChat({
                     isActiveSession && !disableAnimation && 'chat-history-enter'
                   )}
                 >
-                  <SearchView>
+                  <SearchView onVisibilityChange={setSearchActive}>
                     <ProgressiveMessageList
+                      searchActive={searchActive}
                       messages={elicitationPresentation.history}
                       sessionType={session?.session_type}
                       workspaceRoot={session?.working_dir}

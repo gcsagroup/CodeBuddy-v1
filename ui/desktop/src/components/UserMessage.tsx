@@ -78,10 +78,16 @@ const i18n = defineMessages({
 interface UserMessageProps {
   message: Message;
   sessionType?: SessionType;
+  readOnly?: boolean;
   onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
 }
 
-export default function UserMessage({ message, onMessageUpdate, sessionType }: UserMessageProps) {
+export default function UserMessage({
+  message,
+  onMessageUpdate,
+  sessionType,
+  readOnly = false,
+}: UserMessageProps) {
   const intl = useIntl();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -191,7 +197,7 @@ export default function UserMessage({ message, onMessageUpdate, sessionType }: U
   return (
     <div className="w-full mt-[16px] opacity-0 animate-[appear_150ms_ease-in_forwards]">
       <div className="flex flex-col group">
-        {isEditing ? (
+        {isEditing && !readOnly ? (
           // Truly wide, centered, in-place edit box replacing the bubble
           <div className="w-full max-w-4xl mx-auto text-text-primary rounded-xl border border-border-primary shadow-lg py-4 px-4 my-2 transition-all duration-200 ease-in-out">
             <textarea
@@ -290,24 +296,26 @@ export default function UserMessage({ message, onMessageUpdate, sessionType }: U
                     {timestamp}
                   </div>
                   <div className="absolute right-0 flex w-max items-center gap-2 whitespace-nowrap pt-1">
-                    <button
-                      onClick={handleEditClick}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleEditClick();
-                        }
-                      }}
-                      className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
-                      aria-label={intl.formatMessage(i18n.editMessageAriaLabel, {
-                        preview: `${textContent.substring(0, 50)}${textContent.length > 50 ? '...' : ''}`,
-                      })}
-                      aria-expanded={isEditing}
-                      title={intl.formatMessage(i18n.editMessageTitle)}
-                    >
-                      <Edit className="h-3 w-3" />
-                      <span>{intl.formatMessage(i18n.editButton)}</span>
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={handleEditClick}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleEditClick();
+                          }
+                        }}
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
+                        aria-label={intl.formatMessage(i18n.editMessageAriaLabel, {
+                          preview: `${textContent.substring(0, 50)}${textContent.length > 50 ? '...' : ''}`,
+                        })}
+                        aria-expanded={isEditing}
+                        title={intl.formatMessage(i18n.editMessageTitle)}
+                      >
+                        <Edit className="h-3 w-3" />
+                        <span>{intl.formatMessage(i18n.editButton)}</span>
+                      </button>
+                    )}
                     <MessageCopyLink text={textContent} contentRef={contentRef} />
                   </div>
                 </div>

@@ -21,6 +21,7 @@ import {
   Save,
   Search,
   TerminalSquare,
+  Bot,
   X,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
@@ -31,6 +32,8 @@ import { GitRepositoryPanel } from '../components/codepro/GitRepositoryPanel';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
+import { WorkspaceSubagent } from './WorkspaceSubagent';
+import { OPEN_SUBAGENT_CONVERSATION, type SubagentConversationTarget } from './subagentPanel';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelEntry, PanelScope } from './workspacePanelTypes';
 import {
@@ -208,6 +211,22 @@ export function WorkspacePanelContent({
       ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [state.active]);
   const available = !!scope.root && !!scope.sessionId;
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<SubagentConversationTarget>).detail;
+      if (!target || target.parentSessionId !== scope.sessionId || !target.childSessionId) return;
+      const id = `subagent:${target.childSessionId}`;
+      update((s) => ({
+        tabs: s.tabs.some((tab) => tab.id === id)
+          ? s.tabs
+          : [...s.tabs, { id, kind: 'subagent', ...target }],
+        active: id,
+      }));
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    return () => window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+  }, [scope.sessionId, update, onExpandedChange]);
   const fileView = state.active === 'files' || selected?.kind === 'file';
   useEffect(() => {
     alive.current = true;
@@ -407,7 +426,7 @@ export function WorkspacePanelContent({
       return;
     if (tab.kind === 'terminal' && !(await confirm(intl.formatMessage(m.closeTerminal)))) return;
     try {
-      if (tab.kind !== 'file')
+      if (tab.kind === 'terminal' || tab.kind === 'browser')
         await window.electron.workspacePanel({
           scope,
           action: tab.kind === 'terminal' ? 'terminal-close' : 'browser-close',
@@ -559,6 +578,8 @@ export function WorkspacePanelContent({
                   <FileCode2 size={13} />
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
+                ) : t.kind === 'subagent' ? (
+                  <Bot size={13} />
                 ) : (
                   <Globe size={13} />
                 )}
@@ -837,6 +858,13 @@ export function WorkspacePanelContent({
                 </span>
               </footer>
             </section>
+          ) : selected?.kind === 'subagent' ? (
+            <WorkspaceSubagent
+              key={selected.id}
+              parentSessionId={selected.parentSessionId}
+              childSessionId={selected.childSessionId}
+              title={selected.title}
+            />
           ) : selected?.kind === 'terminal' ? (
             <WorkspaceTerminal key={selected.id} scope={scope} id={selected.id} />
           ) : selected?.kind === 'browser' ? (

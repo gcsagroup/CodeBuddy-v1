@@ -14,6 +14,52 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('keeps existing links and animated words mounted while streaming text grows', () => {
+    const content = '开头 **加粗重点** 与 [参考文档](https://example.com/docs)，hello world。';
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent content={content} animateIncoming />
+    );
+    const link = screen.getByRole('link', { name: '参考文档' });
+    const word = link.querySelector('.codepro-incoming-word');
+    const strong = container.querySelector('strong');
+    expect(word).not.toBeNull();
+
+    rerender(<MarkdownContent content={`${content} 后续文字继续到达。`} animateIncoming />);
+
+    expect(screen.getByRole('link', { name: '参考文档' })).toBe(link);
+    expect(link.querySelector('.codepro-incoming-word')).toBe(word);
+    expect(container.querySelector('strong')).toBe(strong);
+    expect(container).toHaveTextContent('hello world。 后续文字继续到达。');
+  });
+
+  it('removes word wrappers after a long streamed answer settles without changing its Markdown', () => {
+    const content = Array.from(
+      { length: 120 },
+      (_, index) =>
+        `- 第 ${index + 1} 项：**加粗重点 ${index + 1}**，English review complete! [参考文档 ${index + 1}](https://example.com/docs/${index + 1})。`
+    ).join('\n');
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent content={content} animateIncoming />
+    );
+    const streamedText = container.textContent;
+    expect(container.querySelectorAll('.codepro-incoming-word').length).toBeGreaterThan(120);
+    expect(container.querySelectorAll('li')).toHaveLength(120);
+
+    rerender(<MarkdownContent content={content} animateIncoming={false} />);
+
+    expect(container.querySelectorAll('.codepro-incoming-word')).toHaveLength(0);
+    expect(container.querySelector('.codepro-incoming-text')).toBeNull();
+    expect(container.textContent).toBe(streamedText);
+    expect(container.querySelectorAll('li')).toHaveLength(120);
+    expect(container.querySelectorAll('strong')).toHaveLength(120);
+    expect(container.querySelector('strong')).toHaveTextContent('加粗重点 1');
+    expect(screen.getAllByRole('link')).toHaveLength(120);
+    expect(screen.getByRole('link', { name: '参考文档 120' })).toHaveAttribute(
+      'href',
+      'https://example.com/docs/120'
+    );
+  });
+
   it('keeps the zero-character first frame empty even when a full packet has arrived', () => {
     const { container } = renderWithIntl(
       <MarkdownContent content={'# 标题\n\n尚未开始显示的完整一段。'} revealAt={0} />

@@ -126,6 +126,7 @@ const i18n = defineMessages({
 interface ProgressiveMessageListProps {
   messages: Message[];
   sessionType?: import('../types/session').SessionType;
+  readOnly?: boolean;
   chat: Pick<ChatType, 'sessionId'>;
   activeRunId?: string | null;
   toolCallNotifications?: Map<string, NotificationEvent[]>; // Make optional
@@ -135,6 +136,7 @@ interface ProgressiveMessageListProps {
   batchDelay?: number;
   showLoadingThreshold?: number; // Only show loading if more than X messages
   maxVisibleMessages?: number; // Keep long-running chats from retaining an unbounded DOM
+  searchActive?: boolean;
   // Custom render function for messages
   renderMessage?: (message: Message, index: number) => React.ReactNode | null;
   isStreamingMessage?: boolean; // Whether messages are currently being streamed
@@ -161,20 +163,11 @@ export default function ProgressiveMessageList(props: ProgressiveMessageListProp
 function OrderedMessageList(props: ProgressiveMessageListProps) {
   const intl = useIntl();
   const [visibleLimit, setVisibleLimit] = useState(props.maxVisibleMessages ?? 40);
-  const [searchAll, setSearchAll] = useState(false);
   const following = useContext(ScrollFollowingContext);
   const holdAnchor = useContext(ScrollLayoutAnchorContext);
   const releaseAnchor = useRef<(() => void) | null>(null);
   const firstVisibleId = useRef<string | null | undefined>(undefined);
   const windowed = props.foldTurns !== false && !props.renderMessage;
-  useEffect(() => {
-    if (!windowed) return;
-    const search = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') setSearchAll(true);
-    };
-    window.addEventListener('keydown', search);
-    return () => window.removeEventListener('keydown', search);
-  }, [windowed]);
   const projectedMessages = useMemo(() => {
     if (props.renderMessage) return props.messages;
     const turns: Message[][] = [];
@@ -241,7 +234,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     });
   }, [props.messages, props.renderMessage, props.chat.sessionId]);
   let startIndex =
-    windowed && !searchAll ? Math.max(0, projectedMessages.length - visibleLimit) : 0;
+    windowed && !props.searchActive ? Math.max(0, projectedMessages.length - visibleLimit) : 0;
   if (startIndex > 0) {
     let turnStart = -1;
     for (let index = startIndex; index >= 0; index -= 1) {
@@ -264,10 +257,12 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     }
   }
   useLayoutEffect(() => {
-    firstVisibleId.current = projectedMessages[startIndex]?.id;
+    // Search can visit any old match. Keep the prior reading window so closing
+    // search cannot pin the entire history when the reader is away from the tail.
+    if (!props.searchActive) firstVisibleId.current = projectedMessages[startIndex]?.id;
     releaseAnchor.current?.();
     releaseAnchor.current = null;
-  }, [projectedMessages, startIndex]);
+  }, [projectedMessages, startIndex, props.searchActive]);
   useEffect(() => () => releaseAnchor.current?.(), []);
   const visibleMessages = useMemo(
     () => projectedMessages.slice(startIndex),
@@ -317,6 +312,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
 function ProgressiveMessageListContent({
   messages,
   sessionType,
+  readOnly = false,
   chat,
   activeRunId,
   toolCallNotifications = new Map(),
@@ -326,6 +322,7 @@ function ProgressiveMessageListContent({
   batchDelay = 20,
   showLoadingThreshold = 50,
   maxVisibleMessages = 40,
+  searchActive = false,
   renderMessage, // Custom render function
   isStreamingMessage = false, // Whether messages are currently being streamed
   planRunning = isStreamingMessage,
@@ -362,7 +359,6 @@ function ProgressiveMessageListContent({
     () => !(foldTurns && !renderMessage) && messages.length > showLoadingThreshold
   );
   const [visibleMessageLimit, setVisibleMessageLimit] = useState(maxVisibleMessages);
-  const [showAllMessages, setShowAllMessages] = useState(false);
   const timeoutRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
   const hasOnlyToolResponses = (message: Message) =>
@@ -370,7 +366,6 @@ function ProgressiveMessageListContent({
 
   useEffect(() => {
     setVisibleMessageLimit(maxVisibleMessages);
-    setShowAllMessages(false);
   }, [chat.sessionId, maxVisibleMessages]);
 
   const getResolvedModel = useCallback((message: Message): string | null => {
@@ -457,7 +452,7 @@ function ProgressiveMessageListContent({
 
   // Simple progressive loading - start immediately when component mounts if needed
   useEffect(() => {
-    if ((foldTurns && !renderMessage) || messages.length <= showLoadingThreshold) {
+    if (searchActive || (foldTurns && !renderMessage) || messages.length <= showLoadingThreshold) {
       setRenderedCount(messages.length);
       setIsLoading(false);
       // For small lists, call completion callback immediately
@@ -498,6 +493,7 @@ function ProgressiveMessageListContent({
     };
   }, [
     messages.length,
+    searchActive,
     foldTurns,
     renderMessage,
     batchSize,
@@ -527,33 +523,6 @@ function ProgressiveMessageListContent({
     window.performance.clearMeasures();
     window.performance.clearMarks();
   }, [messages.length]);
-
-  // Force complete rendering when search is active
-  useEffect(() => {
-    // Only add listener if we're actually loading
-    if (!isLoading) {
-      return;
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = window.electron.platform === 'darwin';
-      const isSearchShortcut = (isMac ? e.metaKey : e.ctrlKey) && e.key === 'f';
-
-      if (isSearchShortcut) {
-        // Immediately render all messages when search is triggered
-        setRenderedCount(messages.length);
-        setIsLoading(false);
-        setShowAllMessages(true);
-        if (timeoutRef.current) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoading, messages.length]);
 
   // Detect tool call chains
   const toolCallChains = useMemo(() => identifyConsecutiveToolCalls(messages), [messages]);
@@ -591,9 +560,12 @@ function ProgressiveMessageListContent({
 
   // Presentation ranges must not truncate the source context used by retry,
   // workspace recovery and receipt lookup.
-  const renderEndIndex = Math.min(renderRange?.[1] ?? renderedCount, messages.length);
+  const renderEndIndex = Math.min(
+    renderRange?.[1] ?? (searchActive ? messages.length : renderedCount),
+    messages.length
+  );
   let renderStartIndex =
-    renderRange?.[0] ?? (showAllMessages ? 0 : Math.max(0, renderEndIndex - visibleMessageLimit));
+    renderRange?.[0] ?? (searchActive ? 0 : Math.max(0, renderEndIndex - visibleMessageLimit));
   // Keep the beginning of the current operation sequence mounted. A transport
   // pagination boundary is not a new stage, and must not change the group's key.
   {
@@ -1087,6 +1059,7 @@ function ProgressiveMessageListContent({
                 !hasOnlyToolResponses(message) && (
                   <UserMessage
                     message={message}
+                    readOnly={readOnly}
                     onMessageUpdate={onMessageUpdate}
                     sessionType={sessionType}
                   />
@@ -1141,6 +1114,7 @@ function ProgressiveMessageListContent({
     thinkingActivity,
     onMessageUpdate,
     sessionType,
+    readOnly,
     toolCallChains,
     submitElicitationResponse,
     getPreviousResolvedModel,
@@ -1170,6 +1144,7 @@ function ProgressiveMessageListContent({
         presentationPending={presentationPending}
         renderRange={[start, end]}
         sessionType={sessionType}
+        readOnly={readOnly}
         chat={chat}
         activeRunId={activeRunId}
         foldTurns={false}
@@ -1314,7 +1289,8 @@ function ProgressiveMessageListContent({
             // This label describes tool receipts, not a second task verdict.
             turnRequests.every(
               (request) =>
-                resolveToolLoadingStatus(turnResponses.get(request.id), false, request) === 'success'
+                resolveToolLoadingStatus(turnResponses.get(request.id), false, request) ===
+                'success'
             );
           const elapsed = hasAnswerBoundary
             ? Math.round(turn[answerBoundaryIndex].created - turn[0].created)

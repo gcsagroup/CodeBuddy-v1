@@ -1,7 +1,9 @@
 import computerUnknown from './fixtures/computer-unknown.json';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isAcpPermissionRequestPending } from '../acp/permissionRequests';
+import { OPEN_SUBAGENT_CONVERSATION } from '../workspace-panel/subagentPanel';
 import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../types/message';
 
@@ -10,8 +12,75 @@ vi.mock('./McpApps/McpAppRenderer', () => ({
     <div data-testid="mcp-app">{JSON.stringify(props)}</div>
   ),
 }));
+// Permission lifecycle itself is covered with real RPCs in permissionRequests
+// and ToolApprovalButtons tests; these cases exercise the resulting presentation.
+vi.mock('../acp/permissionRequests', async (original) => ({
+  ...(await original<typeof import('../acp/permissionRequests')>()),
+  isAcpPermissionRequestPending: vi.fn(() => true),
+}));
+beforeEach(() => vi.mocked(isAcpPermissionRequestPending).mockReturnValue(true));
 
 describe('tool response completion evidence', () => {
+  it('opens a native child in the side panel with one click without opening another chat', () => {
+    const open = vi.fn();
+    window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="parent"
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'spawn',
+            toolCall: {
+              status: 'success',
+              value: { name: 'subagent_reviewer', arguments: { description: 'Review quantities' } },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'spawn',
+            toolResult: { status: 'success', value: { content: [] } },
+            metadata: { rawOutput: { kind: 'activation', subagentId: 'child' } },
+          }}
+        />
+      </IntlProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Review quantities' }));
+    expect(open).toHaveBeenCalledTimes(1);
+    expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      parentSessionId: 'parent',
+      childSessionId: 'child',
+      title: 'Review quantities',
+    });
+    expect(screen.queryByText('Tool call completed')).not.toBeInTheDocument();
+    window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+  });
+  it('does not render approval controls from an expired historical confirmation', () => {
+    vi.mocked(isAcpPermissionRequestPending).mockReturnValue(false);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="parent"
+          isCancelledMessage={false}
+          isPendingApproval
+          isStreamingMessage={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'expired',
+            toolCall: { status: 'success', value: { name: 'read', arguments: {} } },
+          }}
+          confirmationContent={{ id: 'expired', toolName: 'read', arguments: {} }}
+        />
+      </IntlProvider>
+    );
+    expect(screen.queryByRole('button', { name: 'Allow Once' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    expect(screen.getByText('Unknown status')).toBeVisible();
+  });
   it.each([
     ['read', { file_path: 'D:\\fixture\\采购清单.txt' }, 'D:\\fixture\\采购清单.txt'],
     [
@@ -331,6 +400,7 @@ describe('internal task check presentation', () => {
       <IntlProvider locale="en" messages={{}}>
         <ToolCallWithResponse
           compact
+          sessionId="check-state"
           isCancelledMessage={state === 'cancelled'}
           isPendingApproval={state === 'pending'}
           isStreamingMessage={false}

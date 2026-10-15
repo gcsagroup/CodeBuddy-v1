@@ -15,7 +15,10 @@ const prose = '先说明当前进展，再展示接下来的命令。'.repeat(8)
 const command: Message['content'][number] = {
   type: 'toolRequest',
   id: 'command',
-  toolCall: { status: 'success', value: { name: 'pwsh', arguments: { command: 'node --test' } } },
+  toolCall: {
+    status: 'success',
+    value: { name: 'pwsh', arguments: { command: 'node --test' } },
+  },
 };
 function assistant(content: Message['content']): Message {
   return { ...user, id: 'assistant', role: 'assistant', content };
@@ -135,5 +138,101 @@ describe('top-to-bottom streaming presentation', () => {
     expect(result.current.messages.flatMap(getToolRequests)).toHaveLength(1);
     expect(publicText(result.current.messages)).toContain(prose);
     unmount();
+  });
+
+  it('preserves many incremental batches and their ordering while older turns are loaded', () => {
+    const history: Message[] = Array.from({ length: 120 }, (_, index) => [
+      { ...user, id: `old-user-${index}` },
+      {
+        ...assistant([{ type: 'text', text: `Saved result ${index}` }]),
+        id: `old-answer-${index}`,
+      },
+    ]).flat();
+    const currentUser = { ...user, id: 'current-user' };
+    const recent = history.slice(-40);
+    const snapshots: Message[][] = [];
+    const { result, rerender, unmount } = renderHook(
+      ({ messages, active }) => {
+        const presentation = useOrderedToolPresentation(messages, active);
+        snapshots.push(presentation.messages);
+        return presentation;
+      },
+      { initialProps: { messages: [...recent, currentUser], active: true } }
+    );
+    const visibleParts = () =>
+      result.current.messages.find((message) => message.id === 'assistant')?.content ?? [];
+    let thought = '';
+    for (let batch = 0; batch < 20; batch += 1) {
+      thought += `检查第${batch}段🙂。`;
+      rerender({
+        messages: [
+          ...recent,
+          currentUser,
+          assistant([{ type: 'thinking', thinking: thought, signature: '' }]),
+        ],
+        active: true,
+      });
+      act(() => vi.advanceTimersByTime(48));
+      const shown = visibleParts().find((part) => part.type === 'thinking');
+      if (shown?.type === 'thinking') expect(thought.startsWith(shown.thinking)).toBe(true);
+    }
+    let firstText = '';
+    let previousText = '';
+    for (let batch = 0; batch < 30; batch += 1) {
+      firstText += `说明第${batch}批处理结果🙂。`;
+      rerender({
+        messages: [
+          ...recent,
+          currentUser,
+          assistant([
+            { type: 'thinking', thinking: thought, signature: '' },
+            { type: 'text', text: firstText },
+          ]),
+        ],
+        active: true,
+      });
+      act(() => vi.advanceTimersByTime(48));
+      const part = visibleParts().find((part) => part.type === 'text');
+      const shown = part?.type === 'text' ? part.text : '';
+      expect(firstText.startsWith(shown)).toBe(true);
+      expect(shown.startsWith(previousText)).toBe(true);
+      previousText = shown;
+    }
+    let finalText = '';
+    const content = (): Message['content'] => [
+      { type: 'thinking', thinking: thought, signature: '' },
+      { type: 'text', text: firstText },
+      command,
+      { type: 'thinking', thinking: '根据真实回执整理结果🙂。', signature: '' },
+      { type: 'text', text: finalText },
+    ];
+    for (let batch = 0; batch < 30; batch += 1) {
+      finalText += `最终第${batch}批结论🙂。`;
+      rerender({
+        messages: [...history, currentUser, assistant(content())],
+        active: true,
+      });
+      act(() => vi.advanceTimersByTime(48));
+      expect(
+        result.current.messages.find((message) => message.id === 'old-answer-0')?.content
+      ).toEqual([{ type: 'text', text: 'Saved result 0' }]);
+    }
+    rerender({
+      messages: [...history, currentUser, assistant(content())],
+      active: false,
+    });
+    expect(result.current.pending).toBe(true);
+    for (let frame = 0; frame < 600 && result.current.pending; frame += 1)
+      act(() => vi.advanceTimersByTime(48));
+    expect(result.current.pending).toBe(false);
+    expect(visibleParts()).toEqual(content());
+    for (const snapshot of snapshots) {
+      const shown = snapshot.find((message) => message.id === 'assistant')?.content ?? [];
+      if (shown.some((part) => part.type === 'toolRequest'))
+        expect(shown[1]).toEqual({ type: 'text', text: firstText });
+      if (shown.length > 4) expect(shown[2]).toEqual(command);
+    }
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

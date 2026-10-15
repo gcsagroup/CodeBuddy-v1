@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type {
@@ -12,9 +13,14 @@ import { fileChangeReceipt } from './codepro/CodeProFileChange';
 import { toolPlanContent } from './codepro/CodeProToolContent';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
 import type { AdapterState } from '../acp/adapter/shared';
+import { SearchView } from './conversation/SearchView';
+import { ScrollFollowingContext } from './ui/scroll-follow-context';
 
 beforeEach(() => window.sessionStorage.clear());
-const base = { created: 1, metadata: { userVisible: true, agentVisible: true } };
+const base = {
+  created: 1,
+  metadata: { userVisible: true, agentVisible: true },
+};
 const user = (id = 'user'): Message => ({
   ...base,
   id,
@@ -34,7 +40,10 @@ function write(id: string, path = '/fixture/app.py'): ToolRequestMessageContent 
     metadata: { extensionName: 'harness' },
     toolCall: {
       status: 'success',
-      value: { name: 'write', arguments: { file_path: path, content: 'new\n' } },
+      value: {
+        name: 'write',
+        arguments: { file_path: path, content: 'new\n' },
+      },
     },
   };
 }
@@ -148,35 +157,75 @@ const show = (messages: Message[], streaming = false) => (
   />
 );
 
+function SearchableHistory({
+  messages,
+  streaming = false,
+  following = true,
+}: {
+  messages: Message[];
+  streaming?: boolean;
+  following?: boolean;
+}) {
+  const [searchActive, setSearchActive] = useState(false);
+  return (
+    <ScrollFollowingContext.Provider value={following}>
+      <SearchView onVisibilityChange={setSearchActive}>
+        <ProgressiveMessageList
+          messages={messages}
+          chat={{ sessionId: 'session' }}
+          isUserMessage={(item) => item.role === 'user'}
+          isStreamingMessage={streaming}
+          searchActive={searchActive}
+          maxVisibleMessages={15}
+          batchSize={15}
+        />
+      </SearchView>
+    </ScrollFollowingContext.Provider>
+  );
+}
+
 describe('Harness conversation presentation', () => {
   it('loads older turns on demand in the actual default chat and preserves expanded history while streaming', async () => {
-    const trace = Array.from({ length: 10 }, (_, index) => [
+    const trace = Array.from({ length: 120 }, (_, index) => [
       user(`user-${index}`),
-      prose(`Stage ${index}`),
-      requestMessage(write(`write-${index}`)),
+      {
+        ...prose(`Stage ${index}`),
+        content: [
+          {
+            type: 'thinking' as const,
+            thinking: `Inspect stage ${index}`,
+            signature: '',
+          },
+          { type: 'text' as const, text: `Stage ${index}` },
+          {
+            ...write(`write-${index}`),
+            toolCall: {
+              status: 'success' as const,
+              value: {
+                name: 'read',
+                arguments: { file_path: '/fixture/app.py' },
+              },
+            },
+          },
+        ],
+      },
       responseMessage(receipt(`write-${index}`)),
       prose(`Result ${index}`),
       terminal(`user-${index}`),
     ]).flat();
-    const chat = (messages: Message[], streaming = false) => (
-      <ProgressiveMessageList
-        messages={messages}
-        chat={{ sessionId: 'session' }}
-        isUserMessage={(item) => item.role === 'user'}
-        isStreamingMessage={streaming}
-        maxVisibleMessages={12}
-        batchSize={12}
-      />
+    const chat = (messages: Message[], streaming = false, following = true) => (
+      <SearchableHistory messages={messages} streaming={streaming} following={following} />
     );
     const view = render(chat(trace), { wrapper: IntlTestWrapper });
-    expect(screen.getByText('Result 9')).toBeVisible();
-    expect(screen.queryByText('Result 7')).not.toBeInTheDocument();
-    expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(2);
+    expect(screen.getByText('Result 119')).toBeVisible();
+    expect(screen.queryByText('Result 116')).not.toBeInTheDocument();
+    expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(3);
     const history = view.container.querySelector('.codepro-turn-history button')!;
     fireEvent.click(history);
-    expect(screen.getByText('Stage 8')).toBeVisible();
+    expect(screen.getByText('Stage 117')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Load earlier messages/ }));
-    expect(screen.getByText('Result 7')).toBeVisible();
+    expect(screen.getByText('Result 114')).toBeVisible();
+    expect(screen.queryByText('Result 113')).not.toBeInTheDocument();
     view.rerender(chat([...trace, user('latest'), prose('Live feedback')], true));
     expect(
       await screen.findByText(
@@ -186,9 +235,21 @@ describe('Harness conversation presentation', () => {
       )
     ).toBeVisible();
     expect(history).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Stage 8')).toBeVisible();
-    fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+    expect(screen.getByText('Stage 117')).toBeVisible();
+    fireEvent.keyDown(window, {
+      key: 'f',
+      ctrlKey: window.electron.platform !== 'darwin',
+      metaKey: window.electron.platform === 'darwin',
+    });
     expect(screen.getByText('Result 0')).toBeVisible();
+    view.rerender(chat([...trace, user('latest'), prose('Live feedback')], true, false));
+    fireEvent.keyDown(screen.getByPlaceholderText('Search conversation...'), {
+      key: 'Escape',
+    });
+    await waitFor(() => expect(screen.queryByText('Result 0')).not.toBeInTheDocument());
+    expect(screen.getByText('Result 114')).toBeVisible();
+    expect(history).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Stage 117')).toBeVisible();
   });
   it('retains child-agent-only activity and merges its lifecycle using the actual call ID', () => {
     const state: AdapterState = {
@@ -206,7 +267,11 @@ describe('Harness conversation presentation', () => {
           sessionId: 'session',
           update: {
             sessionUpdate: 'status_message',
-            status: { type: 'progress', message: content.msg, data: content.data },
+            status: {
+              type: 'progress',
+              message: content.msg,
+              data: content.data,
+            },
           },
         });
     }
@@ -222,8 +287,13 @@ describe('Harness conversation presentation', () => {
     const ending = terminal();
     const content = ending.content[0];
     if (content.type === 'systemNotification')
-      content.data = { ...(content.data as object), report: { outcome: 'invalid-report' } };
-    render(show([user(), prose('The explanation is here.'), ending]), { wrapper: IntlTestWrapper });
+      content.data = {
+        ...(content.data as object),
+        report: { outcome: 'invalid-report' },
+      };
+    render(show([user(), prose('The explanation is here.'), ending]), {
+      wrapper: IntlTestWrapper,
+    });
     expect(screen.getByText('The explanation is here.')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('Needs your input');
   });
@@ -262,7 +332,12 @@ describe('Harness conversation presentation', () => {
       responseMessage(receipt('a')),
       requestMessage(write('b', '/fixture/b.py')),
       responseMessage(
-        receipt('b', { path: '/fixture/b.py', operation: 'create', before: null, after: 'new\n' })
+        receipt('b', {
+          path: '/fixture/b.py',
+          operation: 'create',
+          before: null,
+          after: 'new\n',
+        })
       ),
     ];
     const view = render(show(trace, true), { wrapper: IntlTestWrapper });
@@ -297,7 +372,9 @@ describe('Harness conversation presentation', () => {
       const view = render(show(trace), { wrapper: IntlTestWrapper });
       expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
       const summary = screen.getByText('Saved the file; here is the result.');
-      const card = screen.getByRole('button', { name: 'Modified 1 files this turn' });
+      const card = screen.getByRole('button', {
+        name: 'Modified 1 files this turn',
+      });
       expect(summary).toBeVisible();
       expect(summary.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
@@ -414,7 +491,10 @@ describe('native file diff evidence', () => {
       )
     ).toMatchObject({ added: 1, removed: 0 });
     expect(
-      fileChangeReceipt(receipt('a'), { ...write('a'), metadata: { extensionName: 'external' } })
+      fileChangeReceipt(receipt('a'), {
+        ...write('a'),
+        metadata: { extensionName: 'external' },
+      })
     ).toBeUndefined();
   });
 });

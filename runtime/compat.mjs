@@ -46,6 +46,7 @@ import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
 import { ConversationEditing } from "./conversation-editing.mjs";
+import { readSubagentConversation } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
@@ -1430,6 +1431,8 @@ export class Compat {
     }
     if (!method.startsWith(prefix)) throw unsupported(method);
     const name = method.slice(prefix.length);
+    if (name === "subagent/conversation/get")
+      return readSubagentConversation(this.session(p.sessionId), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
     if (this.schedules?.handles(method))

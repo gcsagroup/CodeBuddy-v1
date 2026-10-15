@@ -180,7 +180,11 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 mt-2" data-testid="tool-approval-actions">
+      <div
+        className="flex flex-wrap items-center gap-2 mt-2"
+        data-testid="tool-approval-actions"
+        data-tool-approval-actions=""
+      >
         {allowActionsVisible && actions.has('allow_once') && (
           <Button
             className="rounded-full"

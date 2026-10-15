@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveAcpPermissionRequest } from '../acp/permissionRequests';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import ToolApprovalButtons from './ToolApprovalButtons';
+import { ToolCallExpandable } from './ToolCallExpandable';
 
 vi.mock('../acp/permissionRequests', () => ({
   resolveAcpPermissionRequest: vi.fn(),
@@ -17,6 +18,51 @@ const resolveAcpPermissionRequestMock = vi.mocked(resolveAcpPermissionRequest);
 describe('ToolApprovalButtons', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('collapses completed history after a real approval click without treating it as reading', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    const view = (live: boolean) => (
+      <ToolCallExpandable label="Completed operations" collapsible={!live}>
+        <ToolApprovalButtons
+          data={{
+            id: 'approval-should-not-pin-history',
+            toolName: 'read',
+            sessionId: 'approval-collapse-session',
+          }}
+        />
+      </ToolCallExpandable>
+    );
+    const { rerender } = renderWithIntl(view(true));
+    await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledWith(
+      'approval-collapse-session',
+      'approval-should-not-pin-history',
+      'allow_once'
+    );
+    expect(screen.getByText('read - Allowed once')).toBeVisible();
+    rerender(view(false));
+    expect(screen.getByRole('button', { name: 'Completed operations' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByText('read - Allowed once')).not.toBeInTheDocument();
+  });
+
+  it('retains live details intentionally opened outside the approval actions', async () => {
+    const view = (live: boolean) => (
+      <ToolCallExpandable label="Completed operations" collapsible={!live}>
+        <button type="button">Inspect tool details</button>
+      </ToolCallExpandable>
+    );
+    const { rerender } = renderWithIntl(view(true));
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect tool details' }));
+    rerender(view(false));
+    const history = screen.getByRole('button', { name: 'Completed operations' });
+    expect(history).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Inspect tool details' })).toBeVisible();
+    await userEvent.click(history);
+    expect(history).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('marks the approval accepted when the ACP request resolves', async () => {

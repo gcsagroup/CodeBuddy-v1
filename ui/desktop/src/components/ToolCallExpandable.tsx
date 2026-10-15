@@ -1,4 +1,12 @@
-import { useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../utils';
 import { Button } from './ui/button';
@@ -62,6 +70,16 @@ export function ToolCallExpandable({
     // Reading live details is an explicit choice, not permission to hide them
     // when the next public block or answer arrives. Do not persist automatic state.
     if (!collapsible) setExpanded(true);
+  };
+  const retainReadingFromInteraction = (event: SyntheticEvent) => {
+    // Approving a tool is part of execution, not a request to keep its history open.
+    if (
+      event.target instanceof window.Element &&
+      event.target.closest('[data-tool-approval-actions]')
+    ) {
+      return;
+    }
+    retainReading();
   };
 
   useLayoutEffect(() => {
@@ -140,8 +158,8 @@ export function ToolCallExpandable({
       >
         <div
           ref={viewport}
-          onPointerDownCapture={retainReading}
-          onFocusCapture={retainReading}
+          onPointerDownCapture={retainReadingFromInteraction}
+          onFocusCapture={retainReadingFromInteraction}
           onWheelCapture={(event) => {
             if (event.deltaY < 0) retainReading();
           }}

@@ -652,6 +652,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
+    listSubagentChildren(parentSessionId, signal) { return ctx.subagents.listChildren(parentSessionId, signal); },
     async forkWorkingDirectory(sessionId, workingDir, { signal } = {}) {
       const agent = await resolveAgent(sessionId);
       return forkWorkingDirectory(ctx, agent, workingDir, { signal, selection,

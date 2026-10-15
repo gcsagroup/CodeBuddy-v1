@@ -8382,7 +8382,7 @@
     "defaultMessage": "刷新对话"
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {执行中} completed {已完成} failed {失败} interrupted {已中断} other {状态待确认}}"
+    "defaultMessage": "{state, select, running {本轮记录未结束} completed {本轮已结束} failed {本轮出错} interrupted {本轮已中断} other {状态尚不可用}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "子智能体对话"
@@ -8431,5 +8431,38 @@
   },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "部分操作缺少历史差异。"
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "子智能体"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "刷新子智能体"
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "正在读取子智能体…"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "此目录中暂无子智能体。"
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "{name} 的下级智能体"
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "外部智能体"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "暂无可读取的对话"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "点击智能体查看对话，展开箭头查看它的下级智能体。"
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "目录刷新失败，下方保留的是上次读取的条目。"
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "读取失败，下方保留的是上次读取的对话记录。"
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "全部子智能体"
   }
 }

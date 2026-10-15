@@ -8382,7 +8382,7 @@
     "defaultMessage": "重新整理對話"
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {執行中} completed {已完成} failed {失敗} interrupted {已中斷} other {狀態待確認}}"
+    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} other {狀態尚不可用}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "子智慧體對話"
@@ -8431,5 +8431,38 @@
   },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "部分操作缺少歷史差異。"
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "子智慧體"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "重新整理子智慧體"
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "正在讀取子智慧體…"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "此目錄中暫無子智慧體。"
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "{name} 的下級智慧體"
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "外部智慧體"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "暫無可讀取的對話"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "點擊智慧體查看對話，展開箭頭查看它的下級智慧體。"
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "目錄重新整理失敗，下方保留的是上次讀取的項目。"
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "讀取失敗，下方保留的是上次讀取的對話記錄。"
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "全部子智慧體"
   }
 }

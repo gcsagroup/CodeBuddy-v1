@@ -34,6 +34,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
 import { WorkspaceSubagent } from './WorkspaceSubagent';
+import { WorkspaceSubagents, subagentsMessages } from './WorkspaceSubagents';
 import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
 import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conversationChangePanel';
 import {
@@ -41,7 +42,11 @@ import {
   fileIdentity,
 } from '../components/codepro/conversationChanges';
 import type { Message } from '../types/message';
-import { OPEN_SUBAGENT_CONVERSATION, type SubagentConversationTarget } from './subagentPanel';
+import {
+  OPEN_SUBAGENT_CATALOG,
+  OPEN_SUBAGENT_CONVERSATION,
+  type SubagentConversationTarget,
+} from './subagentPanel';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelEntry, PanelScope } from './workspacePanelTypes';
 import {
@@ -280,7 +285,17 @@ export function WorkspacePanelContent({
       onExpandedChange(true);
     };
     window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
-    return () => window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    const openCatalog = (event: Event) => {
+      const target = (event as CustomEvent<{ parentSessionId: string }>).detail;
+      if (target?.parentSessionId !== scope.sessionId) return;
+      update((current) => ({ ...current, active: 'subagents' }));
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
+    return () => {
+      window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+      window.removeEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
+    };
   }, [scope.sessionId, update, onExpandedChange]);
   const fileView = state.active === 'files' || selected?.kind === 'file';
   useEffect(() => {
@@ -599,7 +614,9 @@ export function WorkspacePanelContent({
           aria-label={intl.formatMessage(m.panel)}
         >
           {state.active === 'start' && (
-            <span className="px-2 text-xs text-text-secondary">{intl.formatMessage(m.start)}</span>
+            <span className="wb-fixed-tab-label px-2 text-xs text-text-secondary">
+              {intl.formatMessage(m.start)}
+            </span>
           )}
           <button
             role="tab"
@@ -623,13 +640,30 @@ export function WorkspacePanelContent({
           <button
             role="tab"
             aria-selected={state.active === 'changes'}
+            aria-label={intl.formatMessage(changeMessages.title)}
             className="wb-tab"
             onClick={() => activate('changes')}
             disabled={!scope.sessionId}
             title={intl.formatMessage(changeMessages.title)}
           >
             <FileDiff size={14} />
-            <span className="text-xs">{intl.formatMessage(changeMessages.title)}</span>
+            <span className="wb-fixed-tab-label text-xs">
+              {intl.formatMessage(changeMessages.title)}
+            </span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={state.active === 'subagents'}
+            aria-label={intl.formatMessage(subagentsMessages.title)}
+            className="wb-tab"
+            onClick={() => activate('subagents')}
+            disabled={!scope.sessionId}
+            title={intl.formatMessage(subagentsMessages.title)}
+          >
+            <Bot size={14} />
+            <span className="wb-fixed-tab-label text-xs">
+              {intl.formatMessage(subagentsMessages.title)}
+            </span>
           </button>
           {state.tabs.map((t) => (
             <div key={t.id} className={`wb-tab ${t.id === state.active ? 'is-active' : ''}`}>
@@ -697,7 +731,9 @@ export function WorkspacePanelContent({
           </button>
         </div>
       )}
-      {state.active === 'changes' || selected?.kind === 'change' ? (
+      {state.active === 'subagents' ? (
+        <WorkspaceSubagents parentSessionId={scope.sessionId} />
+      ) : state.active === 'changes' || selected?.kind === 'change' ? (
         <WorkspaceChanges
           sessionId={scope.sessionId}
           workspaceRoot={scope.root}
@@ -939,6 +975,7 @@ export function WorkspacePanelContent({
               parentSessionId={selected.parentSessionId}
               childSessionId={selected.childSessionId}
               title={selected.title}
+              ancestorSessionIds={selected.ancestorSessionIds}
             />
           ) : selected?.kind === 'terminal' ? (
             <WorkspaceTerminal key={selected.id} scope={scope} id={selected.id} />

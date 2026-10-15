@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import type { Message } from '../types/message';
 import ProgressiveMessageList from '../components/ProgressiveMessageList';
+import { openSubagentCatalog } from './subagentPanel';
 import {
   createSubagentConversationProjection,
   readSubagentConversation,
@@ -10,17 +11,22 @@ import {
 
 const m = defineMessages({
   title: { id: 'workspaceSubagent.title', defaultMessage: 'Subagent conversation' },
+  all: { id: 'workspaceSubagent.all', defaultMessage: 'All subagents' },
   readonly: { id: 'workspaceSubagent.readonly', defaultMessage: 'Read only' },
   empty: { id: 'workspaceSubagent.empty', defaultMessage: 'No conversation records yet.' },
   refresh: { id: 'workspaceSubagent.refresh', defaultMessage: 'Refresh conversation' },
   status: {
     id: 'workspaceSubagent.status',
     defaultMessage:
-      '{state, select, running {Working} completed {Completed} failed {Failed} interrupted {Interrupted} other {Status not yet available}}',
+      '{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}',
   },
   truncated: {
     id: 'workspaceSubagent.truncated',
     defaultMessage: 'Some long records are shortened.',
+  },
+  stale: {
+    id: 'workspaceSubagent.stale',
+    defaultMessage: 'Reading failed. Previously loaded conversation records are retained below.',
   },
 });
 
@@ -28,10 +34,12 @@ export function WorkspaceSubagent({
   parentSessionId,
   childSessionId,
   title,
+  ancestorSessionIds,
 }: {
   parentSessionId: string;
   childSessionId: string;
   title: string;
+  ancestorSessionIds?: string[];
 }) {
   const intl = useIntl();
   const [revision, refresh] = useState(0);
@@ -52,7 +60,14 @@ export function WorkspaceSubagent({
     setTruncated(false);
     const read = async () => {
       try {
-        const page = await readSubagentConversation(parentSessionId, childSessionId, afterSeq);
+        const page = ancestorSessionIds
+          ? await readSubagentConversation(
+              parentSessionId,
+              childSessionId,
+              afterSeq,
+              ancestorSessionIds
+            )
+          : await readSubagentConversation(parentSessionId, childSessionId, afterSeq);
         if (disposed) return;
         const changed = page.events.length > 0;
         afterSeq = page.throughSeq;
@@ -71,7 +86,10 @@ export function WorkspaceSubagent({
               : 5000
         );
       } catch (e) {
-        if (!disposed) setError(String(e));
+        if (!disposed) {
+          setError(String(e));
+          setStatus(undefined);
+        }
       }
     };
     void read();
@@ -79,7 +97,7 @@ export function WorkspaceSubagent({
       disposed = true;
       clearTimeout(timer);
     };
-  }, [parentSessionId, childSessionId, revision]);
+  }, [parentSessionId, childSessionId, ancestorSessionIds, revision]);
   const scrollToTail = useCallback(() => {
     if (following.current && scroller.current)
       scroller.current.scrollTop = scroller.current.scrollHeight;
@@ -91,6 +109,14 @@ export function WorkspaceSubagent({
       className="codepro-conversation flex min-h-0 min-w-0 flex-1 flex-col"
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-border-primary px-3 py-2 text-xs">
+        <button
+          type="button"
+          className="wb-icon"
+          aria-label={intl.formatMessage(m.all)}
+          onClick={() => openSubagentCatalog(parentSessionId)}
+        >
+          <ArrowLeft size={14} />
+        </button>
         <span className="min-w-0 flex-1 truncate" title={title}>
           {title}
         </span>
@@ -107,6 +133,7 @@ export function WorkspaceSubagent({
       </header>
       {error && (
         <p role="alert" className="p-3 text-xs text-red-600">
+          {messages.length > 0 && <span className="mb-1 block">{intl.formatMessage(m.stale)}</span>}
           {error}
         </p>
       )}

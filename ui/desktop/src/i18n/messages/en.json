@@ -8382,7 +8382,7 @@
     "defaultMessage": "Refresh conversation"
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {Working} completed {Completed} failed {Failed} interrupted {Interrupted} other {Status not yet available}}"
+    "defaultMessage": "{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "Subagent conversation"
@@ -8431,5 +8431,38 @@
   },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Some edits have no historical diff."
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "Subagents"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "Loading subagents…"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "No subagents in this directory."
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "Children of {name}"
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "External agent"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "Conversation unavailable"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "All subagents"
   }
 }

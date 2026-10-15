@@ -14,6 +14,7 @@ export interface SubagentConversationEvent {
 export interface SubagentConversationPage {
   sessionId: string;
   childSessionId: string;
+  ancestorSessionIds?: string[];
   throughSeq: number;
   hasMore: boolean;
   events: SubagentConversationEvent[];
@@ -22,17 +23,24 @@ export interface SubagentConversationPage {
 export async function readSubagentConversation(
   sessionId: string,
   childSessionId: string,
-  afterSeq: number
+  afterSeq: number,
+  ancestorSessionIds?: readonly string[]
 ): Promise<SubagentConversationPage> {
+  const ancestors = ancestorSessionIds && [...ancestorSessionIds];
   const client = await getAcpControlClient();
   const value = (await client.extMethod('_goose/unstable/subagent/conversation/get', {
     sessionId,
     childSessionId,
     afterSeq,
+    ...(ancestors ? { ancestorSessionIds: ancestors } : {}),
   })) as unknown as SubagentConversationPage;
   if (
     value.sessionId !== sessionId ||
     value.childSessionId !== childSessionId ||
+    (ancestors !== undefined &&
+      (!Array.isArray(value.ancestorSessionIds) ||
+        value.ancestorSessionIds.length !== ancestors.length ||
+        value.ancestorSessionIds.some((id, index) => id !== ancestors[index]))) ||
     !Number.isSafeInteger(value.throughSeq) ||
     value.throughSeq < afterSeq ||
     !Array.isArray(value.events)

@@ -56,6 +56,11 @@
 .wb-tabs::-webkit-scrollbar {
   display: none;
 }
+@container (max-width: 440px) {
+  .wb-fixed-tab-label {
+    display: none;
+  }
+}
 .workspace-panel .wb-tab {
   display: flex;
   align-items: center;

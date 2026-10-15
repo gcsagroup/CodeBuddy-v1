@@ -6,8 +6,85 @@ const MAX_BATCH_BYTES = 256 * 1024;
 const MAX_CONTENT_BYTES = 64 * 1024;
 const MAX_CONTENT_BLOCKS = 64;
 const MAX_TEXT_CHARS = 8192;
+const MAX_ANCESTORS = 32;
+const CATALOG_MODES = new Set(['one-shot', 'continuable', 'external', 'unknown']);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
+
+function sessionId(value, name) {
+  const id = requireString(value, name);
+  if (id.length > 256) throw invalid(`${name} is too long`);
+  return id;
+}
+
+function ancestorPath(params) {
+  const value = params.ancestorSessionIds;
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > MAX_ANCESTORS)
+    throw invalid(`ancestorSessionIds must be an array of at most ${MAX_ANCESTORS} session ids`);
+  const path = value.map(id => sessionId(id, 'ancestorSessionId'));
+  if (new Set(path).size !== path.length) throw invalid('ancestorSessionIds must not contain a cycle');
+  return path;
+}
+
+function assertChild(history, childId, parentId) {
+  if (history?.meta?.id !== childId || history.meta.origin !== 'subagent' || history.meta.parentSession !== parentId)
+    throw invalid('Subagent does not belong to this conversation');
+}
+
+async function readCatalog(parentId, driver, assertCurrent) {
+  const entries = await driver.listSubagentChildren(parentId);
+  assertCurrent();
+  if (!Array.isArray(entries)) throw invalid('Subagent catalog is unavailable');
+  return entries.map(entry => {
+    if (!record(entry) || !integer(entry.createdAt) || !CATALOG_MODES.has(entry.mode) ||
+        (entry.label !== undefined && typeof entry.label !== 'string') ||
+        (entry.mode === 'continuable' && typeof entry.label !== 'string'))
+      throw invalid('Subagent catalog entry is unavailable');
+    return {
+      id: sessionId(entry.id, 'catalog child id'), createdAt: entry.createdAt, mode: entry.mode,
+      ...(entry.label === undefined ? {} : { label: entry.label }),
+    };
+  });
+}
+
+function assertCatalogChild(entries, childId) {
+  const entry = entries.find(child => child.id === childId);
+  if (!entry) throw invalid('Subagent does not belong to this conversation catalog');
+  if (entry.mode !== 'one-shot' && entry.mode !== 'continuable')
+    throw invalid('Subagent conversation is unavailable for this catalog mode');
+}
+
+// The root is a product identity; every subsequent address is an immutable native child.
+async function resolveAncestorPath(parent, path, driver) {
+  const nativeRoot = driver.nativeSessionId(parent.id);
+  const assertCurrent = () => {
+    if (driver.nativeSessionId(parent.id) !== nativeRoot) throw invalid('Parent conversation changed during inspection');
+  };
+  let nativeParent = nativeRoot, catalogParent = nativeRoot;
+  for (const id of path) {
+    if (id === nativeRoot || id === parent.id) throw invalid('ancestorSessionIds must not contain a cycle');
+    assertCatalogChild(await readCatalog(catalogParent, driver, assertCurrent), id);
+    const history = await driver.nativeHistory(id);
+    assertCurrent();
+    assertChild(history, id, nativeParent);
+    nativeParent = id;
+    catalogParent = id;
+  }
+  assertCurrent();
+  return { nativeRoot, nativeParent, catalogParent, assertCurrent };
+}
+
+/** Read DSH's parent-owned catalog without creating or resuming an Agent. */
+export async function listSubagentCatalog(parent, params, driver) {
+  const path = ancestorPath(params);
+  if (typeof driver.nativeSessionId !== 'function' || typeof driver.listSubagentChildren !== 'function' ||
+      (path.length && typeof driver.nativeHistory !== 'function'))
+    throw Object.assign(new Error('Subagent catalog inspection is unavailable'), { code: -32601 });
+  const { catalogParent, assertCurrent } = await resolveAncestorPath(parent, path, driver);
+  const children = await readCatalog(catalogParent, driver, assertCurrent);
+  return { sessionId: parent.id, ancestorSessionIds: path, children };
+}
 
 function bounded(value, limit, clipping) {
   if (typeof value !== 'string') return undefined;
@@ -120,17 +197,23 @@ function publicEvent(event) {
 
 /** Cold inspection only: no Agent activation, tool dispatch, permissions or state writes. */
 export async function readSubagentConversation(parent, params, driver) {
-  const childSessionId = requireString(params.childSessionId, 'childSessionId');
-  if (childSessionId.length > 256) throw invalid('childSessionId is too long');
+  const childSessionId = sessionId(params.childSessionId, 'childSessionId');
+  const path = ancestorPath(params);
   const afterSeq = params.afterSeq === undefined ? -1 : params.afterSeq;
   if (!Number.isSafeInteger(afterSeq) || afterSeq < -1) throw invalid('afterSeq must be an integer greater than or equal to -1');
-  if (typeof driver.nativeSessionId !== 'function' || typeof driver.history !== 'function')
+  if (typeof driver.nativeSessionId !== 'function' || typeof driver.nativeHistory !== 'function' ||
+      (params.ancestorSessionIds !== undefined && typeof driver.listSubagentChildren !== 'function'))
     throw Object.assign(new Error('Subagent conversation inspection is unavailable'), { code: -32601 });
-  const nativeParent = driver.nativeSessionId(parent.id);
-  const history = await driver.history(childSessionId);
-  if (history?.meta?.id !== childSessionId || history.meta.origin !== 'subagent' || history.meta.parentSession !== nativeParent)
-    throw invalid('Subagent does not belong to this conversation');
-  if (driver.nativeSessionId(parent.id) !== nativeParent) throw invalid('Parent conversation changed during inspection');
+  const { nativeRoot, nativeParent, catalogParent, assertCurrent } = await resolveAncestorPath(parent, path, driver);
+  if (childSessionId === nativeRoot || childSessionId === parent.id || path.includes(childSessionId))
+    throw invalid('Subagent path must not contain a cycle');
+  // Explicit paths use native catalog membership, including the leaf. Omitted
+  // paths retain the original direct-child inspection contract.
+  if (params.ancestorSessionIds !== undefined)
+    assertCatalogChild(await readCatalog(catalogParent, driver, assertCurrent), childSessionId);
+  const history = await driver.nativeHistory(childSessionId);
+  assertCurrent();
+  assertChild(history, childSessionId, nativeParent);
   if (!Array.isArray(history.events) || !integer(history.inheritedEventCount) || history.inheritedEventCount > history.events.length)
     throw invalid('Subagent history boundary is unavailable');
   if (afterSeq >= history.events.length) throw invalid('afterSeq is ahead of the subagent history');
@@ -147,5 +230,9 @@ export async function readSubagentConversation(parent, params, driver) {
     index += 1;
     scanned += 1;
   }
-  return { sessionId: parent.id, childSessionId, throughSeq, hasMore: index < history.events.length, events };
+  return {
+    sessionId: parent.id, childSessionId,
+    ...(params.ancestorSessionIds === undefined ? {} : { ancestorSessionIds: path }),
+    throughSeq, hasMore: index < history.events.length, events,
+  };
 }

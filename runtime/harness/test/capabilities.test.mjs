@@ -236,6 +236,19 @@ test('subagent file execution inherits root approval and parent waits for its ac
   assert.equal(await readFile(join(root, 'child.txt'), 'utf8'), 'actual child write');
   assert.ok(approvals.some(call => call.name === 'subagent' && call.sessionId === created.sessionId));
   assert.ok(approvals.some(call => call.name === 'write' && call.sessionId !== created.sessionId));
+  const requestCount = requests.length, approvalCount = approvals.length;
+  const children = await driver.listSubagentChildren(created.sessionId);
+  assert.equal(children.length, 1);
+  assert.equal(children[0].mode, 'continuable');
+  assert.equal(children[0].label, 'Independent module fixture');
+  assert.ok(Number.isSafeInteger(children[0].createdAt) && children[0].createdAt >= 0);
+  assert.ok(approvals.some(call => call.name === 'write' && call.sessionId === children[0].id));
+  const before = await driver.history(children[0].id);
+  assert.deepEqual(await driver.listSubagentChildren(created.sessionId), children);
+  assert.deepEqual(await driver.listSubagentChildren(children[0].id), []);
+  assert.deepEqual(await driver.history(children[0].id), before);
+  assert.equal(requests.length, requestCount, 'Catalog inspection must not call a model');
+  assert.equal(approvals.length, approvalCount, 'Catalog inspection must not dispatch a tool');
 });
 
 test('role subagent uses configured model and effort with real lifecycle and permission receipts', async () => {

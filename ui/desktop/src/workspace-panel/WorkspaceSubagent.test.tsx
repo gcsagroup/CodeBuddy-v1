@@ -68,6 +68,26 @@ const first = page(
   2
 );
 
+it('binds a nested conversation read to its validated catalog ancestry', async () => {
+  vi.mocked(readSubagentConversation).mockResolvedValue(first);
+  render(
+    <WorkspaceSubagent
+      parentSessionId="parent"
+      childSessionId="child"
+      title="Nested review"
+      ancestorSessionIds={['ancestor']}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(readSubagentConversation).toHaveBeenCalledExactlyOnceWith('parent', 'child', -1, [
+    'ancestor',
+  ]);
+  expect(screen.getByText('Checking edge cases')).toBeVisible();
+});
+
 it('reads only the selected child with an incremental cursor and stops viewing on close', async () => {
   vi.mocked(readSubagentConversation)
     .mockResolvedValueOnce(first)
@@ -98,19 +118,38 @@ it('reads only the selected child with an incremental cursor and stops viewing o
     await Promise.resolve();
   });
   expect(screen.getByText('Checking edge cases')).toBeVisible();
-  expect(screen.getByRole('status')).toHaveTextContent('Working');
+  expect(screen.getByRole('status')).toHaveTextContent('Turn record still open');
   await act(async () => {
     vi.advanceTimersByTime(1500);
   });
   expect(readSubagentConversation).toHaveBeenLastCalledWith('parent', 'child', 2);
   expect(screen.getByText('Review complete')).toBeVisible();
-  expect(screen.getByRole('status')).toHaveTextContent('Completed');
+  expect(screen.getByRole('status')).toHaveTextContent('Turn ended');
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   view.unmount();
   await act(async () => {
     vi.advanceTimersByTime(6000);
   });
   expect(readSubagentConversation).toHaveBeenCalledTimes(2);
+});
+
+it('marks stale open-turn records as unknown after a read failure instead of claiming live execution', async () => {
+  vi.mocked(readSubagentConversation)
+    .mockResolvedValueOnce(first)
+    .mockRejectedValue(new Error('Parent conversation changed during inspection'));
+  render(<WorkspaceSubagent parentSessionId="parent" childSessionId="child" title="Review" />, {
+    wrapper: IntlTestWrapper,
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(screen.getByRole('status')).toHaveTextContent('Turn record still open');
+  await act(async () => {
+    vi.advanceTimersByTime(1500);
+  });
+  expect(screen.getByRole('status')).toHaveTextContent('Status not yet available');
+  expect(screen.getByRole('alert')).toHaveTextContent('Previously loaded conversation records');
+  expect(screen.getByText('Checking edge cases')).toBeVisible();
 });
 
 it('rejects a failed read without automatic task or transport retries', async () => {
@@ -166,12 +205,12 @@ it('continues observing a completed child that receives a new turn later', async
   await act(async () => {
     await Promise.resolve();
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Completed');
+  expect(screen.getByRole('status')).toHaveTextContent('Turn ended');
   await act(async () => {
     vi.advanceTimersByTime(5000);
   });
   expect(screen.getByText('New turn in the same child')).toBeVisible();
-  expect(screen.getByRole('status')).toHaveTextContent('Working');
+  expect(screen.getByRole('status')).toHaveTextContent('Turn record still open');
   view.unmount();
 });
 

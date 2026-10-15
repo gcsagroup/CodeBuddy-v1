@@ -47,6 +47,44 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }: { content: string }) => <pre>{content}</pre>,
 }));
 const invoke = vi.fn();
+vi.mock('../acp/subagentCatalog', () => ({
+  readSubagentCatalog: vi.fn(async (sessionId: string) => ({
+    sessionId,
+    ancestorSessionIds: [],
+    children: [
+      { id: 'catalog-only-child', createdAt: 1000, mode: 'continuable', label: 'Catalog review' },
+    ],
+  })),
+}));
+it('browses the native subagent catalog without a writable root or parent tool receipts', async () => {
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'catalog-history', root: '' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Catalog review' }));
+  expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-catalog', { detail: { parentSessionId: 'foreign' } })
+  );
+  expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-catalog', {
+      detail: { parentSessionId: 'catalog-history' },
+    })
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Catalog review' }));
+  expect(screen.getAllByRole('tab', { name: 'Catalog review' })).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Catalog review' }));
+  expect(invoke).not.toHaveBeenCalled();
+});
 it('opens historical changes without a writable workspace and keeps file tabs separate by turn', () => {
   const scope = { sessionId: 'readonly-change-history', root: '' };
   render(<WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />, {

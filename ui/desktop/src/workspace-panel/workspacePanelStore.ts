@@ -16,6 +16,7 @@ export type WorkbenchTab =
       title: string;
       parentSessionId: string;
       childSessionId: string;
+      ancestorSessionIds?: string[];
     };
 export interface WorkbenchState {
   tabs: WorkbenchTab[];

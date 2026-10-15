@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Compat } from '../compat.mjs';
 import { readSubagentConversation } from '../subagent-conversations.mjs';
+import { createConversationDriver } from '../conversation-driver.mjs';
 
 const method = '_goose/unstable/subagent/conversation/get';
 const event = (seq, type, data) => ({ seq, time: 1792060000000 + seq, type, data });
@@ -15,7 +16,7 @@ function fixture(events = [], inheritedEventCount = 0) {
   const history = { meta: { id: 'child-native', origin: 'subagent', parentSession: nativeParent, model: { apiKey: 'PRIVATE_HEADER' } }, inheritedEventCount, events };
   const driver = {
     nativeSessionId(id) { assert.equal(id, 'parent-product'); return nativeParent; },
-    async history(id) { reads.push(id); return history; },
+    async nativeHistory(id) { reads.push(id); return history; },
   };
   const store = {
     read: () => structuredClone(state),
@@ -39,8 +40,8 @@ test('Compat validates the product parent and exact native child ownership witho
     await assert.rejects(f.request(), /does not belong/);
     f.history.meta = original;
   }
-  const read = f.driver.history;
-  f.driver.history = async id => { const value = await read(id); f.rebind(); return value; };
+  const read = f.driver.nativeHistory;
+  f.driver.nativeHistory = async id => { const value = await read(id); f.rebind(); return value; };
   await assert.rejects(f.request(), /changed during inspection/);
 });
 
@@ -144,4 +145,208 @@ test('safe attachment descriptions omit file paths, bearer URLs and unrecognized
   assert.equal(result.events[0].data.content[0].attachment.mediaType, 'image/png');
   assert.equal(result.events[0].data.content[1].attachment.name, 'notes.txt');
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_/);
+});
+
+function catalogFixture() {
+  const state = { sessions: [{ id: 'parent-product', nativeSessionId: 'parent-native', type: 'code_pro', updates: [] }] };
+  const calls = [];
+  const histories = new Map([
+    ['child-native', { meta: { id: 'child-native', origin: 'subagent', parentSession: 'parent-native' }, inheritedEventCount: 0, events: [] }],
+    ['grandchild', { meta: { id: 'grandchild', origin: 'subagent', parentSession: 'child-native', token: 'PRIVATE_HEADER' }, inheritedEventCount: 1, events: [
+      event(0, 'assistant/message', { message: assistant('inherited', 'PRIVATE_INHERITED') }),
+      event(1, 'user/message', user('task', 'Read the nested child')),
+      event(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+    ] }],
+  ]);
+  const catalogs = new Map([
+    ['parent-native', [
+      { id: 'child-native', createdAt: 1792060000000, mode: 'continuable', label: 'Inspect module', provider: 'PRIVATE_PROVIDER', request: 'PRIVATE_REQUEST' },
+      { id: 'external-child', createdAt: 1792060000001, mode: 'external', label: 'External task' },
+      { id: 'old-child', createdAt: 1792060000002, mode: 'one-shot' },
+      { id: 'unknown-child', createdAt: 1792060000003, mode: 'unknown' },
+    ]],
+    ['child-native', [{ id: 'grandchild', createdAt: 1792060000004, mode: 'continuable', label: 'Nested review' }]],
+  ]);
+  const rawDriver = {
+    async history(id) {
+      calls.push(['history', id]);
+      const value = histories.get(id);
+      if (!value) throw new Error('Native child history is unavailable');
+      return value;
+    },
+    async listSubagentChildren(id, signal) {
+      calls.push(['catalog', id]);
+      assert.equal(signal, undefined);
+      if (!catalogs.has(id)) throw new Error('Native catalog is unavailable');
+      return catalogs.get(id);
+    },
+  };
+  const store = {
+    read: () => structuredClone(state),
+    readSession: id => structuredClone(state.sessions.find(session => session.id === id)),
+    update() { assert.fail('Catalog inspection must not write product state'); },
+  };
+  const driver = createConversationDriver(rawDriver, store), compat = new Compat(store, driver);
+  return {
+    state, calls, histories, catalogs, rawDriver, driver,
+    catalog: extra => compat.request('_goose/unstable/subagent/catalog/list', { sessionId: 'parent-product', ...extra }),
+    conversation: extra => compat.request(method, { sessionId: 'parent-product', childSessionId: 'grandchild', ...extra }),
+  };
+}
+
+test('catalog reads native membership in order through the product mapping and exposes only public fields', async () => {
+  const f = catalogFixture(), before = JSON.stringify([...f.catalogs]);
+  const root = await f.catalog();
+  assert.deepEqual(root, {
+    sessionId: 'parent-product', ancestorSessionIds: [], children: [
+      { id: 'child-native', createdAt: 1792060000000, mode: 'continuable', label: 'Inspect module' },
+      { id: 'external-child', createdAt: 1792060000001, mode: 'external', label: 'External task' },
+      { id: 'old-child', createdAt: 1792060000002, mode: 'one-shot' },
+      { id: 'unknown-child', createdAt: 1792060000003, mode: 'unknown' },
+    ],
+  });
+  assert.deepEqual(f.calls, [['catalog', 'parent-native']]);
+  assert.deepEqual(await f.catalog(), root, 'Repeated viewing must preserve the same catalog');
+  assert.doesNotMatch(JSON.stringify(root), /PRIVATE_|running|activity/);
+  assert.equal(JSON.stringify([...f.catalogs]), before);
+  await assert.rejects(f.catalog({ sessionId: 'missing' }), /Session not found/);
+  f.catalogs.set('parent-native', []);
+  assert.deepEqual((await f.catalog()).children, [], 'A successful empty native catalog stays empty');
+});
+
+test('nested catalog and conversation reads validate every direct-parent edge without activation', async () => {
+  const f = catalogFixture(), path = ['child-native'];
+  const nested = await f.catalog({ ancestorSessionIds: path });
+  assert.deepEqual(nested, { sessionId: 'parent-product', ancestorSessionIds: path, children: [
+    { id: 'grandchild', createdAt: 1792060000004, mode: 'continuable', label: 'Nested review' },
+  ] });
+  assert.deepEqual(f.calls, [['catalog', 'parent-native'], ['history', 'child-native'], ['catalog', 'child-native']]);
+  f.calls.length = 0;
+  const page = await f.conversation({ ancestorSessionIds: path });
+  assert.deepEqual(f.calls, [['catalog', 'parent-native'], ['history', 'child-native'], ['catalog', 'child-native'], ['history', 'grandchild']]);
+  assert.deepEqual(page.ancestorSessionIds, path);
+  assert.deepEqual(page.events.map(item => item.seq), [1, 2]);
+  assert.deepEqual(page.events.at(-1).data.reason, { kind: 'completed' });
+  assert.doesNotMatch(JSON.stringify(page), /PRIVATE_/);
+  assert.deepEqual(await f.conversation({ ancestorSessionIds: path, afterSeq: 2 }), {
+    sessionId: 'parent-product', childSessionId: 'grandchild', ancestorSessionIds: path,
+    throughSeq: 2, hasMore: false, events: [],
+  });
+  await assert.rejects(f.conversation(), /does not belong/, 'A grandchild is never accepted as a direct child');
+  const direct = await f.conversation({ childSessionId: 'child-native' });
+  assert.equal(Object.hasOwn(direct, 'ancestorSessionIds'), false, 'Legacy direct responses retain their shape');
+  assert.deepEqual((await f.conversation({ childSessionId: 'child-native', ancestorSessionIds: [] })).ancestorSessionIds, []);
+});
+
+test('unrelated, forged, skipped and cyclic descendant paths fail before exposing a catalog or transcript', async () => {
+  const f = catalogFixture();
+  for (const patch of [{ id: 'forged' }, { origin: undefined }, { parentSession: 'unrelated' }]) {
+    const original = { ...f.histories.get('child-native').meta };
+    Object.assign(f.histories.get('child-native').meta, patch);
+    f.calls.length = 0;
+    await assert.rejects(f.catalog({ ancestorSessionIds: ['child-native'] }), /does not belong/);
+    await assert.rejects(f.conversation({ ancestorSessionIds: ['child-native'] }), /does not belong/);
+    assert.ok(f.calls.every(([kind, id]) => (kind === 'history' && id === 'child-native') || (kind === 'catalog' && id === 'parent-native')));
+    f.histories.get('child-native').meta = original;
+  }
+  await assert.rejects(f.catalog({ ancestorSessionIds: ['grandchild'] }), /does not belong/);
+  await assert.rejects(f.conversation({ ancestorSessionIds: ['grandchild', 'child-native'] }), /does not belong/);
+  for (const path of [['child-native', 'child-native'], ['parent-native'], ['parent-product']]) {
+    f.calls.length = 0;
+    await assert.rejects(f.catalog({ ancestorSessionIds: path }), /cycle/);
+    assert.deepEqual(f.calls, []);
+  }
+  await assert.rejects(f.conversation({ ancestorSessionIds: ['child-native'], childSessionId: 'child-native' }), /cycle/);
+  for (const childSessionId of ['parent-native', 'parent-product'])
+    await assert.rejects(f.conversation({ childSessionId }), /cycle/);
+});
+
+test('ancestor input limits and unavailable native catalog data fail explicitly without fabricated empty results', async () => {
+  const f = catalogFixture();
+  for (const path of [null, 'child-native', {}, [null], [''], ['x'.repeat(257)], Array.from({ length: 33 }, (_, i) => `child-${i}`)]) {
+    f.calls.length = 0;
+    await assert.rejects(f.catalog({ ancestorSessionIds: path }));
+    await assert.rejects(f.conversation({ ancestorSessionIds: path }));
+    assert.deepEqual(f.calls, []);
+  }
+  await assert.rejects(f.catalog({ ancestorSessionIds: ['external-child'] }), /catalog mode/);
+  await assert.rejects(f.conversation({ childSessionId: 'external-child' }), /history is unavailable/);
+  await assert.rejects(f.conversation({ childSessionId: 'external-child', ancestorSessionIds: [] }), /catalog mode/);
+  const original = f.catalogs.get('parent-native');
+  for (const entries of [undefined, [{ id: 'bad', mode: 'continuable', createdAt: 1 }],
+    [{ id: 'bad', mode: 'future-mode', createdAt: 1 }], [{ id: 'bad', mode: 'one-shot', createdAt: -1 }]]) {
+    f.catalogs.set('parent-native', entries);
+    await assert.rejects(f.catalog(), /catalog.*unavailable/);
+  }
+  f.catalogs.set('parent-native', original);
+  f.rawDriver.listSubagentChildren = async () => { throw new Error('Native catalog read failed'); };
+  await assert.rejects(f.catalog(), /Native catalog read failed/);
+});
+
+test('rebinding the product root during an ancestor or catalog read rejects stale results', async () => {
+  const ancestor = catalogFixture(), read = ancestor.rawDriver.history;
+  ancestor.rawDriver.history = async id => {
+    const value = await read(id);
+    ancestor.state.sessions[0].nativeSessionId = 'new-parent';
+    return value;
+  };
+  await assert.rejects(ancestor.catalog({ ancestorSessionIds: ['child-native'] }), /changed during inspection/);
+  assert.deepEqual(ancestor.calls, [['catalog', 'parent-native'], ['history', 'child-native']]);
+
+  const catalog = catalogFixture(), list = catalog.rawDriver.listSubagentChildren;
+  catalog.rawDriver.listSubagentChildren = async (...args) => {
+    const value = await list(...args);
+    catalog.state.sessions[0].nativeSessionId = 'new-parent';
+    return value;
+  };
+  await assert.rejects(catalog.catalog(), /changed during inspection/);
+
+  const transcript = catalogFixture(), history = transcript.rawDriver.history;
+  transcript.rawDriver.history = async id => {
+    const value = await history(id);
+    if (id === 'grandchild') transcript.state.sessions[0].nativeSessionId = 'new-parent';
+    return value;
+  };
+  await assert.rejects(transcript.conversation({ ancestorSessionIds: ['child-native'] }), /changed during inspection/);
+});
+
+test('explicit paths honor native catalog membership even when metadata exists or was inherited from a fork', async () => {
+  const f = catalogFixture();
+  f.catalogs.set('parent-native', []);
+  await assert.rejects(f.catalog({ ancestorSessionIds: ['child-native'] }), /conversation catalog/);
+  assert.deepEqual(f.calls, [['catalog', 'parent-native']], 'Excluded fork membership never triggers a child read');
+  await assert.rejects(f.conversation({ childSessionId: 'child-native', ancestorSessionIds: [] }), /conversation catalog/);
+  assert.equal((await f.conversation({ childSessionId: 'child-native' })).childSessionId, 'child-native', 'Omitted paths keep the original direct metadata contract');
+
+  const nested = catalogFixture();
+  nested.catalogs.set('child-native', []);
+  await assert.rejects(nested.conversation({ ancestorSessionIds: ['child-native'] }), /conversation catalog/);
+  assert.ok(!nested.calls.some(([kind, id]) => kind === 'history' && id === 'grandchild'));
+  for (const mode of ['external', 'unknown']) {
+    const blocked = catalogFixture();
+    blocked.catalogs.get('parent-native')[0].mode = mode;
+    await assert.rejects(blocked.catalog({ ancestorSessionIds: ['child-native'] }), /catalog mode/);
+    await assert.rejects(blocked.conversation({ childSessionId: 'child-native', ancestorSessionIds: [] }), /catalog mode/);
+    assert.ok(blocked.calls.every(([kind]) => kind === 'catalog'), 'Nonlocal or unknown modes cannot be crossed through valid-looking metadata');
+  }
+  const historical = catalogFixture();
+  historical.catalogs.get('parent-native')[0].mode = 'one-shot';
+  assert.equal((await historical.catalog({ ancestorSessionIds: ['child-native'] })).children[0].id, 'grandchild');
+});
+
+test('native child browsing never follows product aliases with the same id as a native address', async () => {
+  const f = catalogFixture();
+  f.state.sessions.push(
+    { id: 'parent-native', nativeSessionId: 'unrelated-root' },
+    { id: 'child-native', nativeSessionId: 'unrelated-child' },
+    { id: 'grandchild', nativeSessionId: 'unrelated-grandchild' },
+  );
+  assert.equal((await f.catalog()).children[0].id, 'child-native');
+  assert.equal((await f.catalog({ ancestorSessionIds: ['child-native'] })).children[0].id, 'grandchild');
+  const page = await f.conversation({ ancestorSessionIds: ['child-native'] });
+  assert.equal(page.childSessionId, 'grandchild');
+  assert.deepEqual(page.events.map(item => item.seq), [1, 2]);
+  assert.ok(f.calls.every(([, id]) => !id.startsWith('unrelated-')));
+  await assert.rejects(f.driver.history('child-native'), /history is unavailable/, 'Existing product history still honors its product alias');
+  assert.deepEqual(f.calls.at(-1), ['history', 'unrelated-child']);
 });

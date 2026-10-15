@@ -1,6 +1,6 @@
 # AGENTS Instructions
 
-CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文件是仓库级规则入口；组件细节见对应子目录的 `AGENTS.md`，仅在涉及该组件时读取。不维护同目录的重复 `AGENTS.override.md`；确需临时覆盖时明确原因、适用范围和撤除条件。
+CodeBuddy-v1 当前使用 DeepSeek Harness（DSH）作为执行核心，`runtime/` 提供 Node.js ESM 兼容服务，桌面为 Electron/React/TypeScript。仓库仍保留 goose/Rust 旧实现及独立 MCP 工具源码。本文件是仓库级规则入口；组件细节见对应子目录的 `AGENTS.md`，仅在涉及该组件时读取。不维护同目录的重复 `AGENTS.override.md`；确需临时覆盖时明确原因、适用范围和撤除条件。
 
 ## 工作主轴与协作
 
@@ -12,7 +12,7 @@ CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文
 
 ## 权威来源与模块职责
 
-- 完整所有权地图和迁移断点见 `documentation/codebuddy/CODEPRO_FACT_AUTHORITY_ZH_CN.md`；修改意图、DAG、控制面、证据、恢复、报告或 UI 投影前先查对应行。
+- 所有权说明见 `documentation/codebuddy/CODEPRO_FACT_AUTHORITY_ZH_CN.md`；当前 Harness 链路以顶部“2026-10-14 已批准：新版 Harness 执行与目标权威”章节为准，该章节覆盖新版执行、调度与完成语义。下方旧 Rust/DAG 表按其适用范围参考，并以当前源码核实。
 - 对已经由权威模块判定的事实，下游只能消费其结构化结果，不得重新解析用户原文、提示词或模型自然语言作第二次业务裁决。
 - 子目录 `AGENTS.md` 对本目录内的实现细节优先，不能暗改跨模块所有权。经批准改变 owner、writer、consumer、持久化或失效规则时，同步维护所有权地图；基线已冻结时先报告偏差并取得修订授权。普通实施进度记在实施记录，不为更新进度改动冻结基线。
 
@@ -69,21 +69,22 @@ CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文
 
 ## 构建、测试与交付
 
+- 当前 Windows Harness 源码入口为仓库根目录的 `.\start-preview.ps1`，实际调用 `scripts/start-harness-preview.cjs`，使用已有 Node 编译 SDK/语言资源并启动兼容服务和 Electron，不自动安装依赖。根 `start-gui`、桌面 `start`/`start-gui` 仍涉及旧后端准备，不作为当前 Harness 默认启动入口。
 - 构建、启动和环境准备遵照 README 对当前平台的入口；保持 toolchain、profile、features、target 和构建环境一致，不临时拼环境变量、清缓存或尝试加速配置。开发启动、release 构建和安装包是不同交付，不互相替代。发生未授权的依赖下载、安装或环境变更时停止相关命令并报告。
-- 验证按受影响组件选择，命令以 README、组件 `AGENTS.md` 和现有脚本为依据。允许选择相关 Cargo package/测试目标/用例过滤及对应前端检查，不因此改变构建配置；只改前端不默认跑 Rust 全套，反之亦然。文档、报告和规则修改只检查内容、引用和格式，不编译产品。
+- 验证按受影响组件选择，命令以 README、组件 `AGENTS.md` 和现有脚本为依据。TS/JS 变更使用相关 Node/Vitest/TypeScript 入口，不默认跑 Rust 全套；实际修改仍使用的 Rust 模块时，可选择对应 Cargo package、测试目标或用例过滤，不因此改变构建配置。文档、报告和规则修改只检查内容、引用和格式，不编译产品。
 - 只为核心行为、跨模块合同、安全/状态边界和真实缺陷增加最小有效回归；断言来自用户要求或真实证据，不照抄实现。不要为简单 helper、字段透传或覆盖率机械堆测试；新增 Rust 回归优先复用相关测试目标，适合时放在 `crates/goose/tests/`。
-- Rust 修改后运行 `cargo fmt`。开发中使用必要的最小检查；同一切片稳定后集中运行相关测试，修复后仅重跑受影响目标。完整相关门禁在交付/合并前执行；只有跨组件风险或发布准备才扩大验证，合并 Rust 改动前必须通过适用的 Clippy 检查。用户对本批验证另有明确约定时遵守并报告未验证项。
+- 实际修改 Rust 源码时运行 `cargo fmt`。开发中使用必要的最小检查；同一切片稳定后集中运行相关测试，修复后仅重跑受影响目标。完整相关门禁在交付/合并前执行；只有跨组件风险或发布准备才扩大验证，合并 Rust 改动前必须通过适用的 Clippy 检查。用户对本批验证另有明确约定时遵守并报告未验证项。
 - 不并行启动多份 Rust 编译，不让桌面构建与 Rust 测试争抢同一产物。后端变化才需要重建后端；纯前端变化按对应开发入口验证。仅相关验收行为变化时更新 `goose-self-test.yaml`，在约定的综合验收阶段运行所需 phase，不默认每次局部修改重建并执行全部配方。
 - 用户可见行为最终需要真实产品验收。若本轮终点是 E2E-ready、由用户手工测试，完成约定构建与启动、候选版本/源码身份确认、夹具准备或复用、提示词及日志/会话导出位置交接后停止，明确产品 E2E 未执行。无需因桌面自动化不可用否决已经完成的准备工作，也不能宣称产品 PASS。
 - 若用户授权 Agent 执行桌面 E2E，使用真实应用交互，核对可见结果、持久化与日志；自动化不可用就报告该验证阻塞，不能用组件测试或 DOM 修改代替。复用当前批次有效的会话 JSON、工具回执和日志，不为每个阶段重复取证；最终分别报告实现、自动验证、E2E-ready 与产品验收状态。
 
 ## 代码约定与入口
 
-- 优先清楚名称和已有抽象；注释只解释原因、非显然约束和复杂逻辑。应用边界使用 `anyhow::Result`，调用方需要区分的领域/协议错误保留类型，错误上下文只补充新信息。
-- `Option` 只表示真实缺省、未知或兼容语义。校验模型、工具、网络、用户输入和持久化数据，不重复校验已成立的内部不变量。
-- 日志只为当前行为、错误、安全或必要诊断服务，避免泄露敏感数据。人工新增依赖优先用 `cargo add`，直接改 manifest 时保持锁文件一致。
-- Provider 遵循 `crates/goose/src/providers/base.rs`；MCP 位于 `crates/goose-mcp/`。桌面使用 ACP SDK 或 `ui/desktop/src/types/*`，不得恢复 `ui/desktop/src/api`、导入其生成客户端或添加 `@hey-api/openapi-ts`。
-- TUI/Ink 约定见 `ui/text/AGENTS.md`，仅在修改该组件时应用。入口：CLI `crates/goose-cli/src/main.rs`；桌面 `ui/desktop/src/main.ts`；Agent `crates/goose/src/agents/agent.rs`。
+- 优先清楚名称和已有抽象；注释只解释原因、非显然约束和复杂逻辑。Rust 应用边界使用 `anyhow::Result`，调用方需要区分的领域/协议错误保留类型，错误上下文只补充新信息。
+- Rust 的 `Option` 只表示真实缺省、未知或兼容语义。校验模型、工具、网络、用户输入和持久化数据，不重复校验已成立的内部不变量。
+- 日志只为当前行为、错误、安全或必要诊断服务，避免泄露敏感数据。新增 Rust 依赖优先用 `cargo add`，直接改 manifest 时保持锁文件一致。
+- 当前 Harness 与产品适配入口为 `runtime/server.mjs`、`runtime/compat.mjs`、`runtime/harness/index.mjs`、`runtime/harness/profile.mjs`；桌面入口为 `ui/desktop/src/main.ts`，协议代码在 `ui/desktop/src/acp/`、`ui/sdk/`。旧 Rust Provider、Agent、CLI 仅在实际调用链涉及它们时查看；不能按 `GooseClient`、`CodePro`、`_goose/*` 等兼容名称判断代码已失效。
+- 桌面使用 ACP SDK 或 `ui/desktop/src/types/*`，不得恢复旧 `ui/desktop/src/api` 或导入其生成客户端；此限制不针对 `ui/sdk` 已有的 `@hey-api/openapi-ts` 生成链。TUI/Ink 约定见 `ui/text/AGENTS.md`，仅在修改该组件时应用。
 
 ## 规则维护参考
 

@@ -10,38 +10,26 @@
 
 </div>
 
-## 当前 Harness 首版候选（D:\CodeBuddy-v1）
+## 当前 Harness 版本
 
-Git 仓库保存源码、依赖锁文件和许可证；不包含本机模型凭据、聊天数据、验收原始记录、`node_modules`、构建目录和安装包。`vendor/deepseek-harness` 仅为本地上游源码参考缓存，实际运行依赖以 `runtime/harness/package-lock.json` 为准。首次克隆后，除下文开发依赖外，还须按 `runtime/tools/provenance.json` 准备对应平台的 MCP 工具到 `runtime/tools/bin`；启动/打包会校验这些文件，仓库本身不包含预编译工具。当前 Windows 安装包已内置这些运行组件。
+当前执行核心为 DeepSeek Harness（DSH），通过 `runtime/` 的 Node.js 兼容服务连接 Electron/React 桌面。`vendor/deepseek-harness` 仅为本地上游源码参考缓存，实际运行依赖以 `runtime/harness/package-lock.json` 为准。
 
-Windows 最终候选 `1.43.3-harness7` 已实际安装，首次首页显示服务真实容量 65536（界面约 66k），修复旧 33k 默认值挤压输出预算造成的中断。最终包真实 UI 两轮完整流式对话首段为 8.0/3.9 秒，会话约 1 秒出现。冷启动样本仍曾达 45 秒，不宣称延迟完全解决。本批中间候选保留六次压缩、重启后事实延续和文件工具实测证据。安装包：`target/accepted-harness-installer-1.43.3-harness7/CodeBuddy-Harness-Setup.exe`。安装后启动「CodeBuddy Harness」，默认工作区 `~/CodeBuddy-Workspace`、数据 `~/.CodeBuddy-Harness`；当前配置保留。见[修复与验收记录](docs/reconstruction/2026-10-15-context-capacity.zh-CN.md)。macOS 与小时级生产项目仍待验。
+仓库保存源码、锁文件和许可证，不包含模型凭据、聊天数据、`node_modules`、构建产物和预编译 MCP 工具。独立工具的来源、平台、路径和哈希见 `runtime/tools/provenance.json`；按其要求准备到 `runtime/tools/bin`，不能以任意旧二进制替代或跳过校验。
 
-安装包包含构建机已有的 Node 24 可执行文件及许可证；Harness 服务与原生任务子进程使用包内 Node，运行服务不依赖系统 Node。打包前会实际执行 PowerShell 和文件搜索，检查原生子进程链路。项目开发所需的语言工具链仍按项目自身要求准备。
+源码启动、安装包构建和真实产品验收是不同步骤。历史实现与安装记录见 [Harness 接入记录](docs/reconstruction/2026-10-14-harness-authority.zh-CN.md)、[安装记录](docs/reconstruction/2026-10-15-harness-package.zh-CN.md)和[功能矩阵](docs/reconstruction/v1-functionality.zh-CN.md)；其中原开发机的路径、旧产物和通过项不代表当前 checkout 已完成验收。
 
-Harness Windows 安装包开发入口（使用已有 Node 24+ 和本地依赖）：
-`node scripts/build-harness-windows.cjs`。脚本将官方 Harness 依赖、适配层、SDK 配方类型和已验收 MCP 工具暂存到独立目录并校验指纹，调用现有 Electron Forge/Squirrel。安装标识为 CodeBuddyHarness，默认数据目录为用户主目录下 `.CodeBuddy-Harness`，与旧版隔离。首次启动可在设置配置模型；不自动导入旧版。打包和真实安装验收的结果以专题记录为准。
-
-已有同一批次应用产物时，可用 `node scripts/build-harness-windows.cjs <stage-directory> --make-only` 继续生成安装程序；仅适用于无需重新构建应用的中断，不用于跳过源码变更后的构建。
-
-若 NuGet 已完成、Squirrel 最终封装中断，可用 `node scripts/build-harness-windows.cjs <stage-directory> --finalize-only` 续做；先校验 NuGet 中的应用归档和 Harness 清单与当前产物一致。构建工具仅从现有依赖复制到 `target/harness-winstaller-*`，补齐当前主机架构的 7-Zip 文件名，不修改依赖目录。
-
-此目录的新执行链路由 Harness 主导；Windows 使用已存在的启动器：
+准备下文依赖后，在仓库根目录启动：
 
 ```powershell
-Set-Location D:\CodeBuddy-v1
 .\start-preview.ps1
 ```
 
-启动器选择本机已有的 Node.js 24+，准备 SDK/语言资源并启动 Harness 桥接与 Electron，不自动安装依赖。已有模型、历史和配置保存在 `.preview-data`；日志及本次启动回执位于 `.preview-data/logs/preview`。新任务默认在 `D:\CodeBuddy-Workspace` 内建立独立工作目录，也可选择现有项目。模型在设置中配置。
+启动器选择本机已有的 Node.js，编译 SDK/语言资源并启动 Harness 服务与 Electron，不自动安装依赖。预览的模型、历史和配置保存在当前仓库的 `.preview-data`；日志和启动回执位于 `.preview-data/logs/preview`。首次启动未配置模型时进入配置页面；可在界面选择测试项目。
 
-上述 start-preview 是源码开发入口，使用独立于安装版的数据目录。实际通过项和剩余缺口以[安装验收记录](docs/reconstruction/2026-10-15-harness-package.zh-CN.md)、[夜间验收记录](docs/reconstruction/overnight-acceptance.zh-CN.md)及[功能矩阵](docs/reconstruction/v1-functionality.zh-CN.md)为准。下方保留的原项目 `start-gui` / Rust 打包流程属于旧后端入口，不用于启动本目录的 Harness 版本。
+`start-gui` 等旧后端脚本仍保留在源码中，不用于启动本版 Harness。预览数据与安装版隔离，不自动导入旧版配置或凭据。
 
 CodeBuddy 将模型对话、项目文件、命令执行、Git 审查和扩展工具放在同一个桌面工作区。
 选择项目、连接模型、描述目标，再查看实际执行过程与结果。
-
-> 当前 main 是源码开发预览，并不代表每项功能均已完成实操验收。
-> 本次已同步当前开发源码，包括工具箱详情与教程移除、记忆容量优化、电脑控制截图状态保护、Git 审查桥接及任务恢复相关修复。
-> 最新源码仍有尚未完成的完整构建、桌面时序与软件操作验收，不能作为已验收的正式发行版。
 
 ## 功能
 
@@ -60,33 +48,29 @@ CodeBuddy 将模型对话、项目文件、命令执行、Git 审查和扩展工
 - Windows 10/11 x64、Git for Windows。
 - Node.js 24.10 或兼容的 24.x 版本。
 - pnpm：以 [ui/package.json](ui/package.json) 的 packageManager 为准，当前 11.9.0。
-- Rust：以 [rust-toolchain.toml](rust-toolchain.toml) 为准，当前 1.96.1。
-- Visual Studio 2022 C++ Build Tools、Windows SDK、LLVM/Clang。
 - 可访问的模型服务及凭据，例如本地 Ollama、Ollama Cloud 或应用支持的其他提供商。
 
-首次编译会下载依赖并生成较大的构建缓存。确认目标磁盘空间充足，避免同时运行多份完整编译。
+仅在需要本地编译原生 npm 模块或重建 Rust 工具时准备相应 C++/Rust 工具链；Rust 版本以 `rust-toolchain.toml` 为准，不把旧 Agent 全量编译作为 Harness 桌面启动步骤。
 
-## 旧后端的源码启动记录
+## 首次准备依赖
 
-在 PowerShell 中执行：
+以下命令在仓库根目录的 PowerShell 中执行，保持现有锁文件版本：
 
 ```powershell
-git clone https://github.com/erjinyi-bool/CodeBuddy.git
-Set-Location .\CodeBuddy
-git --version
 node --version
-rustc --version
 corepack pnpm --dir .\ui install --frozen-lockfile
-Set-Location .\ui\desktop
-node .\scripts\prepare-platform-binaries.js
-corepack pnpm run start-gui
+Push-Location .\runtime
+npm ci --ignore-scripts --no-audit --no-fund
+Pop-Location
+Push-Location .\runtime\harness
+npm ci --ignore-scripts --no-audit --no-fund
+Pop-Location
+.\start-preview.ps1
 ```
 
-没有 Corepack 时，可先执行 `npm install --global corepack`；也可安装上述版本的 pnpm，
-将 `corepack pnpm` 替换为 `pnpm.cmd`。保留锁文件，不要为绕过安装错误随意修改依赖。
+已有匹配版本 pnpm 时，可将 `corepack pnpm` 替换为 `pnpm.cmd`。UI、兼容服务和 Harness 是不同依赖目录；任一步失败先查看该步错误，不直接进入启动。不为绕过安装错误修改依赖版本或锁文件。
 
-启动脚本会检查并按需构建后端、构建 SDK、编译语言资源，再启动 Electron。
-首次窗口未出现时，先查看终端中的编译或下载进度。
+以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查 `.preview-data/logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
 
 ## 第一次使用
 
@@ -121,8 +105,7 @@ corepack pnpm run start-gui
 
 ## 常见问题
 
-**启动报编译器或 Clang 错误**：确认 C++ Build Tools、Windows SDK 和 LLVM 安装完整，
-必要时检查 LIBCLANG_PATH，重新打开终端后重试。
+**启动报找不到模块**：确认三个依赖目录均已按锁文件准备，查看 `runtime.log` 中具体缺失的模块。不要改用旧 Rust 启动脚本掩盖 Harness 错误。
 
 **模型能回答但工具失败**：检查模型工具调用支持、工具启用状态、服务连接与权限。
 记录具体工具错误，不能用另一项工具成功替代本次验收。
@@ -130,59 +113,42 @@ corepack pnpm run start-gui
 **磁盘空间下降**：Rust target、前端依赖和打包产物占用空间较大。
 停止构建后再检查可再生成目录；保留源码、会话和未验收证据。
 
-**没有安装包**：可直接从源码启动，也可查看
-[Windows Actions](https://github.com/erjinyi-bool/CodeBuddy/actions/workflows/codebuddy-windows.yml)
-中成功任务实际提供的工件。仓库不承诺每次提交都有已签名的正式安装包。
+**需要 Windows 安装包**：依赖和原生 MCP 工具齐备后，使用 `node scripts/build-harness-windows.cjs`。脚本暂存运行时并调用 Electron Forge/Squirrel，安装版服务使用包内 Node。构建、安装和模型/工具实测分别确认；仓库不包含本机 `target/` 中的历史安装包。
 
 ## 开发与测试
 
-在 ui/desktop 下执行：
+从仓库根目录按受影响组件选择现有检查或相关用例：
 
 ```powershell
-corepack pnpm run typecheck
-corepack pnpm run test:run
-corepack pnpm run lint:check
+corepack pnpm --dir .\ui\desktop run typecheck
+corepack pnpm --dir .\ui\desktop run test:run
+corepack pnpm --dir .\ui\desktop run lint:check
+npm --prefix .\runtime test
+npm --prefix .\runtime\harness test
 ```
 
-在仓库根目录执行：
-
-```powershell
-cargo fmt --check
-cargo test -p goose --lib --jobs 1
-cargo clippy --all-targets -- -D warnings
-```
-
-部分内部 crate、包和协议保留兼容名称，不能直接全局替换。
+不必每次运行上面全部检查；桌面可指定相关 Vitest 文件，运行时可用 `node --test <相关测试文件>`。只有改动实际使用的 Rust 组件才选择对应 Cargo 检查。部分包和协议保留兼容名称，不能按旧名字全局替换或删除。
 
 | 路径                       | 内容                    |
 | -------------------------- | ----------------------- |
 | ui/desktop                 | Electron 界面           |
 | ui/sdk                     | 通信 SDK                |
-| crates                     | Agent、命令行与工具服务 |
+| runtime                    | Harness 驱动、产品兼容服务与独立工具边界 |
+| crates                     | 保留的旧 Rust 实现及工具源码 |
 | scripts                    | 启动、构建和验证脚本    |
 | documentation/codebuddy | 产品文档与第三方声明    |
 | docs                       | 设计和开发计划          |
-
-## 当前开发快照验证（2026-09-11）
-
-- 当前本地开发源码已同步；会话、密钥、缓存和验收产物不上传。
-- 桌面全量测试 221 个文件通过：1801 项通过、4 项跳过。Rust 全工作区首轮 4952 项通过、1 项失败、39 项忽略；过期断言修正后，所属记忆工具测试 14 项全部通过。
-- 打包前已修复三处 Clippy 提示；`cargo clippy --workspace --all-targets --exclude v8 --jobs 1 -- -D warnings` 已通过。
-- Windows x64 1.43.1 安装包已从 Release 源码构建，包内容、后端哈希和发行配置检查通过。安装包未签名；实际安装升级、思考增量显示时序、电脑控制完整软件操作等验收尚未完成，不代表所有功能已经实操验收。
 
 ## 项目体积与本地文件
 
 - `target/` 是可重新生成的 Rust 编译产物，不属于提交到 GitHub 的源码。
 - `node_modules/`、安装包输出、本地验收记录和临时夹具也不应提交。
 - 先停止构建再整理缓存；源码、配置、会话及未完成工作的证据需要保留。
-- 当前仓库已移除未被引用的旧演示视频和动图。历史提交仍保留原文件，因此这次删除不会立即缩小已有 `.git` 历史。
 
 ## 反馈与许可
 
-使用本仓库 [Issues](https://github.com/erjinyi-bool/CodeBuddy/issues) 反馈问题，
+在[当前仓库](https://github.com/erjinyi-bool/CodeBuddy-v1)反馈问题，
 提供版本、复现步骤、预期与实际结果，去除密钥和个人信息。
 
 [贡献指南](CONTRIBUTING.md) · [维护者](MAINTAINERS.md) ·
 [Apache-2.0 许可证](LICENSE) · [第三方软件与修改声明](documentation/codebuddy/THIRD_PARTY_NOTICE.md)
-
-上游 goose 博客及活动素材不再随仓库复制，相关文档链接指向上游网站；使用指南仍需要的配图保留在 `documentation/static/img/upstream-blog/`。本地 `target/` 等构建缓存不属于源码，重新编译时会生成。

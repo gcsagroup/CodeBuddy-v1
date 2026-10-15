@@ -1,0 +1,11 @@
+# Candidate handoff, 2026-10-15
+
+08:54 Beijing: the Windows source development preview is running. This is not a fully accepted release installer. D:\CodeBuddy-v1 has no .git. No branches, commits, pushes, or dependency installations. All 156 files match the accepted context-ui manifest; no product source changed this round.
+
+Start with .\start-preview.ps1 from D:\CodeBuddy-v1. Launched08:52: launcher22692, Harness runtime24552, desktop launcher7796. Exec53339 remains running, not exit0. Default profile .preview-data; workspace D:\CodeBuddy-Workspace. Earlier processes had exited despite stale running receipts. Existing local debugging port9387 was enabled for acceptance only.
+
+Fresh real default Electron/Kimi evidence: greeting first model chunk2206ms, stream3526ms/106 chunks, cold preparation3996ms. Second new chat955ms, preparation916ms, shared MCP reused; first chunk2254ms, stream3687ms. Per-session tool preparation remains. Four turns completed via Harness. Returning to history and correcting750 to625 basis points preserved the marker and untaxed shipping, yielding10975 cents. Initial cold navigation timing was invalid due to a test URL mismatch; another premature navigation send went to the old chat and was excluded from new-chat timing. All635 prior session IDs and provider/model/config hash preserved; schedules paused.
+
+Evidence: .preview-evidence/default-candidate-morning.json and default-candidate-morning.png. Reused validation: backend367/367; frontend slices recorded separately with overlapping tests. Prior12-module run23m39s,31 successful compactions/38 attempts,82 independent tests, pause/restart continuation; separate real UI4 successful compactions and eighth-turn recall after restart. Desktop control, skills, settings, memory and other coverage is scoped in the overnight journal and matrix.
+
+Open: Harness installer wiring, macOS hardware, advanced recipes, some cron/ordinary-chat paths, remote Git/external services, real voice/external skill downloads, default auxiliary-vision configuration, hour-scale production projects. Direct Harness previously showed32.745/47.952/115.878-second first chunks; today's approximately2.2 seconds does not resolve that variability. After the09:00 report, stop repeated acceptance and await user direction.

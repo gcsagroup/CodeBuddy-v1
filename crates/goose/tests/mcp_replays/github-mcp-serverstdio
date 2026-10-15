@@ -1,0 +1,7 @@
+STDIN: {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{"elicitation":{},"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}},"roots":{},"sampling":{}},"clientInfo":{"name":"goose-desktop","version":"0.0.0"}}}
+STDOUT: {"jsonrpc":"2.0","id":0,"result":{"capabilities":{"tools":{"listChanged":true}},"protocolVersion":"2025-03-26","serverInfo":{"name":"github-mcp-server","version":"0.24.1"}}}
+STDIN: {"jsonrpc":"2.0","method":"notifications/initialized"}
+STDIN: {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"agent-session-id":"test-session-id","progressToken":0}}}
+STDOUT: {"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"get_file_contents","description":"Get file contents from GitHub","inputSchema":{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"path":{"type":"string"},"sha":{"type":"string"}},"required":["owner","repo","path"]}}]}}
+STDIN: {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{"agent-session-id":"test-session-id","agent-tool-call-request-id":"test-id","progressToken":1},"name":"get_file_contents","arguments":{"owner":"block","path":"README.md","repo":"goose","sha":"ab62b863c1666232a67048b6c4e10007a2a5b83c"}}}
+STDOUT: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"successfully downloaded text file"},{"type":"resource","resource":{"uri":"repo://block/goose/contents/README.md","mimeType":"text/plain; charset=utf-8","text":"# goose\n"}}]}}

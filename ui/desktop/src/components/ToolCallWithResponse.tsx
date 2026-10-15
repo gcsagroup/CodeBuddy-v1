@@ -50,7 +50,8 @@ type LoadingStatus = ExecutionLoadingStatus | 'unknown' | 'cancelled' | 'pending
 
 export function resolveToolLoadingStatus(
   toolResponse: ToolResponseMessageContent | undefined,
-  isStreamingMessage: boolean
+  isStreamingMessage: boolean,
+  toolRequest?: ToolRequestMessageContent
 ): LoadingStatus {
   if (!toolResponse) return isStreamingMessage ? 'loading' : 'unknown';
   const result = toolResponse.toolResult;
@@ -60,6 +61,26 @@ export function resolveToolLoadingStatus(
   const value = result.value;
   if (!value || typeof value !== 'object') return 'unknown';
   if ('isError' in value && value.isError === true) return 'error';
+  const call = toolRequest?.toolCall.status === 'success' ? toolRequest.toolCall.value : undefined;
+  const output = 'structuredContent' in value ? value.structuredContent : undefined;
+  if (
+    toolRequest?.metadata?.extensionName === 'harness' &&
+    call !== null &&
+    typeof call === 'object' &&
+    'name' in call &&
+    (call.name === 'pwsh' || call.name === 'bash') &&
+    output !== null &&
+    typeof output === 'object' &&
+    'kind' in output &&
+    output.kind === 'foreground' &&
+    'exitCode' in output &&
+    typeof output.exitCode === 'number' &&
+    Number.isInteger(output.exitCode) &&
+    output.exitCode !== 0
+  ) {
+    // A successful tool transport can still return a failed foreground command.
+    return 'error';
+  }
   return 'content' in value && Array.isArray(value.content) ? 'success' : 'unknown';
 }
 
@@ -583,7 +604,7 @@ function ToolCallView({
   })();
 
   const businessOutcome = computerToolOutcome(toolCall.name, requestId, toolResponse);
-  const transportStatus = resolveToolLoadingStatus(toolResponse, !!isStreamingMessage);
+  const transportStatus = resolveToolLoadingStatus(toolResponse, !!isStreamingMessage, toolRequest);
   const toolAudit = parseToolAuditReceipt(toolResponse?.metadata?.toolAudit);
   const cancelled =
     (!toolResponse && isCancelledMessage) ||

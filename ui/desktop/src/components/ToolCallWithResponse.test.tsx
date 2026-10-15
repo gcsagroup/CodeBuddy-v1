@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { describe, expect, it, vi } from 'vitest';
 import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
-import type { ToolResponseMessageContent } from '../types/message';
+import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../types/message';
 
 vi.mock('./McpApps/McpAppRenderer', () => ({
   default: (props: Record<string, unknown>) => (
@@ -159,6 +159,67 @@ describe('tool response completion evidence', () => {
         false
       )
     ).toBe('error');
+  });
+
+  it('shows a native foreground command failure even when tool transport succeeded', async () => {
+    const request: ToolRequestMessageContent = {
+      type: 'toolRequest',
+      id: 'native-test-failure',
+      metadata: { extensionName: 'harness' },
+      toolCall: {
+        status: 'success',
+        value: { name: 'pwsh', arguments: { command: 'node --test tests/invoice.test.mjs' } },
+      },
+    };
+    const result = response({
+      status: 'success',
+      value: {
+        isError: false,
+        content: [{ type: 'text', text: 'tests 3, pass 1, fail 2' }],
+        structuredContent: { kind: 'foreground', exitCode: 1 },
+      },
+    });
+    result.id = request.id;
+    expect(resolveToolLoadingStatus(result, false, request)).toBe('error');
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          toolRequest={request}
+          toolResponse={result}
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          isStreamingMessage={false}
+        />
+      </IntlProvider>
+    );
+    expect(await screen.findByRole('button', { name: /node --test.*Failed/i })).toBeVisible();
+  });
+
+  it('does not reinterpret unrelated MCP payloads or unfinished commands as native failures', () => {
+    const nativeRequest: ToolRequestMessageContent = {
+      type: 'toolRequest',
+      id: 'observe',
+      metadata: { extensionName: 'harness' },
+      toolCall: { status: 'success', value: { name: 'pwsh', arguments: {} } },
+    };
+    const commandResult = (exitCode: number | null, kind = 'foreground') =>
+      response({
+        status: 'success',
+        value: { content: [], structuredContent: { kind, exitCode } },
+      });
+    expect(resolveToolLoadingStatus(commandResult(0), false, nativeRequest)).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(null), false, nativeRequest)).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(1, 'background'), false, nativeRequest)).toBe(
+      'success'
+    );
+    expect(
+      resolveToolLoadingStatus(commandResult(1), false, {
+        ...nativeRequest,
+        metadata: { extensionName: 'external-mcp' },
+      })
+    ).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(1), false)).toBe('success');
   });
 
   it('shows unknown status without a success indicator after a missing response', async () => {

@@ -641,7 +641,7 @@ function ProgressiveMessageListContent({
       .filter(
         (request) =>
           isPlanTool(presentedToolCall(request)?.name ?? '') &&
-          resolveToolLoadingStatus(responses.get(request.id), false) === 'success'
+          resolveToolLoadingStatus(responses.get(request.id), false, request) === 'success'
       );
     const activePlanRequestId = planRunning
       ? acknowledgedPlans[acknowledgedPlans.length - 1]?.id
@@ -696,7 +696,7 @@ function ProgressiveMessageListContent({
             ? call.name
             : '';
         const outcome = computerToolOutcome(name, request.id, response);
-        const status = resolveToolLoadingStatus(response, false);
+        const status = resolveToolLoadingStatus(response, false, request);
         return (
           !isPlanTool(name) &&
           !isProgressTool(name) &&
@@ -740,12 +740,13 @@ function ProgressiveMessageListContent({
       });
       const operations = requests.filter((request) => !checks.includes(request));
       const failed = operations.filter(
-        (request) => resolveToolLoadingStatus(responses.get(request.id), false) === 'error'
+        (request) => resolveToolLoadingStatus(responses.get(request.id), false, request) === 'error'
       ).length;
       const successful = formatToolActionSummary(
         intl,
         operations.flatMap((request) => {
-          if (resolveToolLoadingStatus(responses.get(request.id), false) !== 'success') return [];
+          if (resolveToolLoadingStatus(responses.get(request.id), false, request) !== 'success')
+            return [];
           const call = presentedToolCall(request);
           return call ? [call] : [];
         })
@@ -841,7 +842,8 @@ function ProgressiveMessageListContent({
           progressCall &&
           isProgressTool(progressCall.name) &&
           typeof progressCall.arguments.text === 'string' &&
-          (resolveToolLoadingStatus(responses.get(progressRequest.id), false) === 'success' ||
+          (resolveToolLoadingStatus(responses.get(progressRequest.id), false, progressRequest) ===
+            'success' ||
             (!responses.has(progressRequest.id) && activeToolCallIds?.includes(progressRequest.id)))
         ) {
           const { group, settled } = collectProcess(localIndex + 1);
@@ -1312,7 +1314,7 @@ function ProgressiveMessageListContent({
             // This label describes tool receipts, not a second task verdict.
             turnRequests.every(
               (request) =>
-                resolveToolLoadingStatus(turnResponses.get(request.id), false) === 'success'
+                resolveToolLoadingStatus(turnResponses.get(request.id), false, request) === 'success'
             );
           const elapsed = hasAnswerBoundary
             ? Math.round(turn[answerBoundaryIndex].created - turn[0].created)

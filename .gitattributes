@@ -1,0 +1,4 @@
+crates/goose/src/agents/snapshots/*.snap linguist-language=Text
+
+# Qualification fixture hashes must be identical on Windows, macOS, and Linux.
+evals/codebuddy/ollama-cloud-*/fixtures/** text eol=lf

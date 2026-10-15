@@ -1,0 +1,14 @@
+# CodeBuddy project context
+
+The canonical project-document entry is:
+`documentation/codebuddy/CURRENT.md`
+
+When the user asks about project status, current problems, progress, or planning:
+1. Read `documentation/codebuddy/CURRENT.md` first.
+2. Follow only the exact relative paths recorded there.
+3. Inspect the current Git worktree and run relevant read-only checks before drawing conclusions.
+4. Treat dates and test results in documents as historical evidence until verified on the current HEAD.
+
+Do not infer a document path from its title, date, or basename. If `read_document` reports
+`path_not_found`, stop guessing and use `tree` on the nearest existing directory. If multiple
+plausible files remain, ask the user which one is intended.

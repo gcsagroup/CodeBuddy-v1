@@ -1,0 +1,128 @@
+name: CodeBuddy Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codebuddy-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-package:
+    name: Validate and package unsigned Windows build
+    if: github.repository == 'erjinyi-bool/CodeBuddy'
+    runs-on: windows-2022
+    timeout-minutes: 240
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - name: Checkout CodeBuddy
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.10.0
+
+      - name: Verify built-in skills directory in clean checkout
+        shell: pwsh
+        run: |
+          $placeholder = 'crates/goose/src/skills/builtins/.gitkeep'
+          git ls-files --error-unmatch -- $placeholder
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $placeholder -PathType Leaf)) {
+            throw 'The built-in skills directory must survive a clean Git checkout.'
+          }
+
+      - name: Install pinned pnpm
+        shell: pwsh
+        run: npm install --global pnpm@10.30.3
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          key: codebuddy-windows-msvc
+
+      - name: Install locked UI dependencies
+        shell: pwsh
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Run CodeBuddy quality gates and build installer
+        shell: pwsh
+        run: .\scripts\build-codebuddy-windows.ps1 -SkipDependencyInstall
+
+      - name: Verify CodeBuddy artifacts
+        shell: pwsh
+        run: |
+          $application = 'ui\desktop\out\CodeBuddy-win32-x64\CodeBuddy.exe'
+          $installer = 'ui\desktop\out\make\squirrel.windows\x64\CodeBuddy-Setup.exe'
+          if (-not (Test-Path -LiteralPath $application -PathType Leaf)) {
+            throw "Missing packaged application: $application"
+          }
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+            throw "Missing installer: $installer"
+          }
+          Get-Item -LiteralPath $application, $installer |
+            Select-Object FullName, Length, LastWriteTime
+
+      - name: Exercise packaged CodeBuddy runtime
+        shell: pwsh
+        run: |
+          .\scripts\test-codebuddy-windows-packaged-runtime.ps1 `
+            -PackagedAppPath 'ui\desktop\out\CodeBuddy-win32-x64\CodeBuddy.exe' `
+            -IsolatedRoot 'target\codebuddy-packaged-runtime\ci' `
+            -EvidencePath 'target\codebuddy-lifecycle-evidence\packaged-runtime.json' `
+            -ConfirmIsolatedRuntime `
+            -CleanupIsolatedRoot
+
+      - name: Exercise installed CodeBuddy lifecycle
+        shell: pwsh
+        env:
+          CODEBUDDY_DISPOSABLE_TEST_ACCOUNT: "true"
+        run: |
+          .\scripts\test-codebuddy-windows-lifecycle.ps1 `
+            -CurrentInstallerPath 'ui\desktop\out\make\squirrel.windows\x64\CodeBuddy-Setup.exe' `
+            -IsolatedRoot 'target\codebuddy-lifecycle\ci' `
+            -EvidencePath 'target\codebuddy-lifecycle-evidence\installed-lifecycle.json' `
+            -ConfirmIsolatedLifecycle `
+            -ConfirmDisposableWindowsAccount `
+            -CleanupIsolatedRoot
+
+      - name: Upload CodeBuddy Windows lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: CodeBuddy-Windows-lifecycle-evidence
+          path: |
+            target/codebuddy-package-inspection.json
+            target/codebuddy-lifecycle-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload unsigned CodeBuddy Windows artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: CodeBuddy-Windows-unsigned
+          path: |
+            ui/desktop/out/CodeBuddy-win32-x64/
+            ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe
+          if-no-files-found: error
+          retention-days: 14

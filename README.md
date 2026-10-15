@@ -184,3 +184,5 @@ cargo clippy --all-targets -- -D warnings
 
 [贡献指南](CONTRIBUTING.md) · [维护者](MAINTAINERS.md) ·
 [Apache-2.0 许可证](LICENSE) · [第三方软件与修改声明](documentation/codebuddy/THIRD_PARTY_NOTICE.md)
+
+上游 goose 博客及活动素材不再随仓库复制，相关文档链接指向上游网站；使用指南仍需要的配图保留在 `documentation/static/img/upstream-blog/`。本地 `target/` 等构建缓存不属于源码，重新编译时会生成。

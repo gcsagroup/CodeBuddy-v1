@@ -1,0 +1,9 @@
+data: {"id":"chatcmpl-codemode-inspection","object":"chat.completion.chunk","created":1770339184,"model":"gpt-5-nano-2025-08-07","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-codemode-inspection","object":"chat.completion.chunk","created":1770339184,"model":"gpt-5-nano-2025-08-07","choices":[{"index":0,"delta":{"content":"Inspection complete: unsafe callbacks are unavailable and no file was written."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-codemode-inspection","object":"chat.completion.chunk","created":1770339184,"model":"gpt-5-nano-2025-08-07","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: {"id":"chatcmpl-codemode-inspection","object":"chat.completion.chunk","created":1770339184,"model":"gpt-5-nano-2025-08-07","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":12,"total_tokens":112}}
+
+data: [DONE]

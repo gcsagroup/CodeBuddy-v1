@@ -1,0 +1,200 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { mkdtemp, readFile, access } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createCompatServer } from '../server.mjs';
+
+const secret = 'harness-integration-loopback-only';
+const ext = name => `_goose/unstable/${name}`;
+
+async function connect(baseUrl) {
+  const socket = new WebSocket(`${baseUrl.replace(/^http/, 'ws')}/acp?token=${secret}`);
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true });
+    socket.addEventListener('error', reject, { once: true });
+  });
+  let id = 0;
+  const pending = new Map();
+  const notifications = [];
+  const waiters = new Set();
+  socket.addEventListener('message', event => {
+    const message = JSON.parse(String(event.data));
+    const task = pending.get(message.id);
+    if (task) {
+      pending.delete(message.id);
+      clearTimeout(task.timer);
+      if (message.error) task.reject(Object.assign(new Error(message.error.message), message.error));
+      else task.resolve(message.result);
+    } else if (message.method) {
+      notifications.push(message);
+      for (const waiter of [...waiters]) if (waiter.match(message)) waiter.resolve(message);
+    }
+  });
+  socket.addEventListener('close', () => {
+    for (const task of pending.values()) { clearTimeout(task.timer); task.reject(new Error('ACP connection closed')); }
+    pending.clear();
+  });
+  return {
+    notifications,
+    request(method, params = {}) {
+      const next = ++id;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { pending.delete(next); reject(new Error(`ACP ${method} timed out`)); }, 15000);
+        pending.set(next, { resolve, reject, timer });
+        socket.send(JSON.stringify({ jsonrpc: '2.0', id: next, method, params }));
+      });
+    },
+    waitFor(match) {
+      const existing = notifications.find(match);
+      if (existing) return Promise.resolve(existing);
+      return new Promise((resolve, reject) => {
+        const waiter = { match, resolve: value => { clearTimeout(timer); waiters.delete(waiter); resolve(value); } };
+        const timer = setTimeout(() => { waiters.delete(waiter); reject(new Error('Expected ACP notification timed out')); }, 10000);
+        waiters.add(waiter);
+      });
+    },
+    reply(id, result) { socket.send(JSON.stringify({ jsonrpc: '2.0', id, result })); },
+    close() { socket.close(); },
+  };
+}
+
+async function fixtureServer(root) {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.url === '/v1/models') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: [{ id: 'bridge-model' }, { id: 'bridge-model-two' }] }));
+      return;
+    }
+    if (req.url !== '/v1/chat/completions') { res.writeHead(404); res.end(); return; }
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const request = JSON.parse(raw);
+    requests.push(request);
+    if (!request.stream) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] }));
+      return;
+    }
+    const lastUser = request.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('bridge_fixture_'));
+    const prompt = JSON.stringify(request.messages[lastUser]?.content);
+    if (prompt.includes('bridge_fixture_error')) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'controlled bridge provider failure', type: 'invalid_request_error' } }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const emit = (delta, finish_reason = null, usage) => res.write(`data: ${JSON.stringify({ id: 'bridge-fixture-completion', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
+    if (prompt.includes('bridge_fixture_slow')) {
+      emit({ role: 'assistant', content: 'bridge pending' });
+      const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
+      res.on('close', () => clearTimeout(timer));
+      return;
+    }
+    const toolFinished = request.messages.slice(lastUser + 1).some(message => message.role === 'tool');
+    if (prompt.includes('bridge_fixture_write') && !toolFinished) {
+      emit({ role: 'assistant', content: 'Before the tool. ' });
+      emit({ tool_calls: [{ index: 0, id: 'bridge-call-write', type: 'function', function: { name: 'write', arguments: JSON.stringify({ file_path: path.join(root, prompt.includes('denied') ? 'denied.txt' : 'approved.txt'), content: 'actual Harness tool output\n' }) } }] });
+      emit({}, 'tool_calls');
+    } else {
+      emit({ role: 'assistant', content: 'Harness bridge ' });
+      emit({ content: 'complete.' });
+      emit({}, 'stop', { prompt_tokens: 17, completion_tokens: 8, total_tokens: 25 });
+    }
+    res.end('data: [DONE]\n\n');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  return { requests, url: `http://127.0.0.1:${server.address().port}`, async close() { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } };
+}
+
+test('ACP facade runs official Harness with permissions, cancellation and restart persistence', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-harness-acp-'));
+  const dataDir = path.join(root, 'application-data');
+  const model = await fixtureServer(root);
+  // Deliberately no injected driver: this must use server.mjs -> official Harness.
+  let app = await createCompatServer({ dataDir, secret });
+  let client = await connect(await app.listen(0));
+  t.after(async () => { client.close(); await app.close(); await model.close(); });
+  await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  const configured = await client.request(ext('providers/custom/create'), {
+    engine: 'openai_compatible', displayName: 'Controlled Harness bridge fixture', apiUrl: model.url,
+    requiresAuth: false, models: ['bridge-model', 'bridge-model-two'], supportsStreaming: true, headers: {},
+  });
+  await client.request(ext('defaults/save'), { providerId: configured.providerId, modelId: 'bridge-model' });
+  const newSession = async () => (await client.request('session/new', { cwd: root, mcpServers: [] })).sessionId;
+  const prompt = (sessionId, text) => client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
+  const updates = sessionId => client.notifications.filter(message => message.method === 'session/update' && message.params.sessionId === sessionId).map(message => message.params.update);
+  const permission = sessionId => client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId);
+  let retainedSession;
+
+  await t.test('existing ACP content array reaches Harness; approval gates a real file tool', async () => {
+    retainedSession = await newSession();
+    const pending = prompt(retainedSession, 'bridge_fixture_write approved');
+    const ask = await permission(retainedSession);
+    assert.equal(ask.params.toolCall.title, 'write');
+    assert.equal(ask.params.toolCall.rawInput.file_path, path.join(root, 'approved.txt'));
+    await assert.rejects(access(path.join(root, 'approved.txt')), 'file must not exist before permission');
+    client.reply(ask.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
+    assert.equal((await pending).stopReason, 'end_turn');
+    assert.equal(await readFile(path.join(root, 'approved.txt'), 'utf8'), 'actual Harness tool output\n');
+    const live = updates(retainedSession);
+    assert.ok(live.some(update => update.sessionUpdate === 'tool_call_update' && update.status === 'completed'));
+    const text = live.filter(update => update.sessionUpdate === 'agent_message_chunk');
+    assert.equal(text.map(update => update.content.text).join(''), 'Before the tool. Harness bridge complete.');
+    assert.notEqual(text[0]._meta.goose.messageId, text.at(-1)._meta.goose.messageId, 'tool-separated model attempts need separate chat messages');
+    assert.ok(model.requests.some(request => request.stream && request.tools.some(tool => tool.function.name === 'write')));
+  });
+
+  await t.test('rejecting the original ACP permission leaves the tool target untouched', async () => {
+    const sessionId = await newSession();
+    const pending = prompt(sessionId, 'bridge_fixture_write denied');
+    const ask = await permission(sessionId);
+    client.reply(ask.id, { outcome: { outcome: 'selected', optionId: 'reject_once' } });
+    assert.equal((await pending).stopReason, 'end_turn');
+    await assert.rejects(access(path.join(root, 'denied.txt')));
+    assert.ok(updates(sessionId).some(update => update.sessionUpdate === 'tool_call_update' && update.status === 'failed'));
+  });
+
+  await t.test('cancel travels over the active WebSocket while the real model stream is pending', async () => {
+    const sessionId = await newSession();
+    const pending = prompt(sessionId, 'bridge_fixture_slow');
+    await client.waitFor(message => message.method === 'session/update' && message.params.sessionId === sessionId && message.params.update.content?.text === 'bridge pending');
+    await client.request('session/cancel', { sessionId });
+    assert.equal((await pending).stopReason, 'cancelled');
+  });
+
+  await t.test('provider errors remain JSON-RPC errors through the actual execution core', async () => {
+    const sessionId = await newSession();
+    await assert.rejects(prompt(sessionId, 'bridge_fixture_error'), /controlled bridge provider failure|400/);
+  });
+
+  await t.test('changing models on an existing ACP session preserves history', async () => {
+    await client.request('session/set_config_option', { sessionId: retainedSession, configId: 'model', value: 'bridge-model-two' });
+    assert.equal((await prompt(retainedSession, 'bridge_fixture_chat changed_model')).stopReason, 'end_turn');
+    assert.equal(model.requests.at(-1).model, 'bridge-model-two');
+    assert.match(JSON.stringify(model.requests.at(-1).messages), /bridge_fixture_write approved/);
+  });
+
+  await t.test('restart replays identical message ids and continues the persisted Harness conversation', async () => {
+    const before = updates(retainedSession).filter(update => update.sessionUpdate === 'agent_message_chunk');
+    client.close();
+    await app.close();
+    app = await createCompatServer({ dataDir, secret });
+    client = await connect(await app.listen(0));
+    await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+    const defaults = await client.request(ext('defaults/read'));
+    assert.equal(defaults.providerId, configured.providerId);
+    await client.request('session/load', { sessionId: retainedSession, cwd: root, mcpServers: [] });
+    const replay = updates(retainedSession).filter(update => update.sessionUpdate === 'agent_message_chunk');
+    assert.deepEqual(replay, before);
+    assert.equal((await prompt(retainedSession, 'bridge_fixture_chat after_restart')).stopReason, 'end_turn');
+    const request = model.requests.at(-1);
+    assert.match(JSON.stringify(request.messages), /bridge_fixture_write approved/);
+    assert.match(JSON.stringify(request.messages), /bridge_fixture_chat changed_model/);
+    assert.equal(request.model, 'bridge-model-two');
+    const list = await client.request('session/list', {});
+    assert.ok(list.sessions.some(session => session.sessionId === retainedSession));
+  });
+});

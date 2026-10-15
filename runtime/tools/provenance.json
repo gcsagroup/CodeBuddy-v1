@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "copiedAt": "2026-10-14T09:26:38.212Z",
+  "purpose": "Standalone MCP tool processes invoked by DeepSeek Harness; the legacy agent, ACP server and scheduler are not started.",
+  "artifactIdentityNote": "Goose rebuilt offline from current D:/CodeBuddy-v1 on 2026-10-15 with the existing donut envelope fix and standalone commonqueries MCP. Qwen remains the pinned original artifact. Earlier previews retain their previous executable.",
+  "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
+  "artifacts": [
+    {
+      "name": "goose",
+      "path": "bin/goose-0a286375/goose.exe",
+      "platform": "win32",
+      "architecture": "x64",
+      "sha256": "0a286375a8d30f0acbbf38f40275372a13a613dc5b5ad50fae5d0de6b23fa602",
+      "bytes": 332407808,
+      "sourcePath": "D:\\CodeBuddy-v1\\target\\debug\\goose.exe",
+      "sourceModifiedAt": "2026-10-14T21:18:29.011Z",
+      "sourceBaselineRevision": "964bbeb1587f1c5551ee17907e0b26632c4163ce",
+      "sourceBaselineIncludesUncommittedChanges": true,
+      "rebuiltForThisRevision": true,
+      "buildLog": ".preview-evidence/common-query-goose-build.log",
+      "buildProfile": "dev, existing Windows build-environment resolver, offline, locked, jobs=1",
+      "license": "Apache-2.0",
+      "licenseFile": "licenses/goose-Apache-2.0.txt",
+      "licenseSha256": "276907a476b8790c650f7a7584b5bd194303bdacb269edf130b51c3cf2a7365d",
+      "allowedCommands": [
+        [
+          "mcp",
+          "computercontroller"
+        ],
+        [
+          "mcp",
+          "autovisualiser"
+        ],
+        [
+          "mcp",
+          "commonqueries"
+        ]
+      ],
+      "sourceManifest": ".preview-evidence/overnight-source-commonqueries.json"
+    },
+    {
+      "name": "qwen-computer-use",
+      "path": "bin/qwen-computer-use.exe",
+      "platform": "win32",
+      "architecture": "x64",
+      "sha256": "5b08525ee3825d611a4ef643badbdf15dd55e95816e4f5f15fd06dbe30c5f9b8",
+      "bytes": 4736000,
+      "sourcePath": "D:\\Users\\jiangrui\\Desktop\\CodeBuddy\\ui\\desktop\\src\\bin\\qwen-computer-use.exe",
+      "sourceModifiedAt": "2026-10-10T16:08:32.741Z",
+      "sourceBaselineRevision": "964bbeb1587f1c5551ee17907e0b26632c4163ce",
+      "sourceBaselineIncludesUncommittedChanges": true,
+      "rebuiltForThisRevision": false,
+      "license": "MIT",
+      "licenseFile": "licenses/qwen-computer-use-MIT.txt",
+      "licenseSha256": "0fdb775e00e6fdde23984b4f1184cd13c34135caac1e714ad489141c239704bc",
+      "allowedCommands": [
+        [
+          "--foreground-input",
+          "mcp"
+        ]
+      ]
+    }
+  ]
+}

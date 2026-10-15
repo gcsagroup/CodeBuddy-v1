@@ -1,0 +1,26 @@
+{
+  "runtime": {
+    "distribution": "official npm packages",
+    "name": "@deepseek-ai/dsh",
+    "version": "0.2.1-alpha.2",
+    "integrity": "sha512-CkRE0uAOg2ldL2VpfF4cNRsl178CH5nM+8YklPrlMZl5ln0KhVfd42dJuRlgOXZmkpizCRvrVS8LAL+GKfgk0w==",
+    "dependencyIntegrity": "package-lock.json",
+    "installationScripts": "disabled with --ignore-scripts",
+    "verifiedNode": "24.21.0"
+  },
+  "referenceSource": {
+    "repository": "https://github.com/deepseek-ai/deepseek-harness",
+    "commit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
+    "archive": "../../vendor/deepseek-harness/upstream.zip",
+    "archiveSha256": "8807ceb7d807ee10601ba3acc8f1723056465804c7d07c7eca9a038ed990ca5d",
+    "sourceVersion": "0.2.1-alpha.2"
+  },
+  "sourceEquivalence": "Version match verified. npm did not expose gitHead or provenance attestation; byte-for-byte equivalence between npm build and reference commit has not been established.",
+  "license": "MIT; upstream LICENSE retained in the source archive and npm packages",
+  "verification": {
+    "date": "2026-10-14",
+    "platform": "Windows",
+    "model": "controlled loopback HTTP fixture; no user endpoint or credentials read",
+    "testCommand": "node --test test/driver.test.mjs"
+  }
+}

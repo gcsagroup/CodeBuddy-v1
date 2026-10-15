@@ -47,6 +47,44 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }: { content: string }) => <pre>{content}</pre>,
 }));
 const invoke = vi.fn();
+it('opens historical changes without a writable workspace and keeps file tabs separate by turn', () => {
+  const scope = { sessionId: 'readonly-change-history', root: '' };
+  render(<WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />, {
+    wrapper: IntlTestWrapper,
+  });
+  fireEvent.click(screen.getByRole('tab', { name: 'Changes' }));
+  expect(screen.getByText('No recorded file changes yet.')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: {
+        sessionId: 'other',
+        turnId: 'first',
+        filePath: '/fixture/foreign.py',
+      },
+    })
+  );
+  expect(screen.queryByRole('tab', { name: 'foreign.py' })).toBeNull();
+  for (const turnId of ['first', 'first', 'second']) {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: {
+          sessionId: scope.sessionId,
+          turnId,
+          filePath: '/fixture/app.py',
+        },
+      })
+    );
+  }
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(2);
+  expect(
+    screen.getByText('This change is no longer present in the conversation records.')
+  ).toBeVisible();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Close app.py' })[0]);
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(1);
+  expect(invoke).not.toHaveBeenCalled();
+});
 beforeEach(() => {
   snapshotMock.readonlyHistory = false;
   invoke.mockReset();

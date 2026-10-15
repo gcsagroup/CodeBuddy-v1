@@ -14,6 +14,7 @@ import {
   PanelLeft,
   WrapText,
   FileCode2,
+  FileDiff,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -33,6 +34,13 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
 import { WorkspaceSubagent } from './WorkspaceSubagent';
+import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
+import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conversationChangePanel';
+import {
+  collectConversationChanges,
+  fileIdentity,
+} from '../components/codepro/conversationChanges';
+import type { Message } from '../types/message';
 import { OPEN_SUBAGENT_CONVERSATION, type SubagentConversationTarget } from './subagentPanel';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelEntry, PanelScope } from './workspacePanelTypes';
@@ -57,6 +65,7 @@ type Props = {
   width: number;
   onWidthChange?: (width: number) => void;
 };
+const EMPTY_MESSAGES: Message[] = [];
 export function WorkspacePanel(props: Props) {
   const [params] = useSearchParams();
   const id = params.get('resumeSessionId') ?? '';
@@ -71,7 +80,14 @@ export function WorkspacePanel(props: Props) {
     () => ({ sessionId: id, root: isContainer ? '' : (snapshot?.session?.working_dir ?? '') }),
     [id, snapshot?.session?.working_dir, isContainer]
   );
-  return <WorkspacePanelContent key={scopeKey(scope)} {...props} scope={scope} />;
+  return (
+    <WorkspacePanelContent
+      key={scopeKey(scope)}
+      {...props}
+      scope={scope}
+      messages={snapshot?.messages ?? EMPTY_MESSAGES}
+    />
+  );
 }
 
 function FileTree({
@@ -158,7 +174,8 @@ export function WorkspacePanelContent({
   width,
   onWidthChange,
   layout = 'inline',
-}: Props & { scope: PanelScope }) {
+  messages = EMPTY_MESSAGES,
+}: Props & { scope: PanelScope; messages?: Message[] }) {
   const intl = useIntl(),
     key = scopeKey(scope);
   const [state, setState] = useState(() => readWorkbench(key));
@@ -211,6 +228,44 @@ export function WorkspacePanelContent({
       ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [state.active]);
   const available = !!scope.root && !!scope.sessionId;
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<ConversationChangeTarget>).detail;
+      if (!target || target.sessionId !== scope.sessionId) return;
+      if (!target.turnId || !target.filePath) {
+        update((current) => ({ ...current, active: 'changes' }));
+      } else {
+        const filePath = target.filePath;
+        const turnId = target.turnId;
+        const id = `change:${JSON.stringify([turnId, fileIdentity(filePath, scope.root)])}`;
+        const turn = collectConversationChanges(messages, scope.root).find(
+          (item) => item.id === turnId
+        );
+        const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath;
+        const title = turn
+          ? `${intl.formatMessage(turn.number ? changeMessages.turn : changeMessages.unassigned, { number: turn.number })} · ${name}`
+          : name;
+        update((current) => ({
+          tabs: current.tabs.some((tab) => tab.id === id)
+            ? current.tabs
+            : [
+                ...current.tabs,
+                {
+                  id,
+                  kind: 'change',
+                  turnId,
+                  filePath,
+                  title,
+                },
+              ],
+          active: id,
+        }));
+      }
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
+    return () => window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
+  }, [scope.sessionId, scope.root, messages, intl, update, onExpandedChange]);
   useEffect(() => {
     const open = (event: Event) => {
       const target = (event as CustomEvent<SubagentConversationTarget>).detail;
@@ -565,6 +620,17 @@ export function WorkspacePanelContent({
           >
             <GitBranch size={14} />
           </button>
+          <button
+            role="tab"
+            aria-selected={state.active === 'changes'}
+            className="wb-tab"
+            onClick={() => activate('changes')}
+            disabled={!scope.sessionId}
+            title={intl.formatMessage(changeMessages.title)}
+          >
+            <FileDiff size={14} />
+            <span className="text-xs">{intl.formatMessage(changeMessages.title)}</span>
+          </button>
           {state.tabs.map((t) => (
             <div key={t.id} className={`wb-tab ${t.id === state.active ? 'is-active' : ''}`}>
               <button
@@ -574,7 +640,9 @@ export function WorkspacePanelContent({
                 title={t.kind === 'file' ? t.document.path : t.title}
                 onClick={() => activate(t.id)}
               >
-                {t.kind === 'file' ? (
+                {t.kind === 'change' ? (
+                  <FileDiff size={13} />
+                ) : t.kind === 'file' ? (
                   <FileCode2 size={13} />
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
@@ -629,7 +697,14 @@ export function WorkspacePanelContent({
           </button>
         </div>
       )}
-      {!available || state.active === 'start' ? (
+      {state.active === 'changes' || selected?.kind === 'change' ? (
+        <WorkspaceChanges
+          sessionId={scope.sessionId}
+          workspaceRoot={scope.root}
+          messages={messages}
+          selection={selected?.kind === 'change' ? selected : undefined}
+        />
+      ) : (!available && selected?.kind !== 'subagent') || state.active === 'start' ? (
         <div className="wb-start">
           <div className="mb-6 rounded-full border-2 border-border-primary p-3 text-text-secondary opacity-40">
             <Globe size={28} />

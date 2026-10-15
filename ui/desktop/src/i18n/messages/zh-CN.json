@@ -8389,5 +8389,47 @@
   },
   "workspaceSubagent.truncated": {
     "defaultMessage": "部分较长记录已省略。"
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "变更"
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "第 {number} 轮"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "早期记录"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "全部轮次"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{turns} 轮累计修改 {files} 个文件"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "统计已记录的文件修改操作；命令、外部工具或子智能体的修改可能未包含。"
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "暂无文件修改记录。"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "已记录文件修改，但缺少当时的差异内容。"
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "当前会话记录中没有这项变更。"
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "第 {number} 次修改"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "这份差异较长，已截短显示。"
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "部分修改缺少历史差异，增删行数仅统计有差异的记录。"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "查看变更"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "部分操作缺少历史差异。"
   }
 }

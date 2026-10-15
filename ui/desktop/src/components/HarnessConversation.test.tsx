@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type {
   Message,
@@ -15,6 +15,7 @@ import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifi
 import type { AdapterState } from '../acp/adapter/shared';
 import { SearchView } from './conversation/SearchView';
 import { ScrollFollowingContext } from './ui/scroll-follow-context';
+import { OPEN_CONVERSATION_CHANGE } from '../workspace-panel/conversationChangePanel';
 
 beforeEach(() => window.sessionStorage.clear());
 const base = {
@@ -383,9 +384,17 @@ describe('Harness conversation presentation', () => {
       );
       expect(screen.queryByText('Dynamic verification not run')).not.toBeInTheDocument();
       expect(screen.queryByText('Edit operations completed')).not.toBeInTheDocument();
+      const open = vi.spyOn(window, 'dispatchEvent');
       fireEvent.click(screen.getByRole('button', { name: '/fixture/app.py' }));
-      expect(screen.getByText('-old')).toBeVisible();
-      expect(screen.getByText('+new')).toBeVisible();
+      expect(open).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: OPEN_CONVERSATION_CHANGE,
+          detail: { sessionId: 'session', turnId: 'user', filePath: '/fixture/app.py' },
+        })
+      );
+      expect(screen.queryByText('-old')).not.toBeInTheDocument();
+      expect(screen.queryByText('+new')).not.toBeInTheDocument();
+      open.mockRestore();
     }
   );
 
@@ -432,14 +441,73 @@ describe('Harness conversation presentation', () => {
         toolResult: { status: 'error', error: 'denied' },
       })
     );
-    render(<CodeProConversationFiles messages={trace} workspaceRoot="/fixture" />, {
-      wrapper: IntlTestWrapper,
-    });
+    render(
+      <CodeProConversationFiles sessionId="session" messages={trace} workspaceRoot="/fixture" />,
+      {
+        wrapper: IntlTestWrapper,
+      }
+    );
     expect(screen.getByRole('button', { name: 'Modified 5 files this turn' })).toBeVisible();
     expect(screen.queryByRole('button', { name: '/fixture/3.py' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show 2 more files' }));
     expect(screen.getByRole('button', { name: '/fixture/4.py' })).toBeVisible();
     expect(screen.queryByText('failed.py')).not.toBeInTheDocument();
+  });
+
+  it('opens the original turn from full history without reading files or rendering inline diffs', () => {
+    const local = [user('first'), requestMessage(write('a'))];
+    const trace = [
+      ...local,
+      user('second'),
+      requestMessage(write('b', '/fixture/second.py')),
+      responseMessage(receipt('b', { path: '/fixture/second.py', before: 'x\n', after: 'y\n' })),
+      responseMessage(receipt('a')),
+    ];
+    const open = vi.spyOn(window, 'dispatchEvent');
+    const read = vi.fn();
+    window.electron.readWorkspaceFile = read;
+    render(
+      <CodeProConversationFiles
+        sessionId="session"
+        messages={local}
+        sourceMessages={trace}
+        workspaceRoot="/fixture"
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.click(screen.getByRole('button', { name: '/fixture/app.py' }));
+    expect(open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: OPEN_CONVERSATION_CHANGE,
+        detail: { sessionId: 'session', turnId: 'first', filePath: '/fixture/app.py' },
+      })
+    );
+    expect(screen.queryByText('/fixture/second.py')).not.toBeInTheDocument();
+    expect(screen.queryByText('-old')).not.toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'View changes' }));
+    expect(open).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: OPEN_CONVERSATION_CHANGE,
+        detail: { sessionId: 'session', turnId: 'first' },
+      })
+    );
+    open.mockRestore();
+  });
+
+  it('keeps paths readable without a session and does not pretend that current files are historical diffs', () => {
+    const read = vi.fn();
+    window.electron.readWorkspaceFile = read;
+    render(
+      <CodeProConversationFiles
+        messages={[user(), requestMessage(write('a')), responseMessage(receipt('a'))]}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText('/fixture/app.py')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '/fixture/app.py' })).not.toBeInTheDocument();
+    expect(screen.queryByText('-old')).not.toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
   });
 });
 

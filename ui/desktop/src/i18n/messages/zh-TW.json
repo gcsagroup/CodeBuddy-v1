@@ -8389,5 +8389,47 @@
   },
   "workspaceSubagent.truncated": {
     "defaultMessage": "部分較長記錄已省略。"
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "變更"
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "第 {number} 輪"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "早期記錄"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "全部輪次"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{turns} 輪累計修改 {files} 個檔案"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "統計已記錄的檔案修改操作；命令、外部工具或子智能體的修改可能未包含。"
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "暫無檔案修改記錄。"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "已記錄檔案修改，但缺少當時的差異內容。"
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "目前會話記錄中沒有這項變更。"
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "第 {number} 次修改"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "這份差異較長，已截短顯示。"
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "部分修改缺少歷史差異，增刪行數僅統計有差異的記錄。"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "查看變更"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "部分操作缺少歷史差異。"
   }
 }

@@ -512,7 +512,7 @@ test('manual reading survives new output and Latest releases the reserved space 
   expect(await viewport.evaluate((el) => el.scrollTop)).toBe(readingTop);
 });
 
-test('file-card disclosures preserve counts, shared motion and the clicked reading position', async () => {
+test('file-card disclosures preserve counts and motion while opening saved diffs in one workspace tab', async () => {
   await page.goto(
     `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?file-card`
   );
@@ -522,21 +522,42 @@ test('file-card disclosures preserve counts, shared motion and the clicked readi
   await expect(card).toContainText('−90');
   await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await settle();
-  await expect(card).toHaveAttribute('aria-expanded', 'false');
+  await expect(card).toHaveAttribute('aria-expanded', 'true');
   const cardBody = page.locator(`[id="${await card.getAttribute('aria-controls')}"]`);
   await sampleToggle(card, cardBody);
+  await expect(card).toHaveAttribute('aria-expanded', 'false');
+  await sampleToggle(card, cardBody);
+  await expect(card).toHaveAttribute('aria-expanded', 'true');
   const file = page.getByRole('button', { name: 'app.py', exact: true });
   await expect(file).toContainText('+60');
   await expect(file).toContainText('−60');
-  await expect(file.locator('.lucide-chevron-right')).toBeVisible();
-  const fileBody = page.locator(`[id="${await file.getAttribute('aria-controls')}"]`);
-  await sampleToggle(file, fileBody);
-  await expect(file).toHaveAttribute('aria-expanded', 'true');
-  await expect(fileBody).toHaveCSS('animation-duration', '0.28s');
-  await expect(file).toBeFocused();
-  await sampleToggle(file, fileBody);
-  await expect(file).toHaveAttribute('aria-expanded', 'false');
+  await expect(file).not.toHaveAttribute('aria-expanded');
+  await expect(file).not.toHaveAttribute('aria-controls');
+  const inlineHeight = (await cardBody.boundingBox())!.height;
+  await file.click();
+  const panel = page.getByRole('complementary', { name: 'Workspace', exact: true });
+  const tab = panel.getByRole('tab', { name: 'Turn 1 · app.py', exact: true });
+  await expect(tab).toBeVisible();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.getByText(/^Edit 1\s*\+30\s*−30$/)).toBeVisible();
+  await expect(panel.getByText(/^Edit 2\s*\+30\s*−30$/)).toBeVisible();
+  await expect(panel.locator('[data-diff-kind="removed"]')).toHaveCount(60);
+  await expect(panel.locator('[data-diff-kind="added"]')).toHaveCount(60);
+  await expect(panel.locator('[data-diff-kind="removed"]').first()).toContainText('before 0');
+  await expect(panel.locator('[data-diff-kind="added"]').first()).toContainText('after 0');
+  await expect(page.locator('.codepro-chat-history [data-diff-kind]')).toHaveCount(0);
+  expect(Math.abs((await cardBody.boundingBox())!.height - inlineHeight)).toBeLessThanOrEqual(1);
+  await file.click();
+  await expect(tab).toHaveCount(1);
+  await panel.getByRole('tab', { name: 'Changes', exact: true }).click();
+  await file.click();
+  await expect(tab).toHaveCount(1);
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
   await sampleToggle(card, cardBody);
   await sampleToggle(card, cardBody);
   await expect(file).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath('file-card-workspace-saved-diff.png'),
+    fullPage: true,
+  });
 });

@@ -63,6 +63,7 @@ import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
 import { getResponsePhase } from '../types/responsePhase';
 import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
+import { collectConversationChanges } from './codepro/conversationChanges';
 import LoadingGoose from './LoadingGoose';
 import { useOrderedToolPresentation } from './useOrderedToolPresentation';
 import { ScrollFollowingContext, ScrollLayoutAnchorContext } from './ui/scroll-follow-context';
@@ -526,6 +527,13 @@ function ProgressiveMessageListContent({
 
   // Detect tool call chains
   const toolCallChains = useMemo(() => identifyConsecutiveToolCalls(messages), [messages]);
+  // Share one history projection across visible turn cards, including during
+  // search. Loading more turns must not rescan all receipts once per card.
+  const conversationChanges = useMemo(
+    () =>
+      foldTurns && !renderMessage ? collectConversationChanges(sourceMessages, workspaceRoot) : [],
+    [foldTurns, renderMessage, sourceMessages, workspaceRoot]
+  );
   const representedActivityToolIds = useMemo(() => {
     const ids = new Set<string>();
     for (const message of messages) {
@@ -1337,7 +1345,12 @@ function ProgressiveMessageListContent({
               </ToolCallExpandable>
               {renderSlice(turn, historyEnd, turn.length, streaming)}
               {foldable && hasTerminalBoundary && (
-                <CodeProConversationFiles messages={turn} workspaceRoot={workspaceRoot} />
+                <CodeProConversationFiles
+                  messages={turn}
+                  sourceChanges={conversationChanges}
+                  sessionId={chat.sessionId}
+                  workspaceRoot={workspaceRoot}
+                />
               )}
             </section>
           );

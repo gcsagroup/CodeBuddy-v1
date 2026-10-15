@@ -10,6 +10,7 @@ import { ToolActivityIcon } from '../../src/components/ToolActivityIcon';
 import MarkdownContent from '../../src/components/MarkdownContent';
 import '../../src/components/conversation-presentation.css';
 import '../../src/workspace-panel/workspacePanel.css';
+import { WorkspacePanelContent } from '../../src/workspace-panel/WorkspacePanel';
 import { CodeProConversationFiles } from '../../src/components/codepro/CodeProConversationFiles';
 import type { Message } from '../../src/types/message';
 import { CodeProFileViewer } from '../../src/components/codepro/CodeProFileViewer';
@@ -184,6 +185,8 @@ function SidebarFixture() {
 
 function FileCardFixture() {
   const area = useRef<ScrollAreaHandle>(null);
+  const [panelExpanded, setPanelExpanded] = useState(false);
+  const sessionId = 'file-card-session';
   const messages: Message[] = ['app.py', 'test.py', 'app.py'].map((path, index) => ({
     id: `file-${index}`,
     role: 'assistant',
@@ -231,17 +234,43 @@ function FileCardFixture() {
       },
     ],
   }));
+  const sourceMessages: Message[] = [
+    {
+      id: 'file-card-user',
+      role: 'user',
+      created: 0,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'text', text: 'Update the fixture files' }],
+    },
+    ...messages,
+  ];
   return (
     <IntlTestWrapper>
-      <main className="codepro-conversation" style={{ padding: 24, width: 850 }}>
+      <main
+        className="codepro-conversation"
+        style={{ position: 'relative', padding: 24, paddingRight: 484, width: 1000, height: 620 }}
+      >
         <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
         <ScrollArea ref={area} autoScroll style={{ height: 520 }}>
           <div className="codepro-chat-history" style={{ padding: '0 24px' }}>
             <div style={{ height: 900 }}>Earlier conversation</div>
-            <CodeProConversationFiles messages={messages} workspaceRoot="C:/fixture" />
+            <CodeProConversationFiles
+              messages={sourceMessages}
+              sourceMessages={sourceMessages}
+              sessionId={sessionId}
+              workspaceRoot="C:/fixture"
+            />
             <div style={{ height: 32 }} />
           </div>
         </ScrollArea>
+        <WorkspacePanelContent
+          scope={{ sessionId, root: 'C:/fixture' }}
+          messages={sourceMessages}
+          expanded={panelExpanded}
+          onExpandedChange={setPanelExpanded}
+          width={440}
+          layout="overlay"
+        />
       </main>
     </IntlTestWrapper>
   );

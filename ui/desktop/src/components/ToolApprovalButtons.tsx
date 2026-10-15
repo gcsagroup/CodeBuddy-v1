@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Button } from './ui/button';
 import type { Permission } from '../types/permissions';
 import type {
@@ -6,7 +6,11 @@ import type {
   ToolPermissionAction,
   ToolPermissionClass,
 } from '../types/message';
-import { resolveAcpPermissionRequest } from '../acp/permissionRequests';
+import {
+  isAcpPermissionRequestPending,
+  resolveAcpPermissionRequest,
+  subscribeAcpPermissionRequests,
+} from '../acp/permissionRequests';
 import { defineMessages, useIntl } from '../i18n';
 
 const i18n = defineMessages({
@@ -98,6 +102,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     availableActions = ['allow_once', 'deny_once'],
   } = data;
   const stateKey = approvalStateKey(sessionId, id);
+  const isPending = useSyncExternalStore(subscribeAcpPermissionRequests, () =>
+    isAcpPermissionRequestPending(sessionId, id)
+  );
   const storedState = globalApprovalState.get(stateKey);
   const [approvalState, setApprovalState] = useState(() => ({
     key: stateKey,
@@ -160,7 +167,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     }
   };
 
-  if (isClicked && decision) {
+  if (!isPending && isClicked && decision) {
     const scopedAllowed = intl.formatMessage(i18n.allowedByScope, {
       scope: authorizationScope,
     });
@@ -174,6 +181,16 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     return (
       <p className="text-sm text-muted-foreground mt-2">
         {toolName} - {statusMessages[decision]}
+      </p>
+    );
+  }
+
+  // A replayed approval card is history unless its transport RPC is still live.
+  // Inactivity does not tell us whether it was allowed, rejected or timed out.
+  if (!isPending || approvalError) {
+    return (
+      <p className="text-sm text-muted-foreground mt-2">
+        {intl.formatMessage(i18n.staleApprovalRequest)}
       </p>
     );
   }
@@ -200,7 +217,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
             variant="secondary"
             onClick={() => handleAction('always_allow')}
           >
-            {intl.formatMessage(i18n.allowByScope, { scope: authorizationScope })}
+            {intl.formatMessage(i18n.allowByScope, {
+              scope: authorizationScope,
+            })}
           </Button>
         )}
         {actions.has('deny_once') && (
@@ -218,7 +237,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
             variant="outline"
             onClick={() => handleAction('always_deny')}
           >
-            {intl.formatMessage(i18n.denyByScope, { scope: authorizationScope })}
+            {intl.formatMessage(i18n.denyByScope, {
+              scope: authorizationScope,
+            })}
           </Button>
         )}
       </div>

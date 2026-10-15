@@ -323,7 +323,7 @@ function delay(delayMs: number): Promise<void> {
 
 function createClientCallbacks(signal: AbortController['signal']): () => GooseClientCallbacks {
   return () => ({
-    requestPermission: requestAcpPermission,
+    requestPermission: (request) => requestAcpPermission(request, signal),
     unstable_createElicitation: requestAcpElicitation,
     // A form can only answer the transport which requested it. A replacement
     // connection must never leave an obsolete form offering a dead submit.

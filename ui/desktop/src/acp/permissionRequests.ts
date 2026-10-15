@@ -1,13 +1,42 @@
 import type { RequestPermissionRequest, RequestPermissionResponse } from '@agentclientprotocol/sdk';
 import type { Permission } from '../types/permissions';
-import { acpChatSessionActions, acpPermissionUserInputRequestId } from './chatSessionStore';
+import {
+  acpChatSessionActions,
+  acpChatSessionStore,
+  acpPermissionUserInputRequestId,
+} from './chatSessionStore';
+import { isRecord } from './adapter/shared';
 
 interface PendingPermissionRequest {
   request: RequestPermissionRequest;
   resolve: (response: RequestPermissionResponse) => void;
+  runId: string | null;
+  sourceUserMessageId: string | null;
+  dispose?: () => void;
 }
 
 const pendingRequests = new Map<string, PendingPermissionRequest>();
+const listeners = new Set<() => void>();
+const nativeSubagentTools = new Set([
+  'subagent',
+  'subagent_planner',
+  'subagent_coder',
+  'subagent_tester',
+  'subagent_reviewer',
+]);
+
+export function isAcpPermissionRequestPending(sessionId: string, toolCallId: string): boolean {
+  return pendingRequests.has(permissionRequestKey(sessionId, toolCallId));
+}
+
+export function subscribeAcpPermissionRequests(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function notifyListeners(): void {
+  for (const listener of listeners) listener();
+}
 
 // History replay replaces rendered messages, but an unanswered RPC is still
 // live. Re-project only those requests, without resolving or reissuing them.
@@ -20,18 +49,61 @@ export function restoreAcpPermissionRequestsForSession(sessionId: string): void 
 }
 
 export async function requestAcpPermission(
-  request: RequestPermissionRequest
+  request: RequestPermissionRequest,
+  signal?: AbortController['signal']
 ): Promise<RequestPermissionResponse> {
+  if (signal?.aborted) return cancelledPermissionResponse();
+
+  // The title alone is not a tool identity: an external MCP can use this name.
+  // Only the matching native Harness tool call may use this user-approved policy.
+  if (isNativeSubagentRequest(request)) {
+    const response = permissionResponseForAction(request, 'allow_once');
+    if (response) return response;
+  }
+
   const key = permissionRequestKey(request.sessionId, request.toolCall.toolCallId);
   const previous = pendingRequests.get(key);
   if (previous) {
-    previous.resolve(cancelledPermissionResponse());
+    settlePermissionRequest(key, previous, cancelledPermissionResponse());
   }
 
   return new Promise<RequestPermissionResponse>((resolve) => {
-    pendingRequests.set(key, { request, resolve });
+    const pending: PendingPermissionRequest = {
+      request,
+      resolve,
+      runId: acpChatSessionStore.getSnapshot(request.sessionId)?.activeRunId ?? null,
+      sourceUserMessageId: acpChatSessionStore.getActivePromptSourceUserMessageId(
+        request.sessionId
+      ),
+    };
+    pendingRequests.set(key, pending);
+    if (signal) {
+      const abort = () => settlePermissionRequest(key, pending, cancelledPermissionResponse());
+      signal.addEventListener('abort', abort, { once: true });
+      pending.dispose = () => signal.removeEventListener('abort', abort);
+    }
     acpChatSessionActions.applyPermissionRequest(request);
+    notifyListeners();
   });
+}
+
+function isNativeSubagentRequest(request: RequestPermissionRequest): boolean {
+  const name = request.toolCall.title;
+  if (!name || !nativeSubagentTools.has(name)) return false;
+  return (
+    acpChatSessionStore.getSnapshot(request.sessionId)?.messages.some((message) =>
+      message.content.some((content) => {
+        if (
+          content.type !== 'toolRequest' ||
+          content.id !== request.toolCall.toolCallId ||
+          content.metadata?.extensionName !== 'harness'
+        )
+          return false;
+        const value = content.toolCall.value;
+        return isRecord(value) && value.name === name;
+      })
+    ) ?? false
+  );
 }
 
 export function resolveAcpPermissionRequest(
@@ -50,20 +122,66 @@ export function resolveAcpPermissionRequest(
     return false;
   }
 
+  settlePermissionRequest(key, pending, response);
+  return true;
+}
+
+function settlePermissionRequest(
+  key: string,
+  pending: PendingPermissionRequest,
+  response: RequestPermissionResponse
+): void {
+  if (pendingRequests.get(key) !== pending) return;
   pendingRequests.delete(key);
+  pending.dispose?.();
   acpChatSessionActions.resolveUserInputRequest(
-    sessionId,
-    acpPermissionUserInputRequestId(toolCallId)
+    pending.request.sessionId,
+    acpPermissionUserInputRequestId(pending.request.toolCall.toolCallId)
   );
   pending.resolve(response);
-  return true;
+  notifyListeners();
 }
 
 export function cancelAcpPermissionRequestsForSession(sessionId: string): void {
   for (const [key, pending] of pendingRequests) {
     if (pending.request.sessionId === sessionId) {
-      pendingRequests.delete(key);
-      pending.resolve(cancelledPermissionResponse());
+      settlePermissionRequest(key, pending, cancelledPermissionResponse());
+    }
+  }
+}
+
+export function expireAcpPermissionRequestForTool(
+  sessionId: string,
+  toolCallId: string,
+  runId?: string,
+  includesChildSessionId = false
+): void {
+  // Native child receipts use `${childSessionId}:${callId}`; permission RPCs
+  // use the original callId on the parent transport. This is protocol identity,
+  // never a match against the tool title or result prose.
+  const exactKey = permissionRequestKey(sessionId, toolCallId);
+  const key =
+    pendingRequests.has(exactKey) || !includesChildSessionId
+      ? exactKey
+      : permissionRequestKey(sessionId, toolCallId.slice(toolCallId.lastIndexOf(':') + 1));
+  const pending = pendingRequests.get(key);
+  if (pending && (!runId || !pending.runId || pending.runId === runId)) {
+    settlePermissionRequest(key, pending, cancelledPermissionResponse());
+  }
+}
+
+export function expireAcpPermissionRequestsForTurn(
+  sessionId: string,
+  runId: string,
+  sourceUserMessageId: string
+): void {
+  for (const [key, pending] of pendingRequests) {
+    if (
+      pending.request.sessionId === sessionId &&
+      (pending.runId === null || pending.runId === runId) &&
+      pending.sourceUserMessageId === sourceUserMessageId
+    ) {
+      settlePermissionRequest(key, pending, cancelledPermissionResponse());
     }
   }
 }

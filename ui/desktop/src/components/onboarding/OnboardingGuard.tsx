@@ -18,7 +18,7 @@ const i18n = defineMessages({
   setupUnavailable: {
     id: 'onboardingGuard.setupUnavailable',
     defaultMessage:
-      'Check that the model service is available, then retry. Chat will become available after setup finishes.',
+      'Open model settings to choose a default model, or retry if the service is temporarily unavailable.',
   },
   empty: {
     id: 'onboardingGuard.emptyModels',
@@ -27,8 +27,7 @@ const i18n = defineMessages({
   },
   multiple: {
     id: 'onboardingGuard.multipleModels',
-    defaultMessage:
-      'The service returned multiple models. A deployment default model must be confirmed before automatic setup can continue.',
+    defaultMessage: 'The service returned multiple models. Choose a default model in settings.',
   },
   timeout: {
     id: 'onboardingGuard.setupTimeout',
@@ -46,6 +45,10 @@ const i18n = defineMessages({
     id: 'onboardingGuard.retry',
     defaultMessage: 'Retry',
   },
+  configureModel: {
+    id: 'onboardingGuard.configureModel',
+    defaultMessage: 'Open model settings',
+  },
   loadingProviders: {
     id: 'providerSettings.loadingProviders',
     defaultMessage: 'Loading providers...',
@@ -54,9 +57,15 @@ const i18n = defineMessages({
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
+  onConfigure: () => void;
+  requireModel?: boolean;
 }
 
-export default function OnboardingGuard({ children }: OnboardingGuardProps) {
+export default function OnboardingGuard({
+  children,
+  onConfigure,
+  requireModel = true,
+}: OnboardingGuardProps) {
   const intl = useIntl();
   const { refreshCurrentModelAndProvider } = useModelAndProvider();
   const pending = useRef<Promise<void> | null>(null);
@@ -85,8 +94,11 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   }, [refreshCurrentModelAndProvider]);
 
   useEffect(() => {
-    void checkProvider();
-  }, [checkProvider]);
+    if (requireModel) void checkProvider();
+  }, [checkProvider, requireModel]);
+
+  // Settings must remain reachable to repair the configuration this guard checks.
+  if (!requireModel) return <>{children}</>;
 
   if (isCheckingProvider) {
     return (
@@ -100,6 +112,9 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
           <span>{intl.formatMessage(i18n.loadingProviders)}</span>
         </div>
+        <Button variant="outline" className="mt-6" onClick={onConfigure}>
+          {intl.formatMessage(i18n.configureModel)}
+        </Button>
       </div>
     );
   }
@@ -116,7 +131,12 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
             {intl.formatMessage(errorReason ? i18n[errorReason] : i18n.setupUnavailable)}
           </p>
           <p className="text-text-muted mb-6">{DEFAULT_LAN_PROVIDER.api_url}</p>
-          <Button onClick={() => void checkProvider()}>{intl.formatMessage(i18n.retry)}</Button>
+          <div className="flex justify-center gap-3">
+            <Button onClick={onConfigure}>{intl.formatMessage(i18n.configureModel)}</Button>
+            <Button variant="outline" onClick={() => void checkProvider()}>
+              {intl.formatMessage(i18n.retry)}
+            </Button>
+          </div>
         </div>
       </div>
     );

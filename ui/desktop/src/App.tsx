@@ -740,7 +740,15 @@ export function AppInner() {
               <Route
                 path="/"
                 element={
-                  <OnboardingGuard>
+                  <OnboardingGuard
+                    requireModel={!isSettingsRoute}
+                    onConfigure={() =>
+                      navigate(
+                        withWorkspaceMode('/settings', getWorkspaceModeFromPath(location.pathname)),
+                        { state: { section: 'models' } }
+                      )
+                    }
+                  >
                     <ChatProvider chat={chat} setChat={setChat} contextKey="hub">
                       <AppLayout activeSessions={activeSessions} />
                     </ChatProvider>

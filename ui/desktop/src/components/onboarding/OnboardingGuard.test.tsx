@@ -12,6 +12,7 @@ import zhMessages from '../../i18n/compiled/zh-CN.json';
 import OnboardingGuard from './OnboardingGuard';
 const refresh = vi.fn();
 const read = vi.fn();
+const configure = vi.fn();
 vi.mock('../ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({ refreshCurrentModelAndProvider: refresh }),
 }));
@@ -21,16 +22,19 @@ vi.mock('../../acp/providers', () => ({
   acpDiscoverCustomProviderModels: vi.fn(),
   acpSaveDefaults: vi.fn(),
 }));
-function show() {
-  return render(
+function guard({ requireModel = true } = {}) {
+  return (
     <StrictMode>
       <IntlProvider locale="zh-CN" messages={zhMessages}>
-        <OnboardingGuard>
+        <OnboardingGuard onConfigure={configure} requireModel={requireModel}>
           <div>chat</div>
         </OnboardingGuard>
       </IntlProvider>
     </StrictMode>
   );
+}
+function show(options = {}) {
+  return render(guard(options));
 }
 describe('OnboardingGuard', () => {
   beforeEach(() => {
@@ -91,6 +95,48 @@ describe('OnboardingGuard', () => {
     expect(await screen.findByText('chat')).toBeInTheDocument();
     expect(save).toHaveBeenCalledTimes(1);
   });
+  it('offers configuration after setup fails without requiring another retry', async () => {
+    vi.mocked(discover).mockRejectedValue(new Error('offline'));
+    show();
+    await screen.findByRole('button', { name: '重试' });
+    fireEvent.click(screen.getByRole('button', { name: '进入配置' }));
+    expect(configure).toHaveBeenCalledOnce();
+    expect(discover).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
+  });
+  it('allows configuration while automatic discovery is still pending', async () => {
+    let finish!: (models: string[]) => void;
+    vi.mocked(discover).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    show();
+    await act(async () => {});
+    fireEvent.click(screen.getByRole('button', { name: '进入配置' }));
+    expect(configure).toHaveBeenCalledOnce();
+    await act(async () => finish([]));
+  });
+  it('does not gate settings on a configured model or contact the automatic endpoint', async () => {
+    show({ requireModel: false });
+    expect(screen.getByText('chat')).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+    expect(discover).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+  it('uses the saved manual model when returning from settings', async () => {
+    vi.mocked(discover).mockRejectedValue(new Error('offline'));
+    const view = show();
+    fireEvent.click(await screen.findByRole('button', { name: '进入配置' }));
+    view.rerender(guard({ requireModel: false }));
+    expect(screen.getByText('chat')).toBeInTheDocument();
+    read.mockResolvedValue({ providerId: 'manual-provider', modelId: 'selected-model' });
+    view.rerender(guard());
+    expect(await screen.findByText('chat')).toBeInTheDocument();
+    expect(read).toHaveBeenCalled();
+    expect(discover).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
+  });
   it.each([{ models: [] }, { models: [' ', ''] }, { models: ['one', 'two'] }])(
     'rejects ambiguous or empty models %j',
     async ({ models }) => {
@@ -101,7 +147,7 @@ describe('OnboardingGuard', () => {
       expect(
         screen.getByText(
           models.length === 2 && models[0] === 'one'
-            ? '服务返回了多个模型，需要先确认部署使用的默认模型，才能继续自动配置。'
+            ? '服务返回了多个模型，请进入配置选择要使用的默认模型。'
             : '服务未返回任何模型。请联系服务管理员提供可用模型，然后重试。'
         )
       ).toBeInTheDocument();

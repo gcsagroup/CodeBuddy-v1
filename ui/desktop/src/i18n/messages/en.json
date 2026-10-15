@@ -4721,11 +4721,14 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "Unable to connect to CodeBuddy server"
   },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "Open model settings"
+  },
   "onboardingGuard.emptyModels": {
     "defaultMessage": "The service returned no models. Ask the service administrator to make a model available, then retry."
   },
   "onboardingGuard.multipleModels": {
-    "defaultMessage": "The service returned multiple models. A deployment default model must be confirmed before automatic setup can continue."
+    "defaultMessage": "The service returned multiple models. Choose a default model in settings."
   },
   "onboardingGuard.retry": {
     "defaultMessage": "Retry"
@@ -4737,7 +4740,7 @@
     "defaultMessage": "Model setup timed out. Check the service connection and retry."
   },
   "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "Check that the model service is available, then retry. Chat will become available after setup finishes."
+    "defaultMessage": "Open model settings to choose a default model, or retry if the service is temporarily unavailable."
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "You're all set to start using CodeBuddy."

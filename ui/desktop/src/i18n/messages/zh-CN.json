@@ -4721,11 +4721,14 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "无法连接到 CodeBuddy 服务器"
   },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "进入配置"
+  },
   "onboardingGuard.emptyModels": {
     "defaultMessage": "服务未返回任何模型。请联系服务管理员提供可用模型，然后重试。"
   },
   "onboardingGuard.multipleModels": {
-    "defaultMessage": "服务返回了多个模型，需要先确认部署使用的默认模型，才能继续自动配置。"
+    "defaultMessage": "服务返回了多个模型，请进入配置选择要使用的默认模型。"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "重试"
@@ -4737,7 +4740,7 @@
     "defaultMessage": "模型配置超时，请检查服务连接后重试。"
   },
   "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "请确认模型服务可用后重试。配置完成后即可开始聊天。"
+    "defaultMessage": "请进入配置选择默认模型；若服务暂时不可用，也可以稍后重试。"
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "一切就绪，可以开始使用 CodeBuddy 了。"

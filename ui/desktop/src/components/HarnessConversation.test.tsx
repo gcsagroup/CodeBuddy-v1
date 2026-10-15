@@ -186,6 +186,39 @@ function SearchableHistory({
 }
 
 describe('Harness conversation presentation', () => {
+  it('keeps archived turns static while the latest text drains after transport becomes idle', async () => {
+    const archived = [
+      user('earlier-a'),
+      prose('Archived answer A'),
+      user('earlier-b'),
+      prose('Archived answer B'),
+    ];
+    const view = render(show(archived), { wrapper: IntlTestWrapper });
+    const text = 'Latest answer with gradual public feedback. '.repeat(6);
+    const live = [...archived, user('latest-user'), { ...prose(text), id: 'latest-answer' }];
+    view.rerender(show(live, true));
+    await waitFor(() =>
+      expect(
+        [...view.container.querySelectorAll('[data-live-message]')].some((node) =>
+          node.textContent?.includes('Latest')
+        )
+      ).toBe(true)
+    );
+    const archivedAnimations = () =>
+      [...view.container.querySelectorAll('[data-live-message]')].filter((node) =>
+        node.textContent?.includes('Archived')
+      );
+    expect(archivedAnimations()).toHaveLength(0);
+    view.rerender(show(live, false));
+    expect(archivedAnimations()).toHaveLength(0);
+    expect(view.container.querySelector('[data-live-message]')).not.toBeNull();
+    await waitFor(() => expect(view.container.querySelector('[data-live-message]')).toBeNull(), {
+      timeout: 5000,
+    });
+    expect(view.container.textContent).toContain(text.trim());
+    expect(screen.getByText('Archived answer A')).toBeVisible();
+    expect(screen.getByText('Archived answer B')).toBeVisible();
+  });
   it('loads older turns on demand in the actual default chat and preserves expanded history while streaming', async () => {
     const trace = Array.from({ length: 120 }, (_, index) => [
       user(`user-${index}`),

@@ -1143,13 +1143,19 @@ function ProgressiveMessageListContent({
         : []
     );
     if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
-    const renderSlice = (turn: Message[], start: number, end: number, streaming: boolean) => (
+    const renderSlice = (
+      turn: Message[],
+      start: number,
+      end: number,
+      streaming: boolean,
+      pending = false
+    ) => (
       <ProgressiveMessageListContent
         messages={turn}
         sourceMessages={sourceMessages}
         sharedToolResponses={sharedToolResponses}
         sharedToolChains={sharedToolChains}
-        presentationPending={presentationPending}
+        presentationPending={pending}
         renderRange={[start, end]}
         sessionType={sessionType}
         readOnly={readOnly}
@@ -1177,7 +1183,11 @@ function ProgressiveMessageListContent({
       <>
         {starts.map((start, turnIndex) => {
           const turn = messages.slice(start, starts[turnIndex + 1] ?? messages.length);
-          const streaming = isStreamingMessage && turnIndex === starts.length - 1;
+          const latest = turnIndex === starts.length - 1;
+          const streaming = isStreamingMessage && latest;
+          // Queued presentation can outlive transport streaming. It belongs to
+          // the latest turn's tail, never to already rendered historical prose.
+          const pending = presentationPending && latest;
           const turnRequests = turn.flatMap(getToolRequests);
           const count = turnRequests.length;
           const turnResponses = new Map(
@@ -1341,9 +1351,15 @@ function ProgressiveMessageListContent({
                       })
                 }
               >
-                {renderSlice(turn, userCount, historyEnd, streaming && !foldable)}
+                {renderSlice(
+                  turn,
+                  userCount,
+                  historyEnd,
+                  streaming && !foldable,
+                  pending && historyEnd === turn.length
+                )}
               </ToolCallExpandable>
-              {renderSlice(turn, historyEnd, turn.length, streaming)}
+              {renderSlice(turn, historyEnd, turn.length, streaming, pending)}
               {foldable && hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}

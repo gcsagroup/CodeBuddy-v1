@@ -1,0 +1,13 @@
+{
+  "name": "codebuddy-workspace-launcher",
+  "private": true,
+  "scripts": {
+    "start-preview": "node scripts/start-harness-preview.cjs",
+    "install:ui": "pnpm --dir ui install --frozen-lockfile",
+    "prestart-gui": "pnpm run install:ui",
+    "start-gui": "pnpm --dir ui/desktop run start-gui",
+    "prestart-gui-debug": "pnpm run install:ui",
+    "start-gui-debug": "pnpm --dir ui/desktop run start-gui-debug",
+    "test:root-launcher": "node --test scripts/root-pnpm-launcher.test.cjs"
+  }
+}

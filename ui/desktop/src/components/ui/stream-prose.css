@@ -1,0 +1,31 @@
+/* Fixed columns keep already visible table cells from moving as later rows arrive.
+   Keep the same layout after streaming ends to avoid a final reflow. */
+.codepro-stream-prose table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.codepro-stream-prose :is(th, td) {
+  overflow-wrap: anywhere;
+}
+
+/* A paint-only entrance: received text already occupies its final layout.
+   No delays, transforms, height transitions, or character playback queue. */
+.codepro-incoming-text .codepro-incoming-word {
+  animation: codepro-ink-in 160ms ease-out;
+}
+
+@keyframes codepro-ink-in {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codepro-incoming-text .codepro-incoming-word {
+    animation: none;
+  }
+}

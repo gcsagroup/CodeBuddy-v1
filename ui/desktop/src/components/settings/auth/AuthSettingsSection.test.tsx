@@ -1,0 +1,183 @@
+vi.mock('./GitHubConnections', () => ({ default: () => <div>GitHub connection checks</div> }));
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, type RenderOptions } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import AuthSettingsSection from './AuthSettingsSection';
+import {
+  acpDeleteProviderSecret,
+  acpListProviderSecrets,
+  type ProviderSecretDto,
+} from '../../../acp/providers';
+import { IntlTestWrapper } from '../../../i18n/test-utils';
+import { toast } from 'react-toastify';
+import { acpGitHubAuthStatus } from '../../../acp/githubAuth';
+
+vi.mock('../../../acp/providers', () => ({
+  acpAuthenticateProvider: vi.fn(),
+  acpListProviderSecrets: vi.fn(),
+  acpDeleteProviderSecret: vi.fn(),
+}));
+
+vi.mock('../../../acp/githubAuth', () => ({
+  GITHUB_VERIFICATION_URI: 'https://github.com/login/device',
+  acpGitHubAuthStatus: vi.fn(),
+  acpStartGitHubAuth: vi.fn(),
+  acpPollGitHubAuth: vi.fn(),
+  acpCancelGitHubAuth: vi.fn(),
+  acpDisconnectGitHubAuth: vi.fn(),
+}));
+
+vi.mock('../../ModelAndProviderContext', () => ({
+  useModelAndProvider: () => ({
+    currentProvider: 'openai',
+  }),
+}));
+
+vi.mock('react-toastify', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+const mockedListProviderSecrets = vi.mocked(acpListProviderSecrets);
+const mockedDeleteProviderSecret = vi.mocked(acpDeleteProviderSecret);
+const mockedToast = vi.mocked(toast);
+const mockedGitHubStatus = vi.mocked(acpGitHubAuthStatus);
+
+const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
+  render(ui, { wrapper: IntlTestWrapper, ...options });
+
+const providerSecret: ProviderSecretDto = {
+  id: 'secret_store:openai:OPENAI_API_KEY',
+  provider: 'openai',
+  providerDisplayName: 'OpenAI',
+  name: 'OPENAI_API_KEY',
+  storage: 'secret_store',
+  expiresAt: null,
+  status: 'unknown',
+  configured: true,
+  hasSecret: true,
+  canDelete: true,
+  canConfigure: false,
+  configureProvider: null,
+};
+
+describe('AuthSettingsSection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedListProviderSecrets.mockResolvedValue([]);
+    mockedDeleteProviderSecret.mockResolvedValue(undefined);
+    mockedGitHubStatus.mockResolvedValue({
+      clientConfigured: true,
+      secureStorageAvailable: true,
+      state: 'disconnected',
+    });
+  });
+
+  it('renders GitHub authentication before provider credentials', async () => {
+    renderWithIntl(<AuthSettingsSection />);
+
+    const github = await screen.findByText('GitHub');
+    const providers = screen.getByText('Provider Credentials');
+    expect(
+      github.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in to GitHub' })).toBeEnabled();
+  });
+
+  it('renders an empty state when no credentials are stored', async () => {
+    renderWithIntl(<AuthSettingsSection />);
+
+    expect(screen.getByText('Loading credentials...')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No locally stored provider credentials were found.')
+    ).toBeInTheDocument();
+  });
+
+  it('renders provider credentials with storage and expiry status', async () => {
+    mockedListProviderSecrets.mockResolvedValue([
+      {
+        ...providerSecret,
+        expiresAt: '2027-01-01T12:00:00Z',
+        status: 'valid',
+      },
+    ]);
+
+    renderWithIntl(<AuthSettingsSection />);
+
+    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('OPENAI_API_KEY')).toBeInTheDocument();
+    expect(screen.getByText('Secret store')).toBeInTheDocument();
+    expect(screen.getByText(/Expires/)).toBeInTheDocument();
+  });
+
+  it('does not render an expiry badge when expiry is unknown', async () => {
+    mockedListProviderSecrets.mockResolvedValue([providerSecret]);
+
+    renderWithIntl(<AuthSettingsSection />);
+
+    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+    expect(screen.getByText('Secret store')).toBeInTheDocument();
+    expect(screen.queryByText('Expiry unknown')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Expires/)).not.toBeInTheDocument();
+  });
+
+  it('deletes a credential after confirmation and refreshes the list', async () => {
+    const user = userEvent.setup();
+    mockedListProviderSecrets.mockResolvedValueOnce([providerSecret]).mockResolvedValueOnce([]);
+
+    renderWithIntl(<AuthSettingsSection />);
+
+    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Delete credential' }));
+
+    expect(
+      screen.getByText('Delete the OPENAI_API_KEY credential for OpenAI?')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'This is the active provider. New requests may fail until you configure another credential.'
+      )
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(mockedDeleteProviderSecret).toHaveBeenCalledWith('secret_store:openai:OPENAI_API_KEY');
+    });
+    await waitFor(() => {
+      expect(mockedToast.success).toHaveBeenCalledWith('Credential deleted');
+    });
+    expect(
+      await screen.findByText('No locally stored provider credentials were found.')
+    ).toBeInTheDocument();
+  });
+
+  it('hides the unconfigured Hugging Face credential placeholder', async () => {
+    const huggingFaceSecret: ProviderSecretDto = {
+      id: 'provider_cache:huggingface',
+      provider: 'huggingface',
+      providerDisplayName: 'Hugging Face',
+      name: 'OAuth token',
+      storage: 'provider_cache',
+      expiresAt: null,
+      status: 'unknown',
+      configured: false,
+      hasSecret: false,
+      canDelete: false,
+      canConfigure: true,
+      configureProvider: 'huggingface',
+    };
+
+    mockedListProviderSecrets.mockResolvedValue([huggingFaceSecret]);
+
+    renderWithIntl(<AuthSettingsSection />);
+
+    expect(
+      await screen.findByText('No locally stored provider credentials were found.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Hugging Face')).not.toBeInTheDocument();
+  });
+});

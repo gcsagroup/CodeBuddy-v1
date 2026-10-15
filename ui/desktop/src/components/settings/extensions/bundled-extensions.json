@@ -1,0 +1,113 @@
+[
+  {
+    "id": "developer",
+    "name": "developer",
+    "display_name": "Developer",
+    "description": "General development tools useful for software engineering.",
+    "enabled": true,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "qwen_computer",
+    "name": "qwen_computer",
+    "description": "Standalone Windows computer control through MCP.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 60,
+    "display_name": "Computer Use MCP",
+    "bundled": true
+  },
+  {
+    "id": "computercontroller",
+    "name": "computercontroller",
+    "display_name": "Computer Controller",
+    "description": "General computer control tools that don't require you to be a developer or engineer.",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "autovisualiser",
+    "name": "autovisualiser",
+    "display_name": "Auto Visualiser",
+    "description": "Data visualization and UI generation tools",
+    "enabled": true,
+    "type": "builtin",
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "tavily",
+    "name": "tavily",
+    "display_name": "Tavily Web Search",
+    "description": "Search the live web and extract readable page content with Tavily.",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "npx",
+    "args": [
+      "-y",
+      "tavily-mcp@latest"
+    ],
+    "env_keys": [
+      "TAVILY_API_KEY"
+    ],
+    "available_tools": [
+      "tavily_search",
+      "tavily_extract"
+    ],
+    "read_only_tools": [
+      "tavily_search",
+      "tavily_extract"
+    ],
+    "timeout": 300,
+    "allow_configure": true,
+    "preserve_existing": true,
+    "bundled": true
+  },
+  {
+    "id": "exa",
+    "name": "exa",
+    "display_name": "Exa Web Search",
+    "description": "Search the live web with Exa.",
+    "enabled": true,
+    "type": "streamable_http",
+    "uri": "https://mcp.exa.ai/mcp",
+    "available_tools": [
+      "web_search_exa"
+    ],
+    "read_only_tools": [
+      "web_search_exa"
+    ],
+    "timeout": 60,
+    "allow_configure": true,
+    "preserve_existing": true,
+    "bundled": true
+  },
+  {
+    "id": "github_official",
+    "name": "github_official",
+    "display_name": "GitHub",
+    "description": "GitHub repositories, pull requests, issues and CI.",
+    "enabled": false,
+    "type": "streamable_http",
+    "uri": "https://api.githubcopilot.com/mcp/",
+    "headers": {
+      "Authorization": "Bearer ${CODEBUDDY_GITHUB_MCP_TOKEN}",
+      "X-MCP-Toolsets": "repos,issues,pull_requests,actions"
+    },
+    "env_keys": [
+      "CODEBUDDY_GITHUB_MCP_TOKEN"
+    ],
+    "timeout": 300,
+    "allow_configure": true,
+    "preserve_existing": true,
+    "bundled": true
+  }
+]

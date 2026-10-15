@@ -1,0 +1,96 @@
+/* Keep native details (and its file-preview state) while interpolating its body. */
+.codepro-disclosure {
+  interpolate-size: allow-keywords;
+}
+
+.codepro-disclosure::details-content {
+  block-size: 0;
+  opacity: 0;
+  overflow: clip;
+  transition:
+    block-size 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    content-visibility 280ms allow-discrete;
+}
+
+.codepro-disclosure[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
+/* Plans above the composer are overlays; clipping a zero-height body hides them. */
+.codepro-disclosure-popover::details-content {
+  block-size: auto;
+  overflow: visible;
+}
+
+.codepro-disclosure-preview {
+  interpolate-size: allow-keywords;
+  transition: max-height 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Radix keeps the closed body mounted until its exit animation completes. */
+.codepro-disclosure-content {
+  overflow: hidden;
+}
+
+.codepro-disclosure-content[data-state='open'] {
+  animation: codepro-disclosure-open 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.codepro-disclosure-content[data-state='closed'],
+.codepro-auto-disclosure[data-state='closed'] {
+  overflow: hidden;
+  animation: codepro-disclosure-close 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* New operation rows share a paint-only entrance, regardless of tool kind.
+   Settled history has no live marker, so reopening it never replays the rows. */
+[data-live-operations] .goose-message-tool,
+[data-live-message]:not(.codepro-tool-group *) .goose-message-tool {
+  animation: codepro-operation-in 220ms ease-out;
+}
+
+@keyframes codepro-operation-in {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes codepro-disclosure-open {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes codepro-disclosure-close {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codepro-disclosure::details-content,
+  .codepro-disclosure-preview {
+    transition: none;
+  }
+  .codepro-disclosure-content,
+  .codepro-auto-disclosure,
+  [data-live-operations] .goose-message-tool,
+  [data-live-message]:not(.codepro-tool-group *) .goose-message-tool {
+    animation: none !important;
+  }
+}

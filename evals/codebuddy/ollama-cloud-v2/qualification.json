@@ -1,0 +1,29 @@
+{
+  "qualificationVersion": "codebuddy-ollama-cloud-v2",
+  "changesFromPreviousVersion": [
+    "G1 requires line-numbered read-only evidence before the final answer."
+  ],
+  "gates": {
+    "g0": {
+      "prompt": "prompts/g0.txt",
+      "repetitions": 3,
+      "timeoutSeconds": 120,
+      "requireExactJson": true,
+      "expected": {
+        "status": "ok",
+        "sum": 42
+      }
+    },
+    "g1": {
+      "prompt": "prompts/g1.txt",
+      "fixtureDirectory": "fixtures/g1-readonly",
+      "fixtureSha256": "72f11382f0daa044252a5b2848799c5ab831b8803f35a1b25020e49b631320bb",
+      "repetitions": 3,
+      "timeoutSeconds": 180,
+      "expectedFile": "src/pricing.py",
+      "expectedLine": 3,
+      "requireZeroFilesystemChanges": true,
+      "maxConsecutiveIdenticalToolCalls": 2
+    }
+  }
+}

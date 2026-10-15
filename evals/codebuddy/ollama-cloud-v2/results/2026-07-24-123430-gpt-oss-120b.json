@@ -1,0 +1,87 @@
+{
+    "qualificationVersion":  "codebuddy-ollama-cloud-v2",
+    "recordedAt":  "2026-07-24T12:35:19.5552390+08:00",
+    "provider":  "ollama_cloud",
+    "model":  "gpt-oss:120b",
+    "status":  "FAIL",
+    "sourceRevision":  "a57ad4f8ad2db01a76161b88bb29170b43a574db",
+    "sourceDirty":  true,
+    "binarySha256":  "c112e5df2b081bcd93498abdddb8348f816daeaa2acdbf0bffa5a73e56437674",
+    "g0PromptSha256":  "328a4fc2fb30ffe358cb49438b610a2232ef2fdf168fc0eef7be3722c7223b7e",
+    "g1PromptSha256":  "d72e43ee32e729fcfeb9195ca92aa7c164f4cb1d5f86cf8f885c0298005dd745",
+    "fixtureSha256":  "72f11382f0daa044252a5b2848799c5ab831b8803f35a1b25020e49b631320bb",
+    "credentialMigration":  {
+                                "status":  "PASS",
+                                "before":  {
+                                               "currentTargetPresent":  true,
+                                               "legacyTargetPresent":  true
+                                           },
+                                "after":  {
+                                              "currentTargetPresent":  true,
+                                              "legacyTargetPresent":  true
+                                          }
+                            },
+    "g0":  {
+               "status":  "PASS",
+               "attempts":  [
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  3073,
+                                    "exactJson":  true,
+                                    "totalTokens":  1025,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  3429,
+                                    "exactJson":  true,
+                                    "totalTokens":  1029,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  3173,
+                                    "exactJson":  true,
+                                    "totalTokens":  1008,
+                                    "reason":  null
+                                }
+                            ]
+           },
+    "g1":  {
+               "status":  "FAIL",
+               "baselineGitTree":  "fb8e60809f7ed9bd51ab307abbcf02a078dd7574",
+               "attempts":  [
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  17116,
+                                    "totalTokens":  9792,
+                                    "toolCallCount":  6,
+                                    "maxConsecutiveIdenticalToolCalls":  1,
+                                    "lineNumberedCommandObserved":  true,
+                                    "reportedEvidence":  true,
+                                    "filesystemChanged":  false,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "FAIL",
+                                    "exitCode":  0,
+                                    "durationMs":  21120,
+                                    "totalTokens":  12765,
+                                    "toolCallCount":  8,
+                                    "maxConsecutiveIdenticalToolCalls":  1,
+                                    "lineNumberedCommandObserved":  true,
+                                    "reportedEvidence":  false,
+                                    "filesystemChanged":  false,
+                                    "reason":  "The final answer did not contain the required path:line evidence."
+                                },
+                                {
+                                    "status":  "NOT_RUN",
+                                    "reason":  "Stopped after the first failed repetition."
+                                }
+                            ]
+           }
+}

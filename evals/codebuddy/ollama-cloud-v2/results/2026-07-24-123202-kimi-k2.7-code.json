@@ -1,0 +1,95 @@
+{
+    "qualificationVersion":  "codebuddy-ollama-cloud-v2",
+    "recordedAt":  "2026-07-24T12:32:47.0440543+08:00",
+    "provider":  "ollama_cloud",
+    "model":  "kimi-k2.7-code",
+    "status":  "PASS",
+    "sourceRevision":  "a57ad4f8ad2db01a76161b88bb29170b43a574db",
+    "sourceDirty":  true,
+    "binarySha256":  "c112e5df2b081bcd93498abdddb8348f816daeaa2acdbf0bffa5a73e56437674",
+    "g0PromptSha256":  "328a4fc2fb30ffe358cb49438b610a2232ef2fdf168fc0eef7be3722c7223b7e",
+    "g1PromptSha256":  "d72e43ee32e729fcfeb9195ca92aa7c164f4cb1d5f86cf8f885c0298005dd745",
+    "fixtureSha256":  "72f11382f0daa044252a5b2848799c5ab831b8803f35a1b25020e49b631320bb",
+    "credentialMigration":  {
+                                "status":  "PASS",
+                                "before":  {
+                                               "currentTargetPresent":  true,
+                                               "legacyTargetPresent":  true
+                                           },
+                                "after":  {
+                                              "currentTargetPresent":  true,
+                                              "legacyTargetPresent":  true
+                                          }
+                            },
+    "g0":  {
+               "status":  "PASS",
+               "attempts":  [
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  3939,
+                                    "exactJson":  true,
+                                    "totalTokens":  1033,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  2877,
+                                    "exactJson":  true,
+                                    "totalTokens":  961,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  3568,
+                                    "exactJson":  true,
+                                    "totalTokens":  984,
+                                    "reason":  null
+                                }
+                            ]
+           },
+    "g1":  {
+               "status":  "PASS",
+               "baselineGitTree":  "fb8e60809f7ed9bd51ab307abbcf02a078dd7574",
+               "attempts":  [
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  9097,
+                                    "totalTokens":  3788,
+                                    "toolCallCount":  5,
+                                    "maxConsecutiveIdenticalToolCalls":  1,
+                                    "lineNumberedCommandObserved":  true,
+                                    "reportedEvidence":  true,
+                                    "filesystemChanged":  false,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  12802,
+                                    "totalTokens":  5472,
+                                    "toolCallCount":  6,
+                                    "maxConsecutiveIdenticalToolCalls":  1,
+                                    "lineNumberedCommandObserved":  true,
+                                    "reportedEvidence":  true,
+                                    "filesystemChanged":  false,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  10964,
+                                    "totalTokens":  5498,
+                                    "toolCallCount":  6,
+                                    "maxConsecutiveIdenticalToolCalls":  1,
+                                    "lineNumberedCommandObserved":  true,
+                                    "reportedEvidence":  true,
+                                    "filesystemChanged":  false,
+                                    "reason":  null
+                                }
+                            ]
+           }
+}

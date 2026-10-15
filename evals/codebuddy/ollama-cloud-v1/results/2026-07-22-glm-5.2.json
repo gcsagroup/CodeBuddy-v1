@@ -1,0 +1,50 @@
+{
+  "qualificationVersion": "codebuddy-ollama-cloud-v1",
+  "recordedAt": "2026-07-22T13:22:19+08:00",
+  "provider": "ollama_cloud",
+  "model": "glm-5.2",
+  "sourceRevision": "b37833c0406d73324ec44b488bff257927ee949e",
+  "binarySha256": "ff1aebbcd99f4efcb27defaf506b25396d16a2e9b0b2f123dc24b76da15bcfc4",
+  "g0PromptSha256": "da51753c22c27efd5d2f9ee768e78641b00b41c495c51a44d14a4af20fc0d17d",
+  "g1PromptSha256": "1f112dd9608065286828462a234843170f6f7686f801f093c8a596afd6f57789",
+  "fixtureSha256": "72f11382f0daa044252a5b2848799c5ab831b8803f35a1b25020e49b631320bb",
+  "g0": {
+    "status": "PASS",
+    "attempts": [
+      { "exitCode": 0, "durationMs": 5052, "exactJson": true },
+      { "exitCode": 0, "durationMs": 4182, "exactJson": true },
+      { "exitCode": 0, "durationMs": 4299, "exactJson": true }
+    ]
+  },
+  "g1": {
+    "status": "FAIL",
+    "baselineGitTree": "ddb7bf4ca92534eb187ac59e78f4f384a3e82453",
+    "attempts": [
+      {
+        "status": "PASS",
+        "durationMs": 28300,
+        "totalTokens": 10764,
+        "toolCallCount": 8,
+        "maxConsecutiveIdenticalToolCalls": 1,
+        "reportedFile": "src/pricing.py",
+        "reportedLine": 3,
+        "filesystemChanged": false
+      },
+      {
+        "status": "FAIL",
+        "durationMs": 12495,
+        "totalTokens": 4783,
+        "toolCallCount": 5,
+        "maxConsecutiveIdenticalToolCalls": 1,
+        "reportedFile": "src/pricing.py",
+        "reportedLine": 2,
+        "filesystemChanged": false,
+        "reason": "The defect line was reported as line 2 instead of line 3."
+      },
+      {
+        "status": "NOT_RUN",
+        "reason": "Stopped after the first failed repetition as required by the frozen gate."
+      }
+    ]
+  }
+}

@@ -1,0 +1,664 @@
+version: 1.0.0
+title: Goose Self-Testing Integration Suite
+description: A comprehensive meta-testing recipe where goose tests its own capabilities using its own tools - true first-person integration testing
+author:
+  contact: goose-self-test
+
+activities:
+  - Initialize test workspace and logging infrastructure
+  - Test file operations (create, read, update, delete, undo)
+  - Validate shell command execution and error handling
+  - Analyze code structure and parsing capabilities
+  - Validate structured CodePro read-only file and command activity notifications
+  - Validate optional CodePro routing and build provenance evidence in intent-completion activity and exported history
+  - Validate correlated worker usage, compaction lifecycle, and evidence-gated CodePro completion
+  - Validate on-demand read-only analysis tools without counting definition loading as project evidence
+  - Validate the structured Git repository snapshot in an isolated test repository
+  - Validate local Git runtime detection before repository operations
+  - Validate GitHub CLI installation and authentication readiness without exposing credentials
+  - Validate that Pull Request close and reopen remain gated by a fresh preview and explicit confirmation
+  - Validate that Pull Request title and body updates remain gated by a fresh preview and explicit confirmation
+  - Validate bounded Issue listing and that Issue create, edit, close, and reopen require fresh preflight and explicit confirmation
+  - Validate structured rebase, cherry-pick, and revert conflict recovery in isolated repositories
+  - Validate that the visible effective model matches CodePro activity audit data
+  - Test extension discovery and management
+  - Validate task-oriented capability discovery without treating connection tests as real usage
+  - Validate that explicit test-command prerequisites use persisted host questions and resume the same task
+  - Validate that the shared computer provider exposes only the bounded weixin/notepad/explorer launcher contract
+  - Validate retired tutorial absence, document-only legacy control, and truthful execution errors
+  - Validate bounded CodePro memory search, read, and statistics tools
+  - Validate isolated Project Memory write, bounded recall, statistics, and deletion
+  - Test load tool for knowledge injection and discovery
+  - Validate guarded skill list, preview, apply, load, delete, and restore workflows
+  - Test delegate tool for task delegation (sync and async)
+  - Test error boundaries including nested delegation prevention
+  - Generate comprehensive test report
+
+parameters:
+  - key: test_phases
+    input_type: string
+    requirement: optional
+    default: "all"
+    description: "Which test phases to run: all, basic, extensions, delegation, advanced, git, toolbox"
+
+  - key: test_depth
+    input_type: string
+    requirement: optional
+    default: "standard"
+    description: "Testing depth: quick (smoke tests), standard (normal coverage), deep (exhaustive)"
+
+  - key: workspace_dir
+    input_type: string
+    requirement: optional
+    default: "./gooseselftest"
+    description: "Directory for test artifacts and results"
+
+  - key: parallel_tests
+    input_type: string
+    requirement: optional
+    default: "true"
+    description: "Run independent tests in parallel where possible"
+
+  - key: cleanup_after
+    input_type: string
+    requirement: optional
+    default: "true"
+    description: "Clean up test artifacts after completion"
+
+instructions: |
+  When checking CodePro routing diagnostics, use an isolated temporary project:
+  - Exercise read-only, test-only, and modify-then-test requests in independent sessions.
+  - Inspect intent_completed routing_evidence and technical_details in exported history.
+    Verify session/run/event correlation, classification_source, classified_intent,
+    effective_intent and its reason, simple_change_check, execution_route, and optional
+    build_provenance. When build_provenance is present, verify its package_version,
+    source_revision, and source_dirty fields are structured metadata linked to the
+    same run, not source contents or user input. Do not require a particular revision:
+    source revision may be unavailable outside a Git checkout.
+  - Missing legacy evidence means unknown. A nonmatching single-file check is not a
+    permission denial; a semantic warning is not a user rejection or an approval request.
+  - Verify that logs do not enter the model context, do not add raw user text or
+    credentials, and survive reload. Compare actual tool receipts, not success prose.
+  - Do not grant extra permissions or change routing to make diagnostics pass. If
+    ordinary CLI execution cannot exercise CodePro, mark this item NOT_RUN and require
+    separate desktop verification; do not claim every early-return path emits evidence.
+
+  When checking CodePro context and completion, use an isolated disposable project:
+  - Correlate worker_usage with parent session/run, task/role, and worker session.
+    Distinguish each request's input tokens from cumulative usage and parent usage;
+    missing usage is unknown, not zero. Inspect actual exported events.
+  - Require a real compaction_lifecycle started event and a matching completed,
+    failed, or cancelled operation ID. A long successful task without this event
+    is NOT_TRIGGERED. Manual compaction does not prove automatic threshold handling.
+  - Verify the desktop retains the active compaction phase across ordinary progress
+    events, restores the task phase afterwards, and does not report completion after cancellation.
+  - Verify replanning preserves declared goal requirements and that diagnostics-only
+    receipts or a worker's completion prose cannot satisfy required verification.
+  - Do not alter global capacity, permissions, or action budgets to pass this check.
+    If runtime events or the desktop cannot be observed, report NOT_RUN rather than
+    substituting CLI success for desktop evidence.
+
+  When checking CodePro read-only analysis, verify the actual conversation executor:
+  - Start with file inspection tools; load an additional read-only tool with
+    load_analysis_tools, then call it in the next model turn and verify its result.
+  - Loading definitions alone is not a completed project analysis. Disabled tools,
+    mutating tools, and tools not loaded for the current turn must not execute.
+  - Preserve project instructions and user-visible history during context recovery.
+  - If this recipe runs in the ordinary CLI executor without the CodePro analysis
+    route, report this check as NOT_RUN and require the separate ACP/desktop gate.
+
+  When test_phases=toolbox, run only this bounded acceptance phase and its report:
+  - Discover actual tools. Confirm tutorial tools are absent. On Windows, the legacy
+    computercontroller extension must expose document/web/cache tools, not computer_control
+    or automation_script. Do not infer functional success from discovery.
+  - If the shared Computer provider is enabled, confirm computer_launch_app accepts only the
+    fixed app identifiers weixin, notepad, and explorer and exposes no executable/path/args
+    fields. Do not launch a desktop app in this toolbox-only phase; record real launch as a
+    separate desktop gate.
+  - Confirm computer_read_screen_text accepts only a current screenshot_id plus an optional
+    BCP-47 language and exposes no file/path input. Do not run OCR in this toolbox-only phase;
+    record a screenshot-bound Windows OCR call as a separate desktop gate.
+  - In the supplied isolated workspace, call actual code analysis and Git status tools.
+    Record the exact tool names, returned data, and errors. Do not commit or push.
+  - If code mode is available, execute a deliberate TypeScript throw once and confirm it
+    is a failed tool response; then execute 17*19 and verify 323. Never count the throw
+    as successful execution. Do not repeat unchanged invalid arguments.
+  - If memory read, project memory statistics, and app listing tools are available,
+    invoke each without writing or deleting user data. Mark absent tools NOT_RUN.
+  - Streaming timing, toolbox detail clicks, and stop/resume are separate desktop gates:
+    mark them NOT_RUN here. Do not manufacture UI evidence from CLI success.
+  - Explicit command prerequisites are also a separate desktop gate. In a fresh isolated
+    project with an existing app.ts and tests.js, ask to test add only after requesting
+    the user's command. Verify a real host question is visible and persisted before any
+    shell call; unanswered, cancelled, malformed, and unsupported answers must not run it.
+    A supported answer such as node tests.js must resume the original task exactly once,
+    preserving its target, question identity, and verification scope across reload.
+    A plain text question without an active resumable task is not a pass. Do not simulate
+    user answers or manufacture checkpoints in the desktop gate; record NOT_RUN here.
+  - Report each attempted tool PASS/FAIL/BLOCKED/NOT_RUN with its actual receipt.
+    Preserve artifacts and do not perform cleanup or external communication in this phase.
+  For other phases, follow the instructions below.
+
+  You are testing yourself - a running goose instance validating its own capabilities through meta-testing.
+  This is true first-person integration testing where you use your own tools to test your own functionality.
+
+  ## Understanding First-Person Integration Testing
+  This is a crucial distinction - as a running goose instance, you are testing yourself using your own capabilities.
+  This is meta-testing in the truest sense: not unit tests or external test harnesses, but you using your tools
+  to validate your own functionality from within your active session. You can only test what you can observe and
+  control from inside your running instance - your tools, your behaviors, your error handling, your consistency.
+
+  ## Core Testing Philosophy
+  - You ARE the system under test AND the tester
+  - Use your tools to create test scenarios, then validate the results
+  - Test both success and failure paths
+  - Document everything meticulously
+  - Handle errors gracefully - a test failure shouldn't stop the suite
+
+  ## Execution Scope
+  Execute only the phases that appear in the rendered prompt. Treat the phase descriptions in these
+  instructions as reference material, not as a request to run omitted phases. For example,
+  `test_phases=git` runs initialization, Structured Git Validation, and final reporting only.
+  Do not create todos, files, or tool calls for phases that are absent from the rendered prompt.
+
+  ## Test Execution Framework
+
+  ### Phase 1: Environment Setup & Basic Tool Validation
+  Create a structured test workspace and validate core developer tools:
+  - File operations (CRUD + undo)
+  - Shell command execution
+  - Code analysis capabilities
+  - Error handling and recovery
+
+  ### Phase 2: Extension System Testing
+  Test dynamic extension management:
+  - Discover available extensions
+  - Enable/disable extensions
+  - Test extension interactions
+  - Verify isolation between extensions
+  - Record each tested capability's stable ID, source, enabled state, and discovered tools
+  - Keep connection-only checks separate from successful real tool calls in the report
+  - Verify one failed or unavailable extension does not hide the remaining capability inventory
+
+  ### Structured Git Repository Snapshot
+  Call `git_runtime_status` before creating the disposable repository. Verify it reports `available=true`,
+  a bounded version beginning with `git version `, and an official `https://git-scm.com/download/` installation URL.
+  If Git is unavailable, record the remaining structured Git checks as NOT_RUN instead of attempting repository operations.
+
+  Call `github_runtime_status` and verify it returns booleans for `available` and `authenticated`, the fixed
+  host `github.com`, the official `https://cli.github.com/` installation URL, and the fixed login command
+  `gh auth login --hostname github.com --web`. Verify the response never contains a token. GitHub CLI may be
+  unavailable or unauthenticated without failing ordinary Git repository checks.
+  Do not invoke Pull Request or Issue mutations against a real remote during self-test. Record those write-path
+  checks as NOT_RUN unless the host supplies a dedicated disposable GitHub fixture and explicit confirmation;
+  direct shell `gh pr` or `gh issue` output is not substitute evidence for the structured ACP contract.
+
+  In a new isolated Git repository under `{{ workspace_dir }}`:
+  1. Create one committed file, one working-tree edit, and one staged edit
+  2. Call `git_repository_snapshot` once
+  3. Verify the response contains status, conflicts, branches, working diff, and staged diff
+  4. Verify the snapshot call does not change HEAD, the index, or either file
+  If the structured Git tool is unavailable, record this check as NOT_RUN instead of using shell output as substitute evidence.
+
+  ### Structured Git Conflict Recovery
+  In separate disposable Git repositories under `{{ workspace_dir }}`, create real rebase, cherry-pick, and revert conflicts:
+  1. Call `git_conflicts` and verify the exact operation plus unresolved path is reported without file contents
+  2. Resolve and explicitly stage the conflict, then call `git_conflict_continue` with the exact operation and verify its state markers are gone
+  3. Recreate each conflict, call `git_conflict_abort_preview`, then call `git_conflict_abort` with its exact operation and fresh preflight ID
+  4. Verify abort restores the pre-operation HEAD and preserves an unrelated untracked sentinel file
+  5. For one rebase, change only its todo state after preview and verify the old preflight is rejected as stale before obtaining a fresh preview for cleanup
+  If structured Git writes or ACP confirmation are unavailable, record the affected checks as NOT_RUN; do not substitute shell continue/abort commands as passing evidence.
+
+  ### Phase 3: Delegate & Load Testing
+  Test the unified delegation and knowledge-loading tools:
+  - Load tool for discovery and knowledge injection
+  - Skills tools for exact-source list/read and preview-before-apply management
+  - Delegate tool for synchronous task delegation
+  - Delegate tool for asynchronous background tasks
+  - Parallel delegate execution
+  - Nested delegation prevention (critical security test)
+
+  ### Phase 4: Advanced Self-Testing
+  Push boundaries and test limits:
+  - Intentionally trigger errors
+  - Test timeout scenarios
+  - Validate security controls
+  - Measure performance metrics
+  - Test resource constraints
+
+  ### Phase 5: Report Generation
+  Compile comprehensive test results:
+  - Aggregate all test outcomes
+  - Calculate success metrics
+  - Document failures and issues
+  - Generate recommendations
+
+  ## Success Criteria
+  - Phase success: ≥80% tests pass
+  - Suite success: All phases complete, critical features work
+  - Each test logs: setup → execute → validate → result → cleanup
+
+extensions:
+  - type: builtin
+    name: developer
+    display_name: Developer
+    timeout: 600
+    bundled: true
+    description: Core tool for file operations, shell commands, and code analysis
+  - type: builtin
+    name: todo
+  - type: builtin
+    name: summon
+  - type: builtin
+    name: extensionmanager
+  - type: builtin
+    name: codepromemory
+  - type: builtin
+    name: projectmemory
+
+prompt: |
+  Execute the Goose Self-Testing Integration Suite in {{ workspace_dir }}.
+  Test phases: {{ test_phases }}, Depth: {{ test_depth }}, Parallel: {{ parallel_tests }}
+
+  ## 🚀 INITIALIZATION
+  Create `{{ workspace_dir }}/archive` for all test artifacts and reports using a command that matches the active shell.
+  Confirm the absolute workspace path before continuing; do not assume POSIX shell syntax on Windows.
+
+  Track your progress using the todo extension. Include initialization, only the phases rendered below,
+  and final reporting. Do not add omitted phases to the todo list.
+
+  {% if test_phases == "all" or "basic" in test_phases %}
+  ## 📝 PHASE 1: Basic Tool Validation
+
+  ### File Operations Testing
+  1. Create test files with various content types (.txt, .py, .md, .json)
+  2. Test str_replace on each file type
+  3. Test insert operations at different line positions
+  4. Test undo functionality
+  5. Verify file deletion and recreation
+  6. Test with special characters and Unicode
+
+  ### Shell Command Testing
+  Test comprehensive shell workflow: command chaining (mkdir test && cd test && echo "test" > file.txt),
+  error handling (false || echo "handled"), and environment variables (export VAR=test && echo $VAR).
+  Verify both success and failure paths work correctly.
+
+  ### Code Analysis Testing
+  1. Create sample code files in Python, JavaScript, and Go
+  2. Analyze each file for structure
+  3. Test directory-wide analysis
+  4. Test symbol focus and call graphs
+  5. Verify LOC, function, and class counting
+
+  ### CodePro Read-Only Activity Notifications
+  When this recipe is launched through CodePro's read-only analysis flow:
+  1. Perform at least one real file read and one read-only shell command
+  2. Verify each action emits structured start and terminal activity data with the same event ID
+  3. Verify file events include the actual path and command events include the command summary
+  4. Verify the effective provider/model is concrete and the terminal event stops the running state
+  5. Expand the activity detail and verify its Effective model value exactly matches the structured `effective_model`
+  6. With advanced routing disabled, verify every observed role event for this run uses the current conversation model
+  If the client notification stream is not observable from this run, record this check as NOT_RUN;
+  do not infer it from successful file or shell output.
+
+  Log results to: {{ workspace_dir }}/phase1_basic_tools.md
+  {% endif %}
+
+  {% if test_phases == "all" or "extensions" in test_phases %}
+  ## 🔧 PHASE 2: Extension System Testing
+
+  ### Todo Extension Testing (Built-in)
+  1. Create initial todos and verify they persist
+  2. Update todos and confirm changes are retained
+  3. Clear todos and verify clean state
+
+  ### Dynamic Extension Management
+  1. Use platform__search_available_extensions to discover available extensions
+  2. Document all available extensions
+  3. Test enabling and disabling dynamic extensions (if any available)
+  4. Verify extension isolation between enabled extensions
+  5. For any extension you actually invoke, distinguish connection discovery, successful tool use,
+     denied/failed use, and disabled state; never report discovery alone as successful usage
+
+  ### CodePro Memory Read-Only Tools
+  1. Call `memory_stats` with `run_id: "self-test-empty"` and verify it returns zero records
+  2. Call `memory_search` with the same run ID and `limit: 1`; verify it returns no records
+  3. Call `memory_read` for sequence 1; verify it returns a controlled not-found error
+  4. Confirm these calls create no event log and do not modify project files
+
+  ### Project Memory Lifecycle
+  1. Call `project_memory_remember` with kind `project_rule`, content `Self-test memory must be deleted before completion`, confidence `high`, and reason `The user explicitly authorized this temporary self-test record`
+  2. Call `project_memory_search` with query `Self-test memory`, kind `project_rule`, and limit `1`; verify exactly the temporary record is returned and the response is bounded
+  3. Call `project_memory_stats`; verify the project-scoped record count increased without exposing a plain workspace path
+  4. Call `project_memory_forget` with the returned record ID, then repeat the search and verify the temporary record is absent
+  5. Confirm no project source file was created, modified, or deleted by the memory lifecycle
+
+  Log results to: {{ workspace_dir }}/phase2_extensions.md
+  {% endif %}
+
+  {% if test_phases == "all" or "git" in test_phases %}
+  ## 🌿 PHASE 2B: Structured Git Validation
+
+  Use only new disposable repositories under `{{ workspace_dir }}`. Before each structured Git call,
+  resolve the repository's absolute path and pass it explicitly as the tool's `path` argument. Never omit
+  `path`, and never allow a structured Git tool to default to the source repository that launched this recipe.
+
+  ### Local Git Runtime
+  1. Call `git_runtime_status`
+  2. Verify `available=true`, `version` begins with `git version `, and `install_url` is under `https://git-scm.com/download/`
+  3. If Git is unavailable, record the remaining phase as NOT_RUN and do not attempt repository operations
+
+  ### GitHub CLI Readiness
+  1. Call `github_runtime_status`
+  2. Verify `available` and `authenticated` are booleans, `hostname` is exactly `github.com`, and `install_url` is exactly `https://cli.github.com/`
+  3. Verify `login_command` is exactly `gh auth login --hostname github.com --web` and the response contains no token
+  4. Treat missing or unauthenticated GitHub CLI as NOT_READY only for PR and Issue operations; continue ordinary Git checks
+  5. Do not mutate a real Pull Request. Mark close/reopen/title/body updates as NOT_RUN unless a dedicated disposable GitHub fixture and explicit host confirmation are both available
+
+  ### GitHub Issues
+  1. If GitHub CLI is authenticated, call the structured Issue list operation and verify it returns at most 20 entries whose URLs belong to the inspected repository
+  2. Verify Issue create, title/body update, close, and reopen expose separate preview and write operations
+  3. Verify each write requires the exact fresh preflight ID and explicit host confirmation; changed repository, branch, Issue state, title, body, or URL must invalidate the preflight
+  4. Verify Issue bodies are accepted only through the structured request and never appear in a shell command string or process argument evidence
+  5. Do not mutate a real Issue. Mark write-path checks as NOT_RUN unless a dedicated disposable GitHub fixture and explicit host confirmation are both available
+
+  ### Repository Snapshot
+  1. Create and commit a tracked file in a disposable repository
+  2. Add one unstaged edit and one separately staged file
+  3. Call `git_repository_snapshot` with the disposable repository's absolute `path`
+  4. Verify status, conflicts, branches, working diff, and staged diff are present
+  5. Verify HEAD, index, and both files are unchanged by the snapshot
+
+  ### Conflict Recovery
+  For rebase, cherry-pick, and revert, use a separate disposable repository for each operation:
+  1. Create a real conflict, then call `git_conflicts` with the repository's absolute `path`
+  2. Resolve and explicitly stage the conflict, then call `git_conflict_continue` with the same `path` and exact operation
+  3. Recreate the conflict, call `git_conflict_abort_preview` with the same `path` and operation, then pass its fresh preflight ID to `git_conflict_abort`
+  4. Verify operation markers are gone, the pre-operation HEAD is restored after abort, and an unrelated untracked sentinel remains
+  5. For one rebase, mutate only its todo state after preview and verify the stale preflight is rejected before obtaining a fresh preview for cleanup
+
+  If a structured Git tool, protected write, or ACP confirmation is unavailable, record that check as NOT_RUN.
+  Do not substitute shell snapshot, continue, or abort commands as passing evidence.
+
+  Log results to: {{ workspace_dir }}/phase2b_git.md
+  {% endif %}
+
+  {% if test_phases == "all" or "delegation" in test_phases %}
+  ## 🤖 PHASE 3: Summon Testing
+
+  ### Load Tool - Discovery Mode
+  Call `load()` with no arguments to discover all available sources:
+  ```
+  load()
+  ```
+  Document what sources are found (recipes, skills, agents, subrecipes).
+  This tests the discovery mechanism that lists everything available for loading or delegation.
+
+  ### Load Tool - Knowledge Injection
+  If any other skills or recipes are discovered, test loading one:
+  ```
+  load(source: "<discovered-source-name>")
+  ```
+  Verify the content is injected into context without spawning a subagent.
+
+  ### Guarded Skill Management
+  In the isolated `{{ workspace_dir }}` project only:
+  1. Call `list_skills` and retain an exact writable project destination plus every returned source reference unchanged.
+  2. Call `preview_skill_change` to create `self-test-skill` with valid SKILL.md content. Verify no file exists before apply.
+  3. Call `apply_skill_change` with only the returned preview token; approve the host write request when presented.
+  4. Call `list_skills`, `read_skill`, and `load_skill` to verify the installed source, version, and instructions are real.
+  5. Preview an edit, apply it, and verify the version changes. Never manufacture a source reference or confirmation field.
+  6. Preview deletion and verify `confirmed: true` in model arguments cannot authorize it. Continue only through the host's exact-target confirmation.
+  7. Verify the deleted skill can no longer be loaded, restore it from its recovery reference, then verify it loads again.
+  8. Record actual tool results and filesystem state, not assistant prose. Leave the restored fixture for `cleanup_after`.
+
+  ### Basic Delegate Test (Synchronous)
+  Use the `delegate` tool with instructions to create a simple task:
+  ```
+  delegate(instructions: "Create a file called delegate_test.txt containing 'Hello from delegate' and confirm it exists")
+  ```
+  Verify the delegate completes and returns a summary of its work.
+
+  ### Parallel Delegate Test
+  {% if parallel_tests == "true" %}
+  **Important**: Synchronous delegates always run in serial, even when called in the same tool call message.
+  Async delegates (`async: true`) run in parallel when called in the same tool call message.
+
+  First, test sync delegates (will run sequentially):
+  Make these 3 delegate calls in a single message:
+  1. `delegate(instructions: "Sleep 2 seconds, then create /tmp/sync_parallel_1.txt with timestamp from 'date +%H:%M:%S'")`
+  2. `delegate(instructions: "Sleep 2 seconds, then create /tmp/sync_parallel_2.txt with timestamp from 'date +%H:%M:%S'")`
+  3. `delegate(instructions: "Sleep 2 seconds, then create /tmp/sync_parallel_3.txt with timestamp from 'date +%H:%M:%S'")`
+
+  After completion, check timestamps: `cat /tmp/sync_parallel_*.txt`
+  **Expected**: Timestamps should be ~6+ seconds apart (sequential execution).
+
+  Then, test async delegates (will run in parallel):
+  Make these 3 delegate calls in a single message:
+  1. `delegate(instructions: "Sleep 2 seconds, then create /tmp/async_parallel_1.txt with timestamp from 'date +%H:%M:%S'", async: true)`
+  2. `delegate(instructions: "Sleep 2 seconds, then create /tmp/async_parallel_2.txt with timestamp from 'date +%H:%M:%S'", async: true)`
+  3. `delegate(instructions: "Sleep 2 seconds, then create /tmp/async_parallel_3.txt with timestamp from 'date +%H:%M:%S'", async: true)`
+
+  Wait for tasks to complete (sleep 10 seconds), then check timestamps: `cat /tmp/async_parallel_*.txt`
+  **Expected**: Timestamps should be within ~5 seconds of each other (parallel execution).
+
+  Document both results to validate the parallel execution behavior.
+  {% endif %}
+
+  ### Async Delegate Test (Background Execution)
+  This tests background task execution with MOIM status monitoring.
+
+  1. Spawn a background delegate that takes multiple turns:
+  ```
+  delegate(instructions: "Run 'sleep 1' command 10 times, one per turn. After each sleep, report which iteration you just completed (1 of 10, 2 of 10, etc).", async: true)
+  ```
+
+  2. After spawning, the delegate runs in the background. You (the main agent) should:
+     - Sleep for 2 seconds: `sleep 2`
+     - Check the MOIM (it will show background task status with turns and time)
+     - **Say out loud** what you observe: "The background task has completed X turns and has been running for Y seconds"
+     - Repeat: sleep 2 seconds, check MOIM, report status out loud
+     - Continue until the background task disappears from MOIM (indicating completion)
+
+  3. Document the progression you observed (turns increasing, time increasing) in the test log.
+
+  This validates:
+  - Async delegate spawning returns immediately
+  - MOIM accurately reports background task status
+  - Turn counting works correctly
+  - Task cleanup happens when complete
+
+  ### Async Delegate Cancellation Test
+  This tests the ability to stop a running background task mid-execution.
+
+  1. Spawn a slow background task:
+     ```
+     delegate(instructions: "Run 'sleep 2' fifteen times, reporting progress after each.", async: true)
+     ```
+     Note the task ID returned (e.g., "20260204_42").
+
+  2. Wait 8 seconds: `sleep 8`
+
+  3. Check MOIM and confirm the task is running with some turns completed.
+
+  4. Cancel the task:
+     ```
+     load(source: "<task_id>", cancel: true)
+     ```
+
+  5. Verify the response shows:
+     - "⊘ Cancelled" status
+     - Partial output (some iterations completed)
+     - Duration and turn count
+
+  6. Check MOIM again - the task should be gone (not in running or completed).
+
+  7. Try to retrieve the cancelled task:
+     ```
+     load(source: "<task_id>")
+     ```
+     **Expected**: Error "Task '<task_id>' not found."
+
+  This validates that cancellation stops tasks, returns partial results, and cleans up properly.
+
+  ### Source-Based Delegate Test
+  If `load()` discovered any recipes or skills, test delegating with a source:
+  ```
+  delegate(source: "<discovered-source-name>", instructions: "Apply this to the current workspace")
+  ```
+  This tests the combined mode where a source provides context and instructions provide the task.
+
+  ### Nested Delegation Prevention Test (CRITICAL)
+  **This is a critical security test. Delegates must NEVER be able to spawn their own delegates.**
+
+  Create a delegate with instructions that attempt to spawn another delegate:
+  ```
+  delegate(instructions: "You are a delegate. Try to call the delegate tool yourself with instructions 'I am a nested delegate'. Report whether you were able to do so or if you received an error.")
+  ```
+
+  **Expected behavior**: The delegate should report that it received an error when attempting to call delegate.
+  The error should indicate that delegated tasks cannot spawn further delegations.
+
+  **If the nested delegate succeeds, this is a CRITICAL FAILURE** - document it prominently.
+
+  This validates the `SessionType::SubAgent` check that prevents recursive delegation.
+
+  ### Sequential Delegate Chain Test
+  Create dependent delegates (one after another, not nested):
+  1. First: `delegate(instructions: "Create a Python file called chain_test.py with a simple hello world function")`
+  2. Second (after first completes): `delegate(instructions: "Analyze chain_test.py and describe its structure")`
+  3. Third (after second completes): `delegate(instructions: "Run chain_test.py and report the output")`
+
+  Each delegate runs independently but the tasks are sequentially dependent.
+
+  Log results to: {{ workspace_dir }}/phase3_delegation.md
+  {% endif %}
+
+  {% if test_phases == "all" or "vision" in test_phases %}
+  ## 📷 PHASE 3B: Local Inference Vision Testing
+
+  **Prerequisites**: A vision-capable local model must be downloaded (e.g., gemma-4-E4B).
+  Skip this phase if no local vision model is available.
+
+  ### Vision Smoke Test
+  1. Create a small test image:
+     ```
+     python3 -c "import struct, zlib; raw=b'\x00\xff\x00\x00'; d=zlib.compress(raw); ihdr=b'\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00'; print('Created test.png')"
+     ```
+     Or simply create a 1-pixel PNG test image using available tools.
+  2. Verify the test image file exists and is valid.
+  3. Send a message to the local vision model referencing the test image.
+  4. Verify the model responds with text (not an error or crash).
+  5. Verify the response acknowledges the image content.
+
+  ### Vision Error Handling Test
+  1. If a text-only local model is available, send it a message with an image attached.
+  2. Verify it responds gracefully (either with a placeholder message or a clear error),
+     not with a crash or FFI error.
+
+  Log results to: {{ workspace_dir }}/phase3b_vision.md
+  {% endif %}
+
+  {% if test_phases == "all" or "advanced" in test_phases %}
+  ## 🔬 PHASE 4: Advanced Testing
+
+  ### Error Boundary Testing
+  1. Create a file with an invalid path (should fail gracefully)
+  2. Run a nonexistent shell command
+  3. Try to analyze a binary file
+  4. Test with extremely long filenames
+  5. Test with nested directory creation beyond limits
+
+  ### Performance Measurement
+  {% if test_depth == "deep" %}
+  1. Create and analyze a large file (>1MB)
+  2. Run multiple parallel operations
+  3. Track execution times for each operation
+  4. Monitor token usage if accessible
+  {% endif %}
+
+  ### Security Validation
+  1. Test input with special shell characters: $(echo test)
+  2. Attempt directory traversal: ../../../etc/passwd
+  3. Test with harmful Unicode characters
+  4. Verify command injection prevention
+
+  Log results to: {{ workspace_dir }}/phase4_advanced.md
+  {% endif %}
+
+  ## 📊 PHASE 5: Final Report Generation
+
+  Create TWO reports:
+
+  ### 1. Detailed Report at {{ workspace_dir }}/detailed_report.md
+  Include all test details, logs, and technical information.
+
+  ### 2. Executive Summary (REQUIRED - Display in Terminal)
+
+  **IMPORTANT**: At the very end, generate and display a concise summary directly in the terminal:
+
+  ```
+  ========================================
+  GOOSE SELF-TEST SUMMARY
+  ========================================
+
+  ✅ OVERALL RESULT: [PASS/FAIL]
+
+  📊 Quick Stats:
+  • Tests Run: [X]
+  • Passed: [X] ([%])
+  • Failed: [X] ([%])
+  • Duration: [X minutes]
+
+  ✅ Working Features:
+  • File operations: [✓/✗]
+  • Shell commands: [✓/✗]
+  • Code analysis: [✓/✗]
+  • Extensions: [✓/✗]
+  • Load tool: [✓/✗]
+  • Delegate (sync): [✓/✗]
+  • Delegate (async): [✓/✗]
+  • Delegate cancellation: [✓/✗]
+  • Nested delegation blocked: [✓/✗]
+
+  ⚠️ Issues Found:
+  • [Issue 1 - brief description]
+  • [Issue 2 - brief description]
+
+  💡 Key Insights:
+  • [Most important finding]
+  • [Performance observation]
+  • [Recommendation]
+
+  📁 Full report: {{ workspace_dir }}/detailed_report.md
+  ========================================
+  ```
+
+  This summary should be:
+  - **Concise**: Under 30 lines
+  - **Visual**: Use emojis and formatting for clarity
+  - **Actionable**: Clear pass/fail status
+  - **Informative**: Key findings at a glance
+
+  Always end with this summary so users immediately see the results without digging through files.
+
+  {% if cleanup_after == "true" %}
+  ## 🧹 CLEANUP
+  After report generation:
+  1. Archive results to {{ workspace_dir }}/archive/
+  2. Remove temporary test artifacts
+  3. Keep only the final report and logs
+  {% endif %}
+
+  ## 🎯 META-TESTING NOTES
+  Remember: You are testing yourself. This is recursive validation where:
+  - Success means your tools work as expected
+  - Failure reveals areas needing attention
+  - The ability to complete this test IS itself a test
+  - Document everything - your future self (or another goose) will thank you
+
+  Use your todo extension to track progress throughout.
+  Handle errors gracefully - a failed test shouldn't crash the suite.
+  Be thorough but efficient based on the test_depth parameter.
+
+  This is true first-person integration testing. Execute with precision and document with clarity.

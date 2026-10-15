@@ -1,0 +1,71 @@
+{
+    "qualificationVersion":  "codebuddy-ollama-cloud-v2",
+    "recordedAt":  "2026-07-28T22:11:58.7738754+08:00",
+    "provider":  "ollama_cloud",
+    "model":  "minimax-m3",
+    "status":  "FAIL",
+    "sourceRevision":  "534a3bb6b9b1b89b86d112eb8105a230367e036d",
+    "sourceDirty":  true,
+    "binarySha256":  "21da14768b7adc8d288391ed8e132816323622635b89b6aa0ad115056c773501",
+    "g0PromptSha256":  "328a4fc2fb30ffe358cb49438b610a2232ef2fdf168fc0eef7be3722c7223b7e",
+    "g1PromptSha256":  "d72e43ee32e729fcfeb9195ca92aa7c164f4cb1d5f86cf8f885c0298005dd745",
+    "fixtureSha256":  "72f11382f0daa044252a5b2848799c5ab831b8803f35a1b25020e49b631320bb",
+    "credentialMigration":  {
+                                "status":  "PASS",
+                                "before":  {
+                                               "currentTargetPresent":  true,
+                                               "legacyTargetPresent":  true
+                                           },
+                                "after":  {
+                                              "currentTargetPresent":  true,
+                                              "legacyTargetPresent":  true
+                                          }
+                            },
+    "g0":  {
+               "status":  "FAIL",
+               "attempts":  [
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  2761,
+                                    "exactJson":  true,
+                                    "totalTokens":  1705,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "PASS",
+                                    "exitCode":  0,
+                                    "durationMs":  2898,
+                                    "exactJson":  true,
+                                    "totalTokens":  1684,
+                                    "reason":  null
+                                },
+                                {
+                                    "status":  "FAIL",
+                                    "exitCode":  0,
+                                    "durationMs":  3440,
+                                    "exactJson":  false,
+                                    "totalTokens":  1713,
+                                    "reason":  "The response was not the required exact JSON object."
+                                }
+                            ]
+           },
+    "g1":  {
+               "status":  "FAIL",
+               "baselineGitTree":  "fb8e60809f7ed9bd51ab307abbcf02a078dd7574",
+               "attempts":  [
+                                {
+                                    "status":  "NOT_RUN",
+                                    "reason":  "G1 was not started because G0 failed."
+                                },
+                                {
+                                    "status":  "NOT_RUN",
+                                    "reason":  "G1 was not started because G0 failed."
+                                },
+                                {
+                                    "status":  "NOT_RUN",
+                                    "reason":  "G1 was not started because G0 failed."
+                                }
+                            ]
+           }
+}

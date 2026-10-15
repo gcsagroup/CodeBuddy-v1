@@ -1,0 +1,78 @@
+{
+  "name": "qwen_coding",
+  "engine": "openai",
+  "display_name": "Qwen Coding Plan",
+  "description": "Alibaba DashScope Coding Plan (OpenAI-compatible)",
+  "api_key_env": "QWEN_CODING_API_KEY",
+  "base_url": "https://coding.dashscope.aliyuncs.com/v1",
+  "models": [
+    {
+      "name": "qwen3-coder-plus",
+      "context_limit": 1000000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "qwen3-coder-next",
+      "context_limit": 1000000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "qwen3-max-2026-01-23",
+      "context_limit": 262144,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "qwen3.5-plus",
+      "context_limit": 1000000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "kimi-k2.5",
+      "context_limit": 262144,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "glm-4.7",
+      "context_limit": 200000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "glm-5",
+      "context_limit": 200000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    },
+    {
+      "name": "MiniMax-M2.5",
+      "context_limit": 200000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    }
+  ],
+  "headers": null,
+  "timeout_seconds": null,
+  "preserves_thinking": true,
+  "supports_streaming": true
+}

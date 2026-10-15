@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CodeProWorkspaceInspection } from '../../codepro/projectWorkspace';
 import { normalizeWorkspaceIdentity } from '../../codepro/workspaceIdentity';
 import type { CodeProWorkspaceReconfirmationRequest } from '../../codepro/resumeCodeProSession';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../ui/button';
-import { WorkspaceConfirmationCard } from './WorkspaceConfirmationCard';
 import { workspaceConfirmationMessages as messages } from './workspaceConfirmationMessages';
 
 interface CodeProWorkspaceReconfirmationProps {
@@ -45,14 +44,14 @@ export function CodeProWorkspaceReconfirmation({
   inspectWorkspace = inspectCodeProWorkspace,
 }: CodeProWorkspaceReconfirmationProps) {
   const intl = useIntl();
-  const [candidate, setCandidate] = useState<CodeProWorkspaceInspection>();
   const [inspectionError, setInspectionError] = useState<'mismatch' | 'unavailable'>();
   const [inspecting, setInspecting] = useState(true);
   const [inspectionAttempt, setInspectionAttempt] = useState(0);
+  const onConfirmRef = useRef(onConfirm);
+  onConfirmRef.current = onConfirm;
 
   useEffect(() => {
     let active = true;
-    setCandidate(undefined);
     setInspectionError(undefined);
     setInspecting(true);
 
@@ -69,7 +68,9 @@ export function CodeProWorkspaceReconfirmation({
           setInspectionError('mismatch');
           return;
         }
-        setCandidate(exact);
+        // Opening an existing conversation already selects its persisted directory.
+        // Renew its lease after inspection without asking for the same choice again.
+        onConfirmRef.current(exact);
       })
       .catch(() => {
         if (!active) return;
@@ -84,19 +85,21 @@ export function CodeProWorkspaceReconfirmation({
     };
   }, [inspectWorkspace, request.sessionId, request.workingDir, inspectionAttempt]);
 
-  if (inspecting) {
+  if (inspecting || confirming) {
     return <p role="status">{intl.formatMessage(messages.checkingPersistedWorkspace)}</p>;
   }
 
-  if (inspectionError || !candidate) {
+  if (inspectionError || error) {
     return (
       <section className="space-y-3">
         <p role="alert" className="text-sm text-text-primary">
-          {intl.formatMessage(
-            inspectionError === 'mismatch'
-              ? messages.persistedWorkspaceMismatch
-              : messages.persistedWorkspaceUnavailable
-          )}
+          {inspectionError
+            ? intl.formatMessage(
+                inspectionError === 'mismatch'
+                  ? messages.persistedWorkspaceMismatch
+                  : messages.persistedWorkspaceUnavailable
+              )
+            : error}
         </p>
         <Button type="button" onClick={() => setInspectionAttempt((attempt) => attempt + 1)}>
           {intl.formatMessage(recoveryMessages.retry)}
@@ -108,13 +111,5 @@ export function CodeProWorkspaceReconfirmation({
     );
   }
 
-  return (
-    <WorkspaceConfirmationCard
-      candidates={[candidate]}
-      confirming={confirming}
-      error={error}
-      onConfirm={onConfirm}
-      onCancel={onCancel}
-    />
-  );
+  return <p role="status">{intl.formatMessage(messages.starting)}</p>;
 }

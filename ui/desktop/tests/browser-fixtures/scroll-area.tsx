@@ -286,7 +286,9 @@ function PresentationFixture({ subagent = false }: { subagent?: boolean }) {
         <div className="codepro-chat-history">
           <MarkdownContent
             className="codepro-assistant-prose"
-            content={'收到需求，开始处理。\n\n## 实现结果\n\n保持原有功能。'}
+            content={
+              '收到需求，开始处理。\n\n## 实现结果\n\n保持原有功能。\n\n- 保留列表、**重点**和[链接](https://example.com)。\n\n`inline_code`\n\n```text\nconst value = 1;\n```'
+            }
           />
           <CodeProFileViewer
             files={['change.py']}

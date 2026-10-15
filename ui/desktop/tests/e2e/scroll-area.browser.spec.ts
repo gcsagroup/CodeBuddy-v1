@@ -289,7 +289,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   expect(addedStyle.background).not.toBe('rgba(0, 0, 0, 0)');
 });
 
-test('conversation font sizes preserve fractional pixels in main and subagent contexts', async () => {
+test('conversation font family and fractional layout match in main and subagent contexts while code stays monospace', async () => {
   const results: {
     context: string;
     size: number;
@@ -306,6 +306,32 @@ test('conversation font sizes preserve fractional pixels in main and subagent co
     const prose = page.getByText('收到需求，开始处理。', { exact: true });
     await expect(prose).toHaveCSS('font-size', '13.5px');
     await expect(page.getByRole('heading', { name: '实现结果' })).toHaveCSS('font-size', '15px');
+    const family = await prose.evaluate((element) => window.getComputedStyle(element).fontFamily);
+    expect(
+      family
+        .split(',')
+        .slice(0, 2)
+        .map((part) => part.trim().replaceAll('"', ''))
+    ).toEqual(['Noto Sans SC', 'Noto Sans CJK SC']);
+    expect(family).toContain('system-ui');
+    const content = page.locator('.codepro-assistant-prose').first();
+    for (const node of await content.locator('p, h2, ul, li').all()) {
+      await expect(node).toHaveCSS('font-family', family);
+    }
+    const codeFamilies = await content
+      .locator('code, pre')
+      .evaluateAll((elements) =>
+        elements.map((element) => window.getComputedStyle(element).fontFamily)
+      );
+    expect(codeFamilies.length).toBeGreaterThanOrEqual(2);
+    for (const codeFamily of codeFamilies) {
+      expect(codeFamily).toContain('monospace');
+      expect(codeFamily).not.toContain('Noto Sans SC');
+    }
+    const bodyFamily = await page
+      .locator('body')
+      .evaluate((element) => window.getComputedStyle(element).fontFamily);
+    expect(bodyFamily).not.toContain('Noto Sans SC');
     let previousHeight = 0;
     for (const size of [13, 13.5, 14]) {
       await page.locator('.codepro-chat-history').evaluate((element, value) => {
@@ -323,6 +349,7 @@ test('conversation font sizes preserve fractional pixels in main and subagent co
         };
       });
       expect(Number.parseFloat(computed.lineHeight)).toBeCloseTo(size * 1.65, 2);
+      // Layout keeps subpixels; actual glyph rasterization is verified separately on Windows.
       expect(computed.height).toBeGreaterThan(previousHeight);
       previousHeight = computed.height;
       results.push({ context, size, ...computed });

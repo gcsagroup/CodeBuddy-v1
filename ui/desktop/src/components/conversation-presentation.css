@@ -1,13 +1,22 @@
 /* These rules belong to conversation records, not navigation or the composer. */
 .codepro-chat-history {
+  /* Windows' system-ui CJK fallback can snap fractional sizes to the same glyphs. */
+  --conversation-font-family: 'Noto Sans SC', 'Noto Sans CJK SC', var(--font-sans);
   --conversation-text-size: 13.5px;
   --conversation-code-size: var(--conversation-text-size);
   --conversation-secondary-size: 12.5px;
   --conversation-heading-size: 15px;
   --conversation-line-height: 1.65;
+  font-family: var(--conversation-font-family);
   font-size: var(--conversation-text-size);
   line-height: var(--conversation-line-height);
   text-align: left;
+}
+
+.codepro-conversation
+  .codepro-chat-history
+  :is(.font-sans, .prose, .prose :where(p, h1, h2, h3, h4, h5, h6, ol, ul, li)) {
+  font-family: var(--conversation-font-family);
 }
 
 .codepro-conversation

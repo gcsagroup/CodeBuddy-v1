@@ -1,0 +1,1226 @@
+/**
+ * ProgressiveMessageList Component
+ *
+ * A performance-optimized message list that renders messages progressively
+ * to prevent UI blocking when loading long chat sessions. This component
+ * renders messages in batches with a loading indicator, maintaining full
+ * compatibility with the search functionality.
+ *
+ * Key Features:
+ * - Progressive rendering in configurable batches
+ * - Loading indicator during batch processing
+ * - Maintains search functionality compatibility
+ * - Smooth user experience with responsive UI
+ * - Configurable batch size and delay
+ */
+
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { defineMessages, useIntl } from '../i18n';
+import GooseMessage from './GooseMessage';
+import { resolveToolLoadingStatus } from './ToolCallWithResponse';
+import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
+import { computerToolOutcome } from './computerToolOutcome';
+import { isPlanTool, isProgressTool, presentedToolCall } from './codepro/CodeProToolContent';
+import { isPlanContextMessage, planFromResponse } from '../types/codeproPlan';
+import { ToolCallExpandable } from './ToolCallExpandable';
+import { CodeProWorkStep } from './codepro/CodeProWorkStep';
+import { formatToolActionSummary, isTaskContractCheck } from './toolActionPresentation';
+import {
+  CodeProActivity,
+  CodeProActivityCard,
+  CodeProActivityTimeline,
+} from './codepro/CodeProActivity';
+import { buildCodeProActivityRenderItems } from './codepro/codeProActivityModel';
+import UserMessage from './UserMessage';
+import {
+  SystemNotificationInline,
+  getInlineSystemNotification,
+} from './context_management/SystemNotificationInline';
+import {
+  CreditsExhaustedNotification,
+  getCreditsExhaustedNotification,
+} from './context_management/CreditsExhaustedNotification';
+import {
+  getToolRequests,
+  getToolResponses,
+  getAnyToolConfirmationData,
+  type Message,
+  type NotificationEvent,
+  type SystemNotificationContent,
+  type UserInput,
+} from '../types/message';
+import { isActivityEvent } from '../types/activityEvent';
+import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
+import { getResponsePhase } from '../types/responsePhase';
+import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
+import LoadingGoose from './LoadingGoose';
+import { useOrderedToolPresentation } from './useOrderedToolPresentation';
+import { ChatType } from '../types/chat';
+import { identifyConsecutiveToolCalls, isInChain } from '../utils/toolCallChaining';
+import { getModelDisplayName } from './settings/models/predefinedModelsUtils';
+import {
+  findNeedsWorkspaceSourceMessage,
+  NeedsWorkspaceInline,
+  parseNeedsWorkspaceEvent,
+} from './codepro/NeedsWorkspaceInline';
+import {
+  RestrictedReadonlyInline,
+  parseRestrictedReadonlyRequiredEvent,
+} from './codepro/RestrictedReadonlyInline';
+import { RootCleanupInline, parseRootCleanupRequiredEvent } from './codepro/RootCleanupInline';
+
+const i18n = defineMessages({
+  turnRecord: {
+    id: 'conversation.turnRecord',
+    defaultMessage: 'Work history {count} operations',
+  },
+  turnCompleted: {
+    id: 'conversation.turnCompleted',
+    defaultMessage: 'Completed {count} operations',
+  },
+  toolRecords: {
+    id: 'progressiveMessageList.toolRecords',
+    defaultMessage: 'Tool records {count}',
+  },
+  toolRecordsRegion: {
+    id: 'progressiveMessageList.toolRecordsRegion',
+    defaultMessage: 'Tool operation records',
+  },
+  failedOperations: {
+    id: 'progressiveMessageList.failedOperations',
+    defaultMessage: '{count} unsuccessful operations',
+  },
+  taskCheckRecords: {
+    id: 'progressiveMessageList.taskCheckRecords',
+    defaultMessage: 'Task check records {count}',
+  },
+  loadingMessages: {
+    id: 'progressiveMessageList.loadingMessages',
+    defaultMessage: 'Loading messages... ({renderedCount}/{totalCount})',
+  },
+  searchHint: {
+    id: 'progressiveMessageList.searchHint',
+    defaultMessage: 'Press Cmd/Ctrl+F to load all messages immediately for search',
+  },
+  modelChanged: {
+    id: 'progressiveMessageList.modelChanged',
+    defaultMessage: 'Model changed: {previousModel} → {currentModel}',
+  },
+  loadEarlierMessages: {
+    id: 'progressiveMessageList.loadEarlierMessages',
+    defaultMessage: 'Load earlier messages ({remaining} remaining)',
+  },
+});
+
+interface ProgressiveMessageListProps {
+  messages: Message[];
+  sessionType?: import('../types/session').SessionType;
+  chat: Pick<ChatType, 'sessionId'>;
+  activeRunId?: string | null;
+  toolCallNotifications?: Map<string, NotificationEvent[]>; // Make optional
+  append?: (value: string) => void; // Make optional
+  isUserMessage: (message: Message) => boolean;
+  batchSize?: number;
+  batchDelay?: number;
+  showLoadingThreshold?: number; // Only show loading if more than X messages
+  maxVisibleMessages?: number; // Keep long-running chats from retaining an unbounded DOM
+  // Custom render function for messages
+  renderMessage?: (message: Message, index: number) => React.ReactNode | null;
+  isStreamingMessage?: boolean; // Whether messages are currently being streamed
+  planRunning?: boolean;
+  activeToolCallIds?: string[];
+  thinkingActivity?: { messageId?: string; receivedAt: number };
+  onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
+  onRenderingComplete?: () => void; // Callback when all messages are rendered
+  submitElicitationResponse?: (
+    elicitationId: string,
+    userData: Record<string, unknown>
+  ) => Promise<boolean>;
+  resubmitMessage?: (input: UserInput) => void | Promise<void>;
+  resumeAfterWorkspace?: (message: Message, runId: string) => void | Promise<void>;
+  suppressProviderThinking?: boolean;
+  foldTurns?: boolean;
+  workspaceRoot?: string;
+}
+
+export default function ProgressiveMessageList(props: ProgressiveMessageListProps) {
+  return <OrderedMessageList key={props.chat.sessionId} {...props} />;
+}
+
+function OrderedMessageList(props: ProgressiveMessageListProps) {
+  const presentation = useOrderedToolPresentation(props.messages, !!props.isStreamingMessage);
+  return (
+    <ProgressiveMessageListContent
+      {...props}
+      messages={props.renderMessage ? props.messages : presentation.messages}
+      sourceMessages={props.messages}
+      presentationPending={!props.renderMessage && presentation.pending}
+    />
+  );
+}
+
+function ProgressiveMessageListContent({
+  messages,
+  sessionType,
+  chat,
+  activeRunId,
+  toolCallNotifications = new Map(),
+  append = () => {},
+  isUserMessage,
+  batchSize = 20,
+  batchDelay = 20,
+  showLoadingThreshold = 50,
+  maxVisibleMessages = 40,
+  renderMessage, // Custom render function
+  isStreamingMessage = false, // Whether messages are currently being streamed
+  planRunning = isStreamingMessage,
+  activeToolCallIds,
+  thinkingActivity,
+  onMessageUpdate,
+  onRenderingComplete,
+  submitElicitationResponse,
+  resubmitMessage,
+  resumeAfterWorkspace,
+  suppressProviderThinking = false,
+  foldTurns = true,
+  workspaceRoot,
+  renderRange,
+  sourceMessages = messages,
+  presentationPending = false,
+}: ProgressiveMessageListProps & {
+  renderRange?: readonly [number, number];
+  sourceMessages?: Message[];
+  presentationPending?: boolean;
+}) {
+  const intl = useIntl();
+  const [renderedCount, setRenderedCount] = useState(() => {
+    // Initialize with either all messages (if small) or first batch (if large)
+    return messages.length <= showLoadingThreshold
+      ? messages.length
+      : Math.min(batchSize, messages.length);
+  });
+  const [isLoading, setIsLoading] = useState(() => messages.length > showLoadingThreshold);
+  const [visibleMessageLimit, setVisibleMessageLimit] = useState(maxVisibleMessages);
+  const [showAllMessages, setShowAllMessages] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+  const hasOnlyToolResponses = (message: Message) =>
+    message.content.every((c) => c.type === 'toolResponse');
+
+  useEffect(() => {
+    setVisibleMessageLimit(maxVisibleMessages);
+    setShowAllMessages(false);
+  }, [chat.sessionId, maxVisibleMessages]);
+
+  const getResolvedModel = useCallback((message: Message): string | null => {
+    if (message.role !== 'assistant' || !message.metadata.userVisible) return null;
+    return message.metadata.inference?.resolvedModel ?? null;
+  }, []);
+
+  const getPreviousResolvedModel = useCallback(
+    (index: number): string | null => {
+      for (let i = index - 1; i >= 0; i--) {
+        const model = getResolvedModel(messages[i]);
+        if (model) return model;
+      }
+      return null;
+    },
+    [getResolvedModel, messages]
+  );
+
+  const renderModelChangeDisclosure = useCallback(
+    (previousModel: string, currentModel: string) => (
+      <SystemNotificationInline
+        notification={{
+          msg: intl.formatMessage(i18n.modelChanged, {
+            previousModel: getModelDisplayName(previousModel),
+            currentModel: getModelDisplayName(currentModel),
+          }),
+          notificationType: 'inlineMessage',
+        }}
+      />
+    ),
+    [intl]
+  );
+
+  const getSystemNotification = (message: Message): SystemNotificationContent | undefined => {
+    return getCreditsExhaustedNotification(message) ?? getInlineSystemNotification(message);
+  };
+
+  const renderSystemNotification = useCallback(
+    (notification: SystemNotificationContent, isActiveActivity: boolean, messageIndex?: number) => {
+      switch (notification.notificationType) {
+        case 'creditsExhausted':
+          return <CreditsExhaustedNotification notification={notification} />;
+        case 'codeProActivity':
+          return <CodeProActivity notification={notification} active={isActiveActivity} />;
+        case 'inlineMessage': {
+          if (parseRestrictedReadonlyRequiredEvent(notification.data) && resubmitMessage) {
+            return (
+              <RestrictedReadonlyInline
+                messages={messages}
+                notification={notification}
+                sessionId={chat.sessionId}
+                onResubmit={resubmitMessage}
+              />
+            );
+          }
+          if (parseRootCleanupRequiredEvent(notification.data)) {
+            return <RootCleanupInline notification={notification} />;
+          }
+          const needsWorkspace = parseNeedsWorkspaceEvent(notification.data);
+          if (needsWorkspace && messageIndex !== undefined) {
+            const original = findNeedsWorkspaceSourceMessage(
+              messages,
+              messageIndex,
+              needsWorkspace
+            );
+            if (original) {
+              return (
+                <NeedsWorkspaceInline
+                  notification={notification}
+                  originalMessage={original}
+                  onResumeAfterWorkspace={resumeAfterWorkspace}
+                />
+              );
+            }
+          }
+          return <SystemNotificationInline notification={notification} />;
+        }
+        default:
+          return null;
+      }
+    },
+    [messages, chat.sessionId, resubmitMessage, resumeAfterWorkspace]
+  );
+
+  // Simple progressive loading - start immediately when component mounts if needed
+  useEffect(() => {
+    if (messages.length <= showLoadingThreshold) {
+      setRenderedCount(messages.length);
+      setIsLoading(false);
+      // For small lists, call completion callback immediately
+      if (onRenderingComplete) {
+        setTimeout(() => onRenderingComplete(), 50);
+      }
+      return;
+    }
+
+    // Large list - start progressive loading
+    const loadNextBatch = () => {
+      setRenderedCount((current) => {
+        const nextCount = Math.min(current + batchSize, messages.length);
+
+        if (nextCount >= messages.length) {
+          setIsLoading(false);
+          // Call the completion callback after a brief delay to ensure DOM is updated
+          if (onRenderingComplete) {
+            setTimeout(() => onRenderingComplete(), 50);
+          }
+        } else {
+          // Schedule next batch
+          timeoutRef.current = window.setTimeout(loadNextBatch, batchDelay);
+        }
+
+        return nextCount;
+      });
+    };
+
+    // Start loading after a short delay
+    timeoutRef.current = window.setTimeout(loadNextBatch, batchDelay);
+
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [
+    messages.length,
+    batchSize,
+    batchDelay,
+    showLoadingThreshold,
+    renderedCount,
+    onRenderingComplete,
+  ]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  // React's development build records a measure for many component renders. Long-running
+  // tool chains can otherwise retain hundreds of thousands of entries and exhaust Chromium.
+  useEffect(() => {
+    if (!import.meta.env.DEV || messages.length === 0 || messages.length % 20 !== 0) {
+      return;
+    }
+    window.performance.clearMeasures();
+    window.performance.clearMarks();
+  }, [messages.length]);
+
+  // Force complete rendering when search is active
+  useEffect(() => {
+    // Only add listener if we're actually loading
+    if (!isLoading) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = window.electron.platform === 'darwin';
+      const isSearchShortcut = (isMac ? e.metaKey : e.ctrlKey) && e.key === 'f';
+
+      if (isSearchShortcut) {
+        // Immediately render all messages when search is triggered
+        setRenderedCount(messages.length);
+        setIsLoading(false);
+        setShowAllMessages(true);
+        if (timeoutRef.current) {
+          window.clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoading, messages.length]);
+
+  // Detect tool call chains
+  const toolCallChains = useMemo(() => identifyConsecutiveToolCalls(messages), [messages]);
+  const representedActivityToolIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const message of messages) {
+      const notification = getSystemNotification(message);
+      if (
+        notification?.notificationType === 'codeProActivity' &&
+        isActivityEvent(notification.data)
+      ) {
+        ids.add(notification.data.event_id);
+      }
+    }
+    return ids;
+  }, [messages]);
+  const isRepresentedToolTransport = useCallback(
+    (message: Message) => {
+      if (
+        message.content.length === 0 ||
+        !message.content.every(
+          (content) => content.type === 'toolRequest' || content.type === 'toolResponse'
+        )
+      ) {
+        return false;
+      }
+      const ids = [
+        ...getToolRequests(message).map((request) => request.id),
+        ...getToolResponses(message).map((response) => response.id),
+      ];
+      return ids.length > 0 && ids.every((id) => representedActivityToolIds.has(id));
+    },
+    [representedActivityToolIds]
+  );
+
+  // Presentation ranges must not truncate the source context used by retry,
+  // workspace recovery and receipt lookup.
+  const renderEndIndex = Math.min(renderRange?.[1] ?? renderedCount, messages.length);
+  let renderStartIndex =
+    renderRange?.[0] ?? (showAllMessages ? 0 : Math.max(0, renderEndIndex - visibleMessageLimit));
+  // Keep the beginning of the current operation sequence mounted. A transport
+  // pagination boundary is not a new stage, and must not change the group's key.
+  {
+    while (!renderRange && renderStartIndex > 0) {
+      const previous = messages[renderStartIndex - 1];
+      if (
+        previous.metadata.userVisible &&
+        previous.content.some(
+          (content) =>
+            content.type !== 'toolRequest' &&
+            content.type !== 'toolResponse' &&
+            content.type !== 'thinking'
+        )
+      )
+        break;
+      if (
+        getToolRequests(previous).some(
+          (request) =>
+            isPlanTool(presentedToolCall(request)?.name ?? '') ||
+            isProgressTool(presentedToolCall(request)?.name ?? '')
+        )
+      )
+        break;
+      renderStartIndex -= 1;
+    }
+  }
+
+  // Render messages up to the current rendered count
+  const renderMessages = useCallback(() => {
+    // Consume the persisted request/response messages directly. These messages are also
+    // the live ACP input; no synthetic ActivityEvent or inferred file change is needed.
+    // History can arrive before session metadata. Presentation must not change on hydration.
+    const compactTools = true;
+    const responses = new Map(
+      sourceMessages.flatMap((item) =>
+        getToolResponses(item).map((response) => [response.id, response] as const)
+      )
+    );
+    // Only the latest acknowledged plan in this turn can show live activity.
+    // Old snapshots remain readable, but must not keep spinning after updates.
+    const acknowledgedPlans = messages
+      .flatMap(getToolRequests)
+      .filter(
+        (request) =>
+          isPlanTool(presentedToolCall(request)?.name ?? '') &&
+          resolveToolLoadingStatus(responses.get(request.id), false) === 'success'
+      );
+    const activePlanRequestId = planRunning
+      ? acknowledgedPlans[acknowledgedPlans.length - 1]?.id
+      : undefined;
+    const messagesToRender = messages.slice(renderStartIndex, renderEndIndex).map((message) => ({
+      ...message,
+      content: message.content.filter((content) => {
+        if (
+          compactTools &&
+          !renderMessage &&
+          content.type === 'toolRequest' &&
+          isPlanTool(presentedToolCall(content)?.name ?? '') &&
+          responses.has(content.id) &&
+          !!planFromResponse(responses.get(content.id)!)
+        )
+          return false;
+        return true;
+      }),
+    }));
+    const approvals = new Set(
+      messages.flatMap((item) => {
+        const confirmation = getAnyToolConfirmationData(item);
+        return confirmation ? [confirmation.id] : [];
+      })
+    );
+    const isProcessToolMessage = (item: Message) => {
+      if (
+        !compactTools ||
+        !item.metadata.userVisible ||
+        item.role !== 'assistant' ||
+        getToolRequests(item).length === 0 ||
+        !item.content.every(
+          (content) => content.type === 'toolRequest' || content.type === 'thinking'
+        ) ||
+        isRepresentedToolTransport(item)
+      )
+        return false;
+      return getToolRequests(item).every((request) => {
+        const call = presentedToolCall(request);
+        return !!call && !isPlanTool(call.name) && !isProgressTool(call.name);
+      });
+    };
+    const isFoldableToolMessage = (item: Message) => {
+      if (!isProcessToolMessage(item)) return false;
+      return getToolRequests(item).every((request) => {
+        const response = responses.get(request.id);
+        const audit = parseToolAuditReceipt(response?.metadata?.toolAudit);
+        const call =
+          request.toolCall.status === 'success' ? request.toolCall.value : request.toolCall;
+        const name =
+          call && typeof call === 'object' && 'name' in call && typeof call.name === 'string'
+            ? call.name
+            : '';
+        const outcome = computerToolOutcome(name, request.id, response);
+        const status = resolveToolLoadingStatus(response, false);
+        return (
+          !isPlanTool(name) &&
+          !isProgressTool(name) &&
+          !approvals.has(request.id) &&
+          (status === 'success' || status === 'error') &&
+          (!audit || audit.outcome === 'success' || audit.outcome === 'tool_error') &&
+          (!outcome || outcome === 'worked')
+        );
+      });
+    };
+    const isThinkingMessage = (item: Message) =>
+      item.metadata.userVisible &&
+      item.role === 'assistant' &&
+      item.content.length > 0 &&
+      item.content.every((content) => content.type === 'thinking');
+    const renderToolMessage = (item: Message) => (
+      <GooseMessage
+        activePlanRequestId={activePlanRequestId}
+        key={item.id ?? getToolRequests(item)[0]?.id ?? `tool-${item.created}`}
+        compactTools
+        sessionId={chat.sessionId}
+        message={item}
+        messages={sourceMessages}
+        suppressProviderThinking={suppressProviderThinking}
+        append={append}
+        toolCallNotifications={toolCallNotifications}
+        activeToolCallIds={isStreamingMessage ? (activeToolCallIds ?? []) : []}
+        thinkingActivity={isStreamingMessage ? thinkingActivity : undefined}
+        isStreaming={isStreamingMessage}
+      />
+    );
+    const operationSummary = (group: Message[]) => {
+      const requests = group.flatMap(getToolRequests);
+      // Keep internal submissions out of artifact/action success and failure counts.
+      // Their original receipts remain below; this summary does not decide completion.
+      const checks = requests.filter((request) => {
+        const call = presentedToolCall(request);
+        return call && isTaskContractCheck(call);
+      });
+      const operations = requests.filter((request) => !checks.includes(request));
+      const failed = operations.filter(
+        (request) => resolveToolLoadingStatus(responses.get(request.id), false) === 'error'
+      ).length;
+      const successful = formatToolActionSummary(
+        intl,
+        operations.flatMap((request) => {
+          if (resolveToolLoadingStatus(responses.get(request.id), false) !== 'success') return [];
+          const call = presentedToolCall(request);
+          return call ? [call] : [];
+        })
+      );
+      return [
+        successful,
+        failed ? intl.formatMessage(i18n.failedOperations, { count: failed }) : '',
+        checks.length ? intl.formatMessage(i18n.taskCheckRecords, { count: checks.length }) : '',
+      ]
+        .filter(Boolean)
+        .join('\u2002');
+    };
+    const foldedIndices = new Set<number>();
+    // Thinking is a detail within the operation sequence, not a new public
+    // explanation. Keep the original messages/order and tool safety boundaries.
+    const collectProcess = (start: number) => {
+      const group: Message[] = [];
+      let settled = !isStreamingMessage && !presentationPending;
+      for (let next = start; next < messagesToRender.length; next += 1) {
+        const candidate = messagesToRender[next];
+        if (isProcessToolMessage(candidate) || isThinkingMessage(candidate)) {
+          group.push(candidate);
+          foldedIndices.add(next);
+        } else if (
+          !candidate.metadata.userVisible ||
+          candidate.content.length === 0 ||
+          candidate.content.every((content) => content.type === 'toolResponse')
+        ) {
+          continue;
+        } else {
+          // Public text and separate approval UI remain outside this process.
+          settled = true;
+          break;
+        }
+      }
+      // A public boundary cannot hide live, approval-blocked or unknown work.
+      settled &&= group.every((item) => isThinkingMessage(item) || isFoldableToolMessage(item));
+      return { group, settled };
+    };
+    const history = messagesToRender
+      .map((message, localIndex) => {
+        const index = renderStartIndex + localIndex;
+        if (
+          !message.metadata.userVisible ||
+          isPlanContextMessage(message) ||
+          getResponsePhase(message)
+        ) {
+          return null;
+        }
+        if (message.content.length === 0) return null;
+        if (renderMessage) {
+          return renderMessage(message, index);
+        }
+
+        // Replies are rendered with their request. Thinking retains its own
+        // disclosure inside the process; it is not public commentary.
+        if (
+          compactTools &&
+          message.content.length > 0 &&
+          message.content.every((content) => content.type === 'toolResponse')
+        )
+          return null;
+
+        // Default rendering logic (for BaseChat)
+        if (!chat) {
+          console.warn(
+            'ProgressiveMessageList: chat prop is required when not using custom renderMessage'
+          );
+          return null;
+        }
+
+        if (isRepresentedToolTransport(message)) {
+          return null;
+        }
+
+        if (foldedIndices.has(localIndex)) return null;
+        const requests = getToolRequests(message);
+        const progressRequest = requests.length === 1 ? requests[0] : undefined;
+        const progressCall = progressRequest ? presentedToolCall(progressRequest) : undefined;
+        if (
+          compactTools &&
+          message.content.every(
+            (content) => content.type === 'toolRequest' || content.type === 'thinking'
+          ) &&
+          progressRequest &&
+          progressCall &&
+          isProgressTool(progressCall.name) &&
+          typeof progressCall.arguments.text === 'string' &&
+          (resolveToolLoadingStatus(responses.get(progressRequest.id), false) === 'success' ||
+            (!responses.has(progressRequest.id) && activeToolCallIds?.includes(progressRequest.id)))
+        ) {
+          const { group, settled } = collectProcess(localIndex + 1);
+          const progressIndex = message.content.indexOf(progressRequest);
+          const beforeProgress = message.content.slice(0, progressIndex);
+          const afterProgress = message.content.slice(progressIndex + 1);
+          if (afterProgress.length > 0) {
+            group.unshift({ ...message, content: afterProgress });
+          }
+          return (
+            <Fragment key={`step-${progressRequest.id}`}>
+              {beforeProgress.length > 0
+                ? renderToolMessage({ ...message, content: beforeProgress })
+                : null}
+              <CodeProWorkStep
+                key={`step-${progressRequest.id}`}
+                text={progressCall.arguments.text}
+                settled={settled}
+                storageKey={`step-${progressRequest.id}`}
+                summary={operationSummary(group)}
+                streaming={
+                  (presentationPending && localIndex === messagesToRender.length - 1) ||
+                  (!!isStreamingMessage &&
+                    !responses.has(progressRequest.id) &&
+                    !!activeToolCallIds?.includes(progressRequest.id))
+                }
+              >
+                {group.length > 0 ? group.map(renderToolMessage) : undefined}
+              </CodeProWorkStep>
+            </Fragment>
+          );
+        }
+        if (isProcessToolMessage(message) || isThinkingMessage(message)) {
+          const { group, settled } = collectProcess(localIndex);
+          const summary = operationSummary(group);
+          const identity = message.content.some((content) => content.type === 'thinking')
+            ? (message.id ?? requests[0]?.id ?? index)
+            : (requests[0]?.id ?? message.id ?? index);
+          return (
+            <div
+              key={`tools-${identity}`}
+              className="my-2 w-full max-w-[52rem]"
+              data-testid="message-container"
+            >
+              <ToolCallExpandable
+                compact
+                storageKey={`operations-${identity}`}
+                groupHeading
+                scrollable={false}
+                label={summary}
+                collapsible={settled && !!summary}
+              >
+                <div
+                  data-testid="tool-message-group"
+                  className="codepro-tool-group text-sm text-text-secondary"
+                  tabIndex={0}
+                  role="region"
+                  aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
+                >
+                  {/* Keep the actions readable; only code and raw receipts need
+                      expanding. Public commentary remains outside this scroller. */}
+                  {group.map(renderToolMessage)}
+                </div>
+              </ToolCallExpandable>
+            </div>
+          );
+        }
+
+        const notification = getSystemNotification(message);
+        if (notification) {
+          if (notification.notificationType === 'codeProActivity') {
+            let previousIndex = localIndex - 1;
+            while (
+              previousIndex >= 0 &&
+              (isRepresentedToolTransport(messagesToRender[previousIndex]) ||
+                (!messagesToRender[previousIndex].metadata.userVisible &&
+                  messagesToRender[previousIndex].role !== 'user'))
+            ) {
+              previousIndex -= 1;
+            }
+            const previousNotification =
+              previousIndex >= 0
+                ? getSystemNotification(messagesToRender[previousIndex])
+                : undefined;
+            if (previousNotification?.notificationType === 'codeProActivity') {
+              return null;
+            }
+
+            const activityNotifications = [notification];
+            let activityEndIndex = localIndex;
+            for (
+              let nextIndex = localIndex + 1;
+              nextIndex < messagesToRender.length;
+              nextIndex += 1
+            ) {
+              const nextNotification = getSystemNotification(messagesToRender[nextIndex]);
+              if (nextNotification?.notificationType === 'codeProActivity') {
+                activityNotifications.push(nextNotification);
+                activityEndIndex = nextIndex;
+                continue;
+              }
+              if (
+                isRepresentedToolTransport(messagesToRender[nextIndex]) ||
+                (!messagesToRender[nextIndex].metadata.userVisible &&
+                  messagesToRender[nextIndex].role !== 'user')
+              ) {
+                activityEndIndex = nextIndex;
+                continue;
+              }
+              break;
+            }
+
+            // Successful routing bookkeeping is not a user operation. Keep the
+            // receipt in history/storage, but do not give it a chat card/count.
+            const activityItems = buildCodeProActivityRenderItems(activityNotifications).filter(
+              (item) =>
+                !(
+                  item.kind === 'activity' &&
+                  (item.activity.eventType === 'intent_started' ||
+                    item.activity.eventType === 'intent_completed' ||
+                    (item.activity.state === 'completed' &&
+                      (item.activity.eventType === 'strategy_selected' ||
+                        item.activity.eventType === 'strategy_updated')))
+                )
+            );
+            if (activityItems.length === 0) return null;
+            const isActiveGroup =
+              isStreamingMessage &&
+              messagesToRender
+                .slice(activityEndIndex + 1)
+                .every(
+                  (next) =>
+                    isRepresentedToolTransport(next) ||
+                    (!next.metadata.userVisible && next.role !== 'user')
+                );
+            const activitySegments: (typeof activityItems)[] = [];
+            for (const item of activityItems) {
+              const activity = item.kind === 'read-group' ? item.activities[0] : item.activity;
+              const previousSegment = activitySegments[activitySegments.length - 1];
+              const previousItem = previousSegment?.[previousSegment.length - 1];
+              const previousActivity = previousItem
+                ? previousItem.kind === 'read-group'
+                  ? previousItem.activities[0]
+                  : previousItem.activity
+                : null;
+              const isThinking =
+                activity.eventType === 'intent_started' ||
+                activity.eventType === 'intent_completed' ||
+                activity.eventId?.startsWith('thinking-');
+              if (
+                !previousSegment ||
+                isThinking ||
+                previousActivity?.eventType === 'intent_started' ||
+                previousActivity?.eventType === 'intent_completed' ||
+                previousActivity?.eventId?.startsWith('thinking-') ||
+                previousActivity?.runId !== activity.runId ||
+                previousActivity?.taskId !== activity.taskId
+              ) {
+                activitySegments.push([item]);
+              } else {
+                previousSegment.push(item);
+              }
+            }
+
+            return (
+              <div
+                key={`activity-group-${message.id ?? `msg-${index}-${message.created}`}`}
+                className={`relative ${localIndex === 0 ? 'mt-0' : 'mt-1'} assistant`}
+                data-testid="message-container"
+              >
+                <div className="flex flex-col gap-1.5">
+                  {activitySegments.map((segment, segmentIndex) => {
+                    const isActiveItem =
+                      isActiveGroup && segmentIndex === activitySegments.length - 1;
+                    const item = segment[0];
+                    const activity =
+                      item.kind === 'read-group' ? item.activities[0] : item.activity;
+                    if (
+                      segment.length === 1 &&
+                      item.kind === 'activity' &&
+                      (activity.eventType === 'intent_started' ||
+                        activity.eventType === 'intent_completed' ||
+                        activity.eventId?.startsWith('thinking-'))
+                    ) {
+                      return (
+                        <CodeProActivityCard
+                          key={item.key}
+                          activity={activity}
+                          active={isActiveItem}
+                        />
+                      );
+                    }
+                    return (
+                      <CodeProActivityTimeline
+                        key={item.key}
+                        items={segment}
+                        active={isActiveItem}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={`notification-${message.id ?? `msg-${index}-${message.created}`}`}
+              className={`relative ${localIndex === 0 ? 'mt-0' : 'mt-4'} assistant`}
+              data-testid="message-container"
+            >
+              {renderSystemNotification(notification, false, index)}
+            </div>
+          );
+        }
+
+        const isUser = isUserMessage(message);
+        const messageIsInChain = isInChain(index, toolCallChains);
+        const currentResolvedModel = getResolvedModel(message);
+        const previousResolvedModel = currentResolvedModel ? getPreviousResolvedModel(index) : null;
+        const showModelChangeDisclosure = Boolean(
+          currentResolvedModel &&
+          previousResolvedModel &&
+          currentResolvedModel !== previousResolvedModel
+        );
+
+        const messageKey = message.id ?? `msg-${index}-${message.created}`;
+
+        return (
+          <Fragment key={messageKey}>
+            {showModelChangeDisclosure &&
+              currentResolvedModel &&
+              previousResolvedModel &&
+              renderModelChangeDisclosure(previousResolvedModel, currentResolvedModel)}
+            <div
+              className={`relative ${localIndex === 0 ? 'mt-0' : compactTools ? 'mt-3' : 'mt-4'} ${isUser ? 'user' : 'assistant'} ${messageIsInChain ? 'in-chain' : ''}`}
+              data-testid="message-container"
+            >
+              {isUser ? (
+                !hasOnlyToolResponses(message) && (
+                  <UserMessage
+                    message={message}
+                    onMessageUpdate={onMessageUpdate}
+                    sessionType={sessionType}
+                  />
+                )
+              ) : (
+                <GooseMessage
+                  activePlanRequestId={activePlanRequestId}
+                  compactTools={compactTools}
+                  sessionId={chat.sessionId}
+                  message={message}
+                  messages={sourceMessages}
+                  suppressProviderThinking={suppressProviderThinking}
+                  append={append}
+                  onRetryMessage={onMessageUpdate}
+                  toolCallNotifications={toolCallNotifications}
+                  activeToolCallIds={isStreamingMessage ? (activeToolCallIds ?? []) : []}
+                  thinkingActivity={isStreamingMessage ? thinkingActivity : undefined}
+                  isTurnRunning={isStreamingMessage}
+                  isStreaming={
+                    (isStreamingMessage || presentationPending) &&
+                    !isUser &&
+                    localIndex === messagesToRender.length - 1 &&
+                    message.role === 'assistant'
+                  }
+                  submitElicitationResponse={submitElicitationResponse}
+                />
+              )}
+            </div>
+          </Fragment>
+        );
+      })
+      .filter(Boolean);
+    return history;
+  }, [
+    messages,
+    sourceMessages,
+    presentationPending,
+    renderStartIndex,
+    renderEndIndex,
+    renderMessage,
+    isUserMessage,
+    chat,
+    append,
+    toolCallNotifications,
+    isStreamingMessage,
+    planRunning,
+    activeToolCallIds,
+    thinkingActivity,
+    onMessageUpdate,
+    sessionType,
+    toolCallChains,
+    submitElicitationResponse,
+    getPreviousResolvedModel,
+    getResolvedModel,
+    renderModelChangeDisclosure,
+    isRepresentedToolTransport,
+    renderSystemNotification,
+    suppressProviderThinking,
+    intl,
+  ]);
+
+  if (foldTurns && !renderMessage) {
+    const starts = messages.flatMap((message, index) =>
+      message.role === 'user' &&
+      message.metadata.userVisible &&
+      message.content.some((content) => content.type === 'text' || content.type === 'image')
+        ? [index]
+        : []
+    );
+    if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
+    const renderSlice = (turn: Message[], start: number, end: number, streaming: boolean) => (
+      <ProgressiveMessageListContent
+        messages={turn}
+        sourceMessages={sourceMessages}
+        presentationPending={presentationPending}
+        renderRange={[start, end]}
+        sessionType={sessionType}
+        chat={chat}
+        activeRunId={activeRunId}
+        foldTurns={false}
+        toolCallNotifications={toolCallNotifications}
+        append={append}
+        isUserMessage={isUserMessage}
+        isStreamingMessage={streaming}
+        planRunning={streaming && planRunning}
+        activeToolCallIds={activeToolCallIds}
+        thinkingActivity={streaming ? thinkingActivity : undefined}
+        onMessageUpdate={onMessageUpdate}
+        submitElicitationResponse={submitElicitationResponse}
+        resubmitMessage={resubmitMessage}
+        resumeAfterWorkspace={resumeAfterWorkspace}
+        suppressProviderThinking={suppressProviderThinking}
+        workspaceRoot={workspaceRoot}
+        maxVisibleMessages={turn.length}
+        showLoadingThreshold={Number.MAX_SAFE_INTEGER}
+      />
+    );
+    return (
+      <>
+        {starts.map((start, turnIndex) => {
+          const turn = messages.slice(start, starts[turnIndex + 1] ?? messages.length);
+          const streaming = isStreamingMessage && turnIndex === starts.length - 1;
+          const turnRequests = turn.flatMap(getToolRequests);
+          const count = turnRequests.length;
+          const turnResponses = new Map(
+            turn.flatMap(getToolResponses).map((response) => [response.id, response] as const)
+          );
+          let terminalIndex = -1;
+          let lastToolIndex = -1;
+          let answerBoundaryIndex = -1;
+          turn.forEach((message, index) => {
+            if (getToolRequests(message).length > 0) lastToolIndex = index;
+            const record = getTurnTerminalRecord(message);
+            if (
+              record &&
+              record.session_id === chat.sessionId &&
+              record.source_user_message_id === turn[0]?.id
+            )
+              terminalIndex = index;
+          });
+          const terminal =
+            terminalIndex >= 0 ? getTurnTerminalRecord(turn[terminalIndex]) : undefined;
+          turn.forEach((message, index) => {
+            const phase = getResponsePhase(message);
+            if (
+              phase &&
+              phase.session_id === chat.sessionId &&
+              phase.source_user_message_id === turn[0]?.id &&
+              (!streaming || !activeRunId || phase.run_id === activeRunId) &&
+              (!terminal || phase.run_id === terminal.run_id)
+            )
+              answerBoundaryIndex = index;
+          });
+          const hasAnswerBoundary = answerBoundaryIndex > lastToolIndex;
+          const hasTerminalBoundary =
+            !!terminal &&
+            terminalIndex > lastToolIndex &&
+            (!streaming || !activeRunId || terminal.run_id === activeRunId);
+          // Idle transport (or a later user message) is not proof that this turn
+          // finished. A bound terminal is, even before the first tool or while
+          // transport teardown is pending; its outcome need not be success.
+          const userCount =
+            turn[0]?.role === 'user' && getToolResponses(turn[0]).length === 0 ? 1 : 0;
+          let finalIndex = -1;
+          for (let index = userCount; index < turn.length; index += 1) {
+            const message = turn[index];
+            if (
+              index > lastToolIndex &&
+              message.role === 'assistant' &&
+              message.metadata.userVisible &&
+              getToolRequests(message).length === 0 &&
+              message.content.some(
+                (content) => content.type === 'text' && content.text.trim().length > 0
+              )
+            ) {
+              // Without a bound answer phase, we cannot distinguish a delivery
+              // explanation from a later host notice. Keep the entire public
+              // text tail rather than letting the notice hide delivered work.
+              finalIndex = index;
+              break;
+            }
+          }
+          if (finalIndex < 0) finalIndex = terminalIndex;
+          const terminalHasText =
+            terminalIndex >= 0 &&
+            turn[terminalIndex].content.some(
+              (content) => content.type === 'text' && content.text.trim().length > 0
+            );
+          const proposedHistoryEnd = hasAnswerBoundary
+            ? answerBoundaryIndex
+            : hasTerminalBoundary && lastToolIndex < userCount && terminalHasText
+              ? terminalIndex
+              : finalIndex >= userCount
+                ? finalIndex
+                : turn.length;
+          // Presentation can delay a newly received tool. It cannot make an older
+          // terminal or answer marker hide work the host has already delivered.
+          const boundary = turn[hasAnswerBoundary ? answerBoundaryIndex : terminalIndex];
+          const rawBoundaryIndex = boundary
+            ? sourceMessages.findIndex(
+                (message) => message === boundary || (!!boundary.id && message.id === boundary.id)
+              )
+            : -1;
+          let laterToolReceived = false;
+          for (
+            let index = rawBoundaryIndex + 1;
+            rawBoundaryIndex >= 0 && index < sourceMessages.length;
+            index += 1
+          ) {
+            const message = sourceMessages[index];
+            if (message.role === 'user' && getToolResponses(message).length === 0) break;
+            if (getToolRequests(message).length > 0) {
+              laterToolReceived = true;
+              break;
+            }
+          }
+          const foldable =
+            !laterToolReceived &&
+            (hasAnswerBoundary || hasTerminalBoundary) &&
+            // Reasoning alone is not an operation history. Keep its own
+            // disclosure readable instead of adding a completed-zero header.
+            (count > 0 ||
+              terminal?.status !== 'completed' ||
+              turn.some((message) =>
+                message.content.some(
+                  (content) =>
+                    content.type === 'systemNotification' &&
+                    content.notificationType === 'codeProActivity' &&
+                    isActivityEvent(content.data)
+                )
+              )) &&
+            proposedHistoryEnd > userCount;
+          const historyEnd = foldable ? proposedHistoryEnd : turn.length;
+          const completed =
+            terminal?.status === 'completed' &&
+            !terminal.report_parse_failed &&
+            (!terminal.report || terminal.report.outcome === 'completed') &&
+            // A completed Harness turn can contain denied or failed operations.
+            // This label describes tool receipts, not a second task verdict.
+            turnRequests.every(
+              (request) =>
+                resolveToolLoadingStatus(turnResponses.get(request.id), false) === 'success'
+            );
+          const elapsed = hasAnswerBoundary
+            ? Math.round(turn[answerBoundaryIndex].created - turn[0].created)
+            : -1;
+          const duration =
+            elapsed >= 0 && Number.isFinite(elapsed)
+              ? [
+                  elapsed >= 60
+                    ? intl.formatNumber(Math.floor(elapsed / 60), {
+                        style: 'unit',
+                        unit: 'minute',
+                        unitDisplay: 'long',
+                      })
+                    : '',
+                  intl.formatNumber(elapsed % 60, {
+                    style: 'unit',
+                    unit: 'second',
+                    unitDisplay: 'long',
+                  }),
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              : undefined;
+          return (
+            <section key={turn[0]?.id ?? start} className="mb-6">
+              {renderSlice(turn, 0, userCount, false)}
+              <ToolCallExpandable
+                compact
+                // Keep this parent and its process subtree mounted across the
+                // answer boundary so manual expansion and reading anchors survive.
+                className={foldable ? 'text-text-secondary codepro-turn-history' : undefined}
+                scrollable={false}
+                collapsible={foldable}
+                storageKey={`${chat.sessionId}:turn:${turn[0]?.id ?? start}`}
+                label={
+                  duration
+                    ? `${intl.formatMessage({ id: 'codeProActivity.duration', defaultMessage: 'Duration' })} ${duration}`
+                    : intl.formatMessage(completed ? i18n.turnCompleted : i18n.turnRecord, {
+                        count,
+                      })
+                }
+              >
+                {renderSlice(turn, userCount, historyEnd, streaming && !foldable)}
+              </ToolCallExpandable>
+              {renderSlice(turn, historyEnd, turn.length, streaming)}
+              {foldable && hasTerminalBoundary && (
+                <CodeProConversationFiles messages={turn} workspaceRoot={workspaceRoot} />
+              )}
+            </section>
+          );
+        })}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {!renderRange && renderStartIndex > 0 && (
+        <div className="flex justify-center py-3">
+          <button
+            type="button"
+            className="rounded-md border border-border-primary px-3 py-1.5 text-xs text-text-secondary hover:bg-background-secondary hover:text-text-primary"
+            onClick={() =>
+              setVisibleMessageLimit((current) =>
+                Math.min(messages.length, current + Math.max(batchSize, maxVisibleMessages))
+              )
+            }
+          >
+            {intl.formatMessage(i18n.loadEarlierMessages, { remaining: renderStartIndex })}
+          </button>
+        </div>
+      )}
+
+      {renderMessages()}
+
+      {/* Loading indicator when progressively rendering */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-8">
+          <LoadingGoose
+            message={intl.formatMessage(i18n.loadingMessages, {
+              renderedCount,
+              totalCount: messages.length,
+            })}
+          />
+          <div className="text-xs text-text-secondary mt-2">
+            {intl.formatMessage(i18n.searchHint)}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

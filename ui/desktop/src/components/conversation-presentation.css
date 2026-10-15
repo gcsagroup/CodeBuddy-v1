@@ -1,0 +1,145 @@
+/* These rules belong to conversation records, not navigation or the composer. */
+.codepro-chat-history {
+  --conversation-text-size: 0.875rem;
+  --conversation-code-size: 0.875rem;
+  font-size: var(--conversation-text-size);
+  line-height: 1.65;
+  text-align: left;
+}
+
+.codepro-conversation
+  .codepro-chat-history
+  :is(
+    .prose,
+    .codepro-assistant-prose,
+    .codepro-operation-details,
+    .codepro-secondary-label,
+    .codepro-group-heading,
+    .text-xs,
+    .text-sm,
+    .text-base,
+    .text-lg,
+    .text-xl,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6
+  ) {
+  font-size: var(--conversation-text-size);
+  line-height: 1.65;
+}
+
+.codepro-conversation .codepro-chat-history .codepro-assistant-prose {
+  font-weight: 400;
+  margin-left: 0;
+  width: 100%;
+}
+
+.codepro-conversation .codepro-chat-history :is(h1, h2, h3, h4, h5, h6, strong) {
+  font-weight: 600;
+}
+
+.codepro-conversation .codepro-chat-history .prose :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 1rem;
+}
+
+/* Expanding a record must not shrink its body text. */
+.codepro-conversation .codepro-chat-history .codepro-operation-details :is(.prose, code, pre) {
+  font-size: var(--conversation-text-size);
+}
+
+.codepro-conversation
+  .codepro-chat-history
+  :is(.text-text-secondary, .codepro-secondary-label, .codepro-group-heading) {
+  font-size: 0.8125rem;
+}
+
+.codepro-chat-history
+  :is(
+    .rounded,
+    .rounded-sm,
+    .rounded-md,
+    .rounded-lg,
+    .rounded-xl,
+    .rounded-2xl,
+    [data-slot='collapsible-trigger']
+  ) {
+  border-radius: 10px;
+}
+
+.codepro-chat-history [data-slot='collapsible-trigger'] {
+  justify-content: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+
+.codepro-chat-history [data-slot='collapsible-trigger'] > .flex-1 {
+  flex: 0 1 auto;
+}
+
+.codepro-chat-history
+  [data-slot='collapsible-trigger']
+  > :is(.lucide-chevron-right, .lucide-chevron-up) {
+  order: 2;
+}
+
+/* Native details keep their semantics and keyboard behavior, with a trailing marker. */
+.codepro-chat-history details > summary {
+  position: relative;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  list-style: none;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.codepro-chat-history details > summary > svg:not(.lucide-chevron-right) {
+  position: static;
+  flex-shrink: 0;
+}
+
+.codepro-chat-history details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.codepro-chat-history details > summary:not(:has(.lucide-chevron-right))::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  flex-shrink: 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 180ms ease;
+}
+
+.codepro-chat-history details[open] > summary:not(:has(.lucide-chevron-right))::after {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codepro-chat-history details > summary::after {
+    transition: none;
+  }
+}
+
+/* Tool/thinking-only messages read as a list, not separate prose paragraphs. */
+.codepro-chat-history .assistant.mt-3:has(> .codepro-process-record) {
+  margin-top: 4px;
+}
+
+.codepro-chat-history
+  [data-slot='collapsible-trigger']:is(:hover, :focus-visible)
+  :is(.codepro-secondary-label, .codepro-group-heading) {
+  color: var(--color-text-primary);
+}
+
+.codepro-chat-history summary:is(:hover, :focus-visible) {
+  color: var(--color-text-primary);
+}

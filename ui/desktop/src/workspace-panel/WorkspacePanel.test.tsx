@@ -1,0 +1,309 @@
+import { useState } from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { IntlTestWrapper } from '../i18n/test-utils';
+import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
+import type { PanelRequest } from './workspacePanelTypes';
+const snapshotMock = vi.hoisted(() => ({ binding: 'project_container', readonlyHistory: false }));
+vi.mock('../acp/chatSessionStore', () => ({
+  useAcpChatSessionSnapshot: () => ({
+    session: {
+      working_dir: '/Users/test/Projects',
+      extension_data: {
+        workspaceBinding: snapshotMock.binding,
+        readonlyHistory: snapshotMock.readonlyHistory,
+      },
+    },
+  }),
+}));
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => [new URLSearchParams('resumeSessionId=container')],
+}));
+vi.mock('./WorkspaceTerminal', () => ({
+  WorkspaceTerminal: ({ id }: { id: string }) => <div>terminal:{id}</div>,
+}));
+vi.mock('./WorkspaceBrowser', () => ({
+  WorkspaceBrowser: ({ id }: { id: string }) => <div>browser:{id}</div>,
+}));
+vi.mock('../components/codepro/GitRepositoryPanel', () => ({
+  GitRepositoryPanel: ({
+    sessionId,
+    workingDirectory,
+  }: {
+    sessionId: string;
+    workingDirectory: string;
+  }) => (
+    <div data-testid="git-scope">
+      {sessionId}:{workingDirectory}
+    </div>
+  ),
+}));
+vi.mock('../components/MarkdownContent', () => ({
+  default: ({ content }: { content: string }) => <pre>{content}</pre>,
+}));
+const invoke = vi.fn();
+beforeEach(() => {
+  snapshotMock.readonlyHistory = false;
+  invoke.mockReset();
+  Object.assign(window.electron, { workspacePanel: invoke, platform: 'win32' });
+  invoke.mockImplementation(async (r: PanelRequest) => {
+    if (r.action === 'list')
+      return { entries: [{ name: 'note.txt', path: 'note.txt', kind: 'file' }] };
+    if (r.action === 'read')
+      return { document: { path: 'note.txt', content: 'original', version: 'v1' } };
+    if (r.action === 'save')
+      return { document: { path: r.path, content: r.content, version: 'v2' } };
+    if (r.action === 'terminal-create') return { id: 'pty-1' };
+    if (r.action === 'browser-create') return { id: 'web-1' };
+    return {};
+  });
+});
+function panel(id = globalThis.crypto.randomUUID()) {
+  const scope = { sessionId: id, root: 'D:\\fixture' };
+  const element = (
+    <WorkspacePanelContent key={id} scope={scope} expanded width={560} onExpandedChange={vi.fn()} />
+  );
+  return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
+}
+async function edit() {
+  fireEvent.click(screen.getByRole('button', { name: /Workspace files\s*Browse/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'note.txt' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+    target: { value: 'local draft' },
+  });
+}
+it('opens the existing Git and review panel with the active session workspace', () => {
+  const { scope } = panel();
+  fireEvent.click(screen.getByRole('button', { name: /Git and review\s*Inspect/ }));
+  expect(screen.getByTestId('git-scope')).toHaveTextContent(`${scope.sessionId}:${scope.root}`);
+  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent.click(screen.getByRole('tab', { name: 'Git and review' }));
+  expect(screen.getByTestId('git-scope')).toHaveTextContent(`${scope.sessionId}:${scope.root}`);
+});
+it('keeps Git unavailable before a concrete session workspace is bound', () => {
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: '', root: '' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('tab', { name: 'Git and review' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Git and review\s*Inspect/ })).toBeDisabled();
+  expect(screen.queryByTestId('git-scope')).toBeNull();
+});
+it('shows the three entries and saves an edit with the session scope and original version', async () => {
+  const { scope } = panel();
+  await edit();
+  fireEvent.click(screen.getByRole('button', { name: 'Save file (Ctrl+S)' }));
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({
+      scope,
+      action: 'save',
+      path: 'note.txt',
+      content: 'local draft',
+      version: 'v1',
+    })
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save file (Ctrl+S)' })).toBeDisabled()
+  );
+});
+it('keeps the draft after a disk conflict', async () => {
+  panel();
+  await edit();
+  invoke.mockRejectedValueOnce(new Error('File changed on disk'));
+  fireEvent.click(screen.getByRole('button', { name: 'Save file (Ctrl+S)' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('File changed on disk');
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});
+it('offers a full width preview, optional tree and wrapping without losing edits', async () => {
+  panel();
+  await edit();
+  expect(screen.queryByRole('region', { name: 'Workspace file tree' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Workspace file tree' }));
+  expect(screen.getByRole('region', { name: 'Workspace file tree' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Wrap lines' }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveAttribute('wrap', 'soft');
+  fireEvent.click(screen.getByRole('button', { name: 'Workspace file tree' }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});
+it('retains drafts across a session switch without exposing them in the next session', async () => {
+  const first = panel();
+  await edit();
+  first.unmount();
+  const second = panel();
+  expect(screen.queryByDisplayValue('local draft')).toBeNull();
+  second.unmount();
+  render(first.element, { wrapper: IntlTestWrapper });
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});
+it('creates separate scoped terminal and browser tabs', async () => {
+  const { scope } = panel();
+  fireEvent.click(screen.getByRole('button', { name: /New terminal\s*Run/ }));
+  expect(await screen.findByText('terminal:pty-1')).toBeVisible();
+  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent.click(screen.getByRole('button', { name: /Browser\s*Browse/ }));
+  expect(await screen.findByText('browser:web-1')).toBeVisible();
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'terminal-create' });
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'browser-create' });
+});
+it('shows disabled entries before a session is selected', () => {
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: '', root: '' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('button', { name: /New terminal\s*Run/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Browser\s*Browse/ })).toBeDisabled();
+});
+
+it('can collapse and reopen the panel before selecting a workspace', () => {
+  function InitialWorkspacePanel() {
+    const [expanded, setExpanded] = useState(true);
+    return (
+      <WorkspacePanelContent
+        scope={{ sessionId: '', root: '' }}
+        expanded={expanded}
+        width={560}
+        onExpandedChange={setExpanded}
+      />
+    );
+  }
+  render(<InitialWorkspacePanel />, { wrapper: IntlTestWrapper });
+  fireEvent.click(screen.getByTitle('Collapse panel'));
+  expect(screen.queryByRole('complementary')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Open workspace panel' }));
+  expect(screen.getByRole('complementary')).toBeVisible();
+});
+
+it('uses the shared confirmation dialog and preserves drafts when closing is cancelled', async () => {
+  panel();
+  await edit();
+  fireEvent.click(screen.getByRole('button', { name: 'Close note.txt' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Discard unsaved edits');
+  fireEvent.click(screen.getByRole('button', { name: 'No' }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+  fireEvent.click(screen.getByRole('button', { name: 'Close note.txt' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+  await waitFor(() => expect(screen.queryByRole('textbox', { name: 'File editor' })).toBeNull());
+});
+it('stops a terminal only after confirmation', async () => {
+  const { scope } = panel();
+  fireEvent.click(screen.getByRole('button', { name: /New terminal\s*Run/ }));
+  await screen.findByText('terminal:pty-1');
+  fireEvent.click(screen.getByRole('button', { name: 'Close New terminal 1' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes' }));
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({ scope, action: 'terminal-close', id: 'pty-1' })
+  );
+});
+
+it('shows Mac shortcuts and opens the browser when Option changes the key character', async () => {
+  Object.assign(window.electron, { platform: 'darwin' });
+  const { scope } = panel();
+  expect(screen.getByText('⌘+P')).toBeVisible();
+  expect(screen.getByText('⌘+⌥+B')).toBeVisible();
+  fireEvent.keyDown(window, { key: '∫', code: 'KeyB', metaKey: true, altKey: true });
+  expect(await screen.findByText('browser:web-1')).toBeVisible();
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'browser-create' });
+});
+
+it('saves the Mac editor draft with Command+S', async () => {
+  Object.assign(window.electron, { platform: 'darwin' });
+  const { scope } = panel();
+  await edit();
+  expect(screen.getByRole('button', { name: 'Save file (⌘+S)' })).toBeEnabled();
+  fireEvent.keyDown(screen.getByRole('textbox', { name: 'File editor' }), {
+    key: 's',
+    code: 'KeyS',
+    metaKey: true,
+  });
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({
+      scope,
+      action: 'save',
+      path: 'note.txt',
+      content: 'local draft',
+      version: 'v1',
+    })
+  );
+});
+
+it('does not claim modified file shortcuts or IME composition', async () => {
+  panel();
+  await edit();
+  invoke.mockClear();
+  fireEvent.keyDown(window, { key: 's', ctrlKey: true, shiftKey: true });
+  fireEvent.keyDown(window, { key: 's', ctrlKey: true, altKey: true });
+  fireEvent.keyDown(window, { key: 's', ctrlKey: true, isComposing: true });
+  expect(invoke).not.toHaveBeenCalled();
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});
+
+it('does not expose executable workspace tools for imported readonly history', () => {
+  snapshotMock.binding = 'writable_project';
+  snapshotMock.readonlyHistory = true;
+  render(<WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />, {
+    wrapper: IntlTestWrapper,
+  });
+  for (const name of [
+    /Workspace files.*Browse/,
+    /New terminal.*Run/,
+    /Browser.*Browse/,
+    /Git and review.*Inspect/,
+  ]) {
+    const entry = screen.getByRole('button', { name });
+    expect(entry).toBeDisabled();
+    fireEvent.click(entry);
+  }
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it.each(['project_container', 'root_container', 'unbound'])(
+  'does not open parent tools for a %s binding',
+  (binding) => {
+    snapshotMock.binding = binding;
+    render(<WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />, {
+      wrapper: IntlTestWrapper,
+    });
+    const files = screen.getByRole('button', { name: /Workspace files.*Browse/ });
+    expect(files).toBeDisabled();
+    fireEvent.click(files);
+    expect(invoke).not.toHaveBeenCalled();
+  }
+);
+
+it('shows a binary document as read-only instead of an IPC error', async () => {
+  invoke.mockImplementation(async (r: PanelRequest) => {
+    if (r.action === 'list')
+      return { entries: [{ name: 'school.db', path: 'school.db', kind: 'file' }] };
+    if (r.action === 'read')
+      return { document: { path: 'school.db', content: '', version: 'db1', binary: true } };
+    return {};
+  });
+  panel();
+  fireEvent.click(screen.getByRole('button', { name: /Workspace files\s*Browse/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'school.db' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('school.db is a binary file');
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+it('clears a previous error when returning to an existing file tab, keeping its draft', async () => {
+  panel();
+  await edit();
+  invoke.mockRejectedValueOnce(new Error('File changed on disk'));
+  fireEvent.click(screen.getByRole('button', { name: 'Save file (Ctrl+S)' }));
+  await screen.findByRole('alert');
+  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  expect(screen.queryByRole('alert')).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: /^note\.txt/ }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});

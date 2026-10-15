@@ -1,0 +1,484 @@
+/* global HTMLDetailsElement */
+import { chromium, expect, test, type Browser, type Page, type Locator } from '@playwright/test';
+import { createServer, type ViteDevServer } from 'vite';
+import { resolve } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+let server: ViteDevServer;
+let browser: Browser;
+let page: Page;
+
+test.beforeAll(async () => {
+  server = await createServer({
+    configFile: resolve('vite.renderer.config.mts'),
+    // Do not invalidate the running desktop's optimized dependencies.
+    cacheDir: await mkdtemp(resolve(tmpdir(), 'codepro-scroll-vite-')),
+    server: { host: '127.0.0.1', port: 0, hmr: false },
+  });
+  await server.listen();
+  browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
+});
+
+test.afterAll(async () => {
+  await browser?.close();
+  await server?.close();
+});
+
+async function settle() {
+  // Include ResizeObserver, scroll events and React commits after the click.
+  await page.waitForTimeout(400);
+}
+
+async function openFixture() {
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html`);
+  await page.getByText('Earlier conversation', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await settle();
+}
+
+async function openActivityFixture() {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?activity`
+  );
+  await page.getByText('Earlier conversation', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await settle();
+}
+
+async function sampleToggle(heading: Locator, body: Locator) {
+  const headingElement = (await heading.elementHandle())!;
+  const before = (await headingElement.boundingBox())!;
+  await body.evaluate((element) => {
+    const samples: number[] = [];
+    (window as unknown as { heights: number[] }).heights = samples;
+    const start = window.performance.now();
+    function sample() {
+      samples.push(element.getBoundingClientRect().height);
+      if (window.performance.now() - start < 500) requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+  });
+  await page.mouse.click(before.x + before.width / 2, before.y + before.height / 2);
+  await page.waitForTimeout(550);
+  const heights = await page.evaluate(() => (window as unknown as { heights: number[] }).heights);
+  expect(new Set(heights.map(Math.round)).size).toBeGreaterThan(3);
+  expect(Math.abs((await headingElement.boundingBox())!.y - before.y)).toBeLessThanOrEqual(2);
+}
+
+async function openSidebarFixture() {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?sidebar`
+  );
+  await page.getByRole('separator', { name: 'Resize sidebar' }).waitFor();
+  await settle();
+}
+
+test('sidebar project and Chats disclosures animate both ways without shifting their triggers', async () => {
+  await openSidebarFixture();
+  for (const label of ['timeout', 'Chats']) {
+    const heading = page.getByRole('button', { name: label, exact: true });
+    const body = page.locator(`[id="${await heading.getAttribute('aria-controls')}"]`);
+    await sampleToggle(heading, body);
+    await sampleToggle(heading, body);
+  }
+  await expect(page.getByText('Chat 5', { exact: true })).toBeVisible();
+  const folder = (await page
+    .getByRole('button', { name: 'timeout', exact: true })
+    .locator('..')
+    .boundingBox())!;
+  const firstChat = (await page.getByText('Chat 1', { exact: true }).boundingBox())!;
+  expect(folder.height).toBeLessThanOrEqual(30);
+  expect(firstChat.y - folder.y - folder.height).toBeGreaterThanOrEqual(4);
+
+  const projectToggle = page.getByRole('button', { name: 'timeout', exact: true });
+  const projectRename = page.getByRole('button', { name: 'Rename project', exact: true });
+  const chatRename = page.getByRole('button', { name: 'Rename session', exact: true });
+  await page.getByTestId('chat-canvas').hover();
+  await expect(projectRename).toHaveCSS('opacity', '0');
+  await expect(chatRename.first()).toHaveCSS('opacity', '0');
+  await projectToggle.hover();
+  await expect(projectRename).toHaveCSS('opacity', '0.6');
+  await expect(chatRename.first()).toHaveCSS('opacity', '0');
+  await page.getByText('Chat 1', { exact: true }).hover();
+  await expect(chatRename.first()).toHaveCSS('opacity', '0.6');
+  await expect(chatRename.nth(1)).toHaveCSS('opacity', '0');
+  await expect(projectRename).toHaveCSS('opacity', '0');
+
+  // The title and trailing blank area both toggle; editing must not toggle.
+  const projectTitle = (await page.getByText('timeout', { exact: true }).boundingBox())!;
+  await page.mouse.click(projectTitle.x + 10, projectTitle.y + projectTitle.height / 2);
+  await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
+  await settle();
+  await projectToggle.click({ position: { x: folder.width - 38, y: folder.height / 2 } });
+  await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
+  await settle();
+  await projectRename.click();
+  const projectInput = page.getByRole('textbox', { name: 'Project name' });
+  await projectInput.click();
+  await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
+  await projectInput.press('Escape');
+  await expect(projectInput).toHaveCount(0);
+  await projectToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('sidebar follows drag, keeps its saved width across reopen and reload, and supports keyboard limits', async () => {
+  await openSidebarFixture();
+  const separator = page.getByRole('separator', { name: 'Resize sidebar' });
+  await separator.dblclick();
+  await settle();
+  const sidebar = page.locator('aside');
+  const initial = (await sidebar.boundingBox())!.width;
+  const handle = (await separator.boundingBox())!;
+  const border = (await sidebar.locator(':scope > div > div').boundingBox())!;
+  const line = (await separator.locator('span').boundingBox())!;
+  expect(Math.abs(line.x - (border.x + border.width - 1))).toBeLessThanOrEqual(1);
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(handle.x + handle.width / 2 + 96, handle.y + 120, { steps: 8 });
+  await page.waitForTimeout(50);
+  expect((await sidebar.boundingBox())!.width).toBeCloseTo(initial + 96, 0);
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBe(0);
+  await expect(separator).toHaveCount(0);
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBeCloseTo(initial + 96, 0);
+  await page.reload();
+  await separator.waitFor();
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBeCloseTo(initial + 96, 0);
+  await separator.focus();
+  await page.keyboard.press('ArrowLeft');
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBeCloseTo(initial + 80, 0);
+  for (let i = 0; i < 20; i += 1) await page.keyboard.press('ArrowRight');
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBe(420);
+  await page.setViewportSize({ width: 700, height: 760 });
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBe(340);
+  expect((await page.getByTestId('chat-canvas').boundingBox())!.width).toBeGreaterThanOrEqual(360);
+  await page.setViewportSize({ width: 1000, height: 760 });
+  await separator.focus();
+  await page.keyboard.press('Home');
+  await settle();
+  expect((await sidebar.boundingBox())!.width).toBe(initial);
+});
+
+test('sidebar drag can collapse completely, reverse before release, and restore the prior width', async () => {
+  await openSidebarFixture();
+  const sidebar = page.locator('aside');
+  const separator = page.getByRole('separator', { name: 'Resize sidebar' });
+  await separator.dblclick();
+  await settle();
+  const initial = (await sidebar.boundingBox())!.width;
+  const handle = (await separator.boundingBox())!;
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + 100;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - initial + 60, y, { steps: 8 });
+  await expect(sidebar).toHaveCSS('width', '0px');
+  // Pointer capture survives a zero-width preview, so reversing remains possible.
+  await page.mouse.move(x, y, { steps: 8 });
+  await expect(sidebar).toHaveCSS('width', `${initial}px`);
+  await page.mouse.move(x - initial + 60, y, { steps: 8 });
+  await page.mouse.up();
+  await settle();
+  await expect(sidebar).toHaveCSS('width', '0px');
+  await expect(sidebar).toHaveAttribute('inert', '');
+  expect(await page.evaluate(() => localStorage.getItem('navigation_width'))).toBe(String(initial));
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+  await settle();
+  await expect(sidebar).toHaveCSS('width', `${initial}px`);
+  await expect(page.getByRole('button', { name: 'CodeBuddy' })).toBeVisible();
+  await separator.focus();
+  for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowLeft');
+  await settle();
+  await expect(sidebar).toHaveCSS('width', '0px');
+});
+
+test('conversation presentation contains rounded disclosure backgrounds and preserves text hierarchy', async () => {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?presentation`
+  );
+  const prose = page.getByText('收到需求，开始处理。', { exact: true });
+  const heading = page.getByRole('heading', { name: '实现结果' });
+  const duration = page.getByRole('button', { name: '用时 1分钟 10秒' });
+  const thinking = page.getByRole('button', { name: 'Thinking', exact: true });
+  const files = page.getByRole('button', { name: '列出文件' });
+  await prose.waitFor();
+  const left = (await prose.boundingBox())!.x;
+  for (const trigger of [duration, thinking, files]) {
+    const label = trigger.locator(':scope > span:not([aria-hidden])').first();
+    const text = (await label.boundingBox())!;
+    const arrow = (await trigger.locator(':scope > svg').boundingBox())!;
+    expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
+    expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
+    expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
+    await expect(label).toHaveCSS('font-size', '13px');
+    await expect(trigger).toHaveCSS('border-radius', '10px');
+  }
+  expect(
+    Math.abs(left - (await page.locator('.codepro-chat-history').boundingBox())!.x)
+  ).toBeLessThanOrEqual(1);
+  await duration.click();
+  const record = page.getByText('处理记录', { exact: true });
+  await expect(record).toHaveCSS('font-size', '14px');
+  expect(Math.abs((await record.boundingBox())!.x - left)).toBeLessThanOrEqual(1);
+  await expect(page.getByText('操作说明', { exact: true })).toHaveCSS('font-size', '13px');
+  const historyBody = page.locator(`[id="${await duration.getAttribute('aria-controls')}"]`);
+  const nestedFile = page.getByRole('button', { name: '已查看文件 smoke_test_app.py' });
+  const activity = page.getByRole('button', {
+    name: 'Operations recorded · 2 actions',
+    exact: true,
+  });
+  for (const row of [nestedFile, activity]) {
+    await row.hover();
+    await expect(row).toHaveCSS('border-radius', '10px');
+    await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    const rowBox = (await row.boundingBox())!;
+    const clipBox = (await historyBody.boundingBox())!;
+    expect(rowBox.x).toBeGreaterThanOrEqual(clipBox.x);
+    expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(clipBox.x + clipBox.width + 1);
+    const iconBox = (await row.locator(':scope > span[aria-hidden]').boundingBox())!;
+    expect(iconBox.x - rowBox.x).toBeGreaterThanOrEqual(row === nestedFile ? 0 : 8);
+  }
+
+  const plan = page.getByTestId('work-plan').locator('summary');
+  await plan.hover();
+  const planBox = (await plan.boundingBox())!;
+  const planIcon = (await plan.locator('.lucide-list-checks').boundingBox())!;
+  expect(planIcon.x - planBox.x).toBeGreaterThanOrEqual(8);
+  expect(planBox.x + planBox.width - planIcon.x - planIcon.width).toBeGreaterThan(8);
+  await expect(plan.locator('.lucide-list-checks')).toBeVisible();
+  await expect(prose).toHaveCSS('font-size', '14px');
+  await expect(heading).toHaveCSS('font-size', '16px');
+  await expect(heading).toHaveCSS('font-weight', '600');
+  await expect(files.locator('.codepro-record-icon svg')).toBeVisible();
+  const filesBox = (await files.boundingBox())!;
+  const fileIcon = (await files.locator('.codepro-record-icon').boundingBox())!;
+  expect(fileIcon.x - filesBox.x).toBeGreaterThanOrEqual(0);
+  await files.click();
+  const summary = page.locator('summary').filter({ hasText: '诊断记录' });
+  await expect(summary).toHaveCSS('list-style-type', 'none');
+  expect(await summary.evaluate((el) => window.getComputedStyle(el, '::after').content)).toBe('""');
+  await summary.click();
+  await expect(page.getByText('原始回执')).toBeVisible();
+  await page.getByRole('button', { name: 'change.py', exact: true }).click();
+  const added = page.locator('[data-diff-kind="added"]');
+  const removed = page.locator('[data-diff-kind="removed"]');
+  await expect(added.locator(':scope > span').first()).toHaveText('7');
+  await expect(removed.locator(':scope > span').first()).toHaveText('7');
+  const addedStyle = await added.evaluate((el) => ({
+    color: window.getComputedStyle(el).color,
+    background: window.getComputedStyle(el).backgroundColor,
+  }));
+  const removedStyle = await removed.evaluate((el) => ({
+    color: window.getComputedStyle(el).color,
+    background: window.getComputedStyle(el).backgroundColor,
+  }));
+  expect(addedStyle.color).toBe(removedStyle.color);
+  expect(addedStyle.background).not.toBe(removedStyle.background);
+  expect(addedStyle.background).not.toBe('rgba(0, 0, 0, 0)');
+});
+
+test('completed extension toast enters softly and disappears after five seconds even while hovered and unfocused', async () => {
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?toast`);
+  await page.getByRole('button', { name: 'Finish extensions' }).click();
+  const notification = page.getByRole('alert');
+  await expect(notification).toContainText('Successfully loaded 1 extension');
+  expect(
+    parseFloat(await notification.evaluate((el) => window.getComputedStyle(el).animationDuration))
+  ).toBeGreaterThanOrEqual(0.3);
+  await notification.hover();
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await page.waitForTimeout(4400);
+  await expect(notification).toBeVisible();
+  await expect(notification).toHaveCount(0, { timeout: 2200 });
+});
+
+test('extension loading remains truthful until settled and an updated failure also expires', async () => {
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?toast`);
+  await page.getByRole('button', { name: 'Start extensions' }).click();
+  const notification = page.getByRole('alert');
+  await page.waitForTimeout(5400);
+  await expect(notification).toContainText('Loading 1 extension');
+  await page.getByRole('button', { name: 'Fail extension' }).click();
+  await expect(notification).toContainText('1 extension failed to load');
+  await expect(notification).toHaveCount(0, { timeout: 6500 });
+});
+
+test('actual recorded-operations group and nested operation both animate when closed and reopened', async () => {
+  await openActivityFixture();
+  const group = page.getByRole('button', { name: 'Operations recorded · 2 actions', exact: true });
+  const groupBody = page.locator(`[id="${await group.getAttribute('aria-controls')}"]`);
+  await sampleToggle(group, groupBody);
+  const operation = page.getByRole('button', { name: /Activity:.*README.md/ });
+  const operationBody = page.locator(`[id="${await operation.getAttribute('aria-controls')}"]`);
+  await sampleToggle(operation, operationBody);
+  await sampleToggle(operation, operationBody);
+  await sampleToggle(group, groupBody);
+  await sampleToggle(group, groupBody);
+});
+
+test('technical text keeps a three-line preview and animates to the full original value', async () => {
+  await openActivityFixture();
+  const heading = page.getByRole('button', { name: 'Expand Long output', exact: true });
+  const body = page.locator(`[id="${await heading.getAttribute('aria-controls')}"]`);
+  const before = (await body.boundingBox())!.height;
+  expect(before).toBeLessThan(70);
+  await sampleToggle(heading, body);
+  expect((await body.boundingBox())!.height).toBeGreaterThan(before * 3);
+  await sampleToggle(page.getByRole('button', { name: 'Collapse Long output', exact: true }), body);
+  expect((await body.boundingBox())!.height).toBe(before);
+});
+
+test('compact work plan remains visible above its trigger and fades during closing', async () => {
+  await openActivityFixture();
+  const heading = page.locator('[data-testid="work-plan"] summary');
+  await heading.click();
+  await settle();
+  const plan = page.getByText('First step', { exact: true });
+  await expect(plan).toBeVisible();
+  expect((await plan.boundingBox())!.y).toBeLessThan((await heading.boundingBox())!.y);
+  await heading.click();
+  await settle();
+  await expect(plan).toBeHidden();
+});
+
+test('native file disclosure keeps its click position through repeated collapse and expansion', async () => {
+  await openFixture();
+  const heading = page.locator('summary').filter({ hasText: /^View changed files$/ });
+  const original = (await heading.boundingBox())!;
+  for (let i = 0; i < 4; i += 1) {
+    // Deliberately reuse the same pointer position: users should not chase the header.
+    await page.mouse.click(original.x + 30, original.y + original.height / 2);
+    await settle();
+    const current = (await heading.boundingBox())!;
+    expect(Math.abs(current.y - original.y)).toBeLessThanOrEqual(2);
+    expect(await heading.evaluate((el) => (el.parentElement as HTMLDetailsElement).open)).toBe(
+      i % 2 !== 0
+    );
+  }
+});
+
+test('file disclosure has intermediate heights without moving its header during the transition', async () => {
+  await openFixture();
+  const heading = page.locator('summary').filter({ hasText: /^View changed files$/ });
+  const before = (await heading.boundingBox())!;
+  await heading.evaluate((element) => {
+    const samples: { top: number; height: number }[] = [];
+    (window as unknown as { foldSamples: typeof samples }).foldSamples = samples;
+    const start = window.performance.now();
+    function sample() {
+      samples.push({
+        top: element.getBoundingClientRect().top,
+        height: element.parentElement!.getBoundingClientRect().height,
+      });
+      if (window.performance.now() - start < 500) requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+  });
+  await page.mouse.click(before.x + 30, before.y + before.height / 2);
+  await page.waitForTimeout(550);
+  const samples = await page.evaluate(
+    () => (window as unknown as { foldSamples: { top: number; height: number }[] }).foldSamples
+  );
+  expect(Math.max(...samples.map((sample) => Math.abs(sample.top - before.y)))).toBeLessThanOrEqual(
+    2
+  );
+  const heights = new Set(samples.map((sample) => Math.round(sample.height)));
+  expect(heights.size).toBeGreaterThan(3);
+});
+
+test('React disclosure stays anchored for keyboard toggles and respects reduced motion', async () => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  try {
+    await openFixture();
+    const heading = page.getByRole('button', { name: 'Work history', exact: true });
+    await heading.scrollIntoViewIfNeeded();
+    await heading.focus();
+    const before = (await heading.boundingBox())!;
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('Space');
+      await settle();
+      expect(Math.abs((await heading.boundingBox())!.y - before.y)).toBeLessThanOrEqual(2);
+      expect(await heading.getAttribute('aria-expanded')).toBe(String(i % 2 !== 0));
+    }
+    expect(
+      await page
+        .locator('.codepro-disclosure-content')
+        .first()
+        .evaluate((el) => window.getComputedStyle(el).animationName)
+    ).toBe('none');
+  } finally {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  }
+});
+
+test('manual reading survives new output and Latest releases the reserved space and resumes following', async () => {
+  await openFixture();
+  const heading = page.locator('summary').filter({ hasText: /^View changed files$/ });
+  await heading.click();
+  await settle();
+  const before = (await heading.boundingBox())!;
+  await page.getByRole('button', { name: 'Append output', exact: true }).click();
+  await settle();
+  expect(Math.abs((await heading.boundingBox())!.y - before.y)).toBeLessThanOrEqual(2);
+
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await settle();
+  await page.getByRole('button', { name: 'Append output', exact: true }).click();
+  await settle();
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  await expect
+    .poll(() => viewport.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), {
+      timeout: 2000,
+    })
+    .toBeLessThanOrEqual(2);
+
+  const box = (await viewport.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 30, box.y + 100);
+  await page.mouse.wheel(0, -100);
+  await settle();
+  const readingTop = await viewport.evaluate((el) => el.scrollTop);
+  await page.getByRole('button', { name: 'Append output', exact: true }).click();
+  await settle();
+  expect(await viewport.evaluate((el) => el.scrollTop)).toBe(readingTop);
+});
+
+test('file-card disclosures preserve counts, shared motion and the clicked reading position', async () => {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?file-card`
+  );
+  const card = page.getByRole('button', { name: 'Modified 2 files this turn', exact: true });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('+90');
+  await expect(card).toContainText('−90');
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await settle();
+  await expect(card).toHaveAttribute('aria-expanded', 'false');
+  const cardBody = page.locator(`[id="${await card.getAttribute('aria-controls')}"]`);
+  await sampleToggle(card, cardBody);
+  const file = page.getByRole('button', { name: 'app.py', exact: true });
+  await expect(file).toContainText('+60');
+  await expect(file).toContainText('−60');
+  await expect(file.locator('.lucide-chevron-right')).toBeVisible();
+  const fileBody = page.locator(`[id="${await file.getAttribute('aria-controls')}"]`);
+  await sampleToggle(file, fileBody);
+  await expect(file).toHaveAttribute('aria-expanded', 'true');
+  await expect(fileBody).toHaveCSS('animation-duration', '0.28s');
+  await expect(file).toBeFocused();
+  await sampleToggle(file, fileBody);
+  await expect(file).toHaveAttribute('aria-expanded', 'false');
+  await sampleToggle(card, cardBody);
+  await sampleToggle(card, cardBody);
+  await expect(file).toBeVisible();
+});

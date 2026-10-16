@@ -86,6 +86,9 @@ it('binds a nested conversation read to its validated catalog ancestry', async (
     'ancestor',
   ]);
   expect(screen.getByText('Checking edge cases')).toBeVisible();
+  expect(
+    screen.getByText('Nested review').parentElement?.querySelector('[data-subagent-avatar]')
+  ).toHaveAttribute('data-subagent-avatar', 'child');
 });
 
 it('reads only the selected child with an incremental cursor and stops viewing on close', async () => {

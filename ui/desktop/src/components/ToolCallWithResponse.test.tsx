@@ -177,7 +177,7 @@ describe('tool response completion evidence', () => {
     expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 
-  it('opens a native child in the side panel with one click without opening another chat', () => {
+  it.each([true, false])('opens a child in the side panel without claiming task completion (activation: %s)', (activated) => {
     const open = vi.fn();
     window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
     render(
@@ -198,13 +198,30 @@ describe('tool response completion evidence', () => {
           toolResponse={{
             type: 'toolResponse',
             id: 'spawn',
-            toolResult: { status: 'success', value: { content: [] } },
-            metadata: { rawOutput: { kind: 'activation', subagentId: 'child' } },
+            toolResult: {
+              status: 'success',
+              value: {
+                content: [],
+                ...(activated ? {} : { _meta: { subagent_session_id: 'child' } }),
+              },
+            },
+            metadata: activated
+              ? { rawOutput: { kind: 'activation', subagentId: 'child' } }
+              : undefined,
           }}
         />
       </IntlProvider>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Review quantities' }));
+    const child = screen.getByRole('button', {
+      name: activated ? 'Started Review quantities' : 'Review quantities',
+    });
+    expect(child.querySelector('[data-subagent-avatar]')).toHaveAttribute(
+      'data-subagent-avatar',
+      'child'
+    );
+    expect(child.querySelector('.lucide-bot')).not.toBeNull();
+    expect(child.querySelector('.lucide-external-link')).toBeNull();
+    fireEvent.click(child);
     expect(open).toHaveBeenCalledTimes(1);
     expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
       parentSessionId: 'parent',

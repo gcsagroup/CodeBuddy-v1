@@ -165,3 +165,19 @@
 .codepro-chat-history summary:is(:hover, :focus-visible) {
   color: var(--color-text-primary);
 }
+
+/* Plans use the same small type as the waiting-output line, including history. */
+.codepro-conversation .codepro-plan {
+  --conversation-text-size: var(--text-xs, 0.75rem);
+  --conversation-secondary-size: var(--text-xs, 0.75rem);
+  --conversation-heading-size: var(--text-xs, 0.75rem);
+  --conversation-line-height: 1.4;
+  max-width: min(32rem, 100%);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
+}
+
+.codepro-conversation .codepro-plan :is(.prose, .prose :where(p, h1, h2, h3, h4, h5, h6, li)) {
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
+}

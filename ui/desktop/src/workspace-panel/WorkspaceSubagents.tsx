@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronRight, RefreshCw } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { readSubagentCatalog, type SubagentCatalogEntry } from '../acp/subagentCatalog';
 import { openSubagentConversation } from './subagentPanel';
+import { SubagentAvatar } from '../components/SubagentAvatar';
 
 export const subagentsMessages = defineMessages({
   title: { id: 'workspaceSubagents.title', defaultMessage: 'Subagents' },
@@ -72,16 +73,22 @@ function CatalogRow({
               })
             }
           >
-            <Bot size={15} className="shrink-0 text-text-secondary" />
+            <SubagentAvatar sessionId={entry.id} />
             <span className="min-w-0 flex-1 truncate">{title}</span>
           </button>
         ) : (
-          <div className="min-w-0 flex-1 px-1 py-2 text-text-secondary" title={title}>
-            <div className="truncate">{title}</div>
-            <div className="text-xs">
-              {intl.formatMessage(
-                entry.mode === 'external' ? subagentsMessages.external : subagentsMessages.unknown
-              )}
+          <div
+            className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-text-secondary"
+            title={title}
+          >
+            <SubagentAvatar sessionId={entry.id} />
+            <div className="min-w-0">
+              <div className="truncate">{title}</div>
+              <div className="text-xs">
+                {intl.formatMessage(
+                  entry.mode === 'external' ? subagentsMessages.external : subagentsMessages.unknown
+                )}
+              </div>
             </div>
           </div>
         )}

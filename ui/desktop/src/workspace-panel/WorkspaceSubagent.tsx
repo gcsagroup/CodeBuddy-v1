@@ -3,6 +3,7 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import type { Message } from '../types/message';
 import ProgressiveMessageList from '../components/ProgressiveMessageList';
+import { SubagentAvatar } from '../components/SubagentAvatar';
 import { openSubagentCatalog } from './subagentPanel';
 import {
   createSubagentConversationProjection,
@@ -117,6 +118,7 @@ export function WorkspaceSubagent({
         >
           <ArrowLeft size={14} />
         </button>
+        <SubagentAvatar sessionId={childSessionId} small />
         <span className="min-w-0 flex-1 truncate" title={title}>
           {title}
         </span>

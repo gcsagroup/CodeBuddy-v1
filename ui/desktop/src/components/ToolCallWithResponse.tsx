@@ -36,7 +36,7 @@ import {
   webSearchDetails,
 } from './toolActionPresentation';
 import type { LoadingStatus as ExecutionLoadingStatus } from './ui/Dot';
-import { Bot, ExternalLink } from 'lucide-react';
+import { SubagentAvatar } from './SubagentAvatar';
 import { TooltipWrapper } from './settings/providers/subcomponents/buttons/TooltipWrapper';
 import { ToolCallExpandable } from './ToolCallExpandable';
 import { ToolActivityIcon } from './ToolActivityIcon';
@@ -122,6 +122,10 @@ const i18n = defineMessages({
   viewSubagentSession: {
     id: 'toolCallWithResponse.viewSubagentSession',
     defaultMessage: 'View subagent session',
+  },
+  subagentStarted: {
+    id: 'toolCallWithResponse.subagentStarted',
+    defaultMessage: 'Started {name}',
   },
   subagentBudget: {
     id: 'toolCallWithResponse.subagentBudget',
@@ -884,6 +888,15 @@ function ToolCallView({
   }
   const readable = compact && (hasReadableToolContent(toolCall.name) || loadingStatus === 'error');
   const childSessionId = getSubagentSessionId(toolResponse, notifications);
+  const nativeChildReceipt = toolResponse?.metadata?.rawOutput;
+  const childActivated =
+    loadingStatus === 'success' &&
+    nativeChildReceipt &&
+    typeof nativeChildReceipt === 'object' &&
+    'kind' in nativeChildReceipt &&
+    nativeChildReceipt.kind === 'activation' &&
+    'subagentId' in nativeChildReceipt &&
+    nativeChildReceipt.subagentId === childSessionId;
   const childTitle =
     typeof toolCall.arguments?.description === 'string'
       ? toolCall.arguments.description
@@ -902,9 +915,12 @@ function ToolCallView({
         }
         title={intl.formatMessage(i18n.viewSubagentSession)}
       >
-        <Bot className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate">{childTitle}</span>
-        <ExternalLink className="h-3 w-3 shrink-0" />
+        <SubagentAvatar sessionId={childSessionId} />
+        <span className="min-w-0 flex-1 truncate">
+          {childActivated
+            ? intl.formatMessage(i18n.subagentStarted, { name: childTitle })
+            : childTitle}
+        </span>
       </button>
     );
   }
@@ -1028,19 +1044,20 @@ function ToolCallView({
               {toolAudit && <ToolAuditDetails receipt={toolAudit} />}
             </div>
           </details>
-          {getSubagentSessionId(toolResponse, notifications) && (
+          {childSessionId && (
             <button
               type="button"
-              className="text-xs text-text-secondary underline"
+              className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary"
               onClick={() =>
                 sessionId &&
                 openSubagentConversation({
                   parentSessionId: sessionId,
-                  childSessionId: getSubagentSessionId(toolResponse, notifications)!,
+                  childSessionId,
                   title: childTitle,
                 })
               }
             >
+              <SubagentAvatar sessionId={childSessionId} small />
               {intl.formatMessage(i18n.viewSubagentSession)}
             </button>
           )}
@@ -1161,7 +1178,7 @@ function ToolCallView({
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
               >
-                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                <SubagentAvatar sessionId={subagentSessionId} small />
                 <span>{intl.formatMessage(i18n.viewSubagentSession)}</span>
               </button>
             </div>

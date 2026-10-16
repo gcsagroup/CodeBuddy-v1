@@ -15,7 +15,7 @@ const i18n = defineMessages({
   },
   sendNow: {
     id: 'messageQueue.sendNow',
-    defaultMessage: 'Send this message now',
+    defaultMessage: 'Send now',
   },
   expandQueue: {
     id: 'messageQueue.expandQueue',
@@ -131,7 +131,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   blockedReason,
 }) => {
   const intl = useIntl();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
@@ -210,6 +210,13 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   const remainingCount = queuedMessages.length - 1;
   const nextMessageIsSending = isSendingMessage(nextMessage.id);
   const hasSendingMessages = queuedMessages.some((message) => isSendingMessage(message.id));
+  const hasUncertainDelivery = queuedMessages.some(
+    (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
+  );
+  const deliveryNotice = intl.formatMessage({
+    id: 'messageQueue.verifyDelivery',
+    defaultMessage: 'Sending result unknown. Check the conversation before retrying.',
+  });
 
   // Compact View
   if (!isExpanded) {
@@ -217,7 +224,15 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
       <div className={`relative ${className}`}>
         {/* Compact Header */}
         <div
-          className="flex items-center justify-between px-4 py-2.5 bg-background border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-all duration-200"
+          className="flex items-center justify-between gap-2 px-4 py-2 bg-background border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-all duration-200"
+          title={
+            blockedReason ??
+            (hasUncertainDelivery
+              ? deliveryNotice
+              : isPaused
+                ? intl.formatMessage(i18n.queuePausedCompact)
+                : undefined)
+          }
           onClick={() => setIsExpanded(true)}
         >
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -227,14 +242,18 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
               ) : (
                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               )}
-              <span className="text-sm font-medium text-foreground">
-                {isPaused ? intl.formatMessage(i18n.paused) : intl.formatMessage(i18n.next)}
+              <span className="max-w-44 truncate text-xs font-medium text-foreground">
+                {hasUncertainDelivery
+                  ? deliveryNotice
+                  : isPaused
+                    ? intl.formatMessage(i18n.paused)
+                    : intl.formatMessage(i18n.next)}
               </span>
             </div>
 
             {/* Next message preview */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-muted-foreground truncate" title={nextMessage.content}>
+              <p className="text-xs text-muted-foreground truncate" title={nextMessage.content}>
                 {nextMessage.content.length > 40
                   ? `${nextMessage.content.substring(0, 40)}...`
                   : nextMessage.content}
@@ -261,9 +280,10 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   onStopAndSend(nextMessage.id);
                 }}
                 disabled={nextMessageIsSending}
-                className="h-7 px-2 text-xs text-info hover:text-info/80 hover:bg-info/10"
-                title={intl.formatMessage(i18n.sendNow)}
+                className="h-7 gap-1 px-2 text-xs text-info hover:text-info/80 hover:bg-info/10"
+                title={intl.formatMessage(i18n.stopAndSend)}
               >
+                <span>{intl.formatMessage(i18n.sendNow)}</span>
                 <Send className="w-3 h-3" />
               </Button>
             )}
@@ -274,21 +294,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
               size="sm"
               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
               title={intl.formatMessage(i18n.expandQueue)}
+              aria-expanded={false}
             >
               <ChevronDown className="w-4 h-4" />
             </Button>
           </div>
         </div>
-
-        {/* Paused state indicator */}
-        {isPaused && (
-          <div className="px-4 py-1.5 bg-amber-50/60 dark:bg-amber-900/20 border-b border-amber-200/30 dark:border-amber-800/30">
-            <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
-              <Zap className="w-3 h-3" />
-              <span>{intl.formatMessage(i18n.queuePausedCompact)}</span>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -548,8 +559,8 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                           : intl.formatMessage(i18n.stopAndSend)
                       }
                     >
+                      <span>{intl.formatMessage(i18n.sendNow)}</span>
                       <Send className="w-3 h-3" />
-                      {intl.formatMessage(i18n.stopAndSendLabel)}
                     </Button>
                   )}
 

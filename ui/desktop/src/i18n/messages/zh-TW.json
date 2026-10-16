@@ -4161,7 +4161,7 @@
     "defaultMessage": "儲存"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "停止並傳送此訊息"
+    "defaultMessage": "立即傳送"
   },
   "messageQueue.stopAndSend": {
     "defaultMessage": "停止目前任務後傳送此訊息"
@@ -8500,5 +8500,8 @@
   },
   "workspaceChanges.operationUnavailable": {
     "defaultMessage": "此操作未回傳可用的歷史差異。"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "已啟動 {name}"
   }
 }

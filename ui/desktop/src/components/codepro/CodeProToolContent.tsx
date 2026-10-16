@@ -222,11 +222,11 @@ export function CodeProPlan({
   return (
     <details
       open={!compact || undefined}
-      className={`codepro-disclosure group/plan my-2 text-sm ${compact ? 'codepro-disclosure-popover relative' : 'max-w-[36rem]'}`}
+      className={`codepro-plan codepro-disclosure group/plan my-1 w-full max-w-[32rem] text-xs ${compact ? 'codepro-disclosure-popover relative' : ''}`}
       data-testid="work-plan"
       data-request-id={requestId}
     >
-      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-2 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
+      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
         <ListChecks className="h-4 w-4" aria-hidden="true" />
         <span>{intl.formatMessage(historical ? messages.previousPlan : messages.plan)}</span>
         {compact && !historical && items.length > 0 && (
@@ -240,7 +240,7 @@ export function CodeProPlan({
         />
       </summary>
       <div
-        className={`codepro-operation-details overflow-y-auto overscroll-contain rounded-xl bg-background-secondary px-4 py-3 ${compact ? 'absolute bottom-full left-0 right-0 z-20 mb-2 max-h-[min(16rem,40vh)]' : 'mt-2 max-h-72'}`}
+        className={`codepro-operation-details overflow-y-auto overscroll-contain rounded-xl bg-background-secondary px-3 py-2 ${compact ? 'absolute bottom-full left-0 right-0 z-20 mb-2 max-h-[min(16rem,40vh)]' : 'mt-2 max-h-72'}`}
       >
         {historical && (
           <p className="mb-3 text-xs text-text-secondary">
@@ -248,7 +248,7 @@ export function CodeProPlan({
           </p>
         )}
         {items.length > 0 ? (
-          <ul className="space-y-2.5">
+          <ul className="space-y-1">
             {items.map((item, index) => {
               const checked = item[1].toLowerCase() === 'x';
               const inProgress = item[1] === '-';
@@ -256,7 +256,7 @@ export function CodeProPlan({
               return (
                 <li
                   key={index}
-                  className={`flex items-start gap-3 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}
+                  className={`flex items-start gap-1 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}
                 >
                   <Icon
                     className={`mt-0.5 h-4 w-4 shrink-0 ${inProgress && active ? 'animate-spin motion-reduce:animate-none' : ''}`}

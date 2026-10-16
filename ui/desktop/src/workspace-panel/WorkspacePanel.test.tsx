@@ -68,8 +68,19 @@ it('browses the native subagent catalog without a writable root or parent tool r
     { wrapper: IntlTestWrapper }
   );
   fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Catalog review' }));
+  const child = await screen.findByRole('button', { name: 'Catalog review' });
+  const avatar = child.querySelector('[data-subagent-avatar]')!;
+  const colors = (element: typeof avatar) =>
+    [...element.classList].filter((name) => /^(bg-|text-|dark:)/.test(name));
+  const childColors = colors(avatar);
+  expect(avatar).toHaveAttribute('data-subagent-avatar', 'catalog-only-child');
+  fireEvent.click(child);
   expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
+  const tabAvatar = screen
+    .getByRole('tab', { name: 'Catalog review' })
+    .querySelector('[data-subagent-avatar]')!;
+  expect(tabAvatar).toHaveAttribute('data-subagent-avatar', 'catalog-only-child');
+  expect(colors(tabAvatar)).toEqual(childColors);
   fireEvent(
     window,
     new CustomEvent('codebuddy:open-subagent-catalog', { detail: { parentSessionId: 'foreign' } })

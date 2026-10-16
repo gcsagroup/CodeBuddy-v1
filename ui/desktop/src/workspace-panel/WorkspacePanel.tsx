@@ -29,6 +29,7 @@ import { useIntl } from '../i18n';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
+import { SubagentAvatar } from '../components/SubagentAvatar';
 import { GitRepositoryPanel } from '../components/codepro/GitRepositoryPanel';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
@@ -715,7 +716,7 @@ export function WorkspacePanelContent({
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
                 ) : t.kind === 'subagent' ? (
-                  <Bot size={13} />
+                  <SubagentAvatar sessionId={t.childSessionId} small />
                 ) : (
                   <Globe size={13} />
                 )}

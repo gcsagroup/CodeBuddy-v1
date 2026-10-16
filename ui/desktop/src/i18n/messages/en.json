@@ -4161,7 +4161,7 @@
     "defaultMessage": "Save"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "Stop and send this message"
+    "defaultMessage": "Send now"
   },
   "messageQueue.stopAndSend": {
     "defaultMessage": "Stop the current task, then send this message"
@@ -8500,5 +8500,8 @@
   },
   "workspaceChanges.operationUnavailable": {
     "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
   }
 }

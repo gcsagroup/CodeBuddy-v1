@@ -46,6 +46,10 @@ it('loads native directories lazily, opens exact readonly paths, and stops polli
   expect(screen.queryByRole('button', { name: 'Unavailable review' })).toBeNull();
   expect(screen.queryByText('Working')).toBeNull();
   expect(screen.queryByText('Completed')).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Review files' }).querySelector('[data-subagent-avatar]')
+  ).toHaveAttribute('data-subagent-avatar', 'review');
+  expect(view.container.querySelectorAll('[data-subagent-avatar]')).toHaveLength(3);
   fireEvent.click(screen.getByRole('button', { name: 'Review files' }));
   expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({
     parentSessionId: parent,

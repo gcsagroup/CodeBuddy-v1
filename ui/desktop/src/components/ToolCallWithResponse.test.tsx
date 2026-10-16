@@ -4,6 +4,8 @@ import { IntlProvider } from 'react-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isAcpPermissionRequestPending } from '../acp/permissionRequests';
 import { OPEN_SUBAGENT_CONVERSATION } from '../workspace-panel/subagentPanel';
+import { OPEN_CONVERSATION_CHANGE } from '../workspace-panel/conversationChangePanel';
+import userEvent from '@testing-library/user-event';
 import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../types/message';
 
@@ -21,6 +23,160 @@ vi.mock('../acp/permissionRequests', async (original) => ({
 beforeEach(() => vi.mocked(isAcpPermissionRequestPending).mockReturnValue(true));
 
 describe('tool response completion evidence', () => {
+  it('opens the file receipt by call identity without toggling the row, including keyboard activation', async () => {
+    const user = userEvent.setup(),
+      open = vi.fn();
+    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="file-parent"
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'historical-edit',
+            metadata: { extensionName: 'harness' },
+            toolCall: {
+              status: 'success',
+              value: { name: 'edit', arguments: { path: 'stale-argument.ts' } },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'historical-edit',
+            toolResult: {
+              status: 'success',
+              value: {
+                content: [],
+                isError: false,
+                structuredContent: { path: 'src/actual.ts', before: 'old\n', after: 'new\n' },
+              },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
+    const file = screen.getByRole('button', { name: 'src/actual.ts' });
+    const toggle = screen.getByRole('button', { name: /Edited file actual.ts/ });
+    expect(toggle.contains(file)).toBe(false);
+    await user.click(file);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      sessionId: 'file-parent',
+      toolCallId: 'historical-edit',
+      filePath: 'src/actual.ts',
+    });
+    file.focus();
+    await user.keyboard('{Enter}');
+    expect(open).toHaveBeenCalledTimes(2);
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('-old')).toBeVisible();
+    expect(screen.getByText('+new')).toBeVisible();
+    window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
+  });
+
+  it.each([true, false])(
+    'shows only the real search query and source links in compact=%s',
+    (compact) => {
+      render(
+        <IntlProvider locale="en" messages={{}}>
+          <ToolCallWithResponse
+            compact={compact}
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={{
+              type: 'toolRequest',
+              id: 'search-sources',
+              toolCall: {
+                status: 'success',
+                value: {
+                  name: 'mcp__exa__web_search_exa',
+                  arguments: {
+                    query: 'SGLang DeepSeek-V3 RadixAttention',
+                    objective: 'internal search planning note',
+                  },
+                },
+              },
+            }}
+            toolResponse={{
+              type: 'toolResponse',
+              id: 'search-sources',
+              toolResult: {
+                status: 'success',
+                value: {
+                  isError: false,
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Title: [P/D disagg] - support decode side radix cache\nURL: https://github.com/sgl-project/sglang/pull/19746\nPublished: N/A\nHighlights:\nLong source body is not a search action detail.\n\n---\nTitle: Unsafe source\nURL: javascript:alert(1)',
+                    },
+                  ],
+                },
+              },
+            }}
+          />
+        </IntlProvider>
+      );
+      const toggle = screen.getByRole('button', { name: /Searched the web/ });
+      if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+      expect(screen.getByText('SGLang DeepSeek-V3 RadixAttention')).toBeVisible();
+      expect(
+        screen.getByRole('link', { name: '[P/D disagg] - support decode side radix cache' })
+      ).toHaveAttribute('href', 'https://github.com/sgl-project/sglang/pull/19746');
+      expect(screen.queryByText('Diagnostic record')).not.toBeInTheDocument();
+      expect(screen.queryByText(/mcp__exa/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/internal search planning/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Long source body/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Unsafe source' })).not.toBeInTheDocument();
+    }
+  );
+
+  it('retains an actual provider notice without treating its prose as a failure status', () => {
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'search-notice',
+            toolCall: {
+              status: 'success',
+              value: {
+                name: 'mcp__exa__web_search_exa',
+                arguments: { query: 'inference frameworks' },
+              },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'search-notice',
+            toolResult: {
+              status: 'success',
+              value: {
+                isError: false,
+                content: [
+                  {
+                    type: 'text',
+                    text: "You've hit Exa's free MCP rate limit.\n\nFix: Create API key at https://dashboard.exa.ai/api-keys",
+                  },
+                ],
+              },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Searched the web/ }));
+    expect(screen.getByText("You've hit Exa's free MCP rate limit.")).toBeVisible();
+    expect(screen.queryByText(/Create API key/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
+  });
+
   it('opens a native child in the side panel with one click without opening another chat', () => {
     const open = vi.fn();
     window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);

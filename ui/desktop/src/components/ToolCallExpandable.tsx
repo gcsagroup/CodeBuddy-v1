@@ -16,6 +16,9 @@ import { ScrollFollowingContext } from './ui/scroll-follow-context';
 export interface ToolCallExpandableProps {
   compact?: boolean;
   label: ReactNode;
+  // Interactive controls are siblings of the disclosure buttons, never nested buttons.
+  headerAction?: ReactNode;
+  headerSuffix?: ReactNode;
   icon?: ReactNode;
   accessibleName?: string;
   isStartExpanded?: boolean;
@@ -28,6 +31,7 @@ export interface ToolCallExpandableProps {
   scrollable?: boolean;
   // Keep the same content parent while live work becomes collapsible history.
   collapsible?: boolean;
+  collapseOnSettle?: boolean;
 }
 
 function readExpansion(key?: string): boolean | null {
@@ -43,6 +47,8 @@ function readExpansion(key?: string): boolean | null {
 export function ToolCallExpandable({
   compact = false,
   label,
+  headerAction,
+  headerSuffix,
   icon,
   accessibleName,
   isStartExpanded = false,
@@ -54,12 +60,28 @@ export function ToolCallExpandable({
   contentClassName,
   scrollable = true,
   collapsible = true,
+  collapseOnSettle = false,
 }: ToolCallExpandableProps) {
   const [expandedState, setExpanded] = useState<boolean | null>(() => readExpansion(storageKey));
   const expanded = !collapsible || (expandedState === null ? isStartExpanded : expandedState);
   const viewport = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const chatFollowing = useContext(ScrollFollowingContext);
+  const wasSettled = useRef(collapseOnSettle);
+
+  useEffect(() => {
+    if (collapseOnSettle && !wasSettled.current) {
+      setExpanded(false);
+      if (storageKey) {
+        try {
+          window.sessionStorage.setItem(`codepro-operation:${storageKey}`, 'closed');
+        } catch {
+          /* Storage is optional. */
+        }
+      }
+    }
+    wasSettled.current = collapseOnSettle;
+  }, [collapseOnSettle, storageKey]);
 
   useEffect(() => {
     // Scrollbar dragging and keyboard navigation need not reach this element.
@@ -113,42 +135,69 @@ export function ToolCallExpandable({
       }}
     >
       {collapsible && (
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            className={cn(
-              'group w-full flex justify-start gap-1.5 items-center pr-2 transition-colors rounded-[10px] text-left hover:bg-transparent dark:hover:bg-transparent hover:text-text-primary',
-              compact && 'codepro-record-trigger relative h-auto min-h-7 py-1 !px-0'
-            )}
-            variant="ghost"
-            aria-expanded={expanded}
-            aria-label={accessibleName}
-          >
-            {compact && icon && (
-              <span
-                className="codepro-record-icon flex w-[18px] shrink-0 items-center justify-start"
-                aria-hidden="true"
-              >
-                {icon}
-              </span>
-            )}
-            <span
+        <div className={headerAction ? 'flex min-w-0 items-center' : undefined}>
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
               className={cn(
-                'flex items-center font-sans text-sm truncate min-w-0',
-                compact && (groupHeading ? 'codepro-group-heading' : 'codepro-secondary-label')
+                'group w-full flex justify-start gap-1.5 items-center pr-2 transition-colors rounded-[10px] text-left hover:bg-transparent dark:hover:bg-transparent hover:text-text-primary',
+                compact && 'codepro-record-trigger relative h-auto min-h-7 py-1 !px-0',
+                headerAction && 'w-auto shrink-0'
               )}
+              variant="ghost"
+              aria-expanded={expanded}
+              aria-label={accessibleName}
             >
-              {label}
-            </span>
-            <ChevronRight
-              className={cn(
-                'group-hover:opacity-100 transition-transform opacity-70',
-                expanded && 'rotate-90'
+              {compact && icon && (
+                <span
+                  className="codepro-record-icon flex w-[18px] shrink-0 items-center justify-start"
+                  aria-hidden="true"
+                >
+                  {icon}
+                </span>
               )}
-              aria-hidden="true"
-            />
-          </Button>
-        </CollapsibleTrigger>
+              <span
+                className={cn(
+                  'flex items-center font-sans text-sm truncate min-w-0',
+                  compact && (groupHeading ? 'codepro-group-heading' : 'codepro-secondary-label')
+                )}
+              >
+                {label}
+              </span>
+              {!headerAction && (
+                <ChevronRight
+                  className={cn(
+                    'group-hover:opacity-100 transition-transform opacity-70',
+                    expanded && 'rotate-90'
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          {headerAction && (
+            <>
+              {headerAction}
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="group flex h-auto min-h-7 min-w-5 flex-1 items-center justify-end gap-2 rounded-[10px] px-1 py-1 hover:bg-transparent"
+                >
+                  {headerSuffix}
+                  <ChevronRight
+                    className={cn(
+                      'h-4 w-4 shrink-0 opacity-70 transition-transform',
+                      expanded && 'rotate-90'
+                    )}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+            </>
+          )}
+        </div>
       )}
       <CollapsibleContent
         className={cn(

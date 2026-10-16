@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../../types/message';
-import { collectConversationChanges } from './conversationChanges';
+import { collectConversationChanges, conversationFileOperation } from './conversationChanges';
 
 const metadata = { userVisible: true, agentVisible: true };
 const audit = {
@@ -70,6 +70,20 @@ const operation = (id: string, path = '/fixture/app.py') => [
 ];
 
 describe('conversation change evidence ledger', () => {
+  it('resolves the exact operation with a late result, using its receipt path and never a later edit', () => {
+    const a = request('a', '/fixture/stale.py');
+    const result = response('a', { path: '/fixture/actual.py', before: 'old\n', after: 'first\n' });
+    const messages = [user('first'), a, user('next'), ...operation('b'), result];
+    expect(conversationFileOperation(messages, 'a')).toMatchObject({
+      kind: 'change',
+      path: '/fixture/actual.py',
+      change: { diff: expect.stringContaining('+first') },
+    });
+    expect(conversationFileOperation(messages, 'missing')).toBeUndefined();
+    expect(
+      conversationFileOperation([request('read', '/fixture/current.py', 'read')], 'read')
+    ).toEqual({ kind: 'read', path: '/fixture/current.py', change: undefined });
+  });
   it('counts every visible user turn, keeps earlier file records, and binds a late response to its request owner', () => {
     const messages = [
       user('no-files'),

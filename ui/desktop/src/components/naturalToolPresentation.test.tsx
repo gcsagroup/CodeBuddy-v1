@@ -54,7 +54,10 @@ const card = (
 describe('natural tool action presentation', () => {
   it('changes running to a completed call only after a response, and retains raw details', async () => {
     const view = render(card({ isStreamingMessage: true }));
-    expect(await screen.findByText('Read file project-guide.md · in progress')).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: /Read file project-guide.md · in progress/ })
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: path })).toBeVisible();
     expect(screen.getByText('Running')).toBeVisible();
     expect(screen.queryByText('Tool call completed')).toBeNull();
     view.rerender(card({ isStreamingMessage: true, toolResponse: success }));
@@ -129,7 +132,7 @@ describe('natural tool action presentation', () => {
     ['zh-TW', '已查看文件 project-guide.md', '工具呼叫已完成'],
   ])('localizes title and status in %s', async (locale, title, status) => {
     render(card({ toolResponse: success }, locale));
-    expect(await screen.findByText(new RegExp(title))).toBeVisible();
+    expect(await screen.findByRole('button', { name: new RegExp(title) })).toBeVisible();
     expect(screen.getByText(status)).toBeVisible();
   });
   it('does not turn arbitrary code graph descriptions into success titles', () => {

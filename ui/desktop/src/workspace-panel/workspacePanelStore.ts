@@ -9,7 +9,14 @@ export type WorkbenchTab =
       preview: boolean;
     }
   | { id: string; kind: 'terminal' | 'browser'; title: string }
-  | { id: string; kind: 'change'; title: string; turnId: string; filePath: string }
+  | {
+      id: string;
+      kind: 'change';
+      title: string;
+      turnId?: string;
+      filePath: string;
+      toolCallId?: string;
+    }
   | {
       id: string;
       kind: 'subagent';

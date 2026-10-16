@@ -40,6 +40,7 @@ import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conve
 import {
   collectConversationChanges,
   fileIdentity,
+  conversationFileOperation,
 } from '../components/codepro/conversationChanges';
 import type { Message } from '../types/message';
 import {
@@ -235,44 +236,6 @@ export function WorkspacePanelContent({
   const available = !!scope.root && !!scope.sessionId;
   useEffect(() => {
     const open = (event: Event) => {
-      const target = (event as CustomEvent<ConversationChangeTarget>).detail;
-      if (!target || target.sessionId !== scope.sessionId) return;
-      if (!target.turnId || !target.filePath) {
-        update((current) => ({ ...current, active: 'changes' }));
-      } else {
-        const filePath = target.filePath;
-        const turnId = target.turnId;
-        const id = `change:${JSON.stringify([turnId, fileIdentity(filePath, scope.root)])}`;
-        const turn = collectConversationChanges(messages, scope.root).find(
-          (item) => item.id === turnId
-        );
-        const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath;
-        const title = turn
-          ? `${intl.formatMessage(turn.number ? changeMessages.turn : changeMessages.unassigned, { number: turn.number })} · ${name}`
-          : name;
-        update((current) => ({
-          tabs: current.tabs.some((tab) => tab.id === id)
-            ? current.tabs
-            : [
-                ...current.tabs,
-                {
-                  id,
-                  kind: 'change',
-                  turnId,
-                  filePath,
-                  title,
-                },
-              ],
-          active: id,
-        }));
-      }
-      onExpandedChange(true);
-    };
-    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
-    return () => window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
-  }, [scope.sessionId, scope.root, messages, intl, update, onExpandedChange]);
-  useEffect(() => {
-    const open = (event: Event) => {
       const target = (event as CustomEvent<SubagentConversationTarget>).detail;
       if (!target || target.parentSessionId !== scope.sessionId || !target.childSessionId) return;
       const id = `subagent:${target.childSessionId}`;
@@ -347,48 +310,119 @@ export function WorkspacePanelContent({
     },
     [update]
   );
-  const openFile = async (entry: PanelEntry) => {
-    const existing = latest.current.tabs.find(
-      (t) => t.kind === 'file' && t.document.path === entry.path
-    );
-    if (existing) {
-      activate(existing.id);
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      const { document } = await window.electron.workspacePanel({
-        scope,
-        action: 'read',
-        path: entry.path,
-      });
-      if (!document) return;
-      update((s) => {
-        const duplicate = s.tabs.find((t) => t.kind === 'file' && t.document.path === entry.path);
-        if (duplicate) return { ...s, active: duplicate.id };
-        const id = globalThis.crypto.randomUUID();
-        return {
-          tabs: [
-            ...s.tabs,
-            {
-              id,
-              kind: 'file',
-              title: entry.name,
-              document,
-              draft: document.content,
-              preview: true,
-            },
-          ],
+  const openFile = useCallback(
+    async (entry: PanelEntry) => {
+      const existing = latest.current.tabs.find(
+        (t) =>
+          t.kind === 'file' &&
+          fileIdentity(t.document.path, scope.root) === fileIdentity(entry.path, scope.root)
+      );
+      if (existing) {
+        activate(existing.id);
+        return;
+      }
+      setBusy(true);
+      setError('');
+      try {
+        const { document } = await window.electron.workspacePanel({
+          scope,
+          action: 'read',
+          path: entry.path,
+        });
+        if (!document || !alive.current) return;
+        update((s) => {
+          const duplicate = s.tabs.find(
+            (t) =>
+              t.kind === 'file' &&
+              fileIdentity(t.document.path, scope.root) === fileIdentity(entry.path, scope.root)
+          );
+          if (duplicate) return { ...s, active: duplicate.id };
+          const id = globalThis.crypto.randomUUID();
+          return {
+            tabs: [
+              ...s.tabs,
+              {
+                id,
+                kind: 'file',
+                title: entry.name,
+                document,
+                draft: document.content,
+                preview: true,
+              },
+            ],
+            active: id,
+          };
+        });
+      } catch (e) {
+        fail(e);
+      } finally {
+        if (alive.current) setBusy(false);
+      }
+    },
+    [scope, activate, update, fail]
+  );
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<ConversationChangeTarget>).detail;
+      if (!target || target.sessionId !== scope.sessionId) return;
+      const operation = target.toolCallId
+        ? conversationFileOperation(messages, target.toolCallId)
+        : undefined;
+      if (
+        target.toolCallId &&
+        (!operation ||
+          !target.filePath ||
+          fileIdentity(operation.path, scope.root) !== fileIdentity(target.filePath, scope.root))
+      ) {
+        setError(intl.formatMessage(changeMessages.missing));
+        onExpandedChange(true);
+        return;
+      }
+      if (operation?.kind === 'read') {
+        if (available)
+          void openFile({
+            kind: 'file',
+            path: operation.path,
+            name: operation.path.replace(/\\/g, '/').split('/').pop() || operation.path,
+          });
+        else setError(intl.formatMessage(m.noWorkspace));
+      } else if ((!target.turnId && !target.toolCallId) || !target.filePath) {
+        update((current) => ({ ...current, active: 'changes' }));
+      } else {
+        const filePath = operation?.path ?? target.filePath;
+        const turnId = target.turnId;
+        const id = target.toolCallId
+          ? `change-call:${JSON.stringify([target.toolCallId, fileIdentity(filePath, scope.root)])}`
+          : `change:${JSON.stringify([turnId, fileIdentity(filePath, scope.root)])}`;
+        const turn =
+          turnId &&
+          collectConversationChanges(messages, scope.root).find((item) => item.id === turnId);
+        const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath;
+        const title = turn
+          ? `${intl.formatMessage(turn.number ? changeMessages.turn : changeMessages.unassigned, { number: turn.number })} · ${name}`
+          : name;
+        update((current) => ({
+          tabs: current.tabs.some((tab) => tab.id === id)
+            ? current.tabs
+            : [
+                ...current.tabs,
+                {
+                  id,
+                  kind: 'change',
+                  turnId,
+                  filePath,
+                  title,
+                  ...(target.toolCallId ? { toolCallId: target.toolCallId } : {}),
+                },
+              ],
           active: id,
-        };
-      });
-    } catch (e) {
-      fail(e);
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
+        }));
+      }
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
+    return () => window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
+  }, [scope.sessionId, scope.root, messages, intl, update, onExpandedChange, available, openFile]);
   const add = useCallback(
     async (kind: 'terminal' | 'browser') => {
       if (!available) return;

@@ -113,3 +113,65 @@ it('reports a missing historical basis instead of showing a false zero-line diff
   ).toBeVisible();
   expect(screen.queryByText('+0')).toBeNull();
 });
+
+it('selects one exact operation among repeated edits to the same file in the same turn', () => {
+  const messages = [
+    user('first'),
+    ...edit('a', 'old\n', 'first\n'),
+    ...edit('b', 'first\n', 'second\n'),
+  ];
+  const view = render(
+    <WorkspaceChanges
+      sessionId="operation"
+      messages={messages}
+      selection={{ toolCallId: 'a', filePath: '/fixture/app.py' }}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByText('+first')).toBeVisible();
+  expect(screen.queryByText('+second')).toBeNull();
+  view.rerender(
+    <IntlTestWrapper>
+      <WorkspaceChanges
+        sessionId="operation"
+        messages={messages}
+        selection={{ toolCallId: 'b', filePath: '/fixture/app.py' }}
+      />
+    </IntlTestWrapper>
+  );
+  expect(screen.getByText('+second')).toBeVisible();
+  expect(screen.queryByText('-old')).toBeNull();
+});
+
+it('never replaces a missing operation diff with a neighbouring receipt or the current file', () => {
+  const read = vi.fn();
+  window.electron.readWorkspaceFile = read;
+  const messages = [
+    user('first'),
+    ...edit('a', null, 'first\n'),
+    ...edit('b', 'first\n', 'second\n'),
+  ];
+  const view = render(
+    <WorkspaceChanges
+      sessionId="operation-gap"
+      messages={messages}
+      selection={{ toolCallId: 'a', filePath: '/fixture/app.py' }}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByText('No historical diff was returned for this operation.')).toBeVisible();
+  expect(screen.queryByText('+second')).toBeNull();
+  view.rerender(
+    <IntlTestWrapper>
+      <WorkspaceChanges
+        sessionId="operation-gap"
+        messages={[]}
+        selection={{ toolCallId: 'a', filePath: '/fixture/app.py' }}
+      />
+    </IntlTestWrapper>
+  );
+  expect(
+    screen.getByText('This change is no longer present in the conversation records.')
+  ).toBeVisible();
+  expect(read).not.toHaveBeenCalled();
+});

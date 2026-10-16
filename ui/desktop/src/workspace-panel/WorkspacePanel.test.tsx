@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
+import type { Message } from '../types/message';
 vi.mock('./WorkspaceSubagent', () => ({
   WorkspaceSubagent: ({ childSessionId }: { childSessionId: string }) => (
     <div>child-conversation:{childSessionId}</div>
@@ -146,6 +147,149 @@ function panel(id = globalThis.crypto.randomUUID()) {
   );
   return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
 }
+function fileOperation(
+  id: string,
+  name: string,
+  path: string,
+  before = 'old\n',
+  after = 'new\n'
+): Message[] {
+  const metadata = { userVisible: true, agentVisible: true };
+  return [
+    {
+      id: `request:${id}`,
+      created: 1,
+      role: 'assistant',
+      metadata,
+      content: [
+        {
+          type: 'toolRequest',
+          id,
+          metadata: { extensionName: 'harness' },
+          toolCall: { status: 'success', value: { name, arguments: { path } } },
+        },
+      ],
+    },
+    ...(name === 'read'
+      ? []
+      : [
+          {
+            id: `response:${id}`,
+            created: 2,
+            role: 'user' as const,
+            metadata,
+            content: [
+              {
+                type: 'toolResponse' as const,
+                id,
+                toolResult: {
+                  status: 'success',
+                  value: { content: [], structuredContent: { path, before, after } },
+                },
+              },
+            ],
+          },
+        ]),
+  ];
+}
+it('opens each write receipt in a separate historical tab without reading today’s file', () => {
+  const scope = { sessionId: 'exact-file-operation', root: 'D:\\fixture' };
+  const messages = [
+    ...fileOperation('edit-a', 'write', 'app.py', 'old\n', 'first\n'),
+    ...fileOperation('edit-b', 'edit', 'app.py', 'first\n', 'second\n'),
+  ];
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={messages}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  const open = (toolCallId: string) =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: { sessionId: scope.sessionId, toolCallId, filePath: 'app.py' },
+      })
+    );
+  open('edit-a');
+  expect(screen.getByText('+first')).toBeVisible();
+  expect(screen.queryByText('+second')).toBeNull();
+  open('edit-b');
+  expect(screen.getByText('+second')).toBeVisible();
+  expect(screen.queryByText('-old')).toBeNull();
+  open('edit-a');
+  expect(screen.getByText('+first')).toBeVisible();
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(2);
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it('opens read targets through the existing file tab and reuses absolute and relative identities', async () => {
+  const scope = { sessionId: 'read-file-operation', root: 'D:\\fixture' };
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={fileOperation('read-a', 'read', 'D:\\fixture\\note.txt')}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: {
+        sessionId: scope.sessionId,
+        toolCallId: 'read-a',
+        filePath: 'D:\\fixture\\note.txt',
+      },
+    })
+  );
+  expect(await screen.findByRole('tab', { name: 'note.txt' })).toBeVisible();
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'read', path: 'D:\\fixture\\note.txt' });
+  invoke.mockClear();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: { sessionId: scope.sessionId, toolCallId: 'read-a', filePath: 'note.txt' },
+    })
+  );
+  expect(screen.getAllByRole('tab', { name: 'note.txt' })).toHaveLength(1);
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it('rejects an unknown call or a mismatched path instead of opening an arbitrary current file', () => {
+  const scope = { sessionId: 'invalid-file-operation', root: 'D:\\fixture' };
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={fileOperation('read-a', 'read', 'note.txt')}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  for (const target of [
+    { toolCallId: 'read-a', filePath: 'other.txt' },
+    { toolCallId: 'unknown', filePath: 'note.txt' },
+  ]) {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: { sessionId: scope.sessionId, ...target },
+      })
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This change is no longer present in the conversation records.'
+    );
+  }
+  expect(invoke).not.toHaveBeenCalled();
+});
 async function edit() {
   fireEvent.click(screen.getByRole('button', { name: /Workspace files\s*Browse/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'note.txt' }));

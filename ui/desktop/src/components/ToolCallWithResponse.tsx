@@ -17,6 +17,7 @@ import {
   subscribeAcpPermissionRequests,
 } from '../acp/permissionRequests';
 import { openSubagentConversation } from '../workspace-panel/subagentPanel';
+import { openConversationChange } from '../workspace-panel/conversationChangePanel';
 import { ToolCallArguments, ToolCallArgumentValue } from './ToolCallArguments';
 import MarkdownContent from './MarkdownContent';
 import {
@@ -30,6 +31,9 @@ import {
   formatToolAction,
   formatToolCompleted,
   isTaskContractCheck,
+  isWebSearchTool,
+  toolFilePath,
+  webSearchDetails,
 } from './toolActionPresentation';
 import type { LoadingStatus as ExecutionLoadingStatus } from './ui/Dot';
 import { Bot, ExternalLink } from 'lucide-react';
@@ -90,6 +94,9 @@ export function resolveToolLoadingStatus(
 }
 
 const i18n = defineMessages({
+  searchQuery: { id: 'toolCallWithResponse.searchQuery', defaultMessage: 'Query' },
+  searchSources: { id: 'toolCallWithResponse.searchSources', defaultMessage: 'Sources' },
+  searchResponse: { id: 'toolCallWithResponse.searchResponse', defaultMessage: 'Search response' },
   diagnostics: { id: 'operation.diagnostics', defaultMessage: 'Diagnostic record' },
   checkNotAccepted: {
     id: 'toolCallWithResponse.checkNotAccepted',
@@ -704,15 +711,19 @@ function ToolCallView({
     loadingStatus === 'loading' && (progressEntries.length > 0 || (logs || []).length > 0);
 
   const extensionTooltip = getExtensionTooltip(toolCall.name);
+  const change = fileChangeReceipt(toolResponse, toolRequest);
   const actionTitle = formatToolAction(
     intl,
     toolCall.name,
-    toolCall.arguments ?? {},
+    change
+      ? { ...toolCall.arguments, path: change.path, file_path: change.path }
+      : (toolCall.arguments ?? {}),
     loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined
   );
   const toolName = toolCall.name.split(/__|::/).pop();
-  const compactTitle =
-    compact && toolName === 'todo_write'
+  const compactTitle = isWebSearchTool(toolCall.name)
+    ? actionTitle
+    : compact && toolName === 'todo_write'
       ? intl.formatMessage(i18n.modelPlan)
       : compact &&
           [
@@ -785,7 +796,41 @@ function ToolCallView({
     businessOutcome === 'unknown' || partialSubagent || internalCheckError
       ? 'warning'
       : getToolCallStatus(loadingStatus);
-  const change = fileChangeReceipt(toolResponse, toolRequest);
+  const filePath = change?.path ?? toolFilePath(toolCall.name, toolCall.arguments ?? {});
+  const hasFileAction = !!sessionId && !!filePath && !inputPreview;
+  const rowTitle = hasFileAction
+    ? formatToolAction(
+        intl,
+        toolCall.name,
+        { ...toolCall.arguments, path: undefined, file_path: undefined },
+        loadingStatus === 'success'
+          ? 'completed'
+          : loadingStatus === 'loading'
+            ? 'running'
+            : undefined
+      )
+    : compactTitle;
+  const statusContent = (
+    <>
+      {change && <FileChangeCount change={change} />}
+      {(!compact || loadingStatus !== 'success') && !preparingInput && (
+        <span className="text-xs text-text-secondary shrink-0">{statusLabel}</span>
+      )}
+    </>
+  );
+  const fileAction = hasFileAction && (
+    <button
+      type="button"
+      title={filePath}
+      aria-label={filePath}
+      className="mx-1 min-w-0 truncate rounded px-1 py-1 text-left font-mono text-xs text-text-secondary underline decoration-current/30 underline-offset-2 hover:text-text-primary focus-visible:outline focus-visible:outline-2"
+      onClick={() =>
+        openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
+      }
+    >
+      {filePath!.split(/[\\/]/).filter(Boolean).pop()}
+    </button>
+  );
   const toolLabel = (
     <span
       data-tool-call-id={requestId}
@@ -799,12 +844,9 @@ function ToolCallView({
         <ToolIconWithStatus ToolIcon={getToolCallIcon(toolCall.name)} status={toolCallStatus} />
       )}
       <span className="truncate flex-1 min-w-0 text-left" title={compactTitle}>
-        {compactTitle}
+        {rowTitle}
       </span>
-      {change && <FileChangeCount change={change} />}
-      {(!compact || loadingStatus !== 'success') && !preparingInput && (
-        <span className="text-xs text-text-secondary shrink-0">{statusLabel}</span>
-      )}
+      {!hasFileAction && statusContent}
     </span>
   );
   if (
@@ -866,6 +908,63 @@ function ToolCallView({
       </button>
     );
   }
+  if (isWebSearchTool(toolCall.name)) {
+    const details = webSearchDetails(toolCall.arguments ?? {}, toolResponse);
+    return (
+      <ToolCallExpandable
+        compact={compact}
+        storageKey={requestId}
+        label={toolLabel}
+        icon={<ToolActivityIcon name={toolCall.name} status={toolCallStatus} />}
+      >
+        <div className="space-y-3 py-2 text-sm text-text-primary">
+          {details.queries.length > 0 && (
+            <section aria-label={intl.formatMessage(i18n.searchQuery)}>
+              <h4 className="mb-1 text-xs text-text-secondary">
+                {intl.formatMessage(i18n.searchQuery)}
+              </h4>
+              {details.queries.map((query) => (
+                <p key={query} className="break-words">
+                  {query}
+                </p>
+              ))}
+            </section>
+          )}
+          {details.sources.length > 0 && (
+            <section aria-label={intl.formatMessage(i18n.searchSources)}>
+              <h4 className="mb-1 text-xs text-text-secondary">
+                {intl.formatMessage(i18n.searchSources)}
+              </h4>
+              <ul className="space-y-2">
+                {details.sources.map((source) => (
+                  <li key={source.url}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="break-words underline underline-offset-2"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void window.electron.openExternal(source.url);
+                      }}
+                    >
+                      {source.title}
+                    </a>
+                    <p className="break-all text-xs text-text-secondary">{source.url}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {details.notice && (
+            <section aria-label={intl.formatMessage(i18n.searchResponse)}>
+              <p className="whitespace-pre-wrap break-words">{details.notice}</p>
+            </section>
+          )}
+        </div>
+      </ToolCallExpandable>
+    );
+  }
   if (compact) {
     const preview = toolCall.arguments?.__inputPreview === true;
     if (
@@ -888,6 +987,9 @@ function ToolCallView({
         icon={<ToolActivityIcon name={toolCall.name} status={toolCallStatus} />}
         storageKey={requestId}
         label={toolLabel}
+        accessibleName={hasFileAction ? `${compactTitle} ${statusLabel}` : undefined}
+        headerAction={fileAction}
+        headerSuffix={statusContent}
         isStartExpanded={false}
       >
         <div className="py-1 space-y-2">
@@ -953,6 +1055,9 @@ function ToolCallView({
         storageKey={compact ? requestId : undefined}
         isStartExpanded={isRenderingProgress || isExpandToolDetails}
         isForceExpand={loadingStatus === 'error' && !compact}
+        accessibleName={hasFileAction ? `${compactTitle} ${statusLabel}` : undefined}
+        headerAction={fileAction}
+        headerSuffix={statusContent}
         label={
           extensionTooltip ? (
             <TooltipWrapper tooltipContent={extensionTooltip} side="top" align="start">

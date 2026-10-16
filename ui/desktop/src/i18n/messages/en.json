@@ -4143,10 +4143,10 @@
     "defaultMessage": "Queue Paused"
   },
   "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
+    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
   },
   "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
+    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
   },
   "messageQueue.queued": {
     "defaultMessage": "queued"
@@ -4161,10 +4161,10 @@
     "defaultMessage": "Save"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "Send this message now"
+    "defaultMessage": "Stop and send this message"
   },
   "messageQueue.stopAndSend": {
-    "defaultMessage": "Stop current processing and send this message now"
+    "defaultMessage": "Stop the current task, then send this message"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -7557,7 +7557,7 @@
     "defaultMessage": "Use tool {name}"
   },
   "toolAction.otherSummary": {
-    "defaultMessage": "{count,plural,one{Completed # other operation} other{Completed # other operations}}"
+    "defaultMessage": "Completed {count, plural, one {# operation} other {# operations}}"
   },
   "toolAction.read": {
     "defaultMessage": "Read file"
@@ -8464,5 +8464,41 @@
   },
   "workspaceSubagent.all": {
     "defaultMessage": "All subagents"
+  },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
   }
 }

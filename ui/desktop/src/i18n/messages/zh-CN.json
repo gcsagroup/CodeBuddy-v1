@@ -4146,10 +4146,10 @@
     "defaultMessage": "队列已暂停"
   },
   "messageQueue.queuePausedCompact": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“立即发送”发送消息。"
+    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
   },
   "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“立即发送”发送消息。"
+    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "将此消息从队列中移除"
@@ -4161,10 +4161,10 @@
     "defaultMessage": "保存"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "立即发送此消息"
+    "defaultMessage": "停止并发送此消息"
   },
   "messageQueue.stopAndSend": {
-    "defaultMessage": "停止当前处理并立即发送此消息"
+    "defaultMessage": "停止当前任务后发送此消息"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一窗口已修改此队列。为避免覆盖，已暂停发送和保存。请保持本窗口打开并核对两边的待发消息。"
@@ -7557,7 +7557,7 @@
     "defaultMessage": "调用工具 {name}"
   },
   "toolAction.otherSummary": {
-    "defaultMessage": "已完成 {count} 项其他操作"
+    "defaultMessage": "已完成 {count} 项操作"
   },
   "toolAction.read": {
     "defaultMessage": "读取文件"
@@ -8464,5 +8464,41 @@
   },
   "workspaceSubagent.all": {
     "defaultMessage": "全部子智能体"
+  },
+  "conversation.turnDuration": {
+    "defaultMessage": "用时 {minutes} 分钟 {seconds} 秒"
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "加入队列"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "停止并发送"
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "正在等待上一条请求结束，队列中的消息尚未发送。"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "正在等待停止确认，队列中的消息尚未发送。"
+  },
+  "toolAction.webSearch": {
+    "defaultMessage": "搜索网页"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "正在搜索网页"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "网页搜索已完成"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "搜索内容"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "来源"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "搜索返回信息"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "该操作未返回可用的历史差异。"
   }
 }

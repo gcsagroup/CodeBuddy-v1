@@ -6,6 +6,7 @@ import {
   collectConversationChanges,
   displayChangePath,
   fileIdentity,
+  conversationFileOperation,
 } from '../components/codepro/conversationChanges';
 import { FileChangeCount, FileChangeDiff } from '../components/codepro/CodeProFileChange';
 import { openConversationChange } from './conversationChangePanel';
@@ -28,6 +29,10 @@ export const changeMessages = defineMessages({
   unavailable: {
     id: 'workspaceChanges.unavailable',
     defaultMessage: 'A file modification was recorded, but its historical diff is unavailable.',
+  },
+  operationUnavailable: {
+    id: 'workspaceChanges.operationUnavailable',
+    defaultMessage: 'No historical diff was returned for this operation.',
   },
   missing: {
     id: 'workspaceChanges.missing',
@@ -53,7 +58,7 @@ export function WorkspaceChanges({
   sessionId: string;
   workspaceRoot?: string;
   messages: Message[];
-  selection?: { turnId: string; filePath: string };
+  selection?: { turnId?: string; filePath: string; toolCallId?: string };
 }) {
   const intl = useIntl();
   const turns = useMemo(
@@ -64,9 +69,22 @@ export function WorkspaceChanges({
   const label = (number: number) =>
     intl.formatMessage(number ? changeMessages.turn : changeMessages.unassigned, { number });
   const turn = selection && turns.find((item) => item.id === selection.turnId);
-  const file =
-    turn &&
-    turn.files.find((item) => item.key === fileIdentity(selection!.filePath, workspaceRoot));
+  const operation = selection?.toolCallId
+    ? conversationFileOperation(messages, selection.toolCallId)
+    : undefined;
+  const file = selection?.toolCallId
+    ? operation?.kind === 'change' &&
+      fileIdentity(operation.path, workspaceRoot) ===
+        fileIdentity(selection.filePath, workspaceRoot)
+      ? {
+          changes: operation.change ? [operation.change] : [],
+          added: operation.change?.added ?? 0,
+          removed: operation.change?.removed ?? 0,
+          hasUnavailableDiff: !operation.change,
+        }
+      : undefined
+    : turn &&
+      turn.files.find((item) => item.key === fileIdentity(selection!.filePath, workspaceRoot));
   const totals = turns.reduce(
     (sum, item) => ({ added: sum.added + item.added, removed: sum.removed + item.removed }),
     { added: 0, removed: 0 }
@@ -106,7 +124,11 @@ export function WorkspaceChanges({
             <div className="space-y-3 py-3">
               {file.hasUnavailableDiff && (
                 <p className="px-3 text-text-secondary">
-                  {intl.formatMessage(changeMessages.unavailable)}
+                  {intl.formatMessage(
+                    selection.toolCallId
+                      ? changeMessages.operationUnavailable
+                      : changeMessages.unavailable
+                  )}
                 </p>
               )}
               {file.changes.map((change, index) => (

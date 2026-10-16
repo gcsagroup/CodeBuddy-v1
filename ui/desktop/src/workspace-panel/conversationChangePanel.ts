@@ -4,6 +4,7 @@ export interface ConversationChangeTarget {
   sessionId: string;
   turnId?: string;
   filePath?: string;
+  toolCallId?: string;
 }
 
 export function openConversationChange(target: ConversationChangeTarget): void {

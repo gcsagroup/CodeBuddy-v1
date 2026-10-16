@@ -186,6 +186,94 @@ function SearchableHistory({
 }
 
 describe('Harness conversation presentation', () => {
+  it('folds final reasoning with execution while preserving public prose and real elapsed time', () => {
+    const start = Date.parse('2026-10-15T11:04:00Z') / 1000;
+    const answer: Message = {
+      ...prose('Search results are ready.'),
+      content: [
+        { type: 'thinking', thinking: 'Review the sources before answering.', signature: '' },
+        { type: 'text', text: 'Search results are ready.' },
+      ],
+    };
+    const trace = [{ ...user(), created: start }, answer, terminal()];
+    const original = JSON.stringify(trace);
+    const view = render(show(trace), { wrapper: IntlTestWrapper });
+    const history = screen.getByRole('button', { name: 'Time spent 2 min 0 sec' });
+    expect(history).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Search results are ready.')).toBeVisible();
+    expect(view.container.querySelector('.codepro-thinking-record')).toBeNull();
+    fireEvent.click(history);
+    const thinking = screen.getByRole('button', { name: 'Thinking' });
+    expect(view.container.querySelector('.codepro-turn-history')).toContainElement(thinking);
+    fireEvent.click(thinking);
+    expect(screen.getByText('Review the sources before answering.')).toBeVisible();
+    expect(JSON.stringify(trace)).toBe(original);
+  });
+
+  it('closes an actively read process once at the answer boundary and allows reopening it', () => {
+    const trace = [
+      user(),
+      prose('Preparing the files.'),
+      requestMessage(write('a')),
+      responseMessage(receipt('a')),
+    ];
+    const view = render(
+      <ScrollFollowingContext.Provider value={false}>
+        {show(trace, true)}
+      </ScrollFollowingContext.Provider>,
+      { wrapper: IntlTestWrapper }
+    );
+    const finished = [...trace, prose('The saved result.'), terminal()];
+    view.rerender(
+      <ScrollFollowingContext.Provider value={false}>
+        {show(finished)}
+      </ScrollFollowingContext.Provider>
+    );
+    expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
+    const history = view.container.querySelector('.codepro-turn-history button')!;
+    expect(history).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(history);
+    expect(screen.getByText('Preparing the files.')).toBeVisible();
+    view.rerender(
+      <ScrollFollowingContext.Provider value={false}>
+        {show([...finished])}
+      </ScrollFollowingContext.Provider>
+    );
+    expect(history).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('The saved result.')).toBeVisible();
+  });
+
+  it('keeps a live thought visible until its native interrupted receipt arrives', () => {
+    const thought: Message = {
+      ...prose('working'),
+      content: [{ type: 'thinking', thinking: 'Inspecting the first approach.', signature: '' }],
+    };
+    const view = render(show([user(), thought]), { wrapper: IntlTestWrapper });
+    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
+    view.rerender(show([user(), thought, user('stop-and-send')]));
+    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
+    view.rerender(show([user(), thought, user('stop-and-send'), terminal('user', 'interrupted')]));
+    const history = view.container.querySelector('.codepro-turn-history button');
+    expect(history).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('stop-and-send')).toBeVisible();
+  });
+
+  it('omits the completed lifecycle operation even without a replayed terminal receipt', () => {
+    const completed = activity('end', 'completed');
+    const event = completed.content[0];
+    if (event.type !== 'systemNotification') throw new Error('invalid fixture');
+    event.data = {
+      ...(event.data as object),
+      event_type: 'run_completed',
+      tool_call_id: undefined,
+      title: 'Harness turn completed',
+    };
+    render(show([user(), prose('The answer.'), completed]), { wrapper: IntlTestWrapper });
+    expect(screen.getByText('The answer.')).toBeVisible();
+    expect(screen.queryByText(/Harness turn completed/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Operations recorded/)).not.toBeInTheDocument();
+  });
+
   it('keeps archived turns static while the latest text drains after transport becomes idle', async () => {
     const archived = [
       user('earlier-a'),

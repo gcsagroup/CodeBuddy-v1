@@ -90,6 +90,10 @@ const i18n = defineMessages({
     id: 'conversation.turnCompleted',
     defaultMessage: 'Completed {count} operations',
   },
+  turnDuration: {
+    id: 'conversation.turnDuration',
+    defaultMessage: 'Time spent {minutes} min {seconds} sec',
+  },
   toolRecords: {
     id: 'progressiveMessageList.toolRecords',
     defaultMessage: 'Tool records {count}',
@@ -227,8 +231,9 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
             const event = content.data;
             return (
               (event.tool_call_id !== undefined && nativeToolIds.has(event.tool_call_id)) ||
+              event.event_type === 'run_completed' ||
               (terminalRuns.has(event.run_id) &&
-                ['run_completed', 'run_failed', 'run_stopped'].includes(event.event_type))
+                ['run_failed', 'run_stopped'].includes(event.event_type))
             );
           })
       );
@@ -1282,12 +1287,26 @@ function ProgressiveMessageListContent({
               break;
             }
           }
+          // Final reasoning is part of the work, including when the provider
+          // puts it in the same message as the public answer. This is a display
+          // projection only; native messages, ordering and receipts stay intact.
+          const answerThinking = turn.slice(proposedHistoryEnd).flatMap((message, offset) => {
+            const content = message.content.filter((item) => item.type === 'thinking');
+            return !suppressProviderThinking && message.role === 'assistant' && content.length
+              ? [{ ...message, id: `${message.id ?? `answer:${offset}`}:work-thinking`, content }]
+              : [];
+          });
           const foldable =
             !laterToolReceived &&
             (hasAnswerBoundary || hasTerminalBoundary) &&
-            // Reasoning alone is not an operation history. Keep its own
-            // disclosure readable instead of adding a completed-zero header.
             (count > 0 ||
+              answerThinking.length > 0 ||
+              (!suppressProviderThinking &&
+                turn
+                  .slice(userCount, proposedHistoryEnd)
+                  .some((message) =>
+                    message.content.some((content) => content.type === 'thinking')
+                  )) ||
               terminal?.status !== 'completed' ||
               turn.some((message) =>
                 message.content.some(
@@ -1297,8 +1316,28 @@ function ProgressiveMessageListContent({
                     isActivityEvent(content.data)
                 )
               )) &&
-            proposedHistoryEnd > userCount;
-          const historyEnd = foldable ? proposedHistoryEnd : turn.length;
+            (proposedHistoryEnd > userCount || answerThinking.length > 0);
+          const displayTurn = foldable
+            ? [
+                ...turn.slice(0, proposedHistoryEnd),
+                ...answerThinking,
+                ...turn
+                  .slice(proposedHistoryEnd)
+                  .map((message) =>
+                    message.role === 'assistant' &&
+                    message.content.some((content) => content.type === 'thinking')
+                      ? {
+                          ...message,
+                          content: message.content.filter((content) => content.type !== 'thinking'),
+                        }
+                      : message
+                  )
+                  .filter((message) => message.content.length > 0),
+              ]
+            : turn;
+          const historyEnd = foldable
+            ? proposedHistoryEnd + answerThinking.length
+            : displayTurn.length;
           const completed =
             terminal?.status === 'completed' &&
             !terminal.report_parse_failed &&
@@ -1310,31 +1349,22 @@ function ProgressiveMessageListContent({
                 resolveToolLoadingStatus(turnResponses.get(request.id), false, request) ===
                 'success'
             );
-          const elapsed = hasAnswerBoundary
-            ? Math.round(turn[answerBoundaryIndex].created - turn[0].created)
-            : -1;
+          const finishedAt = hasAnswerBoundary
+            ? turn[answerBoundaryIndex].created
+            : terminal
+              ? Date.parse(terminal.finished_at) / 1000
+              : NaN;
+          const elapsed = Math.round(finishedAt - turn[0].created);
           const duration =
             elapsed >= 0 && Number.isFinite(elapsed)
-              ? [
-                  elapsed >= 60
-                    ? intl.formatNumber(Math.floor(elapsed / 60), {
-                        style: 'unit',
-                        unit: 'minute',
-                        unitDisplay: 'long',
-                      })
-                    : '',
-                  intl.formatNumber(elapsed % 60, {
-                    style: 'unit',
-                    unit: 'second',
-                    unitDisplay: 'long',
-                  }),
-                ]
-                  .filter(Boolean)
-                  .join(' ')
+              ? intl.formatMessage(i18n.turnDuration, {
+                  minutes: Math.floor(elapsed / 60),
+                  seconds: elapsed % 60,
+                })
               : undefined;
           return (
             <section key={turn[0]?.id ?? start} className="mb-6">
-              {renderSlice(turn, 0, userCount, false)}
+              {renderSlice(displayTurn, 0, userCount, false)}
               <ToolCallExpandable
                 compact
                 // Keep this parent and its process subtree mounted across the
@@ -1342,24 +1372,25 @@ function ProgressiveMessageListContent({
                 className={foldable ? 'text-text-secondary codepro-turn-history' : undefined}
                 scrollable={false}
                 collapsible={foldable}
+                collapseOnSettle={foldable}
                 storageKey={`${chat.sessionId}:turn:${turn[0]?.id ?? start}`}
                 label={
                   duration
-                    ? `${intl.formatMessage({ id: 'codeProActivity.duration', defaultMessage: 'Duration' })} ${duration}`
+                    ? duration
                     : intl.formatMessage(completed ? i18n.turnCompleted : i18n.turnRecord, {
                         count,
                       })
                 }
               >
                 {renderSlice(
-                  turn,
+                  displayTurn,
                   userCount,
                   historyEnd,
                   streaming && !foldable,
-                  pending && historyEnd === turn.length
+                  pending && historyEnd === displayTurn.length
                 )}
               </ToolCallExpandable>
-              {renderSlice(turn, historyEnd, turn.length, streaming, pending)}
+              {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
               {foldable && hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}

@@ -9,6 +9,7 @@ import { isRecord } from '../../acp/adapter/shared';
 import { parseToolAuditReceipt } from '../../acp/adapter/toolAudit';
 import { fileChangeReceipt, type FileChangeReceipt } from './CodeProFileChange';
 import { presentedToolCall } from './CodeProToolContent';
+import { toolFilePath } from '../toolActionPresentation';
 
 export interface ConversationChangeFile {
   key: string;
@@ -52,6 +53,30 @@ export function displayChangePath(path: string, workspaceRoot?: string): string 
   const candidate = windows ? normalized.toLowerCase() : normalized;
   const prefix = windows ? root.toLowerCase() : root;
   return candidate.startsWith(`${prefix}/`) ? normalized.slice(root.length + 1) : normalized;
+}
+
+/** Resolve an operation by its committed call identity, not the current file or latest edit. */
+export function conversationFileOperation(messages: Message[], toolCallId: string) {
+  let request: ToolRequestMessageContent | undefined;
+  let response: ToolResponseMessageContent | undefined;
+  for (const message of messages) {
+    for (const entry of getToolRequests(message)) if (entry.id === toolCallId) request = entry;
+    for (const entry of getToolResponses(message))
+      if (entry.id === toolCallId && !response) response = entry;
+  }
+  const call = request && presentedToolCall(request);
+  if (!call) return;
+  const change = fileChangeReceipt(response, request);
+  const path = change?.path ?? toolFilePath(call.name, call.arguments);
+  if (!path) return;
+  const name = call.name.split(/__|::/).pop();
+  const kind =
+    name === 'read' ||
+    name === 'read_document' ||
+    (name === 'text_editor' && call.arguments.command === 'view')
+      ? 'read'
+      : 'change';
+  return { kind, path: change?.path ?? path, change } as const;
 }
 
 function successfulWritePath(

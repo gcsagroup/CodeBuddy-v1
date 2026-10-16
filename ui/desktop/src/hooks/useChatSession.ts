@@ -58,6 +58,7 @@ function isStaleRunnableSnapshot(snapshot: AcpChatSessionSnapshot | undefined): 
     (snapshot?.chatState === ChatState.Thinking || snapshot?.chatState === ChatState.Streaming) &&
     snapshot.activePromptAttemptId == null &&
     snapshot.activeRunId == null &&
+    snapshot.promptRequestId == null &&
     snapshot.pendingCancelPromptAttemptId == null
   );
 }
@@ -90,7 +91,8 @@ export function useChatSession({
   const workspaceReconfirmation = acpSnapshot?.workspaceReconfirmation;
   const promptError = acpSnapshot?.promptError;
   const tokenState = acpSnapshot?.tokenState ?? initialTokenState;
-  const queueProcessingBlocked = acpSnapshot?.pendingCancelPromptAttemptId != null;
+  const queueProcessingBlocked =
+    acpSnapshot?.pendingCancelPromptAttemptId != null || acpSnapshot?.promptRequestId != null;
   const canSubmitQueuedMessageWhileLoading = isStaleRunnableSnapshot(acpSnapshot);
 
   const snapshotRef = useRef(acpSnapshot);
@@ -187,6 +189,7 @@ export function useChatSession({
   const handleSubmit = useCallback(
     async (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
       if (isAcpRecovering()) {
+        lifecycle?.onRejectedBeforeAcceptance();
         return;
       }
 
@@ -201,8 +204,10 @@ export function useChatSession({
           currentSnapshot.chatState === ChatState.Thinking) &&
           !staleRunnableSnapshot) ||
         currentSnapshot.chatState === ChatState.Compacting ||
-        currentSnapshot.pendingCancelPromptAttemptId !== null
+        currentSnapshot.pendingCancelPromptAttemptId !== null ||
+        currentSnapshot.promptRequestId != null
       ) {
+        lifecycle?.onRejectedBeforeAcceptance();
         return;
       }
 
@@ -250,6 +255,7 @@ export function useChatSession({
         onFinish,
         onAccepted,
         onRejectedBeforeAcceptance: lifecycle?.onRejectedBeforeAcceptance,
+        onDeliveryUncertain: lifecycle?.onDeliveryUncertain,
       });
     },
     [getCurrentSnapshot, onFinish, sessionId]

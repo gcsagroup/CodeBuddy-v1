@@ -56,12 +56,24 @@ function setup(
     wrapper: IntlTestWrapper,
   });
   let currentState = ChatState.Thinking;
+  let queueProcessingBlocked = false;
   let currentSessionId = props.sessionId;
   const rerender = () =>
-    view.rerender(<ChatInput {...props} sessionId={currentSessionId} chatState={currentState} />);
+    view.rerender(
+      <ChatInput
+        {...props}
+        sessionId={currentSessionId}
+        chatState={currentState}
+        queueProcessingBlocked={queueProcessingBlocked}
+      />
+    );
   return {
     ...view,
     onStop,
+    changeBlocked: (blocked: boolean) => {
+      queueProcessingBlocked = blocked;
+      rerender();
+    },
     changeState: (state: ChatState) => {
       currentState = state;
       rerender();
@@ -177,20 +189,24 @@ describe('ChatInput queue delivery', () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
-  it('removes an accepted steer from its original session after switching conversations', async () => {
-    const pending = deferred<boolean>();
-    const submit = vi.fn();
-    const steer = vi.fn(() => pending.promise);
-    const view = setup(submit, steer);
+  it('removes an accepted queued send from its original session after switching conversations', async () => {
+    const pending = deferred<void>();
+    let lifecycle!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
+      lifecycle = callbacks!;
+      return pending.promise;
+    });
+    const view = setup(submit);
     await queue('accepted in the original conversation');
     fireEvent.click(sendNow());
-    await waitFor(() => expect(steer).toHaveBeenCalledOnce());
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
     view.changeSession('another-session');
-    await act(async () => pending.resolve(true));
+    act(() => lifecycle.onAccepted());
+    await act(async () => pending.resolve());
     view.changeSession('queue-test');
     expect(screen.queryByText('accepted in the original conversation')).toBeNull();
     expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
-    expect(submit).not.toHaveBeenCalled();
   });
 
   it('keeps an unsaved queue in memory and blocks dispatch on storage failure', async () => {
@@ -288,7 +304,7 @@ describe('ChatInput queue delivery', () => {
   });
 
   it.each(['reject callback', 'throw', 'no acceptance'] as const)(
-    'keeps rejected queued input and supports explicit retry: %s',
+    'retains queued input without automatically retrying: %s',
     async (failure) => {
       const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
         if (failure === 'reject callback') lifecycle?.onRejectedBeforeAcceptance();
@@ -301,15 +317,47 @@ describe('ChatInput queue delivery', () => {
       expect(screen.getByText('retry me')).toBeVisible();
       expect(submit).toHaveBeenCalledOnce();
       submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
-      expect(sendNow()).toBeDisabled();
-      await userEvent.click(
-        screen.getByRole('button', { name: 'Confirmed not sent: queue again' })
-      );
+      if (failure === 'reject callback') {
+        expect(sendNow()).not.toBeDisabled();
+        expect(
+          screen.queryByText('Sending result unknown. Check the conversation before retrying.')
+        ).toBeNull();
+      } else {
+        expect(sendNow()).toBeDisabled();
+        await userEvent.click(
+          screen.getByRole('button', { name: 'Confirmed not sent: queue again' })
+        );
+      }
       await userEvent.click(sendNow());
       await waitFor(() => expect(screen.queryByText('retry me')).toBeNull());
       expect(submit).toHaveBeenCalledTimes(2);
     }
   );
+
+  it('does not retry a rejected head message merely because another queued message was edited', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onRejectedBeforeAcceptance()
+    );
+    const view = setup(submit);
+    await queue('rejected head');
+    await queue('editable second');
+    view.changeState(ChatState.Idle);
+    await screen.findByText('Queue Paused');
+    expect(submit).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByText('editable second'));
+    const editor = screen
+      .getAllByRole('textbox')
+      .find((element) => element !== screen.getByTestId('chat-input'))!;
+    fireEvent.change(editor, { target: { value: 'edited second' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(submit).toHaveBeenCalledOnce();
+    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(screen.getByText('rejected head')).toBeVisible();
+    expect(screen.getByText('edited second')).toBeVisible();
+  });
 
   it('sends the edited text after saving, never the old text when the task finishes', async () => {
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
@@ -365,35 +413,136 @@ describe('ChatInput queue delivery', () => {
     expect(screen.queryByText('Message Queue')).toBeNull();
   });
 
-  it('does not send an accepted steer again after the current turn finishes', async () => {
-    const submit = vi.fn();
-    const pending = deferred<boolean>();
-    const steer = vi.fn(() => pending.promise);
+  it('cancels instead of steering and waits for RPC release before sending a fresh turn once', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onAccepted()
+    );
+    const steer = vi.fn(async () => true);
     const view = setup(submit, steer);
-    await queue('accepted steer');
+    await queue('new turn after cancellation');
+    view.changeBlocked(true);
     await userEvent.click(sendNow());
-    expect(screen.getByText('accepted steer')).toBeVisible();
+    expect(view.onStop).toHaveBeenCalledOnce();
+    expect(steer).not.toHaveBeenCalled();
     view.changeState(ChatState.Idle);
-    await act(async () => pending.resolve(true));
-    expect(screen.queryByText('accepted steer')).toBeNull();
     expect(submit).not.toHaveBeenCalled();
-    expect(steer).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(
+        'Waiting for cancellation confirmation. Your queued message has not been sent.'
+      )
+    ).toBeVisible();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].delivery).not.toBe(
+      'submitting'
+    );
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(screen.queryByText('new turn after cancellation')).toBeNull();
+    view.changeState(ChatState.Idle);
+    expect(submit).toHaveBeenCalledOnce();
   });
 
-  it('does not fall back to another send when steering throws', async () => {
-    const submit = vi.fn();
-    const steer = vi.fn(async () => {
-      throw new Error('unknown steering result');
-    });
-    const view = setup(submit, steer);
-    await queue('steer once');
-    await userEvent.click(sendNow());
-    await screen.findByText('Queue Paused');
-    view.changeState(ChatState.Idle);
-    expect(screen.getByText('steer once')).toBeVisible();
-    expect(steer).toHaveBeenCalledOnce();
-    expect(submit).not.toHaveBeenCalled();
+  it('keeps ordinary and stop-like text queued without cancelling until the whole request settles', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onAccepted()
+    );
+    const view = setup(submit);
+    await queue('stop');
     expect(view.onStop).not.toHaveBeenCalled();
+    view.changeBlocked(true);
+    view.changeState(ChatState.Idle);
+    await queue('another request during teardown');
+    expect(submit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        'Waiting for the previous request to finish. Your queued message has not been sent.'
+      )
+    ).toBeVisible();
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
+      'stop',
+      'another request during teardown',
+    ]);
+  });
+
+  it('can cancel a current request that itself came from the queue without losing the next input', async () => {
+    const pending = deferred<void>();
+    let lifecycle!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
+      lifecycle = callbacks!;
+      return pending.promise;
+    });
+    const view = setup(submit);
+    await queue('first queued run');
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    act(() => lifecycle.onAccepted());
+    view.changeState(ChatState.Streaming);
+    view.changeBlocked(true);
+    await queue('second priority run');
+    await userEvent.click(sendNow());
+    expect(view.onStop).toHaveBeenCalledOnce();
+    expect(submit).toHaveBeenCalledOnce();
+    await userEvent.click(sendNow());
+    expect(view.onStop).toHaveBeenCalledOnce();
+    view.changeState(ChatState.Idle);
+    view.changeBlocked(false);
+    expect(submit).toHaveBeenCalledOnce();
+    submit.mockImplementation(async (_input, callbacks) => callbacks?.onAccepted());
+    await act(async () => pending.resolve());
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls[1][0].msg).toBe('second priority run');
+  });
+
+  it('keeps an unacknowledged cancelled input paused while sending only the explicit replacement', async () => {
+    const pending = deferred<void>();
+    let firstLifecycle!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+      firstLifecycle = lifecycle!;
+      return pending.promise;
+    });
+    const view = setup(submit);
+    await queue('unacknowledged original');
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    view.changeState(ChatState.Streaming);
+    view.changeBlocked(true);
+    await queue('explicit replacement');
+    await userEvent.click(
+      screen.getAllByTitle('Stop current processing and send this message now')[1]
+    );
+    expect(view.onStop).toHaveBeenCalledOnce();
+    view.changeState(ChatState.Idle);
+    act(() => firstLifecycle.onRejectedBeforeAcceptance());
+    submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
+    await act(async () => pending.resolve());
+    expect(submit).toHaveBeenCalledOnce();
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual([
+      'unacknowledged original',
+      'explicit replacement',
+    ]);
+    expect(screen.getByText('unacknowledged original')).toBeVisible();
+    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
+      expect.objectContaining({ content: 'unacknowledged original', delivery: 'pending' }),
+    ]);
+  });
+
+  it('retains an uncertain send paused and never automatically replays it after transport returns', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onDeliveryUncertain?.()
+    );
+    const view = setup(submit);
+    await queue('uncertain transport');
+    view.changeState(ChatState.Idle);
+    await screen.findByText('Sending result unknown. Check the conversation before retrying.');
+    view.changeBlocked(true);
+    view.changeBlocked(false);
+    expect(submit).toHaveBeenCalledOnce();
+    expect(screen.getByText('uncertain transport')).toBeVisible();
+    expect(sendNow()).toBeDisabled();
   });
 
   it('submits once when restored UI is stale but no prompt or run is active', async () => {
@@ -480,7 +629,9 @@ describe('ChatInput queue delivery', () => {
     expect(screen.getByText('Queue Paused')).toBeVisible();
     expect(submit).toHaveBeenCalledOnce();
     submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmed not sent: queue again' }));
+    expect(
+      screen.queryByText('Sending result unknown. Check the conversation before retrying.')
+    ).toBeNull();
     await userEvent.click(sendNow());
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
     expect(submit.mock.calls[1][0]).toEqual(submit.mock.calls[0][0]);

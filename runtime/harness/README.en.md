@@ -36,6 +36,8 @@ Images enter prompt parts as `{type:'image',mediaType,data:<base64>,name?}` with
 
 `../transcripts.mjs` persists the ACP display projection while Harness owns execution history. `openTranscriptJournal(store)` recovers unfinished NDJSON at startup; `begin({sessionId,turnId,users,title?})` returns append, appendUsage and finalize. Each append awaits fsync. Finalize atomically projects chunks and replay high water marks in the runtime store, then removes the journal. Await appends before UI notifications. Recovery does not invent completion evidence.
 
+ACP `session/cancel` requests cancellation. The adapter reserves occupancy before its first asynchronous validation. It sends the real terminal to the original caller and same-session observers; when finalization exits, it deletes occupancy before synchronously sending the existing `session_info_update` with `activeRunId: null`. The terminal, Host release, and original prompt RPC result are distinct observations; writing the cancel notification does not replace them.
+
 ## Skills and memory
 
 AGENTS.md loading uses the official agent-instructions plugin. `instructionsHome` selects this application's global root, defaults to the isolated data root, and receives CODEBUDDY_HOME in the product. Official discovery handles project and nested instructions. This pinned version captures environment paths synchronously during apply; the wrapper changes Process variables only during that synchronous initialization and restores them immediately. It never changes User/Machine environment variables.

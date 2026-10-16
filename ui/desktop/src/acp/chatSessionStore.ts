@@ -43,6 +43,8 @@ export interface AcpChatSessionSnapshot {
   workspaceReconfirmation?: CodeProWorkspaceReconfirmationRequest;
   promptError: string | undefined;
   activePromptAttemptId: string | null;
+  // Transport occupancy is independent of the authoritative display terminal.
+  promptRequestId?: string | null;
   activeRunId: string | null;
   activeToolCallIds?: string[];
   // Ephemeral UI activity, never persisted or used for execution/completion.
@@ -64,6 +66,8 @@ interface StoreEntry extends AcpChatSessionSnapshot {
     pendingUserInputRequestIds: Set<string>;
     terminalMessageId: string | null;
     sealedRunId: string;
+    nativeTerminalReceived: boolean;
+    nativeReleaseReceived: boolean;
   } | null;
   pendingUserInputRequestIds: Set<string>;
   pendingLocalSteerMessageIds: Set<string>;
@@ -123,6 +127,8 @@ export interface AcpChatSessionActions {
     userInputRequestId: string
   ): AcpChatSessionSnapshot | undefined;
 
+  startPromptRequest(sessionId: string, requestId: string): boolean;
+  finishPromptRequest(sessionId: string, requestId: string): void;
   startPromptAttempt(
     sessionId: string,
     promptAttemptId: string,
@@ -207,6 +213,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       sessionLoadError: undefined,
       promptError: undefined,
       activePromptAttemptId: null,
+      promptRequestId: null,
       activePromptSourceUserMessageId: null,
       activeRunId: null,
       liveToolCallIds: new Set(),
@@ -374,6 +381,27 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     return notify(sessionId, entry);
   };
 
+  const startPromptRequest: AcpChatSessionActions['startPromptRequest'] = (
+    sessionId,
+    requestId
+  ) => {
+    const entry = getOrCreateEntry(sessionId);
+    if (entry.promptRequestId != null) return false;
+    entry.promptRequestId = requestId;
+    notify(sessionId, entry);
+    return true;
+  };
+
+  const finishPromptRequest: AcpChatSessionActions['finishPromptRequest'] = (
+    sessionId,
+    requestId
+  ) => {
+    const entry = sessionsById.get(sessionId);
+    if (!entry || entry.promptRequestId !== requestId) return;
+    entry.promptRequestId = null;
+    notify(sessionId, entry);
+  };
+
   const startPromptAttempt: AcpChatSessionActions['startPromptAttempt'] = (
     sessionId,
     promptAttemptId,
@@ -409,7 +437,11 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     promptAttemptId
   ) => {
     const entry = sessionsById.get(sessionId);
-    if (!entry || entry.activePromptAttemptId !== promptAttemptId) {
+    if (
+      !entry ||
+      (entry.activePromptAttemptId !== promptAttemptId &&
+        !(entry.activePromptAttemptId === null && entry.activeRunId === promptAttemptId))
+    ) {
       return undefined;
     }
 
@@ -420,6 +452,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       pendingUserInputRequestIds: new Set(entry.pendingUserInputRequestIds),
       terminalMessageId: null,
       sealedRunId,
+      nativeTerminalReceived: false,
+      nativeReleaseReceived: false,
     };
     entry.sealedRunIds.add(sealedRunId);
     entry.sealedIdleBoundaryActive = true;
@@ -480,8 +514,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
         restoreState.terminalMessageId
       )
     ) {
-      entry.pendingCancelPromptAttemptId = null;
-      entry.promptCancellationRestoreState = null;
+      // A terminal prevents restoring the old run, but is not transport release.
+      finishNativeCancellationIfConfirmed(entry);
       return notify(sessionId, entry);
     }
     entry.sealedRunIds.delete(restoreState.sealedRunId);
@@ -735,6 +769,8 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     addPendingLocalSteerMessage,
     setChatState,
     resolveUserInputRequest,
+    startPromptRequest,
+    finishPromptRequest,
     startPromptAttempt,
     startPromptCancellation,
     clearPromptCancellation,
@@ -823,6 +859,8 @@ function actionsFromStore(store: AcpChatSessionStoreInternal): AcpChatSessionAct
     addPendingLocalSteerMessage: store.addPendingLocalSteerMessage,
     setChatState: store.setChatState,
     resolveUserInputRequest: store.resolveUserInputRequest,
+    startPromptRequest: store.startPromptRequest,
+    finishPromptRequest: store.finishPromptRequest,
     startPromptAttempt: store.startPromptAttempt,
     startPromptCancellation: store.startPromptCancellation,
     clearPromptCancellation: store.clearPromptCancellation,
@@ -882,11 +920,25 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
           entry.session = { ...entry.session, name: change.name };
         }
         if (change.activeRunId !== undefined) {
+          const cancellation = entry.promptCancellationRestoreState;
+          if (
+            cancellation &&
+            change.activeRunId !== null &&
+            change.activeRunId !== cancellation.sealedRunId
+          )
+            cancellation.nativeReleaseReceived = false;
+          if (
+            change.activeRunId === null &&
+            cancellation &&
+            (entry.activeRunId === null || entry.activeRunId === cancellation.sealedRunId)
+          )
+            cancellation.nativeReleaseReceived = true;
           entry.activeRunId = change.activeRunId;
           if (change.activeRunId !== null) {
             entry.sealedRunIds.delete(change.activeRunId);
             entry.sealedIdleBoundaryActive = false;
           }
+          finishNativeCancellationIfConfirmed(entry);
         }
         break;
       case 'localSteerConfirmed':
@@ -1004,6 +1056,15 @@ function isCurrentPromptActivity(entry: StoreEntry, notification: SessionNotific
   return !messageId || !history.some((m) => m.id === messageId);
 }
 
+function finishNativeCancellationIfConfirmed(entry: StoreEntry): void {
+  const cancellation = entry.promptCancellationRestoreState;
+  if (!cancellation?.nativeTerminalReceived || !cancellation.nativeReleaseReceived) return;
+  if (entry.activeRunId !== null && entry.activeRunId !== cancellation.sealedRunId) return;
+  entry.pendingCancelPromptAttemptId = null;
+  entry.promptCancellationRestoreState = null;
+  entry.activePromptSourceUserMessageId = null;
+}
+
 function registerTurnTerminalSeal(
   entry: StoreEntry,
   notification: GooseSessionNotification_unstable
@@ -1036,30 +1097,39 @@ function registerTurnTerminalSeal(
   if (entry.activeRunId === record.run_id && !isStaleTerminalForReusedActiveRun) {
     entry.activeRunId = null;
   }
+  const terminalMatchesObservedRun =
+    entry.activeRunId === null || entry.activeRunId === record.run_id;
+  const terminalMatchesCancellation =
+    entry.pendingCancelPromptAttemptId === null ||
+    entry.promptCancellationRestoreState?.sealedRunId === record.run_id;
   if (
-    (record.status === 'completed' || record.status === 'failed') &&
-    (terminatesActivePrompt || entry.activePromptAttemptId === null)
+    entry.pendingCancelPromptAttemptId !== null &&
+    (belongsToActivePrompt || entry.activePromptSourceUserMessageId === null) &&
+    entry.promptCancellationRestoreState?.sealedRunId === record.run_id
+  ) {
+    entry.promptCancellationRestoreState.nativeTerminalReceived = true;
+    finishNativeCancellationIfConfirmed(entry);
+  }
+  if (
+    terminatesActivePrompt ||
+    (entry.activePromptAttemptId === null &&
+      terminalMatchesObservedRun &&
+      terminalMatchesCancellation)
   ) {
     // A persisted turn terminal is authoritative even if the ACP prompt Promise is
     // delayed or was cancelled by a disconnected WebSocket. Clear the stale
     // transport attempt so a completed replay cannot be overwritten back to
     // Streaming by finishSessionLoad.
     entry.activePromptAttemptId = null;
-    entry.activePromptSourceUserMessageId = null;
-    entry.pendingCancelPromptAttemptId = null;
-    entry.promptCancellationRestoreState = null;
+    if (entry.pendingCancelPromptAttemptId === null) {
+      entry.activePromptSourceUserMessageId = null;
+      entry.promptCancellationRestoreState = null;
+    }
     entry.pendingUserInputRequestIds.clear();
     entry.progressMessage = undefined;
     if (entry.chatState !== ChatState.LoadingConversation) {
       entry.chatState = ChatState.Idle;
     }
-    entry.sealedIdleBoundaryActive = true;
-  }
-  if (
-    (record.status === 'cancelled' || record.status === 'interrupted') &&
-    entry.activePromptAttemptId === null &&
-    entry.chatState !== ChatState.LoadingConversation
-  ) {
     entry.sealedIdleBoundaryActive = true;
   }
 }
@@ -1192,6 +1262,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
     workspaceReconfirmation: entry.workspaceReconfirmation,
     promptError: entry.promptError,
     activePromptAttemptId: entry.activePromptAttemptId,
+    promptRequestId: entry.promptRequestId ?? null,
     activeRunId: entry.activeRunId,
     promptActivity:
       entry.activePromptAttemptId !== null &&

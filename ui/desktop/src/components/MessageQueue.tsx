@@ -73,6 +73,10 @@ const i18n = defineMessages({
     id: 'messageQueue.cannotSendWhileEditing',
     defaultMessage: 'Cannot send while editing',
   },
+  stopAndSendLabel: {
+    id: 'messageQueue.stopAndSendLabel',
+    defaultMessage: 'Stop and send',
+  },
   stopAndSend: {
     id: 'messageQueue.stopAndSend',
     defaultMessage: 'Stop current processing and send this message now',
@@ -108,6 +112,7 @@ interface MessageQueueProps {
   sendingMessageIds?: ReadonlySet<string>;
   className?: string;
   isPaused?: boolean;
+  blockedReason?: string;
 }
 
 export const MessageQueue: React.FC<MessageQueueProps> = ({
@@ -123,6 +128,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   sendingMessageIds,
   className = '',
   isPaused = false,
+  blockedReason,
 }) => {
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -349,6 +355,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
         </div>
       </div>
 
+      {blockedReason && (
+        <div role="status" className="px-4 py-2 text-sm text-text-secondary">
+          {blockedReason}
+        </div>
+      )}
+
       {/* Status Banner for Paused State */}
       {isPaused && (
         <div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50">
@@ -525,7 +537,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                       size="sm"
                       onClick={() => onStopAndSend(message.id)}
                       disabled={isEditing || isSending}
-                      className={`h-7 w-7 p-0 rounded-full transition-all duration-200 ${
+                      className={`h-7 px-2 gap-1 rounded-full transition-all duration-200 ${
                         isEditing || isSending
                           ? 'opacity-30 cursor-not-allowed'
                           : 'hover:bg-muted/50'
@@ -537,6 +549,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                       }
                     >
                       <Send className="w-3 h-3" />
+                      {intl.formatMessage(i18n.stopAndSendLabel)}
                     </Button>
                   )}
 

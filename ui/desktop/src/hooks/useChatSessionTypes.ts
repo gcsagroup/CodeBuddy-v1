@@ -18,6 +18,7 @@ export interface UseChatSessionParams {
 export interface MessageSubmissionLifecycle {
   onAccepted(): void;
   onRejectedBeforeAcceptance(): void;
+  onDeliveryUncertain?(): void;
 }
 
 export interface UseChatSessionResult {

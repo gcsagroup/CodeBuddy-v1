@@ -36,6 +36,8 @@ onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一
 
 `../transcripts.mjs` 僅儲存 ACP 顯示投影，不接管 Harness 執行歷史。`openTranscriptJournal(store)` 在啟動恢復未完成 NDJSON；`begin({sessionId,turnId,users,title?})` 回傳 append、appendUsage、finalize。各追加等待 fsync 後才回傳；finalize 在 store 原子更新中合入片段與回放高水位，再清理 journal。應在 UI 通知前 await 追加；恢復既有片段不新增完成結論。
 
+ACP `session/cancel` 是取消請求。適配層在首個非同步校驗前登記佔用；真實終態傳送給原請求及同會話觀察連線，收尾路徑退出時先刪除佔用，再同步傳送既有 `session_info_update` 的 `activeRunId: null`。終態、Host 釋放及原 prompt RPC 回傳各有明確時點，取消通知寫出不能替代它們。
+
 ## 技能與記憶
 
 AGENTS.md 讀取使用官方 agent-instructions 外掛。`instructionsHome` 指定本版全域目錄，預設隔離資料根；產品傳入 CODEBUDDY_HOME。專案及巢狀目錄遵循官方發現規則。固定版本在 apply 時同步讀取環境路徑，包裝器只在同步初始化期間設定並立即還原 Process 變數，不觸碰 User/Machine 環境。

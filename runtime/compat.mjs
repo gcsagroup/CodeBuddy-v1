@@ -1323,7 +1323,7 @@ export class Compat {
       const active = this.active.get(p.sessionId);
       if (active) {
         active.controller.abort();
-        await this.driver.cancel(p.sessionId);
+        if (active.driverStarted) await this.driver.cancel(p.sessionId);
       }
       return {};
     }
@@ -1936,8 +1936,6 @@ export class Compat {
       throw invalid(
         "This imported history is read-only; start a new task to continue work",
       );
-    if (s.type === "code_pro")
-      await this.workspaces.validateSession(s.id, s.cwd);
     const content = harnessPrompt(p.prompt);
     const manualCompact = p.prompt.length === 1 && p.prompt[0].type === "text" && p.prompt[0].text.trim() === "/compact";
     if (s.archivedAt) throw invalid("Unarchive the session before continuing");
@@ -1953,7 +1951,7 @@ export class Compat {
     const usageUpdates = [];
     const promptScope = randomUUID();
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
-    this.active.set(s.id, {
+    const promptEntry = {
       controller,
       connection,
       done,
@@ -1968,7 +1966,39 @@ export class Compat {
           .map((u) => u.content.text),
         ...p.prompt.filter((c) => c.type === "text").map((c) => c.text),
       ],
-    });
+    };
+    this.active.set(s.id, promptEntry);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      try {
+        if (this.active.get(s.id) !== promptEntry) return;
+        this.active.delete(s.id);
+        // No await may separate deletion from this existing live-state fact:
+        // observers without the original prompt RPC also need the release.
+        for (const c of this.connections) {
+          if (c.background || !c.sessionIds?.has(s.id)) continue;
+          try {
+            c.notify("session/update", {
+              sessionId: s.id,
+              update: { sessionUpdate: "session_info_update", _meta: { goose: { activeRunId: null } } },
+            });
+          } catch { /* A detached observer must not mask the prompt's outcome. */ }
+        }
+      } finally { finish(); }
+    };
+    let validated = false, validationError;
+    try {
+      if (s.type === "code_pro") await this.workspaces.validateSession(s.id, s.cwd);
+      validated = true;
+    } catch (error) {
+      validationError = error;
+    } finally {
+      if (!validated || controller.signal.aborted) release();
+    }
+    if (controller.signal.aborted) return { stopReason: "cancelled" };
+    if (!validated) throw validationError;
     let messageId = randomUUID();
     let afterToolResult = false;
     const created = Math.floor(Date.now() / 1000);
@@ -2003,7 +2033,9 @@ export class Compat {
       replay.users = users;
       for (const update of users)
         connection.notify("session/update", { sessionId: s.id, update });
+      controller.signal.throwIfAborted();
       await this.ensureSession(s);
+      controller.signal.throwIfAborted();
       const active = this.active.get(s.id);
       active.driverStarted = true;
       const prepared = await this.prepareModelContent(
@@ -2362,10 +2394,11 @@ export class Compat {
           };
           await writer?.appendUsage(update);
           usageUpdates.push(update);
-          connection.notify(prefix + "session/update", {
-            sessionId: s.id,
-            update,
-          });
+          for (const c of new Set([connection, ...this.connections])) {
+            if (c !== connection && (c.background || !c.sessionIds?.has(s.id))) continue;
+            try { c.notify(prefix + "session/update", { sessionId: s.id, update }); }
+            catch { /* The original durable terminal remains authoritative. */ }
+          }
         }
         if (writer) await writer.finalize();
         else
@@ -2392,8 +2425,7 @@ export class Compat {
           },
         });
       } finally {
-        this.active.delete(s.id);
-        finish();
+        release();
       }
     }
     if (controller.signal.aborted) return { stopReason: "cancelled" };

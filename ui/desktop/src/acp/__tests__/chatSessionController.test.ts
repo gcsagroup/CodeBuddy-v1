@@ -43,6 +43,8 @@ vi.mock('../chatSessionStore', () => ({
     finishSessionLoad: vi.fn(),
     failSessionLoad: vi.fn(),
     requireWorkspaceReconfirmation: vi.fn(),
+    startPromptRequest: vi.fn(() => true),
+    finishPromptRequest: vi.fn(),
     startPromptAttempt: vi.fn(),
     finishPromptAttemptIfCurrent: vi.fn(),
     isCurrentPromptAttempt: vi.fn(),
@@ -454,6 +456,22 @@ describe('acpChatSessionController.submitMessage', () => {
     vi.mocked(acpChatSessionActions.finishPromptAttemptIfCurrent).mockReturnValue(true);
   });
 
+  it('rejects another prompt locally while the prior RPC remains occupied after terminal display', async () => {
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+      ...snapshotWithActivePrompt(null),
+      promptRequestId: 'still-settling',
+    });
+    const onRejectedBeforeAcceptance = vi.fn();
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish: vi.fn(),
+      onRejectedBeforeAcceptance,
+    });
+    expect(onRejectedBeforeAcceptance).toHaveBeenCalledOnce();
+    expect(acpPromptSession).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.startPromptAttempt).not.toHaveBeenCalled();
+  });
+
   it('acknowledges server receipt from the active run before the agent turn completes', async () => {
     let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
     vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {
@@ -485,6 +503,10 @@ describe('acpChatSessionController.submitMessage', () => {
     finishPrompt?.({ stopReason: 'end_turn' });
     await submission;
     expect(onAccepted).toHaveBeenCalledOnce();
+    expect(acpChatSessionActions.finishPromptRequest).toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.any(String)
+    );
   });
 
   it('clears a pending cancellation barrier when the original prompt settles', async () => {
@@ -552,12 +574,12 @@ describe('acpChatSessionController.submitMessage', () => {
   it('reports a prompt failure without marking the session load as failed', async () => {
     vi.mocked(acpPromptSession).mockRejectedValueOnce(new Error('workspace rejected'));
     const onFinish = vi.fn();
-    const onRejectedBeforeAcceptance = vi.fn();
+    const onDeliveryUncertain = vi.fn();
 
     await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
       getCurrentSnapshot: () => snapshotWithActivePrompt(null),
       onFinish,
-      onRejectedBeforeAcceptance,
+      onDeliveryUncertain,
     });
 
     const promptAttemptId = vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls[0][1];
@@ -567,7 +589,11 @@ describe('acpChatSessionController.submitMessage', () => {
       'Submit error: workspace rejected'
     );
     expect(acpChatSessionActions.failSessionLoad).not.toHaveBeenCalled();
-    expect(onRejectedBeforeAcceptance).toHaveBeenCalledOnce();
+    expect(onDeliveryUncertain).toHaveBeenCalledOnce();
+    expect(acpChatSessionActions.finishPromptRequest).toHaveBeenCalledWith(
+      SESSION_ID,
+      promptAttemptId
+    );
     expect(onFinish).toHaveBeenCalledWith('Submit error: workspace rejected');
   });
 
@@ -585,6 +611,10 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(acpChatSessionActions.finishPromptAttemptIfCurrent).not.toHaveBeenCalled();
     expect(acpChatSessionActions.failSessionLoad).not.toHaveBeenCalled();
     expect(onFinish).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.finishPromptRequest).toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.any(String)
+    );
   });
 
   it('resumes after workspace allocation without appending a second user message', async () => {

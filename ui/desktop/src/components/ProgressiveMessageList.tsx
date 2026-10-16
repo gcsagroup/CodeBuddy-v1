@@ -165,8 +165,25 @@ export default function ProgressiveMessageList(props: ProgressiveMessageListProp
   return <OrderedMessageList key={props.chat.sessionId} {...props} />;
 }
 
+function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) => void }) {
+  const target = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = target.current;
+    if (!element || typeof IntersectionObserver === 'undefined') return;
+    let requested = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (!requested && entries.some((entry) => entry.isIntersecting)) {
+        requested = true;
+        onLoad(element);
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onLoad]);
+  return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
+}
+
 function OrderedMessageList(props: ProgressiveMessageListProps) {
-  const intl = useIntl();
   const [visibleLimit, setVisibleLimit] = useState(props.maxVisibleMessages ?? 40);
   const following = useContext(ScrollFollowingContext);
   const holdAnchor = useContext(ScrollLayoutAnchorContext);
@@ -284,24 +301,15 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
   return (
     <>
       {startIndex > 0 && (
-        <div className="flex justify-center py-3">
-          <button
-            type="button"
-            className="rounded-md border border-border-primary px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
-            onClick={(event) => {
-              releaseAnchor.current?.();
-              releaseAnchor.current =
-                holdAnchor?.(
-                  event.currentTarget.parentElement?.nextElementSibling ?? event.currentTarget
-                ) ?? null;
-              setVisibleLimit(
-                (limit) => limit + Math.max(props.batchSize ?? 20, props.maxVisibleMessages ?? 40)
-              );
-            }}
-          >
-            {intl.formatMessage(i18n.loadEarlierMessages, { remaining: startIndex })}
-          </button>
-        </div>
+        <EarlierHistorySentinel
+          onLoad={(element) => {
+            releaseAnchor.current?.();
+            releaseAnchor.current = holdAnchor?.(element.nextElementSibling ?? element) ?? null;
+            setVisibleLimit(
+              (limit) => limit + Math.max(props.batchSize ?? 20, props.maxVisibleMessages ?? 40)
+            );
+          }}
+        />
       )}
       <ProgressiveMessageListContent
         {...props}
@@ -1409,19 +1417,13 @@ function ProgressiveMessageListContent({
   return (
     <>
       {!renderRange && renderStartIndex > 0 && (
-        <div className="flex justify-center py-3">
-          <button
-            type="button"
-            className="rounded-md border border-border-primary px-3 py-1.5 text-xs text-text-secondary hover:bg-background-secondary hover:text-text-primary"
-            onClick={() =>
-              setVisibleMessageLimit((current) =>
-                Math.min(messages.length, current + Math.max(batchSize, maxVisibleMessages))
-              )
-            }
-          >
-            {intl.formatMessage(i18n.loadEarlierMessages, { remaining: renderStartIndex })}
-          </button>
-        </div>
+        <EarlierHistorySentinel
+          onLoad={() =>
+            setVisibleMessageLimit((current) =>
+              Math.min(messages.length, current + Math.max(batchSize, maxVisibleMessages))
+            )
+          }
+        />
       )}
 
       {renderMessages()}

@@ -1137,7 +1137,18 @@ describe('ProgressiveMessageList retention window', () => {
     expect(compactGroups()[0].querySelectorAll('.goose-message-tool')).toHaveLength(25);
   });
 
-  it('keeps only the newest messages mounted until older history is requested', () => {
+  it('loads older history on scroll without a load-more button', () => {
+    const intersections: IntersectionObserverCallback[] = [];
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          intersections.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      }
+    );
     const messages = Array.from({ length: 100 }, (_, index) => message(index));
 
     render(
@@ -1157,7 +1168,18 @@ describe('ProgressiveMessageList retention window', () => {
     expect(screen.getByText('message-60')).toBeInTheDocument();
     expect(screen.getByText('message-99')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /load earlier messages/i }));
+    expect(
+      screen.queryByRole('button', { name: /load earlier messages/i })
+    ).not.toBeInTheDocument();
+    act(() => {
+      for (const callback of [...intersections]) {
+        callback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver
+        );
+      }
+    });
+    vi.unstubAllGlobals();
 
     expect(screen.getAllByTestId('rendered-message')).toHaveLength(100);
     expect(screen.getByText('message-0')).toBeInTheDocument();

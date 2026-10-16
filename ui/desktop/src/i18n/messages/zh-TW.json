@@ -210,10 +210,10 @@
     "defaultMessage": "自動資料視覺化"
   },
   "builtInExtension.computerController.description": {
-    "defaultMessage": "處理 Word、Excel、PDF、網頁與快取檔案；Windows 桌面操作統一使用電腦控制。"
+    "defaultMessage": "擷取 PDF、儲存網頁檔案並管理快取；Word、Excel 和 PowerPoint 使用 Office 文件技能。"
   },
   "builtInExtension.computerController.name": {
-    "defaultMessage": "文件與網頁工具"
+    "defaultMessage": "PDF 與網頁檔案"
   },
   "builtInExtension.developer.description": {
     "defaultMessage": "適用於軟體工程的一般開發工具。"
@@ -8365,5 +8365,8 @@
   },
   "workStatus.thought": {
     "defaultMessage": "正在思考"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office 文件"
   }
 }

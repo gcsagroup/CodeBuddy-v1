@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -74,6 +74,40 @@ function CurrentPath() {
 
 describe('ToolboxView', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('groups upstream Office skills and keeps their details and search accessible', async () => {
+    vi.mocked(loadToolbox).mockResolvedValue({
+      model: buildToolboxModel({
+        skills: ['office-docx', 'office-xlsx', 'office-pptx'].map((name) => ({
+          source: { rootKind: 'builtin' as const, rootId: 'builtin', relativePath: name },
+          name,
+          description: name,
+          scope: 'builtin' as const,
+          readOnly: true,
+          enabled: true,
+          displayPath: `builtin/${name}`,
+          version: 'v1',
+          rawDocument: name,
+          originalMetadata: {},
+          displayMetadata: { locales: {} },
+          companionFiles: [],
+        })),
+        apps: [],
+        extensions: [],
+      }),
+      errors: {},
+      warnings: [],
+    });
+    renderView();
+    const office = await screen.findByRole('region', { name: 'Office documents' });
+    expect(within(office).getAllByRole('button')).toHaveLength(3);
+    await userEvent.click(within(office).getAllByRole('button')[0]);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Skill details: office-');
+    await userEvent.type(screen.getByRole('searchbox'), 'office-xlsx');
+    expect(
+      within(screen.getByRole('region', { name: 'Office documents' })).getAllByRole('button')
+    ).toHaveLength(1);
+  });
 
   it('updates an already open skill detail when refreshed state arrives', async () => {
     const skill = {

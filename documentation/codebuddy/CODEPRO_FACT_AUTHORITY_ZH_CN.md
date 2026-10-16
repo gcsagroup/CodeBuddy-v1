@@ -1,5 +1,13 @@
 # CodePro 事实权威与模块职责
 
+## 2026-10-16 已批准：移除旧 Office 编辑工具并合并工具箱入口
+
+用户批准将旧 DOCX/XLSX 能力迁移到现有 Harness `dsh-skill-office`、`dsh-tool-workspace-dependencies` 和原生 shell。Rust 的 `docx_tool`、`xlsx_tool` 注册、实现及专属依赖删除，不新增同名 Python 编辑服务。工具箱按注册技能身份将 Word、Excel、PowerPoint 归入 Office 文档组，技能详情及覆盖顺序仍由原注册表决定。`computercontroller` 的配置键保持，以兼容现有启用状态及保留的 PDF、网页保存、缓存；不迁移权限、不改写旧对话工具回执、不重放历史动作。已完成的历史可查看，恢复后的调用使用当前工具清单；硬编码旧工具名称的外部配方需按迁移文档修改。
+
+公网文本读取优先复用上游 `web_fetch`；锁定版本不提供等价的二进制保存和私网抓取，旧 `web_scrape` 暂保留这些独有用途。外部 MCP 配置与凭据保留，安全 MCP 本批按用户要求不测试。迁移边界与同事合并步骤见 [Office 工具合并记录](../../docs/reconstruction/2026-10-16-office-consolidation.zh-CN.md)。
+
+繁體：舊 DOCX/XLSX 實作移除，Office 由 Harness 技能與原生 shell 執行；保留 PDF、網頁檔案、快取及原配置鍵。歷史不重播，權限不擴張。English: Harness Office skills and native shell replace the retired Rust DOCX/XLSX tools. PDF, web-file saving, cache and the existing configuration key remain. Historical actions are not replayed and permissions are not broadened.
+
 ## 2026-10-16 已批准：复用官方 Office 技能与公网网页工具
 
 Harness 的 `dsh-skill-office` / `dsh-skill` 负责内置 Office 技能注册、加载及同名覆盖顺序；`dsh-tool-workspace-dependencies` 提供官方锁定的独立 Python 载荷位置。CodeBuddy 只准备、打包载荷并将注册表投影到现有工具箱只读条目，不维护第二套 Office 编辑引擎。公网正文抓取由 `dsh-tool-web` / `dsh-web-fetch-http` 执行，保留官方地址、内容类型和返回长度限制；工具发现仍按需加载，权限走现有 Harness 回调。原 Rust 文档、PDF、缓存、图表及天气工具保留，尚未验证的替代能力不提前删除。

@@ -70,6 +70,7 @@ const i18n = defineMessages({
     defaultMessage: 'Add custom extension',
   },
   builtIn: { id: 'skillManager.scope.builtin', defaultMessage: 'Built in' },
+  office: { id: 'toolbox.officeDocuments', defaultMessage: 'Office documents' },
   required: { id: 'toolbox.required', defaultMessage: 'Required' },
   implementation: { id: 'toolbox.implementation', defaultMessage: 'Implementation' },
   availability: { id: 'toolbox.availability', defaultMessage: 'Availability' },
@@ -507,13 +508,25 @@ export default function ToolboxView() {
   );
 
   const renderCardGrid = (entries: ToolboxItem[]) => {
+    // Group the registered upstream skills; each keeps its own details and identity.
+    const office = entries.filter(
+      (item) =>
+        isBuiltInSkill(item) &&
+        ['office-docx', 'office-xlsx', 'office-pptx'].includes(item.skillSource?.name ?? '')
+    );
     const advanced = entries.filter(
       (item) => item.kind === 'builtin' && ADVANCED_CAPABILITIES.has(item.reference?.value ?? '')
     );
-    const basic = entries.filter((item) => !advanced.includes(item));
+    const basic = entries.filter((item) => !advanced.includes(item) && !office.includes(item));
     return (
       <>
         {renderGrid(basic)}
+        {office.length > 0 && (
+          <section className="mt-5" aria-label={intl.formatMessage(i18n.office)}>
+            <h2 className="mb-3 text-sm font-medium">{intl.formatMessage(i18n.office)}</h2>
+            {renderGrid(office)}
+          </section>
+        )}
         {advanced.length > 0 && (
           <details
             className="mt-5 rounded-lg border border-border-secondary p-4"

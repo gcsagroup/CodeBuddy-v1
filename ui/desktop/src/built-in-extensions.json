@@ -19,8 +19,8 @@
   },
   {
     "id": "computercontroller",
-    "name": "Computer Controller",
-    "description": "General computer control tools that don't require you to be a developer or engineer.",
+    "name": "PDF and web files",
+    "description": "Extract PDF content, save web files, and manage cached files. Use Office skills for Word, Excel, and PowerPoint.",
     "enabled": false,
     "type": "builtin",
     "env_keys": [],

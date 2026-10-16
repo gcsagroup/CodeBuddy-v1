@@ -210,10 +210,10 @@
     "defaultMessage": "Auto Visualiser"
   },
   "builtInExtension.computerController.description": {
-    "defaultMessage": "Process Word, Excel, PDF, web content, and cached files. Windows desktop control uses the Computer capability."
+    "defaultMessage": "Extract PDF content, save web files, and manage cached files. Use Office skills for Word, Excel, and PowerPoint."
   },
   "builtInExtension.computerController.name": {
-    "defaultMessage": "Document and web tools"
+    "defaultMessage": "PDF and web files"
   },
   "builtInExtension.developer.description": {
     "defaultMessage": "General development tools useful for software engineering."
@@ -7942,6 +7942,9 @@
   },
   "toolbox.noMatching": {
     "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office documents"
   },
   "toolbox.required": {
     "defaultMessage": "Required"

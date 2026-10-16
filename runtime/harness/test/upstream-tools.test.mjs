@@ -62,6 +62,9 @@ doc.add_heading('Harness Office 验收',level=1)
 doc.add_paragraph().add_run('KEEP_FORMAT').bold=True
 doc.add_paragraph('OLD_TEXT')
 doc.add_picture(str(root/'image.png'))
+table=doc.add_table(rows=1,cols=2)
+table.cell(0,0).text='KEEP_TABLE'
+table.cell(0,1).text='表格内容'
 doc.save(root/'original.docx')
 doc=Document(root/'original.docx')
 doc.paragraphs[2].runs[0].text='NEW_TEXT'
@@ -69,15 +72,23 @@ doc.save(root/'edited.docx')
 check=Document(root/'edited.docx')
 assert check.paragraphs[1].runs[0].bold and check.paragraphs[2].text=='NEW_TEXT'
 assert len(check.inline_shapes)==1
+assert check.tables[0].cell(0,0).text=='KEEP_TABLE'
 assert Document(root/'original.docx').paragraphs[2].text=='OLD_TEXT'
 book=Workbook()
 book.active.title='Data'
 book.active['A1']=5
 book.active['B1']='=A1*2'
 book.active['B1'].font=Font(bold=True)
+book.active['A2']='Find Me'
 book.create_sheet('Keep')['A1']='KEEP_SHEET'
 book.save(root/'original.xlsx')
 book=load_workbook(root/'original.xlsx',data_only=False)
+# Cover the seven retired spreadsheet operations using the upstream payload.
+assert book.sheetnames==['Data','Keep']
+assert [cell.value for cell in book['Data'][1]]==[5,'=A1*2']
+assert [[cell.value for cell in row] for row in book['Data']['A1:B2']]==[[5,'=A1*2'],['Find Me',None]]
+assert [(cell.row,cell.column) for row in book['Data'] for cell in row if cell.value=='Find Me']==[(2,1)]
+assert book['Data'].cell(row=1,column=2).value=='=A1*2'
 book['Data']['A1']=7
 book.save(root/'edited.xlsx')
 check=load_workbook(root/'edited.xlsx',data_only=False)

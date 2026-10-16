@@ -1,0 +1,221 @@
+﻿tool_or_capability,status,evidence_layer,scope_or_limit
+web_fetch,PASS_SCENARIO,actual tool call,Representative fixture only
+load_workspace_dependencies,PASS_SCENARIO,actual tool call,Representative fixture only
+job_output,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+job_list,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+job_kill,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+todo_write,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+get_goal,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+create_goal,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+update_goal,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+skill,PASS_SCENARIO,actual tool call,Representative fixture only
+read,PASS_SCENARIO,actual tool call,Representative fixture only
+write,PASS_SCENARIO,actual tool call,Representative fixture only
+edit,PASS_SCENARIO,actual tool call,Representative fixture only
+working_directory,PASS_SCENARIO,actual tool call,Representative fixture only
+glob,PASS_SCENARIO,actual tool call,Representative fixture only
+grep,PASS_SCENARIO,actual tool call,Representative fixture only
+read_image,PASS_SCENARIO,actual tool call,Representative fixture only
+pwsh,PASS_SCENARIO,actual tool call,Representative fixture only
+subagent,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+send_message,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+interrupt_agent,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+list_agents,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+list_mcp_resources,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+list_mcp_resource_templates,NOT_INDIVIDUALLY_TESTED,inventory/module tests,No individual real-model acceptance claimed
+read_mcp_resource,PASS_SCENARIO,actual tool call,Representative fixture only
+mcp__commonqueries__time_now,PASS_SCENARIO,actual tool call,Corrected metadata fixture; explicit coordinates for weather
+mcp__commonqueries__location_resolve,PASS_SCENARIO,actual tool call,Corrected metadata fixture; explicit coordinates for weather
+mcp__commonqueries__weather_get,PASS_SCENARIO,actual tool call,Corrected metadata fixture; explicit coordinates for weather
+mcp__autovisualiser__render_chord,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_donut,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_map,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_mermaid,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_radar,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_sankey,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__render_treemap,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__autovisualiser__show_chart,PASS_SCENARIO,real model and desktop render,Eight guest frames inspected; later extra screenshot capture did not complete
+mcp__qwen_computer__click,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__drag,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__get_app_state,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__list_apps,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__perform_secondary_action,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__press_key,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__scroll,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__set_value,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__qwen_computer__type_text,PASS_SCENARIO_WITH_CAVEAT,real model and test window,Combined main/auxiliary vision coverage; numeric-coordinate hint required in drag retry
+mcp__computercontroller__cache,PASS_SCENARIO,actual tool call,Representative fixture only
+mcp__computercontroller__docx_tool,DEFECT,actual call and independent artifact check,Text replacement loses image despite success response
+mcp__computercontroller__pdf_tool,PASS_SCENARIO,actual tool call,Representative fixture only
+mcp__computercontroller__web_scrape,PASS_SCENARIO,actual tool call,Representative fixture only
+mcp__computercontroller__xlsx_tool,PASS_SCENARIO,actual tool call,Representative fixture only
+search_mcp_tools,PASS_SCENARIO,actual tool call,Representative fixture only
+mcp__exa__web_search_exa,PASS_SCENARIO,external MCP,Actual search/fetch
+mcp__exa__web_fetch_exa,PASS_SCENARIO,external MCP,Actual search/fetch
+mcp__1__nmap_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__gobuster_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__nuclei_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__prowler_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__trivy_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__scout_suite_assessment,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__cloudmapper_analysis,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__pacu_exploitation,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__kube_hunter_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__kube_bench_cis,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__docker_bench_security_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__clair_vulnerability_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__falco_runtime_monitoring,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__checkov_iac_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__terrascan_iac_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__create_file,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__modify_file,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__delete_file,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__list_files,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__generate_payload,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__install_python_package,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__execute_python_script,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__dirb_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__nikto_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__sqlmap_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__metasploit_run,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__hydra_attack,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__john_crack,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__wpscan_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__enum4linux_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ffuf_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__netexec_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__amass_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__hashcat_crack,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__subfinder_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__smbmap_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__rustscan_fast_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__masscan_high_speed,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__nmap_advanced_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__autorecon_comprehensive,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__enum4linux_ng_advanced,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__rpcclient_enumeration,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__nbtscan_netbios,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__arp_scan_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__responder_credential_harvest,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__volatility_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__msfvenom_generate,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__gdb_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__radare2_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__binwalk_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ropgadget_search,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__checksec_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__xxd_hexdump,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__strings_extract,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__objdump_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ghidra_analysis,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__pwntools_exploit,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__one_gadget_search,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__libc_database_lookup,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__gdb_peda_debug,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__angr_symbolic_execution,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ropper_gadget_search,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__pwninit_setup,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__feroxbuster_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__dotdotpwn_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__xsser_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__wfuzz_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__dirsearch_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__katana_crawl,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__gau_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__waybackurls_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__arjun_parameter_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__paramspider_mining,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__x8_parameter_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__jaeles_vulnerability_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__dalfox_xss_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__httpx_probe,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__anew_data_processing,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__qsreplace_parameter_replacement,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__uro_url_filtering,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ai_generate_payload,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ai_test_payload,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ai_generate_attack_suite,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__api_fuzzer,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__graphql_scanner,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__jwt_analyzer,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__api_schema_analyzer,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__comprehensive_api_audit,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__volatility3_analyze,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__foremost_carving,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__steghide_analysis,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__exiftool_extract,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__hashpump_attack,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__hakrawler_crawl,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__paramspider_discovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__burpsuite_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__zap_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__arjun_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__wafw00f_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__fierce_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__dnsenum_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__autorecon_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__server_health,PASS_SCENARIO,external MCP,Health/read-only only
+mcp__1__get_cache_stats,PASS_SCENARIO,external MCP,Health/read-only only
+mcp__1__clear_cache,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__get_telemetry,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__list_active_processes,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__get_process_status,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__terminate_process,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__pause_process,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__resume_process,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__get_process_dashboard,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__execute_command,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__monitor_cve_feeds,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__generate_exploit_from_cve,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__discover_attack_chains,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__research_zero_day_opportunities,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__correlate_threat_intelligence,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__advanced_payload_generation,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__vulnerability_intelligence_dashboard,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__threat_hunting_assistant,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__get_live_dashboard,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__create_vulnerability_report,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__format_tool_output_visual,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__create_scan_summary,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__display_system_metrics,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__analyze_target_intelligence,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__select_optimal_tools_ai,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__optimize_tool_parameters_ai,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__create_attack_chain_ai,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__intelligent_smart_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__detect_technologies_ai,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ai_reconnaissance_workflow,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__ai_vulnerability_assessment,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_reconnaissance_workflow,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_vulnerability_hunting,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_business_logic_testing,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_osint_gathering,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_file_upload_testing,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_comprehensive_assessment,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__bugbounty_authentication_bypass_testing,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__http_framework_test,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__browser_agent_inspect,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__http_set_rules,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__http_set_scope,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__http_repeater,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__http_intruder,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__burpsuite_alternative_scan,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__error_handling_statistics,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__1__test_error_recovery,EXCLUDED_BY_USER,external MCP,User deferred this service; no target operations
+mcp__tavily__tavily_search,PASS_SCENARIO,actual external tool call,Existing offline cached server; search/extract only without key
+mcp__tavily__tavily_extract,PASS_SCENARIO,actual external tool call,Existing offline cached server; search/extract only without key
+mcp__tavily__tavily_crawl,CONFIG_REQUIRED,actual external tool call,Response requires API key even though isError is false
+mcp__tavily__tavily_map,CONFIG_REQUIRED,actual external tool call,Response requires API key even though isError is false
+mcp__tavily__tavily_research,CONFIG_REQUIRED,actual external tool call,Response requires API key even though isError is false
+github_official,CONFIG_REQUIRED,configuration check,Missing CODEBUDDY_GITHUB_MCP_TOKEN; no repository operations
+office-docx,PASS_SCENARIO,fresh regression; reused same-revision real-model evidence,Image/bold/original preservation; not legacy docx_tool
+office-xlsx,PASS_SCENARIO,fresh regression; reused same-revision real-model evidence,Formula/other-sheet/original preservation
+office-pptx,MODEL_DEPENDENT,fresh real model and independent artifact check,Kimi passed; Gemma omitted required pwsh description and hit test turn limit; visual layout not checked
+custom_skill_lifecycle,PASS_SCENARIO,product ACP and real model,Create/update/disable/enable/restart; model read skill file on first turn
+git,MODULE_TESTS_PASS,integration tests,Local fixture writes/permissions; desktop UI not rerun
+projectmemory,MODULE_TESTS_PASS,integration tests,Scope/review/pagination; desktop UI not rerun
+tom,MAPPED_CAPABILITY,static inventory,Managed compatibility entry; not an independently verified extra engine
+code_execution,MAPPED_CAPABILITY,static inventory,Managed compatibility entry; not an independently verified extra engine
+summarize,MAPPED_CAPABILITY,static inventory,Managed compatibility entry; not an independently verified extra engine
+todo,MAPPED_CAPABILITY,static inventory,Managed compatibility entry; not an independently verified extra engine
+apps,MAPPED_CAPABILITY,static inventory,Managed compatibility entry; not an independently verified extra engine

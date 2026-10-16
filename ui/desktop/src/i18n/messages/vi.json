@@ -210,10 +210,10 @@
     "defaultMessage": "Auto Visualiser"
   },
   "builtInExtension.computerController.description": {
-    "defaultMessage": "General computer control tools that don't require you to be a developer or engineer."
+    "defaultMessage": "Extract PDF content, save web files, and manage cached files. Use Office skills for Word, Excel, and PowerPoint."
   },
   "builtInExtension.computerController.name": {
-    "defaultMessage": "Computer Controller"
+    "defaultMessage": "PDF and web files"
   },
   "builtInExtension.developer.description": {
     "defaultMessage": "General development tools useful for software engineering."
@@ -7783,6 +7783,9 @@
   },
   "toolAudit.transportOutcome": {
     "defaultMessage": "Kết quả gọi công cụ"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Tài liệu Office"
   },
   "toolbox.addSkill": {
     "defaultMessage": "Thêm kỹ năng"

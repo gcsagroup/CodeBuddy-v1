@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-10-15T14:19:16.847Z",
+  "copiedAt": "2026-10-16T06:55:46.123929+00:00",
   "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
   "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
@@ -10,14 +10,14 @@
       "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "55b007eb046154957310b9de0fa456ac63c6598814851b1b913c076cf29ebbc8",
-      "bytes": 41534464,
+      "sha256": "b89dc85054e5bbe4410e4b50e38c6a423eea94c659403dbb17224d62abee50a4",
+      "bytes": 21777920,
       "sourcePath": "D:\\CodeBuddy-v1\\target\\debug\\codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-10-15T14:15:58.847Z",
-      "sourceBaselineRevision": "01610d03764570282eee439cd2bfb49fcd373e98",
+      "sourceModifiedAt": "2026-10-16T06:55:03.284888+00:00",
+      "sourceBaselineRevision": "e9540aa8b35f5ed63a136455a52e72137fd73918",
       "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
-      "buildLog": ".preview-evidence/h13-tool-build.log",
+      "buildLog": ".preview-evidence/h16-tool-build.log",
       "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
@@ -36,7 +36,7 @@
           "commonqueries"
         ]
       ],
-      "sourceManifest": ".preview-evidence/h13-tool-source.json"
+      "sourceManifest": ".preview-evidence/h16-tool-source.json"
     },
     {
       "name": "qwen-computer-use",

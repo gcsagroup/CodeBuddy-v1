@@ -60,6 +60,33 @@ async function fixture(t) {
   return { root, cwd, dataDir };
 }
 
+test("legacy document configuration reconnects with residual tools and upstream Office skills", { skip: process.platform !== "win32", timeout: 60_000 }, async t => {
+  const options = await fixture(t);
+  const dataDir = path.join(options.root, "harness-office-migration");
+  const config = await builtinMcp({ type: "builtin", name: "computercontroller" }, options);
+  let driver = await createHarnessDriver({ dataDir, cwd: options.cwd });
+  let sessionId;
+  try {
+    ({ sessionId } = await driver.createSession({ cwd: options.cwd,
+      provider: { id: "office-fixture", protocol: "openai-completions", baseUrl: "http://127.0.0.1:1/v1", apiKey: "unused" },
+      model: "fixture", options: { mcpServers: [config] } }));
+    await driver.close();
+    driver = await createHarnessDriver({ dataDir, cwd: options.cwd });
+    await driver.configureSession(sessionId, { mcpServers: [config] });
+    const names = (await driver.listTools(sessionId)).map(tool => tool.name);
+    assert.deepEqual(names.filter(name => name.startsWith("mcp__computercontroller__")).sort(),
+      ["cache", "pdf_tool", "web_scrape"].map(name => `mcp__computercontroller__${name}`).sort());
+    for (const name of ["office-docx", "office-xlsx", "office-pptx"]) {
+      assert.ok((await driver.listSkills(sessionId)).some(skill => skill.name === name));
+    }
+    const discovery = await driver.callTool(sessionId, "search_mcp_tools", { names: ["skill", "load_workspace_dependencies"] }, { onPermission: () => true });
+    assert.equal(discovery.isError, false);
+    assert.equal(discovery.value.tools.length, 2);
+    const cache = await driver.callTool(sessionId, "mcp__computercontroller__cache", { command: "list" }, { onPermission: () => true });
+    assert.equal(cache.isError, false);
+  } finally { await driver.close(); }
+});
+
 test("bundled catalog validates pinned artifacts and reports unsupported platforms explicitly", async () => {
   const catalog = await listAvailableBuiltins();
   assert.deepEqual(catalog.map((row) => row.configKey).sort(), [

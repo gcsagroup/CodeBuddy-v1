@@ -210,10 +210,10 @@
     "defaultMessage": "自动可视化"
   },
   "builtInExtension.computerController.description": {
-    "defaultMessage": "处理 Word、Excel、PDF、网页与缓存文件；Windows 桌面操作统一使用电脑控制。"
+    "defaultMessage": "提取 PDF、保存网页文件并管理缓存；Word、Excel 和 PowerPoint 使用 Office 文档技能。"
   },
   "builtInExtension.computerController.name": {
-    "defaultMessage": "文档与网页工具"
+    "defaultMessage": "PDF 与网页文件"
   },
   "builtInExtension.developer.description": {
     "defaultMessage": "用于软件工程的通用开发工具。"
@@ -8365,5 +8365,8 @@
   },
   "workStatus.thought": {
     "defaultMessage": "正在思考"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office 文档"
   }
 }

@@ -10,8 +10,8 @@ const binDirectory = fileURLToPath(new URL("./tools/bin/", import.meta.url));
 const artifacts = {
   tools: {
     file: "codebuddy-tools.exe",
-    bytes: 41534464,
-    sha256: "55b007eb046154957310b9de0fa456ac63c6598814851b1b913c076cf29ebbc8",
+    bytes: 21777920,
+    sha256: "b89dc85054e5bbe4410e4b50e38c6a423eea94c659403dbb17224d62abee50a4",
   },
   computer: {
     file: "qwen-computer-use.exe",
@@ -47,9 +47,9 @@ const builtins = {
   computercontroller: {
     artifact: artifacts.tools,
     args: ["mcp", "computercontroller"],
-    displayName: "文档与网页",
-    description: "读取和编辑文档、表格、PDF，抓取网页并管理工具缓存。",
-    tools: ["cache", "docx_tool", "pdf_tool", "web_scrape", "xlsx_tool"],
+    displayName: "PDF 与网页文件",
+    description: "提取 PDF、保存网页文件并管理工具缓存。Word、Excel 和 PowerPoint 使用 Office 技能。",
+    tools: ["cache", "pdf_tool", "web_scrape"],
   },
   autovisualiser: {
     artifact: artifacts.tools,

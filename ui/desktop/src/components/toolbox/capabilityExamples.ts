@@ -6,9 +6,9 @@ export const capabilityExamples: Record<string, [string, string, string]> = {
     'Open an application, inspect its window, and operate a specified control.',
   ],
   computercontroller: [
-    '读取 Excel 表格、处理 Word 或 PDF；Windows 桌面操作请使用电脑控制。',
-    '讀取 Excel 表格、處理 Word 或 PDF；Windows 桌面操作請使用電腦控制。',
-    'Read spreadsheets and process Word or PDF files; use Computer control for Windows desktop actions.',
+    '提取 PDF 文字和图片，保存网页文件；Word、Excel 和 PowerPoint 请使用 Office 文档技能。',
+    '擷取 PDF 文字和圖片，儲存網頁檔案；Word、Excel 和 PowerPoint 請使用 Office 文件技能。',
+    'Extract PDF text and images or save web files; use Office document skills for Word, Excel, and PowerPoint.',
   ],
   developer: [
     '读取项目文件，修改代码并执行测试。',

@@ -41,12 +41,12 @@ const builtInExtensionI18n = defineMessages({
   },
   computerControllerName: {
     id: 'builtInExtension.computerController.name',
-    defaultMessage: 'Document and web tools',
+    defaultMessage: 'PDF and web files',
   },
   computerControllerDescription: {
     id: 'builtInExtension.computerController.description',
     defaultMessage:
-      'Process Word, Excel, PDF, web content, and cached files. Windows desktop control uses the Computer capability.',
+      'Extract PDF content, save web files, and manage cached files. Use Office skills for Word, Excel, and PowerPoint.',
   },
   autoVisualiserName: {
     id: 'builtInExtension.autoVisualiser.name',

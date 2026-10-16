@@ -36,7 +36,7 @@ const useWindowsX64Checksum =
   requestedTarget('platform') === 'win32' && requestedTarget('arch') === 'x64';
 
 let cfg = {
-  name: harnessResourceDir ? 'CodeBuddy Harness' : distro.productName,
+  name: distro.productName,
   executableName: distro.executableName,
   asar: { unpack: '**/node-pty/**' },
   ...(useWindowsX64Checksum
@@ -159,10 +159,10 @@ module.exports = {
       platforms: ['win32'],
       config: {
         name: harnessResourceDir ? 'CodeBuddyHarness' : 'CodeBuddy',
-        authors: 'CodeBuddy Research Build',
+        authors: 'CodeBuddy',
         description: distro.description,
         exe: `${distro.executableName}.exe`,
-        setupExe: harnessResourceDir ? 'CodeBuddy-Harness-Setup.exe' : 'CodeBuddy-Setup.exe',
+        setupExe: 'CodeBuddy-Setup.exe',
         setupIcon: resolve(__dirname, 'src/images/icon.ico'),
         noMsi: true,
         ...(harnessResourceDir && process.env.CODEBUDDY_HARNESS_VENDOR_DIR

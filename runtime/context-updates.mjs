@@ -18,7 +18,7 @@ export function recoveredCompactionUpdates(open, events) {
   const ends = new Map(events.filter(event => event.type === 'compaction/end').map(event => [event.data.compactionId, event.data]));
   return open.map(update => {
     const end = ends.get(update.status.data.operation_id);
-    const error = end ? end.error : '进程已退出，未收到 Harness 压缩结束确认；原始记录保留。';
+    const error = end ? end.error : '进程已退出，未收到运行时压缩结束确认；原始记录保留。';
     return { ...update, status: { ...update.status,
       message: end ? error ? '上下文压缩失败' : '上下文压缩完成' : '上下文压缩已中断，结果未确认',
       data: { ...update.status.data, status: error ? 'failed' : 'completed', ...(error ? { error } : {}) },

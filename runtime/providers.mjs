@@ -445,7 +445,7 @@ export function inventory(provider) {
   return {
     providerId: provider.id,
     providerName: provider.displayName,
-    description: "Model connection used by DeepSeek Harness",
+    description: "Model connection used by CodeBuddy",
     defaultModel: provider.models[0] ?? "",
     configured: providerStatus(provider).isConfigured,
     providerType: "Custom",

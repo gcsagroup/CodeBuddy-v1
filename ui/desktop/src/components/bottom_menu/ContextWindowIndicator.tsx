@@ -39,8 +39,8 @@ export function ContextWindowIndicator({
         : 'Live generation estimate; auto-compaction is checked between steps'
       : estimated
         ? chinese
-          ? 'Harness 保守估算，非计费量'
-          : 'Harness conservative estimate, not billed usage'
+          ? 'CodeBuddy 保守估算，非计费量'
+          : 'CodeBuddy conservative estimate, not billed usage'
         : chinese
           ? '上下文用量'
           : 'Context usage',
@@ -59,7 +59,7 @@ export function ContextWindowIndicator({
             ? '容量：模型服务返回'
             : 'Capacity: reported by service'
           : capacitySource === 'catalog'
-            ? chinese ? '容量：Harness 模型目录，部署可设置更低上限' : 'Capacity: Harness catalog; deployment may use a lower limit'
+            ? chinese ? '容量：CodeBuddy 模型目录，部署可设置更低上限' : 'Capacity: CodeBuddy catalog; deployment may use a lower limit'
             : '',
   ]
     .filter(Boolean)

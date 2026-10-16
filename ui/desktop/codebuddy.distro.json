@@ -1,7 +1,7 @@
 {
   "productName": "CodeBuddy",
   "packageName": "codebuddy-desktop",
-  "description": "CodeBuddy Desktop Research Build",
+  "description": "CodeBuddy Desktop",
   "executableName": "CodeBuddy",
   "protocol": "codebuddy",
   "backendProfileDirectoryName": "backend",

@@ -47,7 +47,7 @@ export default function ModelContextSettings({ providers }: { providers: Provide
         };
         setValue(current.configured == null ? '' : String(current.configured));
         setStatus(
-          `${current.contextWindow.toLocaleString()} tokens · ${current.contextSource === 'fallback' ? (zh ? 'Harness 默认预算，容量未确认' : 'Harness default budget; capacity unconfirmed') : current.contextSource === 'service' ? (zh ? '服务端容量' : 'Service capacity') : current.contextSource === 'catalog' ? (zh ? 'Harness 模型目录' : 'Harness model catalog') : zh ? '手动配置' : 'Configured'}`
+          `${current.contextWindow.toLocaleString()} tokens · ${current.contextSource === 'fallback' ? (zh ? 'CodeBuddy 默认预算，容量未确认' : 'CodeBuddy default budget; capacity unconfirmed') : current.contextSource === 'service' ? (zh ? '服务端容量' : 'Service capacity') : current.contextSource === 'catalog' ? (zh ? 'CodeBuddy 模型目录' : 'CodeBuddy model catalog') : zh ? '手动配置' : 'Configured'}`
         );
         setReady(true);
       })
@@ -92,8 +92,8 @@ export default function ModelContextSettings({ providers }: { providers: Provide
       <h3 className="font-medium">{zh ? '模型上下文容量' : 'Model context capacity'}</h3>
       <p className="text-sm text-text-muted">
         {zh
-          ? '优先读取服务容量。缺少信息时可填写部署的实际上限；留空恢复自动识别。Harness 按此预算检查压缩。'
-          : 'Uses service capacity. Enter the deployment limit when metadata is missing; leave blank for automatic discovery. Harness checks compaction against this budget.'}
+          ? '优先读取服务容量。缺少信息时可填写部署的实际上限；留空恢复自动识别。CodeBuddy 按此预算检查压缩。'
+          : 'Uses service capacity. Enter the deployment limit when metadata is missing; leave blank for automatic discovery. CodeBuddy checks compaction against this budget.'}
       </p>
       <select
         aria-label={zh ? '上下文容量模型' : 'Context capacity model'}

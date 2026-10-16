@@ -1098,7 +1098,7 @@ export class Compat {
     if (method === "initialize")
       return {
         protocolVersion: 1,
-        agentInfo: { name: "CodeBuddy Harness Preview", version: "0.1.0" },
+        agentInfo: { name: "CodeBuddy", version: "0.1.0" },
         authMethods: [],
         agentCapabilities: {
           loadSession: true,
@@ -1955,7 +1955,7 @@ export class Compat {
         return {
           extensions: this.store.read(["extensions"]).extensions,
           warnings: [
-            "Preview: legacy builtin extensions are not yet connected to the Harness runtime.",
+            "Preview: legacy builtin extensions are not yet connected to the CodeBuddy runtime.",
           ],
         };
       case "config/extensions/add":
@@ -2322,7 +2322,7 @@ export class Compat {
             context.receipts.some((r) => r.kind === "write" || r.kind === "command");
           const limitations = completed ? [] : [context.lastReason ?? "Task requires continuation"];
           if (acceptanceUnverified)
-            limitations.push("Harness completion does not assert independent acceptance; inspect the recorded tool results.");
+            limitations.push("Turn completion does not assert independent acceptance; inspect the recorded tool results.");
           if (uncertainEffects > 0)
             limitations.push("Some tool effects still require inspection before retrying them.");
           const data = {

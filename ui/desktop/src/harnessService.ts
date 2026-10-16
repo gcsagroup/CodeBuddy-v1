@@ -16,7 +16,7 @@ export async function startHarnessService(options: {
   const root = path.dirname(manifestFile);
   const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
   if (manifest.engine !== 'deepseek-harness' || manifest.schemaVersion !== 1) {
-    throw new Error('The packaged Harness runtime manifest is invalid');
+    throw new Error('The packaged CodeBuddy runtime manifest is invalid');
   }
   const node = path.join(root, 'node', process.platform === 'win32' ? 'node.exe' : 'node');
   if (!fs.statSync(node).isFile()) throw new Error('The bundled Node runtime is missing');
@@ -54,8 +54,8 @@ export async function startHarnessService(options: {
   })();
   try {
     const ready = await new Promise<{ url: string; pid: number }>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Harness startup timed out; see logs/harness/runtime.log')), 30000);
-      const onExit = () => { clearTimeout(timer); reject(new Error('Packaged Harness exited before readiness')); };
+      const timer = setTimeout(() => reject(new Error('CodeBuddy startup timed out; see logs/harness/runtime.log')), 30000);
+      const onExit = () => { clearTimeout(timer); reject(new Error('Packaged CodeBuddy exited before readiness')); };
       child.once('exit', onExit);
       child.once('error', error => { clearTimeout(timer); reject(error); });
       child.on('message', message => {

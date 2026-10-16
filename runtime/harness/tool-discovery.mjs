@@ -18,7 +18,7 @@ export function installToolDiscovery(ctx, agent) {
   if (!available().length) return;
   ctx.tools.register({
     name: 'search_mcp_tools',
-    description: 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through Harness.',
+    description: 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
     parameters: { type: 'object', properties: {
       query: { type: 'string', description: 'Short search keywords; empty lists tools.' },
       names: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Exact tool names to load.' },

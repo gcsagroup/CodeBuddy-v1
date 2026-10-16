@@ -80,7 +80,7 @@ test('a later ordinary response does not claim completion of the session previou
   const context = f.runs.context(f.binding);
   assert.equal(context.state, 'completed');
   assert.equal(context.completionKind, 'harness_turn');
-  assert.equal(context.lastReason, 'Harness turn completed');
+  assert.equal(context.lastReason, 'CodeBuddy turn completed');
 });
 
 test('native turn boundaries clear current todos without rewriting their historical snapshots', async () => {

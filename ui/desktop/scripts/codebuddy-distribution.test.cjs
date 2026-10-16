@@ -159,7 +159,7 @@ test('desktop sources consume the CodeBuddy distribution metadata', () => {
   assert.match(indexHtml, /<title>CodeBuddy<\/title>/);
 
   const mainProcess = readDesktopFile(path.join('src', 'main.ts'));
-  assert.match(mainProcess, /app\.setName\(harnessPreview\s*\?\s*'CodeBuddy Harness Preview'\s*:\s*distro\.productName\)/);
+  assert.match(mainProcess, /app\.setName\(distro\.productName\)/);
   assert.match(mainProcess, /CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION/);
   assert.match(mainProcess, /CODEBUDDY_USER_DATA_DIR/);
   assert.match(mainProcess, /app\.setPath\(['"]userData['"],\s*isolatedUserDataDir\)/);
@@ -806,7 +806,8 @@ test('Harness stage has a separate install identity and rejects modified resourc
   const config = require(configPath);
   const maker = config.makers.find(m => m.name === '@electron-forge/maker-squirrel');
   assert.equal(maker.config.name, 'CodeBuddyHarness');
-  assert.equal(maker.config.setupExe, 'CodeBuddy-Harness-Setup.exe');
+  assert.equal(maker.config.setupExe, 'CodeBuddy-Setup.exe');
+  assert.equal(config.packagerConfig.name, 'CodeBuddy');
   assert.ok(config.packagerConfig.extraResource.includes(root));
   fs.writeFileSync(path.join(root, 'entry.mjs'), 'modified');
   delete require.cache[configPath];

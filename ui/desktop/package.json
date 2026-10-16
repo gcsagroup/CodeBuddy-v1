@@ -1,8 +1,8 @@
 {
   "name": "codebuddy-desktop",
   "productName": "CodeBuddy",
-  "version": "1.43.3-harness15",
-  "description": "CodeBuddy Desktop Research Build",
+  "version": "1.43.4",
+  "description": "CodeBuddy Desktop",
   "engines": {
     "node": "^24.10.0",
     "pnpm": ">=10.30.0"

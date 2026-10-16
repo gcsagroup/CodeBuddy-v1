@@ -26,7 +26,7 @@ async function main() {
     throw new Error('--make-only requires an existing verified stage and packaged application');
   }
   if (makeOnly) {
-    const packaged = path.join(desktop, 'out/CodeBuddy Harness-win32-x64');
+    const packaged = path.join(desktop, 'out/CodeBuddy-win32-x64');
     const stagedManifest = fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8');
     const packagedManifest = fs.readFileSync(path.join(packaged, 'resources/harness-distribution/manifest.json'), 'utf8');
     if (!fs.existsSync(path.join(packaged, 'CodeBuddy.exe')) || stagedManifest !== packagedManifest) {

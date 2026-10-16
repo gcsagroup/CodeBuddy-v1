@@ -102,7 +102,7 @@ if (harnessPreview) {
     !process.env.CODEBUDDY_EXTERNAL_BACKEND_URL ||
     !process.env.CODEBUDDY_SERVER__SECRET_KEY
   ) {
-    throw new Error('Start the Harness preview with scripts/start-harness-preview.cjs');
+    throw new Error('Start CodeBuddy with scripts/start-harness-preview.cjs');
   }
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';
@@ -131,7 +131,7 @@ log.info('Desktop startup preflight', {
 
 // Keep development and packaged profiles under the same internal Electron name.
 // Source: https://www.electronjs.org/docs/latest/api/app#appsetnamename
-app.setName(harnessPreview ? 'CodeBuddy Harness Preview' : distro.productName);
+app.setName(distro.productName);
 if (harnessPreview && process.platform === 'win32') {
   app.setAppUserModelId('local.codebuddy.harness.preview');
 }
@@ -1295,9 +1295,9 @@ const createChat = async (
     log.error('Harness runtime is missing. Use start-preview.ps1 or the Harness installer.');
     dialog.showMessageBoxSync({
       type: 'error',
-      title: 'CodeBuddy Harness',
-      message: nativeT('Harness runtime is not connected.', 'Harness 运行时尚未连接。', 'Harness 執行環境尚未連線。'),
-      detail: nativeT('Use start-preview.ps1 for development or reinstall CodeBuddy Harness.', '开发请使用 start-preview.ps1，安装版请重新安装 CodeBuddy Harness。', '開發請使用 start-preview.ps1，安裝版請重新安裝 CodeBuddy Harness。'),
+      title: 'CodeBuddy',
+      message: nativeT('CodeBuddy runtime is not connected.', 'CodeBuddy 运行时尚未连接。', 'CodeBuddy 執行環境尚未連線。'),
+      detail: nativeT('Use start-preview.ps1 for development or reinstall CodeBuddy.', '开发请使用 start-preview.ps1，安装版请重新安装 CodeBuddy。', '開發請使用 start-preview.ps1，安裝版請重新安裝 CodeBuddy。'),
       buttons: [nativeT('OK', '确定', '確定')],
     });
     app.quit();
@@ -2629,7 +2629,7 @@ async function appMain() {
 
   {
     // Preserve the IPC surface without reaching the legacy release channel.
-    const previewUpdateError = 'Updates are disabled for the isolated Harness preview.';
+    const previewUpdateError = 'Updates are disabled for this CodeBuddy preview.';
     ipcMain.handle('check-for-updates', () => ({ updateInfo: null, error: previewUpdateError }));
     ipcMain.handle('download-update', () => ({ success: false, error: previewUpdateError }));
     ipcMain.handle('install-update', () => ({ success: false, error: previewUpdateError }));

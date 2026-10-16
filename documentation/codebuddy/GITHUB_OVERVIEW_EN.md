@@ -1,56 +1,50 @@
 # CodeBuddy
 
-## Current Harness candidate (D:\CodeBuddy-v1)
+[简体中文](../../README.md) · [繁體中文](GITHUB_OVERVIEW_ZH_TW.md) · English
 
-Git contains source, dependency lockfiles and licenses, excluding local model credentials, chats, raw acceptance captures, `node_modules`, build output and installers. `vendor/deepseek-harness` is only a local upstream reference cache; runtime dependencies are pinned in `runtime/harness/package-lock.json`. A fresh clone also requires the platform MCP executables described by `runtime/tools/provenance.json` under `runtime/tools/bin`, in addition to development dependencies. Startup and packaging verify these files; prebuilt tools are not stored in Git. The current Windows installer already bundles these runtime components.
+CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The current candidate is `1.43.4`. Acceptance results apply to the specific build recorded in the delivery notes; a successful build does not establish every workflow as verified.
 
-Final Windows candidate `1.43.3-harness7` is installed. Its initial homepage shows the deployed 65536 capacity (about 66k), fixing the old 33k fallback that squeezed output allowance and interrupted replies. Two real installed UI conversations streamed to completion with first text at 8.0/3.9 seconds; conversations appeared in about one second. A cold-start sample still took 45 seconds, so latency is not fully resolved. Intermediate-candidate evidence from this batch covers six compactions, fact retention after restart and file tools. Installer: `target/accepted-harness-installer-1.43.3-harness7/CodeBuddy-Harness-Setup.exe`. Launch CodeBuddy Harness; workspace `~/CodeBuddy-Workspace`, data `~/.CodeBuddy-Harness`; existing settings preserved. See [acceptance record](../../docs/reconstruction/2026-10-15-context-capacity.en.md). macOS and hours-long production projects remain unverified.
+## Start from source
 
-The installer includes the existing build-machine Node 24 executable and its license. Harness and its native task runners use bundled Node. The packaging gate executes PowerShell and file search; project-specific language toolchains remain project prerequisites.
+Prepare Git, Node.js 24.x, the pnpm version pinned in `ui/package.json`, and existing project dependencies. Building independent native tools also requires the Rust toolchain pinned in `rust-toolchain.toml`, Visual Studio C++ Build Tools, Windows SDK and LLVM/Clang.
 
-Windows installer entry: run `node scripts/build-harness-windows.cjs` with existing Node 24+ and local dependencies. Electron Forge/Squirrel bundles Harness, the adapters and verified MCP tools. The separate install ID is CodeBuddyHarness, with data in `~/.CodeBuddy-Harness`. Configure a model on first launch; old data is not imported automatically. See the [installer acceptance record](../../docs/reconstruction/2026-10-15-harness-package.en.md). With an unchanged packaged application from the same build, `node scripts/build-harness-windows.cjs <stage-directory> --make-only` resumes installer generation. Do not use it to skip rebuilding changed application sources.
-
-Harness owns execution in this directory. On Windows, use the existing launcher:
-After NuGet succeeds, `node scripts/build-harness-windows.cjs <stage-directory> --finalize-only` resumes interrupted Squirrel finalization. It first verifies the application archive and Harness manifest against the current package. Existing packaging tools are staged under `target/harness-winstaller-*` with the host-specific 7-Zip aliases; installed dependency directories are unchanged.
+From the repository root:
 
 ```powershell
-Set-Location D:\CodeBuddy-v1
 .\start-preview.ps1
 ```
 
-The launcher selects an existing Node.js 24+ runtime, prepares the SDK and language resources, then starts the Harness bridge and Electron. It does not install dependencies. Models, history and settings remain in `.preview-data`; logs and the launch receipt are in `.preview-data/logs/preview`. New tasks get separate working directories under `D:\CodeBuddy-Workspace`, or you can select an existing project. Configure models in Settings.
+The launcher uses existing dependencies and starts the runtime and Electron. Development data lives in `.preview-data`, with launch logs under `.preview-data/logs/preview`. Configure your model in Settings. New tasks can use the default workspace or an existing project.
 
-The start-preview command above is the source development entry with data separate from the installed app. See the [installed acceptance record](../../docs/reconstruction/2026-10-15-harness-package.en.md), [overnight acceptance record](../../docs/reconstruction/overnight-acceptance.en.md) and [feature matrix](../../docs/reconstruction/v1-functionality.en.md) for verified scope and gaps. The original `start-gui` and Rust packaging instructions retained below belong to the legacy backend and do not launch this directory's Harness version.
-
-A Windows desktop AI development assistant for project analysis, code changes, commands, Git review and configurable tools. This is a source development preview; not every workflow has completed real-world acceptance.
-
-## Legacy backend source launch instructions
-
-Install Git, Node.js 24.x (24.10 or compatible), Visual Studio 2022 C++ Build Tools, Windows SDK and LLVM/Clang. Rust is pinned in [rust-toolchain.toml](../../rust-toolchain.toml); pnpm is pinned in [ui/package.json](../../ui/package.json).
+## Windows package
 
 ```powershell
-git clone https://github.com/erjinyi-bool/CodeBuddy.git
-Set-Location .\CodeBuddy
-corepack pnpm --dir .\ui install --frozen-lockfile
-Set-Location .\ui\desktop
-node .\scripts\prepare-platform-binaries.js
-corepack pnpm run start-gui
+node scripts/build-harness-windows.cjs
 ```
 
-If Corepack is unavailable, install it with `npm install --global corepack`. The launcher prepares the backend, SDK and language resources. Initial compilation needs time and sufficient disk space.
+The installer is `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`; the application name is CodeBuddy. The existing installation ID `CodeBuddyHarness` and data directory `~/.CodeBuddy-Harness` remain compatible with previous releases. Renaming the display does not move user data.
 
-## First task
+Prepare `runtime/py` and `runtime/office` using the [Office builder](../../scripts/office-builder/README.md) before first packaging. Preparation downloads dependencies; ordinary packaging copies and verifies existing files. The package includes Node and the required runtime payload. Project-specific development toolchains remain project prerequisites.
 
-1. Configure the model provider, endpoint, API key and available model in Settings.
-2. Select a project folder in New task.
-3. Ask: “Read this project and explain its entry points and tests. Do not modify files.”
-4. Request a small change with explicit test requirements.
-5. Inspect tool receipts, diffs and actual test results before accepting completion.
+Prepare independent MCP tools in `runtime/tools/bin` according to `runtime/tools/provenance.json`. The offline build command is:
 
-Use version control for status, diffs and review. Check the target repository before write or remote operations. External MCP services need a working connection. Desktop tasks need a specific application and outcome. Enabled does not mean verified.
+```powershell
+cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools --jobs 1
+```
 
-For startup failures, check compiler and Clang installation. For model errors, check service credentials and tool support. Preserve session data when reporting recovery issues, and remove private information from logs.
+When replacing an artifact, update and verify its size and SHA256 in the provenance record and `runtime/builtin-extensions.mjs`. Runtime dependencies are pinned in `runtime/harness/package-lock.json`.
 
-[Full guide](../../README.md) · [Contributing](../../CONTRIBUTING.md) · [License](../../LICENSE) · [Third-party notices](THIRD_PARTY_NOTICE.md)
+`node scripts/build-harness-windows.cjs <stage-directory> --make-only` resumes packaging only when the existing application and stage match the same source. Use `--finalize-only` when NuGet completed but Squirrel finalization stopped; archive identity is checked first. Source changes require a fresh build and stage.
 
-Upstream goose blog posts and event media are no longer copied into this repository. Documentation links point to the upstream website; images still needed by the guides remain in `documentation/static/img/upstream-blog/`. Local build caches such as `target/` are not source files and are regenerated by builds.
+## Use and verification
+
+1. Configure the model endpoint, credentials and model in Settings.
+2. Open a task in the default workspace or select a project.
+3. Start with a read-only project analysis, then specify the intended changes and acceptance conditions.
+4. Check file differences, tool receipts and test exit codes. A model's completion message is not an independent acceptance result.
+
+Skills and external MCP services retain their own configuration and permissions. GitHub account authentication and GitHub MCP activation are separate. Never commit credentials or local chat data.
+
+From `ui/desktop`, run `corepack pnpm run typecheck`, `corepack pnpm run test:run` and `corepack pnpm run lint:check` for desktop checks. Runtime integration tests live under `runtime/tests` and `runtime/harness/test`.
+
+Windows checks do not establish macOS or long production-project acceptance. See [delivery and acceptance records](../../docs/reconstruction) for evidence and remaining work. Historical version names and results remain historical facts. Third-party licenses, copyrights and source records are retained, including `runtime/harness/PROVENANCE.json`.

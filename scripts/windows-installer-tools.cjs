@@ -70,9 +70,9 @@ async function finalizeInstaller({ desktop, vendor }) {
   const { convertVersion } = requireDesktop('electron-winstaller');
   const output = path.join(desktop, 'out/make/squirrel.windows/x64');
   const archive = path.join(output, `CodeBuddyHarness.${convertVersion(pkg.version)}.nupkg`);
-  const target = path.join(output, 'CodeBuddy-Harness-Setup.exe');
+  const target = path.join(output, 'CodeBuddy-Setup.exe');
   if (fs.existsSync(target)) throw new Error('Installer already exists; preserve it before finalizing another candidate');
-  await verifyNugetPackage(archive, path.join(desktop, 'out/CodeBuddy Harness-win32-x64'), desktop);
+  await verifyNugetPackage(archive, path.join(desktop, 'out/CodeBuddy-win32-x64'), desktop);
   // Squirrel copies its input into releaseDir, so source and destination must differ.
   const inputDirectory = path.join(vendor, 'input'); fs.mkdirSync(inputDirectory);
   const input = path.join(inputDirectory, path.basename(archive)); fs.copyFileSync(archive, input);

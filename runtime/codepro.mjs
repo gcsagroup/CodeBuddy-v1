@@ -205,14 +205,14 @@ function nativeTerminal({ result, error, aborted }, view) {
   const reason = result?.reason;
   const code = reason?.kind ?? ({ end_turn: 'completed', cancelled: 'aborted', max_tokens: 'max-tokens', max_turns: 'max-turns', refusal: 'blocked' })[result?.stopReason];
   const failure = error ?? (code === 'error' ? reason.error : null);
-  if (aborted || view.stopRequested || code === 'aborted' || code === 'interrupted') return { state: 'paused', completionKind: null, reason: 'Harness execution paused', goal };
+  if (aborted || view.stopRequested || code === 'aborted' || code === 'interrupted') return { state: 'paused', completionKind: null, reason: 'CodeBuddy execution paused', goal };
   if (failure) return { state: 'failed', completionKind: null, reason: failure.message ?? String(failure), error: { message: failure.message ?? String(failure), ...(failure.code !== undefined ? { code: failure.code } : {}) }, goal };
-  if (code !== 'completed' || result?.stopReason === 'max_turns') return { state: 'paused', completionKind: null, reason: `Harness stopped: ${result?.stopReason ?? code ?? 'unknown'}`, goal };
-  if (goal && goal.phase !== 'complete') return { state: 'paused', completionKind: null, reason: goal.blockedReason?.message ?? `Harness goal is ${goal.phase}`, goal };
+  if (code !== 'completed' || result?.stopReason === 'max_turns') return { state: 'paused', completionKind: null, reason: `CodeBuddy stopped: ${result?.stopReason ?? code ?? 'unknown'}`, goal };
+  if (goal && goal.phase !== 'complete') return { state: 'paused', completionKind: null, reason: goal.blockedReason?.message ?? `CodeBuddy goal is ${goal.phase}`, goal };
   // A session retains its last completed goal. A later ordinary reply must not
   // claim that a new run completed that previous goal again.
   const completedRunGoal = goal && view.nativeGoal?.id === goal.id;
-  return { state: 'completed', completionKind: completedRunGoal ? 'harness_goal' : 'harness_turn', reason: completedRunGoal ? 'Harness goal completed' : 'Harness turn completed', goal };
+  return { state: 'completed', completionKind: completedRunGoal ? 'harness_goal' : 'harness_turn', reason: completedRunGoal ? 'CodeBuddy goal completed' : 'CodeBuddy turn completed', goal };
 }
 
 function snapshot(row) {
@@ -375,7 +375,7 @@ export class CodeProRuns {
     return this.mutate(params, (row, view) => {
       assertAttempt(view, params.attemptId);
       interruptPending(row, view);
-      event(row, 'attempt_finished', { attemptId: params.attemptId, reason: params.reason ?? 'Harness turn ended without a verified run completion' });
+      event(row, 'attempt_finished', { attemptId: params.attemptId, reason: params.reason ?? 'CodeBuddy turn ended without a verified run completion' });
     });
   }
   async finishHarnessAttempt(params) {

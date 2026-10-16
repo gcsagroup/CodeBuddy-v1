@@ -860,6 +860,8 @@ export default function BaseChat({
                 contextLimit={
                   tokenState.contextLimit ?? session?.model_config?.context_limit ?? undefined
                 }
+                contextUsageSource={tokenState.contextUsageSource}
+                contextCapacitySource={tokenState.contextCapacitySource}
                 accumulatedInputTokens={
                   tokenState?.accumulatedInputTokens ??
                   session?.accumulated_usage?.input_tokens ??

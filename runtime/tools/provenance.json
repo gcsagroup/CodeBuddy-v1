@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-10-14T09:26:38.212Z",
-  "purpose": "Standalone MCP tool processes invoked by DeepSeek Harness; the legacy agent, ACP server and scheduler are not started.",
-  "artifactIdentityNote": "Goose rebuilt offline from current D:/CodeBuddy-v1 on 2026-10-15 with the existing donut envelope fix and standalone commonqueries MCP. Qwen remains the pinned original artifact. Earlier previews retain their previous executable.",
+  "copiedAt": "2026-10-15T14:19:16.847Z",
+  "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
+  "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
   "artifacts": [
     {
-      "name": "goose",
-      "path": "bin/goose-0a286375/goose.exe",
+      "name": "codebuddy-tools",
+      "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "0a286375a8d30f0acbbf38f40275372a13a613dc5b5ad50fae5d0de6b23fa602",
-      "bytes": 332407808,
-      "sourcePath": "D:\\CodeBuddy-v1\\target\\debug\\goose.exe",
-      "sourceModifiedAt": "2026-10-14T21:18:29.011Z",
-      "sourceBaselineRevision": "964bbeb1587f1c5551ee17907e0b26632c4163ce",
+      "sha256": "55b007eb046154957310b9de0fa456ac63c6598814851b1b913c076cf29ebbc8",
+      "bytes": 41534464,
+      "sourcePath": "D:\\CodeBuddy-v1\\target\\debug\\codebuddy-tools.exe",
+      "sourceModifiedAt": "2026-10-15T14:15:58.847Z",
+      "sourceBaselineRevision": "01610d03764570282eee439cd2bfb49fcd373e98",
       "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
-      "buildLog": ".preview-evidence/common-query-goose-build.log",
-      "buildProfile": "dev, existing Windows build-environment resolver, offline, locked, jobs=1",
+      "buildLog": ".preview-evidence/h13-tool-build.log",
+      "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
       "licenseSha256": "276907a476b8790c650f7a7584b5bd194303bdacb269edf130b51c3cf2a7365d",
@@ -36,7 +36,7 @@
           "commonqueries"
         ]
       ],
-      "sourceManifest": ".preview-evidence/overnight-source-commonqueries.json"
+      "sourceManifest": ".preview-evidence/h13-tool-source.json"
     },
     {
       "name": "qwen-computer-use",

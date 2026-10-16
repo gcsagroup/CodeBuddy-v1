@@ -3,6 +3,8 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { boot } from '@deepseek-ai/dsh-app-boot';
+import { BlockAssembler } from '@deepseek-ai/dsh-llm';
+import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
 import compactionPlugin from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import * as subagentToolPlugin from '@deepseek-ai/dsh-tool-subagent';
@@ -15,6 +17,7 @@ import { DEFAULT_CONTEXT_WINDOW, DEFAULT_OUTPUT_TOKENS } from '../model-defaults
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
+import { installToolDiscovery } from './tool-discovery.mjs';
 
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
@@ -41,6 +44,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const routes = new Map();
   const providers = new Map();
   const sessionSettings = new Map();
+  const contextSources = new Map();
+  const streamingMeters = new Map();
   const sessionScopes = new Map();
   const directCalls = new Map();
   const toolReceipts = new Map();
@@ -130,6 +135,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     return {
       type: 'context_usage', sessionId: session.id, revision: meter.logRevision,
       used: meter.totalTokens, contextLimit: pressure?.contextWindow,
+      contextSource: contextSources.get(session.id) ?? 'fallback',
       // Occupancy includes estimated changes since the provider anchor; it is
       // not a live billing counter and does not include uncommitted stream text.
       source: meter.baseline.kind === 'usage' && meter.surfaceDeltaTokens === 0 ? 'provider_actual' : 'local_estimate',
@@ -219,11 +225,22 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const run = runFor(agent);
     if (!run) return;
     if (frame.type === 'start') {
+      streamingMeters.set(agent.id, { attemptId: frame.attemptId, assembler: new BlockAssembler(), baseline: contextUsage(agent.session), lastSent: 0 });
       emit(run, { type: 'assistant_start', attemptId: frame.attemptId, turn: frame.turn, step: frame.step, sessionId: agent.id });
       return;
     }
-    if (frame.type !== 'chunk') return;
+    if (frame.type !== 'chunk') { streamingMeters.delete(agent.id); return; }
     const chunk = frame.chunk;
+    const live = streamingMeters.get(agent.id);
+    if (live?.attemptId === frame.attemptId) {
+      live.assembler.push(chunk);
+      if (Date.now() - live.lastSent >= 250 && ['text-delta', 'reasoning-delta', 'tool-call-delta', 'block-end'].includes(chunk.type)) {
+        live.lastSent = Date.now();
+        // Display only: use upstream block assembly and pricing. The durable
+        // meter and native compaction still own all request/pressure decisions.
+        emit(run, { ...live.baseline, used: live.baseline.used + estimateContent(live.assembler.blocks()) + 4, source: 'streaming_estimate' });
+      }
+    }
     if (chunk.type === 'text-delta') emit(run, { type: 'text_delta', text: chunk.text, attemptId: frame.attemptId, sessionId: agent.id });
     if (chunk.type === 'reasoning-delta') emit(run, { type: 'thinking_delta', text: chunk.text, attemptId: frame.attemptId, sessionId: agent.id });
     if (chunk.type === 'usage') emit(run, { type: 'usage', ...chunk.usage, sessionId: agent.id });
@@ -404,22 +421,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     sessionSettings.delete(sessionId);
     const connections = [];
     const remoteServers = mcpServers.filter(server => server.transport === 'streamable-http');
-    const shared = await mcpPresets.acquire(remoteServers);
+    let shared;
     let binding = mcpBindings.get(agent);
-    if (shared) {
-      if (binding) binding.rebind(shared.key);
-      else { binding = bindScopeParent(agent, shared.key); mcpBindings.set(agent, binding); }
-      connections.push(...shared.statuses);
-      console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: shared.reused, servers: shared.statuses.length }));
-    }
     const fiber = agent.ctx.isolate('compaction').plugin({
       name: 'codebuddy-session-capabilities',
       async apply(scoped) {
-        if (shared) scoped.effect(() => async () => {
-          binding.rebind(undefined);
-          await shared[Symbol.asyncDispose]();
+        scoped.effect(() => async () => {
+          binding?.rebind(undefined);
+          await shared?.[Symbol.asyncDispose]();
         }, 'codebuddy-mcp.preset-lease');
-        if (settings.systemPrompt) scoped.systemPrompt.section({ name: 'codebuddy:session-instructions', order: 100, text: settings.systemPrompt, interpolate: false });
+        if (settings.systemPrompt) {
+          // Session policy must survive the child's native persona override.
+          scoped.systemPrompt.section({ name: 'codebuddy:session-instructions', order: 100, text: settings.systemPrompt, interpolate: false });
+        }
         for (const tool of settings.tools ?? []) scoped.tools.register({
           name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
           output: {
@@ -435,7 +449,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
             return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
           },
         });
-        if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
         for (const { role, selection: childSelection } of roleModels) {
           const roleTool = scoped.plugin(subagentToolPlugin, {
             provider: 'spawn', toolName: `subagent_${role}`, agentOptions: childSelection,
@@ -451,7 +464,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         });
         await compactFiber;
         if (compactFiber.state !== 2) throw new Error('Harness compaction did not activate');
-        const statuses = await Promise.all(mcpServers.filter(server => server.transport !== 'streamable-http').map(async server => {
+        // Both transports are independent. Harness still owns remote preset
+        // leases and session-scoped stdio processes; admit the loop after both.
+        const [lease, statuses] = await Promise.all([
+          mcpPresets.acquire(remoteServers).then(value => (shared = value)),
+          Promise.all(mcpServers.filter(server => server.transport !== 'streamable-http').map(async server => {
           const started = performance.now();
           const connection = scoped.plugin(mcpPlugin, { ...server, failOnStartupError: true });
           try {
@@ -467,8 +484,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
               elapsedMs: Math.round(performance.now() - started),
             }));
           }
-        }));
+        })),
+        ]);
+        if (lease) {
+          if (binding) binding.rebind(lease.key);
+          else { binding = bindScopeParent(agent, lease.key); mcpBindings.set(agent, binding); }
+          connections.push(...lease.statuses);
+          console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: lease.reused, servers: lease.statuses.length }));
+        }
         connections.push(...statuses);
+        if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
+        installToolDiscovery(scoped, agent);
       },
     });
     try { await fiber; if (fiber.state !== 2) throw new Error('Session capability configuration failed'); }
@@ -496,11 +522,18 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     version: HARNESS_VERSION,
     referenceSourceCommit: HARNESS_REFERENCE_COMMIT,
     dataDir: root,
+    async warmMcpServers(servers) {
+      if (servers.some(server => server.transport !== 'streamable-http')) throw new TypeError('Startup preparation accepts remote MCP connections only');
+      const lease = await mcpPresets.acquire(servers);
+      try { return lease?.statuses ?? []; }
+      finally { await lease?.[Symbol.asyncDispose](); }
+    },
     async createSession({ sessionId = randomUUID(), cwd: workingDirectory = cwd, provider, model, options }) {
       const work = creation.then(async () => {
         selection = await configureProvider(provider, model);
         const created = await ctx.sessionController.create({ sessionId, cwd: resolve(workingDirectory) });
         await ctx.sessionController.selectModel({ sessionId: created.sessionId, ...selection });
+        contextSources.set(created.sessionId, provider.contextSource ?? (provider.contextWindow ? 'configured' : 'fallback'));
         if (options || !sessionScopes.has(created.sessionId)) await configureSession(created.sessionId, options);
         return { ...created, cwd: resolve(workingDirectory), provider: provider.id, model };
       });
@@ -601,6 +634,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     async listSkills(sessionId) {
       const agent = await resolveAgent(sessionId);
       return ctx.skills.list({ cwd: ctx.workingDirectory.get(agent.session), scope: agent });
+    },
+    async listBuiltinSkills(workingDirectory) {
+      const options = { cwd: resolve(workingDirectory ?? cwd) };
+      const summaries = await ctx.skills.list(options);
+      const definitions = await Promise.all(summaries.filter(skill => skill.source === 'bundled')
+        .map(skill => ctx.skills.get(skill.name, options)));
+      // A concurrent catalog refresh may change the winning provider.
+      return definitions.filter(skill => skill?.source === 'bundled');
     },
     readResource(sessionId, server, uri, options) { return readMcpResourceTool(sessionId, 'read_mcp_resource', { server, uri }, options); },
     listResources(sessionId, server, cursor, options) { return readMcpResourceTool(sessionId, 'list_mcp_resources', { server, ...(cursor === undefined ? {} : { cursor }) }, options); },

@@ -1,7 +1,7 @@
 {
   "name": "codebuddy-desktop",
   "productName": "CodeBuddy",
-  "version": "1.43.3-harness7",
+  "version": "1.43.3-harness15",
   "description": "CodeBuddy Desktop Research Build",
   "engines": {
     "node": "^24.10.0",
@@ -13,10 +13,9 @@
     "typecheck": "tsc --noEmit",
     "build-goose-sdk": "pnpm --filter @aaif/goose-sdk run build && pnpm run clean-vite-cache",
     "clean-vite-cache": "node scripts/clean-vite-cache.js",
-    "ensure-dev-backend": "node scripts/ensure-dev-backend.cjs",
-    "start-gui": "pnpm run ensure-dev-backend && pnpm run build-goose-sdk && pnpm run i18n:compile && electron-forge start",
-    "start-gui-debug": "pnpm run ensure-dev-backend && pnpm run build-goose-sdk && pnpm run i18n:compile && electron-forge start -- --inspect=9229",
-    "start": "cd ../.. && just run-ui",
+    "start-gui": "node ../../scripts/start-harness-preview.cjs",
+    "start-gui-debug": "node ../../scripts/start-harness-preview.cjs",
+    "start": "node ../../scripts/start-harness-preview.cjs",
     "start:test-error": "GOOSE_TEST_ERROR=true electron-forge start",
     "package": "pnpm run build-goose-sdk && pnpm run i18n:compile && electron-forge package",
     "make": "pnpm run build-goose-sdk && pnpm run i18n:compile && electron-forge make",

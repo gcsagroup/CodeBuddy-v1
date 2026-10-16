@@ -70,6 +70,7 @@ export function createConversationDriver(driver, store) {
     upload(id, file, signal) { return driver.upload(nativeId(id), file, signal); },
     listTools(id) { return driver.listTools?.(id === undefined ? id : nativeId(id)) ?? []; },
     listSkills(id) { return driver.listSkills(nativeId(id)); },
+    listBuiltinSkills(cwd) { return driver.listBuiltinSkills?.(cwd) ?? []; },
     extensionStatus(id) { return driver.extensionStatus?.(nativeId(id)) ?? []; },
     readResource(id, server, uri, options) { const actual = nativeId(id); return driver.readResource(actual, server, uri, callbacks(options, actual, id)); },
     listResources(id, server, cursor, options) { const actual = nativeId(id); return driver.listResources(actual, server, cursor, callbacks(options, actual, id)); },

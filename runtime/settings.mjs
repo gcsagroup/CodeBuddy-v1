@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory } from './providers.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
 
@@ -20,7 +20,7 @@ export function validatePreference(key, value) {
 }
 
 export class RuntimeSettings {
-  constructor(store, { changed = () => {}, testExtension, checkProviderMutation = () => {} } = {}) { this.store = store; this.changed = changed; this.testExtension = testExtension; this.checkProviderMutation = checkProviderMutation; this.extensionRevision = 0; }
+  constructor(store, { changed = () => {}, testExtension, checkProviderMutation = () => {}, reveal = revealSecret } = {}) { this.store = store; this.changed = changed; this.testExtension = testExtension; this.checkProviderMutation = checkProviderMutation; this.extensionRevision = 0; this.reveal = reveal; this.decodedExtensions = new Map(); }
   async initialize() {
     await this.store.update(s => {
       if (!s.extensions.some(e => e.configKey === 'commonqueries')) s.extensions.push({ configKey: 'commonqueries', enabled: process.platform === 'win32' && process.arch === 'x64', extension: { type: 'builtin', name: 'commonqueries', display_name: '时间与天气', description: '读取主机时间、解析城市并按设置查询天气。' } });
@@ -29,10 +29,22 @@ export class RuntimeSettings {
       if (!s.extensions.some(e => e.configKey === 'git')) s.extensions.push({ configKey: 'git', enabled: true, extension: { type: 'builtin', name: 'git', description: 'Inspect repository changes and manage staging, commits, and local branches' } });
     });
     this.extensionRevision += 1;
+    this.decodedExtensions.clear();
+  }
+  async decodeExtension(entry) {
+    if (!entry.protected) return structuredClone(entry.extension);
+    const key = JSON.stringify(entry.protected);
+    // Only current configuration definitions live in this settings owner's
+    // memory. Credentials remain encrypted on disk, never in logs.
+    if (!this.decodedExtensions.has(key)) {
+      const pending = this.reveal(entry.protected).then(JSON.parse).catch(error => { this.decodedExtensions.delete(key); throw error; });
+      this.decodedExtensions.set(key, pending);
+    }
+    return structuredClone(await this.decodedExtensions.get(key));
   }
   async extensions() {
     return Promise.all(this.store.read(["extensions"]).extensions.map(async entry => ({
-      extension: entry.protected ? JSON.parse(await revealSecret(entry.protected)) : entry.extension,
+      extension: await this.decodeExtension(entry),
       enabled: entry.enabled, configKey: entry.configKey,
     })));
   }
@@ -44,7 +56,7 @@ export class RuntimeSettings {
     };
     const configured = registry.map(entry => ({ configKey: entry.configKey, enabled: entry.enabled, name: extensionName(entry.extension) }));
     const entries = await Promise.all(registry.filter(entry => entry.enabled).map(async entry => ({
-      extension: entry.protected ? JSON.parse(await revealSecret(entry.protected)) : entry.extension,
+      extension: await this.decodeExtension(entry),
       enabled: entry.enabled, configKey: entry.configKey,
     })));
     assertCurrent();
@@ -87,6 +99,7 @@ export class RuntimeSettings {
     });
     if (changed) {
       this.extensionRevision += 1;
+    this.decodedExtensions.clear();
       await this.changed();
     }
     return {};
@@ -110,6 +123,7 @@ export class RuntimeSettings {
         });
         if (changed) {
           this.extensionRevision += 1;
+    this.decodedExtensions.clear();
           await this.changed();
         }
         return {};
@@ -180,11 +194,33 @@ export class RuntimeSettings {
       case 'providers/config/status': return { statuses: this.store.read(["providers"]).providers.filter(x => !p.providerIds?.length || p.providerIds.includes(x.id)).map(providerStatus) };
       case 'providers/config/read': {
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
-        return { fields: [ { key: 'apiUrl', value: provider.apiUrl, isSet: true, isSecret: false, required: true }, { key: 'apiKey', isSet: Boolean(provider.secret), isSecret: true, required: provider.requiresAuth } ] };
+        await resolvedInventory(provider);
+        return { fields: [ { key: 'apiUrl', value: provider.apiUrl, isSet: true, isSecret: false, required: true }, { key: 'apiKey', isSet: Boolean(provider.secret), isSecret: true, required: provider.requiresAuth }, ...provider.models.map(model => ({ key: `contextWindow:${model}`, value: JSON.stringify({ ...contextProfile(provider, model), configured: provider.contextWindows?.[model] ?? null }), isSet: provider.contextWindows?.[model] != null, isSecret: false, required: false })) ] };
       }
       case 'providers/config/save': {
         await this.checkProviderMutation(p.providerId);
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
+        const contextFields = [...(p.fields ?? []).map(f => f.key), ...(p.clearFields ?? [])];
+        if (contextFields.length && contextFields.every(key => key.startsWith('contextWindow:'))) {
+          const updates = {};
+          for (const key of contextFields) {
+            const model = key.slice('contextWindow:'.length);
+            if (!provider.models.includes(model)) throw invalid('Unknown model for context capacity');
+            const field = p.fields?.find(f => f.key === key);
+            const value = field ? Number(field.value) : null;
+            if (value !== null && (!Number.isSafeInteger(value) || value < 8192 || value > 10_000_000)) throw invalid('Context capacity must be an integer between 8192 and 10000000');
+            updates[model] = value;
+          }
+          await this.store.update(state => {
+            const target = state.providers.find(x => x.id === provider.id);
+            target.contextWindows ??= {};
+            for (const [model, value] of Object.entries(updates)) {
+              if (value === null) delete target.contextWindows[model]; else target.contextWindows[model] = value;
+            }
+          });
+          await this.changed();
+          return { status: providerStatus(provider), refresh: { started: [] } };
+        }
         const updates = {};
         for (const f of p.fields ?? []) { if (!['apiUrl', 'apiKey'].includes(f.key)) throw invalid('Unknown provider field'); updates[f.key] = f.value; }
         if (p.clearFields?.includes('apiKey')) updates.apiKey = '';

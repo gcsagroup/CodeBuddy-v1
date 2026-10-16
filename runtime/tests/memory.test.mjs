@@ -64,12 +64,12 @@ test('session memory injects only active current-project records and the prefere
   await activate(otherRequest, otherRecord, 'activate-other');
   const off = await memory.sessionInstructions({ cwd: root });
   assert.match(off, /Automatic project habit learning is disabled/);
-  assert.match(off, /explicitly asking to remember/);
+  assert.match(off, /explicit user request/);
   assert.match(off, /APPROVED_PROJECT_MARKER/);
   for (const marker of ['CANDIDATE_MARKER', 'DISABLED_MARKER', 'EXPIRED_MARKER', 'OTHER_PROJECT_MARKER']) assert.equal(off.includes(marker), false);
   const on = await memory.sessionInstructions({ cwd: root }, { personalizedMemoryEnabled: true });
   assert.match(on, /Automatic project habit learning is enabled/);
-  assert.match(on, /Only the existing user review UI can activate a candidate/);
+  assert.match(on, /activation requires user review in the UI/);
   assert.deepEqual(JSON.parse(off.split('\n').at(-1)).records.map(record => record.id), [active.id]);
   assert.equal(JSON.parse(on.split('\n').at(-1)).records.length, 1);
   const retained = await memory.tools({ id: 'explicit-user-request', cwd: root })[0].execute({ action: 'retain', subject: 'remember-request', content: 'EXPLICIT_CANDIDATE_MARKER' });

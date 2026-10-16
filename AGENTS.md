@@ -1,6 +1,8 @@
 # AGENTS Instructions
 
-CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文件是仓库级规则入口；组件细节见对应子目录的 `AGENTS.md`，仅在涉及该组件时读取。不维护同目录的重复 `AGENTS.override.md`；确需临时覆盖时明确原因、适用范围和撤除条件。
+CodeBuddy Agent 核心为官方 DeepSeek Harness，桌面为 Electron/TypeScript，Rust 仅保留独立 MCP 工具。旧 Rust Agent、CLI 与 Provider 已按用户授权移除；历史规则中的旧源码路径仅作历史说明，不得恢复旧执行核心。本文件是仓库级规则入口；组件细节见对应子目录的 `AGENTS.md`，仅在涉及该组件时读取。不维护同目录的重复 `AGENTS.override.md`。
+
+繁體：Agent 執行與壓縮以 Harness 為主，Rust 僅保留獨立工具。English: Harness owns Agent execution and compaction; Rust is retained only for independent tools.
 
 ## 工作主轴与协作
 
@@ -71,7 +73,7 @@ CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文
 
 - 构建、启动和环境准备遵照 README 对当前平台的入口；保持 toolchain、profile、features、target 和构建环境一致，不临时拼环境变量、清缓存或尝试加速配置。开发启动、release 构建和安装包是不同交付，不互相替代。发生未授权的依赖下载、安装或环境变更时停止相关命令并报告。
 - 验证按受影响组件选择，命令以 README、组件 `AGENTS.md` 和现有脚本为依据。允许选择相关 Cargo package/测试目标/用例过滤及对应前端检查，不因此改变构建配置；只改前端不默认跑 Rust 全套，反之亦然。文档、报告和规则修改只检查内容、引用和格式，不编译产品。
-- 只为核心行为、跨模块合同、安全/状态边界和真实缺陷增加最小有效回归；断言来自用户要求或真实证据，不照抄实现。不要为简单 helper、字段透传或覆盖率机械堆测试；新增 Rust 回归优先复用相关测试目标，适合时放在 `crates/goose/tests/`。
+- 只为核心行为、跨模块合同、安全/状态边界和真实缺陷增加最小有效回归；断言来自用户要求或真实证据，不照抄实现。不要为简单 helper、字段透传或覆盖率机械堆测试；新增 Rust 独立工具回归复用 `crates/goose-mcp` 相关测试目标，Agent 回归放在 `runtime/tests/`。
 - Rust 修改后运行 `cargo fmt`。开发中使用必要的最小检查；同一切片稳定后集中运行相关测试，修复后仅重跑受影响目标。完整相关门禁在交付/合并前执行；只有跨组件风险或发布准备才扩大验证，合并 Rust 改动前必须通过适用的 Clippy 检查。用户对本批验证另有明确约定时遵守并报告未验证项。
 - 不并行启动多份 Rust 编译，不让桌面构建与 Rust 测试争抢同一产物。后端变化才需要重建后端；纯前端变化按对应开发入口验证。仅相关验收行为变化时更新 `goose-self-test.yaml`，在约定的综合验收阶段运行所需 phase，不默认每次局部修改重建并执行全部配方。
 - 用户可见行为最终需要真实产品验收。若本轮终点是 E2E-ready、由用户手工测试，完成约定构建与启动、候选版本/源码身份确认、夹具准备或复用、提示词及日志/会话导出位置交接后停止，明确产品 E2E 未执行。无需因桌面自动化不可用否决已经完成的准备工作，也不能宣称产品 PASS。
@@ -82,8 +84,8 @@ CodeBuddy 基于 goose，核心为 Rust，桌面为 Electron/TypeScript。本文
 - 优先清楚名称和已有抽象；注释只解释原因、非显然约束和复杂逻辑。应用边界使用 `anyhow::Result`，调用方需要区分的领域/协议错误保留类型，错误上下文只补充新信息。
 - `Option` 只表示真实缺省、未知或兼容语义。校验模型、工具、网络、用户输入和持久化数据，不重复校验已成立的内部不变量。
 - 日志只为当前行为、错误、安全或必要诊断服务，避免泄露敏感数据。人工新增依赖优先用 `cargo add`，直接改 manifest 时保持锁文件一致。
-- Provider 遵循 `crates/goose/src/providers/base.rs`；MCP 位于 `crates/goose-mcp/`。桌面使用 ACP SDK 或 `ui/desktop/src/types/*`，不得恢复 `ui/desktop/src/api`、导入其生成客户端或添加 `@hey-api/openapi-ts`。
-- TUI/Ink 约定见 `ui/text/AGENTS.md`，仅在修改该组件时应用。入口：CLI `crates/goose-cli/src/main.rs`；桌面 `ui/desktop/src/main.ts`；Agent `crates/goose/src/agents/agent.rs`。
+- Agent 与 Provider 接入遵循 `runtime/harness/` 中锁定的上游插件；独立 MCP 位于 `crates/goose-mcp/`。前端兼容协议位于 `ui/sdk/schema/`；桌面使用 ACP SDK 或 `ui/desktop/src/types/*`，不得恢复 `ui/desktop/src/api`、导入其生成客户端或添加 `@hey-api/openapi-ts`。
+- TUI/Ink 历史约定见 `ui/text/AGENTS.md`。当前入口：运行时 `runtime/server.mjs`；桌面 `ui/desktop/src/main.ts`；Agent 适配 `runtime/harness/index.mjs`；工具 `crates/goose-mcp/src/bin/codebuddy-tools.rs`。
 
 ## 规则维护参考
 

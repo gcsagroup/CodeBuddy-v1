@@ -25,7 +25,7 @@ test('authenticated original proxy document preserves the sandbox protocol and s
   const response = await fetch(`${f.origin}/mcp-app-proxy?secret=${secret}&color_scheme=dark`);
   assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
   const csp = response.headers.get('content-security-policy'), html = await response.text();
-  const template = await readFile(new URL('../../crates/goose/src/acp/templates/mcp_app_proxy.html', import.meta.url), 'utf8');
+  const template = await readFile(new URL('../assets/mcp-app-proxy.html', import.meta.url), 'utf8');
   assert.equal(html, template.replace('{{OUTER_CSP}}', csp));
   assert.ok(!html.includes(secret)); assert.match(csp, /default-src 'none'/);
   const cspOverride = "default-src 'none'; script-src 'unsafe-inline'; img-src https://images.example.com";

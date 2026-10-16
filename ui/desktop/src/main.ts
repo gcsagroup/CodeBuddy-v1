@@ -3,7 +3,6 @@ import { startHarnessService } from './harnessService';
 import { readFileResponse } from './storage/readFileResponse';
 import { registerWorkspacePanel } from './workspace-panel/workspacePanelMain';
 import type {
-  Event as ElectronEvent,
   OpenDialogOptions,
   OpenDialogReturnValue,
   Session,
@@ -39,13 +38,11 @@ import { checkBackendStatus } from './backendStatus';
 import { getBackendCertificateSha256Fingerprint } from './backendCertificateTrust';
 import { resolveStartupDirectory } from './startupDirectory';
 import { FileOpenQueue } from './fileOpenQueue';
-import { findGooseBinaryPath, startGooseServe } from './gooseServe';
 import { isCodeProUnifiedModeEnabled, resolveCodeProEntryPath } from './codepro/unifiedMode';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { acpWebSocketUrlFromHttpBase, normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
 import log from './utils/logger';
-import { ensureWinShims } from './utils/winShims';
 import { addRecentDir, loadRecentDirs } from './utils/recentDirs';
 import { formatAppName, errorMessage, formatErrorForLogging } from './utils/conversionUtils';
 import { isRetiredGooseChatApp } from './utils/retiredApps';
@@ -59,13 +56,10 @@ import * as yaml from 'yaml';
 import windowStateKeeper from 'electron-window-state';
 import {
   getUpdateAvailable,
-  registerUpdateIpcHandlers,
   setAutoDownloadDisabled,
   setTrayRef,
-  setupAutoUpdater,
   updateTrayMenu,
 } from './utils/autoUpdater';
-import { UPDATES_ENABLED } from './updates';
 import './utils/recipeHash';
 import type { GooseApp } from './types/apps';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
@@ -78,21 +72,13 @@ import { confirmCodeProWorkspace, inspectCodeProWorkspace } from './codepro/proj
 import { trayIconFileName, trayTooltip, windowIconFileName } from './utils/appIcons';
 import { resolveCodeBuddyUserDataDir } from './utils/userDataPath';
 import { applyLegacyEnvironment, resolveCodeBuddyPaths } from './storage/codeBuddyPaths';
-import { configureDistributionModel } from './storage/distributionModels';
 import { configureElectronProfile, profilePartition } from './storage/electronProfile';
-import {
-  canStartStorageBackend,
-  runStoragePreflight,
-  runStorageMigration,
-  shouldAutomaticallyMigrateLegacy,
-  type StorageBootDecision,
-} from './storage/storageMigration';
 
 // The preview has an independent profile and must always use the Harness bridge.
 // A missing launcher configuration must never fall back to the retired backend.
 const harnessPreview = process.env.CODEBUDDY_HARNESS_PREVIEW === '1';
 const harnessPackaged = app.isPackaged;
-const harnessMode = harnessPreview || harnessPackaged;
+// This product has one Agent runtime. Development must use start-preview.ps1.
 if (harnessPackaged) {
   // Keep this first Harness release separate from the retired Rust profile.
   process.env.CODEBUDDY_HOME ||= path.join(os.homedir(), '.CodeBuddy-Harness');
@@ -129,58 +115,18 @@ const storagePaths = resolveCodeBuddyPaths({
   userHome: os.homedir(),
   platform: process.platform === 'win32' ? 'win32' : 'posix',
 });
-const legacyImportRequested =
-  !harnessMode &&
-  shouldAutomaticallyMigrateLegacy({
-    codeBuddyHome: process.env.CODEBUDDY_HOME,
-    qualificationUserDataDir: process.env.CODEBUDDY_USER_DATA_DIR,
-    explicitOptIn: process.env.CODEBUDDY_MIGRATE_LEGACY,
-  });
-let storageBootDecision: StorageBootDecision;
-if (started || !legacyImportRequested) {
-  storageBootDecision = { kind: 'InitializeNew' };
-} else {
-  try {
-    storageBootDecision = runStoragePreflight({
-      binaryPath: findGooseBinaryPath({
-        isPackaged: app.isPackaged,
-        resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
-      }),
-      homeDir: storagePaths.homeDir,
-      env: process.env,
-    });
-  } catch {
-    storageBootDecision = { kind: 'StopWithActionableError', reason: 'invalid_report' };
-  }
-}
-
 process.env.CODEBUDDY_HOME = storagePaths.homeDir;
-if (!started && canStartStorageBackend(storageBootDecision)) {
+if (!started) {
   configureElectronProfile(app, storagePaths);
-  // Qualification compatibility only. New isolated tests should set CODEBUDDY_HOME.
-  const isolatedUserDataDir = resolveCodeBuddyUserDataDir(
-    process.env.CODEBUDDY_USER_DATA_DIR
-  );
-  if (isolatedUserDataDir) {
-    app.setPath('userData', isolatedUserDataDir);
-  }
-} else if (!started) {
-  // Do not open the mutable legacy Chromium profile while it is being copied.
-  // This short-lived bootstrap profile is outside both source and target roots.
-  const bootstrapRoot = path.join(os.tmpdir(), 'CodeBuddy-storage-bootstrap');
-  const bootstrapUserData = path.join(bootstrapRoot, 'user-data');
-  const bootstrapSessionData = path.join(bootstrapRoot, 'session-data');
-  fsSync.mkdirSync(bootstrapUserData, { recursive: true });
-  fsSync.mkdirSync(bootstrapSessionData, { recursive: true });
-  app.setPath('userData', bootstrapUserData);
-  app.setPath('sessionData', bootstrapSessionData);
+  const isolatedUserDataDir = resolveCodeBuddyUserDataDir(process.env.CODEBUDDY_USER_DATA_DIR);
+  if (isolatedUserDataDir) app.setPath('userData', isolatedUserDataDir);
 }
 
 const localProfilePartition = profilePartition('local');
 
 log.info('Desktop startup preflight', {
   squirrelStartup: started,
-  storageDecision: storageBootDecision.kind,
+  backend: 'deepseek-harness',
 });
 
 // Keep development and packaged profiles under the same internal Electron name.
@@ -192,12 +138,6 @@ if (harnessPreview && process.platform === 'win32') {
 
 function findSupportedDeepLink(args: string[]): string | undefined {
   return args.find(hasSupportedDeepLinkPrefix);
-}
-
-function shouldSetupUpdater(): boolean {
-  if (harnessMode) return false;
-  // Setup updater if either the flag is enabled OR dev updates are enabled
-  return UPDATES_ENABLED || process.env.ENABLE_DEV_UPDATES === 'true';
 }
 
 // =======================================================================
@@ -371,7 +311,6 @@ function translateMenuLabels(items: MenuItem[]): void {
 
 // Settings management
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
-const STARTUP_LOGS_DIR = path.join(app.getPath('userData'), 'logs', 'startup');
 const validLanguageSettings = new Set<Settings['language']>([
   'system',
   'en',
@@ -463,188 +402,6 @@ async function configureProxy() {
 }
 
 if (started) app.quit();
-
-const storageBootstrapPromise = app.whenReady().then(async (): Promise<boolean> => {
-  if (canStartStorageBackend(storageBootDecision)) {
-    return true;
-  }
-  if (storageBootDecision.kind === 'StopWithActionableError') {
-    dialog.showMessageBoxSync({
-      type: 'error',
-      title: nativeT(
-        `${distro.productName} Storage Migration`,
-        `${distro.productName} 数据迁移`,
-        `${distro.productName} 資料遷移`
-      ),
-      message: nativeT(
-        'Local data migration needs your attention.',
-        '本地数据迁移需要你处理。',
-        '本機資料遷移需要你處理。'
-      ),
-      detail:
-        storageBootDecision.reason === 'conflict'
-          ? nativeT(
-              'The old and new storage locations contain different files for the same setting. No file was overwritten. Run `goose storage preflight --json` to inspect the conflict.',
-              '新旧存储位置中的同一设置文件内容不同。未覆盖任何文件。请运行 `goose storage preflight --json` 检查冲突。',
-              '新舊儲存位置中的同一設定檔案內容不同。未覆寫任何檔案。請執行 `goose storage preflight --json` 檢查衝突。'
-            )
-          : storageBootDecision.reason === 'preflight_timeout'
-            ? nativeT(
-                'The live storage preflight timed out. No backend was started and no data was changed. Retry CodeBuddy to run a fresh preflight.',
-                '实时存储预检超时。后端未启动，数据未更改。请重新启动 CodeBuddy 再次预检。',
-                '即時儲存預檢逾時。後端未啟動，資料未變更。請重新啟動 CodeBuddy 再次預檢。'
-              )
-            : storageBootDecision.reason === 'insufficient_space'
-              ? nativeT(
-                  'The live storage preflight found insufficient free space. Free space and retry CodeBuddy.',
-                  '实时存储预检发现可用空间不足。请释放空间后重新启动 CodeBuddy。',
-                  '即時儲存預檢發現可用空間不足。請釋放空間後重新啟動 CodeBuddy。'
-                )
-              : nativeT(
-                  'The live storage preflight did not return a safe decision. No backend was started. Run `goose storage preflight --json` to retry the live check; `storage status` only shows persisted migration state.',
-                  '实时存储预检未返回安全结论，后端未启动。请运行 `goose storage preflight --json` 重试；`storage status` 只显示已保存的迁移状态。',
-                  '即時儲存預檢未傳回安全結論，後端未啟動。請執行 `goose storage preflight --json` 重試；`storage status` 只顯示已儲存的遷移狀態。'
-                ),
-      buttons: [menuT('Quit')],
-    });
-    app.quit();
-    return false;
-  }
-
-  const progressWindow = new BrowserWindow({
-    width: 460,
-    height: 220,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    show: false,
-    title: `${distro.productName} Storage Migration`,
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  progressWindow.removeMenu();
-  const progressHtml = `<!doctype html><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;margin:0;padding:36px;background:#111827;color:#f9fafb}h1{font-size:20px;margin:0 0 16px}p{line-height:1.5;color:#d1d5db}.bar{height:6px;border-radius:3px;background:#374151;overflow:hidden}.bar:after{content:"";display:block;width:40%;height:100%;background:#60a5fa;animation:move 1.2s infinite alternate}@keyframes move{to{transform:translateX(150%)}}</style><h1>正在安全迁移 CodeBuddy 数据</h1><p>正在复制并验证旧数据。旧目录不会被删除，请不要关闭程序。</p><div class="bar"></div>`;
-  await progressWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(progressHtml)}`);
-  const migrationController = new AbortController();
-  let migrationFinished = false;
-  let quitAfterMigrationCancel = false;
-  const cancelMigration = () => {
-    if (!migrationFinished) migrationController.abort();
-  };
-  const cancelMigrationForQuit = (event: ElectronEvent) => {
-    if (migrationFinished) return;
-    event.preventDefault();
-    quitAfterMigrationCancel = true;
-    migrationController.abort();
-  };
-  progressWindow.on('closed', cancelMigration);
-  app.on('before-quit', cancelMigrationForQuit);
-  progressWindow.show();
-
-  let outcome;
-  try {
-    outcome = await runStorageMigration(storageBootDecision, {
-      binaryPath: findGooseBinaryPath({
-        isPackaged: app.isPackaged,
-        resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
-      }),
-      homeDir: storagePaths.homeDir,
-      env: process.env,
-      signal: migrationController.signal,
-    });
-  } catch (error) {
-    log.error('Storage migration process failed', error);
-    outcome = { kind: 'Stop' as const, reason: 'migration_failed' as const };
-  } finally {
-    migrationFinished = true;
-    app.removeListener('before-quit', cancelMigrationForQuit);
-    if (!progressWindow.isDestroyed()) {
-      progressWindow.close();
-    }
-  }
-
-  if (quitAfterMigrationCancel) {
-    app.exit(0);
-    return false;
-  }
-
-  if (outcome.kind === 'Relaunch') {
-    log.info('Storage migration committed; relaunching with the unified profile', {
-      migrationId: outcome.report.migrationId,
-      copiedFiles: outcome.report.copiedFiles,
-      copiedBytes: outcome.report.copiedBytes,
-    });
-    if (
-      !app.isPackaged &&
-      process.env.ENABLE_PLAYWRIGHT === 'true' &&
-      process.env.CODEBUDDY_E2E_EXTERNAL_RELAUNCH === '1'
-    ) {
-      log.info('Storage migration committed; qualification harness will restart Electron');
-      app.exit(75);
-      return false;
-    }
-    const relaunchMarker = '--codebuddy-storage-relaunch';
-    const relaunchArgs = process.argv
-      .slice(1)
-      .filter((argument) => argument !== relaunchMarker)
-      .concat(relaunchMarker);
-    app.relaunch({ args: relaunchArgs });
-    app.exit(0);
-    return false;
-  }
-
-  const reason = outcome.kind === 'Stop' ? outcome.reason : 'migration_failed';
-  const detail =
-    reason === 'conflict'
-      ? nativeT(
-          'The old and new storage locations contain conflicting files. Nothing was overwritten. Run `goose storage preflight --json` to inspect them.',
-          '新旧存储位置中存在冲突文件。未覆盖任何内容。请运行 `goose storage preflight --json` 检查。',
-          '新舊儲存位置中存在衝突檔案。未覆寫任何內容。請執行 `goose storage preflight --json` 檢查。'
-        )
-      : reason === 'insufficient_space'
-        ? nativeT(
-            'There is not enough free disk space to create and verify the migration copy. Free space and start CodeBuddy again.',
-            '可用磁盘空间不足，无法创建并验证迁移副本。请释放空间后重新启动 CodeBuddy。',
-            '可用磁碟空間不足，無法建立並驗證遷移副本。請釋放空間後重新啟動 CodeBuddy。'
-          )
-        : reason === 'migration_timeout'
-          ? nativeT(
-              'The migration exceeded the bounded execution time and was stopped. Run `goose storage status --json` to inspect the recorded state before retrying.',
-              '迁移超出限定时间，已停止。重试前请运行 `goose storage status --json` 检查记录状态。',
-              '遷移超出限定時間，已停止。重試前請執行 `goose storage status --json` 檢查記錄狀態。'
-            )
-          : reason === 'migration_cancelled'
-            ? nativeT(
-                'The migration was cancelled and its process tree was stopped. Start CodeBuddy again when you are ready to resume.',
-                '迁移已取消，相关进程也已停止。准备继续时请重新启动 CodeBuddy。',
-                '遷移已取消，相關程序也已停止。準備繼續時請重新啟動 CodeBuddy。'
-              )
-            : nativeT(
-                'The migration report was invalid or the migration failed. Run `goose storage status --json` for the recorded state.',
-                '迁移报告无效或迁移失败。请运行 `goose storage status --json` 查看记录状态。',
-                '遷移報告無效或遷移失敗。請執行 `goose storage status --json` 查看記錄狀態。'
-              );
-  dialog.showMessageBoxSync({
-    type: 'error',
-    title: nativeT(
-      `${distro.productName} Storage Migration`,
-      `${distro.productName} 数据迁移`,
-      `${distro.productName} 資料遷移`
-    ),
-    message: nativeT(
-      'CodeBuddy did not start because local data migration was not committed.',
-      '本地数据迁移未完成，因此 CodeBuddy 未启动。',
-      '本機資料遷移未完成，因此 CodeBuddy 未啟動。'
-    ),
-    detail,
-    buttons: [menuT('Quit')],
-  });
-  app.quit();
-  return false;
-});
 
 // Certificate trust for active backend leases. Renderer requests and
 // main-process net.fetch both pin to the exact cert fingerprint. Each backend
@@ -982,7 +739,6 @@ async function createResumeChatWindow(parsedUrl: URL, dir?: string): Promise<boo
 
 async function handleProtocolUrl(url: string, parsedUrl: URL) {
   if (!url) return;
-  if (!(await storageBootstrapPromise)) return;
 
   if (parsedUrl.hostname === 'new-session') {
     const prompt = parsedUrl.searchParams.get('prompt') || undefined;
@@ -1341,9 +1097,6 @@ const createChat = async (
   app: App,
   options: CreateChatOptions = {}
 ): Promise<BrowserWindow | undefined> => {
-  if (!(await storageBootstrapPromise)) {
-    return undefined;
-  }
   const {
     initialMessage,
     initialMessageNoAutoSubmit,
@@ -1539,92 +1292,16 @@ const createChat = async (
       return;
     }
   } else {
-    const localCertificateTrust = trustBackendCertificate('127.0.0.1', null);
-
-    let gooseServeResult: Awaited<ReturnType<typeof startGooseServe>>;
-    try {
-      gooseServeResult = await startGooseServe({
-        serverSecret,
-        dir: workingDir,
-        tls: true,
-        env: {
-          CODEBUDDY_HOME: appConfig.CODEBUDDY_HOME,
-          CODEBUDDY_PROFILE: 'local',
-          GOOSE_PATH_ROOT: appConfig.GOOSE_PATH_ROOT as string | undefined,
-          GOOSE_TELEMETRY_OFF: '1',
-        },
-        isPackaged: app.isPackaged,
-        resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
-        logger: log,
-        diagnosticsDir: STARTUP_LOGS_DIR,
-        codeProUnifiedMode: appConfig.CODEPRO_UNIFIED_MODE,
-      });
-      if (!gooseServeResult.certFingerprint) {
-        await gooseServeResult.cleanup();
-        throw new Error(
-          'The CodeBuddy backend started with TLS but did not return a certificate fingerprint'
-        );
-      }
-
-      const localCertFingerprint = normalizeFingerprint(gooseServeResult.certFingerprint);
-      if (
-        localCertificateTrust.trust.fingerprint &&
-        localCertificateTrust.trust.fingerprint !== localCertFingerprint
-      ) {
-        await gooseServeResult.cleanup();
-        throw new Error(
-          'The CodeBuddy backend TLS certificate fingerprint did not match the readiness probe'
-        );
-      }
-      localCertificateTrust.trust.fingerprint = localCertFingerprint;
-    } catch (error) {
-      localCertificateTrust.release();
-      log.error('CodeBuddy backend failed to start', error);
-      dialog.showMessageBoxSync({
-        type: 'error',
-        title: nativeT(
-          `${distro.productName} Failed to Start`,
-          `${distro.productName} 启动失败`,
-          `${distro.productName} 啟動失敗`
-        ),
-        message: nativeT(
-          'The backend server failed to start.',
-          '后端服务启动失败。',
-          '後端服務啟動失敗。'
-        ),
-        detail: [
-          nativeT(
-            'Backend: CodeBuddy local service',
-            '后端：CodeBuddy 本地服务',
-            '後端：CodeBuddy 本機服務'
-          ),
-          nativeT(
-            'Readiness check: HTTPS GET /status',
-            '就绪检查：HTTPS GET /status',
-            '就緒檢查：HTTPS GET /status'
-          ),
-          nativeT(
-            `Startup error:\n${errorMessage(error)}`,
-            `启动错误：\n${errorMessage(error)}`,
-            `啟動錯誤：\n${errorMessage(error)}`
-          ),
-        ].join('\n\n'),
-        buttons: [nativeT('OK', '确定', '確定')],
-      });
-      app.quit();
-      return;
-    }
-
-    workingDir = gooseServeResult.workingDir;
-    const cleanupGooseServe = gooseServeResult.cleanup;
-    gooseServeResult.cleanup = async () => {
-      try {
-        await cleanupGooseServe();
-      } finally {
-        localCertificateTrust.release();
-      }
-    };
-    gooseServeLease = gooseServeLeases.create(gooseServeResult, serverSecret);
+    log.error('Harness runtime is missing. Use start-preview.ps1 or the Harness installer.');
+    dialog.showMessageBoxSync({
+      type: 'error',
+      title: 'CodeBuddy Harness',
+      message: nativeT('Harness runtime is not connected.', 'Harness 运行时尚未连接。', 'Harness 執行環境尚未連線。'),
+      detail: nativeT('Use start-preview.ps1 for development or reinstall CodeBuddy Harness.', '开发请使用 start-preview.ps1，安装版请重新安装 CodeBuddy Harness。', '開發請使用 start-preview.ps1，安裝版請重新安裝 CodeBuddy Harness。'),
+      buttons: [nativeT('OK', '确定', '確定')],
+    });
+    app.quit();
+    return;
   }
 
   const cleanupUnregisteredGooseServeLease = async () => {
@@ -2342,9 +2019,7 @@ ipcMain.handle('default-codepro-workspace-path', async () => {
     String(now.getMinutes()).padStart(2, '0'),
     String(now.getSeconds()).padStart(2, '0'),
   ].join('-');
-  const projectsRoot = harnessMode
-    ? process.env.CODEBUDDY_WORKSPACE_ROOT
-    : path.join(app.getPath('home'), 'CodeBuddy');
+  const projectsRoot = process.env.CODEBUDDY_WORKSPACE_ROOT;
   if (!projectsRoot || !path.isAbsolute(projectsRoot)) {
     throw new Error('A valid default workspace root is required');
   }
@@ -2952,7 +2627,7 @@ async function appMain() {
 
   await configureProxy();
 
-  if (harnessMode) {
+  {
     // Preserve the IPC surface without reaching the legacy release channel.
     const previewUpdateError = 'Updates are disabled for the isolated Harness preview.';
     ipcMain.handle('check-for-updates', () => ({ updateInfo: null, error: previewUpdateError }));
@@ -2962,14 +2637,6 @@ async function appMain() {
     ipcMain.handle('get-update-state', () => null);
     ipcMain.handle('is-using-github-fallback', () => false);
     ipcMain.handle('get-auto-download-disabled', () => true);
-  } else {
-    // Ensure Windows shims are available before any MCP processes are spawned.
-    await ensureWinShims({
-      isPackaged: app.isPackaged,
-      resourcesPath: process.resourcesPath,
-      appPath: app.getAppPath(),
-    });
-    registerUpdateIpcHandlers();
   }
 
   // Handle microphone permission requests
@@ -3031,22 +2698,6 @@ async function appMain() {
       '[Main] Skipping window creation in appMain - an external open request already handled launch'
     );
   }
-
-  // Setup auto-updater AFTER window is created and displayed (with delay to avoid blocking)
-  setTimeout(() => {
-    if (shouldSetupUpdater()) {
-      log.info('Setting up auto-updater after window creation...');
-      try {
-        const settings = getSettings();
-        if (settings.disableAutoDownload) {
-          setAutoDownloadDisabled(true);
-        }
-        setupAutoUpdater();
-      } catch (error) {
-        log.error('Error setting up auto-updater:', error);
-      }
-    }
-  }, 2000);
 
   if (process.platform === 'darwin') {
     const dockMenu = Menu.buildFromTemplate([
@@ -3646,12 +3297,6 @@ async function appMain() {
 
 app.whenReady().then(async () => {
   try {
-    if (!(await storageBootstrapPromise)) {
-      return;
-    }
-    if (!harnessMode) {
-      configureDistributionModel(storagePaths.profileConfigDir, distro.defaultModel);
-    }
     await appMain();
   } catch (error) {
     dialog.showErrorBox(

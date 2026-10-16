@@ -16,5 +16,6 @@ describe('context window alerts', () => {
   it('shows a disabled compact control when a known limit has zero usage', () => {
     expect(shouldShowContextAlert(0, 128_000, true)).toBe(true);
     expect(shouldShowContextAlert(0, 128_000, false)).toBe(false);
+    expect(shouldShowContextAlert(5000, 0, false)).toBe(false);
   });
 });

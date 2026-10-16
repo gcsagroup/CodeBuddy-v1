@@ -10,6 +10,7 @@ import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
 import ModelsSection from './ModelsSection';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
+import ModelContextSettings from './ModelContextSettings';
 
 const i18n = defineMessages({
   codeBuddyModel: {
@@ -182,6 +183,7 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
         </CardHeader>
       </Card>
       <ModelImageCapabilitySettings providers={customProviders} />
+      <ModelContextSettings providers={customProviders} />
       {agentConfigurationOpen && (
         <CodeProModelModal
           onClose={() => setAgentConfigurationOpen(false)}

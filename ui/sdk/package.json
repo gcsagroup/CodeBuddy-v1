@@ -33,8 +33,6 @@
   "scripts": {
     "build": "pnpm run generate && pnpm run build:ts",
     "build:ts": "tsc",
-    "build:native": "tsx scripts/build-native.ts",
-    "build:native:all": "tsx scripts/build-native.ts --all",
     "generate": "tsx generate-schema.ts && prettier --write src/generated",
     "lint": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

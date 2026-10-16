@@ -40,6 +40,7 @@ async function modelFixture(cwd, completedChildren) {
   const spawn = (role, marker) => ({ name: `subagent_${role}`, args: { description: `Fixture ${marker}`, prompt: `role_fixture_child_${marker}: perform only the delegated module work ${marker}` } });
   const scripts = {
     main: [
+      () => ({ name: 'search_mcp_tools', args: { query: 'subagent_coder subagent_reviewer' } }),
       () => todo('in_progress'),
       () => spawn('coder', 'a'),
       () => spawn('coder', 'b'),
@@ -78,7 +79,11 @@ async function modelFixture(cwd, completedChildren) {
       const actor = request.model === 'role-main' ? 'main' : request.model === 'role-reviewer' ? 'reviewer' : request.model === 'role-coder' ? ['a', 'b'].find(candidate => request.messages.some(message => message.role === 'user' && content(message).includes(`role_fixture_child_${candidate}:`))) : null;
       assert.ok(actor, `Unexpected actual model route ${request.model}`);
       const next = scripts[actor][count[actor]++]; assert.ok(next, `Unplanned model continuation for ${actor}`);
-      const response = await next(request);
+      let response = await next(request);
+      if (response.name && !request.tools.some(t => t.function.name === response.name)) {
+        count[actor]--;
+        response = { name: 'search_mcp_tools', args: { names: [response.name] } };
+      }
       assert.ok(!request.tools.some(tool => tool.function.name === 'codebuddy_task'));
       if (response.name) assert.ok(request.tools.some(tool => tool.function.name === response.name), `Missing actual tool ${response.name}`);
       res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -122,7 +127,7 @@ test('official Harness role routes and concurrent children use the native total 
   });
   assert.deepEqual(model.failures.map(error => error.message), []);
   assert.equal(result.stopReason, 'end_turn');
-  assert.deepEqual(model.count, { main: 9, a: 2, b: 2, reviewer: 1 });
+  assert.deepEqual(model.count, { main: 10, a: 2, b: 2, reviewer: 1 });
   const snapshot = client.notifications.filter(msg => msg.method === ext('codepro/run/update')).at(-1).params.snapshot;
   zCodeProRunSnapshot.parse(snapshot);
   assert.equal(snapshot.state, 'completed');

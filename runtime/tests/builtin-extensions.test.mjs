@@ -94,7 +94,7 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
     ),
   );
   assert.equal(provenance.artifacts.length, 2);
-  assert.equal(provenance.artifacts.find(artifact => artifact.name === "goose").rebuiltForThisRevision, true);
+  assert.equal(provenance.artifacts.find(artifact => artifact.name === "codebuddy-tools").rebuiltForThisRevision, true);
   assert.equal(provenance.artifacts.find(artifact => artifact.name === "qwen-computer-use").rebuiltForThisRevision, false);
   assert.deepEqual(provenance.artifacts.map((row) => row.license).sort(), [
     "Apache-2.0",
@@ -122,7 +122,7 @@ test(
     assert.equal(config.serverName, "computercontroller");
     assert.equal(config.transport, "stdio");
     assert.deepEqual(config.args, ["mcp", "computercontroller"]);
-    assert.equal(path.basename(config.command), "goose.exe");
+    assert.equal(path.basename(config.command), "codebuddy-tools.exe");
     assert.equal(config.cwd, fixtureOptions.cwd);
     assert.equal(config.toolCallTimeoutMs, 42000);
     assert.equal(config.failOnStartupError, true);
@@ -228,14 +228,8 @@ test(
         const directory = path.join(options.dataDir, "tool-runtime", name);
         assert.ok((await readdir(directory)).includes("profile"));
         if (name !== "qwen_computer") {
-          const logs = await readdir(
-            path.join(config.env.CODEBUDDY_HOME, "logs"),
-            { recursive: true },
-          );
-          assert.ok(
-            logs.length > 0,
-            "Legacy CLI bookkeeping must use the isolated profile",
-          );
+          await assert.rejects(readdir(path.join(config.env.CODEBUDDY_HOME, "logs")),
+            { code: 'ENOENT' }, 'Tool-only startup must not initialize legacy CLI state');
           assert.ok(
             (await readdir(config.env.LOCALAPPDATA)).length > 0,
             "Document/chart cache must use isolated LOCALAPPDATA",

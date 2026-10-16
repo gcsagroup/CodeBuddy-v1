@@ -5,7 +5,8 @@ import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates } fro
 import {
   invalid,
   requireString,
-  resolvedInventory,
+  inventory,
+  resolvedModelInfo,
   discover,
   saveProvider,
   driverProvider,
@@ -899,46 +900,9 @@ export class Compat {
       modelId: "",
       type: "user",
     };
-    const ext = p.extension,
-      server = ext.server;
-    const environment = { ...(p.environment ?? {}) };
-    const config = this.store.read(["config"]).config;
-    for (const key of ext.envKeys ?? [])
-      if (!(key in environment)) {
-        const entry = config[key];
-        if (entry?.secret) environment[key] = await revealSecret(entry.secret);
-        else if (typeof entry?.value === "string")
-          environment[key] = entry.value;
-      }
-    const expand = (value) =>
-      String(value).replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, key) => {
-        if (!(key in environment))
-          throw invalid("Configure extension environment variable: " + key);
-        return environment[key];
-      });
-    const tested = await this.driver.testExtension({
-      serverName: server.name,
-      ...(server.command
-        ? {
-            transport: "stdio",
-            cwd: s.cwd,
-            command: server.command,
-            args: server.args,
-            env: {
-              ...environment,
-              ...Object.fromEntries(
-                (server.env ?? []).map((e) => [e.name, expand(e.value)]),
-              ),
-            },
-          }
-        : {
-            transport: "streamable-http",
-            url: server.url,
-            headers: Object.fromEntries(
-              (server.headers ?? []).map((h) => [h.name, expand(h.value)]),
-            ),
-          }),
-    });
+    const tested = await this.driver.testExtension(await harnessMcpServer(
+      p.extension, this.store.read(["config"]), s.cwd, p.environment ?? {},
+    ));
     return Array.isArray(tested)
       ? { tools: tested.map((t) => t.name) }
       : tested;
@@ -976,6 +940,31 @@ export class Compat {
       }
     }
   }
+  async prepareStartup() {
+    const state = this.store.read(['defaults', 'providers', 'config']);
+    const provider = state.providers.find(p => p.id === state.defaults?.providerId);
+    if (!provider || this.closing) return;
+    const remote = async () => {
+      const snapshot = await this.settings.extensionSnapshot();
+      const servers = await Promise.all(snapshot.entries
+        .filter(e => e.extension.type === 'mcp' && !e.extension.server?.command)
+        .map(e => harnessMcpServer(e.extension, state, this.store.directory)));
+      snapshot.assertCurrent();
+      if (!this.closing && servers.length) return await this.driver.warmMcpServers?.(servers) ?? [];
+      return [];
+    };
+    // Metadata and connection discovery only: no model generation, session,
+    // stdio child or tool action. Native preset leases also serve Send in flight.
+    const started = performance.now();
+    const results = await Promise.allSettled([
+      driverProvider(provider, state.defaults.modelId), remote(),
+    ]);
+    console.info('[Harness startup preparation]', JSON.stringify({
+      elapsedMs: Math.round(performance.now() - started),
+      metadataReady: results[0].status === 'fulfilled',
+      remoteMcpReady: results[1].status === 'fulfilled' && results[1].value.every(server => server.status === 'ready'),
+    }));
+  }
   async initializeSession(s, { unpublished = false } = {}) {
     const configurationRevision = this.configurationRevision;
     if (this.sessionMutations.has(s.id))
@@ -991,7 +980,14 @@ export class Compat {
       // Credential reads, capability discovery and native Host activation have
       // no dependency on each other. Keep model admission after all three and
       // the existing configuration-revision check.
+      const phases = {};
+      const measure = async (name, operation) => {
+        const begin = performance.now();
+        try { return await operation(); }
+        finally { phases[name] = Math.round(performance.now() - begin); }
+      };
       const [routing, extensions, tools] = await Promise.all([
+        measure('routingMs', () =>
         s.type === "code_pro"
           ? resolveRoleRouting({
             config: state.modelRouting,
@@ -999,9 +995,9 @@ export class Compat {
             providers: state.providers,
             thinkingEffort: state.preferences.gooseThinkingEffort,
           })
-          : driverProvider(this.provider(s.providerId), s.modelId).then(provider => ({ main: { provider } })),
-        resolveSessionExtensions(s, this.settings),
-        this.driver.listTools?.() ?? [],
+          : driverProvider(this.provider(s.providerId), s.modelId).then(provider => ({ main: { provider } }))),
+        measure('extensionsMs', () => resolveSessionExtensions(s, this.settings)),
+        measure('hostToolsMs', () => this.driver.listTools?.() ?? []),
       ]);
       if (s.type === "code_pro") this.routing.set(s.id, routing);
       const route = this.routing.get(s.id)?.main;
@@ -1027,7 +1023,7 @@ export class Compat {
       );
       if (capability.imageInput === "supported")
         provider.inputModalities = ["text", "image"];
-      const options = await this.sessionOptions(s, { extensions, tools });
+      const options = await measure('optionsMs', () => this.sessionOptions(s, { extensions, tools }));
       const current = unpublished ? s : this.assertSessionAvailable(s.id);
       if (
         (current.nativeSessionId ?? current.id) !==
@@ -1052,6 +1048,7 @@ export class Compat {
       console.info('[Harness session preparation]', JSON.stringify({
         sessionId: s.id,
         adapterMs: Math.round(preparedAt - started),
+        phases,
         nativeSetupMs: Math.round(performance.now() - preparedAt),
         elapsedMs: Math.round(performance.now() - started),
       }));
@@ -1797,12 +1794,12 @@ export class Compat {
       }
       case "providers/list":
         return {
-          entries: await Promise.all(this.store
+          entries: this.store
             .read(['providers'])
             .providers.filter(
               (x) => !p.providerIds?.length || p.providerIds.includes(x.id),
             )
-            .map(resolvedInventory)),
+            .map(inventory),
         };
       case "providers/supported-models/list":
         return {
@@ -1866,8 +1863,10 @@ export class Compat {
         this.initialized.clear();
         return { providerId: p.providerId, refresh: { started: [] } };
       }
-      case "providers/canonical-model-info":
-        return { modelInfo: null };
+      case "providers/canonical-model-info": {
+        const provider = this.provider(p.provider);
+        return { modelInfo: await resolvedModelInfo(provider, p.model) };
+      }
       case "providers/inventory/refresh": {
         const providers = this.store.read(["providers"]).providers;
         const ids = p.providerIds?.length
@@ -2125,8 +2124,10 @@ export class Compat {
         onEvent: async (event) => {
           await this.recordCapabilityUsage(s, event);
           for (const update of projectContext(event)) {
-            await writer?.appendUsage(update);
-            usageUpdates.push(update);
+            if (event.source !== 'streaming_estimate') {
+              await writer?.appendUsage(update);
+              usageUpdates.push(update);
+            }
             connection.notify("_goose/unstable/session/update", { sessionId: s.id, update });
           }
           if (event.type === "harness_event" && active.run &&
@@ -2447,6 +2448,7 @@ export class Compat {
     return { stopReason: result?.stopReason ?? "end_turn" };
   }
   async close() {
+    this.closing = true;
     await this.transcription.close();
     await this.reviews.close();
     const active = [...this.active.entries()];

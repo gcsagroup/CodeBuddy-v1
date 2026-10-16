@@ -68,8 +68,7 @@ jobs:
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
           export CARGO_INCREMENTAL=0
-          cargo test -- --skip scenario_tests::scenarios::tests
-          cargo test --jobs 1 scenario_tests::scenarios::tests
+          cargo test -p goose-mcp --features rustls-tls --jobs 1
         working-directory: crates
         env:
           RUST_MIN_STACK: 8388608
@@ -105,10 +104,7 @@ jobs:
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
           export CARGO_INCREMENTAL=0
-          cargo test -p goose --no-default-features --features ${{ matrix.tls-feature }},code-mode
-          cargo test -p goose-providers --no-default-features --features ${{ matrix.tls-feature }}
-          cargo test -p goose-cli --no-default-features --features ${{ matrix.tls-feature }},code-mode -- --skip scenario_tests::scenarios::tests
-          cargo test -p goose-cli --no-default-features --features ${{ matrix.tls-feature }},code-mode --jobs 1 scenario_tests::scenarios::tests
+          cargo test -p goose-mcp --no-default-features --features ${{ matrix.tls-feature }} --jobs 1
         env:
           RUST_MIN_STACK: 8388608
 

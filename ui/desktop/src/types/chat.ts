@@ -3,6 +3,8 @@ import type { Message } from './message';
 
 export type TokenState = {
   contextLimit?: number;
+  contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
+  contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   contextUsageKnown?: boolean;
   accumulatedCacheReadTokens?: number;
   accumulatedCacheWriteTokens?: number;

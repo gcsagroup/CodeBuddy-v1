@@ -7,6 +7,7 @@ import ModelsAndRuntimeSettings from './ModelsAndRuntimeSettings';
 vi.mock('../../../i18n', () => ({
   defineMessages: <T,>(messages: T) => messages,
   useIntl: () => ({
+    locale: 'en',
     formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
   }),
 }));

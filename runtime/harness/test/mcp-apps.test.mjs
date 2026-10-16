@@ -135,6 +135,18 @@ test('credential changes select another composition and old sessions retain thei
   assert.equal(calls.filter(call => call.method === 'initialize').length, initialized);
 });
 
+test('startup preparation leases native remote MCP without creating a model request and the first chat reuses it', async t => {
+  const { driver, session, calls, models, mcp } = await fixture(t);
+  await driver.warmMcpServers([mcp]);
+  assert.equal(calls.filter(call => call.method === 'initialize').length, 1);
+  assert.equal(calls.filter(call => call.method === 'tools/call').length, 0);
+  assert.equal(models.length, 0);
+  const id = await session();
+  assert.equal(calls.filter(call => call.method === 'initialize').length, 1);
+  assert.equal((await driver.callTool(id, 'mcp__chart__chart', {}, { onPermission: () => true })).isError, false);
+  await assert.rejects(driver.warmMcpServers([{ transport: 'stdio', command: 'unused' }]), /remote MCP/);
+});
+
 test('failed shared startup is not cached and later new sessions recover without losing other capabilities', async t => {
   const { driver, session, calls, controls, mcp } = await fixture(t);
   controls.rejectInitialize = true;

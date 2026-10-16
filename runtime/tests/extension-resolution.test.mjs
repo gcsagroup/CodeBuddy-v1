@@ -70,6 +70,19 @@ async function fixture(t) {
   return { store, settings };
 }
 
+test('configured selections do not decrypt unused historical definitions, but removed globals require the fallback', async t => {
+  const { store, settings } = await fixture(t);
+  const remote = extension('remote');
+  await settings.saveExtension({ extension: remote, enabled: true });
+  const session = { id: 'fallback', extensions: ['developer', 'remote'], extensionDefinitions: { kind: 'invalid-fixture-secret' } };
+  const snapshot = await resolveSessionExtensions(session, settings);
+  assert.deepEqual(snapshot.selected.map(e => e.configKey), ['developer', 'remote']);
+  await settings.request('config/extensions/set-enabled', { configKey: 'remote', enabled: false });
+  assert.deepEqual((await resolveSessionExtensions(session, settings)).selected.map(e => e.configKey), ['developer']);
+  await settings.request('config/extensions/remove', { configKey: 'remote' });
+  await assert.rejects(resolveSessionExtensions(session, settings), /Unknown credential format/);
+});
+
 test("one operation decrypts each required definition once and never decrypts disabled extensions for native tool filtering", async (t) => {
   const { store, settings } = await fixture(t);
   const remote = extension("remote"),
@@ -323,8 +336,8 @@ test("repeated UI synchronization of identical settings preserves prepared capab
   );
 });
 
-test("a fresh operation observes updated credentials without retaining a global plaintext cache", async (t) => {
-  const { settings } = await fixture(t);
+test("settings-owned definitions are invalidated on credential changes and are never shared globally", async (t) => {
+  const { settings, store } = await fixture(t);
   const first = extension("remote");
   await settings.saveExtension({ extension: first, enabled: true });
   const session = { id: "session", extensions: ["remote"] };
@@ -342,7 +355,9 @@ test("a fresh operation observes updated credentials without retaining a global 
   await resolveSessionExtensions(session, settings);
   assert.equal(
     credentialProcesses - before,
-    1,
-    "the next operation resolves its own credential view",
+    0,
+    "the current configuration revision reuses its resolved credential view",
   );
+  await resolveSessionExtensions(session, new RuntimeSettings(store));
+  assert.equal(credentialProcesses - before, 1, "another settings owner must decode its own view");
 });

@@ -33,7 +33,7 @@ async function fixture(t, handler, { sessionOptions = {}, effectValue } = {}) {
   let driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
   const input = {
     sessionId: randomUUID(), cwd: root, model: 'fixture',
-    provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture' },
+    provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture', contextWindow: 32768 },
     options: { ...sessionOptions, tools: [{ name: 'fixture_effect', description: 'Write the isolated test marker once', inputSchema: { type: 'object', properties: {} }, async execute() { effects.push('write'); await writeFile(join(root, 'once.txt'), 'preserved checkpoint'); return { count: effects.length, ...(effectValue ? { evidence: effectValue } : {}) }; } }] },
   };
   await driver.createSession(input);

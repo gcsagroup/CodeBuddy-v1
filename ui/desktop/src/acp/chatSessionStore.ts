@@ -1081,6 +1081,11 @@ function shouldIgnoreGooseNotificationForSealedTurn(
   if (update.status.type !== 'progress') {
     return entry.sealedIdleBoundaryActive;
   }
+  // Like usage_update, meter provenance is session maintenance, not late task activity.
+  const data = update.status.data;
+  if (data && typeof data === 'object' && 'event' in data && data.event === 'context_meter') {
+    return false;
+  }
   if (isTurnTerminalRecord(update.status.data)) {
     return false;
   }

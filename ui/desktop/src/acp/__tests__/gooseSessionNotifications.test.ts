@@ -71,6 +71,39 @@ function expectOnlyMessagesChange(chatStateChanges: AcpChatStateChange[]): Messa
 }
 
 describe('applyGooseSessionNotification', () => {
+  it('projects in-flight context source without adding a chat message or using cumulative billing', () => {
+    const state = makeState();
+    const changes = applyGooseSessionNotification(
+      state,
+      gooseUpdate({
+        sessionUpdate: 'status_message',
+        status: {
+          type: 'progress',
+          message: '',
+          data: {
+            schema_version: 1,
+            event: 'context_meter',
+            used: 8400,
+            contextLimit: 65536,
+            source: 'streaming_estimate',
+            contextSource: 'service',
+          },
+        },
+      })
+    );
+    expect(changes).toEqual([
+      {
+        type: 'tokenState',
+        tokenState: {
+          totalTokens: 8400,
+          contextLimit: 65536,
+          contextUsageSource: 'streaming_estimate',
+          contextCapacitySource: 'service',
+        },
+      },
+    ]);
+    expect(state.messages).toHaveLength(3);
+  });
   it('upserts public progress by run and attempt without inferring state from localized text', () => {
     const state = makeState();
     const progress = {

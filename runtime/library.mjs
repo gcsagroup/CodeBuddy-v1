@@ -569,6 +569,12 @@ export class LibraryService {
   }
 
   async managedSkill(projectDir, source) {
+    if (source?.rootKind === "builtin") {
+      const skill = (await this.builtinManagedSkills(projectDir)).find(item =>
+        item.source.rootId === source.rootId && item.source.relativePath === source.relativePath);
+      if (!skill) throw invalid("source_not_found");
+      return skill;
+    }
     const { root, target } = await this.sourcePath(projectDir, source);
     let files;
     if ((await stat(target)).isFile()) {
@@ -653,8 +659,24 @@ export class LibraryService {
     }
   }
 
+  async builtinManagedSkills(projectDir) {
+    const definitions = await this.driver?.listBuiltinSkills?.(projectDir) ?? [];
+    return definitions.map(skill => ({
+      source: { rootKind: "builtin", rootId: skill.provider, relativePath: skill.name },
+      name: skill.name, description: skill.description, scope: "builtin",
+      readOnly: true, enabled: true, displayPath: `builtin/${skill.name}`,
+      version: hash(skill.content), rawDocument: skill.content,
+      originalMetadata: { name: skill.name, description: skill.description },
+      displayMetadata: { locales: {} }, companionFiles: [],
+    }));
+  }
+
   async skillRequest(action, input, connection) {
-    if (action === "list") return this.listSkills(input.projectDir);
+    if (action === "list") {
+      const result = await this.listSkills(input.projectDir);
+      result.skills.push(...await this.builtinManagedSkills(input.projectDir));
+      return result;
+    }
     if (action === "read")
       return { skill: await this.managedSkill(input.projectDir, input.source) };
     if (action === "recovery/list")
@@ -1100,7 +1122,14 @@ export class LibraryService {
       action === "import" ? JSON.parse(input.data)?.type : undefined;
     const type = input.type ?? importedType ?? "skill";
     if (type === "agent") return this.agentSourceRequest(action, input);
-    if (type === "builtinSkill" && action === "list") return { sources: [] };
+    if (type === "builtinSkill" && action === "list") {
+      const skills = await this.driver?.listBuiltinSkills?.(input.projectDir) ?? [];
+      return { sources: skills.map(skill => ({
+        type: "builtinSkill", name: skill.name, description: skill.description,
+        content: skill.content, path: `builtin/${skill.name}`, global: true,
+        writable: false, supportingFiles: [], properties: { provider: skill.provider },
+      })) };
+    }
     if (type !== "skill") throw unsupported(`sources/${type}/${action}`);
     const projectDir =
       input.projectDir ??

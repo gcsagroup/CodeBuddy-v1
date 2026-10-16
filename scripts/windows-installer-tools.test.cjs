@@ -3,7 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { stageInstallerTools } = require('./windows-installer-tools.cjs');
+const { stageInstallerTools, assertSquirrelRuntimePaths } = require('./windows-installer-tools.cjs');
+
+test('rejects the reproduced Office install path before Squirrel and accepts the relocated payload', () => {
+  const installRoot = 'C:\\Users\\jiangrui\\AppData\\Local\\CodeBuddyHarness\\app-1.43.3-harness15';
+  const suffix = 'dependencies/python/Lib/site-packages/lxml/isoschematron/resources/xsl/iso-schematron-xslt1/iso_schematron_skeleton_for_xslt1.xsl';
+  assert.throws(() => assertSquirrelRuntimePaths([{ path: `runtime/office-assets/primary-runtime/${suffix}` }], installRoot), /exceeds legacy Windows limits/);
+  assert.ok(assertSquirrelRuntimePaths([{ path: `runtime/py/${suffix}` }], installRoot) < 260);
+  assert.throws(() => assertSquirrelRuntimePaths([{ path: `runtime/${'a'.repeat(240)}/x` }], installRoot), /exceeds legacy Windows limits/);
+});
 
 test('stages the installed architecture-specific tools under names required by Squirrel without changing dependencies', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-winstaller-'));

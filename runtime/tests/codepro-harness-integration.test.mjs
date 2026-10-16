@@ -80,7 +80,11 @@ async function scriptedModel(cwd) {
         return;
       }
       const next = scripts[phase][sequence[phase]++]; assert.ok(next, 'No unbounded model continuation');
-      const result = next(request);
+      let result = next(request);
+      if (result.name && !request.tools.some(t => t.function.name === result.name)) {
+        sequence[phase]--;
+        result = { name: 'search_mcp_tools', args: { names: [result.name] } };
+      }
       assert.ok(!request.tools.some((tool) => tool.function.name === 'codebuddy_task'));
       if (result.name) assert.ok(request.tools.some((tool) => tool.function.name === result.name), `Official plugin missing ${result.name}`);
       res.writeHead(200, { 'content-type': 'text/event-stream' });

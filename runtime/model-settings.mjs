@@ -12,7 +12,8 @@ export function applyModelThinking(provider, requestedEffort) {
   const protocol = provider.protocol ?? 'openai-completions';
   if (!['openai-completions', 'openai-responses'].includes(protocol)) throw invalid('Thinking controls require a configured protocol adapter');
   if (provider.reasoningEfforts === false) throw invalid('The configured model explicitly disables reasoning controls');
-  if (protocol === 'openai-completions' && (provider.compat?.supportsReasoningEffort === false || provider.compat?.thinkingFormat && provider.compat.thinkingFormat !== 'openai')) throw invalid('The configured provider uses a different thinking control protocol');
+  const templateThinking = protocol === 'openai-completions' && provider.compat?.thinkingFormat === 'chat-template';
+  if (protocol === 'openai-completions' && !templateThinking && (provider.compat?.supportsReasoningEffort === false || provider.compat?.thinkingFormat && provider.compat.thinkingFormat !== 'openai')) throw invalid('The configured provider uses a different thinking control protocol');
 
   let thinkingEffort = requestedEffort === 'none' ? 'off' : requestedEffort;
   if (provider.reasoningEfforts != null) {
@@ -24,7 +25,7 @@ export function applyModelThinking(provider, requestedEffort) {
     thinkingEffort = requestedEffort === 'none' ? 'minimal' : requestedEffort;
     configured.reasoningEfforts = { [thinkingEffort]: requestedEffort };
   }
-  if (protocol === 'openai-completions') configured.compat = {
+  if (protocol === 'openai-completions' && !templateThinking) configured.compat = {
     ...provider.compat,
     thinkingFormat: 'openai',
     supportsReasoningEffort: true,

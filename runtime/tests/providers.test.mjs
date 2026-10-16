@@ -56,6 +56,33 @@ function memoryStore() {
   };
 }
 
+test('Ollama cloud details supply capacity once per model; local architectural limits are not adopted', async t => {
+  const calls=[];
+  t.mock.method(globalThis,'fetch',async (url, options={})=>{
+    calls.push({url:String(url),body:options.body});
+    return new Response(JSON.stringify(String(url).endsWith('/api/show')
+      ? {model_info:{'kimi-k3.context_length':1048576}}
+      : {data:[{id:'kimi-k3'}]}),{headers:{'content-type':'application/json'}});
+  });
+  const p={...input('https://ollama.com'),id:'cloud-capacity',models:['kimi-k3']};
+  const [a,b]=await Promise.all([driverProvider(p,'kimi-k3'),driverProvider(p,'kimi-k3')]);
+  assert.equal(a.contextWindow,1048576);assert.equal(b.contextSource,'service');
+  assert.equal(calls.filter(c=>c.url.endsWith('/api/show')).length,1);
+  assert.equal((await driverProvider({...p,contextWindows:{'kimi-k3':65536}},'kimi-k3')).contextWindow,65536);
+  const local=await driverProvider({...p,apiUrl:'http://localhost:11434'},'kimi-k3');
+  assert.equal(local.contextSource,'fallback');
+  assert.equal(calls.filter(c=>c.url.includes('localhost')&&c.url.endsWith('/api/show')).length,0);
+});
+
+test('explicit catalog provider uses official Harness metadata and unknown model keeps upstream fallback', async t => {
+  const api=await endpoint(t,(_req,res)=>res.end(JSON.stringify({data:[{id:'gpt-4'},{id:'unknown'}]})));
+  const p={...input(api.url),catalogProviderId:'openai'};
+  const known=await driverProvider(p,'gpt-4');
+  assert.equal(known.contextSource,'catalog');assert.ok(known.contextWindow>0);
+  const unknown=await driverProvider(p,'unknown');
+  assert.equal(unknown.contextSource,'fallback');assert.equal(unknown.contextWindow,262144);
+});
+
 function input(apiUrl, overrides = {}) {
   return {
     engine: "openai_compatible",
@@ -83,8 +110,8 @@ test('server-advertised context is preserved per model and concurrent session ro
   assert.equal(again.contextWindow, 65536);
   assert.equal(api.requests.length, 1);
   assert.equal(inventory(provider).models[0].contextLimit, 65536);
-  assert.equal((await driverProvider(provider, 'invalid')).contextWindow, undefined);
-  assert.equal((await driverProvider(provider, 'absent')).contextWindow, undefined);
+  assert.equal((await driverProvider(provider, 'invalid')).contextSource, 'fallback');
+  assert.equal((await driverProvider(provider, 'absent')).contextSource, 'fallback');
   assert.equal(api.requests.length, 1);
   const changed = await endpoint(t, (_req, res) => res.end(JSON.stringify({ data: [{ id: 'fixture-model', max_model_len: 8192 }] })));
   assert.equal((await driverProvider({ ...provider, apiUrl: changed.url }, 'fixture-model')).contextWindow, 8192);
@@ -93,10 +120,20 @@ test('server-advertised context is preserved per model and concurrent session ro
 test('unavailable model metadata keeps completions usable and does not retry for every session', async t => {
   const api = await endpoint(t, (_req, res) => { res.writeHead(404); res.end('{}'); });
   const provider = { ...input(api.url), id: 'offline-metadata' };
-  assert.equal((await driverProvider(provider, 'fixture-model')).contextWindow, undefined);
-  assert.equal((await driverProvider(provider, 'fixture-model')).contextWindow, undefined);
+  assert.equal((await driverProvider(provider, 'fixture-model')).contextWindow, 262144);
+  assert.equal((await driverProvider(provider, 'fixture-model')).contextSource, 'fallback');
   assert.equal(api.requests.length, 1);
-  assert.equal(inventory(provider).models[0].contextLimit, 32768);
+  assert.equal(inventory(provider).models[0].contextLimit, 262144);
+});
+
+test('configured context cannot exceed a service cap and preserves a smaller user budget', async t => {
+  const api=await endpoint(t,(_req,res)=>res.end(JSON.stringify({data:[{id:'fixture-model',max_model_len:65536}]})));
+  const provider={...input(api.url),id:'configured-capacity',contextWindows:{'fixture-model':131072}};
+  assert.equal((await driverProvider(provider,'fixture-model')).contextWindow,65536);
+  assert.equal((await driverProvider(provider,'fixture-model')).contextSource,'service');
+  provider.contextWindows['fixture-model']=16384;
+  assert.equal((await driverProvider(provider,'fixture-model')).contextWindow,16384);
+  assert.equal((await driverProvider(provider,'fixture-model')).contextSource,'configured');
 });
 
 test('initial desktop inventory resolves capacity before any conversation and shares the routing cache', async t => {
@@ -113,7 +150,7 @@ test('initial desktop inventory resolves capacity before any conversation and sh
   assert.equal(api.requests.length, 1, 'homepage and first conversation share one metadata request');
   const offline = await endpoint(t, (_req, res) => { res.writeHead(404); res.end('{}'); });
   const unavailable = { ...input(offline.url), id: 'homepage-offline' };
-  assert.equal((await resolvedInventory(unavailable)).models[0].contextLimit, 32768);
+  assert.equal((await resolvedInventory(unavailable)).models[0].contextLimit, 262144);
   await resolvedInventory(unavailable);
   assert.equal(offline.requests.length, 1);
 });
@@ -137,7 +174,7 @@ test("manual provider save discovers then verifies selected model before publish
   assert.equal(api.requests.at(-1).body.stream, false);
   assert.ok(!api.requests.some((req) => req.headers.authorization));
   zListProvidersResponse_unstable.parse({ entries: [inventory(provider)] });
-  assert.equal(inventory(provider).models[0].contextLimit, 32768, 'desktop displays the operational Harness context limit instead of its 128k fallback');
+  assert.equal(inventory(provider).models[0].contextLimit, 262144, 'desktop displays the upstream default budget when service capacity is unknown');
   const read = zCustomProviderReadResponse_unstable.parse(
     await readProvider(provider),
   );

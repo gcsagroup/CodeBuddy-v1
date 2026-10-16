@@ -1,4 +1,4 @@
-export const codeproInstructions = `Use the official Harness agent loop and tools. Answer ordinary conversation directly. For complex or long-running work, use the native goal, todo and subagent tools as appropriate. Keep the goal active while useful work remains, preserve completed work across continuation, and verify changes with actual tools before reporting success. Distinguish a completed response from a completed project objective. After an interruption, inspect the persisted conversation and current workspace before continuing; never blindly replay an uncertain external action.`;
+export const codeproInstructions = `Answer ordinary conversation directly; use tools when facts or actions require them. Discover Harness goal, todo, job and subagent tools as needed for long tasks. Preserve completed work; after interruption, inspect history and workspace before resuming uncertain actions. Verify outcomes before claiming completion.`;
 
 // Kept only to replay and test the older preview contract. New sessions use
 // native Harness goal/todo tools; this is not injected into their tool surface.

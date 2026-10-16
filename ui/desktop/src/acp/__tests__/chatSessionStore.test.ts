@@ -717,6 +717,31 @@ describe('acpChatSessionStore', () => {
     );
     expect(acpChatSessionStore.getSnapshot(id)?.messages.some((m) => m.id === 'stale')).toBe(false);
     expect(acpChatSessionStore.getSnapshot(id)?.tokenState.totalTokens).toBe(800);
+    acpChatSessionActions.applyAcpGooseSessionNotification({
+      sessionId: id,
+      update: {
+        sessionUpdate: 'status_message',
+        status: {
+          type: 'progress',
+          message: '',
+          data: {
+            schema_version: 1,
+            event: 'context_meter',
+            used: 800,
+            contextLimit: 128_000,
+            source: 'local_estimate',
+            contextSource: 'configured',
+          },
+        },
+      },
+    });
+    expect(acpChatSessionStore.getSnapshot(id)?.tokenState.contextUsageSource).toBe(
+      'local_estimate'
+    );
+    expect(acpChatSessionStore.getSnapshot(id)?.tokenState.contextCapacitySource).toBe(
+      'configured'
+    );
+    expect(acpChatSessionStore.getSnapshot(id)?.chatState).toBe(ChatState.Idle);
   });
 
   it('keeps a cancelled turn sealed after late provider and tool events arrive', () => {

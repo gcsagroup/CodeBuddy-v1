@@ -964,7 +964,7 @@ for (const workspaceMode of ["code", "codepro"])
       JSON.stringify(actual.messages),
       /isolated Harness recipe fixture/u,
     );
-    assert.ok(actual.tools.some((tool) => tool.function.name === "write"));
+    assert.ok(actual.tools.some((tool) => tool.function.name === "search_mcp_tools"));
     const rows = (await client.request(method("schedules/list"))).jobs;
     assert.equal(rows[0].tested, true);
     assert.equal(rows[0].paused, true);

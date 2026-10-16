@@ -4,13 +4,14 @@ import { lstat, mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { invalid } from "./providers.mjs";
+import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 
 const binDirectory = fileURLToPath(new URL("./tools/bin/", import.meta.url));
 const artifacts = {
-  goose: {
-    file: "goose-0a286375/goose.exe",
-    bytes: 332407808,
-    sha256: "0a286375a8d30f0acbbf38f40275372a13a613dc5b5ad50fae5d0de6b23fa602",
+  tools: {
+    file: "codebuddy-tools.exe",
+    bytes: 41534464,
+    sha256: "55b007eb046154957310b9de0fa456ac63c6598814851b1b913c076cf29ebbc8",
   },
   computer: {
     file: "qwen-computer-use.exe",
@@ -20,7 +21,7 @@ const artifacts = {
 };
 const builtins = {
   commonqueries: {
-    artifact: artifacts.goose,
+    artifact: artifacts.tools,
     args: ["mcp", "commonqueries"],
     displayName: "时间与天气",
     description: "读取主机时间、解析城市并按设置查询天气。",
@@ -44,14 +45,14 @@ const builtins = {
     ],
   },
   computercontroller: {
-    artifact: artifacts.goose,
+    artifact: artifacts.tools,
     args: ["mcp", "computercontroller"],
     displayName: "文档与网页",
     description: "读取和编辑文档、表格、PDF，抓取网页并管理工具缓存。",
     tools: ["cache", "docx_tool", "pdf_tool", "web_scrape", "xlsx_tool"],
   },
   autovisualiser: {
-    artifact: artifacts.goose,
+    artifact: artifacts.tools,
     args: ["mcp", "autovisualiser"],
     displayName: "图表可视化",
     description: "生成图表、地图和 Mermaid 图形。",
@@ -254,20 +255,14 @@ async function toolEnvironment(dataDir, name) {
   return env;
 }
 
-/** The only permitted legacy entrypoints here are standalone stdio MCP tools. */
+/** Only tool-only stdio MCP entrypoints are shipped; no legacy Agent executable. */
 export async function builtinMcp(extension, { cwd, dataDir } = {}) {
   if (!isBuiltinMcp(extension)) return undefined;
   if (process.platform !== "win32" || process.arch !== "x64")
     throw invalid(
       `Builtin MCP ${extension.name} is awaiting an artifact for ${process.platform}/${process.arch}`,
     );
-  if (
-    extension.timeout != null &&
-    (!Number.isFinite(extension.timeout) ||
-      extension.timeout <= 0 ||
-      extension.timeout > 3600)
-  )
-    throw invalid("Builtin MCP timeout must be between 0 and 3600 seconds");
+  const toolCallTimeoutMs = mcpToolCallTimeoutMs(extension);
   const directory = await canonicalDirectory(cwd, "Workspace cwd");
   const entry = builtins[extension.name];
   const command = await verifiedBinary(entry.artifact);
@@ -278,7 +273,7 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
     args: [...entry.args],
     cwd: directory,
     env: await toolEnvironment(dataDir, extension.name),
-    toolCallTimeoutMs: (extension.timeout ?? 300) * 1000,
+    toolCallTimeoutMs,
     failOnStartupError: true,
   };
 }

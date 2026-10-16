@@ -187,7 +187,7 @@ test(
       },
     });
     await client.request("session/set_mode", { sessionId, modeId: "approve" });
-    const setupModelRequests = modelRequests.length;
+    const setupModelRequests = modelRequests.filter(request => request.body).length;
     const toolList = await client.request(ext("tools/list"), {
       sessionId,
       extensionName: "git",
@@ -344,9 +344,9 @@ test(
     );
     assert.equal(client.permissions.length, beforeDenied);
     assert.equal(
-      modelRequests.length,
+      modelRequests.filter(request => request.body).length,
       setupModelRequests,
-      "host tool execution adds no requests after provider validation",
+      "host tool execution adds no model completions after provider validation (capacity discovery is read-only)",
     );
     assert.ok(
       modelRequests.every((request) => !request.body?.stream),

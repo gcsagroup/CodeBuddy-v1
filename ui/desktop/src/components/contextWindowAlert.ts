@@ -13,5 +13,5 @@ export function shouldShowContextAlert(
   tokenLimit: number,
   isTokenLimitLoaded: boolean
 ): boolean {
-  return totalTokens > 0 || (isTokenLimitLoaded && tokenLimit > 0);
+  return tokenLimit > 0 && (totalTokens > 0 || isTokenLimitLoaded);
 }

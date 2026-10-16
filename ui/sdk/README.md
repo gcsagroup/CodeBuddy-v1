@@ -57,7 +57,7 @@ npm link @aaif/goose-sdk
 
 ### Schema Generation
 
-The TypeScript types are generated from Rust schemas defined in `crates/goose`.
+The TypeScript types are generated from the preserved compatibility contracts in `ui/sdk/schema`. Harness implements the desktop protocol; generation no longer requires the retired Rust Agent.
 The build process:
 
 1. Builds the `generate-acp-schema` Rust binary

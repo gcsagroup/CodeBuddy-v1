@@ -1,9 +1,16 @@
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // Explicit Host composition. No TUI/Web client, telemetry, credential discovery,
 // or second model/agent loop is installed by this embedding profile.
 export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
   const entry = (id, pkg, config) => ({ id, name: import.meta.resolve(`@deepseek-ai/${pkg}`), ...(config ? { config } : {}) });
+  const officeRoot = fileURLToPath(new URL('../office/', import.meta.url));
+  const pythonRoot = fileURLToPath(new URL('../py/', import.meta.url));
+  // Source checkouts may not have prepared the optional payload yet. Packaged
+  // builds require it and verify execution; never borrow a system interpreter.
+  const officeReady = existsSync(join(pythonRoot, 'runtime.json'));
   return [
     entry('timer', 'cordis-plugin-timer'),
     entry('typert', 'dsh-typert-registry'),
@@ -30,14 +37,20 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('system-prompt', 'dsh-system-prompt', {
       includeHarnessIdentity: true,
       includeRuntimeContext: true,
-      personaPrefix: 'You are CodeBuddy, a software engineering assistant. Use the configured workspace. Request approval through the tool system before executing tools. Report actual results and distinguish unverified work.',
     }),
     entry('tools', 'dsh-tools', { mode: 'native' }),
+    entry('web', 'dsh-web', { fetchProvider: 'http' }),
+    entry('web-fetch-http', 'dsh-web-fetch-http', { userAgent: 'CodeBuddy-Harness/1.43' }),
+    entry('tool-web', 'dsh-tool-web', { search: false, fetch: true }),
     { id: 'agent-instructions', name: new URL('./instructions.mjs', import.meta.url).href, config: { instructionsHome, agentsHome: join(dataDir, 'agents'), maxBytes: 65536 } },
     entry('mcp-resources', 'dsh-mcp-resources'),
     entry('skills', 'dsh-skill'),
     entry('skill-filesystem', 'dsh-skill-filesystem', { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), watch: false }),
     entry('tool-skill', 'dsh-tool-skill'),
+    ...(officeReady ? [
+      entry('skill-office', 'dsh-skill-office', { assetRoot: officeRoot, node: process.execPath }),
+      entry('tool-workspace-dependencies', 'dsh-tool-workspace-dependencies', { source: pythonRoot }),
+    ] : []),
     entry('tool-todo', 'dsh-tool-todo', { allowParallelInProgress: true }),
     entry('tool-goal', 'dsh-tool-goal'),
     entry('jobs', 'dsh-jobs-local'),

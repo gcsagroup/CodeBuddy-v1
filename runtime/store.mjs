@@ -38,7 +38,9 @@ export async function openStore(dataDir, { replaceFile = rename } = {}) {
         const next = structuredClone(state);
         const value = await fn(next);
         const tmp = file + "." + randomUUID() + ".tmp";
-        await writeFile(tmp, JSON.stringify(next, null, 2) + "\n", {
+        // This is a machine-owned snapshot, not an edited configuration file.
+        // Avoid rewriting indentation for every historical message on each turn.
+        await writeFile(tmp, JSON.stringify(next) + "\n", {
           mode: 0o600,
         });
         try {

@@ -5,10 +5,9 @@ const fs = require('fs');
 const { resolve, sep } = require('path');
 const distro = require('./codebuddy.distro.json');
 const desktopPackage = require('./package.json');
-const { verifyStage, stagePty, preparePty } = require('./scripts/macos-package.cjs');
+const { stagePty, preparePty } = require('./scripts/macos-package.cjs');
 
 const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
-const backendResourceDir = process.env.CODEBUDDY_BACKEND_RESOURCE_DIR || 'src/bin';
 const harnessResourceDir = process.env.CODEBUDDY_HARNESS_RESOURCE_DIR;
 if (harnessResourceDir) {
   const manifest = JSON.parse(fs.readFileSync(resolve(harnessResourceDir, 'manifest.json'), 'utf8'));
@@ -21,44 +20,8 @@ if (harnessResourceDir) {
     }
   }
 }
-const isWindowsDistribution =
-  process.platform === 'win32' &&
-  process.argv.some((argument) => ['package', 'make'].includes(argument));
-if (isWindowsDistribution && !harnessResourceDir) {
-  const manifestPath = process.env.CODEBUDDY_BACKEND_MANIFEST_PATH;
-  if (!process.env.CODEBUDDY_BACKEND_RESOURCE_DIR || !manifestPath) {
-    throw new Error(
-      'Windows package/make requires the verified Release backend stage from scripts/build-codebuddy-windows.ps1.'
-    );
-  }
-  const allowedStageRoot = resolve(__dirname, '..', '..', 'target', 'codebuddy-package');
-  const resolvedResourceDir = resolve(backendResourceDir);
-  const resolvedManifestPath = resolve(manifestPath);
-  if (
-    !resolvedResourceDir.startsWith(`${allowedStageRoot}${sep}`) ||
-    !resolvedManifestPath.startsWith(`${allowedStageRoot}${sep}`)
-  ) {
-    throw new Error(
-      'Windows distribution backend stage must stay inside target/codebuddy-package.'
-    );
-  }
-  const manifest = JSON.parse(fs.readFileSync(resolvedManifestPath, 'utf8'));
-  const stagedBackendPath = resolve(resolvedResourceDir, 'goose.exe');
-  const stagedBackendSha256 = crypto
-    .createHash('sha256')
-    .update(fs.readFileSync(stagedBackendPath))
-    .digest('hex');
-  if (
-    manifest.schemaVersion !== 1 ||
-    manifest.profile !== 'release' ||
-    manifest.target !== 'x86_64-pc-windows-msvc' ||
-    resolve(manifest.resourceDirectory) !== resolvedResourceDir ||
-    manifest.backendSha256 !== stagedBackendSha256
-  ) {
-    throw new Error(
-      'Windows distribution backend manifest does not match the staged Release backend.'
-    );
-  }
+if (process.argv.some(argument => ['package', 'make'].includes(argument)) && !harnessResourceDir) {
+  throw new Error('Packaging requires a verified Harness distribution stage; use scripts/build-harness-windows.cjs on Windows.');
 }
 const electronArtifactName = `electron-v${desktopPackage.devDependencies.electron}-win32-x64.zip`;
 const electronArtifactSha256 = 'bbb798d1817bc173a187c1de30432247e48046f737fa13ade126fe3788303b81';
@@ -69,14 +32,6 @@ const requestedTarget = (name) => {
   return optionIndex >= 0 ? process.argv[optionIndex + 1] : undefined;
 };
 const targetPlatform = requestedTarget('platform') || process.platform;
-if (targetPlatform === 'darwin' && !harnessResourceDir && process.argv.some((arg) => ['package', 'make'].includes(arg))) {
-  verifyStage(
-    __dirname,
-    process.env.CODEBUDDY_BACKEND_RESOURCE_DIR,
-    process.env.CODEBUDDY_BACKEND_MANIFEST_PATH,
-    requestedTarget('arch') || process.arch
-  );
-}
 const useWindowsX64Checksum =
   requestedTarget('platform') === 'win32' && requestedTarget('arch') === 'x64';
 
@@ -93,7 +48,7 @@ let cfg = {
         },
       }
     : {}),
-  extraResource: [harnessResourceDir || backendResourceDir, 'src/images', 'src/app-update.yml'],
+  extraResource: [...(harnessResourceDir ? [harnessResourceDir] : []), 'src/images', 'src/app-update.yml'],
   icon: 'src/images/icon',
   appBundleId: 'local.codebuddy.desktop',
   appCategoryType: 'public.app-category.developer-tools',

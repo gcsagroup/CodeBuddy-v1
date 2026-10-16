@@ -95,6 +95,29 @@ async function createSkill(context, name = "demo-skill", projectDir) {
   ).skill;
 }
 
+test("built-in skill sources project Harness definitions as read-only entries", async t => {
+  let requestedCwd;
+  const { call, root } = await fixture(t, { driver: { async listBuiltinSkills(cwd) {
+    requestedCwd = cwd;
+    return [{ name: 'office-docx', description: 'Upstream Word workflow', content: 'Use the packaged interpreter.', provider: 'dsh-office' }];
+  } } });
+  const result = schemas.zListSourcesResponse_unstable.parse(await call('sources/list', { type: 'builtinSkill', projectDir: root }));
+  assert.equal(requestedCwd, root);
+  assert.equal(result.sources[0].writable, false);
+  assert.equal(result.sources[0].content, 'Use the packaged interpreter.');
+  assert.equal(result.sources[0].properties.provider, 'dsh-office');
+  const managed = schemas.zSkillManagementListResponse_unstable.parse(await call('skills/manage/list', { projectDir: root }));
+  const office = managed.skills.find(skill => skill.name === 'office-docx');
+  assert.equal(office.readOnly, true);
+  assert.equal(office.source.rootKind, 'builtin');
+  assert.ok(!managed.destinationRoots.some(root => root.rootKind === 'builtin'));
+  const read = schemas.zSkillManagementReadResponse_unstable.parse(await call('skills/manage/read', { projectDir: root, source: office.source }));
+  assert.equal(read.skill.rawDocument, office.rawDocument);
+  await assert.rejects(call('skills/manage/preview', { projectDir: root, change: {
+    operation: 'set_enabled', source: office.source, expectedVersion: office.version, enabled: false,
+  } }), /read_only/);
+});
+
 test("recipe YAML CRUD, legacy links, slash commands and persistence follow the original schemas", async (t) => {
   const { store, call } = await fixture(t);
   const yaml = schemas.zRecipeToYamlResponse_unstable.parse(

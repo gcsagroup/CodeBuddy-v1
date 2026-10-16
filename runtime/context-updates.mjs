@@ -36,8 +36,11 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
         sessionUpdate: 'usage_update', used: event.used, contextLimit: event.contextLimit,
         accumulatedInputTokens: event.accumulatedInputTokens,
         accumulatedOutputTokens: event.accumulatedOutputTokens,
-        _meta: { harness: { revision: event.revision, source: event.source } },
-      }];
+        _meta: { harness: { revision: event.revision, source: event.source, contextSource: event.contextSource } },
+      }, { sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
+        schema_version: 1, event: 'context_meter', used: event.used, contextLimit: event.contextLimit,
+        source: event.source, contextSource: event.contextSource,
+      } } }];
     }
     if (event.type !== 'harness_event') return [];
     const native = event.event, data = native.data;

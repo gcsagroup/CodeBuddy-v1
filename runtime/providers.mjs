@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
+import { catalogModels } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -10,11 +11,17 @@ const modelListings = new Map();
 const metadataTtlMs = 5 * 60_000;
 function listingKey(provider) {
   return createHash('sha256').update(JSON.stringify([endpoints(provider).discovery.href,
-    provider.engine, provider.secret, provider.headersProtected, provider.apiKey, provider.headers])).digest('hex');
+    provider.engine, provider.catalogProviderId, provider.secret, provider.headersProtected, provider.apiKey, provider.headers])).digest('hex');
 }
 function modelContext(model) {
-  const value = model?.max_model_len ?? model?.contextWindow ?? model?.context_window ?? model?.context_length ?? model?.limit?.context;
-  return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+  return [model?.max_model_len, model?.contextWindow, model?.context_window, model?.context_length, model?.max_input_tokens, model?.limit?.context].find(value => Number.isSafeInteger(value) && value > 0);
+}
+export function contextProfile(provider, model) {
+  const discovered = cachedModels(provider)?.contexts?.[model];
+  const configured = provider.contextWindows?.[model];
+  if (Number.isSafeInteger(configured) && configured > 0)
+    return { contextWindow: discovered ? Math.min(configured, discovered) : configured, contextSource: discovered && discovered < configured ? (cachedModels(provider)?.sources?.[model] ?? 'service') : 'configured' };
+  return { contextWindow: discovered ?? DEFAULT_CONTEXT_WINDOW, contextSource: discovered ? (cachedModels(provider)?.sources?.[model] ?? 'service') : 'fallback' };
 }
 function cachedModels(provider) {
   const cached = modelListings.get(listingKey(provider));
@@ -262,13 +269,13 @@ async function requestJson(
   }
 }
 
-export async function discover(input, stored, { timeoutMs } = {}) {
+export async function discover(input, stored, { timeoutMs, authPending } = {}) {
   const provider = { ...stored, ...input };
   const endpoint = endpoints(provider);
-  const auth = await credentials(
+  const auth = await (authPending ?? credentials(
     provider,
     stored ?? (provider.secret ? provider : null),
-  );
+  ));
   const body = await requestJson(endpoint.discovery, {
     headers: auth.requestHeaders,
     models: true,
@@ -292,19 +299,47 @@ export async function discover(input, stored, { timeoutMs } = {}) {
   return ids;
 }
 
-async function resolveContext(provider, model) {
+async function resolveContext(provider, model, authPending) {
   if (!model) return undefined;
   const key = listingKey(provider);
   let cached = cachedModels(provider);
   if (!cached) {
     cached = { expires: Date.now() + metadataTtlMs };
     modelListings.set(key, cached);
-    cached.pending = discover(provider, provider, { timeoutMs: 2000 }).catch(() => {
+    cached.pending = discover(provider, provider, { timeoutMs: 2000, authPending }).catch(() => {
       // A missing/offline catalog must not prevent a working completion route.
       modelListings.set(key, { contexts: {}, expires: Date.now() + 30_000 });
     });
   }
   await cached.pending;
+  cached = cachedModels(provider);
+  if (cached && !cached.contexts?.[model]) {
+    cached.details ??= new Map();
+    if (!cached.details.has(model)) cached.details.set(model, (async () => {
+      try {
+        let capacity, source;
+        const base = new URL(provider.apiUrl);
+        // Cloud uses its full window. Local model_info is only an architectural
+        // maximum, not the running num_ctx; never adopt it as deployment capacity.
+        if (base.protocol === 'https:' && base.hostname === 'ollama.com') {
+          const auth = await (authPending ?? credentials(provider, provider));
+          const body = await requestJson(new URL('/api/show', base), { method: 'POST', headers: auth.requestHeaders,
+            payload: { model }, timeoutMs: 5000 });
+          capacity = Object.entries(body.model_info ?? {}).find(([k, v]) => k.endsWith('.context_length') && Number.isSafeInteger(v) && v > 0)?.[1];
+          source = 'service';
+        }
+        if (!capacity && provider.catalogProviderId) {
+          capacity = (await catalogModels(provider.catalogProviderId)).find(m => m.id === model)?.contextWindow;
+          source = 'catalog';
+        }
+        if (capacity) {
+          cached.contexts ??= {}; cached.sources ??= {};
+          cached.contexts[model] = capacity; cached.sources[model] = source;
+        }
+      } catch { /* Advisory metadata must not disable a working model route. */ }
+    })());
+    await cached.details.get(model);
+  }
   return cachedModels(provider)?.contexts?.[model];
 }
 
@@ -370,6 +405,7 @@ export async function saveProvider(store, input, update = false) {
     basePath: input.basePath?.trim() || null,
     requiresAuth: input.requiresAuth ?? true,
     models: modelIds(input.models ?? current?.models ?? []),
+    ...(current?.contextWindows ? { contextWindows: current.contextWindows } : {}),
     supportsStreaming:
       input.supportsStreaming ?? current?.supportsStreaming ?? true,
     catalogProviderId:
@@ -421,10 +457,18 @@ export function inventory(provider) {
     models: provider.models.map((id) => ({
       id,
       name: id,
-      contextLimit: cachedModels(provider)?.contexts?.[id] ?? DEFAULT_CONTEXT_WINDOW,
+      contextLimit: contextProfile(provider, id).contextWindow,
     })),
     stale: false,
   };
+}
+
+export async function resolvedModelInfo(provider, model) {
+  if (!provider.models.includes(model)) throw invalid('Unknown model for this provider');
+  if (providerStatus(provider).isConfigured) await resolveContext(provider, model);
+  const profile = contextProfile(provider, model);
+  return { provider: provider.id, model, contextLimit: profile.contextWindow,
+    contextSource: profile.contextSource, reasoning: false, currency: 'USD' };
 }
 
 export async function resolvedInventory(provider) {
@@ -457,17 +501,21 @@ export async function readProvider(provider) {
 }
 
 export async function driverProvider(provider, model) {
-  const [apiKey, headers, contextWindow] = await Promise.all([
-    revealSecret(provider.secret),
-    storedHeaders(provider),
-    resolveContext(provider, model),
-  ]);
+  const authPending = credentials(provider, provider);
+  const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
+  const { key: apiKey, customHeaders: headers } = auth;
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
     apiKey,
     headers,
-    ...(contextWindow === undefined ? {} : { contextWindow }),
+    // Gemma 4 chat templates expose a boolean switch, not reasoning_effort.
+    // The official Harness/pi-ai adapter owns serialization and streaming.
+    ...(/^gemma-?4(?:[-:]|$)/i.test(model?.split('/').at(-1) ?? '') ? {
+      compat: { thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' } }, supportsDeveloperRole: false },
+      reasoningEfforts: { off: null, minimal: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'high' },
+    } : {}),
+    ...contextProfile(provider, model),
     protocol: endpoints(provider).completion.pathname.endsWith("/responses")
       ? "openai-responses"
       : "openai-completions",

@@ -64,7 +64,9 @@ test('real Harness streams, uses HTTP adapter, and persists session history', as
   assert.equal(events.filter(event => event.type === 'text_delta').map(event => event.text).join(''), 'Hello from Harness.');
   assert.equal(events.filter(event => event.type === 'thinking_delta').map(event => event.text).join(''), 'fixture reasoning');
   assert.equal(requests.at(-1).path, '/v1/chat/completions');
-  assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'write'));
+  assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'search_mcp_tools'));
+  assert.ok(!requests.at(-1).tools.some(tool => tool.function.name === 'write'));
+  assert.ok((await driver.listTools(created.sessionId)).some(tool => tool.name === 'write'));
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(event => event.type === 'assistant/message'));
   assert.ok(history.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed'));

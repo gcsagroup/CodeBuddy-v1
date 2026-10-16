@@ -16,7 +16,6 @@ import { cn } from '../utils';
 import { useAlerts } from './alerts';
 import { getContextAlertType, shouldShowContextAlert } from './contextWindowAlert';
 import { useModelAndProvider } from './ModelAndProviderContext';
-import { acpListProviderDetails } from '../acp/providers';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { toastError } from '../toasts';
 import MentionPopover, { DisplayItemWithMatch } from './MentionPopover';
@@ -27,7 +26,6 @@ import { MessageQueue, QueuedMessage } from './MessageQueue';
 import { detectInterruption } from '../utils/interruptionDetector';
 import type { Message } from '../types/message';
 import { getInitialWorkingDir } from '../utils/workingDir';
-import { getPredefinedModelsFromEnv } from './settings/models/predefinedModelsUtils';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
 import { getNavigationShortcutText } from '../utils/keyboardShortcuts';
 import { UserInput, ImageData } from '../types/message';
@@ -38,7 +36,7 @@ import {
   rejectSubmittedDraft,
 } from './chatInputSubmissionLifecycle';
 import { compressImageDataUrl } from '../utils/conversionUtils';
-import { fetchCanonicalModelInfo } from '../utils/canonical';
+import { useModelCapacity } from '../hooks/useModelCapacity';
 import { defineMessages, useIntl } from '../i18n';
 import TurndownService from 'turndown';
 import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';
@@ -85,7 +83,6 @@ const removeQueuedMessage = (messages: QueuedMessage[], messageId: string): Queu
 
 const MAX_IMAGES_PER_MESSAGE = 10;
 
-const TOKEN_LIMIT_DEFAULT = 128000; // fallback for custom models that the backend doesn't know about
 
 // Manual compact trigger message - must match backend constant
 const MANUAL_COMPACT_TRIGGER = '/compact';
@@ -199,6 +196,8 @@ interface ChatInputProps {
   setView: (view: View) => void;
   totalTokens?: number;
   contextLimit?: number;
+  contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
+  contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   accumulatedInputTokens?: number;
   accumulatedOutputTokens?: number;
   accumulatedCost?: number | null;
@@ -252,6 +251,8 @@ export default function ChatInput({
   setView,
   totalTokens,
   contextLimit,
+  contextUsageSource,
+  contextCapacitySource,
   messages = [],
   disableAnimation = false,
   recipe: _recipe,
@@ -407,7 +408,6 @@ export default function ChatInput({
   ) as React.RefObject<HTMLDivElement>;
   const intl = useIntl();
   const {
-    getCurrentModelAndProvider,
     currentModel: configModel,
     currentProvider: configProvider,
   } = useModelAndProvider();
@@ -434,9 +434,9 @@ export default function ChatInput({
       setModelOverride(null);
     }
   }, [sessionModel, sessionProvider, configModel, configProvider, sessionId, modelOverride]);
-  const [providerTokenLimit, setTokenLimit] = useState<number>(TOKEN_LIMIT_DEFAULT);
-  const tokenLimit = contextLimit && contextLimit > 0 ? contextLimit : providerTokenLimit;
-  const [isTokenLimitLoaded, setIsTokenLimitLoaded] = useState(false);
+  const capacity = useModelCapacity(effectiveProvider, effectiveModel, contextLimit);
+  const tokenLimit = capacity?.contextLimit ?? 0;
+  const isTokenLimitLoaded = capacity !== null;
   const [workingDirOverride, setWorkingDirOverride] = useState<string | null>(null);
   const currentWorkingDir = workingDirOverride ?? workingDir ?? getInitialWorkingDir();
 
@@ -697,73 +697,6 @@ export default function ChatInput({
       textAreaRef.current.focus();
     }
   }, [textAreaRef]);
-
-  // Load providers and get current model's token limit
-  const loadProviderDetails = async () => {
-    try {
-      // Reset token limit loaded state
-      setIsTokenLimitLoaded(false);
-
-      // Use effective model/provider (includes overrides from in-session model changes),
-      // fall back to config defaults
-      let model = effectiveModel;
-      let provider = effectiveProvider;
-      if (!model || !provider) {
-        const configModelAndProvider = await getCurrentModelAndProvider();
-        model = configModelAndProvider.model;
-        provider = configModelAndProvider.provider;
-      }
-      if (!model || !provider) {
-        setIsTokenLimitLoaded(true);
-        return;
-      }
-
-      // Priority 1: Check predefined models from environment
-      const predefinedModels = getPredefinedModelsFromEnv();
-      const predefinedModel = predefinedModels.find((m) => m.name === model);
-      if (predefinedModel?.context_limit) {
-        setTokenLimit(predefinedModel.context_limit);
-        setIsTokenLimitLoaded(true);
-        return;
-      }
-
-      // Priority 2: Check canonical model info (source of truth)
-      const canonicalInfo = await fetchCanonicalModelInfo(provider, model);
-      if (canonicalInfo?.contextLimit) {
-        setTokenLimit(canonicalInfo.contextLimit);
-        setIsTokenLimitLoaded(true);
-        return;
-      }
-
-      // Priority 3: Fall back to provider metadata known_models (may be outdated)
-      const providers = await acpListProviderDetails();
-      const currentProvider = providers.find((p) => p.name === provider);
-      if (currentProvider?.metadata?.known_models) {
-        const modelConfig = currentProvider.metadata.known_models.find((m) => m.name === model);
-        if (modelConfig?.context_limit) {
-          setTokenLimit(modelConfig.context_limit);
-          setIsTokenLimitLoaded(true);
-          return;
-        }
-      }
-
-      // Priority 4: Use default if nothing else found
-      setTokenLimit(TOKEN_LIMIT_DEFAULT);
-      setIsTokenLimitLoaded(true);
-    } catch (err) {
-      console.error('Error loading providers or token limit:', err);
-      // Set default limit on error
-      setTokenLimit(TOKEN_LIMIT_DEFAULT);
-      setIsTokenLimitLoaded(true);
-    }
-  };
-
-  // Initial load and refresh when model changes (effective model includes overrides,
-  // config model is the fallback for Hub/no-session contexts)
-  useEffect(() => {
-    loadProviderDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveModel, effectiveProvider, configModel, configProvider]);
 
   // Handle token usage alerts
   useEffect(() => {
@@ -1906,6 +1839,8 @@ export default function ChatInput({
               <ContextWindowIndicator
                 totalTokens={totalTokens}
                 tokenLimit={tokenLimit}
+                usageSource={contextUsageSource}
+                capacitySource={capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined}
                 alerts={alerts}
               />
 

@@ -93,7 +93,11 @@ async function fixtureServer(root) {
       res.on('close', () => clearTimeout(timer));
       return;
     }
-    const toolFinished = request.messages.slice(lastUser + 1).some(message => message.role === 'tool');
+    const toolFinished = request.messages.slice(lastUser + 1).some(message => message.role === 'tool' && message.tool_call_id === 'bridge-call-write');
+    if (prompt.includes('bridge_fixture_write') && !request.tools.some(t => t.function.name === 'write')) {
+      emit({tool_calls:[{index:0,id:'discover-write',type:'function',function:{name:'search_mcp_tools',arguments:JSON.stringify({names:['write']})}}]});
+      emit({},'tool_calls');res.end('data: [DONE]\n\n');return;
+    }
     if (prompt.includes('bridge_fixture_write') && !toolFinished) {
       emit({ role: 'assistant', content: 'Before the tool. ' });
       emit({ tool_calls: [{ index: 0, id: 'bridge-call-write', type: 'function', function: { name: 'write', arguments: JSON.stringify({ file_path: path.join(root, prompt.includes('denied') ? 'denied.txt' : 'approved.txt'), content: 'actual Harness tool output\n' }) } }] });
@@ -126,7 +130,12 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
   const newSession = async () => (await client.request('session/new', { cwd: root, mcpServers: [] })).sessionId;
   const prompt = (sessionId, text) => client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   const updates = sessionId => client.notifications.filter(message => message.method === 'session/update' && message.params.sessionId === sessionId).map(message => message.params.update);
-  const permission = sessionId => client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId);
+  const permission = async sessionId => {
+    const first = await client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId);
+    if (first.params.toolCall.title !== 'search_mcp_tools') return first;
+    client.reply(first.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
+    return client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId && message.params.toolCall.title === 'write');
+  };
   let retainedSession;
 
   await t.test('existing ACP content array reaches Harness; approval gates a real file tool', async () => {

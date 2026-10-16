@@ -4,6 +4,18 @@ const crypto = require('node:crypto');
 const { createRequire } = require('node:module');
 const { spawnSync } = require('node:child_process');
 
+function assertSquirrelRuntimePaths(files, installRoot) {
+  let longest = 0;
+  for (const file of files) {
+    const installed = path.win32.join(installRoot, 'resources/harness-distribution', file.path);
+    if (installed.length >= 260 || path.win32.dirname(installed).length >= 248) {
+      throw new Error(`Squirrel install path exceeds legacy Windows limits (${installed.length}): ${file.path}`);
+    }
+    longest = Math.max(longest, installed.length);
+  }
+  return longest;
+}
+
 function stageInstallerTools(source, destination, arch = process.arch) {
   for (const file of ['Squirrel.exe', 'nuget.exe', `7z-${arch}.exe`, `7z-${arch}.dll`]) {
     if (!fs.existsSync(path.join(source, file))) throw new Error(`Missing installed packaging tool: ${file}`);
@@ -76,4 +88,4 @@ async function finalizeInstaller({ desktop, vendor }) {
   return target;
 }
 
-module.exports = { stageInstallerTools, verifyNugetPackage, finalizeInstaller };
+module.exports = { stageInstallerTools, verifyNugetPackage, finalizeInstaller, assertSquirrelRuntimePaths };

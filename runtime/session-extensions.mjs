@@ -1,6 +1,7 @@
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import path from "node:path";
 import { invalid } from "./providers.mjs";
+import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 
 const changedSnapshot = Symbol("extension snapshot changed");
 
@@ -46,7 +47,7 @@ const selectionIdentity = (session) =>
 // resolved view, while the next operation reads the current settings again.
 export async function resolveSessionExtensions(session, settings) {
   const identity = selectionIdentity(session);
-  const [snapshot, definitions, servers] = await Promise.all([
+  const [snapshot, servers] = await Promise.all([
     settings.extensionSnapshot
       ? settings.extensionSnapshot()
       : settings.extensions().then((entries) => ({
@@ -58,12 +59,17 @@ export async function resolveSessionExtensions(session, settings) {
           entries: entries.filter((entry) => entry.enabled),
           assertCurrent() {},
         })),
-    session.extensionDefinitions
-      ? revealSecret(session.extensionDefinitions).then(JSON.parse)
-      : (session.extensions ?? []).filter((entry) => typeof entry !== "string"),
     sessionMcpServers(session),
   ]);
   const names = session.extensions?.map(extensionName);
+  // Global definitions (including disabled entries) own the effective policy.
+  // Only decrypt the historical fallback if an unconfigured selection needs it.
+  const needsDefinitions = names?.some(name => !configuredExtension(snapshot.configured, name));
+  const definitions = needsDefinitions
+    ? session.extensionDefinitions
+      ? JSON.parse(await revealSecret(session.extensionDefinitions))
+      : (session.extensions ?? []).filter(entry => typeof entry !== 'string')
+    : [];
   const selected = snapshot.entries.filter(
     (entry) =>
       !names ||
@@ -160,6 +166,7 @@ export async function harnessMcpServer(
     server = ext.server;
   if (!server || typeof server.name !== "string")
     throw invalid("MCP server name is required");
+  const toolCallTimeoutMs = mcpToolCallTimeoutMs(ext);
   const resolved = Object.assign(Object.create(null), environment);
   const inline = server.command
     ? []
@@ -194,6 +201,7 @@ export async function harnessMcpServer(
   if (server.command)
     return {
       serverName: server.name,
+      toolCallTimeoutMs,
       transport: "stdio",
       cwd: server._meta?.cwd ? path.resolve(cwd, server._meta.cwd) : cwd,
       command: server.command,
@@ -222,6 +230,7 @@ export async function harnessMcpServer(
     );
   return {
     serverName: server.name,
+    toolCallTimeoutMs,
     transport: "streamable-http",
     url,
     headers: Object.fromEntries(

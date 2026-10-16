@@ -48,7 +48,8 @@ before(async () => {
     else if (prompt.includes('fixture_role_parent') && !since.some(message => message.role === 'tool')) call('subagent_coder', { description: 'Configured coding model fixture', prompt: 'fixture_role_child' });
     else if (prompt.includes('fixture_capability_parent') && !since.some(message => message.role === 'tool')) call('subagent_coder', { description: 'Inherited host and MCP capabilities fixture', prompt: 'fixture_capability_child' });
     else if (prompt.includes('fixture_capability_child') && !since.some(message => message.role === 'tool')) call('child_contract', { value: 'confirmed' });
-    else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 1) call('mcp__child_memory__remember', { text: 'delegated memory' });
+    else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 1) call('search_mcp_tools', { names: ['mcp__child_memory__remember'] });
+    else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 2) call('mcp__child_memory__remember', { text: 'delegated memory' });
     else if (prompt.includes('fixture_delegate') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Independent module fixture', prompt: prompt.includes('cancel') ? 'fixture_child_slow' : 'fixture_child_write' });
     else if (prompt.includes('fixture_child_write') && !since.some(message => message.role === 'tool')) call('write', { file_path: join(root, 'child.txt'), content: 'actual child write' });
     else if (prompt.includes('fixture_limit')) call('read', { file_path: join(root, 'source.txt') });
@@ -282,7 +283,9 @@ test('owned child receives configured host tools, MCP and instructions before it
   await driver.prompt(created.sessionId, 'fixture_capability_parent', { onPermission: async (call) => { approvals.push(call); return true; } });
   const request = requests.find(request => request.model === 'fixture-capability-child');
   assert.ok(request.tools.some(tool => tool.function.name === 'child_contract'));
-  assert.ok(request.tools.some(tool => tool.function.name === 'mcp__child_memory__remember'));
+  assert.ok(request.tools.some(tool => tool.function.name === 'search_mcp_tools'));
+  assert.ok(!request.tools.some(tool => tool.function.name === 'mcp__child_memory__remember'));
+  assert.ok(requests.filter(request => request.model === 'fixture-capability-child').at(-1).tools.some(tool => tool.function.name === 'mcp__child_memory__remember'));
   assert.match(JSON.stringify(request.messages), /CHILD_INHERITED_HOST_POLICY_821/);
   assert.equal(calls.length, 1);
   assert.notEqual(calls[0].exec.sessionId, created.sessionId);

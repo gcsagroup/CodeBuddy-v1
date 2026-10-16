@@ -146,6 +146,9 @@ gooseselftest/
 # Local upstream inspection copies and generated native MCP executables
 /vendor/deepseek-harness/
 /runtime/tools/bin/
+/runtime/office-assets/
+/runtime/py/
+/runtime/office/
 
 # Local credentials; retain example configuration files
 .env

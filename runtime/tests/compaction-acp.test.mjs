@@ -16,7 +16,7 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
   const requests = [], notifications = [];
   let slow = false, slowStarted = Promise.withResolvers();
   const server = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
+    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw);
     if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
@@ -114,7 +114,7 @@ test('a process killed during compaction restarts without a stale renderer spinn
   let slow = false, started = Promise.withResolvers();
   const requests = [], notifications = [], pending = new Map();
   const endpoint = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture' }] })); return; }
+    if (req.url.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'fixture', contextWindow: 32768 }] })); return; }
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw); requests.push(request);
     if (!request.stream) { res.end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }

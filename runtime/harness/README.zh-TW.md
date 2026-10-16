@@ -22,7 +22,8 @@
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步驟；到達後返回 max_turns，歷史保留，不標記業務完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手動壓縮，原事件證據保留。
 - tools 為 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 並返回 JSON 物件，仍經官方 registry、校驗和核准。
-- mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。官方連線及工具發現使用各請求逾時，預設 60 秒；版本協商可能有多個請求，因此該值並非全部服務的總啟動期限。
+- mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。連線、工具發現、同步呼叫及每次 Tasks 請求預設 300 秒，明確設定的 `toolCallTimeoutMs` 優先。擴充設定 `timeout` 單位為秒，測試與正式工作階段共用轉換，儲存後透過既有重設機制套用。版本協商可能有多個請求，因此這不是全部服務的總啟動期限。
+- 首次連線／重連以協議能力及工具定義探測非同步：2025 Tasks 同時要求服務端 `tasks.requests.tools.call` 及工具 `execution.taskSupport` 為 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 擴充，由服務端決定是否回傳任務。未宣告支援的工具走同步，不猜工具名稱、不執行探測業務動作。`mcp-tasks.mjs` 在適配層輪詢，將最終 MCP 回執交回 Harness，已受理的呼叫不重送；300 秒限制單次請求，非非同步任務總時長，使用者仍可取消。取消回執不證明遠端已停止。目前未支援 Tasks 內的互動輸入或程序重啟後自動恢復。SDK 2.2.0 尚無 Tasks 執行時，新版擴充使用鎖定版本的內部 codec 相容適配；升級時須重新驗證並優先移除此適配。設計參考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。
 - toolFilter:{allow?,deny?} 只過濾繼承工具；同 scope 的 MCP／宿主工具須由統一核准入口執行精確 allowlist。
 - roleModels 支援 planner／coder／tester／reviewer，各為 `{provider,model,thinkingEffort?}`。官方 subagent_<role> 接收 `{description,prompt,cwd?}`；執行及並行由 Harness 管理，活躍子 Agent 總上限由 maxParallelSubagents 設定，驅動預設值為 4。
 
@@ -47,5 +48,16 @@ AGENTS.md 讀取使用官方 agent-instructions 外掛。`instructionsHome` 指�
 固定版本沒有獨立內建 memory provider。第三方記憶走官方 MCP；CodeBuddy 本地記錄復用 storage-domain／storage-json 的 codebuddy_memory。memory.get(scope,key)／list(scope) 同步讀取，set(scope,key,JSONvalue)／delete(scope,key) 非同步持久化。應用擁有記錄 schema、專案 scope、候選啟用與檢索語意，不增設第二個記憶模型或資料庫。
 
 ## 驗證邊界
+
+2026-10-16 MCP 非同步／逾時批次：在 `D:\CodeBuddy-v1`、`main`、`01610d03764570282eee439cd2bfb49fcd373e98` 加既有及本批未提交修改上，使用已有 Node 24.21.0 執行以下命令，均退出 0。新增 21 項涵蓋兩代 Tasks 的 HTTP／stdio、核准、取消、失敗、輸出 schema、模型收到最終結果後繼續，以及同步呼叫實際等待約 65 秒成功；相關回歸 35、19、4 項通過。沒有安裝依賴、切換分支、提交或推送；未建置／安裝新版，未執行真實 HexStrike 或桌面 E2E，這僅證明原始碼及隔離整合鏈路。以下舊批次記錄另行保留。
+
+```powershell
+# D:\CodeBuddy-v1\runtime
+node --test tests/mcp-task-execution.test.mjs
+node --test tests/session-extensions.test.mjs tests/extension-resolution.test.mjs tests/harness-integration.test.mjs tests/mcp-apps-harness-integration.test.mjs
+node --test tests/builtin-extensions.test.mjs
+# D:\CodeBuddy-v1\runtime\harness
+node --test test/mcp-apps.test.mjs test/mcp-metadata.test.mjs test/mcp-startup.test.mjs test/capabilities.test.mjs
+```
 
 `node --test test/driver.test.mjs test/capabilities.test.mjs`：Windows 28/28、退出碼 0。真實官方 Harness、原生 PowerShell、隔離暫存目錄與本機受控模型／MCP 服務，涵蓋參數實際請求、非同步回執、MCP 隔離與離線降級、技能、子 Agent 路由／核准／取消、背景任務、步驟上限、壓縮、影像重啟復用、檔案回執隔離、記憶重啟與憑據不落盤。`node --test tests/transcripts.test.mjs`（runtime 目錄）4/4，含跨程序強制終止、截斷尾列與提交後清理失敗恢復。這不代表真實模型大專案品質、全部 UI、桌面 E2E、macOS 或舊資料遷移驗收。

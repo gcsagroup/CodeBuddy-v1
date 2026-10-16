@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { stageHarness } = require('./stage-harness-distribution.cjs');
-const { stageInstallerTools, finalizeInstaller } = require('./windows-installer-tools.cjs');
+const { stageInstallerTools, finalizeInstaller, assertSquirrelRuntimePaths } = require('./windows-installer-tools.cjs');
 
 async function main() {
   if (process.platform !== 'win32' || Number(process.versions.node.split('.')[0]) < 24) throw new Error('Use existing Node 24+ on Windows');
@@ -37,6 +37,11 @@ async function main() {
     fs.mkdirSync(path.dirname(stage), { recursive: true });
     await stageHarness(root, stage);
   }
+  const manifest = JSON.parse(fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8'));
+  const { version } = JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8'));
+  if (!process.env.LOCALAPPDATA) throw new Error('LOCALAPPDATA is required to validate Squirrel install paths');
+  const longestInstallPath = assertSquirrelRuntimePaths(manifest.files, path.join(process.env.LOCALAPPDATA, 'CodeBuddyHarness', `app-${version}`));
+  console.log(JSON.stringify({ squirrelInstallPathsVerified: true, longestInstallPath }));
   if (finalizeOnly) { console.log(await finalizeInstaller({ desktop, vendor })); return; }
   run([path.join(root, 'scripts/verify-harness-stage.mjs'), stage], root, path.join(stage, 'node/node.exe'));
   const forgePackage = require.resolve('@electron-forge/cli/package.json', { paths: [desktop] });

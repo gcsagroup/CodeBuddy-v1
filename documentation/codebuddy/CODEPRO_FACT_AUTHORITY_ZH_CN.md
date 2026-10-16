@@ -1,5 +1,27 @@
 # CodePro 事实权威与模块职责
 
+## 2026-10-16 已批准：复用官方 Office 技能与公网网页工具
+
+Harness 的 `dsh-skill-office` / `dsh-skill` 负责内置 Office 技能注册、加载及同名覆盖顺序；`dsh-tool-workspace-dependencies` 提供官方锁定的独立 Python 载荷位置。CodeBuddy 只准备、打包载荷并将注册表投影到现有工具箱只读条目，不维护第二套 Office 编辑引擎。公网正文抓取由 `dsh-tool-web` / `dsh-web-fetch-http` 执行，保留官方地址、内容类型和返回长度限制；工具发现仍按需加载，权限走现有 Harness 回调。原 Rust 文档、PDF、缓存、图表及天气工具保留，尚未验证的替代能力不提前删除。
+
+繁體：Office 技能與 Python 載荷查詢、公網抓取均復用 Harness；CodeBuddy 僅準備載荷與投影工具箱。舊獨立工具保留，不新增第二套編輯或抓取引擎。
+
+English: Harness owns Office skill resolution, bundled Python discovery and public web fetch. CodeBuddy prepares the pinned payload and projects read-only toolbox entries. Existing standalone tools remain until their replacement capabilities are verified; no duplicate Office or web engine is introduced.
+
+## 2026-10-16 已批准：MCP 异步探测与 300 秒默认超时
+
+扩展配置继续由 runtime settings 持有；`mcp-settings.mjs` 统一秒到毫秒的转换。`mcp-bridge.mjs` 在连接／发现时读取服务端能力与工具声明，`mcp-tasks.mjs` 仅适配已协商的 Tasks 提交、轮询及取消，将最终 MCP 回执交给 Harness。远端服务拥有任务状态与执行结果，Harness 仍拥有审批、工具执行及 Agent 生命周期；不新增 Agent 调度器或任务持久化副本。同步及单次协议请求默认 300 秒，明确配置优先；异步轮询不因累计达到 300 秒结束。任务句柄不等于完成，取消请求不等于停止，失败或断线不重放原调用。当前 Tasks 交互输入、跨进程自动恢复未实现。
+
+繁體：設定歸 runtime settings，遠端任務狀態歸 MCP 服務；適配層探測能力並輪詢，最終回執交給 Harness。預設單次請求 300 秒，明確設定優先；不新增 Agent 排程或持久化副本，不重送已受理動作。
+
+English: runtime settings owns configuration and the MCP server owns task state/results. The adapter detects capabilities and polls; Harness retains approval and execution authority. Requests default to 300 seconds with explicit overrides. No duplicate Agent scheduler, task store or replay of accepted actions is introduced.
+
+## 2026-10-16 已批准：移除旧 Rust Agent 源码
+
+用户明确要求清理剩余旧核心并保留工具与前端功能。旧 Agent、CLI、Provider 和其专用 SDK/推理 crate 已移除，Cargo 只保留独立 MCP 工具。前端兼容协议 schema 从旧 crate 原样迁至 `ui/sdk/schema`；名称与通知格式不变，继续由 Harness 适配实现。后续历史章节中的旧路径不是新实现入口。执行、调度、完成、上下文与压缩的事实 owner 仍为官方 Harness，不新增 CodeBuddy 裁决循环。
+
+繁體：舊核心原始碼移除，協議原樣保留於 SDK，工具獨立保留，Harness 權威不變。English: retired Rust Agent sources are removed; compatibility schemas and independent tools remain, with Harness retaining execution and compaction authority.
+
 ## 2026-10-14 已批准：新版 Harness 执行与目标权威
 
 压缩中进程退出后，只有不存在活跃操作的历史加载才核对原生 `compaction/end`：有结束记录就恢复其结果，没有则仅将显示投影置为“中断、结果未确认”，不写入 Harness 完成事实、不改原始日志，也不重放摘要请求。繁體：重啟僅核對原生結束記錄，缺失時清除失效進度但不宣告完成。 English: idle replay reconciles missing notifications with durable Harness end events; absent evidence clears a dead spinner as interrupted/unconfirmed, without changing native history or replaying work.

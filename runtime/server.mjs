@@ -22,6 +22,7 @@ export async function createCompatServer({ dataDir, secret, driver }) {
   let compat, appProxy;
   try {
     const store = await openStore(profileLock.directory);
+    let warmup;
     if (!driver) {
       let loaded;
       const get = () =>
@@ -31,9 +32,18 @@ export async function createCompatServer({ dataDir, secret, driver }) {
             instructionsHome: path.dirname(dataDir),
           }),
         ));
+      // Boot the official Host while the desktop is opening, not on Send.
+      // No session, model generation or MCP action is started by this warmup.
+      warmup = () => {
+        const started = performance.now();
+        void get().then(() => console.info('[Harness host ready]', JSON.stringify({ elapsedMs: Math.round(performance.now() - started) })))
+          .catch(() => console.error('[Harness host startup failed]'));
+        void compat.prepareStartup().catch(() => console.error('[Harness startup preparation failed]'));
+      };
       driver = Object.fromEntries(
         [
           "createSession",
+          "warmMcpServers",
           "configureSession",
           "prompt",
           "cancel",
@@ -46,6 +56,7 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           "compact",
           "contextUsage",
           "listSkills",
+          "listBuiltinSkills",
           "refreshSkills",
           "upload",
           "testExtension",
@@ -265,6 +276,8 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           server.once("error", reject);
           server.listen(port, host, resolve);
         });
+        if (store.read(["defaults"]).defaults?.providerId) warmup?.();
+        warmup = undefined;
         const address = server.address();
         return `http://${host === "::1" ? "[::1]" : host}:${address.port}`;
       },

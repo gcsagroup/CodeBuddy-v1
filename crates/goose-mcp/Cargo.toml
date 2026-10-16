@@ -40,3 +40,9 @@ image = { version = "0.24.4", default-features = false, features = ["bmp", "dds"
 umya-spreadsheet = { version = "3", default-features = false }
 shell-words = { workspace = true }
 process-wrap = { version = "9", default-features = false, features = ["std"] }
+
+chrono-tz = "0.10.4"
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }

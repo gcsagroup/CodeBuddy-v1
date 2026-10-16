@@ -11,11 +11,16 @@ async function stageHarness(repoRoot, destination) {
   if (process.platform !== 'win32' || Number(process.versions.node.split('.')[0]) < 24)
     throw new Error('Stage with the existing Windows Node 24+ runtime');
   const runtime = path.join(repoRoot, 'runtime');
+  await fs.access(path.join(runtime, 'py/runtime.json')).catch(() => {
+    throw new Error('Prepare the approved Office payload with node scripts/prepare-harness-office.mjs before packaging');
+  });
   const copy = async (source, target) => {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.cp(source, target, { recursive: true, dereference: true, filter: file => !['.bin', '.cache', '.DS_Store'].includes(path.basename(file)) });
   };
   await copy(process.execPath, path.join(destination, 'node/node.exe'));
+  await copy(path.join(runtime, 'py'), path.join(destination, 'runtime/py'));
+  await copy(path.join(runtime, 'office'), path.join(destination, 'runtime/office'));
   await copy(path.join(path.dirname(process.execPath), 'LICENSE'), path.join(destination, 'node/LICENSE'));
   for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
     if (entry.isFile() && /\.(mjs|json)$/.test(entry.name) || entry.name === 'assets') {
@@ -75,7 +80,8 @@ async function stageHarness(repoRoot, destination) {
       file === directory || !['node_modules', '.bin', '.cache', '.DS_Store'].includes(path.basename(file)) &&
       !file.endsWith('.map') && !file.endsWith('.d.ts') });
   }
-  for (const binary of ['goose-0a286375/goose.exe', 'qwen-computer-use.exe']) {
+  await copy(path.join(runtime, 'tools/provenance.json'), path.join(destination, 'runtime/tools/provenance.json'));
+  for (const binary of ['codebuddy-tools.exe', 'qwen-computer-use.exe']) {
     await copy(path.join(runtime, 'tools/bin', binary), path.join(destination, 'runtime/tools/bin', binary));
   }
   await copy(path.join(repoRoot, 'ui/sdk/dist/generated/zod.gen.js'), path.join(destination, 'ui/sdk/dist/generated/zod.gen.js'));

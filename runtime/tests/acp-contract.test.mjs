@@ -1044,3 +1044,15 @@ test("legacy cross-turn assistant collisions replay as separate messages with st
     0,
   );
 });
+
+test('canonical capacity resolves the selected model while inventory listing stays local', async t => {
+  const {client}=await setup(t);
+  const providerId=await configure(client);
+  const result=await client.request(ext('providers/canonical-model-info'),{provider:providerId,model:'contract-model'});
+  assert.equal(result.modelInfo.provider,providerId);
+  assert.equal(result.modelInfo.model,'contract-model');
+  assert.equal(result.modelInfo.contextLimit,262144);
+  await client.request(ext('providers/config/save'),{providerId,fields:[{key:'contextWindow:contract-model',value:'65536'}]});
+  assert.equal((await client.request(ext('providers/canonical-model-info'),{provider:providerId,model:'contract-model'})).modelInfo.contextLimit,65536);
+  await assert.rejects(client.request(ext('providers/canonical-model-info'),{provider:providerId,model:'other-model'}),/Unknown model/);
+});

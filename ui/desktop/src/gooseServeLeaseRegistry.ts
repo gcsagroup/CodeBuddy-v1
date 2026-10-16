@@ -1,4 +1,5 @@
-import type { GooseServeExitSignal, GooseServeResult, Logger } from './gooseServe';
+interface Logger { error: (...args: unknown[]) => void; }
+type GooseServeExitSignal = NodeJS.Signals | null;
 
 export const GOOSE_SERVE_EXITED_USER_MESSAGE =
   "This window's CodeBuddy backend stopped. Close this window and open a new chat to start a new backend. If this keeps happening, restart CodeBuddy.";
@@ -18,57 +19,6 @@ export class GooseServeLeaseRegistry {
   private leasesByWindowId = new Map<number, GooseServeLease>();
 
   constructor(private readonly logger: Logger) {}
-
-  create(result: GooseServeResult, secretKey: string): GooseServeLease {
-    const lease: GooseServeLease = {
-      acpUrl: result.acpUrl,
-      secretKey,
-      cleanup: result.cleanup,
-      windowIds: new Set<number>(),
-      cleanedUp: false,
-      exited: false,
-      exitCode: null,
-      exitSignal: null,
-    };
-
-    const markExited = ({
-      code,
-      signal,
-      logUnexpected,
-    }: {
-      code?: number | null;
-      signal?: GooseServeExitSignal;
-      logUnexpected: boolean;
-    }) => {
-      const firstExit = !lease.exited;
-      lease.exited = true;
-      if (code !== undefined) {
-        lease.exitCode = code;
-      }
-      if (signal !== undefined) {
-        lease.exitSignal = signal;
-      }
-
-      if (logUnexpected && firstExit && !lease.cleanedUp) {
-        this.logger.error('CodeBuddy ACP server exited unexpectedly', {
-          code: lease.exitCode,
-          signal: lease.exitSignal,
-          windowIds: [...lease.windowIds],
-        });
-      }
-    };
-
-    result.process.once('exit', (code, signal) => {
-      markExited({ code, signal, logUnexpected: true });
-    });
-
-    if (result.hasExited()) {
-      const exitDetails = result.getExitDetails();
-      markExited({ code: exitDetails.code, signal: exitDetails.signal, logUnexpected: false });
-    }
-
-    return lease;
-  }
 
   createExternal(
     acpUrl: string,

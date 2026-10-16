@@ -1,15 +1,20 @@
 // MCP connection adaptation for CodeBuddy's existing Apps protocol. Naming,
 // transport policy and connection lifecycle follow dsh-mcp-client (MIT, 0.2.1-alpha.2).
 // Official MCP SDK and Harness tool/resource runtimes still own protocol and execution.
-import { Client, StreamableHTTPClientTransport, specTypeSchemas } from '@modelcontextprotocol/client';
+import { StreamableHTTPClientTransport, specTypeSchemas } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { Config, createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client';
+import { Config as UpstreamConfig, createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client';
+import Schema from '@deepseek-ai/schemastery';
+import { DEFAULT_MCP_TIMEOUT_MS } from '../mcp-settings.mjs';
+import { McpTaskClient } from './mcp-tasks.mjs';
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess';
 import { scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
-export { Config };
+export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
+  ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
+})));
 export const name = 'codebuddy-mcp-client', inject = ['tools'];
 const scopes = new WeakMap(), receipts = new Map();
 const clone = value => structuredClone(value);
@@ -47,7 +52,7 @@ export async function apply(ctx, config) {
   const entry = { tools: new Map() }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
-  const timeout = config.toolCallTimeoutMs ?? 60_000;
+  const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
   let disposed = false, generation, stopping, retryTimer, failures = 0, connectedAt, instructions = '', sync = Promise.resolve(), attempt = Promise.resolve();
   let registrations = [];
   function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); }
@@ -63,7 +68,7 @@ export async function apply(ctx, config) {
         if (definitions.has(name)) throw Error(`Duplicate MCP tool: ${tool.name}`);
         const definition = createMcpToolDefinition(ctx, {
           name, rawName: tool.name, description: tool.description ?? '', inputSchema: tool.inputSchema,
-          outputSchema: tool.outputSchema, taskRequired: tool.execution?.taskSupport === 'required',
+          outputSchema: tool.outputSchema,
           async call(args, exec) {
             if (!live(current)) throw Error(`MCP server ${config.serverName} is disconnected`);
             const metadata = await ctx.get('codebuddyMcpRequestMetadata')?.get(config.serverName, exec);
@@ -136,8 +141,8 @@ export async function apply(ctx, config) {
     if (disposed) return;
     const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers ?? {} } });
     const current = { transport, ready: false, closed: false, connecting: true };
-    current.client = new Client({ name: 'codebuddy-harness-mcp', version: '0.1.0' }, {
-      capabilities: { extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } },
+    current.client = new McpTaskClient({ name: 'codebuddy-harness-mcp', version: '0.1.0' }, {
+      capabilities: { extensions: { 'io.modelcontextprotocol/tasks': {}, 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } },
       versionNegotiation: { mode: 'auto' },
       listChanged: { tools: { autoRefresh: false, debounceMs: 0, onChanged: () => { synchronize(current).catch(error => ctx.logger.warn(`MCP tool refresh failed: ${String(error)}`)); } } },
     });

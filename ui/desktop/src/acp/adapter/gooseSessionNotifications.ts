@@ -14,6 +14,25 @@ import {
 } from '../../types/turnTerminal';
 import { adaptLegacyCodeProActivity } from './legacyCodeProActivityAdapter';
 import { type AcpChatStateChange, type AdapterState, messagesChange } from './shared';
+import type { TokenState } from '../../types/chat';
+
+function contextSources(update: unknown): Partial<TokenState> {
+  const metadata = (
+    update as { _meta?: { harness?: { source?: unknown; contextSource?: unknown } } }
+  )._meta?.harness;
+  const source = metadata?.source;
+  const capacity = metadata?.contextSource;
+  return {
+    contextUsageSource:
+      source === 'provider_actual' || source === 'local_estimate' || source === 'streaming_estimate'
+        ? source
+        : undefined,
+    contextCapacitySource:
+      capacity === 'service' || capacity === 'catalog' || capacity === 'configured' || capacity === 'fallback'
+        ? capacity
+        : undefined,
+  };
+}
 
 export function applyGooseSessionNotification(
   state: AdapterState,
@@ -30,6 +49,7 @@ export function applyGooseSessionNotification(
           tokenState: {
             totalTokens: update.used,
             contextLimit: update.contextLimit,
+            ...contextSources(update),
             accumulatedInputTokens: update.accumulatedInputTokens,
             accumulatedOutputTokens: update.accumulatedOutputTokens,
             accumulatedTotalTokens: update.accumulatedInputTokens + update.accumulatedOutputTokens,
@@ -40,6 +60,28 @@ export function applyGooseSessionNotification(
         },
       ];
     case 'status_message':
+      if (update.status.data && typeof update.status.data === 'object') {
+        const meter = update.status.data as Record<string, unknown>;
+        if (
+          meter.event === 'context_meter' &&
+          meter.schema_version === 1 &&
+          Number.isSafeInteger(meter.used) &&
+          (meter.used as number) >= 0 &&
+          Number.isSafeInteger(meter.contextLimit) &&
+          (meter.contextLimit as number) > 0
+        ) {
+          return [
+            {
+              type: 'tokenState',
+              tokenState: {
+                totalTokens: meter.used as number,
+                contextLimit: meter.contextLimit as number,
+                ...contextSources({ _meta: { harness: meter } }),
+              },
+            },
+          ];
+        }
+      }
       return applyStatusMessage(state, notification.sessionId, update, isSessionReplay);
     case 'message_usage':
       return applyMessageUsage(state, update);

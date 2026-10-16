@@ -145,8 +145,9 @@ test('native activation and extension preparation overlap before model admission
   } finally { release.resolve(); await pending; }
   assert.equal(reads, 1, 'Do not decrypt the snapshot a second time');
   assert.equal(f.created.length, 1);
-  assert.equal(f.created[0].provider.id, 'role-provider');
-  assert.equal(f.created[0].options.roleModels.reviewer.provider.id, 'role-provider');
+  assert.equal(f.created[0].provider.id, 'default-provider');
+  assert.equal(Object.hasOwn(f.created[0].options, 'roleModels'), false);
+  assert.equal(Object.hasOwn(f.created[0].options, 'maxParallelSubagents'), false);
 });
 
 test("toolbox retains structured output schema and normalizes original public permissions", async () => {
@@ -209,7 +210,7 @@ test("saving image capability refreshes an existing idle Harness session before 
   ]);
 });
 
-test("advanced main route resolves image capability against its actual provider", async () => {
+test("current session model owns image capability even with obsolete advanced routing", async () => {
   const f = await fixture({ codepro: true });
   await f.compat.request(ext("model-capabilities/save"), {
     config: {
@@ -218,64 +219,66 @@ test("advanced main route resolves image capability against its actual provider"
         {
           providerId: "role-provider",
           modelId: "shared-model",
-          imageInput: "force_supported",
+          imageInput: "force_unsupported",
         },
         {
           providerId: "default-provider",
           modelId: "shared-model",
-          imageInput: "force_unsupported",
+          imageInput: "force_supported",
         },
       ],
     },
   });
   await f.compat.ensureSession(f.session);
-  assert.equal(f.created[0].provider.id, "role-provider");
+  assert.equal(f.created[0].provider.id, "default-provider");
   assert.deepEqual(
     f.created[0].provider.inputModalities,
     ["text", "image"],
-    "main route provider owns capability lookup",
+    "current session provider owns capability lookup",
   );
 });
 
-test("deleting a provider used by an active role route is rejected before settings mutate", async () => {
+test("deleting the current model provider is rejected before settings mutate", async () => {
   const f = await fixture({ codepro: true });
   await f.compat.ensureSession(f.session);
   f.compat.active.set(f.session.id, { run: { runId: "active-project" } });
   await assert.rejects(
     f.compat.request(ext("providers/custom/delete"), {
-      providerId: "role-provider",
+      providerId: "default-provider",
     }),
     /Stop active sessions/,
   );
   assert.ok(
     f.store
       .read()
-      .providers.some((provider) => provider.id === "role-provider"),
+      .providers.some((provider) => provider.id === "default-provider"),
   );
 });
 
-test("provider protection follows the active role snapshot after future routing is disabled", async () => {
+test("obsolete role providers do not become execution dependencies or block unrelated deletion", async () => {
   const f = await fixture({ codepro: true });
   await f.compat.ensureSession(f.session);
   f.compat.active.set(f.session.id, {
     driverStarted: true,
     run: { runId: "active-project" },
   });
-  const config = f.store.read().modelRouting;
-  await f.compat.request(ext("codepro/model-routing/save"), {
-    config: { ...config, advancedRoutingEnabled: false },
-  });
-  await assert.rejects(
-    f.compat.request(ext("providers/custom/delete"), {
-      providerId: "role-provider",
-    }),
-    /Stop active sessions/,
-  );
-  assert.ok(
+  await f.compat.request(ext("providers/custom/delete"), { providerId: "role-provider" });
+  assert.equal(
     f.store
       .read()
       .providers.some((provider) => provider.id === "role-provider"),
+    false,
   );
+  f.compat.active.delete(f.session.id);
+  await f.compat.ensureSession(f.session);
+  assert.equal(f.created.at(-1).provider.id, 'default-provider');
+});
+
+test('an unavailable current session model is rejected instead of falling back to an obsolete role model', async () => {
+  const f = await fixture({ codepro: true });
+  await f.store.update(state => { state.providers.find(provider => provider.id === 'default-provider').models = []; });
+  await assert.rejects(f.compat.ensureSession(f.session), /current session model/);
+  assert.equal(f.created.length, 0);
 });
 
 test("listing tools after global preference save does not reconfigure an active Harness session", async () => {

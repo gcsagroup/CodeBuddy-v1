@@ -9,6 +9,7 @@ import {
   discover,
   saveProvider,
   driverProvider,
+  providerStatus,
   readProvider,
 } from "./providers.mjs";
 import { protectSecret, revealSecret } from "./secrets.mjs";
@@ -20,7 +21,6 @@ import {
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { codeproInstructions } from "./task-tools.mjs";
-import { resolveRoleRouting } from "./roles.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
 import {
@@ -352,16 +352,10 @@ export class Compat {
     if (s.readonlyHistory || s.type !== "code_pro")
       throw invalid("Review requires an active CodePro workspace");
     await this.workspaces.validateSession(s.id, s.cwd);
-    const routes = await resolveRoleRouting({
-      config: this.store.read(["modelRouting"]).modelRouting,
-      session: s,
-      providers: this.store.read(["providers"]).providers,
-      thinkingEffort: this.store.read(["preferences"]).preferences.gooseThinkingEffort,
-    });
-    const reviewer = routes.roleModels.reviewer;
+    await this.sessionModel(s);
     return {
       cwd: s.cwd,
-      model: { provider: reviewer.provider.id, model: reviewer.model },
+      model: { provider: s.providerId, model: s.modelId },
     };
   }
   async appContext(sessionId) {
@@ -618,9 +612,7 @@ export class Compat {
       const route = this.routing.get(sessionId);
       if (
         this.session(sessionId).providerId === id ||
-        [route?.main, ...Object.values(route?.roleModels ?? {})].some(
-          (selection) => selection?.provider?.id === id,
-        )
+        route?.main?.provider?.id === id
       )
         throw invalid(
           "Stop active sessions before editing or removing their model provider",
@@ -634,6 +626,12 @@ export class Compat {
         "Configure a model provider before starting a conversation",
       );
     return p;
+  }
+  async sessionModel(s) {
+    const provider = this.provider(s.providerId);
+    if (!provider.models.includes(s.modelId) || !providerStatus(provider).isConfigured)
+      throw invalid("Configure the current session model first");
+    return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
   }
   info(s, state = this.store.read()) {
     // Scheduled origin is a UI contract, independent of the native execution
@@ -758,12 +756,6 @@ export class Compat {
         });
       },
       toolFilter: { allow: nativeAllowed },
-      ...(s.type === "code_pro"
-        ? {
-            roleModels: this.routing.get(s.id)?.roleModels,
-            maxParallelSubagents: this.routing.get(s.id)?.maxParallelCoders,
-          }
-        : {}),
       tools: [
         ...(extensions.some((e) => e.configKey === "projectmemory")
           ? this.memory.tools(s)
@@ -988,19 +980,11 @@ export class Compat {
     if (this.active.get(s.id)?.driverStarted) return;
     if (!this.initialized.has(s.id)) {
       const started = performance.now();
-      const state = this.store.read(["modelRouting", "providers", "preferences"]);
       // Credential reads, capability discovery and native Host activation have
       // no dependency on each other. Keep model admission after all three and
       // the existing configuration-revision check.
       const [routing, extensions, tools] = await Promise.all([
-        s.type === "code_pro"
-          ? resolveRoleRouting({
-            config: state.modelRouting,
-            session: s,
-            providers: state.providers,
-            thinkingEffort: state.preferences.gooseThinkingEffort,
-          })
-          : driverProvider(this.provider(s.providerId), s.modelId).then(provider => ({ main: { provider } })),
+        this.sessionModel(s).then(main => ({ main })),
         resolveSessionExtensions(s, this.settings),
         this.driver.listTools?.() ?? [],
       ]);
@@ -1012,13 +996,6 @@ export class Compat {
       );
       const provider = main.provider;
       this.thinking.set(s.id, main.thinkingEffort);
-      for (const role of Object.values(
-        this.routing.get(s.id)?.roleModels ?? {},
-      )) {
-        const mapped = applyModelThinking(role.provider, role.thinkingEffort);
-        role.provider = mapped.provider;
-        role.thinkingEffort = mapped.thinkingEffort;
-      }
       const capability = await this.settings.request(
         "model-capabilities/resolve",
         {
@@ -1825,20 +1802,6 @@ export class Compat {
         return saveProvider(this.store, p);
       case "providers/custom/update": {
         this.checkProviderMutation(p.providerId);
-        if (
-          [...this.active.keys()].some(
-            (id) =>
-              this.session(id).providerId === p.providerId ||
-              (this.session(id).type === "code_pro" &&
-                this.store.read(["modelRouting"]).modelRouting?.advancedRoutingEnabled &&
-                this.store
-                  .read()
-                  .modelRouting.routes.some(
-                    (r) => r.providerId === p.providerId,
-                  )),
-          )
-        )
-          throw invalid("Stop active sessions before editing their provider");
         const result = await saveProvider(this.store, p, true);
         this.initialized.clear();
         return result;
@@ -1849,20 +1812,6 @@ export class Compat {
       case "providers/custom/delete": {
         this.checkProviderMutation(p.providerId);
         this.provider(p.providerId);
-        if (
-          [...this.active.keys()].some(
-            (id) =>
-              this.session(id).providerId === p.providerId ||
-              (this.session(id).type === "code_pro" &&
-                this.store.read(["modelRouting"]).modelRouting?.advancedRoutingEnabled &&
-                this.store
-                  .read()
-                  .modelRouting.routes.some(
-                    (r) => r.providerId === p.providerId,
-                  )),
-          )
-        )
-          throw invalid("Stop active sessions before deleting their provider");
         await this.store.update((s) => {
           s.providers = s.providers.filter((x) => x.id !== p.providerId);
           if (s.defaults.providerId === p.providerId)

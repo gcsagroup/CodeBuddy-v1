@@ -6,7 +6,7 @@
 
 模型請求預設使用官方有界重試（5 次，500ms 起退避，間隔最多 10 秒），不再強制關閉重試。`llm/retry`、`goal/change`、`turn/start` 與 `todo/write` 透過 `harness_event` 保留原生身分；todo 清單僅屬於目前 turn。`model_diagnostic` 只記錄首片/結束耗時、HTTP 狀態、區塊數及白名單網路錯誤代碼，不記錄內容、憑證、請求標頭或 URL。觀測不修改 fetch、串流或重試結果。
 
-`maxParallelSubagents`（1–32，與應用設定一致）對應官方 Host 的 `maxActiveSubagents`，約束全部子 Agent 的後續派發，不按角色計數，也不驅逐現有子 Agent；舊 `maxParallelCoders` 由上層作設定相容映射。子 Agent 不將繼承的舊上限寫回 Host。
+Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每個主會話的原生子 Agent 樹最多同時執行 3 個子 Agent，子 Agent 不能再派發下一層。舊 `roleModels`、`maxParallelSubagents` 和 `maxParallelCoders` 不參與執行；舊角色路由不能覆蓋主會話目前所選模型。
 
 官方 npm @deepseek-ai/dsh 及外掛精確鎖定 0.2.1-alpha.2；採 MIT，仍為 developer preview。profile 組合官方 boot、Session Controller、AgentLoop、JSONL、MCP、skills、subagent、jobs 與 compaction，沒有第二個模型循環。來源及完整性見 PROVENANCE.json；npm 與參考原始碼位元組等價未證實。[上游倉庫](https://github.com/deepseek-ai/deepseek-harness)。
 
@@ -24,7 +24,7 @@
 - tools 為 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 並返回 JSON 物件，仍經官方 registry、校驗和核准。
 - mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。官方連線及工具發現使用各請求逾時，預設 60 秒；版本協商可能有多個請求，因此該值並非全部服務的總啟動期限。
 - toolFilter:{allow?,deny?} 只過濾繼承工具；同 scope 的 MCP／宿主工具須由統一核准入口執行精確 allowlist。
-- roleModels 支援 planner／coder／tester／reviewer，各為 `{provider,model,thinkingEffort?}`。官方 subagent_<role> 接收 `{description,prompt,cwd?}`；執行及並行由 Harness 管理，活躍子 Agent 總上限由 maxParallelSubagents 設定，驅動預設值為 4。
+- 通用原生 `subagent` 接收 `{description,prompt,cwd?}`，預設繼承主 Agent 實際請求使用的 provider、model 和 reasoning effort；不註冊 `subagent_<role>` 或開放子模型選擇。建立、並行、深度和結果回傳由 Harness 管理，子 Agent 的讀寫和命令仍經原核准入口。
 
 onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一核准或宿主 execute。事件帶 sessionId，子 Agent 內容需獨立投影。tool_result.structuredContent／error 為官方回執；shell 前台結果含 exitCode、aborted、timedOut，background 句柄不等於驗證完成。attemptId 與持久 messageId 不同。
 
@@ -40,7 +40,7 @@ onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一
 
 AGENTS.md 讀取使用官方 agent-instructions 外掛。`instructionsHome` 指定本版全域目錄，預設隔離資料根；產品傳入 CODEBUDDY_HOME。專案及巢狀目錄遵循官方發現規則。固定版本在 apply 時同步讀取環境路徑，包裝器只在同步初始化期間設定並立即還原 Process 變數，不觸碰 User/Machine 環境。
 
-官方 spawn 建立平級 scope，宿主透過已驗證 parent ownership，在 child 的 agent/created 階段明確重建工具、MCP、系統指令和壓縮設定；執行及核准仍使用真實 child sessionId，保留角色自己的思考設定。
+官方 spawn 建立平級 scope，宿主透過已驗證 parent ownership，在 child 的 agent/created 階段明確重建工具、MCP、系統指令和壓縮設定；執行及核准仍使用真實 child sessionId，模型與思考檔位由原生委派繼承，不注入角色 override。
 
 官方技能根為專案 .dsh/skills／.agents/skills，以及資料根 skills／agents/skills；提供 listSkills、refreshSkills 與官方 /skill-name 顯式注入。
 

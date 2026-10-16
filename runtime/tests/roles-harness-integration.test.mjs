@@ -34,24 +34,21 @@ async function until(check) {
 }
 
 async function modelFixture(cwd, completedChildren) {
-  const failures = []; const requests = []; const count = { main: 0, a: 0, b: 0, reviewer: 0 };
+  const failures = []; const requests = []; const count = { main: 0, a: 0, b: 0, c: 0 };
   let releaseChildren; const childrenMayRun = new Promise(resolve => { releaseChildren = resolve; });
   const todo = status => ({ name: 'todo_write', args: { todos: [{ content: 'Implement and verify independent worker modules', status }] } });
-  const spawn = (role, marker) => ({ name: `subagent_${role}`, args: { description: `Fixture ${marker}`, prompt: `role_fixture_child_${marker}: perform only the delegated module work ${marker}` } });
+  const spawn = marker => ({ name: 'subagent', args: { description: `Fixture ${marker}`, prompt: `role_fixture_child_${marker}: perform only the delegated module work ${marker}` } });
   const scripts = {
     main: [
       () => todo('in_progress'),
-      () => spawn('coder', 'a'),
-      () => spawn('coder', 'b'),
-      () => spawn('reviewer', 'reviewer'),
+      () => spawn('a'),
+      () => spawn('b'),
+      () => spawn('c'),
+      () => spawn('fourth'),
       async request => {
         const result = [...request.messages].reverse().find(message => message.role === 'tool');
-        assert.match(content(result), /subagent limit reached|active child limit/i, 'the native total cap applies to every role');
+        assert.match(content(result), /active child limit: 3/i, 'the fourth concurrent child is refused by the native Host');
         releaseChildren();
-        await until(async () => await completedChildren() === 2);
-        return spawn('reviewer', 'reviewer');
-      },
-      async () => {
         await until(async () => await completedChildren() === 3);
         return { name: 'write', args: { file_path: path.join(cwd, 'project.test.mjs'), content: "import test from 'node:test'; import assert from 'node:assert/strict'; import {invoice} from './invoice.mjs'; test('parallel role modules integrate',()=>assert.equal(invoice(),6));\n" } };
       },
@@ -62,24 +59,29 @@ async function modelFixture(cwd, completedChildren) {
       () => todo('completed'),
       () => ({ text: 'OFFICIAL_ROLE_PROJECT_VERIFIED' }),
     ],
-    reviewer: [() => ({ text: 'REVIEWER_MODEL_ROUTE_OBSERVED' })],
+    c: [async () => { await childrenMayRun; return { text: 'GENERIC_THIRD_CHILD_DONE' }; }],
   };
   for (const actor of ['a', 'b']) scripts[actor] = [
     async () => { await childrenMayRun; return { name: 'write', callId: 'same-native-write-call-id', args: { file_path: path.join(cwd, actor === 'a' ? 'math.mjs' : 'invoice.mjs'), content: actor === 'a' ? 'export const three=3;\n' : "import {three} from './math.mjs'; export const invoice=()=>three*2;\n" } }; },
     () => ({ text: `WORKER_${actor.toUpperCase()}_DONE` }),
   ];
-  const models = ['default', 'main', 'planner', 'coder', 'tester', 'reviewer'].map(role => `role-${role}`);
+  const models = ['selected-main', ...['default', 'main', 'planner', 'coder', 'tester', 'reviewer'].map(role => `role-${role}`)];
   const server = http.createServer(async (req, res) => {
     try {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: models.map(id => ({ id })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw); requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
-      const actor = request.model === 'role-main' ? 'main' : request.model === 'role-reviewer' ? 'reviewer' : request.model === 'role-coder' ? ['a', 'b'].find(candidate => request.messages.some(message => message.role === 'user' && content(message).includes(`role_fixture_child_${candidate}:`))) : null;
-      assert.ok(actor, `Unexpected actual model route ${request.model}`);
+      assert.equal(request.model, 'selected-main', 'the current session model owns main and child requests despite saved role routes');
+      assert.equal(request.reasoning_effort, 'high', 'native children inherit the actual parent effort');
+      const actor = ['a', 'b', 'c', 'fourth'].find(candidate => request.messages.some(message => message.role === 'user' && content(message).includes(`role_fixture_child_${candidate}:`))) ?? 'main';
+      assert.notEqual(actor, 'fourth', 'a refused child must not reach a model');
       const next = scripts[actor][count[actor]++]; assert.ok(next, `Unplanned model continuation for ${actor}`);
       const response = await next(request);
       assert.ok(!request.tools.some(tool => tool.function.name === 'codebuddy_task'));
+      assert.ok(!request.tools.some(tool => tool.function.name.startsWith('subagent_')));
+      const spawnSchema = request.tools.find(tool => tool.function.name === 'subagent').function.parameters.properties;
+      for (const key of ['provider', 'model', 'reasoning_effort']) assert.equal(Object.hasOwn(spawnSchema, key), false);
       if (response.name) assert.ok(request.tools.some(tool => tool.function.name === response.name), `Missing actual tool ${response.name}`);
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
@@ -92,7 +94,7 @@ async function modelFixture(cwd, completedChildren) {
   return { requests, failures, count, models, url: `http://127.0.0.1:${server.address().port}`, async close() { releaseChildren(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } };
 }
 
-test('official Harness role routes and concurrent children use the native total cap through ACP', { timeout: 90_000 }, async t => {
+test('ACP uses the selected main model and three native generic children despite obsolete role routing', { timeout: 90_000 }, async t => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-official-roles-')));
   const cwd = path.join(root, 'project'); const dataDir = path.join(root, 'data');
   let client;
@@ -115,18 +117,21 @@ test('official Harness role routes and concurrent children use the native total 
   const provider = await client.request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Official roles fixture', apiUrl: model.url, requiresAuth: false, models: model.models, supportsStreaming: true, headers: {} });
   await client.request(ext('defaults/save'), { providerId: provider.providerId, modelId: 'role-default' });
   await client.request(ext('codepro/model-routing/save'), { config: { version: 2, advancedRoutingEnabled: true, routes: ['main', 'planner', 'coder', 'tester', 'reviewer'].map(role => ({ role, providerId: provider.providerId, modelId: `role-${role}` })), maxParallelCoders: 2, visionRoute: { enabled: false, mode: 'disabled' } } });
+  await client.request(ext('preferences/save'), { expectedRevision: 0, values: [{ key: 'gooseThinkingEffort', value: 'high' }] });
   const lease = await client.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
   const session = await client.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
+  await client.request('session/set_config_option', { sessionId: session.sessionId, configId: 'model', value: 'selected-main' });
   const result = await client.request('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'official_role_fixture: develop and verify a multi-module project with independent workers' }], _meta: { 'codeagentpro/source-message-id': randomUUID() } }).catch(error => {
     throw new Error(`${error.message}; actual model counts=${JSON.stringify(model.count)}; fixture failures=${JSON.stringify(model.failures.map(failure => failure.message))}`, { cause: error });
   });
   assert.deepEqual(model.failures.map(error => error.message), []);
   assert.equal(result.stopReason, 'end_turn');
-  assert.deepEqual(model.count, { main: 9, a: 2, b: 2, reviewer: 1 });
+  assert.deepEqual(model.count, { main: 9, a: 2, b: 2, c: 1 });
   const snapshot = client.notifications.filter(msg => msg.method === ext('codepro/run/update')).at(-1).params.snapshot;
   zCodeProRunSnapshot.parse(snapshot);
   assert.equal(snapshot.state, 'completed');
   const stored = JSON.parse(await readFile(path.join(dataDir, 'state.json'), 'utf8'));
+  assert.equal(stored.sessions.find(item => item.id === session.sessionId).modelId, 'selected-main');
   const events = stored.codeproRuns.find(run => run.runId === snapshot.runId).events;
   const writes = events.filter(event => event.eventType === 'tool_result' && event.payload.callId.endsWith(':same-native-write-call-id'));
   assert.equal(writes.length, 2); assert.equal(new Set(writes.map(event => event.payload.callId)).size, 2);

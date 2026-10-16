@@ -12,7 +12,7 @@ import { listSubagentCatalog, readSubagentConversation } from '../../subagent-co
 import sharp from 'sharp';
 
 let driver, server, root, provider, mcpUrl;
-let siblingFixture;
+let siblingFixture, capacityFixture;
 const requests = [], mcpCalls = [];
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'codebuddy-harness-capabilities-'));
@@ -42,14 +42,17 @@ before(async () => {
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
       res.on('close', () => clearTimeout(timer)); return;
     }
-    if (prompt.includes('fixture_capacity_child')) { await delay(200); emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
+    if (prompt.includes('fixture_capacity_child')) { await capacityFixture.promise; emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
     else if (prompt.includes('fixture_capacity_parent') && !since.some(message => message.role === 'tool')) {
       const count = prompt.includes('fixture_capacity_parent_five') ? 5 : 2;
       emit({ role: 'assistant', tool_calls: Array.from({ length: count }, (_, index) => ({ index, id: `capacity-${index}`, type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: `Capacity fixture ${index}`, prompt: 'fixture_capacity_child' }) } })) }); emit({}, 'tool_calls');
     }
+    else if (prompt.includes('fixture_capacity_parent')) { capacityFixture.resolve(); emit({ role: 'assistant', content: 'Capacity admissions checked' }); emit({}, 'stop'); }
     else if (prompt.includes('fixture_background_cancel') && !since.some(message => message.role === 'tool')) call(process.platform === 'win32' ? 'pwsh' : 'bash', { description: 'Wait in cancellable fixture job', command: process.platform === 'win32' ? 'Start-Sleep -Seconds 30' : 'sleep 30', run_in_background: true });
-    else if (prompt.includes('fixture_role_parent') && !since.some(message => message.role === 'tool')) call('subagent_coder', { description: 'Configured coding model fixture', prompt: 'fixture_role_child' });
-    else if (prompt.includes('fixture_capability_parent') && !since.some(message => message.role === 'tool')) call('subagent_coder', { description: 'Inherited host and MCP capabilities fixture', prompt: 'fixture_capability_child' });
+    else if (prompt.includes('fixture_role_parent') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Inherited main model fixture', prompt: 'fixture_role_child' });
+    else if (prompt.includes('fixture_depth_parent') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Depth one child', prompt: 'fixture_depth_child' });
+    else if (prompt.includes('fixture_depth_child') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Rejected nested child', prompt: 'fixture_depth_grandchild' });
+    else if (prompt.includes('fixture_capability_parent') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Inherited host and MCP capabilities fixture', prompt: 'fixture_capability_child' });
     else if (prompt.includes('fixture_capability_child') && !since.some(message => message.role === 'tool')) call('child_contract', { value: 'confirmed' });
     else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 1) call('mcp__child_memory__remember', { text: 'delegated memory' });
     else if (prompt.includes('fixture_delegate') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Independent module fixture', prompt: prompt.includes('cancel') ? 'fixture_child_slow' : 'fixture_child_write' });
@@ -269,8 +272,7 @@ test('subagent file execution inherits root approval and parent waits for its ac
 });
 
 test('native three sibling catalogs and conversations stay read-only at capacity three', { timeout: 15000 }, async () => {
-  // This changes only the existing isolated Host's native volatile setting.
-  const created = await session({ maxParallelSubagents: 3 }), approvals = [], events = [];
+  const created = await session(), approvals = [], events = [];
   siblingFixture = { started: new Set(), ready: Promise.withResolvers(), release: Promise.withResolvers() };
   const refused = Promise.withResolvers();
   const running = driver.prompt(created.sessionId, 'fixture_catalog_parallel_root', {
@@ -345,49 +347,66 @@ test('native three sibling catalogs and conversations stay read-only at capacity
   assert.equal(await readFile(join(root, 'source.txt'), 'utf8'), 'source fixture');
 });
 
-test('role subagent uses configured model and effort with real lifecycle and permission receipts', async () => {
+test('generic subagent inherits the actual parent model and effort despite obsolete role options', async () => {
   const created = await session({ thinkingEffort: 'high', roleModels: { coder: { provider, model: 'fixture-coder', thinkingEffort: 'low' } } });
   const events = [];
   await driver.prompt(created.sessionId, 'fixture_role_parent', { onPermission: async () => true, onEvent: event => events.push(event) });
-  const childRequests = requests.filter(request => request.model === 'fixture-coder');
+  const childRequests = requests.filter(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_role_child')));
   assert.ok(childRequests.length > 0);
-  assert.equal(childRequests[0].reasoning_effort, 'low');
+  assert.equal(childRequests[0].model, 'fixture-model');
+  assert.equal(childRequests[0].reasoning_effort, 'high');
+  assert.equal(requests.some(request => request.model === 'fixture-coder'), false);
+  const toolNames = childRequests[0].tools.map(tool => tool.function.name);
+  assert.ok(toolNames.includes('subagent'));
+  assert.ok(toolNames.every(name => !name.startsWith('subagent_')));
+  const parameters = childRequests[0].tools.find(tool => tool.function.name === 'subagent').function.parameters.properties;
+  for (const field of ['provider', 'model', 'reasoning_effort']) assert.equal(Object.hasOwn(parameters, field), false);
   const started = events.find(event => event.type === 'subagent_start');
   assert.ok(started?.childSessionId);
   assert.ok(events.some(event => event.type === 'subagent_end' && event.childSessionId === started.childSessionId));
-  assert.ok(events.some(event => event.type === 'tool_result' && event.name === 'subagent_coder' && event.structuredContent?.subagentId === started.childSessionId));
+  assert.ok(events.some(event => event.type === 'tool_result' && event.name === 'subagent' && event.structuredContent?.subagentId === started.childSessionId));
 });
 
-test('parallel setting configures official subagent capacity for subsequent admissions', async () => {
-  const one = await session({ maxParallelSubagents: 1 });
+test('obsolete per-session concurrency settings cannot narrow or widen the native Host cap', async () => {
+  const one = await session({ maxParallelSubagents: 1, maxParallelCoders: 1 });
+  capacityFixture = Promise.withResolvers();
   const first = [];
   await driver.prompt(one.sessionId, 'fixture_capacity_parent', { onPermission: () => true, onEvent: event => first.push(event) });
   const firstSpawns = first.filter(event => event.type === 'tool_result' && event.name === 'subagent');
-  assert.equal(firstSpawns.filter(event => !event.isError).length, 1);
-  assert.equal(firstSpawns.filter(event => event.isError).length, 1);
-  assert.match(JSON.stringify(firstSpawns.find(event => event.isError)), /ACTIVATION_LIMIT_REACHED|active child limit/);
-  const two = await session({ maxParallelSubagents: 2 });
-  const second = [];
-  await driver.prompt(two.sessionId, 'fixture_capacity_parent', { onPermission: () => true, onEvent: event => second.push(event) });
-  assert.equal(second.filter(event => event.type === 'tool_result' && event.name === 'subagent' && !event.isError).length, 2);
-  assert.equal(second.filter(event => event.type === 'tool_result' && event.name === 'subagent' && event.isError).length, 0);
-  const upper = await session({ maxParallelSubagents: 32 });
+  assert.equal(firstSpawns.filter(event => !event.isError).length, 2);
+  assert.equal(firstSpawns.filter(event => event.isError).length, 0);
+  const upper = await session({ maxParallelSubagents: 32, maxParallelCoders: 32 });
+  capacityFixture = Promise.withResolvers();
   const third = [];
   await driver.prompt(upper.sessionId, 'fixture_capacity_parent_five', { onPermission: () => true, onEvent: event => third.push(event) });
-  assert.equal(third.filter(event => event.type === 'tool_result' && event.name === 'subagent' && !event.isError).length, 5);
-  assert.equal(third.filter(event => event.type === 'tool_result' && event.name === 'subagent' && event.isError).length, 0);
+  assert.equal(third.filter(event => event.type === 'tool_result' && event.name === 'subagent' && !event.isError).length, 3);
+  const refused = third.filter(event => event.type === 'tool_result' && event.name === 'subagent' && event.isError);
+  assert.equal(refused.length, 2);
+  assert.ok(refused.every(event => /active child limit: 3/.test(JSON.stringify(event.result))));
+});
+
+test('native depth one rejects a child attempting to spawn a grandchild', async () => {
+  const created = await session(), events = [];
+  await driver.prompt(created.sessionId, 'fixture_depth_parent', { onPermission: () => true, onEvent: event => events.push(event) });
+  const child = events.find(event => event.type === 'subagent_start')?.childSessionId;
+  assert.ok(child);
+  const refusal = events.find(event => event.type === 'tool_result' && event.name === 'subagent' && event.sessionId === child && event.isError);
+  assert.ok(refusal);
+  assert.match(JSON.stringify(refusal.result), /depth 2 exceeds maxDepth 1/);
+  assert.equal(events.filter(event => event.type === 'subagent_start').length, 1);
+  assert.deepEqual(await driver.listSubagentChildren(child), []);
+  assert.equal(requests.some(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_depth_grandchild'))), false);
 });
 
 test('owned child receives configured host tools, MCP and instructions before its first model step', async () => {
   const calls = [], approvals = [];
   const created = await session({
     systemPrompt: 'CHILD_INHERITED_HOST_POLICY_821',
-    roleModels: { coder: { provider, model: 'fixture-capability-child' } },
     tools: [{ name: 'child_contract', description: 'Host task contract', inputSchema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'] }, execute(args, exec) { calls.push({ args, exec }); return { accepted: true }; } }],
     mcpServers: [{ serverName: 'child_memory', transport: 'streamable-http', url: mcpUrl, reconnect: { enabled: false } }],
   });
   await driver.prompt(created.sessionId, 'fixture_capability_parent', { onPermission: async (call) => { approvals.push(call); return true; } });
-  const request = requests.find(request => request.model === 'fixture-capability-child');
+  const request = requests.find(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_capability_child')));
   assert.ok(request.tools.some(tool => tool.function.name === 'child_contract'));
   assert.ok(request.tools.some(tool => tool.function.name === 'mcp__child_memory__remember'));
   assert.match(JSON.stringify(request.messages), /CHILD_INHERITED_HOST_POLICY_821/);

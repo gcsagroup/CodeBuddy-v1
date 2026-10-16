@@ -29,7 +29,7 @@ async function connect(url) {
 }
 const content = item => typeof item.content === 'string' ? item.content : item.content.map(part => part.text ?? '').join('');
 
-test('original ACP Git and Review flow uses only reviewer Harness result tool, persists results and cancels actual HTTP execution', { timeout: 90_000 }, async t => {
+test('original ACP Git and Review flow uses the current session model, persists results and cancels actual HTTP execution', { timeout: 90_000 }, async t => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-review-harness-'))), cwd = path.join(root, 'project'), dataDir = path.join(root, 'data');
   const requests = [], failures = [], phases = new Map(); let phase = 'valid', heldResponse;
   const model = http.createServer(async (req, res) => {
@@ -39,7 +39,7 @@ test('original ACP Git and Review flow uses only reviewer Harness result tool, p
       const request = JSON.parse(body);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       requests.push(request);
-      assert.equal(request.model, 'reviewer-fixture', 'configured reviewer route owns actual model invocation');
+      assert.equal(request.model, 'main-fixture', 'current session model owns review invocation despite the obsolete reviewer route');
       assert.deepEqual(request.tools.map(item => item.function.name), ['codebuddy_review_result'], 'native write/shell/subagent/MCP tools must be absent');
       const snapshot = JSON.parse(content(request.messages.find(item => item.role === 'user')));
       const step = (phases.get(snapshot.snapshotId) ?? 0) + 1; phases.set(snapshot.snapshotId, step);
@@ -85,7 +85,7 @@ test('original ACP Git and Review flow uses only reviewer Harness result tool, p
     throw Error('Review did not settle');
   }
   let snapshot = (await review('snapshot', { scope: 'working_tree' })).snapshot;
-  assert.equal(snapshot.model.model, 'reviewer-fixture');
+  assert.equal(snapshot.model.model, 'main-fixture');
   let result = (await review('start', { snapshotId: snapshot.snapshotId, requestId: 'valid-review' })).result;
   const completed = await terminal(result.reviewId);
   assert.deepEqual(failures, []); assert.equal(completed.result.status, 'completed'); assert.equal(completed.result.findings[0].id, 'wrong-sum');

@@ -1529,6 +1529,9 @@
   "conversationFiles.files": {
     "defaultMessage": "Modified {count} files this turn"
   },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "Show {count} more files"
+  },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Conversation Limits"
   },
@@ -4071,10 +4074,10 @@
     "defaultMessage": "Queue Paused"
   },
   "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
+    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
   },
   "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
+    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
   },
   "messageQueue.queued": {
     "defaultMessage": "queued"
@@ -4089,10 +4092,10 @@
     "defaultMessage": "Save"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "Send this message now"
+    "defaultMessage": "Send now"
   },
   "messageQueue.stopAndSend": {
-    "defaultMessage": "Stop current processing and send this message now"
+    "defaultMessage": "Stop the current task, then send this message"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4652,11 +4655,14 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "Unable to connect to CodeBuddy server"
   },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "Open model settings"
+  },
   "onboardingGuard.emptyModels": {
     "defaultMessage": "The service returned no models. Ask the service administrator to make a model available, then retry."
   },
   "onboardingGuard.multipleModels": {
-    "defaultMessage": "The service returned multiple models. A deployment default model must be confirmed before automatic setup can continue."
+    "defaultMessage": "The service returned multiple models. Choose a default model in settings."
   },
   "onboardingGuard.retry": {
     "defaultMessage": "Retry"
@@ -4668,7 +4674,7 @@
     "defaultMessage": "Model setup timed out. Check the service connection and retry."
   },
   "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "Check that the model service is available, then retry. Chat will become available after setup finishes."
+    "defaultMessage": "Open model settings to choose a default model, or retry if the service is temporarily unavailable."
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "You're all set to start using CodeBuddy."
@@ -7482,7 +7488,7 @@
     "defaultMessage": "Use tool {name}"
   },
   "toolAction.otherSummary": {
-    "defaultMessage": "{count,plural,one{Completed # other operation} other{Completed # other operations}}"
+    "defaultMessage": "Completed {count, plural, one {# operation} other {# operations}}"
   },
   "toolAction.read": {
     "defaultMessage": "Read file"
@@ -8299,5 +8305,137 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workspaceSubagent.empty": {
+    "defaultMessage": "No conversation records yet."
+  },
+  "workspaceSubagent.readonly": {
+    "defaultMessage": "Read only"
+  },
+  "workspaceSubagent.refresh": {
+    "defaultMessage": "Refresh conversation"
+  },
+  "workspaceSubagent.status": {
+    "defaultMessage": "{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}"
+  },
+  "workspaceSubagent.title": {
+    "defaultMessage": "Subagent conversation"
+  },
+  "workspaceSubagent.truncated": {
+    "defaultMessage": "Some long records are shortened."
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "Changes"
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "Turn {number}"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "Earlier records"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "All turns"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{files} files across {turns} turns"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "No recorded file changes yet."
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "This change is no longer present in the conversation records."
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "Edit {number}"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "This long diff has been shortened."
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "View changes"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "Some edits have no historical diff."
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "Subagents"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "Loading subagents…"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "No subagents in this directory."
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "Children of {name}"
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "External agent"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "Conversation unavailable"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "All subagents"
+  },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
   }
 }

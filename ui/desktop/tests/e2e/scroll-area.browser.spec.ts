@@ -2,7 +2,7 @@
 import { chromium, expect, test, type Browser, type Page, type Locator } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import { resolve } from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 let server: ViteDevServer;
@@ -222,7 +222,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
     expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
     expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
     expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
-    await expect(label).toHaveCSS('font-size', '13px');
+    await expect(label).toHaveCSS('font-size', '12.5px');
     await expect(trigger).toHaveCSS('border-radius', '10px');
   }
   expect(
@@ -230,9 +230,9 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   ).toBeLessThanOrEqual(1);
   await duration.click();
   const record = page.getByText('处理记录', { exact: true });
-  await expect(record).toHaveCSS('font-size', '14px');
+  await expect(record).toHaveCSS('font-size', '13.5px');
   expect(Math.abs((await record.boundingBox())!.x - left)).toBeLessThanOrEqual(1);
-  await expect(page.getByText('操作说明', { exact: true })).toHaveCSS('font-size', '13px');
+  await expect(page.getByText('操作说明', { exact: true })).toHaveCSS('font-size', '12.5px');
   const historyBody = page.locator(`[id="${await duration.getAttribute('aria-controls')}"]`);
   const nestedFile = page.getByRole('button', { name: '已查看文件 smoke_test_app.py' });
   const activity = page.getByRole('button', {
@@ -258,8 +258,8 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   expect(planIcon.x - planBox.x).toBeGreaterThanOrEqual(8);
   expect(planBox.x + planBox.width - planIcon.x - planIcon.width).toBeGreaterThan(8);
   await expect(plan.locator('.lucide-list-checks')).toBeVisible();
-  await expect(prose).toHaveCSS('font-size', '14px');
-  await expect(heading).toHaveCSS('font-size', '16px');
+  await expect(prose).toHaveCSS('font-size', '13.5px');
+  await expect(heading).toHaveCSS('font-size', '15px');
   await expect(heading).toHaveCSS('font-weight', '600');
   await expect(files.locator('.codepro-record-icon svg')).toBeVisible();
   const filesBox = (await files.boundingBox())!;
@@ -287,6 +287,91 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   expect(addedStyle.color).toBe(removedStyle.color);
   expect(addedStyle.background).not.toBe(removedStyle.background);
   expect(addedStyle.background).not.toBe('rgba(0, 0, 0, 0)');
+});
+
+test('conversation font family and fractional layout match in main and subagent contexts while code stays monospace', async () => {
+  const results: {
+    context: string;
+    size: number;
+    fontSize: string;
+    lineHeight: string;
+    fontFamily: string;
+    height: number;
+    devicePixelRatio: number;
+  }[] = [];
+  for (const context of ['main', 'subagent']) {
+    await page.goto(
+      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?presentation${context === 'subagent' ? '&subagent' : ''}`
+    );
+    const prose = page.getByText('收到需求，开始处理。', { exact: true });
+    await expect(prose).toHaveCSS('font-size', '13.5px');
+    await expect(page.getByRole('heading', { name: '实现结果' })).toHaveCSS('font-size', '15px');
+    const family = await prose.evaluate((element) => window.getComputedStyle(element).fontFamily);
+    expect(
+      family
+        .split(',')
+        .slice(0, 2)
+        .map((part) => part.trim().replaceAll('"', ''))
+    ).toEqual(['Noto Sans SC', 'Noto Sans CJK SC']);
+    expect(family).toContain('system-ui');
+    const content = page.locator('.codepro-assistant-prose').first();
+    for (const node of await content.locator('p, h2, ul, li').all()) {
+      await expect(node).toHaveCSS('font-family', family);
+    }
+    const codeFamilies = await content
+      .locator('code, pre')
+      .evaluateAll((elements) =>
+        elements.map((element) => window.getComputedStyle(element).fontFamily)
+      );
+    expect(codeFamilies.length).toBeGreaterThanOrEqual(2);
+    for (const codeFamily of codeFamilies) {
+      expect(codeFamily).toContain('monospace');
+      expect(codeFamily).not.toContain('Noto Sans SC');
+    }
+    const bodyFamily = await page
+      .locator('body')
+      .evaluate((element) => window.getComputedStyle(element).fontFamily);
+    expect(bodyFamily).not.toContain('Noto Sans SC');
+    let previousHeight = 0;
+    for (const size of [13, 13.5, 14]) {
+      await page.locator('.codepro-chat-history').evaluate((element, value) => {
+        (element as HTMLElement).style.setProperty('--conversation-text-size', `${value}px`);
+      }, size);
+      await expect(prose).toHaveCSS('font-size', `${size}px`);
+      const computed = await prose.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return {
+          fontSize: style.fontSize,
+          lineHeight: style.lineHeight,
+          fontFamily: style.fontFamily,
+          height: element.getBoundingClientRect().height,
+          devicePixelRatio: window.devicePixelRatio,
+        };
+      });
+      expect(Number.parseFloat(computed.lineHeight)).toBeCloseTo(size * 1.65, 2);
+      // Layout keeps subpixels; actual glyph rasterization is verified separately on Windows.
+      expect(computed.height).toBeGreaterThan(previousHeight);
+      previousHeight = computed.height;
+      results.push({ context, size, ...computed });
+      await page.screenshot({
+        path: test.info().outputPath(`conversation-${context}-${size}px.png`),
+        fullPage: true,
+      });
+    }
+  }
+  for (const size of [13, 13.5, 14]) {
+    const main = results.find((item) => item.context === 'main' && item.size === size)!;
+    const child = results.find((item) => item.context === 'subagent' && item.size === size)!;
+    expect(child.fontSize).toBe(main.fontSize);
+    expect(child.lineHeight).toBe(main.lineHeight);
+    expect(child.fontFamily).toBe(main.fontFamily);
+  }
+  const computedPath = test.info().outputPath('conversation-font-computed.json');
+  await writeFile(computedPath, JSON.stringify(results, null, 2));
+  await test.info().attach('conversation-font-computed', {
+    path: computedPath,
+    contentType: 'application/json',
+  });
 });
 
 test('completed extension toast enters softly and disappears after five seconds even while hovered and unfocused', async () => {
@@ -454,7 +539,7 @@ test('manual reading survives new output and Latest releases the reserved space 
   expect(await viewport.evaluate((el) => el.scrollTop)).toBe(readingTop);
 });
 
-test('file-card disclosures preserve counts, shared motion and the clicked reading position', async () => {
+test('file-card disclosures preserve counts and motion while opening saved diffs in one workspace tab', async () => {
   await page.goto(
     `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?file-card`
   );
@@ -464,21 +549,42 @@ test('file-card disclosures preserve counts, shared motion and the clicked readi
   await expect(card).toContainText('−90');
   await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await settle();
-  await expect(card).toHaveAttribute('aria-expanded', 'false');
+  await expect(card).toHaveAttribute('aria-expanded', 'true');
   const cardBody = page.locator(`[id="${await card.getAttribute('aria-controls')}"]`);
   await sampleToggle(card, cardBody);
+  await expect(card).toHaveAttribute('aria-expanded', 'false');
+  await sampleToggle(card, cardBody);
+  await expect(card).toHaveAttribute('aria-expanded', 'true');
   const file = page.getByRole('button', { name: 'app.py', exact: true });
   await expect(file).toContainText('+60');
   await expect(file).toContainText('−60');
-  await expect(file.locator('.lucide-chevron-right')).toBeVisible();
-  const fileBody = page.locator(`[id="${await file.getAttribute('aria-controls')}"]`);
-  await sampleToggle(file, fileBody);
-  await expect(file).toHaveAttribute('aria-expanded', 'true');
-  await expect(fileBody).toHaveCSS('animation-duration', '0.28s');
-  await expect(file).toBeFocused();
-  await sampleToggle(file, fileBody);
-  await expect(file).toHaveAttribute('aria-expanded', 'false');
+  await expect(file).not.toHaveAttribute('aria-expanded');
+  await expect(file).not.toHaveAttribute('aria-controls');
+  const inlineHeight = (await cardBody.boundingBox())!.height;
+  await file.click();
+  const panel = page.getByRole('complementary', { name: 'Workspace', exact: true });
+  const tab = panel.getByRole('tab', { name: 'Turn 1 · app.py', exact: true });
+  await expect(tab).toBeVisible();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.getByText(/^Edit 1\s*\+30\s*−30$/)).toBeVisible();
+  await expect(panel.getByText(/^Edit 2\s*\+30\s*−30$/)).toBeVisible();
+  await expect(panel.locator('[data-diff-kind="removed"]')).toHaveCount(60);
+  await expect(panel.locator('[data-diff-kind="added"]')).toHaveCount(60);
+  await expect(panel.locator('[data-diff-kind="removed"]').first()).toContainText('before 0');
+  await expect(panel.locator('[data-diff-kind="added"]').first()).toContainText('after 0');
+  await expect(page.locator('.codepro-chat-history [data-diff-kind]')).toHaveCount(0);
+  expect(Math.abs((await cardBody.boundingBox())!.height - inlineHeight)).toBeLessThanOrEqual(1);
+  await file.click();
+  await expect(tab).toHaveCount(1);
+  await panel.getByRole('tab', { name: 'Changes', exact: true }).click();
+  await file.click();
+  await expect(tab).toHaveCount(1);
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
   await sampleToggle(card, cardBody);
   await sampleToggle(card, cardBody);
   await expect(file).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath('file-card-workspace-saved-diff.png'),
+    fullPage: true,
+  });
 });

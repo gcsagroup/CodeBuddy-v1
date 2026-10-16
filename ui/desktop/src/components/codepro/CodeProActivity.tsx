@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 import { TechnicalValue } from '../TechnicalValue';
-import { Check, ChevronRight, FilePenLine, ListTree, LoaderCircle, OctagonX } from 'lucide-react';
+import { Check, ChevronRight, ListTree, LoaderCircle, OctagonX } from 'lucide-react';
 import type { SystemNotificationContent } from '../../types/message';
 import ThinkingContent from '../ThinkingContent';
 import { parseActivityEvent, type ActivityEvent } from '../../types/activityEvent';
@@ -750,9 +750,11 @@ function StructuredActivityDetails({ activity }: { activity: CodeProActivityView
 export function CodeProActivityCard({
   activity,
   active = false,
+  compact = false,
 }: {
   activity: CodeProActivityViewModel;
   active?: boolean;
+  compact?: boolean;
 }) {
   const intl = useIntl();
   const status = codeProToolStatus(activity, active);
@@ -784,7 +786,12 @@ export function CodeProActivityCard({
   return (
     <div data-codepro-task-id={activity.taskId ?? undefined}>
       <ToolCallExpandable
-        className="my-1.5 w-full overflow-hidden rounded-md border border-border-primary bg-background-primary"
+        compact={compact}
+        className={
+          compact
+            ? 'w-full'
+            : 'my-1.5 w-full overflow-hidden rounded-md border border-border-primary bg-background-primary'
+        }
         accessibleName={intl.formatMessage(i18n.activityAccessible, { summary })}
         label={
           <span className="flex min-w-0 flex-1 items-center gap-2 px-1" title={activity.target}>
@@ -838,13 +845,9 @@ export function CodeProActivityTimeline({
 
   if (activities.length === 0) return null;
 
-  const edits = activities.filter(
-    (activity) =>
-      activity.source === 'activity_event' &&
-      activity.eventType === 'file_changed' &&
-      activity.state === 'completed' &&
-      activity.path
-  );
+  if (activities.length === 1) {
+    return <CodeProActivityCard activity={activities[0]} active={active} compact />;
+  }
   const running = active && unfinished;
   const headline = intl.formatMessage(running ? i18n.activityRunning : i18n.activityFinished, {
     count: activities.length,
@@ -934,44 +937,6 @@ export function CodeProActivityTimeline({
           </CollapsibleContent>
         </section>
       </Collapsible>
-      {!active && edits.length > 0 && (
-        <section className="mt-2 rounded-xl border border-border-primary bg-background-primary px-3 py-2.5">
-          <div className="flex items-start gap-2.5">
-            <FilePenLine
-              className="mt-0.5 h-4 w-4 shrink-0 text-text-secondary"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-text-primary">
-                {intl.formatMessage(i18n.editOperations)}
-              </p>
-              <p className="text-xs text-text-secondary">{intl.formatMessage(i18n.editEvidence)}</p>
-              <ul className="mt-1 space-y-0.5">
-                {edits.map((activity) => {
-                  const file = activity.path ?? '';
-                  return (
-                    <li key={activity.key}>
-                      <button
-                        type="button"
-                        className="max-w-full truncate text-left text-xs text-text-secondary hover:text-text-primary hover:underline"
-                        aria-label={intl.formatMessage(i18n.viewEditReceipt, { file })}
-                        title={file}
-                        onClick={() => {
-                          setExpanded(true);
-                          setDetailKey(activity.key);
-                        }}
-                      >
-                        {file}
-                        {activity.diffSummary ? ` · ${activity.diffSummary}` : ''}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

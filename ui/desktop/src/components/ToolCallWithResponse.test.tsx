@@ -1,17 +1,259 @@
 import computerUnknown from './fixtures/computer-unknown.json';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isAcpPermissionRequestPending } from '../acp/permissionRequests';
+import { OPEN_SUBAGENT_CONVERSATION } from '../workspace-panel/subagentPanel';
+import { OPEN_CONVERSATION_CHANGE } from '../workspace-panel/conversationChangePanel';
+import userEvent from '@testing-library/user-event';
 import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
-import type { ToolResponseMessageContent } from '../types/message';
+import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../types/message';
 
 vi.mock('./McpApps/McpAppRenderer', () => ({
   default: (props: Record<string, unknown>) => (
     <div data-testid="mcp-app">{JSON.stringify(props)}</div>
   ),
 }));
+// Permission lifecycle itself is covered with real RPCs in permissionRequests
+// and ToolApprovalButtons tests; these cases exercise the resulting presentation.
+vi.mock('../acp/permissionRequests', async (original) => ({
+  ...(await original<typeof import('../acp/permissionRequests')>()),
+  isAcpPermissionRequestPending: vi.fn(() => true),
+}));
+beforeEach(() => vi.mocked(isAcpPermissionRequestPending).mockReturnValue(true));
 
 describe('tool response completion evidence', () => {
+  it('opens the file receipt by call identity without toggling the row, including keyboard activation', async () => {
+    const user = userEvent.setup(),
+      open = vi.fn();
+    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="file-parent"
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'historical-edit',
+            metadata: { extensionName: 'harness' },
+            toolCall: {
+              status: 'success',
+              value: { name: 'edit', arguments: { path: 'stale-argument.ts' } },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'historical-edit',
+            toolResult: {
+              status: 'success',
+              value: {
+                content: [],
+                isError: false,
+                structuredContent: { path: 'src/actual.ts', before: 'old\n', after: 'new\n' },
+              },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
+    const file = screen.getByRole('button', { name: 'src/actual.ts' });
+    const toggle = screen.getByRole('button', { name: /Edited file actual.ts/ });
+    expect(toggle.contains(file)).toBe(false);
+    await user.click(file);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      sessionId: 'file-parent',
+      toolCallId: 'historical-edit',
+      filePath: 'src/actual.ts',
+    });
+    file.focus();
+    await user.keyboard('{Enter}');
+    expect(open).toHaveBeenCalledTimes(2);
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('-old')).toBeVisible();
+    expect(screen.getByText('+new')).toBeVisible();
+    window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
+  });
+
+  it.each([true, false])(
+    'shows only the real search query and source links in compact=%s',
+    (compact) => {
+      render(
+        <IntlProvider locale="en" messages={{}}>
+          <ToolCallWithResponse
+            compact={compact}
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={{
+              type: 'toolRequest',
+              id: 'search-sources',
+              toolCall: {
+                status: 'success',
+                value: {
+                  name: 'mcp__exa__web_search_exa',
+                  arguments: {
+                    query: 'SGLang DeepSeek-V3 RadixAttention',
+                    objective: 'internal search planning note',
+                  },
+                },
+              },
+            }}
+            toolResponse={{
+              type: 'toolResponse',
+              id: 'search-sources',
+              toolResult: {
+                status: 'success',
+                value: {
+                  isError: false,
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Title: [P/D disagg] - support decode side radix cache\nURL: https://github.com/sgl-project/sglang/pull/19746\nPublished: N/A\nHighlights:\nLong source body is not a search action detail.\n\n---\nTitle: Unsafe source\nURL: javascript:alert(1)',
+                    },
+                  ],
+                },
+              },
+            }}
+          />
+        </IntlProvider>
+      );
+      const toggle = screen.getByRole('button', { name: /Searched the web/ });
+      if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
+      expect(screen.getByText('SGLang DeepSeek-V3 RadixAttention')).toBeVisible();
+      expect(
+        screen.getByRole('link', { name: '[P/D disagg] - support decode side radix cache' })
+      ).toHaveAttribute('href', 'https://github.com/sgl-project/sglang/pull/19746');
+      expect(screen.queryByText('Diagnostic record')).not.toBeInTheDocument();
+      expect(screen.queryByText(/mcp__exa/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/internal search planning/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Long source body/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Unsafe source' })).not.toBeInTheDocument();
+    }
+  );
+
+  it('retains an actual provider notice without treating its prose as a failure status', () => {
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'search-notice',
+            toolCall: {
+              status: 'success',
+              value: {
+                name: 'mcp__exa__web_search_exa',
+                arguments: { query: 'inference frameworks' },
+              },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'search-notice',
+            toolResult: {
+              status: 'success',
+              value: {
+                isError: false,
+                content: [
+                  {
+                    type: 'text',
+                    text: "You've hit Exa's free MCP rate limit.\n\nFix: Create API key at https://dashboard.exa.ai/api-keys",
+                  },
+                ],
+              },
+            },
+          }}
+        />
+      </IntlProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Searched the web/ }));
+    expect(screen.getByText("You've hit Exa's free MCP rate limit.")).toBeVisible();
+    expect(screen.queryByText(/Create API key/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])('opens a child in the side panel without claiming task completion (activation: %s)', (activated) => {
+    const open = vi.fn();
+    window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="parent"
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'spawn',
+            toolCall: {
+              status: 'success',
+              value: { name: 'subagent_reviewer', arguments: { description: 'Review quantities' } },
+            },
+          }}
+          toolResponse={{
+            type: 'toolResponse',
+            id: 'spawn',
+            toolResult: {
+              status: 'success',
+              value: {
+                content: [],
+                ...(activated ? {} : { _meta: { subagent_session_id: 'child' } }),
+              },
+            },
+            metadata: activated
+              ? { rawOutput: { kind: 'activation', subagentId: 'child' } }
+              : undefined,
+          }}
+        />
+      </IntlProvider>
+    );
+    const child = screen.getByRole('button', {
+      name: activated ? 'Started Review quantities' : 'Review quantities',
+    });
+    expect(child.querySelector('[data-subagent-avatar]')).toHaveAttribute(
+      'data-subagent-avatar',
+      'child'
+    );
+    expect(child.querySelector('.lucide-bot')).not.toBeNull();
+    expect(child.querySelector('.lucide-external-link')).toBeNull();
+    fireEvent.click(child);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect((open.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      parentSessionId: 'parent',
+      childSessionId: 'child',
+      title: 'Review quantities',
+    });
+    expect(screen.queryByText('Tool call completed')).not.toBeInTheDocument();
+    window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+  });
+  it('does not render approval controls from an expired historical confirmation', () => {
+    vi.mocked(isAcpPermissionRequestPending).mockReturnValue(false);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          sessionId="parent"
+          isCancelledMessage={false}
+          isPendingApproval
+          isStreamingMessage={false}
+          toolRequest={{
+            type: 'toolRequest',
+            id: 'expired',
+            toolCall: { status: 'success', value: { name: 'read', arguments: {} } },
+          }}
+          confirmationContent={{ id: 'expired', toolName: 'read', arguments: {} }}
+        />
+      </IntlProvider>
+    );
+    expect(screen.queryByRole('button', { name: 'Allow Once' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+    expect(screen.getByText('Unknown status')).toBeVisible();
+  });
   it.each([
     ['read', { file_path: 'D:\\fixture\\采购清单.txt' }, 'D:\\fixture\\采购清单.txt'],
     [
@@ -161,6 +403,67 @@ describe('tool response completion evidence', () => {
     ).toBe('error');
   });
 
+  it('shows a native foreground command failure even when tool transport succeeded', async () => {
+    const request: ToolRequestMessageContent = {
+      type: 'toolRequest',
+      id: 'native-test-failure',
+      metadata: { extensionName: 'harness' },
+      toolCall: {
+        status: 'success',
+        value: { name: 'pwsh', arguments: { command: 'node --test tests/invoice.test.mjs' } },
+      },
+    };
+    const result = response({
+      status: 'success',
+      value: {
+        isError: false,
+        content: [{ type: 'text', text: 'tests 3, pass 1, fail 2' }],
+        structuredContent: { kind: 'foreground', exitCode: 1 },
+      },
+    });
+    result.id = request.id;
+    expect(resolveToolLoadingStatus(result, false, request)).toBe('error');
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <ToolCallWithResponse
+          compact
+          toolRequest={request}
+          toolResponse={result}
+          isCancelledMessage={false}
+          isPendingApproval={false}
+          isStreamingMessage={false}
+        />
+      </IntlProvider>
+    );
+    expect(await screen.findByRole('button', { name: /node --test.*Failed/i })).toBeVisible();
+  });
+
+  it('does not reinterpret unrelated MCP payloads or unfinished commands as native failures', () => {
+    const nativeRequest: ToolRequestMessageContent = {
+      type: 'toolRequest',
+      id: 'observe',
+      metadata: { extensionName: 'harness' },
+      toolCall: { status: 'success', value: { name: 'pwsh', arguments: {} } },
+    };
+    const commandResult = (exitCode: number | null, kind = 'foreground') =>
+      response({
+        status: 'success',
+        value: { content: [], structuredContent: { kind, exitCode } },
+      });
+    expect(resolveToolLoadingStatus(commandResult(0), false, nativeRequest)).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(null), false, nativeRequest)).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(1, 'background'), false, nativeRequest)).toBe(
+      'success'
+    );
+    expect(
+      resolveToolLoadingStatus(commandResult(1), false, {
+        ...nativeRequest,
+        metadata: { extensionName: 'external-mcp' },
+      })
+    ).toBe('success');
+    expect(resolveToolLoadingStatus(commandResult(1), false)).toBe('success');
+  });
+
   it('shows unknown status without a success indicator after a missing response', async () => {
     render(
       <IntlProvider locale="en" messages={{}}>
@@ -270,6 +573,7 @@ describe('internal task check presentation', () => {
       <IntlProvider locale="en" messages={{}}>
         <ToolCallWithResponse
           compact
+          sessionId="check-state"
           isCancelledMessage={state === 'cancelled'}
           isPendingApproval={state === 'pending'}
           isStreamingMessage={false}

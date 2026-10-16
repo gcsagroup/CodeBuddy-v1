@@ -2,7 +2,7 @@
 
 [简体中文](../../README.md) · [繁體中文](GITHUB_OVERVIEW_ZH_TW.md) · English
 
-CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The current candidate is `1.43.4`. Acceptance results apply to the specific build recorded in the delivery notes; a successful build does not establish every workflow as verified.
+CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The current candidate is `1.43.5`. Acceptance results apply to the specific build recorded in the delivery notes; a successful build does not establish every workflow as verified.
 
 ## Start from source
 

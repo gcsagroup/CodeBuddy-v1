@@ -10,6 +10,7 @@ import { useChatSession } from './useChatSession';
 
 const state = vi.hoisted(() => ({
   snapshot: {
+    promptRequestId: null as string | null,
     activeRunId: 'run-1' as string | null,
     activePromptAttemptId: null as string | null,
     pendingCancelPromptAttemptId: null as string | null,
@@ -110,6 +111,26 @@ describe('useChatSession steering acceptance', () => {
     expect(result.current.messages).toEqual([history]);
   });
 
+  it('blocks a new prompt after terminal display until the previous request settles', async () => {
+    state.snapshot = {
+      ...state.snapshot,
+      chatState: ChatState.Idle,
+      activeRunId: null,
+      promptRequestId: 'old-rpc',
+    };
+    const { result, rerender } = setup();
+    const onRejectedBeforeAcceptance = vi.fn();
+    await result.current.handleSubmit(input, { onAccepted: vi.fn(), onRejectedBeforeAcceptance });
+    expect(result.current.queueProcessingBlocked).toBe(true);
+    expect(onRejectedBeforeAcceptance).toHaveBeenCalledOnce();
+    expect(acpChatSessionController.submitMessage).not.toHaveBeenCalled();
+    state.snapshot = { ...state.snapshot, promptRequestId: null };
+    rerender();
+    expect(result.current.queueProcessingBlocked).toBe(false);
+    await result.current.handleSubmit(input);
+    expect(acpChatSessionController.submitMessage).toHaveBeenCalledOnce();
+  });
+
   it('pauses pending queued messages when the user stops the current turn', () => {
     const { result } = setup();
     expect(result.current.pauseQueueOnStop).toBe(true);
@@ -118,6 +139,7 @@ describe('useChatSession steering acceptance', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     state.snapshot = {
+      promptRequestId: null,
       activeRunId: 'run-1',
       activePromptAttemptId: null,
       pendingCancelPromptAttemptId: null,

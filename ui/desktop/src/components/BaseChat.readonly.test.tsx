@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
+import type { IpcRendererEvent } from 'electron';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import BaseChat from './BaseChat';
 
@@ -40,13 +41,16 @@ vi.mock('./ProgressiveMessageList', () => ({
   default: ({
     onMessageUpdate,
     resubmitMessage,
+    searchActive,
   }: {
     onMessageUpdate?: unknown;
     resubmitMessage?: unknown;
+    searchActive?: boolean;
   }) => (
     <div>
       Saved answer{onMessageUpdate ? <button>Edit or retry</button> : null}
       {resubmitMessage ? <button>Resume task</button> : null}
+      <span>{searchActive ? 'Search all history' : 'Recent history'}</span>
     </div>
   ),
 }));
@@ -55,6 +59,7 @@ beforeEach(() => {
   fixture.readonly = true;
   fixture.submit.mockReset();
   fixture.update.mockReset();
+  vi.mocked(window.electron.on).mockClear();
   Object.assign(window.electron, { logInfo: vi.fn() });
 });
 
@@ -92,3 +97,30 @@ it('retains normal conversation controls outside imported history', () => {
   expect(screen.getByRole('button', { name: 'Edit or retry' })).toBeVisible();
   expect(screen.getByRole('button', { name: 'Resume task' })).toBeVisible();
 });
+
+it.each(['keyboard', 'menu'] as const)(
+  'uses the actual search visibility for the history window when opened by %s',
+  async (entry) => {
+    show();
+    expect(screen.getByText('Recent history')).toBeVisible();
+    if (entry === 'keyboard') {
+      fireEvent.keyDown(window, {
+        key: 'f',
+        ctrlKey: window.electron.platform !== 'darwin',
+        metaKey: window.electron.platform === 'darwin',
+      });
+    } else {
+      const find = vi
+        .mocked(window.electron.on)
+        .mock.calls.find(([event]) => event === 'find-command');
+      expect(find).toBeDefined();
+      act(() => find?.[1]({} as IpcRendererEvent));
+    }
+    expect(screen.getByText('Search all history')).toBeVisible();
+    fireEvent.keyDown(screen.getByPlaceholderText('Search conversation...'), {
+      key: 'Escape',
+    });
+    await waitFor(() => expect(screen.getByText('Recent history')).toBeVisible());
+    expect(screen.queryByPlaceholderText('Search conversation...')).not.toBeInTheDocument();
+  }
+);

@@ -1,6 +1,7 @@
 import type { IntlShape } from 'react-intl';
 import { defineMessages } from '../i18n';
 import { snakeToTitleCase } from '../utils';
+import type { ToolResponseMessageContent } from '../types/message';
 
 const messages = defineMessages({
   readDone: { id: 'toolAction.readDone', defaultMessage: 'Read file' },
@@ -25,6 +26,9 @@ const messages = defineMessages({
   write: { id: 'toolAction.write', defaultMessage: 'Write file' },
   edit: { id: 'toolAction.edit', defaultMessage: 'Edit file' },
   search: { id: 'toolAction.search', defaultMessage: 'Search' },
+  webSearch: { id: 'toolAction.webSearch', defaultMessage: 'Search the web' },
+  webSearchRunning: { id: 'toolAction.webSearchRunning', defaultMessage: 'Searching the web' },
+  webSearchDone: { id: 'toolAction.webSearchDone', defaultMessage: 'Searched the web' },
   tree: { id: 'toolAction.tree', defaultMessage: 'List files' },
   shell: { id: 'toolAction.shell', defaultMessage: 'Run command' },
   observe: { id: 'toolAction.observe', defaultMessage: 'Observe desktop' },
@@ -66,7 +70,7 @@ const messages = defineMessages({
   },
   otherSummary: {
     id: 'toolAction.otherSummary',
-    defaultMessage: 'Completed {count, plural, one {# other operation} other {# other operations}}',
+    defaultMessage: 'Completed {count, plural, one {# operation} other {# operations}}',
   },
 });
 
@@ -93,18 +97,25 @@ export function formatToolActionSummary(
   for (const call of calls) {
     const name = call.name.split(/__|::/).pop();
     let kind: Kind =
-      name === 'read_document'
+      name === 'read_document' || name === 'read'
         ? 'read'
         : name === 'write' || name === 'edit' || name === 'shell'
           ? name
-          : 'other';
+          : name === 'pwsh' || name === 'bash'
+            ? 'shell'
+            : 'other';
     if (name === 'text_editor') {
       if (call.arguments.command === 'view') kind = 'read';
       else if (call.arguments.command === 'write') kind = 'write';
       else if (call.arguments.command === 'str_replace' || call.arguments.command === 'insert')
         kind = 'edit';
     }
-    const path = typeof call.arguments.path === 'string' ? call.arguments.path.trim() : '';
+    const path =
+      typeof call.arguments.file_path === 'string'
+        ? call.arguments.file_path.trim()
+        : typeof call.arguments.path === 'string'
+          ? call.arguments.path.trim()
+          : '';
     if ((kind === 'read' || kind === 'write' || kind === 'edit') && !path) kind = 'other';
     const group = groups.get(kind) ?? { paths: new Set<string>(), count: 0 };
     if (kind === 'read' || kind === 'write' || kind === 'edit')
@@ -129,12 +140,23 @@ export function formatToolAction(
   presentation: 'detail' | 'headline' = 'detail'
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
+  if (isWebSearchTool(fullName)) {
+    return intl.formatMessage(
+      messages[
+        state === 'running'
+          ? 'webSearchRunning'
+          : state === 'completed'
+            ? 'webSearchDone'
+            : 'webSearch'
+      ]
+    );
+  }
   let action: keyof typeof messages | undefined;
   let target = '';
   const fileAction = (kind: 'read' | 'write' | 'edit') => {
     action = kind;
-    if (typeof args.path === 'string')
-      target = args.path.split(/[\\/]/).filter(Boolean).pop() ?? '';
+    const path = args.file_path ?? args.path;
+    if (typeof path === 'string') target = path.split(/[\\/]/).filter(Boolean).pop() ?? '';
   };
   switch (name) {
     case 'task_contract':
@@ -148,6 +170,7 @@ export function formatToolAction(
               : 'contract';
       break;
     case 'read_document':
+    case 'read':
       fileAction('read');
       break;
     case 'write':
@@ -162,6 +185,8 @@ export function formatToolAction(
       else if (args.command === 'str_replace' || args.command === 'insert') fileAction('edit');
       break;
     case 'shell':
+    case 'pwsh':
+    case 'bash':
       action = 'shell';
       if (presentation === 'detail' && typeof args.command === 'string')
         target = args.command.split(/\r?\n/)[0];
@@ -250,4 +275,132 @@ export function formatToolAction(
 
 export function formatToolCompleted(intl: IntlShape): string {
   return intl.formatMessage(messages.completed);
+}
+
+// Tool identities select a view; query/result prose never decides the operation or its status.
+export function isWebSearchTool(fullName: string): boolean {
+  const name = fullName.split(/__|::/).pop();
+  return [
+    'web_search',
+    'web_search_exa',
+    'web_search_exa_advanced',
+    'search_web',
+    'brave_web_search',
+    'tavily_search',
+    'bing_search',
+    'google_search',
+    'duckduckgo_search',
+    'exa_search',
+  ].includes(name ?? '');
+}
+
+export function toolFilePath(name: string, args: Record<string, unknown>): string | undefined {
+  const tool = name.split(/__|::/).pop();
+  if (!['read', 'read_document', 'write', 'edit', 'text_editor'].includes(tool ?? '')) return;
+  if (
+    tool === 'text_editor' &&
+    !['view', 'write', 'str_replace', 'insert'].includes(String(args.command))
+  )
+    return;
+  const path = args.file_path ?? args.path;
+  return typeof path === 'string' && path.trim() ? path : undefined;
+}
+
+export function webSearchDetails(
+  args: Record<string, unknown>,
+  response?: ToolResponseMessageContent
+): { queries: string[]; sources: { title: string; url: string }[]; notice?: string } {
+  const queries = [
+    args.query,
+    args.search_query,
+    ...(Array.isArray(args.queries) ? args.queries : []),
+  ].filter((value): value is string => typeof value === 'string' && !!value.trim());
+  const sources = new Map<string, { title: string; url: string }>();
+  const add = (url: unknown, title: unknown) => {
+    if (typeof url !== 'string' || sources.size >= 100) return;
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password)
+        return;
+      sources.set(parsed.href, {
+        url: parsed.href,
+        title: typeof title === 'string' && title.trim() ? title.trim() : parsed.href,
+      });
+    } catch {
+      /* A malformed source remains unlinked. */
+    }
+  };
+  const record = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === 'object' && !Array.isArray(value);
+  const noticeOf = (input: unknown): string | undefined => {
+    if (record(input)) {
+      const error = record(input.error) ? input.error.message : input.error;
+      return typeof error === 'string'
+        ? error
+        : typeof input.message === 'string'
+          ? input.message
+          : undefined;
+    }
+    if (typeof input !== 'string') return;
+    try {
+      const parsed: unknown = JSON.parse(input);
+      if (!record(parsed)) return;
+      const error = record(parsed.error) ? parsed.error.message : parsed.error;
+      return typeof error === 'string'
+        ? error
+        : typeof parsed.message === 'string'
+          ? parsed.message
+          : undefined;
+    } catch {
+      if (input.trim().startsWith('{') || input.trim().startsWith('[')) return;
+      return input
+        .trim()
+        .split(/\n\s*\n/)[0]
+        .slice(0, 1500);
+    }
+  };
+  const structured = (value: unknown, depth = 0) => {
+    if (depth > 4) return;
+    if (Array.isArray(value)) {
+      value.slice(0, 100).forEach((item) => structured(item, depth + 1));
+      return;
+    }
+    if (!record(value)) return;
+    add(value.url ?? value.link, value.title ?? value.name);
+    for (const key of ['results', 'sources', 'items', 'web', 'data', 'organic'])
+      structured(value[key], depth + 1);
+  };
+  const result = response?.toolResult;
+  const value = result?.status === 'success' && record(result.value) ? result.value : undefined;
+  structured(value?.structuredContent ?? response?.metadata?.rawOutput);
+  let notice =
+    result?.status === 'error'
+      ? noticeOf(result.error)
+      : value?.isError === true
+        ? noticeOf(value.structuredContent ?? response?.metadata?.rawOutput)
+        : undefined;
+  for (const block of Array.isArray(value?.content) ? value.content : []) {
+    if (!record(block)) continue;
+    const audience = record(block.annotations) ? block.annotations.audience : undefined;
+    if (Array.isArray(audience) && !audience.includes('user')) continue;
+    if (block.type === 'resource_link') add(block.uri, block.name);
+    if (block.type !== 'text' || typeof block.text !== 'string') continue;
+    const text = block.text.trim();
+    try {
+      const parsed: unknown = JSON.parse(text);
+      structured(parsed);
+      if (!notice && !sources.size) notice = noticeOf(parsed);
+    } catch {
+      // Some MCP tools publish source records as labelled text instead of JSON.
+      // Only their explicit Title/URL fields become source links, never prose URLs.
+      for (const source of text.matchAll(/^Title: ([^\r\n]+)\r?\nURL: (\S+)\s*$/gm))
+        add(source[2], source[1]);
+      if (!notice && !sources.size) notice = noticeOf(text);
+    }
+  }
+  return {
+    queries: [...new Set(queries)],
+    sources: [...sources.values()],
+    ...(notice && !sources.size ? { notice } : {}),
+  };
 }

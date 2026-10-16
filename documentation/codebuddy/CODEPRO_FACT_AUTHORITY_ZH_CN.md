@@ -1,5 +1,15 @@
 # CodePro 事实权威与模块职责
 
+## 2026-10-16 同事分支合并：原生子 Agent 与只读投影
+
+本次按用户要求合并 `codex/dsh-frontend-ux`。当前会话选择的模型和思考强度是实际请求来源；原生子 Agent 继承父 Agent 的实际模型与强度，旧角色路由配置保留可读但不再覆盖执行选择。Host 的子 Agent 插件限制为同时 3 个、深度 1；旧配置中的角色并发值不修改原生 Host。此条覆盖下方历史角色路由执行约定，不删除保存的配置或历史。
+
+子 Agent 状态、目录和对话由原生记录持有；适配层验证归属路径并投影只读视图。文件变更面板仅展示已保存的工具回执，不宣称覆盖 shell/MCP/子 Agent 的全部修改。取消完成与请求释放分开处理，队列只在已有请求释放后继续；不从显示文案判定完成。工具权限先绑定远端组合再施加筛选，工具 schema 仍按需发现，保留本地主分支的 MCP 复用与异步任务适配。
+
+繁體：子 Agent 繼承父模型與強度，原生 Host 限制為 3 個並行、深度 1；舊路由仍可讀但不介入執行。目錄、對話及變更僅投影已保存事實，取消後須等請求釋放，權限與按需工具發現保持。
+
+English: native children inherit the parent's actual model and effort; the Host admits three concurrent children at depth one. Saved legacy role routes remain readable but do not override execution. Catalogs, transcripts and change views project durable facts. Queues wait for request release after cancellation; permission filtering and deferred tool discovery remain intact.
+
 ## 2026-10-16 修复：GitHub 账户设置沿用官方 CLI
 
 GitHub 账户授权、登录和凭据继续由现有 GitHub CLI 负责，Electron IPC 仅提供受限状态/设备流程/登出适配；移除旧 Rust OAuth 卡片调用，不恢复旧核心。`gh auth status` 的结构化验证结果是账户事实来源，MCP 独立连接配置不由账户卡片自动修改。Harness Agent 的执行、审批、完成所有权不变。见[修复验收](../../docs/reconstruction/2026-10-16-github-account-fix.zh-CN.md)。

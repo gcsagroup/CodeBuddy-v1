@@ -1,10 +1,22 @@
 /* These rules belong to conversation records, not navigation or the composer. */
 .codepro-chat-history {
-  --conversation-text-size: 0.875rem;
-  --conversation-code-size: 0.875rem;
+  /* Windows' system-ui CJK fallback can snap fractional sizes to the same glyphs. */
+  --conversation-font-family: 'Noto Sans SC', 'Noto Sans CJK SC', var(--font-sans);
+  --conversation-text-size: 13.5px;
+  --conversation-code-size: 12px;
+  --conversation-secondary-size: 12.5px;
+  --conversation-heading-size: 15px;
+  --conversation-line-height: 1.65;
+  font-family: var(--conversation-font-family);
   font-size: var(--conversation-text-size);
-  line-height: 1.65;
+  line-height: var(--conversation-line-height);
   text-align: left;
+}
+
+.codepro-conversation
+  .codepro-chat-history
+  :is(.font-sans, .prose, .prose :where(p, h1, h2, h3, h4, h5, h6, ol, ul, li)) {
+  font-family: var(--conversation-font-family);
 }
 
 .codepro-conversation
@@ -28,7 +40,7 @@
     h6
   ) {
   font-size: var(--conversation-text-size);
-  line-height: 1.65;
+  line-height: var(--conversation-line-height);
 }
 
 .codepro-conversation .codepro-chat-history .codepro-assistant-prose {
@@ -42,18 +54,28 @@
 }
 
 .codepro-conversation .codepro-chat-history .prose :is(h1, h2, h3, h4, h5, h6) {
-  font-size: 1rem;
+  font-size: var(--conversation-heading-size);
 }
 
 /* Expanding a record must not shrink its body text. */
-.codepro-conversation .codepro-chat-history .codepro-operation-details :is(.prose, code, pre) {
+.codepro-conversation .codepro-chat-history .codepro-operation-details .prose {
   font-size: var(--conversation-text-size);
+}
+
+/* Match workbench code, including diff line numbers nested in code blocks. */
+.codepro-conversation
+  .codepro-chat-history
+  :is(.prose, .codepro-operation-details)
+  :is(pre, pre *) {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: var(--conversation-code-size);
+  line-height: 1.85;
 }
 
 .codepro-conversation
   .codepro-chat-history
   :is(.text-text-secondary, .codepro-secondary-label, .codepro-group-heading) {
-  font-size: 0.8125rem;
+  font-size: var(--conversation-secondary-size);
 }
 
 .codepro-chat-history
@@ -142,4 +164,20 @@
 
 .codepro-chat-history summary:is(:hover, :focus-visible) {
   color: var(--color-text-primary);
+}
+
+/* Plans use the same small type as the waiting-output line, including history. */
+.codepro-conversation .codepro-plan {
+  --conversation-text-size: var(--text-xs, 0.75rem);
+  --conversation-secondary-size: var(--text-xs, 0.75rem);
+  --conversation-heading-size: var(--text-xs, 0.75rem);
+  --conversation-line-height: 1.4;
+  max-width: min(32rem, 100%);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
+}
+
+.codepro-conversation .codepro-plan :is(.prose, .prose :where(p, h1, h2, h3, h4, h5, h6, li)) {
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
 }

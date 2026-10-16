@@ -1529,6 +1529,9 @@
   "conversationFiles.files": {
     "defaultMessage": "本輪寫入檔案 · {count}"
   },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "再顯示 {count} 個檔案"
+  },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "對話限制"
   },
@@ -4074,10 +4077,10 @@
     "defaultMessage": "佇列已暫停"
   },
   "messageQueue.queuePausedCompact": {
-    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「立即傳送」傳送訊息。"
+    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「停止並傳送」傳送訊息。"
   },
   "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「立即傳送」傳送訊息。"
+    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「停止並傳送」傳送訊息。"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "從佇列中移除此訊息"
@@ -4089,10 +4092,10 @@
     "defaultMessage": "儲存"
   },
   "messageQueue.sendNow": {
-    "defaultMessage": "立即傳送此訊息"
+    "defaultMessage": "立即傳送"
   },
   "messageQueue.stopAndSend": {
-    "defaultMessage": "停止目前的處理並立即傳送此訊息"
+    "defaultMessage": "停止目前任務後傳送此訊息"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一視窗已修改此佇列。為避免覆寫，已暫停傳送與儲存。請保持本視窗開啟並核對兩邊的待傳訊息。"
@@ -4652,11 +4655,14 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "無法連線到 CodeBuddy 伺服器"
   },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "進入設定"
+  },
   "onboardingGuard.emptyModels": {
     "defaultMessage": "服務未傳回任何模型。請聯絡服務管理員提供可用模型，然後重試。"
   },
   "onboardingGuard.multipleModels": {
-    "defaultMessage": "服務傳回了多個模型，需要先確認部署使用的預設模型，才能繼續自動設定。"
+    "defaultMessage": "服務傳回了多個模型，請進入設定選擇要使用的預設模型。"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "重試"
@@ -4668,7 +4674,7 @@
     "defaultMessage": "模型設定逾時，請檢查服務連線後重試。"
   },
   "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "請確認模型服務可用後重試。設定完成後即可開始聊天。"
+    "defaultMessage": "請進入設定選擇預設模型；若服務暫時無法使用，也可以稍後重試。"
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "一切就緒，您可以開始使用 CodeBuddy 了。"
@@ -7482,7 +7488,7 @@
     "defaultMessage": "呼叫工具 {name}"
   },
   "toolAction.otherSummary": {
-    "defaultMessage": "已完成 {count} 項其他操作"
+    "defaultMessage": "已完成 {count} 項操作"
   },
   "toolAction.read": {
     "defaultMessage": "讀取檔案"
@@ -8296,6 +8302,138 @@
   },
   "workStatus.thought": {
     "defaultMessage": "正在思考"
+  },
+  "workspaceSubagent.empty": {
+    "defaultMessage": "暫無對話記錄。"
+  },
+  "workspaceSubagent.readonly": {
+    "defaultMessage": "唯讀"
+  },
+  "workspaceSubagent.refresh": {
+    "defaultMessage": "重新整理對話"
+  },
+  "workspaceSubagent.status": {
+    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} other {狀態尚不可用}}"
+  },
+  "workspaceSubagent.title": {
+    "defaultMessage": "子智慧體對話"
+  },
+  "workspaceSubagent.truncated": {
+    "defaultMessage": "部分較長記錄已省略。"
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "變更"
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "第 {number} 輪"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "早期記錄"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "全部輪次"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{turns} 輪累計修改 {files} 個檔案"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "統計已記錄的檔案修改操作；命令、外部工具或子智能體的修改可能未包含。"
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "暫無檔案修改記錄。"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "已記錄檔案修改，但缺少當時的差異內容。"
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "目前會話記錄中沒有這項變更。"
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "第 {number} 次修改"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "這份差異較長，已截短顯示。"
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "部分修改缺少歷史差異，增刪行數僅統計有差異的記錄。"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "查看變更"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "部分操作缺少歷史差異。"
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "子智慧體"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "重新整理子智慧體"
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "正在讀取子智慧體…"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "此目錄中暫無子智慧體。"
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "{name} 的下級智慧體"
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "外部智慧體"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "暫無可讀取的對話"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "點擊智慧體查看對話，展開箭頭查看它的下級智慧體。"
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "目錄重新整理失敗，下方保留的是上次讀取的項目。"
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "讀取失敗，下方保留的是上次讀取的對話記錄。"
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "全部子智慧體"
+  },
+  "conversation.turnDuration": {
+    "defaultMessage": "用時 {minutes} 分鐘 {seconds} 秒"
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "加入佇列"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "停止並傳送"
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "正在等待上一條請求結束，佇列中的訊息尚未傳送。"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "正在等待停止確認，佇列中的訊息尚未傳送。"
+  },
+  "toolAction.webSearch": {
+    "defaultMessage": "搜尋網頁"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "正在搜尋網頁"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "網頁搜尋已完成"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "搜尋內容"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "來源"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "搜尋回傳資訊"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "此操作未回傳可用的歷史差異。"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "已啟動 {name}"
   },
   "toolbox.officeDocuments": {
     "defaultMessage": "Office 文件"

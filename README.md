@@ -12,7 +12,7 @@
 
 ## 当前版本
 
-CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.4`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-codebuddy-branding.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
+CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.5`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-frontend-merge.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
 
 Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。模型、历史及设置保存在 `.preview-data`，日志位于 `.preview-data/logs/preview`。安装版的数据目录为 `~/.CodeBuddy-Harness`，该兼容路径保持不变，以便继续读取已有数据。新任务可使用默认工作区，也可选择现有项目。
 
@@ -61,15 +61,30 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 - Windows 10/11 x64、Git for Windows。
 - Node.js 24.10 或兼容的 24.x 版本。
 - pnpm：以 [ui/package.json](ui/package.json) 的 packageManager 为准，当前 11.9.0。
-- Rust：以 [rust-toolchain.toml](rust-toolchain.toml) 为准，当前 1.96.1。
-- Visual Studio 2022 C++ Build Tools、Windows SDK、LLVM/Clang。
 - 可访问的模型服务及凭据，例如本地 Ollama、Ollama Cloud 或应用支持的其他提供商。
 
-首次编译会下载依赖并生成较大的构建缓存。确认目标磁盘空间充足，避免同时运行多份完整编译。
+仅在需要本地编译原生 npm 模块或重建 Rust 工具时准备相应 C++/Rust 工具链；Rust 版本以 `rust-toolchain.toml` 为准，桌面启动不需要编译完整工具集。
 
-## 源码启动
+## 首次准备依赖
 
-使用仓库根目录的 `start-preview.ps1` 或 Node 24 执行 `scripts/start-harness-preview.cjs`。独立 MCP 工具依照上方说明准备。
+以下命令在仓库根目录的 PowerShell 中执行，保持现有锁文件版本：
+
+```powershell
+node --version
+corepack pnpm --dir .\ui install --frozen-lockfile
+Push-Location .\runtime
+npm ci --ignore-scripts --no-audit --no-fund
+Pop-Location
+Push-Location .\runtime\harness
+npm ci --ignore-scripts --no-audit --no-fund
+Pop-Location
+.\start-preview.ps1
+```
+
+已有匹配版本 pnpm 时，可将 `corepack pnpm` 替换为 `pnpm.cmd`。UI、兼容服务和 Harness 是不同依赖目录；任一步失败先查看该步错误，不直接进入启动。不为绕过安装错误修改依赖版本或锁文件。
+
+以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查 `.preview-data/logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
+
 ## 第一次使用
 
 1. **连接模型**：在设置中配置提供商、服务地址、API Key 和实际可用模型。本地服务需要先启动。
@@ -103,8 +118,7 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 
 ## 常见问题
 
-**启动报编译器或 Clang 错误**：确认 C++ Build Tools、Windows SDK 和 LLVM 安装完整，
-必要时检查 LIBCLANG_PATH，重新打开终端后重试。
+**启动报找不到模块**：确认三个依赖目录均已按锁文件准备，查看 `runtime.log` 中具体缺失的模块。不要改用旧 Rust 启动脚本掩盖 Harness 错误。
 
 **模型能回答但工具失败**：检查模型工具调用支持、工具启用状态、服务连接与权限。
 记录具体工具错误，不能用另一项工具成功替代本次验收。
@@ -118,12 +132,14 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 
 ## 开发与测试
 
-在 ui/desktop 下执行：
+从仓库根目录按受影响组件选择现有检查或相关用例：
 
 ```powershell
-corepack pnpm run typecheck
-corepack pnpm run test:run
-corepack pnpm run lint:check
+corepack pnpm --dir .\ui\desktop run typecheck
+corepack pnpm --dir .\ui\desktop run test:run
+corepack pnpm --dir .\ui\desktop run lint:check
+npm --prefix .\runtime test
+npm --prefix .\runtime\harness test
 ```
 
 在仓库根目录执行：
@@ -151,7 +167,6 @@ cargo clippy --offline -p goose-mcp --features rustls-tls --all-targets --jobs 1
 - `target/` 是可重新生成的 Rust 编译产物，不属于提交到 GitHub 的源码。
 - `node_modules/`、安装包输出、本地验收记录和临时夹具也不应提交。
 - 先停止构建再整理缓存；源码、配置、会话及未完成工作的证据需要保留。
-- 当前仓库已移除未被引用的旧演示视频和动图。历史提交仍保留原文件，因此这次删除不会立即缩小已有 `.git` 历史。
 
 ## 反馈与许可
 

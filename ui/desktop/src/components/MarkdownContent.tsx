@@ -282,8 +282,7 @@ const MarkdownContent = memo(function MarkdownContent({
   animateIncoming = false,
 }: MarkdownContentProps) {
   const intl = useIntl();
-  const [splitIncoming, setSplitIncoming] = useState(animateIncoming);
-  if (animateIncoming && !splitIncoming) setSplitIncoming(true);
+  const splitIncoming = animateIncoming;
   const [pendingLink, setPendingLink] = useState<{ protocol: string; href: string } | null>(null);
 
   const completeSegments = useMemo(() => {

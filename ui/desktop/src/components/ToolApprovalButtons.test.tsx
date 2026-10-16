@@ -1,12 +1,31 @@
-import { render, type RenderOptions, screen } from '@testing-library/react';
+import { act, render, type RenderOptions, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveAcpPermissionRequest } from '../acp/permissionRequests';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import ToolApprovalButtons from './ToolApprovalButtons';
+import { ToolCallExpandable } from './ToolCallExpandable';
+
+const permissionRegistry = vi.hoisted(() => ({
+  pending: true,
+  listeners: new Set<() => void>(),
+  resolve: vi.fn(),
+}));
 
 vi.mock('../acp/permissionRequests', () => ({
-  resolveAcpPermissionRequest: vi.fn(),
+  resolveAcpPermissionRequest: permissionRegistry.resolve,
+  isAcpPermissionRequestPending: (sessionId: string, id: string) =>
+    permissionRegistry.pending &&
+    !permissionRegistry.resolve.mock.calls.some(
+      (args, index) =>
+        args[0] === sessionId &&
+        args[1] === id &&
+        permissionRegistry.resolve.mock.results[index]?.value === true
+    ),
+  subscribeAcpPermissionRequests: (listener: () => void) => {
+    permissionRegistry.listeners.add(listener);
+    return () => permissionRegistry.listeners.delete(listener);
+  },
 }));
 
 const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
@@ -17,6 +36,54 @@ const resolveAcpPermissionRequestMock = vi.mocked(resolveAcpPermissionRequest);
 describe('ToolApprovalButtons', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    permissionRegistry.pending = true;
+  });
+
+  it('collapses completed history after a real approval click without treating it as reading', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    const view = (live: boolean) => (
+      <ToolCallExpandable label="Completed operations" collapsible={!live}>
+        <ToolApprovalButtons
+          data={{
+            id: 'approval-should-not-pin-history',
+            toolName: 'read',
+            sessionId: 'approval-collapse-session',
+          }}
+        />
+      </ToolCallExpandable>
+    );
+    const { rerender } = renderWithIntl(view(true));
+    await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledWith(
+      'approval-collapse-session',
+      'approval-should-not-pin-history',
+      'allow_once'
+    );
+    expect(screen.getByText('read - Allowed once')).toBeVisible();
+    rerender(view(false));
+    expect(screen.getByRole('button', { name: 'Completed operations' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByText('read - Allowed once')).not.toBeInTheDocument();
+  });
+
+  it('retains live details intentionally opened outside the approval actions', async () => {
+    const view = (live: boolean) => (
+      <ToolCallExpandable label="Completed operations" collapsible={!live}>
+        <button type="button">Inspect tool details</button>
+      </ToolCallExpandable>
+    );
+    const { rerender } = renderWithIntl(view(true));
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect tool details' }));
+    rerender(view(false));
+    const history = screen.getByRole('button', {
+      name: 'Completed operations',
+    });
+    expect(history).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Inspect tool details' })).toBeVisible();
+    await userEvent.click(history);
+    expect(history).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('marks the approval accepted when the ACP request resolves', async () => {
@@ -64,6 +131,45 @@ describe('ToolApprovalButtons', () => {
     );
     expect(screen.getByText('This approval request is no longer active.')).toBeInTheDocument();
     expect(screen.queryByText('developer__shell - Allowed once')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow Once' })).not.toBeInTheDocument();
+  });
+
+  it('removes mounted approval buttons as soon as the transport request expires', () => {
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'expires-live',
+          toolName: 'send_message',
+          sessionId: 'child-session',
+        }}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeInTheDocument();
+    act(() => {
+      permissionRegistry.pending = false;
+      for (const listener of permissionRegistry.listeners) listener();
+    });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('This approval request is no longer active.')).toBeInTheDocument();
+    expect(screen.queryByText(/Allowed once/)).not.toBeInTheDocument();
+    expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('renders a replayed inactive card without inventing an approval decision', () => {
+    permissionRegistry.pending = false;
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'replayed-old',
+          toolName: 'send_message',
+          sessionId: 'history-session',
+          isClicked: true,
+        }}
+      />
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('This approval request is no longer active.')).toBeInTheDocument();
+    expect(screen.queryByText(/Allowed|Denied/)).not.toBeInTheDocument();
   });
 
   it('does not reuse an approval decision for the same tool call id in another session', async () => {

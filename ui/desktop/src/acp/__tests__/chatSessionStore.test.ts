@@ -250,7 +250,12 @@ function runningActivityNotification(sessionId: string, runId = 'run-1', eventId
   } as never;
 }
 
-function turnTerminalNotification(sessionId: string, runId: string, terminalMessageId: string) {
+function turnTerminalNotification(
+  sessionId: string,
+  runId: string,
+  terminalMessageId: string,
+  status: 'cancelled' | 'interrupted' = 'cancelled'
+) {
   return {
     sessionId,
     update: {
@@ -264,7 +269,7 @@ function turnTerminalNotification(sessionId: string, runId: string, terminalMess
           run_id: runId,
           terminal_message_id: terminalMessageId,
           source_user_message_id: 'user-1',
-          status: 'cancelled',
+          status,
           checkpoint_id: null,
           retry_strategy: 'replay_user_request',
           visible_text_available: false,
@@ -381,6 +386,63 @@ describe('acpChatSessionStore', () => {
       acpChatSessionActions.deleteSnapshot(id);
     }
     sessionIds.clear();
+  });
+
+  it('keeps request occupancy after a live terminal and history reload until that RPC settles', () => {
+    const id = sessionId('terminal-before-prompt-settle');
+    expect(acpChatSessionActions.startPromptRequest(id, 'request-1')).toBe(true);
+    acpChatSessionActions.startPromptAttempt(id, 'request-1', 'user-1');
+    acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'run-1'));
+    const ended = acpChatSessionActions.applyAcpGooseSessionNotification(
+      completedSkippedTurnTerminalNotification(id, 'run-1')
+    );
+    expect(ended.chatState).toBe(ChatState.Idle);
+    expect(ended.activePromptAttemptId).toBeNull();
+    expect(ended.thinkingActivity).toBeUndefined();
+    expect(ended.promptRequestId).toBe('request-1');
+    expect(acpChatSessionActions.startPromptRequest(id, 'request-2')).toBe(false);
+    acpChatSessionActions.startSessionLoad(id);
+    acpChatSessionActions.finishSessionLoad(id, session(id));
+    expect(acpChatSessionStore.getSnapshot(id)?.promptRequestId).toBe('request-1');
+    acpChatSessionActions.finishPromptRequest(id, 'stale-request');
+    expect(acpChatSessionStore.getSnapshot(id)?.promptRequestId).toBe('request-1');
+    acpChatSessionActions.finishPromptRequest(id, 'request-1');
+    expect(acpChatSessionStore.getSnapshot(id)?.promptRequestId).toBeNull();
+    expect(acpChatSessionActions.startPromptRequest(id, 'request-2')).toBe(true);
+    acpChatSessionActions.finishPromptRequest(id, 'request-1');
+    expect(acpChatSessionStore.getSnapshot(id)?.promptRequestId).toBe('request-2');
+    acpChatSessionActions.finishPromptRequest(id, 'request-2');
+  });
+
+  it.each(['cancelled', 'interrupted'] as const)(
+    'ends a disconnected prompt after replaying its bound %s terminal',
+    (status) => {
+      const id = sessionId('disconnected-terminal-' + status);
+      acpChatSessionActions.startPromptAttempt(id, 'disconnected-attempt', 'user-1');
+      acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'run-1'));
+      acpChatSessionActions.startSessionLoad(id);
+      acpChatSessionActions.applyAcpGooseSessionNotification(
+        turnTerminalNotification(id, 'run-1', 'native-terminal', status)
+      );
+      const restored = acpChatSessionActions.finishSessionLoad(id, session(id));
+      expect(restored).toMatchObject({
+        chatState: ChatState.Idle,
+        activePromptAttemptId: null,
+        activeRunId: null,
+        promptRequestId: null,
+      });
+    }
+  );
+
+  it('does not create request occupancy when replaying history', () => {
+    const id = sessionId('history-has-no-request');
+    acpChatSessionActions.startSessionLoad(id);
+    acpChatSessionActions.applyAcpGooseSessionNotification(
+      completedSkippedTurnTerminalNotification(id, 'run-1')
+    );
+    const ended = acpChatSessionActions.finishSessionLoad(id, session(id));
+    expect(ended.chatState).toBe(ChatState.Idle);
+    expect(ended.promptRequestId).toBeNull();
   });
 
   it('finishes session load with session metadata', () => {
@@ -1042,6 +1104,10 @@ describe('acpChatSessionStore', () => {
       turnTerminalNotification(currentSessionId, 'run-1', 'persisted-terminal')
     );
 
+    acpChatSessionActions.applyAcpSessionNotification({
+      sessionId: currentSessionId,
+      update: { sessionUpdate: 'session_info_update', _meta: { goose: { activeRunId: null } } },
+    } as SessionNotification);
     const restoredSnapshot = acpChatSessionActions.restorePromptCancellation(
       currentSessionId,
       'attempt-1'
@@ -1050,7 +1116,8 @@ describe('acpChatSessionStore', () => {
       runningActivityNotification(currentSessionId, 'run-1', 'late-event')
     );
 
-    expect(restoredSnapshot).toMatchObject({
+    expect(restoredSnapshot).toBeUndefined();
+    expect(acpChatSessionStore.getSnapshot(currentSessionId)).toMatchObject({
       activePromptAttemptId: null,
       activeRunId: null,
       pendingCancelPromptAttemptId: null,

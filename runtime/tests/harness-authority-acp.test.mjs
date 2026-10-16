@@ -97,6 +97,26 @@ test('native tool receipts remain factual when a turn ends after a failing comma
   assert.equal(terminal.report.verification_summary.length, 0);
 });
 
+test('native file receipts preserve the actual before/after content through ACP', async t => {
+  const f = await fixture(t);
+  const raw = { path: '/fixture/example.py', operation: 'update', before: 'old\n', after: 'new\n' };
+  f.scripts.push(async ({ onPermission, onEvent }) => {
+    const tool = { id: 'write-1', name: 'write', arguments: { file_path: raw.path, content: raw.after } };
+    assert.equal(await onPermission(tool), true);
+    await onEvent({ type: 'tool_call', ...tool });
+    await onEvent({ type: 'tool_result', id: tool.id, result: [{ type: 'text', text: 'File updated' }], structuredContent: raw });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.prompt('修改示例文件');
+  const update = f.notices.map(notice => notice.params.update).find(update => update?.sessionUpdate === 'tool_call_update' && update.toolCallId === 'write-1');
+  assert.equal(update.status, 'completed');
+  assert.deepEqual(update.rawOutput, raw);
+  assert.equal(update.content[0].content.text, 'File updated');
+  const activities = f.notices.map(notice => notice.params.update?.status?.data).filter(data => data?.tool_call_id === 'write-1');
+  assert.equal(activities.length, 2);
+  assert.notEqual(activities[0].event_id, activities[1].event_id, 'journal event identity stays independent of the native tool call');
+});
+
 test('first desktop prompt prepares again after concurrent bundled settings registration without repeating model execution', async t => {
   const f = await fixture(t);
   const started = Promise.withResolvers(), release = Promise.withResolvers();

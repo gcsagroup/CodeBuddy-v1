@@ -14,7 +14,7 @@ CodeBuddy Agent 核心为官方 DeepSeek Harness，桌面为 Electron/TypeScript
 
 ## 权威来源与模块职责
 
-- 完整所有权地图和迁移断点见 `documentation/codebuddy/CODEPRO_FACT_AUTHORITY_ZH_CN.md`；修改意图、DAG、控制面、证据、恢复、报告或 UI 投影前先查对应行。
+- 所有权说明见 `documentation/codebuddy/CODEPRO_FACT_AUTHORITY_ZH_CN.md`；当前 Harness 链路以顶部“2026-10-14 已批准：新版 Harness 执行与目标权威”章节为准，该章节覆盖新版执行、调度与完成语义。下方旧 Rust/DAG 表按其适用范围参考，并以当前源码核实。
 - 对已经由权威模块判定的事实，下游只能消费其结构化结果，不得重新解析用户原文、提示词或模型自然语言作第二次业务裁决。
 - 子目录 `AGENTS.md` 对本目录内的实现细节优先，不能暗改跨模块所有权。经批准改变 owner、writer、consumer、持久化或失效规则时，同步维护所有权地图；基线已冻结时先报告偏差并取得修订授权。普通实施进度记在实施记录，不为更新进度改动冻结基线。
 
@@ -71,6 +71,7 @@ CodeBuddy Agent 核心为官方 DeepSeek Harness，桌面为 Electron/TypeScript
 
 ## 构建、测试与交付
 
+- 当前 Windows Harness 源码入口为仓库根目录的 `.\start-preview.ps1`，实际调用 `scripts/start-harness-preview.cjs`，使用已有 Node 编译 SDK/语言资源并启动兼容服务和 Electron，不自动安装依赖。桌面 `start`/`start-gui` 也调用同一启动器。
 - 构建、启动和环境准备遵照 README 对当前平台的入口；保持 toolchain、profile、features、target 和构建环境一致，不临时拼环境变量、清缓存或尝试加速配置。开发启动、release 构建和安装包是不同交付，不互相替代。发生未授权的依赖下载、安装或环境变更时停止相关命令并报告。
 - 验证按受影响组件选择，命令以 README、组件 `AGENTS.md` 和现有脚本为依据。允许选择相关 Cargo package/测试目标/用例过滤及对应前端检查，不因此改变构建配置；只改前端不默认跑 Rust 全套，反之亦然。文档、报告和规则修改只检查内容、引用和格式，不编译产品。
 - 只为核心行为、跨模块合同、安全/状态边界和真实缺陷增加最小有效回归；断言来自用户要求或真实证据，不照抄实现。不要为简单 helper、字段透传或覆盖率机械堆测试；新增 Rust 独立工具回归复用 `crates/goose-mcp` 相关测试目标，Agent 回归放在 `runtime/tests/`。

@@ -45,6 +45,36 @@ export function isProgressTool(name: string): boolean {
   return name === 'codepro__publish_progress';
 }
 
+export function toolPlanContent(
+  args: Record<string, unknown>,
+  response?: ToolResponseMessageContent
+): string | undefined {
+  if (typeof args.content === 'string') return args.content;
+  const result = response?.toolResult;
+  const value =
+    result?.status === 'success' && result.value && typeof result.value === 'object'
+      ? (result.value as Record<string, unknown>)
+      : undefined;
+  const raw = value?.structuredContent;
+  const todos = raw && typeof raw === 'object' && 'todos' in raw ? raw.todos : args.todos;
+  if (
+    !Array.isArray(todos) ||
+    !todos.every(
+      (item) =>
+        item &&
+        typeof item.content === 'string' &&
+        ['pending', 'in_progress', 'completed'].includes(item.status)
+    )
+  )
+    return;
+  return todos
+    .map(
+      (item) =>
+        `- [${item.status === 'completed' ? 'x' : item.status === 'in_progress' ? '-' : ' '}] ${item.content}`
+    )
+    .join('\n');
+}
+
 export function presentedToolCall(
   request: ToolRequestMessageContent
 ): { name: string; arguments: Record<string, unknown> } | undefined {
@@ -62,7 +92,7 @@ export function presentedToolCall(
 }
 
 export function hasReadableToolContent(name: string): boolean {
-  return ['shell', 'write', 'edit', 'read_document', 'todo_write'].includes(
+  return ['shell', 'pwsh', 'bash', 'write', 'edit', 'read', 'read_document', 'todo_write'].includes(
     name.split(/__|::/).pop() ?? ''
   );
 }
@@ -73,14 +103,17 @@ export function CodeProToolContent({
   name,
   args,
   response,
+  request,
 }: {
   name: string;
   args: Record<string, unknown>;
   response?: ToolResponseMessageContent;
+  request?: ToolRequestMessageContent;
 }) {
   const intl = useIntl();
   const kind = name.split(/__|::/).pop();
-  const change = fileChangeReceipt(response);
+  const change = fileChangeReceipt(response, request);
+  const planContent = toolPlanContent(args, response);
   const result = response?.toolResult;
   const value = result?.status === 'success' ? result.value : undefined;
   const receipt =
@@ -111,19 +144,21 @@ export function CodeProToolContent({
 
   return (
     <div className="space-y-3 py-2 text-sm text-text-primary" data-testid="readable-tool-content">
-      {isPlanTool(name) && typeof args.content === 'string' ? (
+      {isPlanTool(name) && planContent !== undefined ? (
         <>
           {!confirmed && (
             <p className="text-xs text-text-secondary">{intl.formatMessage(messages.proposed)}</p>
           )}
-          <MarkdownContent content={args.content} />
+          <MarkdownContent content={planContent} />
         </>
       ) : (
         <>
-          {typeof args.path === 'string' && (
-            <p className="font-mono text-xs break-all">{args.path}</p>
+          {typeof (args.file_path ?? args.path) === 'string' && (
+            <p className="font-mono text-xs break-all">{String(args.file_path ?? args.path)}</p>
           )}
-          {kind === 'shell' && typeof args.command === 'string' && code(args.command)}
+          {['shell', 'pwsh', 'bash'].includes(kind ?? '') &&
+            typeof args.command === 'string' &&
+            code(args.command)}
           {change && <FileChangeDiff change={change} />}
           {!change && kind === 'write' && typeof args.content === 'string' && (
             <>
@@ -187,11 +222,11 @@ export function CodeProPlan({
   return (
     <details
       open={!compact || undefined}
-      className={`codepro-disclosure group/plan my-2 text-sm ${compact ? 'codepro-disclosure-popover relative' : 'max-w-[36rem]'}`}
+      className={`codepro-plan codepro-disclosure group/plan my-1 w-full max-w-[32rem] text-xs ${compact ? 'codepro-disclosure-popover relative' : ''}`}
       data-testid="work-plan"
       data-request-id={requestId}
     >
-      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-2 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
+      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
         <ListChecks className="h-4 w-4" aria-hidden="true" />
         <span>{intl.formatMessage(historical ? messages.previousPlan : messages.plan)}</span>
         {compact && !historical && items.length > 0 && (
@@ -205,7 +240,7 @@ export function CodeProPlan({
         />
       </summary>
       <div
-        className={`codepro-operation-details overflow-y-auto overscroll-contain rounded-xl bg-background-secondary px-4 py-3 ${compact ? 'absolute bottom-full left-0 right-0 z-20 mb-2 max-h-[min(16rem,40vh)]' : 'mt-2 max-h-72'}`}
+        className={`codepro-operation-details overflow-y-auto overscroll-contain rounded-xl bg-background-secondary px-3 py-2 ${compact ? 'absolute bottom-full left-0 right-0 z-20 mb-2 max-h-[min(16rem,40vh)]' : 'mt-2 max-h-72'}`}
       >
         {historical && (
           <p className="mb-3 text-xs text-text-secondary">
@@ -213,7 +248,7 @@ export function CodeProPlan({
           </p>
         )}
         {items.length > 0 ? (
-          <ul className="space-y-2.5">
+          <ul className="space-y-1">
             {items.map((item, index) => {
               const checked = item[1].toLowerCase() === 'x';
               const inProgress = item[1] === '-';
@@ -221,7 +256,7 @@ export function CodeProPlan({
               return (
                 <li
                   key={index}
-                  className={`flex items-start gap-3 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}
+                  className={`flex items-start gap-1 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}
                 >
                   <Icon
                     className={`mt-0.5 h-4 w-4 shrink-0 ${inProgress && active ? 'animate-spin motion-reduce:animate-none' : ''}`}

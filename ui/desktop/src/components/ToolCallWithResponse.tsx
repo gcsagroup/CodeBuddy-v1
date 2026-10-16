@@ -6,11 +6,18 @@ import {
   hasReadableToolContent,
   isPlanTool,
   isProgressTool,
+  toolPlanContent,
 } from './codepro/CodeProToolContent';
 import { AppEvents } from '../constants/events';
 import { ToolIconWithStatus, ToolCallStatus } from './ToolCallStatusIndicator';
 import { getToolCallIcon } from '../utils/toolIconMapping';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  isAcpPermissionRequestPending,
+  subscribeAcpPermissionRequests,
+} from '../acp/permissionRequests';
+import { openSubagentConversation } from '../workspace-panel/subagentPanel';
+import { openConversationChange } from '../workspace-panel/conversationChangePanel';
 import { ToolCallArguments, ToolCallArgumentValue } from './ToolCallArguments';
 import MarkdownContent from './MarkdownContent';
 import {
@@ -24,9 +31,12 @@ import {
   formatToolAction,
   formatToolCompleted,
   isTaskContractCheck,
+  isWebSearchTool,
+  toolFilePath,
+  webSearchDetails,
 } from './toolActionPresentation';
 import type { LoadingStatus as ExecutionLoadingStatus } from './ui/Dot';
-import { ExternalLink } from 'lucide-react';
+import { SubagentAvatar } from './SubagentAvatar';
 import { TooltipWrapper } from './settings/providers/subcomponents/buttons/TooltipWrapper';
 import { ToolCallExpandable } from './ToolCallExpandable';
 import { ToolActivityIcon } from './ToolActivityIcon';
@@ -49,7 +59,8 @@ type LoadingStatus = ExecutionLoadingStatus | 'unknown' | 'cancelled' | 'pending
 
 export function resolveToolLoadingStatus(
   toolResponse: ToolResponseMessageContent | undefined,
-  isStreamingMessage: boolean
+  isStreamingMessage: boolean,
+  toolRequest?: ToolRequestMessageContent
 ): LoadingStatus {
   if (!toolResponse) return isStreamingMessage ? 'loading' : 'unknown';
   const result = toolResponse.toolResult;
@@ -59,10 +70,33 @@ export function resolveToolLoadingStatus(
   const value = result.value;
   if (!value || typeof value !== 'object') return 'unknown';
   if ('isError' in value && value.isError === true) return 'error';
+  const call = toolRequest?.toolCall.status === 'success' ? toolRequest.toolCall.value : undefined;
+  const output = 'structuredContent' in value ? value.structuredContent : undefined;
+  if (
+    toolRequest?.metadata?.extensionName === 'harness' &&
+    call !== null &&
+    typeof call === 'object' &&
+    'name' in call &&
+    (call.name === 'pwsh' || call.name === 'bash') &&
+    output !== null &&
+    typeof output === 'object' &&
+    'kind' in output &&
+    output.kind === 'foreground' &&
+    'exitCode' in output &&
+    typeof output.exitCode === 'number' &&
+    Number.isInteger(output.exitCode) &&
+    output.exitCode !== 0
+  ) {
+    // A successful tool transport can still return a failed foreground command.
+    return 'error';
+  }
   return 'content' in value && Array.isArray(value.content) ? 'success' : 'unknown';
 }
 
 const i18n = defineMessages({
+  searchQuery: { id: 'toolCallWithResponse.searchQuery', defaultMessage: 'Query' },
+  searchSources: { id: 'toolCallWithResponse.searchSources', defaultMessage: 'Sources' },
+  searchResponse: { id: 'toolCallWithResponse.searchResponse', defaultMessage: 'Search response' },
   diagnostics: { id: 'operation.diagnostics', defaultMessage: 'Diagnostic record' },
   checkNotAccepted: {
     id: 'toolCallWithResponse.checkNotAccepted',
@@ -88,6 +122,10 @@ const i18n = defineMessages({
   viewSubagentSession: {
     id: 'toolCallWithResponse.viewSubagentSession',
     defaultMessage: 'View subagent session',
+  },
+  subagentStarted: {
+    id: 'toolCallWithResponse.subagentStarted',
+    defaultMessage: 'Started {name}',
   },
   subagentBudget: {
     id: 'toolCallWithResponse.subagentBudget',
@@ -191,6 +229,16 @@ function getSubagentSessionId(
   const sessionId =
     result?.status === 'success' ? result?.value?._meta?.subagent_session_id : undefined;
   if (typeof sessionId === 'string') return sessionId;
+  const native = toolResponse?.metadata?.rawOutput;
+  if (
+    native &&
+    typeof native === 'object' &&
+    'kind' in native &&
+    native.kind === 'activation' &&
+    'subagentId' in native &&
+    typeof native.subagentId === 'string'
+  )
+    return native.subagentId;
 
   // Fallback: extract from subagent notifications (e.g. when delegate was cancelled mid-stream)
   if (notifications) {
@@ -300,11 +348,18 @@ export default function ToolCallWithResponse({
   toolResponse,
   notifications,
   isStreamingMessage,
-  isPendingApproval,
+  isPendingApproval: requestedApproval,
   append,
   confirmationContent,
   isApprovalClicked,
 }: ToolCallWithResponseProps) {
+  const liveApproval = useSyncExternalStore(
+    subscribeAcpPermissionRequests,
+    () =>
+      !!sessionId &&
+      isAcpPermissionRequestPending(sessionId, confirmationContent?.id ?? toolRequest.id)
+  );
+  const isPendingApproval = requestedApproval && liveApproval;
   // Handle both the wrapped ToolResult format and the unwrapped format
   // The server serializes ToolResult<T> as { status: "success", value: T } or { status: "error", error: string }
   const toolCallData = toolRequest.toolCall as Record<string, unknown>;
@@ -361,6 +416,7 @@ export default function ToolCallWithResponse({
                 : undefined,
             isPendingApproval,
             requestId: toolRequest.id,
+            toolRequest,
             toolCall,
             toolResponse,
             notifications,
@@ -417,6 +473,7 @@ interface ToolCallViewProps {
   compact?: boolean;
   displayTitle?: string;
   requestId: string;
+  toolRequest: ToolRequestMessageContent;
   isPendingApproval: boolean;
   isCancelledMessage: boolean;
   toolCall: {
@@ -543,6 +600,7 @@ function ToolCallView({
   compact = false,
   displayTitle,
   requestId,
+  toolRequest,
   isPendingApproval,
   isCancelledMessage,
   toolCall,
@@ -579,7 +637,7 @@ function ToolCallView({
   })();
 
   const businessOutcome = computerToolOutcome(toolCall.name, requestId, toolResponse);
-  const transportStatus = resolveToolLoadingStatus(toolResponse, !!isStreamingMessage);
+  const transportStatus = resolveToolLoadingStatus(toolResponse, !!isStreamingMessage, toolRequest);
   const toolAudit = parseToolAuditReceipt(toolResponse?.metadata?.toolAudit);
   const cancelled =
     (!toolResponse && isCancelledMessage) ||
@@ -657,23 +715,30 @@ function ToolCallView({
     loadingStatus === 'loading' && (progressEntries.length > 0 || (logs || []).length > 0);
 
   const extensionTooltip = getExtensionTooltip(toolCall.name);
+  const change = fileChangeReceipt(toolResponse, toolRequest);
   const actionTitle = formatToolAction(
     intl,
     toolCall.name,
-    toolCall.arguments ?? {},
+    change
+      ? { ...toolCall.arguments, path: change.path, file_path: change.path }
+      : (toolCall.arguments ?? {}),
     loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined
   );
   const toolName = toolCall.name.split(/__|::/).pop();
-  const compactTitle =
-    compact && toolName === 'todo_write'
+  const compactTitle = isWebSearchTool(toolCall.name)
+    ? actionTitle
+    : compact && toolName === 'todo_write'
       ? intl.formatMessage(i18n.modelPlan)
       : compact &&
           [
             'write',
             'edit',
             'read_document',
+            'read',
             'tree',
             'shell',
+            'pwsh',
+            'bash',
             'task_contract',
             'delegate',
             'delegate_readonly',
@@ -735,7 +800,41 @@ function ToolCallView({
     businessOutcome === 'unknown' || partialSubagent || internalCheckError
       ? 'warning'
       : getToolCallStatus(loadingStatus);
-  const change = fileChangeReceipt(toolResponse);
+  const filePath = change?.path ?? toolFilePath(toolCall.name, toolCall.arguments ?? {});
+  const hasFileAction = !!sessionId && !!filePath && !inputPreview;
+  const rowTitle = hasFileAction
+    ? formatToolAction(
+        intl,
+        toolCall.name,
+        { ...toolCall.arguments, path: undefined, file_path: undefined },
+        loadingStatus === 'success'
+          ? 'completed'
+          : loadingStatus === 'loading'
+            ? 'running'
+            : undefined
+      )
+    : compactTitle;
+  const statusContent = (
+    <>
+      {change && <FileChangeCount change={change} />}
+      {(!compact || loadingStatus !== 'success') && !preparingInput && (
+        <span className="text-xs text-text-secondary shrink-0">{statusLabel}</span>
+      )}
+    </>
+  );
+  const fileAction = hasFileAction && (
+    <button
+      type="button"
+      title={filePath}
+      aria-label={filePath}
+      className="mx-1 min-w-0 truncate rounded px-1 py-1 text-left font-mono text-xs text-text-secondary underline decoration-current/30 underline-offset-2 hover:text-text-primary focus-visible:outline focus-visible:outline-2"
+      onClick={() =>
+        openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
+      }
+    >
+      {filePath!.split(/[\\/]/).filter(Boolean).pop()}
+    </button>
+  );
   const toolLabel = (
     <span
       data-tool-call-id={requestId}
@@ -749,12 +848,9 @@ function ToolCallView({
         <ToolIconWithStatus ToolIcon={getToolCallIcon(toolCall.name)} status={toolCallStatus} />
       )}
       <span className="truncate flex-1 min-w-0 text-left" title={compactTitle}>
-        {compactTitle}
+        {rowTitle}
       </span>
-      {change && <FileChangeCount change={change} />}
-      {(!compact || loadingStatus !== 'success') && !preparingInput && (
-        <span className="text-xs text-text-secondary shrink-0">{statusLabel}</span>
-      )}
+      {!hasFileAction && statusContent}
     </span>
   );
   if (
@@ -775,11 +871,10 @@ function ToolCallView({
         <CodeProPlan
           active={false}
           requestId={requestId}
-          content={
-            typeof toolCall.arguments?.content === 'string' ? toolCall.arguments.content : undefined
-          }
+          content={toolPlanContent(toolCall.arguments ?? {}, toolResponse)}
         >
           <CodeProToolContent
+            request={toolRequest}
             name={toolCall.name}
             args={toolCall.arguments ?? {}}
             response={toolResponse}
@@ -792,6 +887,100 @@ function ToolCallView({
     );
   }
   const readable = compact && (hasReadableToolContent(toolCall.name) || loadingStatus === 'error');
+  const childSessionId = getSubagentSessionId(toolResponse, notifications);
+  const nativeChildReceipt = toolResponse?.metadata?.rawOutput;
+  const childActivated =
+    loadingStatus === 'success' &&
+    nativeChildReceipt &&
+    typeof nativeChildReceipt === 'object' &&
+    'kind' in nativeChildReceipt &&
+    nativeChildReceipt.kind === 'activation' &&
+    'subagentId' in nativeChildReceipt &&
+    nativeChildReceipt.subagentId === childSessionId;
+  const childTitle =
+    typeof toolCall.arguments?.description === 'string'
+      ? toolCall.arguments.description
+      : compactTitle;
+  if (compact && sessionId && childSessionId) {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 py-1 text-left text-text-secondary hover:text-text-primary"
+        onClick={() =>
+          openSubagentConversation({
+            parentSessionId: sessionId,
+            childSessionId,
+            title: childTitle,
+          })
+        }
+        title={intl.formatMessage(i18n.viewSubagentSession)}
+      >
+        <SubagentAvatar sessionId={childSessionId} />
+        <span className="min-w-0 flex-1 truncate">
+          {childActivated
+            ? intl.formatMessage(i18n.subagentStarted, { name: childTitle })
+            : childTitle}
+        </span>
+      </button>
+    );
+  }
+  if (isWebSearchTool(toolCall.name)) {
+    const details = webSearchDetails(toolCall.arguments ?? {}, toolResponse);
+    return (
+      <ToolCallExpandable
+        compact={compact}
+        storageKey={requestId}
+        label={toolLabel}
+        icon={<ToolActivityIcon name={toolCall.name} status={toolCallStatus} />}
+      >
+        <div className="space-y-3 py-2 text-sm text-text-primary">
+          {details.queries.length > 0 && (
+            <section aria-label={intl.formatMessage(i18n.searchQuery)}>
+              <h4 className="mb-1 text-xs text-text-secondary">
+                {intl.formatMessage(i18n.searchQuery)}
+              </h4>
+              {details.queries.map((query) => (
+                <p key={query} className="break-words">
+                  {query}
+                </p>
+              ))}
+            </section>
+          )}
+          {details.sources.length > 0 && (
+            <section aria-label={intl.formatMessage(i18n.searchSources)}>
+              <h4 className="mb-1 text-xs text-text-secondary">
+                {intl.formatMessage(i18n.searchSources)}
+              </h4>
+              <ul className="space-y-2">
+                {details.sources.map((source) => (
+                  <li key={source.url}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="break-words underline underline-offset-2"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void window.electron.openExternal(source.url);
+                      }}
+                    >
+                      {source.title}
+                    </a>
+                    <p className="break-all text-xs text-text-secondary">{source.url}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {details.notice && (
+            <section aria-label={intl.formatMessage(i18n.searchResponse)}>
+              <p className="whitespace-pre-wrap break-words">{details.notice}</p>
+            </section>
+          )}
+        </div>
+      </ToolCallExpandable>
+    );
+  }
   if (compact) {
     const preview = toolCall.arguments?.__inputPreview === true;
     if (
@@ -814,6 +1003,9 @@ function ToolCallView({
         icon={<ToolActivityIcon name={toolCall.name} status={toolCallStatus} />}
         storageKey={requestId}
         label={toolLabel}
+        accessibleName={hasFileAction ? `${compactTitle} ${statusLabel}` : undefined}
+        headerAction={fileAction}
+        headerSuffix={statusContent}
         isStartExpanded={false}
       >
         <div className="py-1 space-y-2">
@@ -829,6 +1021,7 @@ function ToolCallView({
           )}
           {readable && (
             <CodeProToolContent
+              request={toolRequest}
               name={toolCall.name}
               args={toolCall.arguments ?? {}}
               response={toolResponse}
@@ -851,17 +1044,20 @@ function ToolCallView({
               {toolAudit && <ToolAuditDetails receipt={toolAudit} />}
             </div>
           </details>
-          {getSubagentSessionId(toolResponse, notifications) && (
+          {childSessionId && (
             <button
               type="button"
-              className="text-xs text-text-secondary underline"
+              className="flex items-center gap-2 text-xs text-text-secondary hover:text-text-primary"
               onClick={() =>
-                window.electron.createChatWindow({
-                  resumeSessionId: getSubagentSessionId(toolResponse, notifications)!,
-                  viewType: 'pair',
+                sessionId &&
+                openSubagentConversation({
+                  parentSessionId: sessionId,
+                  childSessionId,
+                  title: childTitle,
                 })
               }
             >
+              <SubagentAvatar sessionId={childSessionId} small />
               {intl.formatMessage(i18n.viewSubagentSession)}
             </button>
           )}
@@ -876,6 +1072,9 @@ function ToolCallView({
         storageKey={compact ? requestId : undefined}
         isStartExpanded={isRenderingProgress || isExpandToolDetails}
         isForceExpand={loadingStatus === 'error' && !compact}
+        accessibleName={hasFileAction ? `${compactTitle} ${statusLabel}` : undefined}
+        headerAction={fileAction}
+        headerSuffix={statusContent}
         label={
           extensionTooltip ? (
             <TooltipWrapper tooltipContent={extensionTooltip} side="top" align="start">
@@ -888,6 +1087,7 @@ function ToolCallView({
       >
         {readable && (
           <CodeProToolContent
+            request={toolRequest}
             name={toolCall.name}
             args={toolCall.arguments ?? {}}
             response={toolResponse}
@@ -969,14 +1169,16 @@ function ToolCallView({
             <div className="border-t border-border-primary">
               <button
                 onClick={() => {
-                  window.electron.createChatWindow({
-                    resumeSessionId: subagentSessionId,
-                    viewType: 'pair',
-                  });
+                  if (sessionId)
+                    openSubagentConversation({
+                      parentSessionId: sessionId,
+                      childSessionId: subagentSessionId,
+                      title: childTitle,
+                    });
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
               >
-                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                <SubagentAvatar sessionId={subagentSessionId} small />
                 <span>{intl.formatMessage(i18n.viewSubagentSession)}</span>
               </button>
             </div>

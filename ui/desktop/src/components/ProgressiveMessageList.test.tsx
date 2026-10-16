@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { ActivityEvent } from '../types/activityEvent';
@@ -8,6 +8,11 @@ import ProgressiveMessageList from './ProgressiveMessageList';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
 import type { AdapterState } from '../acp/adapter/shared';
+import {
+  cancelAcpPermissionRequestsForSession,
+  requestAcpPermission,
+  resolveAcpPermissionRequest,
+} from '../acp/permissionRequests';
 
 beforeEach(() => {
   window.sessionStorage.clear();
@@ -105,10 +110,11 @@ function terminalMessage(
   retryStrategy: 'replay_user_request' | 'continue_checkpoint' | 'not_available',
   options: { askUser?: boolean; checkpointId?: string | null } = {}
 ): Message {
+  const finishedAt = 205;
   return {
     id: `terminal-${retryStrategy}`,
     role: 'assistant',
-    created: 2,
+    created: finishedAt,
     content: [
       {
         type: 'systemNotification',
@@ -126,7 +132,7 @@ function terminalMessage(
           visible_text_available: false,
           tool_action_count: 1,
           copy_artifact_ref: null,
-          finished_at: '2026-08-28T00:00:00Z',
+          finished_at: new Date(finishedAt * 1000).toISOString(),
           ...(options.askUser
             ? {
                 report: {
@@ -200,50 +206,92 @@ describe('work / answer presentation boundary', () => {
       );
       await screen.findByText('Read was not approved.');
       expect(screen.queryByText('Completed 1 operations')).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Work history 1 operations' })).toBeVisible();
+      const history = screen.getByRole('button', { name: 'Time spent 3 min 24 sec' });
+      expect(history).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(history);
+      const tool = screen.getByRole('button', {
+        name:
+          result === 'error'
+            ? /Read file README.md.*Failed/
+            : /Read file README.md.*Unknown status/,
+      });
+      expect(tool).toBeVisible();
+      expect(tool.querySelector('[data-tool-call-id="declined-read"]')).toHaveAttribute(
+        'data-tool-phase',
+        result === 'error' ? 'error' : 'unknown'
+      );
+      if (result === 'error') {
+        fireEvent.click(tool);
+        expect(
+          within(screen.getByRole('region', { name: 'Execution result' })).getByText(
+            'Tool execution was declined.'
+          )
+        ).toBeVisible();
+      }
+      expect(screen.queryByText('Tool call completed')).not.toBeInTheDocument();
     }
   );
-  it('keeps reasoning readable without an operation history for a completed ordinary answer', async () => {
-    const thought: Message = {
-      ...message(2),
-      id: 'ordinary-thought',
-      content: [
-        { type: 'thinking', thinking: 'Consider the greeting without any tools.', signature: '' },
-      ],
-    };
-    const answer: Message = {
-      ...message(3),
-      content: [{ type: 'text', text: 'Hello, how can I help?' }],
-    };
-    const terminal = terminalMessage('not_available');
-    terminal.content = terminal.content.map((content) =>
-      content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
-        ? {
-            ...content,
-            data: {
-              ...content.data,
-              session_id: 'phase-session',
-              status: 'completed',
-              tool_action_count: 0,
-              visible_text_available: true,
-            },
-          }
-        : content
-    );
-    const trace = [sourceUserMessage, thought, answer, terminal];
-    const view = render(show(trace, false), { wrapper: IntlTestWrapper });
-    expect(await screen.findByText('Hello, how can I help?')).toBeVisible();
-    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
-    expect(screen.queryByText('Completed 0 operations')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-    expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
-    view.rerender(
-      show([...JSON.parse(JSON.stringify(trace)), { ...sourceUserMessage, id: 'next-user' }], true)
-    );
-    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
-    expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
-    expect(screen.getByText('Hello, how can I help?')).toBeVisible();
-  });
+  it.each(['separate', 'answer'] as const)(
+    'keeps %s reasoning in manually readable work history for a completed ordinary answer',
+    async (location) => {
+      const thought: Message = {
+        ...message(2),
+        id: 'ordinary-thought',
+        content: [
+          { type: 'thinking', thinking: 'Consider the greeting without any tools.', signature: '' },
+        ],
+      };
+      const answer: Message = {
+        ...message(3),
+        content: [
+          ...(location === 'answer' ? thought.content : []),
+          { type: 'text', text: 'Hello, how can I help?' },
+        ],
+      };
+      const terminal = terminalMessage('not_available');
+      terminal.content = terminal.content.map((content) =>
+        content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
+          ? {
+              ...content,
+              data: {
+                ...content.data,
+                session_id: 'phase-session',
+                status: 'completed',
+                tool_action_count: 0,
+                visible_text_available: true,
+              },
+            }
+          : content
+      );
+      const trace = [
+        sourceUserMessage,
+        ...(location === 'separate' ? [thought] : []),
+        answer,
+        terminal,
+      ];
+      const view = render(show(trace, false), { wrapper: IntlTestWrapper });
+      expect(await screen.findByText('Hello, how can I help?')).toBeVisible();
+      const history = screen.getByRole('button', { name: 'Time spent 3 min 24 sec' });
+      expect(history).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        screen.queryByText('Consider the greeting without any tools.')
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Completed 0 operations')).not.toBeInTheDocument();
+      fireEvent.click(history);
+      fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+      expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
+      view.rerender(
+        show(
+          [...JSON.parse(JSON.stringify(trace)), { ...sourceUserMessage, id: 'next-user' }],
+          true
+        )
+      );
+      expect(history).toHaveAttribute('aria-expanded', 'true');
+      expect(view.container.querySelector('.codepro-turn-history')).not.toBeNull();
+      expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
+      expect(screen.getByText('Hello, how can I help?')).toBeVisible();
+    }
+  );
   it('transports and replays a presentation boundary without sealing the prompt', () => {
     const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
     const data = {
@@ -528,60 +576,72 @@ describe('work / answer presentation boundary', () => {
 });
 
 describe('CodePro ordinary tool message presentation', () => {
-  it('moves from live thinking to file generation without leaving an updating thought badge', async () => {
-    const thought: Message = {
-      ...message(1),
-      id: 'live-thought',
-      content: [{ type: 'thinking', thinking: 'Inspecting the requested project.', signature: '' }],
-    };
-    const preview: Message = {
-      ...message(2),
-      id: 'preview',
-      content: [
-        {
-          type: 'toolRequest',
-          id: 'write-preview',
-          toolCall: {
-            status: 'success',
-            value: {
-              name: 'write',
-              arguments: { path: 'app.js', content: 'one\ntwo\n', __inputPreview: true },
+  it('moves from live thinking to file generation without leaving an updating thought badge', () => {
+    vi.useFakeTimers({
+      toFake: [
+        'setTimeout',
+        'clearTimeout',
+        'performance',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+      ],
+    });
+    try {
+      const thought: Message = {
+        ...message(1),
+        id: 'live-thought',
+        content: [
+          { type: 'thinking', thinking: 'Inspecting the requested project.', signature: '' },
+        ],
+      };
+      const preview: Message = {
+        ...message(2),
+        id: 'preview',
+        content: [
+          {
+            type: 'toolRequest',
+            id: 'write-preview',
+            toolCall: {
+              status: 'success',
+              value: {
+                name: 'write',
+                arguments: { path: 'app.js', content: 'one\ntwo\n', __inputPreview: true },
+              },
             },
           },
-        },
-      ],
-    };
-    const show = (generating: boolean) => (
-      <ProgressiveMessageList
-        messages={generating ? [thought, preview] : [thought]}
-        sessionType="code_pro"
-        chat={{ sessionId: 'live-progress' }}
-        isUserMessage={() => false}
-        isStreamingMessage
-        activeToolCallIds={generating ? ['write-preview'] : []}
-        thinkingActivity={
-          generating ? undefined : { messageId: 'live-thought', receivedAt: Date.now() }
-        }
-      />
-    );
-    const view = render(show(false), { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    );
-    view.rerender(show(true));
-    expect(screen.getByRole('button', { name: 'Thinking' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
-    expect(
-      await screen.findByText(
-        'Generating app.js · 2 lines received — not saved yet',
-        {},
-        { timeout: 3000 }
-      )
-    ).toBeVisible();
-    expect(screen.queryByText('Wrote file app.js')).not.toBeInTheDocument();
+        ],
+      };
+      const show = (generating: boolean) => (
+        <ProgressiveMessageList
+          messages={generating ? [thought, preview] : [thought]}
+          sessionType="code_pro"
+          chat={{ sessionId: 'live-progress' }}
+          isUserMessage={() => false}
+          isStreamingMessage
+          activeToolCallIds={generating ? ['write-preview'] : []}
+          thinkingActivity={
+            generating ? undefined : { messageId: 'live-thought', receivedAt: Date.now() }
+          }
+        />
+      );
+      const view = render(show(false), { wrapper: IntlTestWrapper });
+      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
+      view.rerender(show(true));
+      expect(screen.getByRole('button', { name: 'Thinking' })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      act(() => vi.advanceTimersByTime(1000));
+      expect(
+        screen.getByText('Generating app.js · 2 lines received — not saved yet')
+      ).toBeVisible();
+      expect(screen.queryByText('Wrote file app.js')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it.each(['code_pro', 'sub_agent', 'user'] as const)(
     'keeps compact history and expanded details stable when loading resolves to %s',
@@ -596,12 +656,23 @@ describe('CodePro ordinary tool message presentation', () => {
         isUserMessage: (item: Message) => item.role === 'user',
       };
       const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
-      const toggle = screen.getByRole('button', { name: 'Completed 1 other operation' });
+      const toggle = screen.getByRole('button', {
+        name: 'Read file README.md Tool call completed',
+      });
+      const file = screen.getByRole('button', { name: 'README.md' });
+      expect(toggle.contains(file)).toBe(false);
       const group = toggle.closest('[data-testid="message-container"]')!;
-      fireEvent.click(group.querySelector('button')!);
+      fireEvent.click(toggle);
       const before = group.innerHTML;
       view.rerender(<ProgressiveMessageList {...props} sessionType={sessionType} />);
-      expect(screen.getByRole('button', { name: 'Completed 1 other operation' })).toBe(toggle);
+      expect(screen.getByRole('button', { name: 'Read file README.md Tool call completed' })).toBe(
+        toggle
+      );
+      expect(screen.getByRole('button', { name: 'README.md' })).toBe(file);
+      expect(toggle.querySelector('[data-tool-call-id]')).toHaveAttribute(
+        'data-tool-phase',
+        'success'
+      );
       expect(group.innerHTML).toBe(before);
       expect(group.querySelector('button')).toHaveAttribute('aria-expanded', 'true');
     }
@@ -897,7 +968,7 @@ describe('CodePro ordinary tool message presentation', () => {
     const view = render(renderTrace(changeTrace), { wrapper: IntlTestWrapper });
     const group = compactGroups()[0];
     expect(screen.queryByTestId('work-plan')).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: 'Completed 2 other operations' });
+    const toggle = screen.getByRole('button', { name: 'Completed 1 operation Read 1 file' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -969,10 +1040,9 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.getByText('Failed')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Run command/ }));
     expect(screen.getByText('npm.cmd test')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Completed 2 other operations' })).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(
+      screen.getByRole('button', { name: 'Completed 1 operation Read 1 file' })
+    ).toHaveAttribute('aria-expanded', 'false');
     expect(compactGroups()).toHaveLength(1);
   });
 
@@ -982,7 +1052,7 @@ describe('CodePro ordinary tool message presentation', () => {
       toolTransportMessage(index * 2 + 1, `read-${index}`, 'response'),
     ]).flat();
     render(renderTrace(records), { wrapper: IntlTestWrapper });
-    const toggle = screen.getByRole('button', { name: 'Completed 100 other operations' });
+    const toggle = screen.getByRole('button', { name: 'Read 1 file' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     const region = compactGroups()[0].querySelector('.codepro-operation-details')!;
@@ -1075,11 +1145,22 @@ describe('ProgressiveMessageList retention window', () => {
       { wrapper: IntlTestWrapper }
     );
     expect(compactGroups()).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Completed 25 other operations' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
     expect(compactGroups()[0].querySelectorAll('.goose-message-tool')).toHaveLength(25);
   });
 
-  it('keeps only the newest messages mounted until older history is requested', () => {
+  it('loads older history on scroll without a load-more button', () => {
+    const intersections: IntersectionObserverCallback[] = [];
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          intersections.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      }
+    );
     const messages = Array.from({ length: 100 }, (_, index) => message(index));
 
     render(
@@ -1099,7 +1180,18 @@ describe('ProgressiveMessageList retention window', () => {
     expect(screen.getByText('message-60')).toBeInTheDocument();
     expect(screen.getByText('message-99')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /load earlier messages/i }));
+    expect(
+      screen.queryByRole('button', { name: /load earlier messages/i })
+    ).not.toBeInTheDocument();
+    act(() => {
+      for (const callback of [...intersections]) {
+        callback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver
+        );
+      }
+    });
+    vi.unstubAllGlobals();
 
     expect(screen.getAllByTestId('rendered-message')).toHaveLength(100);
     expect(screen.getByText('message-0')).toBeInTheDocument();
@@ -1194,9 +1286,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    expect(screen.getAllByRole('button', { name: 'Operations recorded · 1 action' })).toHaveLength(
-      2
-    );
+    expect(screen.getAllByRole('button', { name: /^Activity:/ })).toHaveLength(2);
   });
 
   it('merges lifecycles and shows mixed actions in one expandable timeline without hiding failures', () => {
@@ -1315,9 +1405,10 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    const timeline = screen.getByRole('button', { name: 'Operations recorded · 1 action' });
+    const timeline = screen.getByRole('button', {
+      name: 'Activity: Run pnpm test --filter boundary · Completed',
+    });
     expect(timeline).toBeVisible();
-    fireEvent.click(timeline);
     expect(
       screen.getByRole('button', {
         name: 'Activity: Run pnpm test --filter boundary · Completed',
@@ -1327,7 +1418,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
 });
 
 describe('tool cards across active-turn notification messages', () => {
-  it('tracks current tools across approval and notification messages without reviving old unknown calls', () => {
+  it('tracks current tools across approval and notification messages without reviving old unknown calls', async () => {
     const old = toolTransportMessage(1, 'old-call', 'request');
     old.content = [
       {
@@ -1407,20 +1498,69 @@ describe('tool cards across active-turn notification messages', () => {
     };
     view.rerender(card([old, user, current, notice, matchingApproval], true));
     expect(
-      screen.getByRole('button', { name: /Read file current-fixture.txt.*Pending/ })
-    ).toBeVisible();
-    view.rerender(card([old, user, current, notice], true));
-    expect(
       screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
     ).toBeVisible();
-    const response = toolTransportMessage(6, 'current-call', 'response');
-    view.rerender(card([old, user, current, notice, response], true));
-    fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
-    expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();
-    view.rerender(card([old, user, current, notice, response], false));
-    expect(screen.getByRole('button', { name: /Read file current-fixture.txt/ })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
-    ).toBeVisible();
+    let permissionResponse: ReturnType<typeof requestAcpPermission> | undefined;
+    try {
+      act(() => {
+        permissionResponse = requestAcpPermission({
+          sessionId: 'native-display-turn',
+          toolCall: {
+            toolCallId: 'current-call',
+            title: 'read_document',
+            rawInput: { path: 'current-fixture.txt' },
+          },
+          options: [{ optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' }],
+        });
+      });
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Pending/ })
+      ).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
+      ).toBeVisible();
+      act(() => {
+        expect(
+          resolveAcpPermissionRequest('native-display-turn', 'current-call', 'allow_once')
+        ).toBe(true);
+      });
+      await expect(permissionResponse).resolves.toEqual({
+        outcome: { outcome: 'selected', optionId: 'allow-once' },
+      });
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
+      ).toBeVisible();
+      view.rerender(card([old, user, current, notice], true));
+      expect(
+        screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
+      ).toBeVisible();
+      const response = toolTransportMessage(6, 'current-call', 'response');
+      view.rerender(card([old, user, current, notice, response], true));
+      const settledTool = screen.getByRole('button', {
+        name: 'Read file current-fixture.txt Tool call completed',
+      });
+      expect(screen.getByRole('button', { name: 'current-fixture.txt' })).toBeVisible();
+      expect(settledTool).toBeVisible();
+      expect(settledTool.querySelector('[data-tool-call-id="current-call"]')).toHaveAttribute(
+        'data-tool-phase',
+        'success'
+      );
+      view.rerender(card([old, user, current, notice, response], false));
+      expect(
+        screen
+          .getByRole('button', { name: 'Read file current-fixture.txt Tool call completed' })
+          .querySelector('[data-tool-call-id="current-call"]')
+      ).toHaveAttribute('data-tool-phase', 'success');
+      expect(
+        screen.getByRole('button', { name: 'Read file current-fixture.txt Tool call completed' })
+      ).toBeVisible();
+      expect(screen.getByRole('button', { name: 'current-fixture.txt' })).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
+      ).toBeVisible();
+    } finally {
+      act(() => cancelAcpPermissionRequestsForSession('native-display-turn'));
+      await permissionResponse;
+    }
   });
 });

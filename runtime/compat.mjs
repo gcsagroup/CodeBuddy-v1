@@ -10,6 +10,7 @@ import {
   discover,
   saveProvider,
   driverProvider,
+  providerStatus,
   readProvider,
 } from "./providers.mjs";
 import { protectSecret, revealSecret } from "./secrets.mjs";
@@ -21,7 +22,6 @@ import {
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { codeproInstructions } from "./task-tools.mjs";
-import { resolveRoleRouting } from "./roles.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
 import {
@@ -47,6 +47,7 @@ import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
 import { ConversationEditing } from "./conversation-editing.mjs";
+import { listSubagentCatalog, readSubagentConversation } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
@@ -90,7 +91,7 @@ function toolResultUpdate(event, metadata) {
       type: "text",
       text: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
     } }],
-    rawOutput: event.mcpResult ? event.mcpResult.structuredContent : event.result,
+    rawOutput: event.mcpResult ? event.mcpResult.structuredContent : event.structuredContent ?? event.result,
     _meta: { goose: { ...metadata, ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}) } },
   };
 }
@@ -352,16 +353,10 @@ export class Compat {
     if (s.readonlyHistory || s.type !== "code_pro")
       throw invalid("Review requires an active CodePro workspace");
     await this.workspaces.validateSession(s.id, s.cwd);
-    const routes = await resolveRoleRouting({
-      config: this.store.read(["modelRouting"]).modelRouting,
-      session: s,
-      providers: this.store.read(["providers"]).providers,
-      thinkingEffort: this.store.read(["preferences"]).preferences.gooseThinkingEffort,
-    });
-    const reviewer = routes.roleModels.reviewer;
+    await this.sessionModel(s);
     return {
       cwd: s.cwd,
-      model: { provider: reviewer.provider.id, model: reviewer.model },
+      model: { provider: s.providerId, model: s.modelId },
     };
   }
   async appContext(sessionId) {
@@ -618,9 +613,7 @@ export class Compat {
       const route = this.routing.get(sessionId);
       if (
         this.session(sessionId).providerId === id ||
-        [route?.main, ...Object.values(route?.roleModels ?? {})].some(
-          (selection) => selection?.provider?.id === id,
-        )
+        route?.main?.provider?.id === id
       )
         throw invalid(
           "Stop active sessions before editing or removing their model provider",
@@ -634,6 +627,12 @@ export class Compat {
         "Configure a model provider before starting a conversation",
       );
     return p;
+  }
+  async sessionModel(s) {
+    const provider = this.provider(s.providerId);
+    if (!provider.models.includes(s.modelId) || !providerStatus(provider).isConfigured)
+      throw invalid("Configure the current session model first");
+    return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
   }
   info(s, state = this.store.read()) {
     // Scheduled origin is a UI contract, independent of the native execution
@@ -758,12 +757,6 @@ export class Compat {
         });
       },
       toolFilter: { allow: nativeAllowed },
-      ...(s.type === "code_pro"
-        ? {
-            roleModels: this.routing.get(s.id)?.roleModels,
-            maxParallelSubagents: this.routing.get(s.id)?.maxParallelCoders,
-          }
-        : {}),
       tools: [
         ...(extensions.some((e) => e.configKey === "projectmemory")
           ? this.memory.tools(s)
@@ -976,7 +969,6 @@ export class Compat {
     if (this.active.get(s.id)?.driverStarted) return;
     if (!this.initialized.has(s.id)) {
       const started = performance.now();
-      const state = this.store.read(["modelRouting", "providers", "preferences"]);
       // Credential reads, capability discovery and native Host activation have
       // no dependency on each other. Keep model admission after all three and
       // the existing configuration-revision check.
@@ -987,15 +979,7 @@ export class Compat {
         finally { phases[name] = Math.round(performance.now() - begin); }
       };
       const [routing, extensions, tools] = await Promise.all([
-        measure('routingMs', () =>
-        s.type === "code_pro"
-          ? resolveRoleRouting({
-            config: state.modelRouting,
-            session: s,
-            providers: state.providers,
-            thinkingEffort: state.preferences.gooseThinkingEffort,
-          })
-          : driverProvider(this.provider(s.providerId), s.modelId).then(provider => ({ main: { provider } }))),
+        measure('routingMs', () => this.sessionModel(s).then(main => ({ main }))),
         measure('extensionsMs', () => resolveSessionExtensions(s, this.settings)),
         measure('hostToolsMs', () => this.driver.listTools?.() ?? []),
       ]);
@@ -1007,13 +991,6 @@ export class Compat {
       );
       const provider = main.provider;
       this.thinking.set(s.id, main.thinkingEffort);
-      for (const role of Object.values(
-        this.routing.get(s.id)?.roleModels ?? {},
-      )) {
-        const mapped = applyModelThinking(role.provider, role.thinkingEffort);
-        role.provider = mapped.provider;
-        role.thinkingEffort = mapped.thinkingEffort;
-      }
       const capability = await this.settings.request(
         "model-capabilities/resolve",
         {
@@ -1342,7 +1319,7 @@ export class Compat {
       const active = this.active.get(p.sessionId);
       if (active) {
         active.controller.abort();
-        await this.driver.cancel(p.sessionId);
+        if (active.driverStarted) await this.driver.cancel(p.sessionId);
       }
       return {};
     }
@@ -1427,6 +1404,10 @@ export class Compat {
     }
     if (!method.startsWith(prefix)) throw unsupported(method);
     const name = method.slice(prefix.length);
+    if (name === "subagent/conversation/get")
+      return readSubagentConversation(this.session(p.sessionId), p, this.driver);
+    if (name === "subagent/catalog/list")
+      return listSubagentCatalog(this.session(p.sessionId), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
     if (this.schedules?.handles(method))
@@ -1817,20 +1798,6 @@ export class Compat {
         return saveProvider(this.store, p);
       case "providers/custom/update": {
         this.checkProviderMutation(p.providerId);
-        if (
-          [...this.active.keys()].some(
-            (id) =>
-              this.session(id).providerId === p.providerId ||
-              (this.session(id).type === "code_pro" &&
-                this.store.read(["modelRouting"]).modelRouting?.advancedRoutingEnabled &&
-                this.store
-                  .read()
-                  .modelRouting.routes.some(
-                    (r) => r.providerId === p.providerId,
-                  )),
-          )
-        )
-          throw invalid("Stop active sessions before editing their provider");
         const result = await saveProvider(this.store, p, true);
         this.initialized.clear();
         return result;
@@ -1841,20 +1808,6 @@ export class Compat {
       case "providers/custom/delete": {
         this.checkProviderMutation(p.providerId);
         this.provider(p.providerId);
-        if (
-          [...this.active.keys()].some(
-            (id) =>
-              this.session(id).providerId === p.providerId ||
-              (this.session(id).type === "code_pro" &&
-                this.store.read(["modelRouting"]).modelRouting?.advancedRoutingEnabled &&
-                this.store
-                  .read()
-                  .modelRouting.routes.some(
-                    (r) => r.providerId === p.providerId,
-                  )),
-          )
-        )
-          throw invalid("Stop active sessions before deleting their provider");
         await this.store.update((s) => {
           s.providers = s.providers.filter((x) => x.id !== p.providerId);
           if (s.defaults.providerId === p.providerId)
@@ -1981,8 +1934,6 @@ export class Compat {
       throw invalid(
         "This imported history is read-only; start a new task to continue work",
       );
-    if (s.type === "code_pro")
-      await this.workspaces.validateSession(s.id, s.cwd);
     const content = harnessPrompt(p.prompt);
     const manualCompact = p.prompt.length === 1 && p.prompt[0].type === "text" && p.prompt[0].text.trim() === "/compact";
     if (s.archivedAt) throw invalid("Unarchive the session before continuing");
@@ -1998,7 +1949,7 @@ export class Compat {
     const usageUpdates = [];
     const promptScope = randomUUID();
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
-    this.active.set(s.id, {
+    const promptEntry = {
       controller,
       connection,
       done,
@@ -2013,7 +1964,39 @@ export class Compat {
           .map((u) => u.content.text),
         ...p.prompt.filter((c) => c.type === "text").map((c) => c.text),
       ],
-    });
+    };
+    this.active.set(s.id, promptEntry);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      try {
+        if (this.active.get(s.id) !== promptEntry) return;
+        this.active.delete(s.id);
+        // No await may separate deletion from this existing live-state fact:
+        // observers without the original prompt RPC also need the release.
+        for (const c of this.connections) {
+          if (c.background || !c.sessionIds?.has(s.id)) continue;
+          try {
+            c.notify("session/update", {
+              sessionId: s.id,
+              update: { sessionUpdate: "session_info_update", _meta: { goose: { activeRunId: null } } },
+            });
+          } catch { /* A detached observer must not mask the prompt's outcome. */ }
+        }
+      } finally { finish(); }
+    };
+    let validated = false, validationError;
+    try {
+      if (s.type === "code_pro") await this.workspaces.validateSession(s.id, s.cwd);
+      validated = true;
+    } catch (error) {
+      validationError = error;
+    } finally {
+      if (!validated || controller.signal.aborted) release();
+    }
+    if (controller.signal.aborted) return { stopReason: "cancelled" };
+    if (!validated) throw validationError;
     let messageId = randomUUID();
     let afterToolResult = false;
     const created = Math.floor(Date.now() / 1000);
@@ -2048,7 +2031,9 @@ export class Compat {
       replay.users = users;
       for (const update of users)
         connection.notify("session/update", { sessionId: s.id, update });
+      controller.signal.throwIfAborted();
       await this.ensureSession(s);
+      controller.signal.throwIfAborted();
       const active = this.active.get(s.id);
       active.driverStarted = true;
       const prepared = await this.prepareModelContent(
@@ -2409,10 +2394,11 @@ export class Compat {
           };
           await writer?.appendUsage(update);
           usageUpdates.push(update);
-          connection.notify(prefix + "session/update", {
-            sessionId: s.id,
-            update,
-          });
+          for (const c of new Set([connection, ...this.connections])) {
+            if (c !== connection && (c.background || !c.sessionIds?.has(s.id))) continue;
+            try { c.notify(prefix + "session/update", { sessionId: s.id, update }); }
+            catch { /* The original durable terminal remains authoritative. */ }
+          }
         }
         if (writer) await writer.finalize();
         else
@@ -2439,8 +2425,7 @@ export class Compat {
           },
         });
       } finally {
-        this.active.delete(s.id);
-        finish();
+        release();
       }
     }
     if (controller.signal.aborted) return { stopReason: "cancelled" };

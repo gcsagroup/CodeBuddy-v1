@@ -6,7 +6,7 @@
 
 模型請求預設使用官方有界重試（5 次，500ms 起退避，間隔最多 10 秒），不再強制關閉重試。`llm/retry`、`goal/change`、`turn/start` 與 `todo/write` 透過 `harness_event` 保留原生身分；todo 清單僅屬於目前 turn。`model_diagnostic` 只記錄首片/結束耗時、HTTP 狀態、區塊數及白名單網路錯誤代碼，不記錄內容、憑證、請求標頭或 URL。觀測不修改 fetch、串流或重試結果。
 
-`maxParallelSubagents`（1–32，與應用設定一致）對應官方 Host 的 `maxActiveSubagents`，約束全部子 Agent 的後續派發，不按角色計數，也不驅逐現有子 Agent；舊 `maxParallelCoders` 由上層作設定相容映射。子 Agent 不將繼承的舊上限寫回 Host。
+Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每個主會話的原生子 Agent 樹最多同時執行 3 個子 Agent，子 Agent 不能再派發下一層。舊 `roleModels`、`maxParallelSubagents` 和 `maxParallelCoders` 不參與執行；舊角色路由不能覆蓋主會話目前所選模型。
 
 官方 npm @deepseek-ai/dsh 及外掛精確鎖定 0.2.1-alpha.2；採 MIT，仍為 developer preview。profile 組合官方 boot、Session Controller、AgentLoop、JSONL、MCP、skills、subagent、jobs 與 compaction，沒有第二個模型循環。來源及完整性見 PROVENANCE.json；npm 與參考原始碼位元組等價未證實。[上游倉庫](https://github.com/deepseek-ai/deepseek-harness)。
 
@@ -25,7 +25,7 @@
 - mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。連線、工具發現、同步呼叫及每次 Tasks 請求預設 300 秒，明確設定的 `toolCallTimeoutMs` 優先。擴充設定 `timeout` 單位為秒，測試與正式工作階段共用轉換，儲存後透過既有重設機制套用。版本協商可能有多個請求，因此這不是全部服務的總啟動期限。
 - 首次連線／重連以協議能力及工具定義探測非同步：2025 Tasks 同時要求服務端 `tasks.requests.tools.call` 及工具 `execution.taskSupport` 為 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 擴充，由服務端決定是否回傳任務。未宣告支援的工具走同步，不猜工具名稱、不執行探測業務動作。`mcp-tasks.mjs` 在適配層輪詢，將最終 MCP 回執交回 Harness，已受理的呼叫不重送；300 秒限制單次請求，非非同步任務總時長，使用者仍可取消。取消回執不證明遠端已停止。目前未支援 Tasks 內的互動輸入或程序重啟後自動恢復。SDK 2.2.0 尚無 Tasks 執行時，新版擴充使用鎖定版本的內部 codec 相容適配；升級時須重新驗證並優先移除此適配。設計參考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。
 - toolFilter:{allow?,deny?} 只過濾繼承工具；同 scope 的 MCP／宿主工具須由統一核准入口執行精確 allowlist。
-- roleModels 支援 planner／coder／tester／reviewer，各為 `{provider,model,thinkingEffort?}`。官方 subagent_<role> 接收 `{description,prompt,cwd?}`；執行及並行由 Harness 管理，活躍子 Agent 總上限由 maxParallelSubagents 設定，驅動預設值為 4。
+- 通用原生 `subagent` 接收 `{description,prompt,cwd?}`，預設繼承主 Agent 實際請求使用的 provider、model 和 reasoning effort；不註冊 `subagent_<role>` 或開放子模型選擇。建立、並行、深度和結果回傳由 Harness 管理，子 Agent 的讀寫和命令仍經原核准入口。
 
 onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一核准或宿主 execute。事件帶 sessionId，子 Agent 內容需獨立投影。tool_result.structuredContent／error 為官方回執；shell 前台結果含 exitCode、aborted、timedOut，background 句柄不等於驗證完成。attemptId 與持久 messageId 不同。
 
@@ -37,11 +37,13 @@ onEvent 支援 Promise 並依序等待；前工具回執處理後才進入下一
 
 `../transcripts.mjs` 僅儲存 ACP 顯示投影，不接管 Harness 執行歷史。`openTranscriptJournal(store)` 在啟動恢復未完成 NDJSON；`begin({sessionId,turnId,users,title?})` 回傳 append、appendUsage、finalize。各追加等待 fsync 後才回傳；finalize 在 store 原子更新中合入片段與回放高水位，再清理 journal。應在 UI 通知前 await 追加；恢復既有片段不新增完成結論。
 
+ACP `session/cancel` 是取消請求。適配層在首個非同步校驗前登記佔用；真實終態傳送給原請求及同會話觀察連線，收尾路徑退出時先刪除佔用，再同步傳送既有 `session_info_update` 的 `activeRunId: null`。終態、Host 釋放及原 prompt RPC 回傳各有明確時點，取消通知寫出不能替代它們。
+
 ## 技能與記憶
 
 AGENTS.md 讀取使用官方 agent-instructions 外掛。`instructionsHome` 指定本版全域目錄，預設隔離資料根；產品傳入 CODEBUDDY_HOME。專案及巢狀目錄遵循官方發現規則。固定版本在 apply 時同步讀取環境路徑，包裝器只在同步初始化期間設定並立即還原 Process 變數，不觸碰 User/Machine 環境。
 
-官方 spawn 建立平級 scope，宿主透過已驗證 parent ownership，在 child 的 agent/created 階段明確重建工具、MCP、系統指令和壓縮設定；執行及核准仍使用真實 child sessionId，保留角色自己的思考設定。
+官方 spawn 建立平級 scope，宿主透過已驗證 parent ownership，在 child 的 agent/created 階段明確重建工具、MCP、系統指令和壓縮設定；執行及核准仍使用真實 child sessionId，模型與思考檔位由原生委派繼承，不注入角色 override。
 
 官方技能根為專案 .dsh/skills／.agents/skills，以及資料根 skills／agents/skills；提供 listSkills、refreshSkills 與官方 /skill-name 顯式注入。
 

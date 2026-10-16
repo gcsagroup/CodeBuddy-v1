@@ -56,7 +56,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tool-goal', 'dsh-tool-goal'),
     entry('jobs', 'dsh-jobs-local'),
     entry('tool-jobs', 'dsh-tool-jobs', { completionDelivery: 'quiet' }),
-    entry('subagents', 'dsh-subagent', { maxActiveSubagents: 4, maxDepth: 2 }),
+    entry('subagents', 'dsh-subagent', { maxActiveSubagents: 3, maxDepth: 1 }),
     entry('subagent-spawn', 'dsh-subagent-spawn-in-process'),
     entry('subagent-fork', 'dsh-subagent-fork-in-process'),
     entry('tool-subagent', 'dsh-tool-subagent', { provider: 'spawn' }),

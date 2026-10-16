@@ -76,6 +76,9 @@ export function createConversationDriver(driver, store) {
     listResources(id, server, cursor, options) { const actual = nativeId(id); return driver.listResources(actual, server, cursor, callbacks(options, actual, id)); },
     rename(id, title) { return driver.rename(nativeId(id), title); },
     history(id) { return driver.history(nativeId(id)); },
+    // Subagent browsing resolves the product root once; child addresses are native.
+    nativeHistory(id) { return driver.history(id); },
+    listSubagentChildren(id, signal) { return driver.listSubagentChildren(id, signal); },
     // A native fork is not a published product session until Editing commits it.
     fork(id, options) { return driver.fork(nativeId(id), options); },
     forkWorkingDirectory(id, workingDir, options) { return driver.forkWorkingDirectory(nativeId(id), workingDir, options); },

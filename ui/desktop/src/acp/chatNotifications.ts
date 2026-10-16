@@ -4,6 +4,12 @@ import { AppEvents } from '../constants/events';
 import { maybeHandlePlatformEvent } from '../utils/platform_events';
 import { toolNotificationEvent } from './adapter/toolNotifications';
 import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
+import { isTerminalActivityEventStatus, parseActivityEvent } from '../types/activityEvent';
+import { isTurnTerminalRecord } from '../types/turnTerminal';
+import {
+  expireAcpPermissionRequestForTool,
+  expireAcpPermissionRequestsForTurn,
+} from './permissionRequests';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
   const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
@@ -13,6 +19,13 @@ export function handleAcpSessionNotification(notification: SessionNotification):
       ? notification.update.title
       : undefined;
   acpChatSessionActions.applyAcpSessionNotification(notification);
+  const update = notification.update;
+  if (
+    (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') &&
+    (update.status === 'completed' || update.status === 'failed')
+  ) {
+    expireAcpPermissionRequestForTool(notification.sessionId, update.toolCallId);
+  }
   maybeHandleLivePlatformEvent(notification);
 
   if (updatedName && updatedName !== sessionNameBeforeNotification) {
@@ -46,5 +59,38 @@ export function handleAcpGooseSessionNotification(
   notification: GooseSessionNotification_unstable
 ): Promise<void> {
   acpChatSessionActions.applyAcpGooseSessionNotification(notification);
+  const update = notification.update;
+  if (update.sessionUpdate === 'status_message' && update.status.type === 'progress') {
+    const data = update.status.data;
+    if (isTurnTerminalRecord(data) && data.session_id === notification.sessionId) {
+      expireAcpPermissionRequestsForTurn(
+        notification.sessionId,
+        data.run_id,
+        data.source_user_message_id
+      );
+    }
+    const activity = parseActivityEvent(data);
+    if (
+      activity?.session_id === notification.sessionId &&
+      activity.tool_call_id &&
+      activity.status !== 'unknown' &&
+      isTerminalActivityEventStatus(activity.status) &&
+      [
+        'tool_completed',
+        'command_completed',
+        'test_completed',
+        'file_read',
+        'file_changed',
+        'approval_resolved',
+      ].includes(activity.event_type)
+    ) {
+      expireAcpPermissionRequestForTool(
+        notification.sessionId,
+        activity.tool_call_id,
+        activity.run_id,
+        true
+      );
+    }
+  }
   return Promise.resolve();
 }

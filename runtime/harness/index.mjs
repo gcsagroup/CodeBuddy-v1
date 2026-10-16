@@ -7,7 +7,6 @@ import { BlockAssembler } from '@deepseek-ai/dsh-llm';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
 import compactionPlugin from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
-import * as subagentToolPlugin from '@deepseek-ai/dsh-tool-subagent';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
 import { createScope, bindScopeParent } from '@deepseek-ai/dsh-scope';
@@ -54,8 +53,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
   let skillRefresh = Promise.resolve();
-  let subagentConfiguration = Promise.resolve();
-  let subagentCapacity = 4;
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
     host.provide('agentDefaultModel', {
@@ -177,9 +174,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const inherited = settingsFor(parent);
     if (!inherited) return;
     // Spawn intentionally creates a flat upstream scope. Install this host's
-    // selected capabilities before its loop starts; preserve the child route's
-    // own reasoning choice instead of overwriting it with its parent's choice.
-    const { thinkingEffort: _parentEffort, maxParallelSubagents: _parentCapacity, ...capabilities } = inherited;
+    // selected capabilities before its loop starts. Native delegation inherits
+    // the parent's actual request model and effort without a host override.
+    const { thinkingEffort: _parentEffort, ...capabilities } = inherited;
     await applySessionOptions(agent.id, capabilities, agent);
   });
   ctx.on('agent/disposed', ({ agent }) => {
@@ -382,22 +379,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const agent = createdAgent ?? await resolveAgent(sessionId);
     if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
     const previous = sessionSettings.get(sessionId) ?? {};
-    const settings = { ...previous, ...options };
-    if (settings.maxParallelSubagents !== undefined) {
-      const capacity = settings.maxParallelSubagents;
-      if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 32) throw new TypeError('maxParallelSubagents must be between 1 and 32');
-      const update = subagentConfiguration.then(async () => {
-        if (capacity === subagentCapacity) return;
-        const entry = [...ctx.loader.entries()].find(item => item.options.id === 'subagents');
-        // The official service reads this volatile cap at future admission.
-        // Already-running children are neither evicted nor recreated.
-        await entry.update({ config: { ...entry.options.config, maxActiveSubagents: capacity } });
-        await ctx.loader.await();
-        subagentCapacity = capacity;
-      });
-      subagentConfiguration = update.catch(() => {});
-      await update;
-    }
+    // Obsolete role routing and per-session limits cannot alter this Host's
+    // generic native delegation policy, including when replayed from old data.
+    const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, ...settings } = { ...previous, ...options };
     for (const field of ['maxTurns', 'maxTokens']) if (settings[field] !== undefined && (!Number.isSafeInteger(settings[field]) || settings[field] < 1)) throw new TypeError(`${field} must be a positive integer`);
     if (settings.temperature !== undefined && (!Number.isFinite(settings.temperature) || settings.temperature < 0 || settings.temperature > 2)) throw new TypeError('temperature must be between 0 and 2');
     if (settings.autoCompactThreshold !== undefined && (!Number.isFinite(settings.autoCompactThreshold) || settings.autoCompactThreshold <= 0 || settings.autoCompactThreshold >= 1)) throw new TypeError('autoCompactThreshold must be between 0 and 1');
@@ -410,11 +394,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     }
     for (const tool of settings.tools ?? []) {
       if (!tool.name || typeof tool.execute !== 'function') throw new TypeError('Host tools require name and execute');
-    }
-    const roleModels = [];
-    for (const [role, route] of Object.entries(settings.roleModels ?? {})) {
-      if (!['planner', 'coder', 'tester', 'reviewer'].includes(role)) throw new TypeError(`Unknown subagent role: ${role}`);
-      roleModels.push({ role, selection: { ...await configureProvider(route.provider, route.model), ...(route.thinkingEffort ? { reasoningEffort: route.thinkingEffort } : {}) } });
     }
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
@@ -449,14 +428,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
             return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
           },
         });
-        for (const { role, selection: childSelection } of roleModels) {
-          const roleTool = scoped.plugin(subagentToolPlugin, {
-            provider: 'spawn', toolName: `subagent_${role}`, agentOptions: childSelection,
-            persona: `You are CodeBuddy's ${role} subagent. Complete the delegated task within its scope and report actual results and unresolved verification.`,
-          });
-          await roleTool;
-          if (roleTool.state !== 2) throw new Error(`Subagent role did not activate: ${role}`);
-        }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
           headroomTokens: 1024, maxTokens: 1024, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
@@ -693,6 +664,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
+    listSubagentChildren(parentSessionId, signal) { return ctx.subagents.listChildren(parentSessionId, signal); },
     async forkWorkingDirectory(sessionId, workingDir, { signal } = {}) {
       const agent = await resolveAgent(sessionId);
       return forkWorkingDirectory(ctx, agent, workingDir, { signal, selection,

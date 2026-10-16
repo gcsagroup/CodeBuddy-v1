@@ -153,6 +153,109 @@ test('close awaits real prompt cancellation and its final persistence while reje
   assert.doesNotMatch(JSON.stringify(history.updates), /RACING_NEW_PROMPT/);
 });
 
+async function codeproSession(f) {
+  const cwd = path.join(f.root, 'project');
+  const lease = await f.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
+  return (await f.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId, enabledExtensions: ['developer'] } })).sessionId;
+}
+
+for (const failFinalization of [false, true]) test(`prompt release follows real cancellation and delayed finalization${failFinalization ? ' failure' : ''} for loaded observers`, { timeout: 30_000 }, async t => {
+  const f = await fixture(t), id = await codeproSession(f);
+  const finalizing = Promise.withResolvers(), releaseFinalization = Promise.withResolvers(), terminal = Promise.withResolvers();
+  const finalizationError = new Error('Controlled finalization cleanup failure');
+  const originalBegin = f.compat.journal.begin.bind(f.compat.journal);
+  f.compat.journal.begin = async (...args) => {
+    const writer = await originalBegin(...args);
+    return { ...writer, async finalize() {
+      finalizing.resolve();
+      await releaseFinalization.promise;
+      const value = await writer.finalize();
+      if (failFinalization) throw finalizationError;
+      return value;
+    } };
+  };
+  const notices = [], observerNotices = [], releaseFacts = [];
+  const record = (list, method, params) => {
+    list.push({ method, params });
+    if (params.update?.status?.data?.terminal_message_id) terminal.resolve();
+    if (params.update?._meta?.goose?.activeRunId === null) releaseFacts.push(f.compat.active.has(id));
+  };
+  f.connection.notify = (method, params) => record(notices, method, params);
+  const pending = f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'SLOW_LIFECYCLE' }] });
+  const outcome = pending.then(value => ({ value }), error => ({ error }));
+  await f.slow.promise;
+  const done = f.compat.active.get(id).done;
+  const observer = { notify: (method, params) => record(observerNotices, method, params) };
+  await f.compat.request('session/load', { sessionId: id }, observer);
+  f.compat.connections.add({ sessionIds: new Set([id]), notify(_method, params) {
+    if (params.update?._meta?.goose?.activeRunId === null) throw new Error('Detached observer');
+  } });
+  try {
+    await f.request('session/cancel', { sessionId: id });
+    await terminal.promise;
+    await finalizing.promise;
+    assert.equal(f.compat.active.has(id), true, 'Native terminal is not host occupancy release');
+    assert.deepEqual(releaseFacts, []);
+    await assert.rejects(f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'RACING_RELEASE' }] }), /already running/);
+  } finally { releaseFinalization.resolve(); }
+  const result = await outcome;
+  await done;
+  if (failFinalization) assert.equal(result.error, finalizationError, 'A release notification failure must not mask the original error');
+  else assert.equal(result.value.stopReason, 'cancelled');
+  assert.equal(f.compat.active.has(id), false);
+  assert.equal(f.driver.isConversationBusy(id), false);
+  assert.deepEqual(releaseFacts, [false, false], 'Both live observers see release only after deletion');
+  for (const list of [notices, observerNotices]) {
+    const terminals = list.filter(notice => notice.params.update?.status?.data?.terminal_message_id);
+    assert.equal(terminals.length, 1, 'The original and loaded observer receive the same authoritative terminal once');
+    const releaseIndex = list.findIndex(notice => notice.params.update?._meta?.goose?.activeRunId === null);
+    assert.ok(releaseIndex > list.indexOf(terminals[0]));
+  }
+});
+
+test('early cancellation reserves admission before workspace validation and never starts native execution', { timeout: 30_000 }, async t => {
+  const f = await fixture(t), id = await codeproSession(f);
+  const validating = Promise.withResolvers(), releaseValidation = Promise.withResolvers();
+  const validate = f.compat.workspaces.validateSession.bind(f.compat.workspaces);
+  f.compat.workspaces.validateSession = async (...args) => {
+    const value = await validate(...args);
+    validating.resolve();
+    await releaseValidation.promise;
+    return value;
+  };
+  let creations = 0, cancellations = 0;
+  const create = f.native.createSession.bind(f.native), cancel = f.native.cancel.bind(f.native);
+  f.native.createSession = (...args) => { creations++; return create(...args); };
+  f.native.cancel = (...args) => { cancellations++; return cancel(...args); };
+  const notices = [];
+  f.connection.notify = (_method, params) => notices.push(params.update);
+  const pending = f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'CANCEL_BEFORE_WORKSPACE_VALIDATION' }] });
+  await validating.promise;
+  const active = f.compat.active.get(id);
+  assert.ok(active, 'The first await must already have an admission owner');
+  try {
+    await f.request('session/cancel', { sessionId: id });
+    assert.equal(active.controller.signal.aborted, true);
+    assert.equal(cancellations, 0, 'There is no native turn to cancel before session setup');
+  } finally { releaseValidation.resolve(); }
+  assert.equal((await pending).stopReason, 'cancelled');
+  await active.done;
+  assert.equal(creations, 0);
+  assert.equal(f.compat.active.has(id), false);
+  assert.equal(f.store.readSession(id).updates.length, 0, 'Unadmitted text is not projected into history');
+  assert.equal(notices.some(update => update?.status?.data?.terminal_message_id), false, 'No native terminal is invented');
+  assert.equal(notices.filter(update => update?._meta?.goose?.activeRunId === null).length, 1);
+  const validationError = new Error('Controlled unavailable workspace');
+  f.compat.workspaces.validateSession = async () => { throw validationError; };
+  await assert.rejects(f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'INVALID_WORKSPACE_ADMISSION' }] }), error => error === validationError);
+  assert.equal(f.compat.active.has(id), false, 'Validation failure also releases the reserved admission');
+  assert.equal(creations, 0);
+  assert.equal(f.store.readSession(id).updates.length, 0);
+  f.compat.workspaces.validateSession = validate;
+  assert.equal((await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'AFTER_EARLY_CANCEL' }] })).stopReason, 'end_turn');
+  assert.equal(creations, 1);
+});
+
 test('an ordinary fork retains source MCP scope; a committed truncate retires only the replaced native scope', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
   await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'HISTORY_TO_EDIT' }] });

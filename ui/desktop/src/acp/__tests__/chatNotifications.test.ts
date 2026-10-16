@@ -1,10 +1,18 @@
 import type { SessionNotification } from '@agentclientprotocol/sdk';
+import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppEvents } from '../../constants/events';
 import { ChatState } from '../../types/chatState';
 import type { Session } from '../../types/session';
 import { maybeHandlePlatformEvent } from '../../utils/platform_events';
-import { handleAcpSessionNotification } from '../chatNotifications';
+import {
+  handleAcpSessionNotification,
+  handleAcpGooseSessionNotification,
+} from '../chatNotifications';
+import {
+  expireAcpPermissionRequestForTool,
+  expireAcpPermissionRequestsForTurn,
+} from '../permissionRequests';
 import type { AcpChatSessionSnapshot } from '../chatSessionStore';
 import { acpChatSessionActions, acpChatSessionStore } from '../chatSessionStore';
 
@@ -20,6 +28,11 @@ vi.mock('../chatSessionStore', () => ({
 
 vi.mock('../../utils/platform_events', () => ({
   maybeHandlePlatformEvent: vi.fn(),
+}));
+
+vi.mock('../permissionRequests', () => ({
+  expireAcpPermissionRequestForTool: vi.fn(),
+  expireAcpPermissionRequestsForTurn: vi.fn(),
 }));
 
 const SESSION_ID = 'session-1';
@@ -185,5 +198,116 @@ describe('handleAcpSessionNotification', () => {
     await handleAcpSessionNotification(platformEventToolUpdate('completed'));
 
     expect(maybeHandlePlatformEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(['completed', 'failed'] as const)(
+    'expires a permission on a real %s tool receipt',
+    async (status) => {
+      await handleAcpSessionNotification({
+        sessionId: SESSION_ID,
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'tool-1',
+          status,
+        },
+      });
+      expect(expireAcpPermissionRequestForTool).toHaveBeenCalledWith(SESSION_ID, 'tool-1');
+    }
+  );
+
+  it('does not expire permission from tool progress', async () => {
+    await handleAcpSessionNotification(platformEventToolUpdate('in_progress'));
+    expect(expireAcpPermissionRequestForTool).not.toHaveBeenCalled();
+  });
+});
+
+function progress(data: unknown): GooseSessionNotification_unstable {
+  return {
+    sessionId: SESSION_ID,
+    update: {
+      sessionUpdate: 'status_message',
+      status: { type: 'progress', message: 'receipt', data },
+    },
+  } as GooseSessionNotification_unstable;
+}
+
+const childToolReceipt = {
+  schema_version: 1,
+  event_id: 'receipt-1',
+  tool_call_id: 'child-session:call-1',
+  event_type: 'tool_completed',
+  session_id: SESSION_ID,
+  run_id: 'run-1',
+  task_id: null,
+  parent_task_id: null,
+  agent_role: null,
+  effective_model: null,
+  status: 'failed',
+  started_at: '2026-10-16T00:00:00Z',
+  finished_at: '2026-10-16T00:00:01Z',
+  title: 'native child result',
+  technical_details: null,
+  path: null,
+  command_summary: null,
+  exit_code: null,
+  diff_summary: null,
+  include_in_model_context: false,
+  retryable: false,
+  retry_from_event_id: null,
+};
+
+describe('permission lifecycle from Goose structured notifications', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('expires child permissions delivered as activity receipts rather than ACP tool updates', async () => {
+    await handleAcpGooseSessionNotification(progress(childToolReceipt));
+    expect(expireAcpPermissionRequestForTool).toHaveBeenCalledExactlyOnceWith(
+      SESSION_ID,
+      'child-session:call-1',
+      'run-1',
+      true
+    );
+  });
+
+  it.each([
+    { status: 'running', event_type: 'tool_started' },
+    { status: 'unknown' },
+    { tool_call_id: undefined },
+    { session_id: 'other-session' },
+    { schema_version: 999 },
+    { event_type: 'run_completed' },
+  ])('does not expire a request from incomplete or unrelated activity %j', async (change) => {
+    await handleAcpGooseSessionNotification(progress({ ...childToolReceipt, ...change }));
+    expect(expireAcpPermissionRequestForTool).not.toHaveBeenCalled();
+  });
+
+  it('passes both run and source identity when the authoritative turn ends', async () => {
+    await handleAcpGooseSessionNotification(
+      progress({
+        schema_version: 1,
+        session_id: SESSION_ID,
+        run_id: 'run-1',
+        terminal_message_id: 'terminal-1',
+        source_user_message_id: 'user-1',
+        status: 'completed',
+        checkpoint_id: null,
+        retry_strategy: 'not_available',
+        visible_text_available: true,
+        tool_action_count: 3,
+        copy_artifact_ref: null,
+        finished_at: '2026-10-16T00:00:01Z',
+      })
+    );
+    expect(expireAcpPermissionRequestsForTurn).toHaveBeenCalledExactlyOnceWith(
+      SESSION_ID,
+      'run-1',
+      'user-1'
+    );
+  });
+
+  it('does not expire a request from plain completion prose', async () => {
+    await handleAcpGooseSessionNotification(progress({ message: 'finished', status: 'completed' }));
+    expect(expireAcpPermissionRequestForTool).not.toHaveBeenCalled();
+    expect(expireAcpPermissionRequestsForTurn).not.toHaveBeenCalled();
   });
 });

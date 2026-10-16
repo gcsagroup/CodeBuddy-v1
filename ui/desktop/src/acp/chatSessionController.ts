@@ -55,6 +55,7 @@ export interface AcpSubmitMessageOptions extends AcpSnapshotOptions {
   onFinish(error?: string): void | Promise<void>;
   onAccepted?(): void;
   onRejectedBeforeAcceptance?(): void;
+  onDeliveryUncertain?(): void;
 }
 
 export interface AcpChatSessionController {
@@ -343,7 +344,8 @@ async function submitMessage(
   assertNoPendingPromptCancellation(sessionId);
 
   const snapshot = acpChatSessionStore.getSnapshot(sessionId);
-  if (snapshot?.activePromptAttemptId) {
+  if (snapshot?.activePromptAttemptId || snapshot?.promptRequestId != null) {
+    options.onRejectedBeforeAcceptance?.();
     return;
   }
 
@@ -371,6 +373,10 @@ async function submitMessage(
   if (!userMessage.id) {
     throw new Error('Prompt message requires an id');
   }
+  if (!acpChatSessionActions.startPromptRequest(sessionId, promptAttemptId)) {
+    options.onRejectedBeforeAcceptance?.();
+    return;
+  }
   acpChatSessionActions.startPromptAttempt(sessionId, promptAttemptId, userMessage.id);
   let accepted = false;
   const unsubscribe = subscribeToAcpChatSession(sessionId, (nextSnapshot) => {
@@ -388,7 +394,9 @@ async function submitMessage(
     const response = checkpointContext
       ? await acpPromptSession(sessionId, userMessage, turnRetry, checkpointContext)
       : await acpPromptSession(sessionId, userMessage, turnRetry);
-    if (!accepted) {
+    if (!accepted && response.stopReason === 'cancelled') {
+      options.onRejectedBeforeAcceptance?.();
+    } else if (!accepted) {
       accepted = true;
       options.onAccepted?.();
     }
@@ -411,6 +419,7 @@ async function submitMessage(
     if (checkpoint && automaticCheckpointResumeCount < MAX_AUTOMATIC_CHECKPOINT_RESUMES) {
       const continuationMessage = createUserMessage('继续执行已保存的任务');
       continuationMessage.metadata.userVisible = false;
+      acpChatSessionActions.finishPromptRequest(sessionId, promptAttemptId);
       await submitMessage(
         sessionId,
         continuationMessage,
@@ -428,7 +437,11 @@ async function submitMessage(
     }
     void options.onFinish();
   } catch (error) {
-    if (acpChatSessionActions.clearPromptCancellation(sessionId, promptAttemptId)) {
+    if (
+      acpChatSessionStore.getSnapshot(sessionId)?.pendingCancelPromptAttemptId === promptAttemptId
+    ) {
+      // A rejected transport request does not confirm that native cancellation
+      // finished. A matching terminal or the existing reload path reconciles it.
       return;
     }
 
@@ -466,11 +479,12 @@ async function submitMessage(
     if (
       acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, submitError)
     ) {
-      if (!accepted) options.onRejectedBeforeAcceptance?.();
+      if (!accepted) options.onDeliveryUncertain?.();
       void options.onFinish(submitError);
     }
   } finally {
     unsubscribe();
+    acpChatSessionActions.finishPromptRequest(sessionId, promptAttemptId);
   }
 }
 
@@ -528,7 +542,10 @@ async function resumeAfterWorkspace(
 }
 
 function stop(sessionId: string): void {
-  const storedPromptAttemptId = acpChatSessionStore.getSnapshot(sessionId)?.activePromptAttemptId;
+  const storedSnapshot = acpChatSessionStore.getSnapshot(sessionId);
+  // Replayed native runs may have no local session/prompt Promise to cancel.
+  const storedPromptAttemptId =
+    storedSnapshot?.activePromptAttemptId ?? storedSnapshot?.activeRunId;
   const hasStoredAcpPrompt = storedPromptAttemptId !== null && storedPromptAttemptId !== undefined;
 
   cancelAcpPermissionRequestsForSession(sessionId);

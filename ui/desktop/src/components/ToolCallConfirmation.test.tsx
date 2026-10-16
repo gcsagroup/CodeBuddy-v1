@@ -1,10 +1,30 @@
 import { render, screen } from '@testing-library/react';
 import type { RequestPermissionRequest } from '@agentclientprotocol/sdk';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { applyPermissionRequest } from '../acp/adapter/permissions';
 import type { AdapterState } from '../acp/adapter/shared';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import ToolConfirmation from './ToolCallConfirmation';
+import {
+  cancelAcpPermissionRequestsForSession,
+  requestAcpPermission,
+} from '../acp/permissionRequests';
+
+afterEach(() => {
+  for (const sessionId of ['session-memory', 'session-invalid-memory'])
+    cancelAcpPermissionRequestsForSession(sessionId);
+});
+
+function pendingMemoryPermission(sessionId: string, toolCallId: string) {
+  void requestAcpPermission({
+    sessionId,
+    toolCall: { toolCallId, title: 'project_memory_remember', rawInput: {} },
+    options: [
+      { optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' },
+      { optionId: 'deny_once', name: 'Deny once', kind: 'reject_once' },
+    ],
+  });
+}
 
 function renderPermissionRequest(request: RequestPermissionRequest) {
   const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
@@ -203,6 +223,7 @@ describe('ToolConfirmation', () => {
   });
 
   it('shows exact platform memory payload fields before approval', () => {
+    pendingMemoryPermission('session-memory', 'memory-card');
     render(
       <ToolConfirmation
         sessionId="session-memory"
@@ -321,6 +342,7 @@ describe('ToolConfirmation', () => {
   });
 
   it('removes allow actions for malformed platform memory while preserving deny', () => {
+    pendingMemoryPermission('session-invalid-memory', 'invalid-memory-card');
     render(
       <ToolConfirmation
         sessionId="session-invalid-memory"

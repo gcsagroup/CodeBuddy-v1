@@ -17,6 +17,7 @@ import {
   ToolConfirmationData,
   NotificationEvent,
   type Message,
+  type ToolResponseMessageContent,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
 import ElicitationRequest from './ElicitationRequest';
@@ -163,6 +164,8 @@ interface GooseMessageProps {
   sessionId: string;
   message: Message;
   messages: Message[];
+  toolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
+  toolChains?: number[][];
   suppressProviderThinking?: boolean;
   metadata?: string[];
   toolCallNotifications: Map<string, NotificationEvent[]>;
@@ -276,6 +279,8 @@ export default function GooseMessage({
   sessionId,
   message,
   messages,
+  toolResponses,
+  toolChains,
   suppressProviderThinking = false,
   toolCallNotifications,
   append,
@@ -293,7 +298,9 @@ export default function GooseMessage({
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const thinkingContent = getThinkingContent(message);
   const thinkingActive = !!message.id && thinkingActivity?.messageId === message.id;
-  const providerThinkingSuppressed = shouldSuppressProviderThinking(suppressProviderThinking) || isRepeatedToolThinking(message, messages);
+  const providerThinkingSuppressed =
+    shouldSuppressProviderThinking(suppressProviderThinking) ||
+    isRepeatedToolThinking(message, messages);
   const turnTerminal = getTurnTerminalRecord(message);
   const plainTerminal =
     turnTerminal?.status === 'cancelled' || turnTerminal?.status === 'interrupted';
@@ -465,7 +472,10 @@ export default function GooseMessage({
     }
     return undefined;
   };
-  const toolCallChains = useMemo(() => identifyConsecutiveToolCalls(messages), [messages]);
+  const toolCallChains = useMemo(
+    () => toolChains ?? identifyConsecutiveToolCalls(messages),
+    [toolChains, messages]
+  );
   const hideTimestamp = useMemo(
     () => shouldHideTimestamp(messageIndex, toolCallChains),
     [messageIndex, toolCallChains]
@@ -497,7 +507,12 @@ export default function GooseMessage({
   const toolResponsesMap = useMemo(() => {
     const responseMap = new Map();
 
-    if (messageIndex !== undefined && messageIndex >= 0) {
+    if (toolResponses) {
+      for (const request of toolRequests) {
+        const response = toolResponses.get(request.id);
+        if (response) responseMap.set(request.id, response);
+      }
+    } else if (messageIndex !== undefined && messageIndex >= 0) {
       for (let i = messageIndex + 1; i < messages.length; i++) {
         const responses = getToolResponses(messages[i]);
 
@@ -511,7 +526,7 @@ export default function GooseMessage({
     }
 
     return responseMap;
-  }, [messages, messageIndex, toolRequests]);
+  }, [messages, messageIndex, toolRequests, toolResponses]);
 
   const pendingConfirmationIds = getPendingToolConfirmationIds(messages);
 
@@ -648,41 +663,44 @@ export default function GooseMessage({
           </div>
         )}
 
-        {turnTerminal && terminalPresentation && !plainTerminal && (
-          <div
-            ref={contentRef}
-            role="status"
-            className="group mt-2 rounded-lg border border-border-subtle bg-background-subtle px-3 py-2"
-          >
-            <div className="font-medium text-text-primary">
-              {formatCodeProSummaryStatus(intl, terminalPresentation.summaryStatus)}
-            </div>
-            <div className="text-sm text-text-secondary">
-              <span className="font-semibold text-text-primary">
-                {formatCodeProTerminalVerdict(intl, terminalPresentation.verdict)}
-              </span>
-              {terminalPresentation.verdict === 'BLOCKED' && (
-                <span>
-                  {' · '}
-                  {intl.formatMessage(i18n.turnStoppedSummary, {
-                    count: turnTerminal.tool_action_count,
-                  })}
+        {turnTerminal &&
+          terminalPresentation?.summaryStatus !== 'completed' &&
+          terminalPresentation &&
+          !plainTerminal && (
+            <div
+              ref={contentRef}
+              role="status"
+              className="group mt-2 rounded-lg border border-border-subtle bg-background-subtle px-3 py-2"
+            >
+              <div className="font-medium text-text-primary">
+                {formatCodeProSummaryStatus(intl, terminalPresentation.summaryStatus)}
+              </div>
+              <div className="text-sm text-text-secondary">
+                <span className="font-semibold text-text-primary">
+                  {formatCodeProTerminalVerdict(intl, terminalPresentation.verdict)}
                 </span>
-              )}
+                {terminalPresentation.verdict === 'BLOCKED' && (
+                  <span>
+                    {' · '}
+                    {intl.formatMessage(i18n.turnStoppedSummary, {
+                      count: turnTerminal.tool_action_count,
+                    })}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="text-xs font-mono text-text-secondary">{timestamp}</div>
+                {showMessageActions && (
+                  <MessageCopyLink
+                    text={terminalCopyText}
+                    contentRef={contentRef}
+                    onRetry={retryMessage}
+                    alwaysVisible
+                  />
+                )}
+              </div>
             </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <div className="text-xs font-mono text-text-secondary">{timestamp}</div>
-              {showMessageActions && (
-                <MessageCopyLink
-                  text={terminalCopyText}
-                  contentRef={contentRef}
-                  onRetry={retryMessage}
-                  alwaysVisible
-                />
-              )}
-            </div>
-          </div>
-        )}
+          )}
 
         {hasToolConfirmation && !toolConfirmationShownInline && (
           <ToolCallConfirmation

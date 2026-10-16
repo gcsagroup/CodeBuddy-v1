@@ -23,7 +23,6 @@ import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
-import { detectInterruption } from '../utils/interruptionDetector';
 import type { Message } from '../types/message';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
@@ -136,9 +135,9 @@ const i18n = defineMessages({
     id: 'chatInput.send',
     defaultMessage: 'Send',
   },
-  waitingForCancellation: {
-    id: 'chatInput.waitingForCancellation',
-    defaultMessage: 'Waiting for cancellation to finish',
+  queueMessage: {
+    id: 'chatInput.queueMessage',
+    defaultMessage: 'Queue message',
   },
   failedToReadImage: {
     id: 'chatInput.failedToReadImage',
@@ -239,7 +238,6 @@ export default function ChatInput({
   handleSubmit,
   chatState = ChatState.Idle,
   onStop,
-  onSteerQueuedMessage,
   pauseQueueOnStop = false,
   queueProcessingBlocked = false,
   queueBlockedReason,
@@ -319,11 +317,11 @@ export default function ChatInput({
   );
   const editingMessageIdRef = useRef<string | null>(null);
   const sendAfterStopMessageIdRef = useRef<string | null>(null);
+  const cancellationRequestedForQueueRef = useRef(false);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
   const [sendNowInFlightMessageIds, setSendNowInFlightMessageIds] = useState<ReadonlySet<string>>(
     new Set()
   );
-  const [lastInterruption, setLastInterruption] = useState<string | null>(null);
 
   const setSendNowInFlightMessage = useCallback(
     (messageId: string, isInFlight: boolean) => {
@@ -364,9 +362,9 @@ export default function ChatInput({
     queuePausedRef.current = restored.length > 0 || queueStorageFailedRef.current;
     editingMessageIdRef.current = null;
     sendAfterStopMessageIdRef.current = null;
+    cancellationRequestedForQueueRef.current = false;
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
-    setLastInterruption(null);
   }, [sessionId]);
 
   useEffect(() => {
@@ -393,13 +391,14 @@ export default function ChatInput({
   const clearPendingSendAfterStop = useCallback((messageId?: string) => {
     if (!messageId || sendAfterStopMessageIdRef.current === messageId) {
       sendAfterStopMessageIdRef.current = null;
+      cancellationRequestedForQueueRef.current = false;
     }
   }, []);
 
   const clearQueueState = useCallback(() => {
     queuePausedRef.current = false;
     sendAfterStopMessageIdRef.current = null;
-    setLastInterruption(null);
+    cancellationRequestedForQueueRef.current = false;
   }, []);
 
   const { alerts, addAlert, clearAlerts } = useAlerts();
@@ -476,6 +475,7 @@ export default function ChatInput({
       }
 
       let accepted = false;
+      let deliveryResolved = false;
       setSendNowInFlightMessage(message.id, true);
       if (queueStorageFailedRef.current) {
         setSendNowInFlightMessage(message.id, false);
@@ -484,11 +484,16 @@ export default function ChatInput({
         );
         return;
       }
-      const rejectBeforeAcceptance = () => {
+      const pauseUnaccepted = (uncertain: boolean) => {
+        deliveryResolved = true;
         if (accepted || !isCurrentQueueSession()) return;
         clearPendingSendAfterStop(message.id);
         pauseRemainingQueue();
-        setLastInterruption(null);
+        if (!uncertain) {
+          setQueuedMessages((items) =>
+            items.map((item) => (item.id === message.id ? { ...item, delivery: 'pending' } : item))
+          );
+        }
       };
       try {
         await handleSubmit(
@@ -512,7 +517,6 @@ export default function ChatInput({
               clearPendingSendAfterStop(message.id);
               if (pauseAfterAcceptance) {
                 pauseRemainingQueue();
-                setLastInterruption(null);
               }
               setQueuedMessages((previous) => {
                 const next = removeQueuedMessage(previous, message.id);
@@ -520,12 +524,13 @@ export default function ChatInput({
                 return next;
               });
             },
-            onRejectedBeforeAcceptance: rejectBeforeAcceptance,
+            onRejectedBeforeAcceptance: () => pauseUnaccepted(false),
+            onDeliveryUncertain: () => pauseUnaccepted(true),
           }
         );
-        if (!accepted) rejectBeforeAcceptance();
+        if (!accepted && !deliveryResolved) pauseUnaccepted(true);
       } catch {
-        rejectBeforeAcceptance();
+        pauseUnaccepted(true);
       } finally {
         if (isCurrentQueueSession()) {
           setSendNowInFlightMessage(message.id, false);
@@ -551,14 +556,13 @@ export default function ChatInput({
       ? queuedMessages.find((item) => item.id === pendingId)
       : queuedMessages[0];
     if (!message || editingMessageIdRef.current === message.id) return;
-    if (queuePausedRef.current && !lastInterruption && !pendingId) return;
-    void submitQueuedMessage(message, Boolean(pendingId || lastInterruption));
+    if (queuePausedRef.current && !pendingId) return;
+    void submitQueuedMessage(message, Boolean(pendingId));
   }, [
     isLoading,
     queueProcessingBlocked,
     queuedMessages,
     sendNowInFlightMessageIds,
-    lastInterruption,
     submitQueuedMessage,
   ]);
   const [mentionPopover, setMentionPopover] = useState<{
@@ -1085,51 +1089,17 @@ export default function ChatInput({
     }
   };
 
-  const handleInterruptionAndQueue = () => {
-    if (!isLoading || !hasSubmittableContent) {
-      return false;
-    }
-
-    const imageData = convertImagesToImageData();
-    const contentToQueue = appendDroppedFilePaths(displayValue.trim());
-
-    const interruptionMatch = detectInterruption(displayValue.trim());
-
-    if (interruptionMatch && interruptionMatch.shouldInterrupt) {
-      setLastInterruption(interruptionMatch.matchedText);
-      if (onStop) onStop();
-      pauseRemainingQueue();
-
-      // For interruptions, we need to queue the message to be sent after the stop completes
-      // rather than trying to send it immediately while the system is still loading
-      const interruptionMessage: QueuedMessage = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        content: contentToQueue,
-        timestamp: Date.now(),
-        images: imageData,
-      };
-
-      // Add the interruption message to the front of the queue so it gets sent first
-      setQueuedMessages((prev) => [interruptionMessage, ...prev]);
-
-      clearInputState();
-      return true;
-    }
-
+  const queueWhileBusy = () => {
+    if ((!isLoading && !queueProcessingBlocked) || !hasSubmittableContent) return false;
     const newMessage: QueuedMessage = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      content: contentToQueue,
+      content: appendDroppedFilePaths(displayValue.trim()),
       timestamp: Date.now(),
-      images: imageData,
+      images: convertImagesToImageData(),
     };
     setQueuedMessages((prev) => {
-      const newQueue = [...prev, newMessage];
-      // If adding to an empty queue, reset the paused state
-      if (prev.length === 0) {
-        queuePausedRef.current = false;
-        setLastInterruption(null);
-      }
-      return newQueue;
+      if (prev.length === 0) queuePausedRef.current = false;
+      return [...prev, newMessage];
     });
     clearInputState();
     return true;
@@ -1199,17 +1169,6 @@ export default function ChatInput({
         } finally {
           submitInFlightRef.current = false;
         }
-
-        // Auto-resume queue after sending a NON-interruption message (if it was paused due to interruption)
-        if (
-          queuePausedRef.current &&
-          lastInterruption &&
-          textToSend &&
-          !detectInterruption(textToSend)
-        ) {
-          queuePausedRef.current = false;
-          setLastInterruption(null);
-        }
       }
     },
     [
@@ -1220,7 +1179,6 @@ export default function ChatInput({
       localDroppedFiles,
       allDroppedFiles,
       handleSubmit,
-      lastInterruption,
       clearInputState,
       setLocalDroppedFiles,
     ]
@@ -1276,8 +1234,8 @@ export default function ChatInput({
 
       evt.preventDefault();
 
-      // Handle interruption and queue logic
-      if (handleInterruptionAndQueue()) {
+      // Busy input is queued; only the explicit button cancels the current turn.
+      if (queueWhileBusy()) {
         return;
       }
 
@@ -1289,13 +1247,7 @@ export default function ChatInput({
 
   const onFormSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
-    if (queueProcessingBlocked) {
-      return;
-    }
-    if (isLoading && hasSubmittableContent) {
-      handleInterruptionAndQueue();
-      return;
-    }
+    if (queueWhileBusy()) return;
     const canSubmit =
       !isLoading &&
       !queueProcessingBlocked &&
@@ -1420,17 +1372,16 @@ export default function ChatInput({
     isAnyDroppedFileLoading ||
     isRecording ||
     isTranscribing ||
-    queueProcessingBlocked ||
     chatState === ChatState.RestartingAgent;
 
   const getSubmitButtonTooltip = (): string => {
-    if (queueProcessingBlocked)
-      return queueBlockedReason ?? intl.formatMessage(i18n.waitingForCancellation);
+    if (chatState === ChatState.RestartingAgent) return intl.formatMessage(i18n.restartingSession);
+    if (isLoading || queueProcessingBlocked)
+      return queueBlockedReason ?? intl.formatMessage(i18n.queueMessage);
     if (isAnyImageLoading) return intl.formatMessage(i18n.waitingForImages);
     if (isAnyDroppedFileLoading) return intl.formatMessage(i18n.processingDroppedFiles);
     if (isRecording) return intl.formatMessage(i18n.recording);
     if (isTranscribing) return intl.formatMessage(i18n.transcribing);
-    if (chatState === ChatState.RestartingAgent) return intl.formatMessage(i18n.restartingSession);
     if (!hasSubmittableContent) return intl.formatMessage(i18n.typeMessage);
     return intl.formatMessage(i18n.send);
   };
@@ -1470,98 +1421,28 @@ export default function ChatInput({
   };
 
   const handleStopAndSend = async (messageId: string) => {
-    const submittedSessionId = sessionId;
-    const submittedStorage = queueStorageRef.current;
-    const messageToSend = queuedMessages.find((msg) => msg.id === messageId);
-    if (!messageToSend) return;
-    if (messageToSend.delivery === 'submitting' || queueStorageFailedRef.current) return;
-    if (queueProcessingBlocked) return;
-
-    if (editingMessageIdRef.current === messageId) return;
-    if (sendNowInFlightMessageIdsRef.current.size > 0) return;
-    if (!isLoading) {
-      await submitQueuedMessage(messageToSend);
+    const messageToSend = queuedMessagesRef.current.find((msg) => msg.id === messageId);
+    if (!messageToSend || messageToSend.delivery === 'submitting' || queueStorageFailedRef.current)
+      return;
+    if (
+      editingMessageIdRef.current === messageId ||
+      sendNowInFlightMessageIdsRef.current.has(messageId)
+    )
+      return;
+    if ((!isLoading || canSubmitQueuedMessageWhileLoading) && !queueProcessingBlocked) {
+      await submitQueuedMessage(messageToSend, false, canSubmitQueuedMessageWhileLoading);
       return;
     }
 
-    if (canSubmitQueuedMessageWhileLoading) {
-      await submitQueuedMessage(messageToSend, false, true);
-      return;
-    }
+    if (sendAfterStopMessageIdRef.current === messageId) return;
 
-    if (onSteerQueuedMessage) {
-      if (sendNowInFlightMessageIdsRef.current.has(messageId)) {
-        return;
-      }
-
-      const wasQueuePausedBeforeSteer = queuePausedRef.current;
-      pauseRemainingQueue();
-      setSendNowInFlightMessage(messageId, true);
-      if (queueStorageFailedRef.current) {
-        setSendNowInFlightMessage(messageId, false);
-        setQueuedMessages((items) =>
-          items.map((item) => (item.id === messageId ? { ...item, delivery: 'pending' } : item))
-        );
-        return;
-      }
-      try {
-        const steerAccepted = await onSteerQueuedMessage({
-          msg: messageToSend.content,
-          images: messageToSend.images,
-        });
-
-        if (queueSessionIdRef.current !== submittedSessionId) {
-          if (steerAccepted && submittedStorage) {
-            try {
-              submittedStorage.write(
-                submittedStorage.read().filter((item) => item.id !== messageId)
-              );
-            } catch {
-              setQueueStorageError('save');
-            }
-          }
-          return;
-        }
-
-        if (steerAccepted) {
-          LocalMessageStorage.addMessage(messageToSend.content);
-          clearPendingSendAfterStop(messageId);
-          setQueuedMessages((prev) => {
-            const newQueue = removeQueuedMessage(prev, messageId);
-            if (newQueue.length === 0) {
-              clearQueueState();
-            } else {
-              pauseRemainingQueue();
-            }
-            return newQueue;
-          });
-          return;
-        }
-        setQueuedMessages((items) =>
-          items.map((item) => (item.id === messageId ? { ...item, delivery: 'pending' } : item))
-        );
-      } catch {
-        if (queueSessionIdRef.current === submittedSessionId) {
-          pauseRemainingQueue();
-        }
-        return;
-      } finally {
-        if (queueSessionIdRef.current === submittedSessionId) {
-          setSendNowInFlightMessage(messageId, false);
-        }
-      }
-
-      if (!isLoadingRef.current && !queueProcessingBlockedRef.current) {
-        queuePausedRef.current = wasQueuePausedBeforeSteer;
-        await submitQueuedMessage(messageToSend);
-        return;
-      }
-    }
-
+    // Cancel is a request, not permission to overlap session/prompt calls. The
+    // existing queue effect sends only after both display and transport settle.
     sendAfterStopMessageIdRef.current = messageId;
+    cancellationRequestedForQueueRef.current = isLoading && !!onStop;
     pauseRemainingQueue();
     setQueuedMessages((prev) => moveQueuedMessageToFront(prev, messageId));
-    if (onStop) onStop();
+    if (isLoading && onStop) onStop();
   };
 
   const handleStop = () => {
@@ -1571,10 +1452,8 @@ export default function ChatInput({
     if (onStop) onStop();
   };
 
-  const handleResumeQueue = () => {
+  const handleQueueEditComplete = () => {
     if (editingMessageIdRef.current) return;
-    queuePausedRef.current = false;
-    setLastInterruption(null);
     setQueuedMessages((previous) => [...previous]);
   };
 
@@ -1638,10 +1517,27 @@ export default function ChatInput({
           onStopAndSend={handleStopAndSend}
           onReorderMessages={handleReorderMessages}
           onEditMessage={handleEditMessage}
-          onTriggerQueueProcessing={handleResumeQueue}
+          onTriggerQueueProcessing={handleQueueEditComplete}
           editingMessageIdRef={editingMessageIdRef}
           sendingMessageIds={sendNowInFlightMessageIds}
           isPaused={queuePausedRef.current}
+          blockedReason={
+            queueProcessingBlocked
+              ? intl.formatMessage(
+                  cancellationRequestedForQueueRef.current
+                    ? {
+                        id: 'messageQueue.waitingForCancellation',
+                        defaultMessage:
+                          'Waiting for cancellation confirmation. Your queued message has not been sent.',
+                      }
+                    : {
+                        id: 'messageQueue.waitingForPreviousPrompt',
+                        defaultMessage:
+                          'Waiting for the previous request to finish. Your queued message has not been sent.',
+                      }
+                )
+              : undefined
+          }
           className="border-b border-border-primary"
         />
       )}

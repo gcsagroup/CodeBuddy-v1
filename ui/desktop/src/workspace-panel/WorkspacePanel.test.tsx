@@ -4,6 +4,12 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
+import type { Message } from '../types/message';
+vi.mock('./WorkspaceSubagent', () => ({
+  WorkspaceSubagent: ({ childSessionId }: { childSessionId: string }) => (
+    <div>child-conversation:{childSessionId}</div>
+  ),
+}));
 const snapshotMock = vi.hoisted(() => ({ binding: 'project_container', readonlyHistory: false }));
 vi.mock('../acp/chatSessionStore', () => ({
   useAcpChatSessionSnapshot: () => ({
@@ -42,6 +48,93 @@ vi.mock('../components/MarkdownContent', () => ({
   default: ({ content }: { content: string }) => <pre>{content}</pre>,
 }));
 const invoke = vi.fn();
+vi.mock('../acp/subagentCatalog', () => ({
+  readSubagentCatalog: vi.fn(async (sessionId: string) => ({
+    sessionId,
+    ancestorSessionIds: [],
+    children: [
+      { id: 'catalog-only-child', createdAt: 1000, mode: 'continuable', label: 'Catalog review' },
+    ],
+  })),
+}));
+it('browses the native subagent catalog without a writable root or parent tool receipts', async () => {
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'catalog-history', root: '' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent.click(screen.getByRole('tab', { name: 'Subagents' }));
+  const child = await screen.findByRole('button', { name: 'Catalog review' });
+  const avatar = child.querySelector('[data-subagent-avatar]')!;
+  const colors = (element: typeof avatar) =>
+    [...element.classList].filter((name) => /^(bg-|text-|dark:)/.test(name));
+  const childColors = colors(avatar);
+  expect(avatar).toHaveAttribute('data-subagent-avatar', 'catalog-only-child');
+  fireEvent.click(child);
+  expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
+  const tabAvatar = screen
+    .getByRole('tab', { name: 'Catalog review' })
+    .querySelector('[data-subagent-avatar]')!;
+  expect(tabAvatar).toHaveAttribute('data-subagent-avatar', 'catalog-only-child');
+  expect(colors(tabAvatar)).toEqual(childColors);
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-catalog', { detail: { parentSessionId: 'foreign' } })
+  );
+  expect(screen.getByText('child-conversation:catalog-only-child')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-catalog', {
+      detail: { parentSessionId: 'catalog-history' },
+    })
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Catalog review' }));
+  expect(screen.getAllByRole('tab', { name: 'Catalog review' })).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Catalog review' }));
+  expect(invoke).not.toHaveBeenCalled();
+});
+it('opens historical changes without a writable workspace and keeps file tabs separate by turn', () => {
+  const scope = { sessionId: 'readonly-change-history', root: '' };
+  render(<WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />, {
+    wrapper: IntlTestWrapper,
+  });
+  fireEvent.click(screen.getByRole('tab', { name: 'Changes' }));
+  expect(screen.getByText('No recorded file changes yet.')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: {
+        sessionId: 'other',
+        turnId: 'first',
+        filePath: '/fixture/foreign.py',
+      },
+    })
+  );
+  expect(screen.queryByRole('tab', { name: 'foreign.py' })).toBeNull();
+  for (const turnId of ['first', 'first', 'second']) {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: {
+          sessionId: scope.sessionId,
+          turnId,
+          filePath: '/fixture/app.py',
+        },
+      })
+    );
+  }
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(2);
+  expect(
+    screen.getByText('This change is no longer present in the conversation records.')
+  ).toBeVisible();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Close app.py' })[0]);
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(1);
+  expect(invoke).not.toHaveBeenCalled();
+});
 beforeEach(() => {
   snapshotMock.readonlyHistory = false;
   invoke.mockReset();
@@ -65,6 +158,149 @@ function panel(id = globalThis.crypto.randomUUID()) {
   );
   return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
 }
+function fileOperation(
+  id: string,
+  name: string,
+  path: string,
+  before = 'old\n',
+  after = 'new\n'
+): Message[] {
+  const metadata = { userVisible: true, agentVisible: true };
+  return [
+    {
+      id: `request:${id}`,
+      created: 1,
+      role: 'assistant',
+      metadata,
+      content: [
+        {
+          type: 'toolRequest',
+          id,
+          metadata: { extensionName: 'harness' },
+          toolCall: { status: 'success', value: { name, arguments: { path } } },
+        },
+      ],
+    },
+    ...(name === 'read'
+      ? []
+      : [
+          {
+            id: `response:${id}`,
+            created: 2,
+            role: 'user' as const,
+            metadata,
+            content: [
+              {
+                type: 'toolResponse' as const,
+                id,
+                toolResult: {
+                  status: 'success',
+                  value: { content: [], structuredContent: { path, before, after } },
+                },
+              },
+            ],
+          },
+        ]),
+  ];
+}
+it('opens each write receipt in a separate historical tab without reading today’s file', () => {
+  const scope = { sessionId: 'exact-file-operation', root: 'D:\\fixture' };
+  const messages = [
+    ...fileOperation('edit-a', 'write', 'app.py', 'old\n', 'first\n'),
+    ...fileOperation('edit-b', 'edit', 'app.py', 'first\n', 'second\n'),
+  ];
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={messages}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  const open = (toolCallId: string) =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: { sessionId: scope.sessionId, toolCallId, filePath: 'app.py' },
+      })
+    );
+  open('edit-a');
+  expect(screen.getByText('+first')).toBeVisible();
+  expect(screen.queryByText('+second')).toBeNull();
+  open('edit-b');
+  expect(screen.getByText('+second')).toBeVisible();
+  expect(screen.queryByText('-old')).toBeNull();
+  open('edit-a');
+  expect(screen.getByText('+first')).toBeVisible();
+  expect(screen.getAllByRole('tab', { name: 'app.py' })).toHaveLength(2);
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it('opens read targets through the existing file tab and reuses absolute and relative identities', async () => {
+  const scope = { sessionId: 'read-file-operation', root: 'D:\\fixture' };
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={fileOperation('read-a', 'read', 'D:\\fixture\\note.txt')}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: {
+        sessionId: scope.sessionId,
+        toolCallId: 'read-a',
+        filePath: 'D:\\fixture\\note.txt',
+      },
+    })
+  );
+  expect(await screen.findByRole('tab', { name: 'note.txt' })).toBeVisible();
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'read', path: 'D:\\fixture\\note.txt' });
+  invoke.mockClear();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-conversation-change', {
+      detail: { sessionId: scope.sessionId, toolCallId: 'read-a', filePath: 'note.txt' },
+    })
+  );
+  expect(screen.getAllByRole('tab', { name: 'note.txt' })).toHaveLength(1);
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it('rejects an unknown call or a mismatched path instead of opening an arbitrary current file', () => {
+  const scope = { sessionId: 'invalid-file-operation', root: 'D:\\fixture' };
+  render(
+    <WorkspacePanelContent
+      scope={scope}
+      messages={fileOperation('read-a', 'read', 'note.txt')}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  for (const target of [
+    { toolCallId: 'read-a', filePath: 'other.txt' },
+    { toolCallId: 'unknown', filePath: 'note.txt' },
+  ]) {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-conversation-change', {
+        detail: { sessionId: scope.sessionId, ...target },
+      })
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This change is no longer present in the conversation records.'
+    );
+  }
+  expect(invoke).not.toHaveBeenCalled();
+});
 async function edit() {
   fireEvent.click(screen.getByRole('button', { name: /Workspace files\s*Browse/ }));
   fireEvent.click(await screen.findByRole('button', { name: 'note.txt' }));
@@ -73,6 +309,45 @@ async function edit() {
     target: { value: 'local draft' },
   });
 }
+it('opens only this parent child in the existing panel and reuses its tab', async () => {
+  const { scope } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: { parentSessionId: 'other-parent', childSessionId: 'foreign', title: 'Foreign' },
+    })
+  );
+  expect(screen.queryByText('child-conversation:foreign')).not.toBeInTheDocument();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: {
+        parentSessionId: scope.sessionId,
+        childSessionId: 'child-1',
+        title: 'Read-only review',
+      },
+    })
+  );
+  expect(screen.getByText('child-conversation:child-1')).toBeVisible();
+  // Repeated clicks activate the same tab. Closing it must not close a runtime
+  // terminal/browser or cancel the child Agent.
+  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: {
+        parentSessionId: scope.sessionId,
+        childSessionId: 'child-1',
+        title: 'Read-only review',
+      },
+    })
+  );
+  expect(screen.getAllByRole('tab', { name: 'Read-only review' })).toHaveLength(1);
+  const before = invoke.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Close Read-only review' }));
+  expect(screen.queryByText('child-conversation:child-1')).not.toBeInTheDocument();
+  expect(invoke.mock.calls.length).toBe(before);
+});
 it('opens the existing Git and review panel with the active session workspace', () => {
   const { scope } = panel();
   fireEvent.click(screen.getByRole('button', { name: /Git and review\s*Inspect/ }));

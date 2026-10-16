@@ -14,6 +14,7 @@ import {
   PanelLeft,
   WrapText,
   FileCode2,
+  FileDiff,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -21,16 +22,33 @@ import {
   Save,
   Search,
   TerminalSquare,
+  Bot,
   X,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
+import { SubagentAvatar } from '../components/SubagentAvatar';
 import { GitRepositoryPanel } from '../components/codepro/GitRepositoryPanel';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
+import { WorkspaceSubagent } from './WorkspaceSubagent';
+import { WorkspaceSubagents, subagentsMessages } from './WorkspaceSubagents';
+import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
+import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conversationChangePanel';
+import {
+  collectConversationChanges,
+  fileIdentity,
+  conversationFileOperation,
+} from '../components/codepro/conversationChanges';
+import type { Message } from '../types/message';
+import {
+  OPEN_SUBAGENT_CATALOG,
+  OPEN_SUBAGENT_CONVERSATION,
+  type SubagentConversationTarget,
+} from './subagentPanel';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelEntry, PanelScope } from './workspacePanelTypes';
 import {
@@ -54,6 +72,7 @@ type Props = {
   width: number;
   onWidthChange?: (width: number) => void;
 };
+const EMPTY_MESSAGES: Message[] = [];
 export function WorkspacePanel(props: Props) {
   const [params] = useSearchParams();
   const id = params.get('resumeSessionId') ?? '';
@@ -68,7 +87,14 @@ export function WorkspacePanel(props: Props) {
     () => ({ sessionId: id, root: isContainer ? '' : (snapshot?.session?.working_dir ?? '') }),
     [id, snapshot?.session?.working_dir, isContainer]
   );
-  return <WorkspacePanelContent key={scopeKey(scope)} {...props} scope={scope} />;
+  return (
+    <WorkspacePanelContent
+      key={scopeKey(scope)}
+      {...props}
+      scope={scope}
+      messages={snapshot?.messages ?? EMPTY_MESSAGES}
+    />
+  );
 }
 
 function FileTree({
@@ -155,7 +181,8 @@ export function WorkspacePanelContent({
   width,
   onWidthChange,
   layout = 'inline',
-}: Props & { scope: PanelScope }) {
+  messages = EMPTY_MESSAGES,
+}: Props & { scope: PanelScope; messages?: Message[] }) {
   const intl = useIntl(),
     key = scopeKey(scope);
   const [state, setState] = useState(() => readWorkbench(key));
@@ -208,6 +235,32 @@ export function WorkspacePanelContent({
       ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [state.active]);
   const available = !!scope.root && !!scope.sessionId;
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<SubagentConversationTarget>).detail;
+      if (!target || target.parentSessionId !== scope.sessionId || !target.childSessionId) return;
+      const id = `subagent:${target.childSessionId}`;
+      update((s) => ({
+        tabs: s.tabs.some((tab) => tab.id === id)
+          ? s.tabs
+          : [...s.tabs, { id, kind: 'subagent', ...target }],
+        active: id,
+      }));
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+    const openCatalog = (event: Event) => {
+      const target = (event as CustomEvent<{ parentSessionId: string }>).detail;
+      if (target?.parentSessionId !== scope.sessionId) return;
+      update((current) => ({ ...current, active: 'subagents' }));
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
+    return () => {
+      window.removeEventListener(OPEN_SUBAGENT_CONVERSATION, open);
+      window.removeEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
+    };
+  }, [scope.sessionId, update, onExpandedChange]);
   const fileView = state.active === 'files' || selected?.kind === 'file';
   useEffect(() => {
     alive.current = true;
@@ -258,48 +311,119 @@ export function WorkspacePanelContent({
     },
     [update]
   );
-  const openFile = async (entry: PanelEntry) => {
-    const existing = latest.current.tabs.find(
-      (t) => t.kind === 'file' && t.document.path === entry.path
-    );
-    if (existing) {
-      activate(existing.id);
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      const { document } = await window.electron.workspacePanel({
-        scope,
-        action: 'read',
-        path: entry.path,
-      });
-      if (!document) return;
-      update((s) => {
-        const duplicate = s.tabs.find((t) => t.kind === 'file' && t.document.path === entry.path);
-        if (duplicate) return { ...s, active: duplicate.id };
-        const id = globalThis.crypto.randomUUID();
-        return {
-          tabs: [
-            ...s.tabs,
-            {
-              id,
-              kind: 'file',
-              title: entry.name,
-              document,
-              draft: document.content,
-              preview: true,
-            },
-          ],
+  const openFile = useCallback(
+    async (entry: PanelEntry) => {
+      const existing = latest.current.tabs.find(
+        (t) =>
+          t.kind === 'file' &&
+          fileIdentity(t.document.path, scope.root) === fileIdentity(entry.path, scope.root)
+      );
+      if (existing) {
+        activate(existing.id);
+        return;
+      }
+      setBusy(true);
+      setError('');
+      try {
+        const { document } = await window.electron.workspacePanel({
+          scope,
+          action: 'read',
+          path: entry.path,
+        });
+        if (!document || !alive.current) return;
+        update((s) => {
+          const duplicate = s.tabs.find(
+            (t) =>
+              t.kind === 'file' &&
+              fileIdentity(t.document.path, scope.root) === fileIdentity(entry.path, scope.root)
+          );
+          if (duplicate) return { ...s, active: duplicate.id };
+          const id = globalThis.crypto.randomUUID();
+          return {
+            tabs: [
+              ...s.tabs,
+              {
+                id,
+                kind: 'file',
+                title: entry.name,
+                document,
+                draft: document.content,
+                preview: true,
+              },
+            ],
+            active: id,
+          };
+        });
+      } catch (e) {
+        fail(e);
+      } finally {
+        if (alive.current) setBusy(false);
+      }
+    },
+    [scope, activate, update, fail]
+  );
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<ConversationChangeTarget>).detail;
+      if (!target || target.sessionId !== scope.sessionId) return;
+      const operation = target.toolCallId
+        ? conversationFileOperation(messages, target.toolCallId)
+        : undefined;
+      if (
+        target.toolCallId &&
+        (!operation ||
+          !target.filePath ||
+          fileIdentity(operation.path, scope.root) !== fileIdentity(target.filePath, scope.root))
+      ) {
+        setError(intl.formatMessage(changeMessages.missing));
+        onExpandedChange(true);
+        return;
+      }
+      if (operation?.kind === 'read') {
+        if (available)
+          void openFile({
+            kind: 'file',
+            path: operation.path,
+            name: operation.path.replace(/\\/g, '/').split('/').pop() || operation.path,
+          });
+        else setError(intl.formatMessage(m.noWorkspace));
+      } else if ((!target.turnId && !target.toolCallId) || !target.filePath) {
+        update((current) => ({ ...current, active: 'changes' }));
+      } else {
+        const filePath = operation?.path ?? target.filePath;
+        const turnId = target.turnId;
+        const id = target.toolCallId
+          ? `change-call:${JSON.stringify([target.toolCallId, fileIdentity(filePath, scope.root)])}`
+          : `change:${JSON.stringify([turnId, fileIdentity(filePath, scope.root)])}`;
+        const turn =
+          turnId &&
+          collectConversationChanges(messages, scope.root).find((item) => item.id === turnId);
+        const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath;
+        const title = turn
+          ? `${intl.formatMessage(turn.number ? changeMessages.turn : changeMessages.unassigned, { number: turn.number })} · ${name}`
+          : name;
+        update((current) => ({
+          tabs: current.tabs.some((tab) => tab.id === id)
+            ? current.tabs
+            : [
+                ...current.tabs,
+                {
+                  id,
+                  kind: 'change',
+                  turnId,
+                  filePath,
+                  title,
+                  ...(target.toolCallId ? { toolCallId: target.toolCallId } : {}),
+                },
+              ],
           active: id,
-        };
-      });
-    } catch (e) {
-      fail(e);
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
+        }));
+      }
+      onExpandedChange(true);
+    };
+    window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
+    return () => window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
+  }, [scope.sessionId, scope.root, messages, intl, update, onExpandedChange, available, openFile]);
   const add = useCallback(
     async (kind: 'terminal' | 'browser') => {
       if (!available) return;
@@ -407,7 +531,7 @@ export function WorkspacePanelContent({
       return;
     if (tab.kind === 'terminal' && !(await confirm(intl.formatMessage(m.closeTerminal)))) return;
     try {
-      if (tab.kind !== 'file')
+      if (tab.kind === 'terminal' || tab.kind === 'browser')
         await window.electron.workspacePanel({
           scope,
           action: tab.kind === 'terminal' ? 'terminal-close' : 'browser-close',
@@ -525,7 +649,9 @@ export function WorkspacePanelContent({
           aria-label={intl.formatMessage(m.panel)}
         >
           {state.active === 'start' && (
-            <span className="px-2 text-xs text-text-secondary">{intl.formatMessage(m.start)}</span>
+            <span className="wb-fixed-tab-label px-2 text-xs text-text-secondary">
+              {intl.formatMessage(m.start)}
+            </span>
           )}
           <button
             role="tab"
@@ -546,6 +672,34 @@ export function WorkspacePanelContent({
           >
             <GitBranch size={14} />
           </button>
+          <button
+            role="tab"
+            aria-selected={state.active === 'changes'}
+            aria-label={intl.formatMessage(changeMessages.title)}
+            className="wb-tab"
+            onClick={() => activate('changes')}
+            disabled={!scope.sessionId}
+            title={intl.formatMessage(changeMessages.title)}
+          >
+            <FileDiff size={14} />
+            <span className="wb-fixed-tab-label text-xs">
+              {intl.formatMessage(changeMessages.title)}
+            </span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={state.active === 'subagents'}
+            aria-label={intl.formatMessage(subagentsMessages.title)}
+            className="wb-tab"
+            onClick={() => activate('subagents')}
+            disabled={!scope.sessionId}
+            title={intl.formatMessage(subagentsMessages.title)}
+          >
+            <Bot size={14} />
+            <span className="wb-fixed-tab-label text-xs">
+              {intl.formatMessage(subagentsMessages.title)}
+            </span>
+          </button>
           {state.tabs.map((t) => (
             <div key={t.id} className={`wb-tab ${t.id === state.active ? 'is-active' : ''}`}>
               <button
@@ -555,10 +709,14 @@ export function WorkspacePanelContent({
                 title={t.kind === 'file' ? t.document.path : t.title}
                 onClick={() => activate(t.id)}
               >
-                {t.kind === 'file' ? (
+                {t.kind === 'change' ? (
+                  <FileDiff size={13} />
+                ) : t.kind === 'file' ? (
                   <FileCode2 size={13} />
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
+                ) : t.kind === 'subagent' ? (
+                  <SubagentAvatar sessionId={t.childSessionId} small />
                 ) : (
                   <Globe size={13} />
                 )}
@@ -608,7 +766,16 @@ export function WorkspacePanelContent({
           </button>
         </div>
       )}
-      {!available || state.active === 'start' ? (
+      {state.active === 'subagents' ? (
+        <WorkspaceSubagents parentSessionId={scope.sessionId} />
+      ) : state.active === 'changes' || selected?.kind === 'change' ? (
+        <WorkspaceChanges
+          sessionId={scope.sessionId}
+          workspaceRoot={scope.root}
+          messages={messages}
+          selection={selected?.kind === 'change' ? selected : undefined}
+        />
+      ) : (!available && selected?.kind !== 'subagent') || state.active === 'start' ? (
         <div className="wb-start">
           <div className="mb-6 rounded-full border-2 border-border-primary p-3 text-text-secondary opacity-40">
             <Globe size={28} />
@@ -837,6 +1004,14 @@ export function WorkspacePanelContent({
                 </span>
               </footer>
             </section>
+          ) : selected?.kind === 'subagent' ? (
+            <WorkspaceSubagent
+              key={selected.id}
+              parentSessionId={selected.parentSessionId}
+              childSessionId={selected.childSessionId}
+              title={selected.title}
+              ancestorSessionIds={selected.ancestorSessionIds}
+            />
           ) : selected?.kind === 'terminal' ? (
             <WorkspaceTerminal key={selected.id} scope={scope} id={selected.id} />
           ) : selected?.kind === 'browser' ? (

@@ -252,7 +252,7 @@ function structuredViewModel(event: ActivityEvent): CodeProActivityViewModel {
   const label = statusLabel(event.status);
   const details = technicalDetails(event);
   return {
-    key: `${event.run_id}:${event.event_id}`,
+    key: `${event.run_id}:${event.tool_call_id ?? event.event_id}`,
     source: 'activity_event',
     runId: event.run_id,
     eventId: event.event_id,
@@ -590,7 +590,7 @@ export function buildCodeProActivityRenderItems(
       ordered.push(legacyViewModel(notification, index));
       return;
     }
-    const key = `${event.run_id}\0${event.event_id}`;
+    const key = `${event.run_id}\0${event.tool_call_id ?? event.event_id}`;
     const existingIndex = structuredIndexes.get(key);
     if (existingIndex === undefined) {
       structuredIndexes.set(key, ordered.length);

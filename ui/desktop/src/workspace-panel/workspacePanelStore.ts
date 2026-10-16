@@ -8,7 +8,23 @@ export type WorkbenchTab =
       draft: string;
       preview: boolean;
     }
-  | { id: string; kind: 'terminal' | 'browser'; title: string };
+  | { id: string; kind: 'terminal' | 'browser'; title: string }
+  | {
+      id: string;
+      kind: 'change';
+      title: string;
+      turnId?: string;
+      filePath: string;
+      toolCallId?: string;
+    }
+  | {
+      id: string;
+      kind: 'subagent';
+      title: string;
+      parentSessionId: string;
+      childSessionId: string;
+      ancestorSessionIds?: string[];
+    };
 export interface WorkbenchState {
   tabs: WorkbenchTab[];
   active: string;

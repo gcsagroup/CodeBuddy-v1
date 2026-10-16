@@ -14,9 +14,18 @@
  * - Configurable batch size and delay
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { defineMessages, useIntl } from '../i18n';
-import GooseMessage from './GooseMessage';
+import GooseMessage, { codeProTerminalPresentation } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
@@ -48,13 +57,16 @@ import {
   type NotificationEvent,
   type SystemNotificationContent,
   type UserInput,
+  type ToolResponseMessageContent,
 } from '../types/message';
 import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
 import { getResponsePhase } from '../types/responsePhase';
 import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
+import { collectConversationChanges } from './codepro/conversationChanges';
 import LoadingGoose from './LoadingGoose';
 import { useOrderedToolPresentation } from './useOrderedToolPresentation';
+import { ScrollFollowingContext, ScrollLayoutAnchorContext } from './ui/scroll-follow-context';
 import { ChatType } from '../types/chat';
 import { identifyConsecutiveToolCalls, isInChain } from '../utils/toolCallChaining';
 import { getModelDisplayName } from './settings/models/predefinedModelsUtils';
@@ -77,6 +89,10 @@ const i18n = defineMessages({
   turnCompleted: {
     id: 'conversation.turnCompleted',
     defaultMessage: 'Completed {count} operations',
+  },
+  turnDuration: {
+    id: 'conversation.turnDuration',
+    defaultMessage: 'Time spent {minutes} min {seconds} sec',
   },
   toolRecords: {
     id: 'progressiveMessageList.toolRecords',
@@ -115,6 +131,7 @@ const i18n = defineMessages({
 interface ProgressiveMessageListProps {
   messages: Message[];
   sessionType?: import('../types/session').SessionType;
+  readOnly?: boolean;
   chat: Pick<ChatType, 'sessionId'>;
   activeRunId?: string | null;
   toolCallNotifications?: Map<string, NotificationEvent[]>; // Make optional
@@ -124,6 +141,7 @@ interface ProgressiveMessageListProps {
   batchDelay?: number;
   showLoadingThreshold?: number; // Only show loading if more than X messages
   maxVisibleMessages?: number; // Keep long-running chats from retaining an unbounded DOM
+  searchActive?: boolean;
   // Custom render function for messages
   renderMessage?: (message: Message, index: number) => React.ReactNode | null;
   isStreamingMessage?: boolean; // Whether messages are currently being streamed
@@ -147,21 +165,165 @@ export default function ProgressiveMessageList(props: ProgressiveMessageListProp
   return <OrderedMessageList key={props.chat.sessionId} {...props} />;
 }
 
+function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) => void }) {
+  const target = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = target.current;
+    if (!element || typeof IntersectionObserver === 'undefined') return;
+    let requested = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (!requested && entries.some((entry) => entry.isIntersecting)) {
+        requested = true;
+        onLoad(element);
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onLoad]);
+  return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
+}
+
 function OrderedMessageList(props: ProgressiveMessageListProps) {
-  const presentation = useOrderedToolPresentation(props.messages, !!props.isStreamingMessage);
+  const [visibleLimit, setVisibleLimit] = useState(props.maxVisibleMessages ?? 40);
+  const following = useContext(ScrollFollowingContext);
+  const holdAnchor = useContext(ScrollLayoutAnchorContext);
+  const releaseAnchor = useRef<(() => void) | null>(null);
+  const firstVisibleId = useRef<string | null | undefined>(undefined);
+  const windowed = props.foldTurns !== false && !props.renderMessage;
+  const projectedMessages = useMemo(() => {
+    if (props.renderMessage) return props.messages;
+    const turns: Message[][] = [];
+    for (const message of props.messages) {
+      if (
+        !turns.length ||
+        (message.role === 'user' &&
+          message.metadata.userVisible &&
+          getToolResponses(message).length === 0)
+      )
+        turns.push([]);
+      turns[turns.length - 1].push(message);
+    }
+    // History can replay terminal receipts after all conversation messages. Bind
+    // them to their explicit source user instead of the last array slice.
+    const turnOwners = new Map(
+      turns.filter((turn) => turn[0]?.role === 'user').map((turn) => [turn[0].id, turn])
+    );
+    for (const turn of turns) {
+      for (let index = 0; index < turn.length; ) {
+        const terminal = getTurnTerminalRecord(turn[index]);
+        if (!terminal || terminal.session_id !== props.chat.sessionId) {
+          index += 1;
+          continue;
+        }
+        const owner = turnOwners.get(terminal.source_user_message_id);
+        if (owner && owner !== turn) owner.push(...turn.splice(index, 1));
+        else index += 1;
+      }
+    }
+    return turns.flatMap((turn) => {
+      // Harness already supplies native ACP calls and receipts. Its compatibility
+      // activity feed also includes child audits, whose native cards belong to
+      // the child conversation. Keep all those audits out of the parent display.
+      const hasNativeHarnessTools = turn
+        .flatMap(getToolRequests)
+        .some((request) => request.metadata?.extensionName === 'harness');
+      const terminalRuns = new Set(
+        turn.flatMap((message) => {
+          const terminal = getTurnTerminalRecord(message);
+          return terminal ? [terminal.run_id] : [];
+        })
+      );
+      return turn.filter(
+        (message) =>
+          !message.content.every((content) => {
+            if (
+              content.type !== 'systemNotification' ||
+              content.notificationType !== 'codeProActivity' ||
+              !isActivityEvent(content.data)
+            )
+              return false;
+            const event = content.data;
+            return (
+              (event.tool_call_id !== undefined && hasNativeHarnessTools) ||
+              event.event_type === 'run_completed' ||
+              (terminalRuns.has(event.run_id) &&
+                ['run_failed', 'run_stopped'].includes(event.event_type))
+            );
+          })
+      );
+    });
+  }, [props.messages, props.renderMessage, props.chat.sessionId]);
+  let startIndex =
+    windowed && !props.searchActive ? Math.max(0, projectedMessages.length - visibleLimit) : 0;
+  if (startIndex > 0) {
+    let turnStart = -1;
+    for (let index = startIndex; index >= 0; index -= 1) {
+      const message = projectedMessages[index];
+      if (
+        message.role === 'user' &&
+        message.metadata.userVisible &&
+        getToolResponses(message).length === 0
+      ) {
+        turnStart = index;
+        break;
+      }
+    }
+    if (turnStart >= 0) startIndex = turnStart;
+    if (!following && firstVisibleId.current) {
+      const previous = projectedMessages.findIndex(
+        (message) => message.id === firstVisibleId.current
+      );
+      if (previous >= 0) startIndex = Math.min(startIndex, previous);
+    }
+  }
+  useLayoutEffect(() => {
+    // Search can visit any old match. Keep the prior reading window so closing
+    // search cannot pin the entire history when the reader is away from the tail.
+    if (!props.searchActive) firstVisibleId.current = projectedMessages[startIndex]?.id;
+    releaseAnchor.current?.();
+    releaseAnchor.current = null;
+  }, [projectedMessages, startIndex, props.searchActive]);
+  useEffect(() => () => releaseAnchor.current?.(), []);
+  const visibleMessages = useMemo(
+    () => projectedMessages.slice(startIndex),
+    [projectedMessages, startIndex]
+  );
+  const responses = useMemo(
+    () =>
+      new Map(props.messages.flatMap(getToolResponses).map((response) => [response.id, response])),
+    [props.messages]
+  );
+  const chains = useMemo(() => identifyConsecutiveToolCalls(props.messages), [props.messages]);
+  const presentation = useOrderedToolPresentation(visibleMessages, !!props.isStreamingMessage);
   return (
-    <ProgressiveMessageListContent
-      {...props}
-      messages={props.renderMessage ? props.messages : presentation.messages}
-      sourceMessages={props.messages}
-      presentationPending={!props.renderMessage && presentation.pending}
-    />
+    <>
+      {startIndex > 0 && (
+        <EarlierHistorySentinel
+          onLoad={(element) => {
+            releaseAnchor.current?.();
+            releaseAnchor.current = holdAnchor?.(element.nextElementSibling ?? element) ?? null;
+            setVisibleLimit(
+              (limit) => limit + Math.max(props.batchSize ?? 20, props.maxVisibleMessages ?? 40)
+            );
+          }}
+        />
+      )}
+      <ProgressiveMessageListContent
+        {...props}
+        messages={props.renderMessage ? props.messages : presentation.messages}
+        sourceMessages={props.messages}
+        sharedToolResponses={responses}
+        sharedToolChains={chains}
+        presentationPending={!props.renderMessage && presentation.pending}
+      />
+    </>
   );
 }
 
 function ProgressiveMessageListContent({
   messages,
   sessionType,
+  readOnly = false,
   chat,
   activeRunId,
   toolCallNotifications = new Map(),
@@ -171,6 +333,7 @@ function ProgressiveMessageListContent({
   batchDelay = 20,
   showLoadingThreshold = 50,
   maxVisibleMessages = 40,
+  searchActive = false,
   renderMessage, // Custom render function
   isStreamingMessage = false, // Whether messages are currently being streamed
   planRunning = isStreamingMessage,
@@ -187,21 +350,26 @@ function ProgressiveMessageListContent({
   renderRange,
   sourceMessages = messages,
   presentationPending = false,
+  sharedToolResponses,
+  sharedToolChains,
 }: ProgressiveMessageListProps & {
   renderRange?: readonly [number, number];
   sourceMessages?: Message[];
   presentationPending?: boolean;
+  sharedToolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
+  sharedToolChains?: number[][];
 }) {
   const intl = useIntl();
   const [renderedCount, setRenderedCount] = useState(() => {
     // Initialize with either all messages (if small) or first batch (if large)
-    return messages.length <= showLoadingThreshold
+    return (foldTurns && !renderMessage) || messages.length <= showLoadingThreshold
       ? messages.length
       : Math.min(batchSize, messages.length);
   });
-  const [isLoading, setIsLoading] = useState(() => messages.length > showLoadingThreshold);
+  const [isLoading, setIsLoading] = useState(
+    () => !(foldTurns && !renderMessage) && messages.length > showLoadingThreshold
+  );
   const [visibleMessageLimit, setVisibleMessageLimit] = useState(maxVisibleMessages);
-  const [showAllMessages, setShowAllMessages] = useState(false);
   const timeoutRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
   const hasOnlyToolResponses = (message: Message) =>
@@ -209,7 +377,6 @@ function ProgressiveMessageListContent({
 
   useEffect(() => {
     setVisibleMessageLimit(maxVisibleMessages);
-    setShowAllMessages(false);
   }, [chat.sessionId, maxVisibleMessages]);
 
   const getResolvedModel = useCallback((message: Message): string | null => {
@@ -296,7 +463,7 @@ function ProgressiveMessageListContent({
 
   // Simple progressive loading - start immediately when component mounts if needed
   useEffect(() => {
-    if (messages.length <= showLoadingThreshold) {
+    if (searchActive || (foldTurns && !renderMessage) || messages.length <= showLoadingThreshold) {
       setRenderedCount(messages.length);
       setIsLoading(false);
       // For small lists, call completion callback immediately
@@ -337,6 +504,9 @@ function ProgressiveMessageListContent({
     };
   }, [
     messages.length,
+    searchActive,
+    foldTurns,
+    renderMessage,
     batchSize,
     batchDelay,
     showLoadingThreshold,
@@ -365,35 +535,15 @@ function ProgressiveMessageListContent({
     window.performance.clearMarks();
   }, [messages.length]);
 
-  // Force complete rendering when search is active
-  useEffect(() => {
-    // Only add listener if we're actually loading
-    if (!isLoading) {
-      return;
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = window.electron.platform === 'darwin';
-      const isSearchShortcut = (isMac ? e.metaKey : e.ctrlKey) && e.key === 'f';
-
-      if (isSearchShortcut) {
-        // Immediately render all messages when search is triggered
-        setRenderedCount(messages.length);
-        setIsLoading(false);
-        setShowAllMessages(true);
-        if (timeoutRef.current) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLoading, messages.length]);
-
   // Detect tool call chains
   const toolCallChains = useMemo(() => identifyConsecutiveToolCalls(messages), [messages]);
+  // Share one history projection across visible turn cards, including during
+  // search. Loading more turns must not rescan all receipts once per card.
+  const conversationChanges = useMemo(
+    () =>
+      foldTurns && !renderMessage ? collectConversationChanges(sourceMessages, workspaceRoot) : [],
+    [foldTurns, renderMessage, sourceMessages, workspaceRoot]
+  );
   const representedActivityToolIds = useMemo(() => {
     const ids = new Set<string>();
     for (const message of messages) {
@@ -428,9 +578,12 @@ function ProgressiveMessageListContent({
 
   // Presentation ranges must not truncate the source context used by retry,
   // workspace recovery and receipt lookup.
-  const renderEndIndex = Math.min(renderRange?.[1] ?? renderedCount, messages.length);
+  const renderEndIndex = Math.min(
+    renderRange?.[1] ?? (searchActive ? messages.length : renderedCount),
+    messages.length
+  );
   let renderStartIndex =
-    renderRange?.[0] ?? (showAllMessages ? 0 : Math.max(0, renderEndIndex - visibleMessageLimit));
+    renderRange?.[0] ?? (searchActive ? 0 : Math.max(0, renderEndIndex - visibleMessageLimit));
   // Keep the beginning of the current operation sequence mounted. A transport
   // pagination boundary is not a new stage, and must not change the group's key.
   {
@@ -464,11 +617,13 @@ function ProgressiveMessageListContent({
     // the live ACP input; no synthetic ActivityEvent or inferred file change is needed.
     // History can arrive before session metadata. Presentation must not change on hydration.
     const compactTools = true;
-    const responses = new Map(
-      sourceMessages.flatMap((item) =>
-        getToolResponses(item).map((response) => [response.id, response] as const)
-      )
-    );
+    const responses =
+      sharedToolResponses ??
+      new Map(
+        sourceMessages.flatMap((item) =>
+          getToolResponses(item).map((response) => [response.id, response] as const)
+        )
+      );
     // Only the latest acknowledged plan in this turn can show live activity.
     // Old snapshots remain readable, but must not keep spinning after updates.
     const acknowledgedPlans = messages
@@ -476,7 +631,7 @@ function ProgressiveMessageListContent({
       .filter(
         (request) =>
           isPlanTool(presentedToolCall(request)?.name ?? '') &&
-          resolveToolLoadingStatus(responses.get(request.id), false) === 'success'
+          resolveToolLoadingStatus(responses.get(request.id), false, request) === 'success'
       );
     const activePlanRequestId = planRunning
       ? acknowledgedPlans[acknowledgedPlans.length - 1]?.id
@@ -531,7 +686,7 @@ function ProgressiveMessageListContent({
             ? call.name
             : '';
         const outcome = computerToolOutcome(name, request.id, response);
-        const status = resolveToolLoadingStatus(response, false);
+        const status = resolveToolLoadingStatus(response, false, request);
         return (
           !isPlanTool(name) &&
           !isProgressTool(name) &&
@@ -555,6 +710,8 @@ function ProgressiveMessageListContent({
         sessionId={chat.sessionId}
         message={item}
         messages={sourceMessages}
+        toolResponses={sharedToolResponses}
+        toolChains={sharedToolChains}
         suppressProviderThinking={suppressProviderThinking}
         append={append}
         toolCallNotifications={toolCallNotifications}
@@ -573,12 +730,13 @@ function ProgressiveMessageListContent({
       });
       const operations = requests.filter((request) => !checks.includes(request));
       const failed = operations.filter(
-        (request) => resolveToolLoadingStatus(responses.get(request.id), false) === 'error'
+        (request) => resolveToolLoadingStatus(responses.get(request.id), false, request) === 'error'
       ).length;
       const successful = formatToolActionSummary(
         intl,
         operations.flatMap((request) => {
-          if (resolveToolLoadingStatus(responses.get(request.id), false) !== 'success') return [];
+          if (resolveToolLoadingStatus(responses.get(request.id), false, request) !== 'success')
+            return [];
           const call = presentedToolCall(request);
           return call ? [call] : [];
         })
@@ -629,6 +787,13 @@ function ProgressiveMessageListContent({
           return null;
         }
         if (message.content.length === 0) return null;
+        const terminal = getTurnTerminalRecord(message);
+        if (
+          terminal &&
+          codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
+          message.content.every((content) => content.type === 'systemNotification')
+        )
+          return null;
         if (renderMessage) {
           return renderMessage(message, index);
         }
@@ -667,7 +832,8 @@ function ProgressiveMessageListContent({
           progressCall &&
           isProgressTool(progressCall.name) &&
           typeof progressCall.arguments.text === 'string' &&
-          (resolveToolLoadingStatus(responses.get(progressRequest.id), false) === 'success' ||
+          (resolveToolLoadingStatus(responses.get(progressRequest.id), false, progressRequest) ===
+            'success' ||
             (!responses.has(progressRequest.id) && activeToolCallIds?.includes(progressRequest.id)))
         ) {
           const { group, settled } = collectProcess(localIndex + 1);
@@ -686,6 +852,7 @@ function ProgressiveMessageListContent({
                 key={`step-${progressRequest.id}`}
                 text={progressCall.arguments.text}
                 settled={settled}
+                operationCount={group.flatMap(getToolRequests).length}
                 storageKey={`step-${progressRequest.id}`}
                 summary={operationSummary(group)}
                 streaming={
@@ -709,7 +876,7 @@ function ProgressiveMessageListContent({
           return (
             <div
               key={`tools-${identity}`}
-              className="my-2 w-full max-w-[52rem]"
+              className="my-0.5 w-full max-w-[52rem]"
               data-testid="message-container"
             >
               <ToolCallExpandable
@@ -718,7 +885,7 @@ function ProgressiveMessageListContent({
                 groupHeading
                 scrollable={false}
                 label={summary}
-                collapsible={settled && !!summary}
+                collapsible={settled && group.flatMap(getToolRequests).length > 1 && !!summary}
               >
                 <div
                   data-testid="tool-message-group"
@@ -910,6 +1077,7 @@ function ProgressiveMessageListContent({
                 !hasOnlyToolResponses(message) && (
                   <UserMessage
                     message={message}
+                    readOnly={readOnly}
                     onMessageUpdate={onMessageUpdate}
                     sessionType={sessionType}
                   />
@@ -921,6 +1089,8 @@ function ProgressiveMessageListContent({
                   sessionId={chat.sessionId}
                   message={message}
                   messages={sourceMessages}
+                  toolResponses={sharedToolResponses}
+                  toolChains={sharedToolChains}
                   suppressProviderThinking={suppressProviderThinking}
                   append={append}
                   onRetryMessage={onMessageUpdate}
@@ -946,6 +1116,8 @@ function ProgressiveMessageListContent({
   }, [
     messages,
     sourceMessages,
+    sharedToolResponses,
+    sharedToolChains,
     presentationPending,
     renderStartIndex,
     renderEndIndex,
@@ -960,6 +1132,7 @@ function ProgressiveMessageListContent({
     thinkingActivity,
     onMessageUpdate,
     sessionType,
+    readOnly,
     toolCallChains,
     submitElicitationResponse,
     getPreviousResolvedModel,
@@ -980,13 +1153,22 @@ function ProgressiveMessageListContent({
         : []
     );
     if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
-    const renderSlice = (turn: Message[], start: number, end: number, streaming: boolean) => (
+    const renderSlice = (
+      turn: Message[],
+      start: number,
+      end: number,
+      streaming: boolean,
+      pending = false
+    ) => (
       <ProgressiveMessageListContent
         messages={turn}
         sourceMessages={sourceMessages}
-        presentationPending={presentationPending}
+        sharedToolResponses={sharedToolResponses}
+        sharedToolChains={sharedToolChains}
+        presentationPending={pending}
         renderRange={[start, end]}
         sessionType={sessionType}
+        readOnly={readOnly}
         chat={chat}
         activeRunId={activeRunId}
         foldTurns={false}
@@ -1011,7 +1193,11 @@ function ProgressiveMessageListContent({
       <>
         {starts.map((start, turnIndex) => {
           const turn = messages.slice(start, starts[turnIndex + 1] ?? messages.length);
-          const streaming = isStreamingMessage && turnIndex === starts.length - 1;
+          const latest = turnIndex === starts.length - 1;
+          const streaming = isStreamingMessage && latest;
+          // Queued presentation can outlive transport streaming. It belongs to
+          // the latest turn's tail, never to already rendered historical prose.
+          const pending = presentationPending && latest;
           const turnRequests = turn.flatMap(getToolRequests);
           const count = turnRequests.length;
           const turnResponses = new Map(
@@ -1106,12 +1292,26 @@ function ProgressiveMessageListContent({
               break;
             }
           }
+          // Final reasoning is part of the work, including when the provider
+          // puts it in the same message as the public answer. This is a display
+          // projection only; native messages, ordering and receipts stay intact.
+          const answerThinking = turn.slice(proposedHistoryEnd).flatMap((message, offset) => {
+            const content = message.content.filter((item) => item.type === 'thinking');
+            return !suppressProviderThinking && message.role === 'assistant' && content.length
+              ? [{ ...message, id: `${message.id ?? `answer:${offset}`}:work-thinking`, content }]
+              : [];
+          });
           const foldable =
             !laterToolReceived &&
             (hasAnswerBoundary || hasTerminalBoundary) &&
-            // Reasoning alone is not an operation history. Keep its own
-            // disclosure readable instead of adding a completed-zero header.
             (count > 0 ||
+              answerThinking.length > 0 ||
+              (!suppressProviderThinking &&
+                turn
+                  .slice(userCount, proposedHistoryEnd)
+                  .some((message) =>
+                    message.content.some((content) => content.type === 'thinking')
+                  )) ||
               terminal?.status !== 'completed' ||
               turn.some((message) =>
                 message.content.some(
@@ -1121,8 +1321,28 @@ function ProgressiveMessageListContent({
                     isActivityEvent(content.data)
                 )
               )) &&
-            proposedHistoryEnd > userCount;
-          const historyEnd = foldable ? proposedHistoryEnd : turn.length;
+            (proposedHistoryEnd > userCount || answerThinking.length > 0);
+          const displayTurn = foldable
+            ? [
+                ...turn.slice(0, proposedHistoryEnd),
+                ...answerThinking,
+                ...turn
+                  .slice(proposedHistoryEnd)
+                  .map((message) =>
+                    message.role === 'assistant' &&
+                    message.content.some((content) => content.type === 'thinking')
+                      ? {
+                          ...message,
+                          content: message.content.filter((content) => content.type !== 'thinking'),
+                        }
+                      : message
+                  )
+                  .filter((message) => message.content.length > 0),
+              ]
+            : turn;
+          const historyEnd = foldable
+            ? proposedHistoryEnd + answerThinking.length
+            : displayTurn.length;
           const completed =
             terminal?.status === 'completed' &&
             !terminal.report_parse_failed &&
@@ -1131,33 +1351,25 @@ function ProgressiveMessageListContent({
             // This label describes tool receipts, not a second task verdict.
             turnRequests.every(
               (request) =>
-                resolveToolLoadingStatus(turnResponses.get(request.id), false) === 'success'
+                resolveToolLoadingStatus(turnResponses.get(request.id), false, request) ===
+                'success'
             );
-          const elapsed = hasAnswerBoundary
-            ? Math.round(turn[answerBoundaryIndex].created - turn[0].created)
-            : -1;
+          const finishedAt = hasAnswerBoundary
+            ? turn[answerBoundaryIndex].created
+            : terminal
+              ? Date.parse(terminal.finished_at) / 1000
+              : NaN;
+          const elapsed = Math.round(finishedAt - turn[0].created);
           const duration =
             elapsed >= 0 && Number.isFinite(elapsed)
-              ? [
-                  elapsed >= 60
-                    ? intl.formatNumber(Math.floor(elapsed / 60), {
-                        style: 'unit',
-                        unit: 'minute',
-                        unitDisplay: 'long',
-                      })
-                    : '',
-                  intl.formatNumber(elapsed % 60, {
-                    style: 'unit',
-                    unit: 'second',
-                    unitDisplay: 'long',
-                  }),
-                ]
-                  .filter(Boolean)
-                  .join(' ')
+              ? intl.formatMessage(i18n.turnDuration, {
+                  minutes: Math.floor(elapsed / 60),
+                  seconds: elapsed % 60,
+                })
               : undefined;
           return (
             <section key={turn[0]?.id ?? start} className="mb-6">
-              {renderSlice(turn, 0, userCount, false)}
+              {renderSlice(displayTurn, 0, userCount, false)}
               <ToolCallExpandable
                 compact
                 // Keep this parent and its process subtree mounted across the
@@ -1165,20 +1377,32 @@ function ProgressiveMessageListContent({
                 className={foldable ? 'text-text-secondary codepro-turn-history' : undefined}
                 scrollable={false}
                 collapsible={foldable}
+                collapseOnSettle={foldable}
                 storageKey={`${chat.sessionId}:turn:${turn[0]?.id ?? start}`}
                 label={
                   duration
-                    ? `${intl.formatMessage({ id: 'codeProActivity.duration', defaultMessage: 'Duration' })} ${duration}`
+                    ? duration
                     : intl.formatMessage(completed ? i18n.turnCompleted : i18n.turnRecord, {
                         count,
                       })
                 }
               >
-                {renderSlice(turn, userCount, historyEnd, streaming && !foldable)}
+                {renderSlice(
+                  displayTurn,
+                  userCount,
+                  historyEnd,
+                  streaming && !foldable,
+                  pending && historyEnd === displayTurn.length
+                )}
               </ToolCallExpandable>
-              {renderSlice(turn, historyEnd, turn.length, streaming)}
+              {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
               {foldable && hasTerminalBoundary && (
-                <CodeProConversationFiles messages={turn} workspaceRoot={workspaceRoot} />
+                <CodeProConversationFiles
+                  messages={turn}
+                  sourceChanges={conversationChanges}
+                  sessionId={chat.sessionId}
+                  workspaceRoot={workspaceRoot}
+                />
               )}
             </section>
           );
@@ -1190,19 +1414,13 @@ function ProgressiveMessageListContent({
   return (
     <>
       {!renderRange && renderStartIndex > 0 && (
-        <div className="flex justify-center py-3">
-          <button
-            type="button"
-            className="rounded-md border border-border-primary px-3 py-1.5 text-xs text-text-secondary hover:bg-background-secondary hover:text-text-primary"
-            onClick={() =>
-              setVisibleMessageLimit((current) =>
-                Math.min(messages.length, current + Math.max(batchSize, maxVisibleMessages))
-              )
-            }
-          >
-            {intl.formatMessage(i18n.loadEarlierMessages, { remaining: renderStartIndex })}
-          </button>
-        </div>
+        <EarlierHistorySentinel
+          onLoad={() =>
+            setVisibleMessageLimit((current) =>
+              Math.min(messages.length, current + Math.max(batchSize, maxVisibleMessages))
+            )
+          }
+        />
       )}
 
       {renderMessages()}

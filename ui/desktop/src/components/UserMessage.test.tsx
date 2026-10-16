@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Message } from '../types/message';
 import UserMessage from './UserMessage';
+import ProgressiveMessageList from './ProgressiveMessageList';
 
 describe('UserMessage', () => {
   const message: Message = {
@@ -13,6 +14,34 @@ describe('UserMessage', () => {
     content: [{ type: 'text', text: '你好' }],
     metadata: { agentVisible: true, userVisible: true },
   };
+
+  it('keeps read-only conversation messages copyable without editing actions', async () => {
+    const user = userEvent.setup();
+    const onMessageUpdate = vi.fn();
+    const copyText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const copyRichText = vi.spyOn(navigator.clipboard, 'write').mockResolvedValue(undefined);
+    render(
+      <ProgressiveMessageList
+        messages={[message]}
+        chat={{ sessionId: 'read-only-child' }}
+        sessionType="code_pro"
+        readOnly
+        isUserMessage={(item) => item.role === 'user'}
+        onMessageUpdate={onMessageUpdate}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+
+    expect(screen.getByText('你好')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Edit message/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(screen.getByRole('button', { name: 'Copy' })).toHaveTextContent('Copied!');
+    expect(copyText.mock.calls.length + copyRichText.mock.calls.length).toBe(1);
+    expect(onMessageUpdate).not.toHaveBeenCalled();
+    copyText.mockRestore();
+    copyRichText.mockRestore();
+  });
 
   it('updates copy availability when the session type finishes loading', async () => {
     const user = userEvent.setup();

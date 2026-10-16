@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Verbindung zu einem anderswo laufenden CodeBuddy-Server herstellen (erfordert Neustart der App)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Abbrechen"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub ist verbunden."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Verbunden als {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Code kopieren"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Code läuft in {time} ab"
-  },
   "githubAuth.description": {
     "defaultMessage": "GitHub für Repository- und Pull-Request-Aktionen verbinden."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Kopieren Sie diesen Einmalcode und öffnen Sie dann GitHub, um CodeBuddy zu autorisieren."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "GitHub trennen"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Trennen"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy entfernt die GitHub-Autorisierung aus dem sicheren Speicher."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "GitHub-Konto trennen?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Die gespeicherte GitHub-Autorisierung ist abgelaufen. Melden Sie sich erneut an, um fortzufahren."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Autorisierung läuft am {date} ab"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "GitHub konnte nicht getrennt werden."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Die GitHub-Verbindung konnte nicht geprüft werden."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Die GitHub-Anmeldung konnte nicht abgeschlossen werden."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Die GitHub-Anmeldung konnte nicht gestartet werden."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "GitHub-Verbindung wird geprüft..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "Die GitHub-Anmeldung ist in diesem Build nicht konfiguriert."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "GitHub öffnen"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Bei GitHub anmelden"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Der sichere Anmeldedatenspeicher ist auf diesem Gerät nicht verfügbar."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub hat eine unerwartete Verifizierungsadresse zurückgegeben."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Warten auf die GitHub-Autorisierung..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Neutral abgeschlossen"

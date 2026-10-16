@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Connect to an ACP-compatible backend running elsewhere."
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub is connected."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Connected as {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Copy code"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Code expires in {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Connect GitHub for repository and pull request actions."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Copy this one-time code, then open GitHub to authorize CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Disconnect GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Disconnect"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy will remove the GitHub authorization from secure storage."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Disconnect GitHub account?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "The saved GitHub authorization has expired. Sign in again to continue."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Authorization expires {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Unable to disconnect GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Unable to check the GitHub connection."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "GitHub sign-in could not be completed."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Unable to start GitHub sign-in."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Checking GitHub connection..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "GitHub login is not configured in this build."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Open GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Sign in to GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Secure credential storage is unavailable on this device."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub returned an unexpected verification address."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Waiting for GitHub authorization..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "CI completed neutrally"

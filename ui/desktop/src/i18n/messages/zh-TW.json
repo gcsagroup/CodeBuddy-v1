@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "連線至在其他位置執行的 CodeBuddy 伺服器（需要重新啟動應用程式）"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "取消"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub 已連線。"
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "已連線為 {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "複製代碼"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "代碼將在 {time} 後到期"
-  },
   "githubAuth.description": {
     "defaultMessage": "連接 GitHub，以執行儲存庫和提取要求操作。"
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "複製此一次性代碼，然後開啟 GitHub 授權 CodeBuddy。"
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "中斷 GitHub 連線"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "中斷連線"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy 將從系統安全憑證儲存區中刪除 GitHub 授權。"
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "中斷 GitHub 帳戶連線？"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "已儲存的 GitHub 授權已到期。請重新登入以繼續。"
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "授權將於 {date} 到期"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "無法中斷 GitHub 連線。"
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "無法檢查 GitHub 連線狀態。"
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "無法完成 GitHub 登入。"
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "無法啟動 GitHub 登入。"
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "正在檢查 GitHub 連線狀態..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "此版本尚未設定 GitHub 登入。"
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "開啟 GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "登入 GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "此裝置無法使用系統安全憑證儲存區。"
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub 帳戶"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub 傳回了非預期的驗證位址。"
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "正在等待 GitHub 授權..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "以中性結果完成"

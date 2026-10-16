@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Başka bir yerde çalışan bir CodeBuddy sunucusuna bağlanın (uygulamanın yeniden başlatılmasını gerektirir)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "İptal"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub bağlandı."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "{login} olarak bağlandı"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Kodu kopyala"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Kodun süresi {time} içinde dolacak"
-  },
   "githubAuth.description": {
     "defaultMessage": "Depo ve pull request işlemleri için GitHub'ı bağlayın."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Bu tek kullanımlık kodu kopyalayın, ardından CodeBuddy'ya yetki vermek için GitHub'ı açın."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "GitHub bağlantısını kes"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Bağlantıyı kes"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy, GitHub yetkilendirmesini güvenli depolamadan kaldıracak."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "GitHub hesabının bağlantısı kesilsin mi?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Kaydedilen GitHub yetkilendirmesinin süresi doldu. Devam etmek için yeniden oturum açın."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Yetkilendirmenin süresi {date} tarihinde dolacak"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "GitHub bağlantısı kesilemedi."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "GitHub bağlantısı denetlenemedi."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "GitHub oturumu açılamadı."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "GitHub oturum açma işlemi başlatılamadı."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "GitHub bağlantısı denetleniyor..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "GitHub oturum açma bu derlemede yapılandırılmamış."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "GitHub'ı aç"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "GitHub'da oturum aç"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Güvenli kimlik bilgisi depolaması bu cihazda kullanılamıyor."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub beklenmeyen bir doğrulama adresi döndürdü."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "GitHub yetkilendirmesi bekleniyor..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Nötr olarak tamamlandı"

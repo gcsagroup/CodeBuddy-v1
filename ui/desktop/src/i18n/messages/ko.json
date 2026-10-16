@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "다른 곳에서 실행 중인 CodeBuddy 서버에 연결합니다. 앱을 다시 시작해야 합니다."
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "취소"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub가 연결되었습니다."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "{login}(으)로 연결됨"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "코드 복사"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "코드 만료까지 {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "저장소 및 풀 리퀘스트 작업을 위해 GitHub를 연결합니다."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "이 일회용 코드를 복사한 다음 GitHub를 열어 CodeBuddy를 승인하세요."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "GitHub 연결 해제"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "연결 해제"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy가 보안 저장소에서 GitHub 인증을 삭제합니다."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "GitHub 계정 연결을 해제할까요?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "저장된 GitHub 인증이 만료되었습니다. 계속하려면 다시 로그인하세요."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "인증 만료: {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "GitHub 연결을 해제할 수 없습니다."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "GitHub 연결을 확인할 수 없습니다."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "GitHub 로그인을 완료할 수 없습니다."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "GitHub 로그인을 시작할 수 없습니다."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "GitHub 연결을 확인하는 중..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "이 빌드에는 GitHub 로그인이 구성되어 있지 않습니다."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "GitHub 열기"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "GitHub에 로그인"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "이 기기에서는 보안 자격 증명 저장소를 사용할 수 없습니다."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub가 예상치 못한 확인 주소를 반환했습니다."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "GitHub 승인을 기다리는 중..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "중립으로 완료됨"

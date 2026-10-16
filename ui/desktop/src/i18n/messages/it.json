@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Connettiti a un server CodeBuddy in esecuzione altrove (richiede il riavvio dell'app)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Annulla"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub è connesso."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Connesso come {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Copia codice"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Il codice scade tra {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Connetti GitHub per le azioni su repository e pull request."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Copia questo codice monouso, quindi apri GitHub per autorizzare CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Disconnetti GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Disconnetti"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy rimuoverà l’autorizzazione GitHub dall’archivio sicuro."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Disconnettere l’account GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "L’autorizzazione GitHub salvata è scaduta. Accedi di nuovo per continuare."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "L’autorizzazione scade il {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Impossibile disconnettere GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Impossibile verificare la connessione GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Non è stato possibile completare l’accesso a GitHub."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Impossibile avviare l’accesso a GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Verifica della connessione GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "L’accesso a GitHub non è configurato in questa build."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Apri GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Accedi a GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "L’archiviazione sicura delle credenziali non è disponibile su questo dispositivo."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub ha restituito un indirizzo di verifica imprevisto."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "In attesa dell’autorizzazione GitHub..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Completato con esito neutro"

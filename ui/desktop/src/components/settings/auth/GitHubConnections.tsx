@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, ExternalLink, Loader2, LogOut, RefreshCw } from 'lucide-react';
 import { getConfiguredExtensions, testConfigExtension } from '../../../acp/extensions';
-import { GITHUB_VERIFICATION_URI } from '../../../acp/githubAuth';
+import { GITHUB_VERIFICATION_URI } from '../../../github/githubCliTypes';
 import type { GitHubCliChallenge, GitHubCliStatus } from '../../../github/githubCliTypes';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
@@ -71,6 +71,14 @@ const messages = defineMessages({
   mcpOff: { id: 'githubConnections.mcpOff', defaultMessage: 'GitHub MCP: disabled' },
   mcpMissing: { id: 'githubConnections.mcpMissing', defaultMessage: 'GitHub MCP: not configured' },
 });
+// Bound display checks independently of a remote MCP server's tool execution timeout.
+function connectionCheck<T>(operation: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Connection check timed out')), 25_000);
+    operation.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
 type McpState = 'connected' | 'failed' | 'off' | 'missing';
 function hasLoginBridge(): boolean {
   return [
@@ -96,6 +104,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
   const [status, setStatus] = useState<GitHubCliStatus | null>(null);
   const [mcp, setMcp] = useState<McpState | null>(null);
   const [checking, setChecking] = useState(false);
+  const [checkingAccount, setCheckingAccount] = useState(false);
   const [starting, setStarting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [logoutAccount, setLogoutAccount] = useState<string | null>(null);
@@ -110,23 +119,27 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
     if (logoutPending.current) return;
     const current = ++generation.current;
     setChecking(true);
+    setCheckingAccount(true);
     const apply = () => mounted.current && generation.current === current;
     await Promise.all([
       (async () => {
         let next: GitHubCliStatus;
         try {
           next = hasLoginBridge()
-            ? await window.electron.githubCliStatus()
+            ? await connectionCheck(window.electron.githubCliStatus())
             : { state: 'restart_required' };
         } catch (error) {
           next = { state: isMissingLoginHandler(error) ? 'restart_required' : 'check_failed' };
         }
-        if (apply()) setStatus(next);
+        if (apply()) {
+          setStatus(next);
+          setCheckingAccount(false);
+        }
       })(),
       (async () => {
         let next: McpState;
         try {
-          const { extensions } = await getConfiguredExtensions();
+          const { extensions } = await connectionCheck(getConfiguredExtensions());
           const github = extensions.find(
             (entry) => entry.configKey === 'github_official' || entry.name === 'github_official'
           );
@@ -134,7 +147,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
             ? 'missing'
             : !github.enabled
               ? 'off'
-              : (await testConfigExtension(github)).success
+              : (await connectionCheck(testConfigExtension(github))).success
                 ? 'connected'
                 : 'failed';
         } catch {
@@ -348,7 +361,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
             status?.state !== 'restart_required' && (
               <Button
                 size="sm"
-                disabled={!status || checking || starting || signingOut}
+                disabled={!status || checkingAccount || starting || signingOut}
                 onClick={() => void start()}
               >
                 {starting && <Loader2 className="h-4 w-4 animate-spin" />}

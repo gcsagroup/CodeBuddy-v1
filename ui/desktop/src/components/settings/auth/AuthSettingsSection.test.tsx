@@ -10,21 +10,11 @@ import {
 } from '../../../acp/providers';
 import { IntlTestWrapper } from '../../../i18n/test-utils';
 import { toast } from 'react-toastify';
-import { acpGitHubAuthStatus } from '../../../acp/githubAuth';
 
 vi.mock('../../../acp/providers', () => ({
   acpAuthenticateProvider: vi.fn(),
   acpListProviderSecrets: vi.fn(),
   acpDeleteProviderSecret: vi.fn(),
-}));
-
-vi.mock('../../../acp/githubAuth', () => ({
-  GITHUB_VERIFICATION_URI: 'https://github.com/login/device',
-  acpGitHubAuthStatus: vi.fn(),
-  acpStartGitHubAuth: vi.fn(),
-  acpPollGitHubAuth: vi.fn(),
-  acpCancelGitHubAuth: vi.fn(),
-  acpDisconnectGitHubAuth: vi.fn(),
 }));
 
 vi.mock('../../ModelAndProviderContext', () => ({
@@ -43,7 +33,6 @@ vi.mock('react-toastify', () => ({
 const mockedListProviderSecrets = vi.mocked(acpListProviderSecrets);
 const mockedDeleteProviderSecret = vi.mocked(acpDeleteProviderSecret);
 const mockedToast = vi.mocked(toast);
-const mockedGitHubStatus = vi.mocked(acpGitHubAuthStatus);
 
 const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
   render(ui, { wrapper: IntlTestWrapper, ...options });
@@ -68,11 +57,6 @@ describe('AuthSettingsSection', () => {
     vi.clearAllMocks();
     mockedListProviderSecrets.mockResolvedValue([]);
     mockedDeleteProviderSecret.mockResolvedValue(undefined);
-    mockedGitHubStatus.mockResolvedValue({
-      clientConfigured: true,
-      secureStorageAvailable: true,
-      state: 'disconnected',
-    });
   });
 
   it('renders GitHub authentication before provider credentials', async () => {
@@ -83,7 +67,7 @@ describe('AuthSettingsSection', () => {
     expect(
       github.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign in to GitHub' })).toBeEnabled();
+    expect(screen.getByText('GitHub connection checks')).toBeVisible();
   });
 
   it('renders an empty state when no credentials are stored', async () => {

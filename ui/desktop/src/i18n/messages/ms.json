@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Sambung ke pelayan CodeBuddy yang berjalan di tempat lain (memerlukan memulakan semula aplikasi)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Batal"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub telah disambungkan."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Disambungkan sebagai {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Salin kod"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Kod tamat tempoh dalam {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Sambungkan GitHub untuk tindakan repositori dan pull request."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Salin kod sekali guna ini, kemudian buka GitHub untuk membenarkan CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Putuskan GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Putuskan"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy akan mengalih keluar kebenaran GitHub daripada storan selamat."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Putuskan akaun GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Kebenaran GitHub yang disimpan telah tamat tempoh. Log masuk semula untuk meneruskan."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Kebenaran tamat tempoh pada {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Tidak dapat memutuskan GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Tidak dapat menyemak sambungan GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Log masuk GitHub tidak dapat diselesaikan."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Tidak dapat memulakan log masuk GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Menyemak sambungan GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "Log masuk GitHub tidak dikonfigurasikan dalam binaan ini."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Buka GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Log masuk ke GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Storan kelayakan selamat tidak tersedia pada peranti ini."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub mengembalikan alamat pengesahan yang tidak dijangka."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Menunggu kebenaran GitHub..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Selesai secara neutral"

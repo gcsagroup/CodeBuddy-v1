@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Kết nối tới một máy chủ CodeBuddy đang chạy ở nơi khác (cần khởi động lại ứng dụng)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Hủy"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub đã được kết nối."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Đã kết nối với tài khoản {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Sao chép mã"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Mã sẽ hết hạn sau {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Kết nối GitHub để thao tác với kho lưu trữ và pull request."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Sao chép mã dùng một lần này, sau đó mở GitHub để cấp quyền cho CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Ngắt kết nối GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Ngắt kết nối"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy sẽ xóa quyền GitHub khỏi bộ nhớ bảo mật."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Ngắt kết nối tài khoản GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Quyền GitHub đã lưu đã hết hạn. Hãy đăng nhập lại để tiếp tục."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Quyền sẽ hết hạn vào {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Không thể ngắt kết nối GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Không thể kiểm tra kết nối GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Không thể hoàn tất đăng nhập GitHub."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Không thể bắt đầu đăng nhập GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Đang kiểm tra kết nối GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "Đăng nhập GitHub chưa được cấu hình trong bản dựng này."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Mở GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Đăng nhập GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Bộ nhớ thông tin xác thực bảo mật không khả dụng trên thiết bị này."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub trả về địa chỉ xác minh không mong đợi."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Đang chờ GitHub cấp quyền..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Hoàn tất với kết quả trung lập"

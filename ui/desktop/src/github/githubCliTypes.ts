@@ -1,3 +1,5 @@
+export const GITHUB_VERIFICATION_URI = 'https://github.com/login/device';
+
 export type GitHubCliStatus = {
   state: 'connected' | 'disconnected' | 'unavailable' | 'check_failed' | 'restart_required';
   login?: string;

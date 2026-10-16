@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Подключиться к серверу CodeBuddy, запущенному в другом месте (требуется перезапуск приложения)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Отмена"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub подключён."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Подключено как {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Копировать код"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Код истечёт через {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Подключите GitHub для работы с репозиториями и запросами на вытягивание."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Скопируйте этот одноразовый код, затем откройте GitHub и авторизуйте CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Отключить GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Отключить"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy удалит авторизацию GitHub из защищённого хранилища."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Отключить учётную запись GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Сохранённая авторизация GitHub истекла. Войдите снова, чтобы продолжить."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Авторизация истекает {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Не удалось отключить GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Не удалось проверить подключение к GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Не удалось завершить вход в GitHub."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Не удалось начать вход в GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Проверка подключения к GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "Вход в GitHub не настроен в этой сборке."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Открыть GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Войти в GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Защищённое хранилище учётных данных недоступно на этом устройстве."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub вернул неожиданный адрес проверки."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Ожидание авторизации GitHub..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Завершено с нейтральным результатом"

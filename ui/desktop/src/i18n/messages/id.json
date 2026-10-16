@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Terhubung ke server CodeBuddy yang berjalan di tempat lain (memerlukan mulai ulang aplikasi)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Batal"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub terhubung."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Terhubung sebagai {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Salin kode"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "Kode kedaluwarsa dalam {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Hubungkan GitHub untuk tindakan repositori dan pull request."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Salin kode sekali pakai ini, lalu buka GitHub untuk mengotorisasi CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Putuskan GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Putuskan"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy akan menghapus otorisasi GitHub dari penyimpanan aman."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "Putuskan akun GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "Otorisasi GitHub yang disimpan telah kedaluwarsa. Masuk lagi untuk melanjutkan."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "Otorisasi kedaluwarsa pada {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "Tidak dapat memutuskan GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "Tidak dapat memeriksa koneksi GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "Proses masuk GitHub tidak dapat diselesaikan."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "Tidak dapat memulai proses masuk GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Memeriksa koneksi GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "Login GitHub belum dikonfigurasi dalam build ini."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Buka GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Masuk ke GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "Penyimpanan kredensial aman tidak tersedia di perangkat ini."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub mengembalikan alamat verifikasi yang tidak terduga."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Menunggu otorisasi GitHub..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Selesai secara netral"

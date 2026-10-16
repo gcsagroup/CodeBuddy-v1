@@ -2,12 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
-import {
-  GitHubCliLogin,
-  githubCliLogout,
-  githubCliStatus,
-  parseGitHubIdentity,
-} from './githubCliAuth';
+import { GitHubCliLogin, githubCliLogout, githubCliStatus } from './githubCliAuth';
 vi.mock('node:child_process', () => {
   const mock = { execFile: vi.fn(), spawn: vi.fn() };
   return { ...mock, default: mock };
@@ -61,8 +56,7 @@ describe('GitHub CLI account connection', () => {
       '{"hosts":{"github.com":[{"active":true,"login":"octocat"}]}}',
       '',
       'gh',
-      '{"hosts":{"github.com":[{"active":true}]}}',
-      '{"login":"other","id":2}',
+      '{"hosts":{"github.com":[{"active":true,"state":"success","login":"other"}]}}',
     ]);
     expect(await githubCliLogout('octocat')).toEqual({ state: 'connected', login: 'other' });
   });
@@ -81,34 +75,45 @@ describe('GitHub CLI account connection', () => {
     commandResults([accounts, '', 'gh', '{"hosts":{}}']);
     expect(await githubCliLogout('octocat')).toEqual({ state: 'disconnected' });
   });
-  it('verifies a stored account against GitHub and returns only the identity', async () => {
+  it('shares an in-flight verified status and returns only the identity without a second API request', async () => {
     commandResults([
       'gh 2.96',
-      '{"hosts":{"github.com":[{"active":true}]}}',
-      '{"login":"octocat","id":1,"token":"must-not-escape"}',
+      '{"hosts":{"github.com":[{"active":true,"state":"success","login":"octocat","token":"must-not-escape"}]}}',
     ]);
-    expect(await githubCliStatus()).toEqual({ state: 'connected', login: 'octocat' });
-    expect(vi.mocked(execFile).mock.calls[2][1]).toEqual([
-      'api',
+    const first = githubCliStatus();
+    expect(githubCliStatus()).toBe(first);
+    expect(await first).toEqual({ state: 'connected', login: 'octocat' });
+    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(execFile).mock.calls[1][1]).toEqual([
+      'auth',
+      'status',
       '--hostname',
       'github.com',
-      'user',
-      '--jq',
-      '{login: .login, id: .id}',
+      '--json',
+      'hosts',
     ]);
+    commandResults(['gh', '{"hosts":{}}']);
+    expect(await githubCliStatus()).toEqual({ state: 'disconnected' });
   });
   it('distinguishes a missing installation, signed-out account, and network failure', async () => {
     commandResults([new Error('missing')]);
     expect(await githubCliStatus()).toEqual({ state: 'unavailable' });
     commandResults(['gh', '{"hosts":{}}']);
     expect(await githubCliStatus()).toEqual({ state: 'disconnected' });
-    commandResults(['gh', '{"hosts":{"github.com":[{"active":true}]}}', new Error('network')]);
+    commandResults(['gh', new Error('network')]);
     expect(await githubCliStatus()).toEqual({ state: 'check_failed' });
   });
-  it('rejects malformed identities instead of treating arbitrary output as a connected user', () => {
-    expect(() => parseGitHubIdentity('{"login":"<script>","id":1}')).toThrow();
-    expect(() => parseGitHubIdentity('{"login":"octocat","id":0}')).toThrow();
-  });
+  it.each([
+    { active: true, state: 'error', login: 'octocat' },
+    { active: true, login: 'octocat' },
+    { active: true, state: 'success', login: '<script>' },
+  ])(
+    'does not report a JSON-mode failed or malformed account as connected: %j',
+    async (account) => {
+      commandResults(['gh', JSON.stringify({ hosts: { 'github.com': [account] } })]);
+      expect(await githubCliStatus()).toEqual({ state: 'check_failed' });
+    }
+  );
   it('handles split device-code output, cancels only its owned process and rejects stale polls', async () => {
     const process = child();
     const login = new GitHubCliLogin();
@@ -133,7 +138,7 @@ describe('GitHub CLI account connection', () => {
     process.stderr.write('! First copy your one-time code: ABCD-EFGH\n');
     const challenge = await pending;
     process.emit('close', 0);
-    commandResults(['gh', '{"hosts":{"github.com":[{"active":true}]}}', new Error('network')]);
+    commandResults(['gh', new Error('network')]);
     expect(await login.poll(challenge.flowId)).toEqual({ state: 'failed' });
   });
   it('bounds startup waiting and never forwards stderr to the renderer', async () => {

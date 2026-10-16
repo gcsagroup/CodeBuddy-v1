@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "कहीं और चल रहे CodeBuddy सर्वर से कनेक्ट करें (ऐप पुनरारंभ की आवश्यकता है)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "रद्द करें"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub कनेक्ट है।"
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "{login} के रूप में कनेक्टेड"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "कोड कॉपी करें"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "कोड {time} में समाप्त होगा"
-  },
   "githubAuth.description": {
     "defaultMessage": "रिपॉज़िटरी और पुल अनुरोध कार्रवाइयों के लिए GitHub कनेक्ट करें।"
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "इस एक-बार उपयोग वाले कोड को कॉपी करें, फिर CodeBuddy को अधिकृत करने के लिए GitHub खोलें।"
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "GitHub डिस्कनेक्ट करें"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "डिस्कनेक्ट करें"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy सुरक्षित संग्रहण से GitHub प्राधिकरण हटा देगा।"
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "GitHub खाता डिस्कनेक्ट करें?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "सहेजा गया GitHub प्राधिकरण समाप्त हो गया है। जारी रखने के लिए फिर से साइन इन करें।"
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "प्राधिकरण {date} को समाप्त होगा"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "GitHub को डिस्कनेक्ट नहीं किया जा सका।"
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "GitHub कनेक्शन की जाँच नहीं की जा सकी।"
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "GitHub साइन-इन पूरा नहीं किया जा सका।"
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "GitHub साइन-इन शुरू नहीं किया जा सका।"
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "GitHub कनेक्शन की जाँच हो रही है..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "इस बिल्ड में GitHub लॉगिन कॉन्फ़िगर नहीं है।"
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "GitHub खोलें"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "GitHub में साइन इन करें"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "इस डिवाइस पर सुरक्षित क्रेडेंशियल संग्रहण उपलब्ध नहीं है।"
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub ने एक अनपेक्षित सत्यापन पता लौटाया।"
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "GitHub प्राधिकरण की प्रतीक्षा हो रही है..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "तटस्थ रूप से पूर्ण"

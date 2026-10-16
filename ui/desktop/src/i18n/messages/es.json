@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Conéctate a un servidor CodeBuddy que se ejecuta en otro lugar (requiere reiniciar la app)"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "Cancelar"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub está conectado."
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "Conectado como {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "Copiar código"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "El código caduca en {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "Conecta GitHub para realizar acciones en repositorios y solicitudes de incorporación de cambios."
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "Copia este código de un solo uso y abre GitHub para autorizar CodeBuddy."
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "Desconectar GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "Desconectar"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy eliminará la autorización de GitHub del almacenamiento seguro."
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "¿Desconectar la cuenta de GitHub?"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "La autorización de GitHub guardada ha caducado. Vuelve a iniciar sesión para continuar."
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "La autorización caduca el {date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "No se pudo desconectar GitHub."
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "No se pudo comprobar la conexión con GitHub."
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "No se pudo completar el inicio de sesión en GitHub."
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "No se pudo iniciar el acceso a GitHub."
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "Comprobando la conexión con GitHub..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "El inicio de sesión en GitHub no está configurado en esta compilación."
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "Abrir GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "Iniciar sesión en GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "El almacenamiento seguro de credenciales no está disponible en este dispositivo."
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub devolvió una dirección de verificación inesperada."
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "Esperando la autorización de GitHub..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Completado de forma neutral"

@@ -1,5 +1,11 @@
 # CodePro 事实权威与模块职责
 
+## 2026-10-16 修复：GitHub 账户设置沿用官方 CLI
+
+GitHub 账户授权、登录和凭据继续由现有 GitHub CLI 负责，Electron IPC 仅提供受限状态/设备流程/登出适配；移除旧 Rust OAuth 卡片调用，不恢复旧核心。`gh auth status` 的结构化验证结果是账户事实来源，MCP 独立连接配置不由账户卡片自动修改。Harness Agent 的执行、审批、完成所有权不变。见[修复验收](../../docs/reconstruction/2026-10-16-github-account-fix.zh-CN.md)。
+
+繁體：帳戶由官方 CLI 驗證和管理，MCP 連線獨立，移除舊 OAuth 呼叫。English: the existing official CLI owns account authentication; MCP configuration remains independent and retired OAuth UI calls are removed.
+
 ## 2026-10-16 已批准：移除旧 Office 编辑工具并合并工具箱入口
 
 用户批准将旧 DOCX/XLSX 能力迁移到现有 Harness `dsh-skill-office`、`dsh-tool-workspace-dependencies` 和原生 shell。Rust 的 `docx_tool`、`xlsx_tool` 注册、实现及专属依赖删除，不新增同名 Python 编辑服务。工具箱按注册技能身份将 Word、Excel、PowerPoint 归入 Office 文档组，技能详情及覆盖顺序仍由原注册表决定。`computercontroller` 的配置键保持，以兼容现有启用状态及保留的 PDF、网页保存、缓存；不迁移权限、不改写旧对话工具回执、不重放历史动作。已完成的历史可查看，恢复后的调用使用当前工具清单；硬编码旧工具名称的外部配方需按迁移文档修改。

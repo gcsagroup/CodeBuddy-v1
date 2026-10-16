@@ -35,22 +35,20 @@ function run(args: string[]): Promise<string> {
     );
   });
 }
-export function parseGitHubIdentity(value: string): string {
-  const user = JSON.parse(value);
-  if (
-    typeof user.login !== 'string' ||
-    !/^[a-zA-Z0-9-]{1,39}$/.test(user.login) ||
-    !Number.isSafeInteger(user.id) ||
-    user.id <= 0
-  ) {
-    throw new Error('Invalid GitHub identity');
-  }
-  return user.login;
-}
 export function parseDeviceCode(output: string): string | undefined {
   return /First copy your one-time code: ([A-Z0-9]{4}-[A-Z0-9]{4})(?:\r?\n|$)/.exec(output)?.[1];
 }
-export async function githubCliStatus(): Promise<GitHubCliStatus> {
+let statusCheck: Promise<GitHubCliStatus> | undefined;
+export function githubCliStatus(): Promise<GitHubCliStatus> {
+  // Share in-flight checks (including React remounts), never cache authentication results.
+  if (statusCheck) return statusCheck;
+  const check = inspectGitHubCliStatus().finally(() => {
+    if (statusCheck === check) statusCheck = undefined;
+  });
+  statusCheck = check;
+  return check;
+}
+async function inspectGitHubCliStatus(): Promise<GitHubCliStatus> {
   try {
     await run(['--version']);
   } catch {
@@ -62,12 +60,18 @@ export async function githubCliStatus(): Promise<GitHubCliStatus> {
     );
     const accounts = response.hosts?.['github.com'] ?? (response.hosts ? [] : undefined);
     if (!Array.isArray(accounts)) throw new Error('Invalid status');
-    if (!accounts.some((account: { active?: boolean }) => account.active))
-      return { state: 'disconnected' };
-    const login = parseGitHubIdentity(
-      await run(['api', '--hostname', 'github.com', 'user', '--jq', '{login: .login, id: .id}'])
-    );
-    return { state: 'connected', login };
+    const active = accounts.find((account: { active?: boolean }) => account.active === true);
+    if (!active) return { state: 'disconnected' };
+    // gh auth status already verifies the account online. JSON mode exits 0 even
+    // on auth errors, so consume its structured state rather than exit code alone.
+    if (
+      active.state !== 'success' ||
+      typeof active.login !== 'string' ||
+      !/^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$/.test(active.login)
+    ) {
+      return { state: 'check_failed' };
+    }
+    return { state: 'connected', login: active.login };
   } catch {
     return { state: 'check_failed' };
   }
@@ -105,6 +109,7 @@ export async function githubCliLogout(login: unknown): Promise<GitHubCliStatus> 
     }
     await run(['auth', 'logout', '--hostname', 'github.com', '--user', login]);
     // gh may select another saved account after logout; show its actual state.
+    statusCheck = undefined;
     return await githubCliStatus();
   } finally {
     signingOut = false;
@@ -192,6 +197,7 @@ export class GitHubCliLogin {
       this.flow = undefined;
       return { state: 'failed' };
     }
+    statusCheck = undefined;
     const status = await githubCliStatus();
     if (this.flow !== flow) throw new Error('GitHub login was cancelled');
     this.flow = undefined;

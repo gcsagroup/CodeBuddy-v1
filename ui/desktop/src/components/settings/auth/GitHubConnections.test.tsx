@@ -229,3 +229,41 @@ describe('GitHubConnections', () => {
     expect(window.electron.githubCliLoginStart).not.toHaveBeenCalled();
   });
 });
+
+describe('independent bounded connection checks', () => {
+  it('allows account login while a slow MCP check is pending, then settles its spinner', async () => {
+    vi.useFakeTimers();
+    vi.mocked(testConfigExtension).mockImplementation(() => new Promise(() => undefined));
+    renderConnections();
+    await act(async () => undefined);
+    expect(screen.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled();
+    await act(async () => vi.advanceTimersByTimeAsync(25_000));
+    expect(screen.getByRole('button', { name: 'Check connection' })).toBeEnabled();
+    expect(
+      screen.getByText('GitHub MCP: connection failed. Check its credentials in Toolbox.')
+    ).toBeVisible();
+    expect(screen.getByText('No GitHub CLI account is signed in.')).toBeVisible();
+  });
+
+  it('bounds a stalled account bridge and ignores its late success after a refresh', async () => {
+    vi.useFakeTimers();
+    let finish!: (value: { state: 'connected'; login: string }) => void;
+    vi.mocked(window.electron.githubCliStatus).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    renderConnections();
+    await act(async () => vi.advanceTimersByTimeAsync(25_000));
+    expect(
+      screen.getByText('Connection check failed. Check your network or sign in again.')
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Check connection' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Check connection' }));
+    await act(async () => undefined);
+    await act(async () => finish({ state: 'connected', login: 'stale' }));
+    expect(screen.getByText('No GitHub CLI account is signed in.')).toBeVisible();
+    expect(screen.queryByText('GitHub account: stale')).not.toBeInTheDocument();
+  });
+});

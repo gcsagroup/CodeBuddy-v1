@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "连接到运行在其他位置的 CodeBuddy 服务器（需要重启应用）"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "取消"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub 已连接。"
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "已连接为 {login}"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "复制代码"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "代码将在 {time} 后过期"
-  },
   "githubAuth.description": {
     "defaultMessage": "连接 GitHub，以执行仓库和拉取请求操作。"
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "复制此一次性代码，然后打开 GitHub 授权 CodeBuddy。"
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "断开 GitHub"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "断开连接"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy 将从系统安全凭据存储中删除 GitHub 授权。"
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "断开 GitHub 账户？"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "保存的 GitHub 授权已过期。请重新登录以继续。"
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "授权将于 {date} 过期"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "无法断开 GitHub。"
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "无法检查 GitHub 连接状态。"
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "无法完成 GitHub 登录。"
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "无法启动 GitHub 登录。"
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "正在检查 GitHub 连接状态..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "此版本尚未配置 GitHub 登录。"
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "打开 GitHub"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "登录 GitHub"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "此设备无法使用系统安全凭据存储。"
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub 账户"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub 返回了非预期的验证地址。"
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "正在等待 GitHub 授权..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "以中性结果完成"

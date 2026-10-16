@@ -2576,80 +2576,11 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "別の場所で実行中の CodeBuddy サーバーに接続します（アプリの再起動が必要）"
   },
-  "githubAuth.cancel": {
-    "defaultMessage": "キャンセル"
-  },
-  "githubAuth.connected": {
-    "defaultMessage": "GitHub に接続しています。"
-  },
-  "githubAuth.connectedAs": {
-    "defaultMessage": "{login} として接続中"
-  },
-  "githubAuth.copyCode": {
-    "defaultMessage": "コードをコピー"
-  },
-  "githubAuth.countdown": {
-    "defaultMessage": "コードの有効期限まで {time}"
-  },
   "githubAuth.description": {
     "defaultMessage": "リポジトリとプルリクエストの操作のために GitHub を接続します。"
   },
-  "githubAuth.deviceInstructions": {
-    "defaultMessage": "このワンタイムコードをコピーし、GitHub を開いて CodeBuddy を承認してください。"
-  },
-  "githubAuth.disconnect": {
-    "defaultMessage": "GitHub との接続を解除"
-  },
-  "githubAuth.disconnectConfirm": {
-    "defaultMessage": "接続を解除"
-  },
-  "githubAuth.disconnectMessage": {
-    "defaultMessage": "CodeBuddy は安全なストレージから GitHub の認証情報を削除します。"
-  },
-  "githubAuth.disconnectTitle": {
-    "defaultMessage": "GitHub アカウントとの接続を解除しますか？"
-  },
-  "githubAuth.expired": {
-    "defaultMessage": "保存された GitHub の認証は期限切れです。続行するには再度サインインしてください。"
-  },
-  "githubAuth.expires": {
-    "defaultMessage": "認証の有効期限：{date}"
-  },
-  "githubAuth.failedToDisconnect": {
-    "defaultMessage": "GitHub との接続を解除できませんでした。"
-  },
-  "githubAuth.failedToLoad": {
-    "defaultMessage": "GitHub の接続状態を確認できませんでした。"
-  },
-  "githubAuth.failedToPoll": {
-    "defaultMessage": "GitHub へのサインインを完了できませんでした。"
-  },
-  "githubAuth.failedToStart": {
-    "defaultMessage": "GitHub へのサインインを開始できませんでした。"
-  },
-  "githubAuth.loading": {
-    "defaultMessage": "GitHub の接続状態を確認しています..."
-  },
-  "githubAuth.notConfigured": {
-    "defaultMessage": "このビルドでは GitHub ログインが設定されていません。"
-  },
-  "githubAuth.openGitHub": {
-    "defaultMessage": "GitHub を開く"
-  },
-  "githubAuth.signIn": {
-    "defaultMessage": "GitHub にサインイン"
-  },
-  "githubAuth.storageUnavailable": {
-    "defaultMessage": "このデバイスでは安全な認証情報ストレージを利用できません。"
-  },
   "githubAuth.title": {
     "defaultMessage": "GitHub"
-  },
-  "githubAuth.unexpectedAddress": {
-    "defaultMessage": "GitHub から予期しない確認用アドレスが返されました。"
-  },
-  "githubAuth.waiting": {
-    "defaultMessage": "GitHub の承認を待っています..."
   },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "ニュートラルで完了"

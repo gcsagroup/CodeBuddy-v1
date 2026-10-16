@@ -4,12 +4,15 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, readdir, access, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { createConversationDriver } from '../../conversation-driver.mjs';
+import { listSubagentCatalog, readSubagentConversation } from '../../subagent-conversations.mjs';
 import sharp from 'sharp';
 
 let driver, server, root, provider, mcpUrl;
+let siblingFixture;
 const requests = [], mcpCalls = [];
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'codebuddy-harness-capabilities-'));
@@ -51,6 +54,20 @@ before(async () => {
     else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 1) call('mcp__child_memory__remember', { text: 'delegated memory' });
     else if (prompt.includes('fixture_delegate') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Independent module fixture', prompt: prompt.includes('cancel') ? 'fixture_child_slow' : 'fixture_child_write' });
     else if (prompt.includes('fixture_child_write') && !since.some(message => message.role === 'tool')) call('write', { file_path: join(root, 'child.txt'), content: 'actual child write' });
+    else if (prompt.includes('fixture_catalog_sibling_')) {
+      const number = [1, 2, 3, 4].find(value => prompt.includes(`fixture_catalog_sibling_${value}`));
+      siblingFixture.started.add(number);
+      if (siblingFixture.started.size === 3) siblingFixture.ready.resolve();
+      await siblingFixture.release.promise;
+      emit({ role: 'assistant', content: `CATALOG_SIBLING_READY_${number}` }); emit({}, 'stop');
+    }
+    else if (prompt.includes('fixture_catalog_parallel_root') && !since.some(message => message.role === 'tool')) {
+      emit({ role: 'assistant', tool_calls: [1, 2, 3].map(number => ({ index: number - 1, id: `catalog-${number}`, type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: `Parallel catalog child ${number}`, prompt: `fixture_catalog_sibling_${number}` }) } })) }); emit({}, 'tool_calls');
+    }
+    else if (prompt.includes('fixture_catalog_parallel_root') && since.filter(message => message.role === 'tool').length === 3) {
+      await siblingFixture.ready.promise;
+      call('subagent', { description: 'Rejected fourth catalog child', prompt: 'fixture_catalog_sibling_4' });
+    }
     else if (prompt.includes('fixture_limit')) call('read', { file_path: join(root, 'source.txt') });
     else if (prompt.includes('fixture_host') && !since.some(message => message.role === 'tool')) call('record_artifact', { value: 'first' });
     else if (prompt.includes('fixture_host') && since.filter(message => message.role === 'tool').length === 1) call('finish_artifact', {});
@@ -249,6 +266,83 @@ test('subagent file execution inherits root approval and parent waits for its ac
   assert.deepEqual(await driver.history(children[0].id), before);
   assert.equal(requests.length, requestCount, 'Catalog inspection must not call a model');
   assert.equal(approvals.length, approvalCount, 'Catalog inspection must not dispatch a tool');
+});
+
+test('native three sibling catalogs and conversations stay read-only at capacity three', { timeout: 15000 }, async () => {
+  // This changes only the existing isolated Host's native volatile setting.
+  const created = await session({ maxParallelSubagents: 3 }), approvals = [], events = [];
+  siblingFixture = { started: new Set(), ready: Promise.withResolvers(), release: Promise.withResolvers() };
+  const refused = Promise.withResolvers();
+  const running = driver.prompt(created.sessionId, 'fixture_catalog_parallel_root', {
+    signal: AbortSignal.timeout(10000),
+    onPermission: async call => { approvals.push(call); return true; },
+    onEvent: event => {
+      events.push(event);
+      if (event.type === 'tool_result' && event.name === 'subagent' && event.isError) refused.resolve(event);
+    },
+  });
+  try {
+    const rejection = await Promise.race([
+      refused.promise,
+      running.then(() => { throw new Error('Parent ended before the fourth admission was refused'); }),
+    ]);
+    assert.deepEqual([...siblingFixture.started].sort(), [1, 2, 3], 'All three accepted children are still occupying native slots');
+    assert.match(JSON.stringify(rejection.result), /active child limit: 3/);
+    assert.equal((await driver.listSubagentChildren(created.sessionId)).length, 3);
+  } finally { siblingFixture.release.resolve(); }
+  const result = await running;
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(approvals.length, 4, 'The three starts and refused fourth call pass through ordinary tool approval');
+  assert.ok(approvals.every(call => call.name === 'subagent'), 'No file, shell or unrelated tool is dispatched');
+  assert.equal(events.filter(event => event.type === 'subagent_start').length, 3);
+  assert.ok(events.filter(event => event.type === 'subagent_end').every(event => event.stopReason === 'completed'));
+  assert.equal(siblingFixture.started.has(4), false, 'The refused child is not queued for a later model request');
+
+  const requestCount = requests.length, approvalCount = approvals.length;
+  // prompt settles execution; native JSONL writes remain buffered. The official
+  // teardown awaits every writer's drain before this cold-read restart.
+  await driver.close();
+  driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
+
+  // Only the product root is mapped. Child ids come from the real native catalog.
+  const parent = { id: randomUUID(), nativeSessionId: created.sessionId };
+  const reader = createConversationDriver(driver, {
+    readSession: id => id === parent.id ? structuredClone(parent) : undefined,
+    update() { assert.fail('Readonly inspection must not change product state'); },
+  });
+  const files = async (directory, prefix = '') => {
+    const snapshot = {};
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const name = join(prefix, entry.name), file = join(directory, entry.name);
+      if (entry.isDirectory()) Object.assign(snapshot, await files(file, name));
+      else snapshot[name] = createHash('sha256').update(await readFile(file)).digest('hex');
+    }
+    return snapshot;
+  };
+  const before = await files(root);
+  const rootCatalog = await listSubagentCatalog(parent, {}, reader);
+  assert.equal(rootCatalog.children.length, 3);
+  assert.equal(new Set(rootCatalog.children.map(child => child.id)).size, 3);
+  assert.deepEqual(rootCatalog.children.map(child => child.label).sort(), [1, 2, 3].map(number => `Parallel catalog child ${number}`));
+  for (const child of rootCatalog.children) {
+    const number = Number(child.label.at(-1));
+    assert.equal(child.mode, 'continuable');
+    assert.notEqual(child.id, created.sessionId);
+    const page = await readSubagentConversation(parent, { childSessionId: child.id, ancestorSessionIds: [] }, reader);
+    assert.deepEqual(page.ancestorSessionIds, []);
+    assert.ok(page.events.some(event => event.type === 'user/message' && event.data.content.some(block => block.type === 'text' && block.text.includes(`fixture_catalog_sibling_${number}`))));
+    assert.ok(page.events.some(event => event.type === 'assistant/message' && event.data.message.content.some(block => block.type === 'text' && block.text === `CATALOG_SIBLING_READY_${number}`)));
+    assert.ok(page.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed'));
+    assert.equal(page.hasMore, false);
+    const unchanged = await readSubagentConversation(parent, { childSessionId: child.id, ancestorSessionIds: [], afterSeq: page.throughSeq }, reader);
+    assert.deepEqual(unchanged.events, []);
+    assert.deepEqual((await listSubagentCatalog(parent, { ancestorSessionIds: [child.id] }, reader)).children, []);
+  }
+  assert.deepEqual(await listSubagentCatalog(parent, {}, reader), rootCatalog, 'The fourth call never publishes catalog membership');
+  assert.equal(requests.length, requestCount, 'Catalog and history inspection must not issue another model request');
+  assert.equal(approvals.length, approvalCount, 'Inspection must not dispatch a tool or ask for approval');
+  assert.deepEqual(await files(root), before, 'Inspection must not mutate workspace or native persisted files');
+  assert.equal(await readFile(join(root, 'source.txt'), 'utf8'), 'source fixture');
 });
 
 test('role subagent uses configured model and effort with real lifecycle and permission receipts', async () => {

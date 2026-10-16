@@ -222,14 +222,11 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     }
     return turns.flatMap((turn) => {
       // Harness already supplies native ACP calls and receipts. Its compatibility
-      // activity feed repeats those operations with independent event UUIDs, so
-      // it must not compete with the native call's status or create another row.
-      const nativeToolIds = new Set(
-        turn
-          .flatMap(getToolRequests)
-          .filter((request) => request.metadata?.extensionName === 'harness')
-          .map((request) => request.id)
-      );
+      // activity feed also includes child audits, whose native cards belong to
+      // the child conversation. Keep all those audits out of the parent display.
+      const hasNativeHarnessTools = turn
+        .flatMap(getToolRequests)
+        .some((request) => request.metadata?.extensionName === 'harness');
       const terminalRuns = new Set(
         turn.flatMap((message) => {
           const terminal = getTurnTerminalRecord(message);
@@ -247,7 +244,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
               return false;
             const event = content.data;
             return (
-              (event.tool_call_id !== undefined && nativeToolIds.has(event.tool_call_id)) ||
+              (event.tool_call_id !== undefined && hasNativeHarnessTools) ||
               event.event_type === 'run_completed' ||
               (terminalRuns.has(event.run_id) &&
                 ['run_failed', 'run_stopped'].includes(event.event_type))

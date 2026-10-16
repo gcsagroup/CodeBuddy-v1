@@ -58,6 +58,7 @@ const record = (value: unknown): Record<string, unknown> =>
 export function createSubagentConversationProjection(sessionId: string) {
   const adapter = createAcpSessionNotificationAdapter();
   let throughSeq = -1;
+  let initialTaskSeen = false;
   let status: 'running' | 'completed' | 'failed' | 'interrupted' | undefined;
   const apply = (update: SessionNotification['update']) => adapter.apply({ sessionId, update });
   return {
@@ -68,6 +69,12 @@ export function createSubagentConversationProjection(sessionId: string) {
         const data = event.data;
         const created = Math.floor(new Date(event.time ?? 0).getTime() / 1000);
         const message = record(event.type === 'user/message' ? data : data.message);
+        // The initial delegated task includes Harness's private return guidance.
+        // The panel title names that task; later parent messages remain visible.
+        if (event.type === 'user/message' && !initialTaskSeen) {
+          initialTaskSeen = true;
+          continue;
+        }
         const id = typeof message.id === 'string' ? message.id : `child:${event.seq}`;
         const meta = { goose: { messageId: id, created } };
         if (event.type === 'turn/start') status = 'running';

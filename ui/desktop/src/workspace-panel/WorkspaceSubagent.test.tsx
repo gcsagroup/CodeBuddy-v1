@@ -240,8 +240,22 @@ it('projects native tool receipts once without inventing an answer or execution'
       },
     },
     { seq: 5, type: 'turn/end', data: { turn: 1, reason: { kind: 'aborted' } } },
+    {
+      seq: 6,
+      type: 'user/message',
+      data: {
+        id: 'followup',
+        role: 'user',
+        content: [{ type: 'text', text: 'Also inspect discounts' }],
+      },
+    },
   ];
   const messages = projection.append(events);
+  expect(messages.some((message) => message.id === 'task')).toBe(false);
+  expect(messages.flatMap((message) => message.content)).toContainEqual({
+    type: 'text',
+    text: 'Also inspect discounts',
+  });
   expect(projection.status).toBe('interrupted');
   expect(messages.flatMap((m) => m.content).filter((c) => c.type === 'toolRequest')).toHaveLength(
     1

@@ -373,7 +373,7 @@ describe('Harness conversation presentation', () => {
     expect(history).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Stage 117')).toBeVisible();
   });
-  it('retains child-agent-only activity and merges its lifecycle using the actual call ID', () => {
+  it('keeps child audits in state while showing only native root tools in the parent conversation', () => {
     const state: AdapterState = {
       messages: [user(), requestMessage(write('root-call')), responseMessage(receipt('root-call'))],
       localSteerTextByMessageId: new Map(),
@@ -399,9 +399,16 @@ describe('Harness conversation presentation', () => {
     }
     const view = render(show(state.messages), { wrapper: IntlTestWrapper });
     expect(view.container.querySelectorAll('[data-tool-call-id="root-call"]')).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: /^Activity: Change .*Completed/ })).toHaveLength(
-      1
-    );
+    expect(
+      state.messages.some((message) =>
+        message.content.some(
+          (content) =>
+            content.type === 'systemNotification' &&
+            content.notificationType === 'codeProActivity'
+        )
+      )
+    ).toBe(true);
+    expect(screen.queryByRole('button', { name: /^Activity:/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/Running/)).not.toBeInTheDocument();
   });
 

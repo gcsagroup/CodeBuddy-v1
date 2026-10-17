@@ -10,8 +10,8 @@ const binDirectory = fileURLToPath(new URL("./tools/bin/", import.meta.url));
 const artifacts = {
   tools: {
     file: "codebuddy-tools.exe",
-    bytes: 21777920,
-    sha256: "b89dc85054e5bbe4410e4b50e38c6a423eea94c659403dbb17224d62abee50a4",
+    bytes: 21821440,
+    sha256: "486f7d48c060a77ca9b3e6b5044987ad7110cae708b58efa360b72438bc13a39",
   },
   computer: {
     file: "qwen-computer-use.exe",

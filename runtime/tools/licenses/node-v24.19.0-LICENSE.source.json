@@ -1,0 +1,8 @@
+{
+  "component": "Node.js",
+  "version": "24.19.0",
+  "source": "https://raw.githubusercontent.com/nodejs/node/v24.19.0/LICENSE",
+  "file": "node-v24.19.0-LICENSE.txt",
+  "sha256": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5",
+  "note": "Unmodified upstream license, including bundled third-party notices. Used only when the matching build-host Node distribution has no adjacent LICENSE."
+}

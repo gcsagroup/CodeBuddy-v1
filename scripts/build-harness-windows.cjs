@@ -3,19 +3,28 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { stageHarness } = require('./stage-harness-distribution.cjs');
 const { stageInstallerTools, finalizeInstaller, assertSquirrelRuntimePaths } = require('./windows-installer-tools.cjs');
+const { buildOptions, resolveCompiler, makeWizardInstaller } = require('./windows-wizard-installer.cjs');
 
 async function main() {
   if (process.platform !== 'win32' || Number(process.versions.node.split('.')[0]) < 24) throw new Error('Use existing Node 24+ on Windows');
   const root = path.resolve(__dirname, '..');
   const desktop = path.join(root, 'ui/desktop');
-  const stage = process.argv[2] ? path.resolve(process.argv[2]) : path.join(root, 'target', `harness-package-${Date.now()}`, 'harness-distribution');
-  const finalizeOnly = process.argv.includes('--finalize-only');
-  const makeOnly = finalizeOnly || process.argv.includes('--make-only');
-  const installerRoot = path.dirname(require.resolve('electron-winstaller/package.json', { paths: [desktop] }));
+  const options = buildOptions(process.argv.slice(2));
+  const stage = options.stage ? path.resolve(options.stage) : path.join(root, 'target', `harness-package-${Date.now()}`, 'harness-distribution');
+  const { finalizeOnly, makeOnly } = options;
+  // Missing build tools fail before any compile or staging; never auto-install.
+  const innoTools = options.installer === 'inno' ? resolveCompiler() : null;
+  if (!makeOnly && !fs.existsSync(path.join(root, 'runtime/py/runtime.json'))) {
+    throw new Error('Prepare the approved Office payload first; see scripts/office-builder/README.md');
+  }
   const toolsParent = path.join(root, 'target'); fs.mkdirSync(toolsParent, { recursive: true });
-  const vendor = stageInstallerTools(path.join(installerRoot, 'vendor'), path.join(toolsParent, `harness-winstaller-${Date.now()}`));
+  let vendor;
+  if (options.installer === 'squirrel') {
+    const installerRoot = path.dirname(require.resolve('electron-winstaller/package.json', { paths: [desktop] }));
+    vendor = stageInstallerTools(path.join(installerRoot, 'vendor'), path.join(toolsParent, `harness-winstaller-${Date.now()}`));
+  }
   const run = (args, cwd, executable = process.execPath) => {
-    const result = spawnSync(executable, args, { cwd, stdio: 'inherit', windowsHide: true, env: { ...process.env, CODEBUDDY_HARNESS_RESOURCE_DIR: stage, CODEBUDDY_HARNESS_VENDOR_DIR: vendor } });
+    const result = spawnSync(executable, args, { cwd, stdio: 'inherit', windowsHide: true, env: { ...process.env, CODEBUDDY_HARNESS_RESOURCE_DIR: stage, ...(vendor ? { CODEBUDDY_HARNESS_VENDOR_DIR: vendor } : {}) } });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`Build step exited ${result.status}`);
   };
@@ -39,13 +48,21 @@ async function main() {
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8'));
   const { version } = JSON.parse(fs.readFileSync(path.join(desktop, 'package.json'), 'utf8'));
-  if (!process.env.LOCALAPPDATA) throw new Error('LOCALAPPDATA is required to validate Squirrel install paths');
-  const longestInstallPath = assertSquirrelRuntimePaths(manifest.files, path.join(process.env.LOCALAPPDATA, 'CodeBuddyHarness', `app-${version}`));
-  console.log(JSON.stringify({ squirrelInstallPathsVerified: true, longestInstallPath }));
+  if (options.installer === 'squirrel') {
+    if (!process.env.LOCALAPPDATA) throw new Error('LOCALAPPDATA is required to validate Squirrel install paths');
+    const longestInstallPath = assertSquirrelRuntimePaths(manifest.files, path.join(process.env.LOCALAPPDATA, 'CodeBuddyHarness', `app-${version}`));
+    console.log(JSON.stringify({ squirrelInstallPathsVerified: true, longestInstallPath }));
+  }
   if (finalizeOnly) { console.log(await finalizeInstaller({ desktop, vendor })); return; }
   run([path.join(root, 'scripts/verify-harness-stage.mjs'), stage], root, path.join(stage, 'node/node.exe'));
   const forgePackage = require.resolve('@electron-forge/cli/package.json', { paths: [desktop] });
   const forge = JSON.parse(fs.readFileSync(forgePackage, 'utf8'));
-  run([path.resolve(path.dirname(forgePackage), forge.bin['electron-forge']), 'make', '--platform=win32', '--arch=x64', '--targets=@electron-forge/maker-squirrel', ...(makeOnly ? ['--skip-package'] : [])], desktop);
+  const forgeBin = path.resolve(path.dirname(forgePackage), forge.bin['electron-forge']);
+  if (options.installer === 'inno') {
+    if (!makeOnly) run([forgeBin, 'package', '--platform=win32', '--arch=x64'], desktop);
+    console.log(JSON.stringify(makeWizardInstaller({ root, stage, tools: innoTools })));
+  } else {
+    run([forgeBin, 'make', '--platform=win32', '--arch=x64', '--targets=@electron-forge/maker-squirrel', ...(makeOnly ? ['--skip-package'] : [])], desktop);
+  }
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

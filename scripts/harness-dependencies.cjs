@@ -1,6 +1,25 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isBuiltin } = require('node:module');
+const { fileURLToPath } = require('node:url');
+
+function profilePackageNames(entries, modulesDirectory) {
+  // import.meta.resolve follows a shared node_modules junction in worktrees.
+  // Compare real locations, then preserve the logical package layout on copy.
+  const modules = fs.realpathSync(modulesDirectory);
+  const names = new Set();
+  for (const entry of entries) {
+    let directory = fs.realpathSync(path.dirname(fileURLToPath(entry.name)));
+    const relative = path.relative(modules, directory);
+    if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) continue;
+    while (!fs.existsSync(path.join(directory, 'package.json'))) {
+      if (directory === modules) throw new Error(`Profile entry has no package manifest: ${entry.name}`);
+      directory = path.dirname(directory);
+    }
+    names.add(JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8')).name);
+  }
+  return names;
+}
 
 function commonJsImports(source, typescript) {
   const names = new Set();
@@ -56,4 +75,4 @@ function dependencyClosure(names, from) {
   return [...directories];
 }
 
-module.exports = { dependencyClosure, commonJsImports };
+module.exports = { dependencyClosure, commonJsImports, profilePackageNames };

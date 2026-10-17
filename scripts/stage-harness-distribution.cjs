@@ -2,8 +2,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createRequire } = require('node:module');
-const { pathToFileURL, fileURLToPath } = require('node:url');
-const { dependencyClosure, commonJsImports } = require('./harness-dependencies.cjs');
+const { pathToFileURL } = require('node:url');
+const { dependencyClosure, commonJsImports, profilePackageNames } = require('./harness-dependencies.cjs');
 
 async function stageHarness(repoRoot, destination) {
   // Each build uses a fresh stage. Never delete a prior candidate or profile.
@@ -14,6 +14,15 @@ async function stageHarness(repoRoot, destination) {
   await fs.access(path.join(runtime, 'py/runtime.json')).catch(() => {
     throw new Error('Prepare the approved Office payload with node scripts/prepare-harness-office.mjs before packaging');
   });
+  // The Windows MSI does not place LICENSE beside node.exe. Keep a matching,
+  // versioned upstream copy in source instead of changing the host installation.
+  let nodeLicense = path.join(path.dirname(process.execPath), 'LICENSE');
+  if (!await fs.stat(nodeLicense).catch(error => { if (error.code !== 'ENOENT') throw error; })) {
+    nodeLicense = path.join(runtime, 'tools/licenses', `node-v${process.versions.node}-LICENSE.txt`);
+    await fs.access(nodeLicense).catch(() => {
+      throw new Error(`Missing Node ${process.versions.node} distribution license; prepare ${nodeLicense} from the matching official release`);
+    });
+  }
   const copy = async (source, target) => {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.cp(source, target, { recursive: true, dereference: true, filter: file => !['.bin', '.cache', '.DS_Store'].includes(path.basename(file)) });
@@ -21,7 +30,7 @@ async function stageHarness(repoRoot, destination) {
   await copy(process.execPath, path.join(destination, 'node/node.exe'));
   await copy(path.join(runtime, 'py'), path.join(destination, 'runtime/py'));
   await copy(path.join(runtime, 'office'), path.join(destination, 'runtime/office'));
-  await copy(path.join(path.dirname(process.execPath), 'LICENSE'), path.join(destination, 'node/LICENSE'));
+  await copy(nodeLicense, path.join(destination, 'node/LICENSE'));
   for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
     if (entry.isFile() && /\.(mjs|json)$/.test(entry.name) || entry.name === 'assets') {
       await copy(path.join(runtime, entry.name), path.join(destination, 'runtime', entry.name));
@@ -64,12 +73,7 @@ async function stageHarness(repoRoot, destination) {
     }
   }
   const { profileEntries } = await import(pathToFileURL(path.join(harness, 'profile.mjs')));
-  for (const entry of profileEntries(destination, destination, destination)) {
-    let directory = path.dirname(fileURLToPath(entry.name));
-    if (!directory.startsWith(path.join(harness, 'node_modules') + path.sep)) continue;
-    while (!await fs.stat(path.join(directory, 'package.json')).catch(() => null)) directory = path.dirname(directory);
-    roots.add(JSON.parse(await fs.readFile(path.join(directory, 'package.json'), 'utf8')).name);
-  }
+  for (const name of profilePackageNames(profileEntries(destination, destination, destination), path.join(harness, 'node_modules'))) roots.add(name);
   const adapterDependencies = Object.keys(JSON.parse(await fs.readFile(path.join(runtime, 'package.json'), 'utf8')).dependencies ?? {});
   for (const directory of new Set([...dependencyClosure(roots, harness), ...dependencyClosure(adapterDependencies, runtime)])) {
     const relative = path.relative(runtime, directory);

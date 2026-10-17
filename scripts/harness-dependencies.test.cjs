@@ -3,8 +3,27 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { dependencyClosure, commonJsImports } = require('./harness-dependencies.cjs');
+const { dependencyClosure, commonJsImports, profilePackageNames } = require('./harness-dependencies.cjs');
 const { createRequire } = require('node:module');
+const { pathToFileURL } = require('node:url');
+
+test('explicit Host plugins are packaged when import resolution follows a worktree node_modules junction', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-profile-deps-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const modules = path.join(root, 'shared/node_modules');
+  const plugin = path.join(modules, '@fixture/goal');
+  fs.mkdirSync(path.join(plugin, 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(plugin, 'package.json'), JSON.stringify({ name: '@fixture/goal' }));
+  const pluginEntry = path.join(plugin, 'lib/index.js');
+  fs.writeFileSync(pluginEntry, 'export default {};');
+  const worktree = path.join(root, 'worktree');
+  fs.mkdirSync(worktree);
+  fs.symlinkSync(modules, path.join(worktree, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const localEntry = path.join(worktree, 'instructions.mjs');
+  fs.writeFileSync(localEntry, 'export default {};');
+  const entries = [pluginEntry, localEntry].map(file => ({ name: pathToFileURL(file).href }));
+  assert.deepEqual([...profilePackageNames(entries, path.join(worktree, 'node_modules'))], ['@fixture/goal']);
+});
 
 test('captures CommonJS adapter imports without treating comments as dependencies', () => {
   const typescript = createRequire(path.resolve(__dirname, '../ui/desktop/package.json'))('typescript');

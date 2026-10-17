@@ -23,12 +23,16 @@ Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊�
 使用已有 Node.js 24+ 和项目依赖，在仓库根目录执行：
 
 ```powershell
-node scripts/build-harness-windows.cjs
+node scripts/build-harness-windows.cjs --installer=inno
 ```
 
-产物为 `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`；桌面应用显示为 **CodeBuddy**。安装标识 `CodeBuddyHarness` 和现有数据路径为兼容已有版本保留，不通过改名迁移用户数据。
+产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`；包含安装位置选择、真实安装进度、完成后启动、可选桌面快捷方式和 Windows 卸载入口。界面为简体中文，采用 Windows 11 简约样式。默认仅为当前用户安装到 `%LOCALAPPDATA%/Programs/CodeBuddy`，可以选择其他可写位置；卸载保留用户配置、聊天记录和工作项目。
 
-构建将运行时、适配层、配方类型、Office 载荷和独立 MCP 工具暂存、校验并交给 Electron Forge/Squirrel 封装。包内包含 Node 24 与许可证，应用运行不依赖系统 Node。项目开发所需的语言工具链仍按项目自身要求准备。
+向导使用已有 Inno Setup 6.7+（或 7.x），不自动安装编译工具。安装官方编译器后，将其 `ISCC.exe` 路径通过 `CODEBUDDY_ISCC` 指定，或使用当前用户／Program Files 下的标准安装位置。简体中文翻译使用 [Inno Setup 6.7.3 的 ChineseSimplified.isl](https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl)，放在编译器 `Languages/` 目录，或通过 `CODEBUDDY_INNO_ZH_CN` 指定。工具准备及载荷下载需先获授权。
+
+旧 Squirrel 兼容入口仍为 `node scripts/build-harness-windows.cjs`（也可显式指定 `--installer=squirrel`），产物保留在 `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`。两种安装器不自动互相卸载或合并安装目录；用户数据目录保持同一产品规则。
+
+构建先暂存、校验运行时、适配层、配方类型、Office 载荷和独立 MCP 工具，由 Electron Forge 打包桌面，再交给选定的安装器封装。包内包含 Node 24 与许可证，应用运行不依赖系统 Node。Windows MSI 未在 Node 旁附带 `LICENSE` 时，使用 `runtime/tools/licenses/node-v<当前 Node 版本>-LICENSE.txt` 中与官方版本匹配的完整许可文件；不修改系统 Node 目录。项目开发所需的语言工具链仍按项目自身要求准备。
 
 首次准备 Office 环境请阅读 [Office 构建器说明](scripts/office-builder/README.md)，生成 `runtime/py` 和 `runtime/office`。该准备步骤涉及下载；正常打包只复制和验证已有载荷，不修改系统 Python。短目录和构建前路径检查用于避免 Windows 安装路径超长。
 

@@ -64,7 +64,7 @@ interface PendingCodeProStart {
 
 const i18n = defineMessages({
   eyebrow: { id: 'codeProHub.eyebrow', defaultMessage: 'Multi-Agent development workspace' },
-  title: { id: 'codeProHub.title', defaultMessage: 'Give your development goal to CodePro' },
+  title: { id: 'codeProHub.title', defaultMessage: 'Welcome to CodeBuddy' },
   description: {
     id: 'codeProHub.description',
     defaultMessage:

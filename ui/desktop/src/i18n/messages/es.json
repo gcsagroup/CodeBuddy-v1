@@ -864,7 +864,7 @@
     "defaultMessage": "Automatic task breakdown"
   },
   "codeProHub.title": {
-    "defaultMessage": "Give your development goal to CodePro"
+    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "No se pudo verificar de forma segura el espacio de trabajo seleccionado. Elige una carpeta de proyecto local compatible e inténtalo de nuevo."

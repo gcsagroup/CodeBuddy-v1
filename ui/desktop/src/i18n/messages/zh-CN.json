@@ -864,7 +864,7 @@
     "defaultMessage": "自动拆分任务"
   },
   "codeProHub.title": {
-    "defaultMessage": "欢迎使用 CodePro"
+    "defaultMessage": "欢迎使用 CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "无法安全验证所选工作区。请选择受支持的本地项目文件夹后重试。"

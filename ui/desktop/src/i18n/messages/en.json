@@ -867,7 +867,7 @@
     "defaultMessage": "Automatic task breakdown"
   },
   "codeProHub.title": {
-    "defaultMessage": "Give your development goal to CodePro"
+    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "The selected workspace could not be safely verified. Choose a supported local project folder and try again."

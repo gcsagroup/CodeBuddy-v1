@@ -127,7 +127,7 @@ describe('CodeProHub', () => {
 
     expect(screen.getByText('Multi-Agent development workspace')).toBeVisible();
     expect(
-      screen.getByRole('heading', { name: 'Give your development goal to CodePro' })
+      screen.getByRole('heading', { name: 'Welcome to CodeBuddy' })
     ).toBeVisible();
     expect(screen.getByText('Automatic task breakdown')).toBeVisible();
     expect(screen.getByText('Multi-model collaboration')).toBeVisible();

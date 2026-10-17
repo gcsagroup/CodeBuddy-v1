@@ -864,7 +864,7 @@
     "defaultMessage": "Automatic task breakdown"
   },
   "codeProHub.title": {
-    "defaultMessage": "Give your development goal to CodePro"
+    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "選択したワークスペースを安全に検証できませんでした。対応するローカルプロジェクトフォルダーを選択して再試行してください。"

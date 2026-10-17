@@ -26,7 +26,7 @@ Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊�
 node scripts/build-harness-windows.cjs --installer=inno
 ```
 
-产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`；包含安装位置选择、真实安装进度、完成后启动、可选桌面快捷方式和 Windows 卸载入口。界面为简体中文，采用 Windows 11 简约样式。默认仅为当前用户安装到 `%LOCALAPPDATA%/Programs/CodeBuddy`，可以选择其他可写位置；卸载保留用户配置、聊天记录和工作项目。
+产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`；包含安装位置选择、真实安装进度、完成页可选桌面快捷方式、开始菜单入口与启动应用，以及 Windows 卸载入口。界面为简体中文，采用 Windows 11 简约样式。默认仅为当前用户安装到 `%LOCALAPPDATA%/Programs/CodeBuddy`，可以选择其他可写位置；卸载保留用户配置、聊天记录和工作项目。
 
 向导使用已有 Inno Setup 6.7+（或 7.x），不自动安装编译工具。安装官方编译器后，将其 `ISCC.exe` 路径通过 `CODEBUDDY_ISCC` 指定，或使用当前用户／Program Files 下的标准安装位置。简体中文翻译使用 [Inno Setup 6.7.3 的 ChineseSimplified.isl](https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl)，放在编译器 `Languages/` 目录，或通过 `CODEBUDDY_INNO_ZH_CN` 指定。工具准备及载荷下载需先获授权。
 

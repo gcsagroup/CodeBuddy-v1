@@ -864,7 +864,7 @@
     "defaultMessage": "Automatic task breakdown"
   },
   "codeProHub.title": {
-    "defaultMessage": "Give your development goal to CodePro"
+    "defaultMessage": "Welcome to CodeBuddy"
   },
   "codeProHub.workspaceIdentityUnavailable": {
     "defaultMessage": "Не удалось безопасно проверить выбранную рабочую область. Выберите поддерживаемую локальную папку проекта и повторите попытку."

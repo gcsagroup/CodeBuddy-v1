@@ -32,7 +32,7 @@ SetupIconFile={#ProductIcon}
 UninstallDisplayIcon={app}\CodeBuddy.exe
 WizardSmallImageFile={#ProductImage}
 WizardImageFile=
-WizardStyle=modern light windows11 hidebevels
+WizardStyle=modern light windows11 excludelightcontrols hidebevels
 WizardSizePercent=115,110
 Compression=lzma2/normal
 SolidCompression=yes
@@ -44,6 +44,11 @@ SetupLogging=yes
 
 [Languages]
 Name: "zhCN"; MessagesFile: "{#ChineseMessages}"
+
+[LangOptions]
+DialogFontName=Microsoft YaHei UI
+DialogFontSize=9
+WelcomeFontName=Microsoft YaHei UI
 
 [Messages]
 SetupWindowTitle=安装 CodeBuddy
@@ -70,8 +75,12 @@ Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignor
 Source: "..\..\runtime\tools\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\CodeBuddy"; Filename: "{app}\CodeBuddy.exe"; AppUserModelID: "local.codebuddy.desktop"
-Name: "{autodesktop}\CodeBuddy"; Filename: "{app}\CodeBuddy.exe"; AppUserModelID: "local.codebuddy.desktop"; Check: WantDesktopShortcut
+; Keep Inno's native shortcut metadata; publish the selected links on Finish.
+Name: "{app}\resources\CodeBuddy"; Filename: "{app}\CodeBuddy.exe"; WorkingDir: "{app}"; AppUserModelID: "local.codebuddy.desktop"
+
+[UninstallDelete]
+Type: files; Name: "{autodesktop}\CodeBuddy.lnk"
+Type: files; Name: "{autoprograms}\CodeBuddy.lnk"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueData: "URL:CodeBuddy Protocol"
@@ -85,25 +94,32 @@ Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait 
 [Code]
 var
   DesktopShortcut: TNewCheckBox;
+  StartMenuShortcut: TNewCheckBox;
   ProgressText: TNewStaticText;
+  ShortcutsApplied: Boolean;
 
-function WantDesktopShortcut: Boolean;
+procedure ApplyShortcutChoices;
 begin
-  Result := DesktopShortcut.Checked;
+  if DesktopShortcut.Checked and not FileCopy(
+    ExpandConstant('{app}\resources\CodeBuddy.lnk'),
+    ExpandConstant('{autodesktop}\CodeBuddy.lnk'), False) then
+    RaiseException('无法创建桌面快捷方式，请检查桌面文件夹的写入权限后重试。');
+  if StartMenuShortcut.Checked and not FileCopy(
+    ExpandConstant('{app}\resources\CodeBuddy.lnk'),
+    ExpandConstant('{autoprograms}\CodeBuddy.lnk'), False) then
+    RaiseException('无法添加到开始菜单，请检查开始菜单文件夹的写入权限后重试。');
+  ShortcutsApplied := True;
 end;
 
-procedure RegisterPreviousData(PreviousDataKey: Integer);
+procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if DesktopShortcut.Checked then
-    SetPreviousData(PreviousDataKey, 'DesktopShortcut', '1')
-  else
-    SetPreviousData(PreviousDataKey, 'DesktopShortcut', '0');
+  { Silent installs and closing the finished page must apply the same defaults. }
+  if (CurStep = ssDone) and not ShortcutsApplied then
+    ApplyShortcutChoices;
 end;
 
 procedure InitializeWizard;
 begin
-  WizardForm.PageNameLabel.Font.Size := 16;
-  WizardForm.PageDescriptionLabel.Font.Size := 10;
   WizardForm.SelectDirBitmapImage.Visible := False;
   WizardForm.SelectDirLabel.Left := 0;
   WizardForm.SelectDirLabel.Top := ScaleY(16);
@@ -117,35 +133,51 @@ begin
   WizardForm.DirBrowseButton.Height := WizardForm.DirEdit.Height;
   WizardForm.SelectDirBrowseLabel.Top := ScaleY(92);
   WizardForm.SelectDirBrowseLabel.Height := ScaleY(40);
-  DesktopShortcut := TNewCheckBox.Create(WizardForm);
-  DesktopShortcut.Parent := WizardForm.SelectDirPage;
-  DesktopShortcut.SetBounds(0, ScaleY(144), WizardForm.SelectDirPage.ClientWidth, ScaleY(26));
-  DesktopShortcut.Caption := '创建桌面快捷方式';
-  DesktopShortcut.Checked := GetPreviousData('DesktopShortcut', '1') = '1';
-  WizardForm.DiskSpaceLabel.Top := ScaleY(196);
-  WizardForm.ProgressGauge.Height := ScaleY(8);
+  WizardForm.DiskSpaceLabel.Top := ScaleY(144);
   WizardForm.FilenameLabel.Visible := False;
   ProgressText := TNewStaticText.Create(WizardForm);
   ProgressText.Parent := WizardForm.InstallingPage;
   ProgressText.Left := WizardForm.ProgressGauge.Left;
-  ProgressText.Top := WizardForm.ProgressGauge.Top + ScaleY(24);
+  ProgressText.Top := WizardForm.ProgressGauge.Top + WizardForm.ProgressGauge.Height + ScaleY(12);
   ProgressText.Width := WizardForm.InstallingPage.ClientWidth;
   ProgressText.Caption := '正在安装 · 0%';
   WizardForm.WizardBitmapImage2.Visible := False;
   WizardForm.FinishedHeadingLabel.Left := ScaleX(32);
   WizardForm.FinishedHeadingLabel.Top := ScaleY(32);
   WizardForm.FinishedHeadingLabel.Width := WizardForm.FinishedPage.ClientWidth - ScaleX(64);
+  WizardForm.FinishedHeadingLabel.Height := ScaleY(64);
   WizardForm.FinishedLabel.Left := ScaleX(32);
   WizardForm.FinishedLabel.Top := ScaleY(104);
   WizardForm.FinishedLabel.Width := WizardForm.FinishedHeadingLabel.Width;
+  WizardForm.FinishedLabel.Height := ScaleY(36);
+  DesktopShortcut := TNewCheckBox.Create(WizardForm);
+  DesktopShortcut.Parent := WizardForm.FinishedPage;
+  DesktopShortcut.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(24));
+  DesktopShortcut.Caption := '创建桌面快捷方式';
+  DesktopShortcut.Checked := True;
+  StartMenuShortcut := TNewCheckBox.Create(WizardForm);
+  StartMenuShortcut.Parent := WizardForm.FinishedPage;
+  StartMenuShortcut.SetBounds(ScaleX(32), ScaleY(184), WizardForm.FinishedHeadingLabel.Width, ScaleY(24));
+  StartMenuShortcut.Caption := '添加到开始菜单';
+  StartMenuShortcut.Checked := True;
   WizardForm.RunList.Left := ScaleX(32);
-  WizardForm.RunList.Top := ScaleY(176);
+  WizardForm.RunList.Top := ScaleY(216);
   WizardForm.RunList.Width := WizardForm.FinishedHeadingLabel.Width;
+  WizardForm.RunList.Height := ScaleY(48);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
+  if CurPageID = wpFinished then
+  begin
+    try
+      ApplyShortcutChoices;
+    except
+      MsgBox(GetExceptionMessage, mbError, MB_OK);
+      Result := False;
+    end;
+  end;
   { Bundled libraries still include paths subject to the Win32 MAX_PATH limit. }
   if (CurPageID = wpSelectDir) and
      (Length(AddBackslash(WizardDirValue)) + {#MaxRelativePath} > 259) then

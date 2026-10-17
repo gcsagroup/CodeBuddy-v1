@@ -22,7 +22,7 @@ const { chromium } = require(
       .flatMap((context) => context.pages())
       .find((candidate) => candidate.url().startsWith("http://localhost:"));
     assert.ok(page, "Current Electron renderer must be present");
-    await page.getByText("欢迎使用 CodePro", { exact: true }).waitFor();
+    await page.getByText("欢迎使用 CodeBuddy", { exact: true }).waitFor();
     await page.locator("#dynamic-textarea:visible").first().waitFor();
     const session = await browser.newBrowserCDPSession();
     const processes = await session.send("SystemInfo.getProcessInfo");
@@ -55,7 +55,7 @@ const { chromium } = require(
       ),
     );
     const body = await page.locator("body").innerText();
-    assert.ok(body.includes("欢迎使用 CodePro"));
+    assert.ok(body.includes("欢迎使用 CodeBuddy"));
     assert.ok(!body.includes("无法在所选工作区中启动 CodePro"));
     assert.equal(launch.defaultWorkspaceRoot, "D:\\CodeBuddy-Workspace");
     assert.ok(fs.statSync(launch.defaultWorkspaceRoot).isDirectory());

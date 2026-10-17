@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Clock, Send, GripVertical, Zap, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Clock, Send, GripVertical, Zap, Sparkles, LoaderCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
@@ -110,6 +110,7 @@ interface MessageQueueProps {
   editingMessageIdRef?: React.MutableRefObject<string | null>;
   onReorderMessages?: (reorderedMessages: QueuedMessage[]) => void;
   sendingMessageIds?: ReadonlySet<string>;
+  waitingMessageId?: string | null;
   className?: string;
   isPaused?: boolean;
   blockedReason?: string;
@@ -126,12 +127,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   editingMessageIdRef,
   onReorderMessages,
   sendingMessageIds,
+  waitingMessageId,
   className = '',
   isPaused = false,
   blockedReason,
 }) => {
   const intl = useIntl();
-  const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
@@ -206,105 +207,9 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
     return `${Math.floor(diff / 3600000)}h`;
   };
 
-  const nextMessage = queuedMessages[0];
-  const remainingCount = queuedMessages.length - 1;
-  const nextMessageIsSending = isSendingMessage(nextMessage.id);
   const hasSendingMessages = queuedMessages.some((message) => isSendingMessage(message.id));
-  const hasUncertainDelivery = queuedMessages.some(
-    (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
-  );
-  const deliveryNotice = intl.formatMessage({
-    id: 'messageQueue.verifyDelivery',
-    defaultMessage: 'Sending result unknown. Check the conversation before retrying.',
-  });
 
-  // Compact View
-  if (!isExpanded) {
-    return (
-      <div className={`relative ${className}`}>
-        {/* Compact Header */}
-        <div
-          className="flex items-center justify-between gap-2 px-4 py-2 bg-background border-b border-border/20 cursor-pointer hover:bg-muted/30 transition-all duration-200"
-          title={
-            blockedReason ??
-            (hasUncertainDelivery
-              ? deliveryNotice
-              : isPaused
-                ? intl.formatMessage(i18n.queuePausedCompact)
-                : undefined)
-          }
-          onClick={() => setIsExpanded(true)}
-        >
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {isPaused ? (
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              ) : (
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              )}
-              <span className="max-w-44 truncate text-xs font-medium text-foreground">
-                {hasUncertainDelivery
-                  ? deliveryNotice
-                  : isPaused
-                    ? intl.formatMessage(i18n.paused)
-                    : intl.formatMessage(i18n.next)}
-              </span>
-            </div>
-
-            {/* Next message preview */}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground truncate" title={nextMessage.content}>
-                {nextMessage.content.length > 40
-                  ? `${nextMessage.content.substring(0, 40)}...`
-                  : nextMessage.content}
-              </p>
-            </div>
-
-            {/* Queue count */}
-            {remainingCount > 0 && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background-secondary border border-border-primary px-2 py-1 rounded-full font-medium">
-                <span>+{remainingCount}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Quick Send Now button */}
-            {onStopAndSend && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (nextMessageIsSending) return;
-                  onStopAndSend(nextMessage.id);
-                }}
-                disabled={nextMessageIsSending}
-                className="h-7 gap-1 px-2 text-xs text-info hover:text-info/80 hover:bg-info/10"
-                title={intl.formatMessage(i18n.stopAndSend)}
-              >
-                <span>{intl.formatMessage(i18n.sendNow)}</span>
-                <Send className="w-3 h-3" />
-              </Button>
-            )}
-
-            {/* Expand button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-              title={intl.formatMessage(i18n.expandQueue)}
-              aria-expanded={false}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Expanded View
+  // One queue list: no second disclosure layer around editing and sending.
   return (
     <div className={`relative ${className}`}>
       {/* Expanded Header */}
@@ -352,17 +257,6 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
               {intl.formatMessage(i18n.clearAll)}
             </Button>
           )}
-
-          {/* Collapse button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(false)}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-            title={intl.formatMessage(i18n.collapseQueue)}
-          >
-            <ChevronUp className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 
@@ -560,7 +454,11 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                       }
                     >
                       <span>{intl.formatMessage(i18n.sendNow)}</span>
-                      <Send className="w-3 h-3" />
+                      {waitingMessageId === message.id ? (
+                        <LoaderCircle className="w-3 h-3 animate-spin" aria-label={blockedReason} />
+                      ) : (
+                        <Send className="w-3 h-3" />
+                      )}
                     </Button>
                   )}
 

@@ -571,7 +571,7 @@ async function updateMessage(
 ): Promise<void> {
   assertNoPendingPromptCancellation(sessionId);
 
-  const resolvedEditType = editType ?? 'fork';
+  const resolvedEditType = editType ?? 'edit';
   const currentSnapshot = options.getCurrentSnapshot();
   const storedSnapshot = acpChatSessionStore.getSnapshot(sessionId);
   const activePromptAttemptId = storedSnapshot?.activePromptAttemptId;
@@ -751,7 +751,7 @@ async function updateMessage(
   try {
     await acpTruncateSessionConversation(sessionId, message.created);
 
-    const truncatedMessages = currentMessages.filter((m) => m.created < message.created);
+    const truncatedMessages = currentMessages.slice(0, currentMessages.indexOf(message));
     const updatedUserMessage = createUserMessage(newContent);
 
     for (const content of message.content) {

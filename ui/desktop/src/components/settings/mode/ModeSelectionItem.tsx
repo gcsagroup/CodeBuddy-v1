@@ -11,30 +11,30 @@ const i18n = defineMessages({
   },
   autonomousLabel: {
     id: 'modeSelectionItem.autonomousLabel',
-    defaultMessage: 'Autonomous',
+    defaultMessage: 'Full access',
   },
   autonomousDescription: {
     id: 'modeSelectionItem.autonomousDescription',
     defaultMessage:
-      'Full local file and network access without per-action approval. Explicit denies and unavailable tools still apply.',
+      'Run tools without per-action approval. Explicit denies, file sandbox limits and unavailable tools still apply.',
   },
   manualLabel: {
     id: 'modeSelectionItem.manualLabel',
-    defaultMessage: 'Manual',
+    defaultMessage: 'Request approval',
   },
   manualDescription: {
     id: 'modeSelectionItem.manualDescription',
     defaultMessage:
-      'Ask before actions that are not already allowed by permission rules or read-only policies.',
+      'Allow verified read-only queries. Ask before writes, commands and other actions unless explicitly allowed.',
   },
   smartLabel: {
     id: 'modeSelectionItem.smartLabel',
-    defaultMessage: 'Smart',
+    defaultMessage: 'Smart approval',
   },
   smartDescription: {
     id: 'modeSelectionItem.smartDescription',
     defaultMessage:
-      'Allow verified read-only actions; ask before writes or higher-risk actions. This is not independent approval review.',
+      'Allow read-only queries and native file changes in a confirmed project under its file sandbox. Ask before commands, Git writes and other actions.',
   },
   chatOnlyLabel: {
     id: 'modeSelectionItem.chatOnlyLabel',

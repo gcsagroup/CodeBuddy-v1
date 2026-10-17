@@ -283,14 +283,18 @@ describe('ACP permission requests', () => {
     'subagent_coder',
     'subagent_tester',
     'subagent_reviewer',
-  ])('allows only one invocation of verified native %s without showing a card', async (name) => {
+  ])('keeps a host approval request for native %s pending until explicitly answered', async (name) => {
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(nativeToolSnapshot(name));
     const request = permissionRequest('session-1', 'tool-1');
     request.toolCall.title = name;
-    await expect(requestAcpPermission(request)).resolves.toEqual({
+    const response = requestAcpPermission(request);
+    await expectStillPending(response);
+    expect(acpChatSessionActions.applyPermissionRequest).toHaveBeenCalledWith(request);
+    expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(true);
+    expect(resolveAcpPermissionRequest('session-1', 'tool-1', 'allow_once')).toBe(true);
+    await expect(response).resolves.toEqual({
       outcome: { outcome: 'selected', optionId: 'allow-once' },
     });
-    expect(acpChatSessionActions.applyPermissionRequest).not.toHaveBeenCalled();
     expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(false);
   });
 

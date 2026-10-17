@@ -9,7 +9,6 @@ import { Button } from './ui/button';
 import { defineMessages, useIntl } from '../i18n';
 import type { MessageEditType } from '../types/turnTerminal';
 import type { SessionType } from '../types/session';
-import { canForkSession, sessionCapabilityMessages } from '../utils/sessionCapabilities';
 
 const i18n = defineMessages({
   editPlaceholder: {
@@ -39,15 +38,15 @@ const i18n = defineMessages({
   },
   editInPlace: {
     id: 'userMessage.editInPlace',
-    defaultMessage: 'Edit in Place',
+    defaultMessage: 'Edit and resend',
   },
   editInPlaceAriaLabel: {
     id: 'userMessage.editInPlaceAriaLabel',
-    defaultMessage: 'Edit message in place',
+    defaultMessage: 'Edit and resend message',
   },
   editInPlaceTitle: {
     id: 'userMessage.editInPlaceTitle',
-    defaultMessage: 'Update the message in this session',
+    defaultMessage: 'Replace this request and regenerate the conversation from here',
   },
   forkSession: {
     id: 'userMessage.forkSession',
@@ -85,7 +84,6 @@ interface UserMessageProps {
 export default function UserMessage({
   message,
   onMessageUpdate,
-  sessionType,
   readOnly = false,
 }: UserMessageProps) {
   const intl = useIntl();
@@ -141,29 +139,18 @@ export default function UserMessage({
     setError(null); // Clear any previous errors
   }, []);
 
-  const handleSave = useCallback(
-    (editType: 'fork' | 'edit' = 'fork') => {
-      if (editType === 'fork' && !canForkSession(sessionType)) {
-        setError(intl.formatMessage(sessionCapabilityMessages.forkUnavailable));
-        return;
-      }
-      if (editContent.trim().length === 0) {
-        setError(intl.formatMessage(i18n.emptyError));
-        return;
-      }
+  const handleSave = useCallback(() => {
+    if (editContent.trim().length === 0) {
+      setError(intl.formatMessage(i18n.emptyError));
+      return;
+    }
 
-      setIsEditing(false);
+    setIsEditing(false);
 
-      if (editType === 'edit' && editContent.trim() === textContent.trim()) {
-        return;
-      }
-
-      if (onMessageUpdate && message.id) {
-        onMessageUpdate(message.id, editContent, editType);
-      }
-    },
-    [editContent, textContent, onMessageUpdate, message.id, intl, sessionType]
-  );
+    if (onMessageUpdate && message.id) {
+      onMessageUpdate(message.id, editContent, 'edit');
+    }
+  }, [editContent, onMessageUpdate, message.id, intl]);
 
   // Handle cancel action
   const handleCancel = useCallback(() => {
@@ -230,16 +217,7 @@ export default function UserMessage({
                 {error}
               </div>
             )}
-            <div className="flex justify-between items-center mt-4">
-              <div className="text-xs text-text-secondary">
-                {canForkSession(sessionType)
-                  ? intl.formatMessage(i18n.editInPlaceDescription, {
-                      b: (chunks: React.ReactNode) => (
-                        <span className="font-semibold">{chunks}</span>
-                      ),
-                    })
-                  : intl.formatMessage(sessionCapabilityMessages.forkUnavailable)}
-              </div>
+            <div className="flex justify-end items-center mt-4">
               <div className="flex gap-3">
                 <Button
                   onClick={handleCancel}
@@ -249,20 +227,11 @@ export default function UserMessage({
                   {intl.formatMessage(i18n.cancel)}
                 </Button>
                 <Button
-                  onClick={() => handleSave('edit')}
-                  variant="secondary"
+                  onClick={handleSave}
                   aria-label={intl.formatMessage(i18n.editInPlaceAriaLabel)}
                   title={intl.formatMessage(i18n.editInPlaceTitle)}
                 >
                   {intl.formatMessage(i18n.editInPlace)}
-                </Button>
-                <Button
-                  onClick={() => handleSave('fork')}
-                  disabled={!canForkSession(sessionType)}
-                  aria-label={intl.formatMessage(i18n.forkSessionAriaLabel)}
-                  title={intl.formatMessage(i18n.forkSessionTitle)}
-                >
-                  {intl.formatMessage(i18n.forkSession)}
                 </Button>
               </div>
             </div>

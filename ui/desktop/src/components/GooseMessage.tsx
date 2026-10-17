@@ -310,9 +310,7 @@ export default function GooseMessage({
     textContent.trim() ||
     (plainTerminal && !priorAnswerText
       ? intl.formatMessage(
-          turnTerminal.status === 'cancelled'
-            ? i18n.cancelledExplanation
-            : i18n.interruptedExplanation
+          turnTerminal.status === 'cancelled' ? i18n.cancelledExplanation : i18n.turnStopped
         )
       : textContent);
   // Preserve the source timeline. Only adjacent fragments of the same kind may

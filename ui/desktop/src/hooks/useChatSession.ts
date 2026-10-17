@@ -361,7 +361,7 @@ export function useChatSession({
   }, [sessionId]);
 
   const onMessageUpdate = useCallback(
-    async (messageId: string, newContent: string, editType: MessageEditType = 'fork') => {
+    async (messageId: string, newContent: string, editType: MessageEditType = 'edit') => {
       try {
         await acpChatSessionController.updateMessage(sessionId, messageId, newContent, editType, {
           getCurrentSnapshot,

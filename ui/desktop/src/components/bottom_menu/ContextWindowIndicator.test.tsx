@@ -15,7 +15,7 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
       alerts={[]}
     />
   );
-  expect(screen.getByText('≈8k / 33k?')).toHaveAttribute(
+  expect(screen.getByText('8k / 33k?')).toHaveAttribute(
     'title',
     expect.stringContaining('between steps')
   );
@@ -28,7 +28,7 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
       alerts={[]}
     />
   );
-  expect(screen.getByText('≈3k / 66k')).toHaveAttribute(
+  expect(screen.getByText('3k / 66k')).toHaveAttribute(
     'title',
     expect.stringContaining('reported by service')
   );
@@ -36,5 +36,8 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
 
 it('shows pending capacity without a fabricated 128k limit', () => {
   render(<ContextWindowIndicator totalTokens={0} tokenLimit={0} alerts={[]} />);
-  expect(screen.getByText('0 / Unknown')).toHaveAttribute('title', expect.stringContaining('pending'));
+  expect(screen.getByText('0 / Unknown')).toHaveAttribute(
+    'title',
+    expect.stringContaining('pending')
+  );
 });

@@ -104,9 +104,9 @@ async function queue(text: string) {
 
 const sendNow = () => screen.getByTitle('Stop current processing and send this message now');
 
-describe('compact queue presentation', () => {
+describe('single queue list presentation', () => {
   const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };
-  it('starts as one compact row and keeps the explicit send action separate from expansion', async () => {
+  it('shows queued rows and their send actions without a disclosure layer', async () => {
     const send = vi.fn();
     render(
       <MessageQueue
@@ -117,20 +117,18 @@ describe('compact queue presentation', () => {
       />,
       { wrapper: IntlTestWrapper }
     );
-    expect(screen.queryByText('Message Queue')).toBeNull();
-    expect(screen.getByText('+1')).toBeVisible();
-    const action = screen.getByRole('button', { name: 'Send now' });
+    expect(screen.getByText('Message Queue')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
+    const action = screen.getAllByRole('button', { name: 'Send now' })[0];
     expect(action).toHaveAttribute('title', 'Stop current processing and send this message now');
     await userEvent.click(action);
     expect(send).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledWith('first');
-    expect(screen.queryByText('Message Queue')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
     expect(screen.getByText('Message Queue')).toBeVisible();
     expect(screen.getByText('Second queued request')).toBeVisible();
   });
 
-  it('keeps an uncertain delivery visible and exposes its original confirmation controls when expanded', async () => {
+  it('keeps an uncertain delivery and its confirmation controls directly visible', async () => {
     const confirmNotSent = vi.fn();
     render(
       <MessageQueue
@@ -147,7 +145,6 @@ describe('compact queue presentation', () => {
       screen.getByText('Sending result unknown. Check the conversation before retrying.')
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Send now' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
     expect(screen.getByRole('button', { name: 'Confirmed sent: remove' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Confirmed not sent: queue again' }));
     expect(confirmNotSent).toHaveBeenCalledOnce();
@@ -474,6 +471,23 @@ describe('ChatInput queue delivery', () => {
     expect(screen.queryByText('Message Queue')).toBeNull();
   });
 
+  it('[retest-20261016] retries Send Now while transport is settling without dispatching twice', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onAccepted()
+    );
+    const view = setup(submit);
+    await queue('replacement after stop');
+    view.changeBlocked(true);
+    view.changeState(ChatState.Idle);
+    await userEvent.click(sendNow());
+    await userEvent.click(sendNow());
+    expect(view.onStop).toHaveBeenCalledTimes(2);
+    expect(submit).not.toHaveBeenCalled();
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0].msg).toBe('replacement after stop');
+  });
+
   it('cancels instead of steering and waits for RPC release before sending a fresh turn once', async () => {
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
       lifecycle?.onAccepted()
@@ -545,7 +559,7 @@ describe('ChatInput queue delivery', () => {
     expect(view.onStop).toHaveBeenCalledOnce();
     expect(submit).toHaveBeenCalledOnce();
     await userEvent.click(sendNow());
-    expect(view.onStop).toHaveBeenCalledOnce();
+    expect(view.onStop).toHaveBeenCalledTimes(2);
     view.changeState(ChatState.Idle);
     view.changeBlocked(false);
     expect(submit).toHaveBeenCalledOnce();

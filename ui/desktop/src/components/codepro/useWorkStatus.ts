@@ -5,12 +5,25 @@ import { ChatState } from '../../types/chatState';
 
 const labels = defineMessages({
   first: { id: 'workStatus.first', defaultMessage: 'Waiting for model response' },
-  next: { id: 'workStatus.next', defaultMessage: 'Waiting for further output' },
+  children: {
+    id: 'workStatus.children',
+    defaultMessage:
+      'Waiting for {count, plural, one {# subagent} other {# subagents}} to return results',
+  },
+  childResult: {
+    id: 'workStatus.childResult',
+    defaultMessage: 'Waiting for the main agent to process subagent results',
+  },
+  toolResult: {
+    id: 'workStatus.toolResult',
+    defaultMessage: 'Waiting for the main agent to process tool results',
+  },
   text: { id: 'workStatus.text', defaultMessage: 'Receiving the response' },
   thought: { id: 'workStatus.thought', defaultMessage: 'Receiving model activity' },
   question: { id: 'workStatus.question', defaultMessage: 'Waiting for your answer or approval' },
   cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping; waiting for confirmation' },
   check: { id: 'workStatus.check', defaultMessage: 'Checking execution results' },
+  approval: { id: 'workStatus.approval', defaultMessage: 'Waiting for your approval: {action}' },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 
@@ -30,7 +43,8 @@ interface WorkStatusInput {
 export function selectWorkStatus(input: WorkStatusInput, now: number) {
   const { chatState, activity, stage, action, checking, cancelling } = input;
   if (cancelling) return { source: 'cancel' as const };
-  if (chatState === ChatState.WaitingForUserInput) return { source: 'question' as const };
+  if (chatState === ChatState.WaitingForUserInput)
+    return action ? { source: 'approval' as const, action } : { source: 'question' as const };
   if (chatState !== ChatState.Streaming && chatState !== ChatState.Thinking)
     return { source: 'chat_state' as const };
   if (checking) return { source: 'check' as const };
@@ -38,24 +52,26 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
     ? Math.max(0, Math.floor((now - (activity.receivedAt ?? activity.startedAt)) / 1000))
     : 0;
   const recent = activity?.receivedAt !== undefined && silence < 3;
-  const source = input.thinking
-    ? 'thought'
-    : action
-      ? 'tool'
-      : recent && activity?.kind === 'text'
-        ? 'text'
-        : recent && activity?.kind === 'thought'
-          ? 'thought'
-          : stage && activity
-            ? 'stage'
-            : activity?.receivedAt !== undefined
-              ? 'next'
-              : 'first';
+  const execution = activity?.execution;
+  const source = action
+    ? 'tool'
+    : recent && activity?.kind === 'text'
+      ? 'text'
+      : recent && (input.thinking || activity?.kind === 'thought')
+        ? 'thought'
+        : execution?.phase === 'children' && execution.childCount > 0
+          ? 'children'
+          : execution?.phase === 'child_result'
+            ? 'childResult'
+            : execution?.phase === 'tool_result'
+              ? 'toolResult'
+              : stage && activity
+                ? 'stage'
+                : 'first';
   return {
     source,
     title: source === 'stage' ? stage : source === 'tool' ? action : undefined,
-    // This threshold changes only the display, never execution or timeout policy.
-    quietSeconds: silence >= 15 ? silence : undefined,
+    childCount: execution?.childCount ?? 0,
     toolPending: Boolean(input.toolPending),
   } as const;
 }
@@ -80,7 +96,9 @@ export function useWorkStatus(input: WorkStatusInput) {
         ? input.stage
         : source === 'chat_state'
           ? input.chatState
-          : null,
+          : source === 'children'
+            ? selection.childCount
+            : null,
   ]);
   const [clock, setClock] = useState(() => ({ key: statusKey, startedAt: Date.now() }));
   let startedAt = clock.startedAt;
@@ -98,7 +116,10 @@ export function useWorkStatus(input: WorkStatusInput) {
       ? selection.title
       : source === 'chat_state' || source === 'stage' || source === 'tool'
         ? undefined
-        : intl.formatMessage(labels[source]);
+        : intl.formatMessage(labels[source], {
+            count: 'childCount' in selection ? selection.childCount : 0,
+            action: 'action' in selection ? selection.action : '',
+          });
   const elapsed =
     elapsedSeconds !== undefined && elapsedSeconds >= 1
       ? intl.formatMessage(labels.elapsed, {

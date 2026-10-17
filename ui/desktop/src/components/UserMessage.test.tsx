@@ -43,15 +43,21 @@ describe('UserMessage', () => {
     copyRichText.mockRestore();
   });
 
-  it('updates copy availability when the session type finishes loading', async () => {
+  it('keeps the editor free of fork actions while the session type finishes loading', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<UserMessage message={message} />, { wrapper: IntlTestWrapper });
     await user.click(screen.getByRole('button', { name: 'Edit message: 你好' }));
-    expect(screen.getByRole('button', { name: 'Fork session with edited message' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Fork session with edited message' })
+    ).not.toBeInTheDocument();
     rerender(<UserMessage message={message} sessionType="user" />);
-    expect(screen.getByRole('button', { name: 'Fork session with edited message' })).toBeEnabled();
+    expect(
+      screen.queryByRole('button', { name: 'Fork session with edited message' })
+    ).not.toBeInTheDocument();
     rerender(<UserMessage message={message} sessionType="code_pro" />);
-    expect(screen.getByRole('button', { name: 'Fork session with edited message' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Fork session with edited message' })
+    ).not.toBeInTheDocument();
   });
 
   it('keeps edit and copy actions on one line for a short message', () => {
@@ -82,7 +88,7 @@ describe('UserMessage', () => {
     expect(logs).not.toMatch(/你好|TOP_SECRET|edited body|Content changed|Entering edit mode/);
   });
 
-  it('uses fork for the default keyboard resend and edit only for the explicit in-place action', async () => {
+  it('uses the same edit-and-resend action for keyboard and button submission', async () => {
     const user = userEvent.setup();
     const onMessageUpdate = vi.fn();
     const { rerender } = render(
@@ -93,9 +99,9 @@ describe('UserMessage', () => {
     await user.click(screen.getByRole('button', { name: 'Edit message: 你好' }));
     const editor = screen.getByRole('textbox', { name: 'Edit message content' });
     await user.clear(editor);
-    await user.type(editor, '分叉重发');
+    await user.type(editor, '编辑重发');
     await user.keyboard('{Control>}{Enter}{/Control}');
-    expect(onMessageUpdate).toHaveBeenLastCalledWith('short-message', '分叉重发', 'fork');
+    expect(onMessageUpdate).toHaveBeenLastCalledWith('short-message', '编辑重发', 'edit');
 
     rerender(
       <UserMessage message={message} onMessageUpdate={onMessageUpdate} sessionType="user" />
@@ -104,11 +110,11 @@ describe('UserMessage', () => {
     const inPlaceEditor = screen.getByRole('textbox', { name: 'Edit message content' });
     await user.clear(inPlaceEditor);
     await user.type(inPlaceEditor, '原地重发');
-    await user.click(screen.getByRole('button', { name: 'Edit message in place' }));
+    await user.click(screen.getByRole('button', { name: 'Edit and resend message' }));
     expect(onMessageUpdate).toHaveBeenLastCalledWith('short-message', '原地重发', 'edit');
   });
 
-  it('keeps CodePro edits open when the fork shortcut is used and permits explicit in-place edits', async () => {
+  it('resends CodePro edits in place with the same keyboard shortcut', async () => {
     const user = userEvent.setup();
     const onMessageUpdate = vi.fn();
     render(
@@ -119,12 +125,11 @@ describe('UserMessage', () => {
     const editor = screen.getByRole('textbox', { name: 'Edit message content' });
     await user.clear(editor);
     await user.type(editor, 'Keep this draft');
-    expect(screen.getByRole('button', { name: 'Fork session with edited message' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Fork session with edited message' })
+    ).not.toBeInTheDocument();
     await user.keyboard('{Control>}{Enter}{/Control}');
-    expect(onMessageUpdate).not.toHaveBeenCalled();
-    expect(editor).toHaveValue('Keep this draft');
-    expect(screen.getByRole('alert')).toHaveTextContent('Copying is unavailable');
-    await user.click(screen.getByRole('button', { name: 'Edit message in place' }));
     expect(onMessageUpdate).toHaveBeenCalledWith('short-message', 'Keep this draft', 'edit');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });

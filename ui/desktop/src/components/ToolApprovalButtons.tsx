@@ -25,7 +25,12 @@ const i18n = defineMessages({
   allowByScope: {
     id: 'toolApprovalButtons.allowByScope',
     defaultMessage:
-      '{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}',
+      '{scope, select, task {Allow for this task} session {Allow this tool for this session} other {Always Allow}}',
+  },
+  sessionAllowHint: {
+    id: 'toolApprovalButtons.sessionAllowHint',
+    defaultMessage:
+      'Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice.',
   },
   deny: {
     id: 'toolApprovalButtons.deny',
@@ -47,7 +52,7 @@ const i18n = defineMessages({
   allowedByScope: {
     id: 'toolApprovalButtons.allowedByScope',
     defaultMessage:
-      '{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}',
+      '{scope, select, task {Allowed for this task} session {Tool allowed for this session} other {Always allowed}}',
   },
   denied: {
     id: 'toolApprovalButtons.denied',
@@ -216,6 +221,11 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
             className="rounded-full"
             variant="secondary"
             onClick={() => handleAction('always_allow')}
+            title={
+              authorizationScope === 'session'
+                ? intl.formatMessage(i18n.sessionAllowHint)
+                : undefined
+            }
           >
             {intl.formatMessage(i18n.allowByScope, {
               scope: authorizationScope,

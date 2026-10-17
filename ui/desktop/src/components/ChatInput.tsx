@@ -82,7 +82,6 @@ const removeQueuedMessage = (messages: QueuedMessage[], messageId: string): Queu
 
 const MAX_IMAGES_PER_MESSAGE = 10;
 
-
 // Manual compact trigger message - must match backend constant
 const MANUAL_COMPACT_TRIGGER = '/compact';
 
@@ -138,6 +137,15 @@ const i18n = defineMessages({
   queueMessage: {
     id: 'chatInput.queueMessage',
     defaultMessage: 'Queue message',
+  },
+  waitingForCancellation: {
+    id: 'messageQueue.waitingForCancellation',
+    defaultMessage: 'Waiting for cancellation confirmation. Your queued message has not been sent.',
+  },
+  waitingForPreviousPrompt: {
+    id: 'messageQueue.waitingForPreviousPrompt',
+    defaultMessage:
+      'Waiting for the previous request to finish. Your queued message has not been sent.',
   },
   failedToReadImage: {
     id: 'chatInput.failedToReadImage',
@@ -317,6 +325,7 @@ export default function ChatInput({
   );
   const editingMessageIdRef = useRef<string | null>(null);
   const sendAfterStopMessageIdRef = useRef<string | null>(null);
+  const [sendAfterStopMessageId, setSendAfterStopMessageId] = useState<string | null>(null);
   const cancellationRequestedForQueueRef = useRef(false);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
   const [sendNowInFlightMessageIds, setSendNowInFlightMessageIds] = useState<ReadonlySet<string>>(
@@ -362,6 +371,7 @@ export default function ChatInput({
     queuePausedRef.current = restored.length > 0 || queueStorageFailedRef.current;
     editingMessageIdRef.current = null;
     sendAfterStopMessageIdRef.current = null;
+    setSendAfterStopMessageId(null);
     cancellationRequestedForQueueRef.current = false;
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
@@ -391,6 +401,7 @@ export default function ChatInput({
   const clearPendingSendAfterStop = useCallback((messageId?: string) => {
     if (!messageId || sendAfterStopMessageIdRef.current === messageId) {
       sendAfterStopMessageIdRef.current = null;
+      setSendAfterStopMessageId(null);
       cancellationRequestedForQueueRef.current = false;
     }
   }, []);
@@ -398,6 +409,7 @@ export default function ChatInput({
   const clearQueueState = useCallback(() => {
     queuePausedRef.current = false;
     sendAfterStopMessageIdRef.current = null;
+    setSendAfterStopMessageId(null);
     cancellationRequestedForQueueRef.current = false;
   }, []);
 
@@ -406,10 +418,7 @@ export default function ChatInput({
     null
   ) as React.RefObject<HTMLDivElement>;
   const intl = useIntl();
-  const {
-    currentModel: configModel,
-    currentProvider: configProvider,
-  } = useModelAndProvider();
+  const { currentModel: configModel, currentProvider: configProvider } = useModelAndProvider();
 
   // Local override for when the user changes the model in the modal,
   // before the session object is re-fetched from the backend.
@@ -562,6 +571,7 @@ export default function ChatInput({
     isLoading,
     queueProcessingBlocked,
     queuedMessages,
+    sendAfterStopMessageId,
     sendNowInFlightMessageIds,
     submitQueuedMessage,
   ]);
@@ -1434,15 +1444,14 @@ export default function ChatInput({
       return;
     }
 
-    if (sendAfterStopMessageIdRef.current === messageId) return;
-
     // Cancel is a request, not permission to overlap session/prompt calls. The
     // existing queue effect sends only after both display and transport settle.
     sendAfterStopMessageIdRef.current = messageId;
-    cancellationRequestedForQueueRef.current = isLoading && !!onStop;
+    setSendAfterStopMessageId(messageId);
+    cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
     pauseRemainingQueue();
     setQueuedMessages((prev) => moveQueuedMessageToFront(prev, messageId));
-    if (isLoading && onStop) onStop();
+    if ((isLoading || queueProcessingBlocked) && onStop) onStop();
   };
 
   const handleStop = () => {
@@ -1520,21 +1529,14 @@ export default function ChatInput({
           onTriggerQueueProcessing={handleQueueEditComplete}
           editingMessageIdRef={editingMessageIdRef}
           sendingMessageIds={sendNowInFlightMessageIds}
+          waitingMessageId={sendAfterStopMessageId}
           isPaused={queuePausedRef.current}
           blockedReason={
             queueProcessingBlocked
               ? intl.formatMessage(
                   cancellationRequestedForQueueRef.current
-                    ? {
-                        id: 'messageQueue.waitingForCancellation',
-                        defaultMessage:
-                          'Waiting for cancellation confirmation. Your queued message has not been sent.',
-                      }
-                    : {
-                        id: 'messageQueue.waitingForPreviousPrompt',
-                        defaultMessage:
-                          'Waiting for the previous request to finish. Your queued message has not been sent.',
-                      }
+                    ? i18n.waitingForCancellation
+                    : i18n.waitingForPreviousPrompt
                 )
               : undefined
           }
@@ -1736,7 +1738,9 @@ export default function ChatInput({
                 totalTokens={totalTokens}
                 tokenLimit={tokenLimit}
                 usageSource={contextUsageSource}
-                capacitySource={capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined}
+                capacitySource={
+                  capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined
+                }
                 alerts={alerts}
               />
 

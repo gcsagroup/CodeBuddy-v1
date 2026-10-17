@@ -86,7 +86,7 @@ export function CodeProWorkspaceReconfirmation({
   }, [inspectWorkspace, request.sessionId, request.workingDir, inspectionAttempt]);
 
   if (inspecting || confirming) {
-    return <p role="status">{intl.formatMessage(messages.checkingPersistedWorkspace)}</p>;
+    return null;
   }
 
   if (inspectionError || error) {

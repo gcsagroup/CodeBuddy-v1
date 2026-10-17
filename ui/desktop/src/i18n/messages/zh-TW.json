@@ -302,9 +302,6 @@
   "chatInput.voiceDictationHint": {
     "defaultMessage": "Voice dictation • Say \"submit\" to send"
   },
-  "chatInput.waitingForCancellation": {
-    "defaultMessage": "正在等待取消作業完成"
-  },
   "chatInput.waitingForImages": {
     "defaultMessage": "正在等待影像儲存…"
   },
@@ -4512,10 +4509,10 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "在目前權限範圍內自動執行。受限制或超出範圍的操作可能需要確認。"
+    "defaultMessage": "工具操作不逐項請求批准；明確禁止、檔案沙箱限制及不可用工具仍然生效。"
   },
   "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "自主"
+    "defaultMessage": "完全存取"
   },
   "modeSelectionItem.chatOnlyDescription": {
     "defaultMessage": "與選定的供應商互動，不使用工具或擴充功能。"
@@ -4524,16 +4521,16 @@
     "defaultMessage": "僅對話"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "權限規則或唯讀政策尚未允許的操作會先請求確認。"
+    "defaultMessage": "已核實的唯讀查詢自動執行；寫入、命令和其他操作需批准，已明確授權的操作除外。"
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "手動"
+    "defaultMessage": "請求批准"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "根據風險程度智慧判斷哪些動作需要核准"
+    "defaultMessage": "自動執行唯讀查詢，以及透過檔案工具修改已確認專案中的檔案；命令、Git 寫入和其他操作需批准。"
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "智慧"
+    "defaultMessage": "智慧批准"
   },
   "navigation.itemHome": {
     "defaultMessage": "新任務"
@@ -6426,10 +6423,10 @@
     "defaultMessage": "串流中"
   },
   "sessionPermissions.autoLabel": {
-    "defaultMessage": "完全存取（自主）"
+    "defaultMessage": "完全存取"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "請先停止目前任務，或等它完成後再切換。"
+    "defaultMessage": "本次選擇從下一次工具權限檢查生效。已執行中的操作維持原權限，待處理審批仍需明確選擇。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目錄：{path}。寫入檔案前需選擇專案。"
@@ -6441,19 +6438,16 @@
     "defaultMessage": "工作目錄：{path}。這不代表所有操作均已獲准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "本對話已啟用完全存取：工具操作不逐項請求批准；明確禁止、檔案沙箱限制及不可用工具仍然生效。"
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "逐項批准（手動）"
+    "defaultMessage": "請求批准"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "只影響目前會話；既有工具權限規則仍然生效。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "工具批准與權限"
-  },
-  "sessionPermissions.project": {
-    "defaultMessage": "已繫結專案：{path}。操作仍受工具權限規則約束。"
   },
   "sessionPermissions.projectContainer": {
     "defaultMessage": "專案父目錄：{path}。父目錄未授予專案寫入權限。"
@@ -6465,7 +6459,7 @@
     "defaultMessage": "正在切換權限…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "唯讀自動放行（智慧）"
+    "defaultMessage": "智慧批准"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "尚未授權任何專案的寫入權限。"
@@ -7545,10 +7539,10 @@
     "defaultMessage": "已寫入 {count} 個檔案"
   },
   "toolApprovalButtons.allowByScope": {
-    "defaultMessage": "{scope, select, task {本任務允許} session {本會話允許} other {始終允許}}"
+    "defaultMessage": "{scope, select, task {本任務允許} session {本會話允許此工具} other {始終允許}}"
   },
   "toolApprovalButtons.allowedByScope": {
-    "defaultMessage": "{scope, select, task {本任務已允許} session {本會話已允許} other {已設為始終允許}}"
+    "defaultMessage": "{scope, select, task {本任務已允許} session {本會話已允許此工具} other {已設為始終允許}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "已允許一次"
@@ -7576,6 +7570,9 @@
   },
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {本任務拒絕} session {本會話拒絕} other {始終拒絕}}"
+  },
+  "toolApprovalButtons.sessionAllowHint": {
+    "defaultMessage": "僅限目前會話的此工具；應用程式重啟或工具重新連線後失效。"
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "此核准要求已不再有效。"
@@ -8285,14 +8282,23 @@
   "workStatus.check": {
     "defaultMessage": "正在核對執行結果"
   },
+  "workStatus.approval": {
+    "defaultMessage": "等待你核准：{action}"
+  },
+  "workStatus.children": {
+    "defaultMessage": "等待 {count} 個子 Agent 傳回執行結果"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "等待主 Agent 處理子 Agent 的執行結果"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "等待主 Agent 處理工具執行結果"
+  },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds} 秒"
   },
   "workStatus.first": {
     "defaultMessage": "正在等待模型回應"
-  },
-  "workStatus.next": {
-    "defaultMessage": "等待下一個動作"
   },
   "workStatus.question": {
     "defaultMessage": "等待你的回答或批准"

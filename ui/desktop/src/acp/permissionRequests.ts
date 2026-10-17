@@ -5,7 +5,6 @@ import {
   acpChatSessionStore,
   acpPermissionUserInputRequestId,
 } from './chatSessionStore';
-import { isRecord } from './adapter/shared';
 
 interface PendingPermissionRequest {
   request: RequestPermissionRequest;
@@ -17,13 +16,6 @@ interface PendingPermissionRequest {
 
 const pendingRequests = new Map<string, PendingPermissionRequest>();
 const listeners = new Set<() => void>();
-const nativeSubagentTools = new Set([
-  'subagent',
-  'subagent_planner',
-  'subagent_coder',
-  'subagent_tester',
-  'subagent_reviewer',
-]);
 
 export function isAcpPermissionRequestPending(sessionId: string, toolCallId: string): boolean {
   return pendingRequests.has(permissionRequestKey(sessionId, toolCallId));
@@ -54,12 +46,8 @@ export async function requestAcpPermission(
 ): Promise<RequestPermissionResponse> {
   if (signal?.aborted) return cancelledPermissionResponse();
 
-  // The title alone is not a tool identity: an external MCP can use this name.
-  // Only the matching native Harness tool call may use this user-approved policy.
-  if (isNativeSubagentRequest(request)) {
-    const response = permissionResponseForAction(request, 'allow_once');
-    if (response) return response;
-  }
+  // The Host owns approval policy. A request that reaches the renderer still
+  // needs a decision, even when its display name matches a native control tool.
 
   const key = permissionRequestKey(request.sessionId, request.toolCall.toolCallId);
   const previous = pendingRequests.get(key);
@@ -85,25 +73,6 @@ export async function requestAcpPermission(
     acpChatSessionActions.applyPermissionRequest(request);
     notifyListeners();
   });
-}
-
-function isNativeSubagentRequest(request: RequestPermissionRequest): boolean {
-  const name = request.toolCall.title;
-  if (!name || !nativeSubagentTools.has(name)) return false;
-  return (
-    acpChatSessionStore.getSnapshot(request.sessionId)?.messages.some((message) =>
-      message.content.some((content) => {
-        if (
-          content.type !== 'toolRequest' ||
-          content.id !== request.toolCall.toolCallId ||
-          content.metadata?.extensionName !== 'harness'
-        )
-          return false;
-        const value = content.toolCall.value;
-        return isRecord(value) && value.name === name;
-      })
-    ) ?? false
-  );
 }
 
 export function resolveAcpPermissionRequest(

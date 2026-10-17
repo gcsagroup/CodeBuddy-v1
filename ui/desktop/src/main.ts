@@ -2,11 +2,7 @@ import { registerGitHubCliAuth } from './github/githubCliMain';
 import { startHarnessService } from './harnessService';
 import { readFileResponse } from './storage/readFileResponse';
 import { registerWorkspacePanel } from './workspace-panel/workspacePanelMain';
-import type {
-  OpenDialogOptions,
-  OpenDialogReturnValue,
-  Session,
-} from 'electron';
+import type { OpenDialogOptions, OpenDialogReturnValue, Session } from 'electron';
 import {
   app,
   App,
@@ -71,7 +67,11 @@ import { listGitWorktreeDirs } from './codepro/workspaceOperations';
 import { confirmCodeProWorkspace, inspectCodeProWorkspace } from './codepro/projectWorkspace';
 import { trayIconFileName, trayTooltip, windowIconFileName } from './utils/appIcons';
 import { resolveCodeBuddyUserDataDir } from './utils/userDataPath';
-import { applyLegacyEnvironment, resolveCodeBuddyPaths } from './storage/codeBuddyPaths';
+import {
+  applyLegacyEnvironment,
+  resolveCodeBuddyPaths,
+  resolvePackagedCodeBuddyHome,
+} from './storage/codeBuddyPaths';
 import { configureElectronProfile, profilePartition } from './storage/electronProfile';
 
 // The preview has an independent profile and must always use the Harness bridge.
@@ -80,8 +80,13 @@ const harnessPreview = process.env.CODEBUDDY_HARNESS_PREVIEW === '1';
 const harnessPackaged = app.isPackaged;
 // This product has one Agent runtime. Development must use start-preview.ps1.
 if (harnessPackaged) {
-  // Keep this first Harness release separate from the retired Rust profile.
-  process.env.CODEBUDDY_HOME ||= path.join(os.homedir(), '.CodeBuddy-Harness');
+  if (!process.env.CODEBUDDY_HOME) {
+    process.env.CODEBUDDY_HOME = resolvePackagedCodeBuddyHome(os.homedir(), (error) => {
+      log.warn('Profile directory rename deferred', {
+        code: error instanceof Error && 'code' in error ? error.code : undefined,
+      });
+    });
+  }
   process.env.CODEBUDDY_WORKSPACE_ROOT ||= path.join(os.homedir(), 'CodeBuddy-Workspace');
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
@@ -535,8 +540,7 @@ if (harnessPreview && process.env.CODEBUDDY_PREVIEW_DEVTOOLS_PORT) {
 
 // Lifecycle probes run unpackaged builds beside a real installation and must not
 // replace that installation's protocol handler. Normal launches still register.
-const protocolRegistrationEnabled =
-  process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION !== 'true';
+const protocolRegistrationEnabled = process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION !== 'true';
 
 // In development mode, force registration as the default protocol client.
 // In production, register normally unless an isolated lifecycle probe opted out.
@@ -999,8 +1003,7 @@ const getExternalBackendFromEnv = (): ExternalBackend | null => {
     return null;
   }
 
-  const secret =
-    process.env.CODEBUDDY_SERVER__SECRET_KEY ?? process.env.GOOSE_SERVER__SECRET_KEY;
+  const secret = process.env.CODEBUDDY_SERVER__SECRET_KEY ?? process.env.GOOSE_SERVER__SECRET_KEY;
   if (!secret) {
     throw new Error(
       'CODEBUDDY_SERVER__SECRET_KEY must be set when using CODEBUDDY_EXTERNAL_BACKEND. ' +
@@ -1296,8 +1299,16 @@ const createChat = async (
     dialog.showMessageBoxSync({
       type: 'error',
       title: 'CodeBuddy',
-      message: nativeT('CodeBuddy runtime is not connected.', 'CodeBuddy 运行时尚未连接。', 'CodeBuddy 執行環境尚未連線。'),
-      detail: nativeT('Use start-preview.ps1 for development or reinstall CodeBuddy.', '开发请使用 start-preview.ps1，安装版请重新安装 CodeBuddy。', '開發請使用 start-preview.ps1，安裝版請重新安裝 CodeBuddy。'),
+      message: nativeT(
+        'CodeBuddy runtime is not connected.',
+        'CodeBuddy 运行时尚未连接。',
+        'CodeBuddy 執行環境尚未連線。'
+      ),
+      detail: nativeT(
+        'Use start-preview.ps1 for development or reinstall CodeBuddy.',
+        '开发请使用 start-preview.ps1，安装版请重新安装 CodeBuddy。',
+        '開發請使用 start-preview.ps1，安裝版請重新安裝 CodeBuddy。'
+      ),
       buttons: [nativeT('OK', '确定', '確定')],
     });
     app.quit();
@@ -2468,9 +2479,7 @@ ipcMain.handle('check-ollama', async () => {
   }
 });
 
-ipcMain.handle('read-file', async (_event, filePath) =>
-  readFileResponse(expandTilde(filePath))
-);
+ipcMain.handle('read-file', async (_event, filePath) => readFileResponse(expandTilde(filePath)));
 
 registerWorkspacePanel();
 registerGitHubCliAuth();
@@ -2612,9 +2621,11 @@ async function appMain() {
     process.env.CODEBUDDY_EXTERNAL_BACKEND = 'true';
     process.env.CODEBUDDY_EXTERNAL_BACKEND_URL = packagedHarnessService.url;
     process.env.CODEBUDDY_SERVER__SECRET_KEY = packagedHarnessService.secret;
-    const status = await net.fetch(`${packagedHarnessService.url}/status`, {
-      headers: { 'X-Secret-Key': packagedHarnessService.secret },
-    }).then(response => response.json());
+    const status = await net
+      .fetch(`${packagedHarnessService.url}/status`, {
+        headers: { 'X-Secret-Key': packagedHarnessService.secret },
+      })
+      .then((response) => response.json());
     if (status.modelConfigured !== true) previewInitialRoute = '/configure-providers';
   }
   powerMonitor.on('resume', () => {
@@ -3346,7 +3357,7 @@ async function getAllowList(): Promise<string[]> {
 }
 
 let harnessQuitFinished = false;
-app.on('before-quit', event => {
+app.on('before-quit', (event) => {
   if (!packagedHarnessService || harnessQuitFinished) return;
   event.preventDefault();
   void packagedHarnessService.close().finally(() => {

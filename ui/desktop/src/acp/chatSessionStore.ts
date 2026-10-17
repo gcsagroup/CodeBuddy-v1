@@ -29,6 +29,10 @@ export interface PromptActivity {
   startedAt: number;
   receivedAt?: number;
   kind?: 'text' | 'thought' | 'tool';
+  execution?: {
+    phase: 'model' | 'children' | 'child_result' | 'tool_result';
+    childCount: number;
+  };
 }
 
 export interface AcpChatSessionSnapshot {
@@ -702,6 +706,37 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       registerTurnTerminalSeal(entry, notification);
       if (shouldIgnoreGooseNotificationForSealedTurn(entry, notification)) {
         return snapshotFromEntry(entry);
+      }
+      const update = notification.update;
+      const data = update.sessionUpdate === 'status_message' ? update.status.data : undefined;
+      if (
+        data &&
+        typeof data === 'object' &&
+        'event' in data &&
+        data.event === 'execution_activity'
+      ) {
+        const activity = data as Record<string, unknown>;
+        if (
+          !entry.sessionReplayActive &&
+          !entry.sealedIdleBoundaryActive &&
+          entry.activePromptAttemptId !== null &&
+          entry.promptActivity &&
+          activity.schema_version === 1 &&
+          activity.source_user_message_id === entry.activePromptSourceUserMessageId &&
+          typeof activity.run_id === 'string' &&
+          (!entry.activeRunId || activity.run_id === entry.activeRunId) &&
+          ['model', 'children', 'child_result', 'tool_result'].includes(String(activity.phase)) &&
+          Number.isInteger(activity.child_count) &&
+          Number(activity.child_count) >= 0
+        )
+          entry.promptActivity = {
+            ...entry.promptActivity,
+            execution: {
+              phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
+              childCount: Number(activity.child_count),
+            },
+          };
+        return notify(notification.sessionId, entry);
       }
       const changes = entry.adapter.applyGoose(notification, entry.sessionReplayActive);
       applyChatStateChanges(entry, changes);

@@ -27,7 +27,8 @@ const i18n = defineMessages({
   pending: { id: 'sessionPermissions.saving', defaultMessage: 'Changing permissions…' },
   busy: {
     id: 'sessionPermissions.busy',
-    defaultMessage: 'Stop the current task or wait for it to finish before switching.',
+    defaultMessage:
+      'Changes apply at the next tool permission check. Running actions are unchanged; pending requests still need a decision.',
   },
   error: {
     id: 'sessionPermissions.saveError',
@@ -38,28 +39,24 @@ const i18n = defineMessages({
     defaultMessage:
       'Applies to this conversation only. Existing tool permission rules still apply.',
   },
-  autoLabel: { id: 'sessionPermissions.autoLabel', defaultMessage: 'Full access (Autonomous)' },
+  autoLabel: { id: 'sessionPermissions.autoLabel', defaultMessage: 'Full access' },
   manualLabel: {
     id: 'sessionPermissions.manualLabel',
-    defaultMessage: 'Ask for approval (Manual)',
+    defaultMessage: 'Request approval',
   },
   smartLabel: {
     id: 'sessionPermissions.smartLabel',
-    defaultMessage: 'Read-only auto-approval (Smart)',
+    defaultMessage: 'Smart approval',
   },
   currentMode: {
     id: 'sessionPermissions.currentMode',
     defaultMessage: 'Current session mode: {mode}',
   },
   unknown: { id: 'sessionPermissions.unknown', defaultMessage: 'Not synchronized' },
-  auto: { id: 'modeSelectionItem.autonomousLabel', defaultMessage: 'Autonomous' },
-  approve: { id: 'modeSelectionItem.manualLabel', defaultMessage: 'Manual' },
-  smart_approve: { id: 'modeSelectionItem.smartLabel', defaultMessage: 'Smart' },
+  auto: { id: 'modeSelectionItem.autonomousLabel', defaultMessage: 'Full access' },
+  approve: { id: 'modeSelectionItem.manualLabel', defaultMessage: 'Request approval' },
+  smart_approve: { id: 'modeSelectionItem.smartLabel', defaultMessage: 'Smart approval' },
   chat: { id: 'modeSelectionItem.chatOnlyLabel', defaultMessage: 'Chat only' },
-  project: {
-    id: 'sessionPermissions.project',
-    defaultMessage: 'Bound project: {path}. Tool permission rules still apply.',
-  },
   container: {
     id: 'sessionPermissions.container',
     defaultMessage: 'Root folder: {path}. Select a project before writing files.',
@@ -75,7 +72,7 @@ const i18n = defineMessages({
   fullAccess: {
     id: 'sessionPermissions.fullAccess',
     defaultMessage:
-      'Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply.',
+      'Full access is enabled for this conversation. Tool actions do not require per-action approval; explicit denies, file sandbox limits and unavailable tools still apply.',
   },
   unknownScope: {
     id: 'sessionPermissions.unknownScope',
@@ -113,7 +110,7 @@ export function SessionPermissionSummary({
   };
   const ModeIcon = session.goose_mode ? icons[session.goose_mode] : ShieldCheck;
   const changeMode = async (mode: NonNullable<Session['goose_mode']>) => {
-    if (busy || savingRef.current || !session.goose_mode || mode === session.goose_mode) return;
+    if (savingRef.current || !session.goose_mode || mode === session.goose_mode) return;
     savingRef.current = true;
     setSaving(true);
     onSavingChange?.(true);
@@ -139,7 +136,7 @@ export function SessionPermissionSummary({
         : binding === 'unbound'
           ? i18n.unbound
           : binding === 'writable_project' && path
-            ? i18n.project
+            ? null
             : binding === 'root_container' && path
               ? i18n.container
               : session.session_type !== 'code_pro' && path
@@ -186,7 +183,7 @@ export function SessionPermissionSummary({
           collisionPadding={12}
           className="z-[100] w-[min(18rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
         >
-          <fieldset disabled={busy || saving || !session.goose_mode} aria-busy={saving}>
+          <fieldset disabled={saving || !session.goose_mode} aria-busy={saving}>
             <legend className="px-2 pb-1.5 pt-1 text-[9.6px] text-text-secondary">
               {intl.formatMessage(i18n.title)}
             </legend>
@@ -196,7 +193,7 @@ export function SessionPermissionSummary({
               return (
                 <label
                   key={key}
-                  className={`relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${busy || saving || !session.goose_mode ? 'cursor-not-allowed opacity-60' : ''} ${session.goose_mode === key ? 'bg-background-secondary' : ''} ${key === 'chat' ? 'mt-1 border-t border-border-secondary' : ''}`}
+                  className={`relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${saving || !session.goose_mode ? 'cursor-not-allowed opacity-60' : ''} ${session.goose_mode === key ? 'bg-background-secondary' : ''} ${key === 'chat' ? 'mt-1 border-t border-border-secondary' : ''}`}
                 >
                   <input
                     type="radio"
@@ -233,7 +230,7 @@ export function SessionPermissionSummary({
           <p className="px-2 pt-1.5 text-[9.6px] leading-[15px] text-text-secondary">
             {intl.formatMessage(busy ? i18n.busy : i18n.onlySession)}
           </p>
-          {(session.goose_mode !== 'auto' || binding === 'project_container') && (
+          {scope && (session.goose_mode !== 'auto' || binding === 'project_container') && (
             <p className="px-2 pt-1 text-[9.6px] leading-[15px] break-words text-text-secondary">
               {intl.formatMessage(scope, { path })}
             </p>

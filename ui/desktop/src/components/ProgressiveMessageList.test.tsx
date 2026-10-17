@@ -884,6 +884,115 @@ describe('CodePro ordinary tool message presentation', () => {
     />
   );
 
+  it('[retest-20261016] keeps whitespace and thinking between tool batches in one live collapsible group', async () => {
+    const first = toolTransportMessage(1, 'first-batch', 'request');
+    first.content.push({ type: 'text', text: '  \n ' });
+    const thinking: Message = {
+      ...message(3),
+      content: [
+        { type: 'thinking', thinking: 'Checking the next files.', signature: '' },
+        { type: 'text', text: '' },
+      ],
+    };
+    const records = [
+      first,
+      toolTransportMessage(2, 'first-batch', 'response'),
+      thinking,
+      toolTransportMessage(4, 'second-batch', 'request'),
+    ];
+    const view = render(renderTrace(records, ['second-batch']), { wrapper: IntlTestWrapper });
+    expect(screen.getAllByTestId('tool-message-group')).toHaveLength(1);
+    const toggle = screen.getByRole('button', { name: 'Work history 2 operations' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    view.rerender(
+      renderTrace(
+        [
+          first,
+          toolTransportMessage(2, 'first-batch', 'response'),
+          message(3),
+          toolTransportMessage(4, 'second-batch', 'request'),
+        ],
+        ['second-batch']
+      )
+    );
+    await waitFor(() => expect(screen.getAllByTestId('tool-message-group')).toHaveLength(2));
+    expect(screen.getByText('message 3')).toBeVisible();
+  });
+
+  it('does not split tools at invisible host plan updates or standalone whitespace', () => {
+    const context: Message = {
+      ...message(3),
+      content: [
+        {
+          type: 'systemNotification',
+          notificationType: 'progressMessage',
+          msg: '',
+          data: {
+            type: 'codepro_plan_context',
+            schema_version: 1,
+            event_id: 'between-reads',
+            session_id: 'ordinary-change',
+            selected: {
+              session_id: 'ordinary-change',
+              run_id: 'run',
+              requirement_revision: 1,
+            },
+            plan: null,
+          },
+        },
+      ],
+    };
+    const records = [
+      toolTransportMessage(1, 'read-one', 'request'),
+      toolTransportMessage(2, 'read-one', 'response'),
+      context,
+      { ...message(4), content: [{ type: 'text' as const, text: '  \n ' }] },
+      toolTransportMessage(5, 'read-two', 'request'),
+    ];
+    render(renderTrace(records, ['read-two']), { wrapper: IntlTestWrapper });
+    expect(screen.getAllByTestId('tool-message-group')).toHaveLength(1);
+  });
+
+  it('[retest-20261016] hides successful agent discovery while retaining public prose, pending calls and errors', async () => {
+    const request: Message = {
+      ...toolTransportMessage(1, 'agent-status', 'request'),
+      content: [
+        {
+          type: 'toolRequest',
+          id: 'agent-status',
+          toolCall: { name: 'list_agents', arguments: {} },
+        },
+        { type: 'text', text: 'Public progress stays visible.' },
+      ],
+    };
+    const success = toolTransportMessage(2, 'agent-status', 'response');
+    const view = render(renderTrace([request, success]), { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Public progress stays visible.')).toBeVisible();
+    expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(0);
+    view.rerender(renderTrace([{ ...request, content: request.content.slice(0, 1) }, success]));
+    expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(0);
+    expect(screen.queryByText('Public progress stays visible.')).toBeNull();
+    view.rerender(renderTrace([request], ['agent-status']));
+    await waitFor(() =>
+      expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(1)
+    );
+    const failure: Message = {
+      ...success,
+      content: [
+        {
+          type: 'toolResponse',
+          id: 'agent-status',
+          toolResult: { status: 'error', error: 'Fixture status lookup failed' },
+        },
+      ],
+    };
+    view.rerender(renderTrace([request, failure]));
+    expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(1);
+    expect(screen.getByText('Public progress stays visible.')).toBeVisible();
+  });
+
   it('reuses a host-bound plan across inputs, isolates new tasks and stops animation while idle', () => {
     const activePlan = { ...changeTrace[0] };
     activePlan.content = [
@@ -1043,7 +1152,7 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(
       screen.getByRole('button', { name: 'Completed 1 operation Read 1 file' })
     ).toHaveAttribute('aria-expanded', 'false');
-    expect(compactGroups()).toHaveLength(1);
+    expect(compactGroups()).toHaveLength(2);
   });
 
   it('shows a hundred action labels in one bounded scroll region without opening code', () => {

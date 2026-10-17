@@ -233,7 +233,42 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           return terminal ? [terminal.run_id] : [];
         })
       );
-      return turn.filter(
+      const receipts = new Map(
+        turn.flatMap(getToolResponses).map((response) => [response.id, response])
+      );
+      const statusReads = new Set(
+        turn
+          .flatMap(getToolRequests)
+          .filter(
+            (request) =>
+              presentedToolCall(request)?.name === 'list_agents' &&
+              receipts.get(request.id)?.toolResult.status === 'success'
+          )
+          .map((request) => request.id)
+      );
+      // Successful internal discovery stays in the native transcript and sidebar.
+      // Pending approvals and errors remain visible; public prose is never hidden.
+      const presented = turn.flatMap((message) => {
+        const requests = getToolRequests(message);
+        const onlyStatusReads =
+          requests.length > 0 && requests.every((request) => statusReads.has(request.id));
+        const content = message.content.filter(
+          (item) =>
+            !(
+              (item.type === 'toolRequest' || item.type === 'toolResponse') &&
+              statusReads.has(item.id)
+            )
+        );
+        if (
+          onlyStatusReads &&
+          content.every(
+            (item) => item.type === 'thinking' || (item.type === 'text' && !item.text.trim())
+          )
+        )
+          return [];
+        return content.length ? [{ ...message, content }] : [];
+      });
+      return presented.filter(
         (message) =>
           !message.content.every((content) => {
             if (
@@ -664,7 +699,10 @@ function ProgressiveMessageListContent({
         item.role !== 'assistant' ||
         getToolRequests(item).length === 0 ||
         !item.content.every(
-          (content) => content.type === 'toolRequest' || content.type === 'thinking'
+          (content) =>
+            content.type === 'toolRequest' ||
+            content.type === 'thinking' ||
+            (content.type === 'text' && !content.text.trim())
         ) ||
         isRepresentedToolTransport(item)
       )
@@ -701,7 +739,11 @@ function ProgressiveMessageListContent({
       item.metadata.userVisible &&
       item.role === 'assistant' &&
       item.content.length > 0 &&
-      item.content.every((content) => content.type === 'thinking');
+      item.content.some((content) => content.type === 'thinking') &&
+      item.content.every(
+        (content) =>
+          content.type === 'thinking' || (content.type === 'text' && !content.text.trim())
+      );
     const renderToolMessage = (item: Message) => (
       <GooseMessage
         activePlanRequestId={activePlanRequestId}
@@ -762,7 +804,11 @@ function ProgressiveMessageListContent({
           foldedIndices.add(next);
         } else if (
           !candidate.metadata.userVisible ||
+          isPlanContextMessage(candidate) ||
+          getResponsePhase(candidate) ||
+          isRepresentedToolTransport(candidate) ||
           candidate.content.length === 0 ||
+          candidate.content.every((content) => content.type === 'text' && !content.text.trim()) ||
           candidate.content.every((content) => content.type === 'toolResponse')
         ) {
           continue;
@@ -870,6 +916,10 @@ function ProgressiveMessageListContent({
         if (isProcessToolMessage(message) || isThinkingMessage(message)) {
           const { group, settled } = collectProcess(localIndex);
           const summary = operationSummary(group);
+          const operationCount = group.flatMap(getToolRequests).length;
+          const awaitingApproval = group
+            .flatMap(getToolRequests)
+            .some((request) => approvals.has(request.id) && !responses.has(request.id));
           const identity = message.content.some((content) => content.type === 'thinking')
             ? (message.id ?? requests[0]?.id ?? index)
             : (requests[0]?.id ?? message.id ?? index);
@@ -884,8 +934,13 @@ function ProgressiveMessageListContent({
                 storageKey={`operations-${identity}`}
                 groupHeading
                 scrollable={false}
-                label={summary}
-                collapsible={settled && group.flatMap(getToolRequests).length > 1 && !!summary}
+                label={
+                  settled && summary
+                    ? summary
+                    : intl.formatMessage(i18n.turnRecord, { count: operationCount })
+                }
+                isStartExpanded={!settled}
+                collapsible={!awaitingApproval && operationCount > 1}
               >
                 <div
                   data-testid="tool-message-group"
@@ -1145,6 +1200,9 @@ function ProgressiveMessageListContent({
   ]);
 
   if (foldTurns && !renderMessage) {
+    // Internal-only records can project to an empty list, including while the
+    // ordered presenter is waiting to release the next visible message.
+    if (messages.length === 0) return null;
     const starts = messages.flatMap((message, index) =>
       message.role === 'user' &&
       message.metadata.userVisible &&

@@ -1,8 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { acpSetSessionMode } from '../acp/sessions';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Session } from '../types/session';
 import { SessionPermissionSummary } from './SessionPermissionSummary';
+
+vi.mock('../acp/sessions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../acp/sessions')>()),
+  acpSetSessionMode: vi.fn(),
+}));
 
 function session(overrides: Partial<Session> = {}): Session {
   return {
@@ -19,36 +25,57 @@ function session(overrides: Partial<Session> = {}): Session {
 }
 
 describe('SessionPermissionSummary', () => {
+  it('allows changing mode while busy and explains the next-tool-check boundary', async () => {
+    vi.mocked(acpSetSessionMode).mockResolvedValue(undefined);
+    render(<SessionPermissionSummary session={session({ goose_mode: 'auto' })} busy />, {
+      wrapper: IntlTestWrapper,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    expect(
+      screen.getByText(
+        'Changes apply at the next tool permission check. Running actions are unchanged; pending requests still need a decision.'
+      )
+    ).toBeVisible();
+    const mode = screen.getByRole('radio', { name: /Chat only/ });
+    expect(mode).toBeEnabled();
+    fireEvent.click(mode);
+    await waitFor(() => expect(acpSetSessionMode).toHaveBeenCalledWith('one', 'chat'));
+  });
+
   it('keeps an unknown mode visible instead of substituting the default', () => {
     render(<SessionPermissionSummary session={session()} />, { wrapper: IntlTestWrapper });
     fireEvent.click(screen.getByText('Not synchronized'));
     expect(screen.getByText('Workspace permissions have not been synchronized.')).toBeVisible();
   });
 
-  it.each([
-    ['writable_project', 'Bound project: /project. Tool permission rules still apply.'],
+  it.each<[string, string | null]>([
+    ['writable_project', null],
     ['root_container', 'Root folder: /project. Select a project before writing files.'],
     [
       'project_container',
       'Project parent: /project. The parent is not authorized for project writes.',
     ],
     ['unbound', 'No project is authorized for writing.'],
-  ])('describes the actual %s binding', (workspaceBinding, expected) => {
+  ])('shows the relevant scope for %s', (workspaceBinding, expected) => {
     render(
       <SessionPermissionSummary
         session={session({ goose_mode: 'smart_approve', extension_data: { workspaceBinding } })}
       />,
       { wrapper: IntlTestWrapper }
     );
-    fireEvent.click(screen.getByText('Read-only auto-approval (Smart)'));
-    expect(screen.getByText(expected)).toBeVisible();
+    fireEvent.click(screen.getByText('Smart approval'));
+    if (expected === null) {
+      expect(screen.queryByText(/^Bound project:/)).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByText(expected)).toBeVisible();
+    }
   });
 
   it('makes autonomous full access explicit in the session summary', () => {
     render(<SessionPermissionSummary session={session({ goose_mode: 'auto' })} />, {
       wrapper: IntlTestWrapper,
     });
-    fireEvent.click(screen.getByText('Full access (Autonomous)'));
+    fireEvent.click(screen.getByText('Full access'));
     expect(screen.getByRole('radio', { name: /Full access/ })).toBeChecked();
     expect(
       screen.getByText(
@@ -64,7 +91,7 @@ describe('SessionPermissionSummary', () => {
       />,
       { wrapper: IntlTestWrapper }
     );
-    fireEvent.click(screen.getByText('Ask for approval (Manual)'));
+    fireEvent.click(screen.getByText('Request approval'));
     expect(
       screen.getByText(
         'Working directory: /project. This does not grant permission for every action.'

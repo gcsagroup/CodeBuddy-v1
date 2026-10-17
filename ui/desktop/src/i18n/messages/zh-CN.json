@@ -302,9 +302,6 @@
   "chatInput.voiceDictationHint": {
     "defaultMessage": "语音听写 • 说“submit”即可发送"
   },
-  "chatInput.waitingForCancellation": {
-    "defaultMessage": "正在等待取消完成"
-  },
   "chatInput.waitingForImages": {
     "defaultMessage": "正在等待图片保存…"
   },
@@ -4512,10 +4509,10 @@
     "defaultMessage": "Top P（最高 P 值）"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "完全访问本机文件和网络，不逐项请求批准；明确禁止的操作及不可用工具仍受限制。"
+    "defaultMessage": "工具操作不逐项请求批准；明确禁止、文件沙箱限制及不可用工具仍然生效。"
   },
   "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "自主"
+    "defaultMessage": "完全访问"
   },
   "modeSelectionItem.chatOnlyDescription": {
     "defaultMessage": "仅与所选提供商交互，不使用工具或扩展。"
@@ -4524,16 +4521,16 @@
     "defaultMessage": "仅聊天"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "权限规则或只读策略尚未允许的操作会先请求确认。"
+    "defaultMessage": "已核实的只读查询自动执行；写入、命令和其他操作需批准，已明确授权的操作除外。"
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "手动"
+    "defaultMessage": "请求批准"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "自动放行确认只读的操作；写入和高风险操作仍询问。这不是独立审查代批。"
+    "defaultMessage": "自动执行只读查询，以及通过文件工具修改已确认项目中的文件；命令、Git 写入和其他操作需批准。"
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "智能"
+    "defaultMessage": "智能批准"
   },
   "navigation.itemHome": {
     "defaultMessage": "新任务"
@@ -6426,10 +6423,10 @@
     "defaultMessage": "流式传输中"
   },
   "sessionPermissions.autoLabel": {
-    "defaultMessage": "完全访问（自主）"
+    "defaultMessage": "完全访问"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "请先停止当前任务，或等它完成后再切换。"
+    "defaultMessage": "本次选择从下一次工具权限检查生效。已运行的操作保持原权限，待处理审批仍需明确选择。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目录：{path}。写入文件前需选择项目。"
@@ -6441,19 +6438,16 @@
     "defaultMessage": "工作目录：{path}。这不代表所有操作均已获准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "本会话已启用完全访问：本机文件与网络操作不逐项请求批准；明确禁止的操作和不可用工具仍受限制。"
+    "defaultMessage": "本会话已启用完全访问：工具操作不逐项请求批准；明确禁止、文件沙箱限制及不可用工具仍然生效。"
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "请求批准（手动）"
+    "defaultMessage": "请求批准"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "仅影响当前会话，已有工具权限规则仍然有效。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "如何批准操作？"
-  },
-  "sessionPermissions.project": {
-    "defaultMessage": "已绑定项目：{path}。操作仍受工具权限规则约束。"
   },
   "sessionPermissions.projectContainer": {
     "defaultMessage": "项目父目录：{path}。父目录未授予项目写入权限。"
@@ -6465,7 +6459,7 @@
     "defaultMessage": "正在切换权限…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "只读自动放行（智能）"
+    "defaultMessage": "智能批准"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "尚未授权任何项目的写入权限。"
@@ -7545,10 +7539,10 @@
     "defaultMessage": "已写入 {count} 个文件"
   },
   "toolApprovalButtons.allowByScope": {
-    "defaultMessage": "{scope, select, task {本任务允许} session {本会话允许} other {始终允许}}"
+    "defaultMessage": "{scope, select, task {本任务允许} session {本会话允许此工具} other {始终允许}}"
   },
   "toolApprovalButtons.allowedByScope": {
-    "defaultMessage": "{scope, select, task {本任务已允许} session {本会话已允许} other {已设为始终允许}}"
+    "defaultMessage": "{scope, select, task {本任务已允许} session {本会话已允许此工具} other {已设为始终允许}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "已单次允许"
@@ -7576,6 +7570,9 @@
   },
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {本任务拒绝} session {本会话拒绝} other {始终拒绝}}"
+  },
+  "toolApprovalButtons.sessionAllowHint": {
+    "defaultMessage": "仅限当前会话的此工具；应用重启或工具重新连接后失效。"
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "此审批请求已失效。"
@@ -8031,16 +8028,16 @@
     "defaultMessage": "编辑"
   },
   "userMessage.editInPlace": {
-    "defaultMessage": "原地编辑"
+    "defaultMessage": "编辑并重新发送"
   },
   "userMessage.editInPlaceAriaLabel": {
-    "defaultMessage": "原地编辑消息"
+    "defaultMessage": "编辑并重新发送消息"
   },
   "userMessage.editInPlaceDescription": {
     "defaultMessage": "<b>原地编辑</b>会更新当前会话 • <b>分叉会话</b>会创建新会话"
   },
   "userMessage.editInPlaceTitle": {
-    "defaultMessage": "更新此会话中的消息"
+    "defaultMessage": "替换这条请求，并从此处重新生成后续对话"
   },
   "userMessage.editMessageAriaLabel": {
     "defaultMessage": "编辑消息：{preview}"
@@ -8285,14 +8282,23 @@
   "workStatus.check": {
     "defaultMessage": "正在核对执行结果"
   },
+  "workStatus.approval": {
+    "defaultMessage": "等待你批准：{action}"
+  },
+  "workStatus.children": {
+    "defaultMessage": "等待 {count} 个子 Agent 返回执行结果"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "等待主 Agent 处理子 Agent 的执行结果"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "等待主 Agent 处理工具执行结果"
+  },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds} 秒"
   },
   "workStatus.first": {
     "defaultMessage": "正在等待模型响应"
-  },
-  "workStatus.next": {
-    "defaultMessage": "等待后续输出"
   },
   "workStatus.question": {
     "defaultMessage": "等待你的回答或批准"

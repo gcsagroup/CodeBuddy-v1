@@ -302,9 +302,6 @@
   "chatInput.voiceDictationHint": {
     "defaultMessage": "Voice dictation • Say \"submit\" to send"
   },
-  "chatInput.waitingForCancellation": {
-    "defaultMessage": "Warten auf Abschluss des Abbruchs"
-  },
   "chatInput.waitingForImages": {
     "defaultMessage": "Warten auf das Speichern der Bilder..."
   },
@@ -4527,7 +4524,7 @@
     "defaultMessage": "Manuell"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Intelligent bestimmen, welche Aktionen basierend auf dem Risikoniveau eine Genehmigung erfordern"
+    "defaultMessage": "Schreibgeschützte Abfragen und Änderungen mit Dateiwerkzeugen im bestätigten Projekt sind automatisch erlaubt. Befehle, Git-Schreibzugriffe und andere Aktionen erfordern eine Genehmigung."
   },
   "modeSelectionItem.smartLabel": {
     "defaultMessage": "Intelligent"
@@ -6423,7 +6420,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Stop the current task or wait for it to finish before switching."
+    "defaultMessage": "Änderungen gelten ab der nächsten Werkzeug-Berechtigungsprüfung. Laufende Aktionen bleiben unverändert; offene Anfragen müssen weiterhin beantwortet werden."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Stammordner: {path}. Vor dem Schreiben von Dateien ein Projekt auswählen."
@@ -6446,9 +6443,6 @@
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"
   },
-  "sessionPermissions.project": {
-    "defaultMessage": "Gebundenes Projekt: {path}. Werkzeugberechtigungen gelten weiterhin."
-  },
   "sessionPermissions.projectContainer": {
     "defaultMessage": "Project parent: {path}. The parent is not authorized for project writes."
   },
@@ -6459,7 +6453,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Read-only auto-approval (Smart)"
+    "defaultMessage": "Projektdateien automatisch genehmigen (Intelligent)"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "Für kein Projekt ist Schreibzugriff autorisiert."
@@ -7571,6 +7565,9 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {Deny for this task} session {Deny for this session} other {Always Deny}}"
   },
+  "toolApprovalButtons.sessionAllowHint": {
+    "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
+  },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Diese Genehmigungsanfrage ist nicht mehr aktiv."
   },
@@ -8282,14 +8279,23 @@
   "workStatus.check": {
     "defaultMessage": "Checking execution results"
   },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds}s"
   },
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.next": {
-    "defaultMessage": "Waiting for further output"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"

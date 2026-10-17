@@ -45,40 +45,44 @@ export function ContextWindowIndicator({
           ? '上下文用量'
           : 'Context usage',
     !tokenLimit
-      ? chinese ? '容量待查询' : 'Capacity pending'
-      : capacitySource === 'fallback'
       ? chinese
-        ? '容量未确认，使用默认预算；可在模型设置中配置'
-        : 'Capacity unconfirmed; default budget. Configure it in model settings'
-      : capacitySource === 'configured'
+        ? '容量待查询'
+        : 'Capacity pending'
+      : capacitySource === 'fallback'
         ? chinese
-          ? '容量：手动配置'
-          : 'Capacity: configured'
-        : capacitySource === 'service'
+          ? '容量未确认，使用默认预算；可在模型设置中配置'
+          : 'Capacity unconfirmed; default budget. Configure it in model settings'
+        : capacitySource === 'configured'
           ? chinese
-            ? '容量：模型服务返回'
-            : 'Capacity: reported by service'
-          : capacitySource === 'catalog'
-            ? chinese ? '容量：CodeBuddy 模型目录，部署可设置更低上限' : 'Capacity: CodeBuddy catalog; deployment may use a lower limit'
-            : '',
+            ? '容量：手动配置'
+            : 'Capacity: configured'
+          : capacitySource === 'service'
+            ? chinese
+              ? '容量：模型服务返回'
+              : 'Capacity: reported by service'
+            : capacitySource === 'catalog'
+              ? chinese
+                ? '容量：CodeBuddy 模型目录，部署可设置更低上限'
+                : 'Capacity: CodeBuddy catalog; deployment may use a lower limit'
+              : '',
   ]
     .filter(Boolean)
     .join(' · ');
 
-  const percentage = totalTokens === undefined || !tokenLimit ? 0 : Math.round((totalTokens / tokenLimit) * 100);
+  const percentage =
+    totalTokens === undefined || !tokenLimit ? 0 : Math.round((totalTokens / tokenLimit) * 100);
   const colorClass = getProgressColor(percentage);
 
   return (
     <div className="flex items-center h-full">
       <BottomMenuAlertPopover alerts={alerts}>
         <span className={`text-xs font-mono ${colorClass}`} title={title} aria-label={title}>
-          {estimated && totalTokens !== undefined ? '≈' : ''}
           {totalTokens === undefined
             ? chinese
               ? '未知'
               : 'Unknown'
             : formatTokenCount(totalTokens)}{' '}
-          / {tokenLimit ? formatTokenCount(tokenLimit) : (chinese ? '未知' : 'Unknown')}
+          / {tokenLimit ? formatTokenCount(tokenLimit) : chinese ? '未知' : 'Unknown'}
           {capacitySource === 'fallback' ? '?' : ''}
         </span>
       </BottomMenuAlertPopover>

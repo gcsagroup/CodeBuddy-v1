@@ -266,6 +266,9 @@
   "chatInput.processingDroppedFiles": {
     "defaultMessage": "Processing dropped files..."
   },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
+  },
   "chatInput.recording": {
     "defaultMessage": "Recording..."
   },
@@ -301,9 +304,6 @@
   },
   "chatInput.voiceDictationHint": {
     "defaultMessage": "Voice dictation • Say \"submit\" to send"
-  },
-  "chatInput.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation to finish"
   },
   "chatInput.waitingForImages": {
     "defaultMessage": "Waiting for images to save..."
@@ -1520,17 +1520,26 @@
   "conversation.turnCompleted": {
     "defaultMessage": "Completed {count} operations"
   },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
   "conversation.turnRecord": {
     "defaultMessage": "Work history {count} operations"
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "Historical diff unavailable for some operations"
+  },
   "conversationFiles.files": {
     "defaultMessage": "Modified {count} files this turn"
   },
   "conversationFiles.moreFiles": {
     "defaultMessage": "Show {count} more files"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "View changes"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Conversation Limits"
@@ -4074,10 +4083,10 @@
     "defaultMessage": "Queue Paused"
   },
   "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
+    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
   },
   "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Queue paused. Check the current task, then use “Stop and send”."
+    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
   },
   "messageQueue.queued": {
     "defaultMessage": "queued"
@@ -4095,7 +4104,10 @@
     "defaultMessage": "Send now"
   },
   "messageQueue.stopAndSend": {
-    "defaultMessage": "Stop the current task, then send this message"
+    "defaultMessage": "Stop current processing and send this message now"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4108,6 +4120,12 @@
   },
   "messageQueue.waiting": {
     "defaultMessage": "waiting"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
   },
   "messageUsageStats.cacheHitRate": {
     "defaultMessage": "{percent}%"
@@ -4185,10 +4203,10 @@
     "defaultMessage": "Test"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Full local file and network access without per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "Run tools without per-action approval. Explicit denies, file sandbox limits and unavailable tools still apply."
   },
   "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Autonomous"
+    "defaultMessage": "Full access"
   },
   "modeSelectionItem.chatOnlyDescription": {
     "defaultMessage": "Engage with the selected provider without using tools or extensions."
@@ -4197,16 +4215,16 @@
     "defaultMessage": "Chat only"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Ask before actions that are not already allowed by permission rules or read-only policies."
+    "defaultMessage": "Allow verified read-only queries. Ask before writes, commands and other actions unless explicitly allowed."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Manual"
+    "defaultMessage": "Request approval"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Allow verified read-only actions; ask before writes or higher-risk actions. This is not independent approval review."
+    "defaultMessage": "Allow read-only queries and native file changes in a confirmed project under its file sandbox. Ask before commands, Git writes and other actions."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Smart"
+    "defaultMessage": "Smart approval"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -6426,10 +6444,10 @@
     "defaultMessage": "Streaming"
   },
   "sessionPermissions.autoLabel": {
-    "defaultMessage": "Full access (Autonomous)"
+    "defaultMessage": "Full access"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Stop the current task or wait for it to finish before switching."
+    "defaultMessage": "Changes apply at the next tool permission check. Running actions are unchanged; pending requests still need a decision."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Root folder: {path}. Select a project before writing files."
@@ -6441,19 +6459,16 @@
     "defaultMessage": "Working directory: {path}. This does not grant permission for every action."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "Full access is enabled for this conversation. Tool actions do not require per-action approval; explicit denies, file sandbox limits and unavailable tools still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Request approval"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"
-  },
-  "sessionPermissions.project": {
-    "defaultMessage": "Bound project: {path}. Tool permission rules still apply."
   },
   "sessionPermissions.projectContainer": {
     "defaultMessage": "Project parent: {path}. The parent is not authorized for project writes."
@@ -6465,7 +6480,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Read-only auto-approval (Smart)"
+    "defaultMessage": "Smart approval"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "No project is authorized for writing."
@@ -7488,7 +7503,7 @@
     "defaultMessage": "Use tool {name}"
   },
   "toolAction.otherSummary": {
-    "defaultMessage": "Completed {count, plural, one {# operation} other {# operations}}"
+    "defaultMessage": "{count,plural,one{Completed # operation} other{Completed # operations}}"
   },
   "toolAction.read": {
     "defaultMessage": "Read file"
@@ -7532,6 +7547,15 @@
   "toolAction.type": {
     "defaultMessage": "Enter text"
   },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
   "toolAction.write": {
     "defaultMessage": "Write file"
   },
@@ -7545,13 +7569,13 @@
     "defaultMessage": "{count,plural,one{Wrote # file} other{Wrote # files}}"
   },
   "toolApprovalButtons.allowByScope": {
-    "defaultMessage": "{scope,select,task{Allow for this task} session{Allow for this session} other{Always Allow}}"
+    "defaultMessage": "{scope,select,task{Allow for this task} session{Allow this tool for this session} other{Always Allow}}"
   },
   "toolApprovalButtons.allowOnce": {
     "defaultMessage": "Allow Once"
   },
   "toolApprovalButtons.allowedByScope": {
-    "defaultMessage": "{scope,select,task{Allowed for this task} session{Allowed for this session} other{Always allowed}}"
+    "defaultMessage": "{scope,select,task{Allowed for this task} session{Tool allowed for this session} other{Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "Allowed once"
@@ -7576,6 +7600,9 @@
   },
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope,select,task{Deny for this task} session{Deny for this session} other{Always Deny}}"
+  },
+  "toolApprovalButtons.sessionAllowHint": {
+    "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
@@ -7748,8 +7775,20 @@
   "toolCallWithResponse.output": {
     "defaultMessage": "Output"
   },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
   "toolCallWithResponse.subagentBudget": {
     "defaultMessage": "Partial result · delegated work limit reached"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
   },
   "toolCallWithResponse.subagentUnavailable": {
     "defaultMessage": "Partial result · model service unavailable"
@@ -8034,16 +8073,16 @@
     "defaultMessage": "Edit"
   },
   "userMessage.editInPlace": {
-    "defaultMessage": "Edit in Place"
+    "defaultMessage": "Edit and resend"
   },
   "userMessage.editInPlaceAriaLabel": {
-    "defaultMessage": "Edit message in place"
+    "defaultMessage": "Edit and resend message"
   },
   "userMessage.editInPlaceDescription": {
     "defaultMessage": "<b>Edit in Place</b> updates this session • <b>Fork Session</b> creates a new session"
   },
   "userMessage.editInPlaceTitle": {
-    "defaultMessage": "Update the message in this session"
+    "defaultMessage": "Replace this request and regenerate the conversation from here"
   },
   "userMessage.editMessageAriaLabel": {
     "defaultMessage": "Edit message: {preview}"
@@ -8066,20 +8105,26 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Create a new session with the edited message"
   },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
   "workStatus.cancel": {
     "defaultMessage": "Stopping; waiting for confirmation"
   },
   "workStatus.check": {
     "defaultMessage": "Checking execution results"
   },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "{count,plural,one{Waiting for # subagent to return results} other{Waiting for # subagents to return results}}"
+  },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds}s"
   },
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.next": {
-    "defaultMessage": "Waiting for further output"
   },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
@@ -8089,6 +8134,48 @@
   },
   "workStatus.thought": {
     "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "All turns"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "No recorded file changes yet."
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "This change is no longer present in the conversation records."
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "Edit {number}"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "Changes"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{files} files across {turns} turns"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "This long diff has been shortened."
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "Turn {number}"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "Earlier records"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
   },
   "workspaceConfirmation.cancel": {
     "defaultMessage": "Cancel"
@@ -8303,8 +8390,8 @@
   "workspacePanel.wrap": {
     "defaultMessage": "Wrap lines"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
+  "workspaceSubagent.all": {
+    "defaultMessage": "All subagents"
   },
   "workspaceSubagent.empty": {
     "defaultMessage": "No conversation records yet."
@@ -8315,8 +8402,11 @@
   "workspaceSubagent.refresh": {
     "defaultMessage": "Refresh conversation"
   },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
+  },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}"
+    "defaultMessage": "{state,select,running{Turn record still open} completed{Turn ended} failed{Turn failed} interrupted{Turn interrupted} other{Status not yet available}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "Subagent conversation"
@@ -8324,118 +8414,34 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceChanges.title": {
-    "defaultMessage": "Changes"
-  },
-  "workspaceChanges.turn": {
-    "defaultMessage": "Turn {number}"
-  },
-  "workspaceChanges.unassigned": {
-    "defaultMessage": "Earlier records"
-  },
-  "workspaceChanges.all": {
-    "defaultMessage": "All turns"
-  },
-  "workspaceChanges.total": {
-    "defaultMessage": "{files} files across {turns} turns"
-  },
-  "workspaceChanges.coverage": {
-    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
-  },
-  "workspaceChanges.empty": {
-    "defaultMessage": "No recorded file changes yet."
-  },
-  "workspaceChanges.unavailable": {
-    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
-  },
-  "workspaceChanges.missing": {
-    "defaultMessage": "This change is no longer present in the conversation records."
-  },
-  "workspaceChanges.operation": {
-    "defaultMessage": "Edit {number}"
-  },
-  "workspaceChanges.truncated": {
-    "defaultMessage": "This long diff has been shortened."
-  },
-  "workspaceChanges.partial": {
-    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
-  },
-  "conversationFiles.viewChanges": {
-    "defaultMessage": "View changes"
-  },
-  "conversationFiles.diffUnavailable": {
-    "defaultMessage": "Some edits have no historical diff."
-  },
-  "workspaceSubagents.title": {
-    "defaultMessage": "Subagents"
-  },
-  "workspaceSubagents.refresh": {
-    "defaultMessage": "Refresh subagents"
-  },
-  "workspaceSubagents.loading": {
-    "defaultMessage": "Loading subagents…"
+  "workspaceSubagents.children": {
+    "defaultMessage": "Children of {name}"
   },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
-  },
-  "workspaceSubagents.unknown": {
-    "defaultMessage": "Conversation unavailable"
   },
   "workspaceSubagents.hint": {
     "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
   },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "Loading subagents…"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "Refresh subagents"
+  },
   "workspaceSubagents.stale": {
     "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
   },
-  "workspaceSubagent.stale": {
-    "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
+  "workspaceSubagents.title": {
+    "defaultMessage": "Subagents"
   },
-  "workspaceSubagent.all": {
-    "defaultMessage": "All subagents"
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "Conversation unavailable"
   },
-  "conversation.turnDuration": {
-    "defaultMessage": "Time spent {minutes} min {seconds} sec"
-  },
-  "chatInput.queueMessage": {
-    "defaultMessage": "Queue message"
-  },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
-  },
-  "messageQueue.waitingForPreviousPrompt": {
-    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
-  },
-  "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
-  },
-  "toolAction.webSearch": {
-    "defaultMessage": "Search the web"
-  },
-  "toolAction.webSearchRunning": {
-    "defaultMessage": "Searching the web"
-  },
-  "toolAction.webSearchDone": {
-    "defaultMessage": "Searched the web"
-  },
-  "toolCallWithResponse.searchQuery": {
-    "defaultMessage": "Query"
-  },
-  "toolCallWithResponse.searchSources": {
-    "defaultMessage": "Sources"
-  },
-  "toolCallWithResponse.searchResponse": {
-    "defaultMessage": "Search response"
-  },
-  "workspaceChanges.operationUnavailable": {
-    "defaultMessage": "No historical diff was returned for this operation."
-  },
-  "toolCallWithResponse.subagentStarted": {
-    "defaultMessage": "Started {name}"
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
   }
 }

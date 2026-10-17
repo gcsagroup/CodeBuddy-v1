@@ -59,11 +59,10 @@ describe('handoff versus an unexplained interruption', () => {
     expect(screen.queryByText(/Stopped at your request/)).not.toBeInTheDocument();
   });
 
-  it('still explains a real interruption even when earlier progress was visible', () => {
+  it('shows a short stopped status instead of an unverified completion judgment', () => {
     show(terminal('interrupted'));
-    expect(
-      screen.getByText(/This task was interrupted and completion has not been confirmed/)
-    ).toBeInTheDocument();
+    expect(screen.getByText('Stopped')).toBeInTheDocument();
+    expect(screen.queryByText(/completion has not been confirmed/)).not.toBeInTheDocument();
   });
 
   it('still tells the user when they stopped execution', () => {

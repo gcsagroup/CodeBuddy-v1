@@ -228,14 +228,22 @@ describe('ToolApprovalButtons', () => {
           id: 'tool-call-session-scope',
           toolName: 'developer__shell',
           sessionId: 'session-actions',
-          permissionClass: 'workspace_write',
+          permissionClass: 'legacy',
           authorizationScope: 'session',
           availableActions: ['always_allow', 'always_deny'],
         }}
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Allow for this session' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Allow this tool for this session' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Allow this tool for this session' })
+    ).toHaveAttribute(
+      'title',
+      'Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice.'
+    );
     expect(screen.getByRole('button', { name: 'Deny for this session' })).toBeInTheDocument();
   });
 

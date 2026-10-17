@@ -278,6 +278,7 @@ function validatePlan(tasks, previous) {
 function activity(row, entry) {
   const view = project(row);
   const p = entry.payload;
+  if (p.internal === true && ['tool_dispatched', 'tool_result'].includes(entry.eventType)) return null;
   if (view.executionOwner === 'harness' && ['run_created', 'attempt_started', 'run_resumed'].includes(entry.eventType)) return null;
   if (entry.eventType === 'harness_attempt_finished' && p.state === 'completed' && p.completionKind === 'harness_turn' &&
       view.receipts.length === 0 && view.tasks.length === 0 && view.nativeWorkers.length === 0 && unresolved(view).length === 0) return null;
@@ -432,7 +433,7 @@ export class CodeProRuns {
       else assertActing(view, params.attemptId);
       if (view.effects.some((item) => item.effectId === params.callId)) throw fail('Tool call already recorded; dispatch is not repeatable');
       if (view.executionOwner !== 'harness' && params.taskId && taskIn(view, params.taskId).state !== 'running') throw fail('Tool task must be running');
-      event(row, 'tool_dispatched', { callId: params.callId, name: params.name, taskId: params.taskId ?? null, attemptId: params.attemptId });
+      event(row, 'tool_dispatched', { callId: params.callId, name: params.name, taskId: params.taskId ?? null, attemptId: params.attemptId, ...(params.internal === true ? { internal: true } : {}) });
     });
   }
   async recordToolResult(params) {
@@ -446,7 +447,8 @@ export class CodeProRuns {
       assertAttempt(view, params.attemptId);
       const effect = view.effects.find((item) => item.effectId === params.callId);
       if (!effect || effect.attemptId !== params.attemptId || effect.state !== 'pending') throw fail('Tool receipt does not match an unresolved dispatch in this attempt');
-      const result = event(row, 'tool_result', { callId: params.callId, taskId: effect.taskId, outcome: params.outcome, kind, summary: params.summary ?? params.outcome, artifactRef: params.artifactRef ?? `harness-tool:${params.callId}`, command: params.command ?? null, exitCode: params.exitCode ?? null, path: params.path ?? null });
+      const internal = row.events.findLast(entry => entry.eventType === 'tool_dispatched' && entry.payload.callId === params.callId)?.payload.internal === true;
+      const result = event(row, 'tool_result', { callId: params.callId, taskId: effect.taskId, outcome: params.outcome, kind, summary: params.summary ?? params.outcome, artifactRef: params.artifactRef ?? `harness-tool:${params.callId}`, command: params.command ?? null, exitCode: params.exitCode ?? null, path: params.path ?? null, ...(internal ? { internal: true } : {}) });
       return { evidenceId: result.eventId };
     });
   }

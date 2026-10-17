@@ -37,6 +37,18 @@ export function getMcpToolMetadata(ctx, agent, name) {
     for (const entry of registry.values()) if (entry.tools.has(name)) return clone(entry.tools.get(name));
   }
 }
+// A grant binds the live registered definition, not its public name or remote hints.
+export function getMcpSessionApproval(ctx, agent, name) {
+  const definition = ctx.tools.get(name, agent);
+  for (const key of [...scopeChainOf(agent), ctx.root]) {
+    const registry = scopes.get(key);
+    if (!registry) continue;
+    for (const entry of registry.values()) {
+      const binding = entry.approvals.get(name);
+      if (binding && binding.definition === definition && binding.live()) return binding;
+    }
+  }
+}
 /** Consume an exact invocation receipt; policies and canonical failures remain authoritative. */
 export function takeMcpResultMetadata(exec, result) {
   const receipt = receipts.get(exec.token); receipts.delete(exec.token);
@@ -49,20 +61,20 @@ export async function apply(ctx, config) {
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
   if (registry.has(config.serverName)) throw Error(`MCP server ${config.serverName} is already registered in this scope`);
-  const entry = { tools: new Map() }; registry.set(config.serverName, entry);
+  const entry = { tools: new Map(), approvals: new Map() }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
   const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
   let disposed = false, generation, stopping, retryTimer, failures = 0, connectedAt, instructions = '', sync = Promise.resolve(), attempt = Promise.resolve();
   let registrations = [];
-  function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); }
+  function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); entry.approvals.clear(); }
   const live = current => !disposed && generation === current && current.ready;
   async function synchronize(current) {
     const next = sync.then(async () => {
       if (disposed || generation !== current) return;
       const response = current.client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await current.client.listTools(undefined, { cacheMode: 'refresh', timeout });
       if (disposed || generation !== current) return;
-      const definitions = new Map(), metadata = new Map();
+      const definitions = new Map(), metadata = new Map(), approvals = new Map();
       for (const tool of response.tools) {
         const name = publicName(config.serverName, tool.name), mcpApp = appMetadata(config.serverName, tool);
         if (definitions.has(name)) throw Error(`Duplicate MCP tool: ${tool.name}`);
@@ -102,9 +114,14 @@ export async function apply(ctx, config) {
         };
         definitions.set(name, definition);
         metadata.set(name, { ...(tool._meta ? { _meta: clone(tool._meta) } : {}), ...(tool.outputSchema ? { outputSchema: clone(tool.outputSchema) } : {}), ...(mcpApp ? { mcpApp } : {}), extensionName: config.serverName, rawName: tool.name });
+        // This only offers an explicit user choice; annotations never auto-grant.
+        if (tool.annotations?.destructiveHint !== true) approvals.set(name, {
+          definition, identity: Object.freeze({}), live: () => live(current),
+          extensionSource: config.transport === 'streamable-http' ? 'external_http' : 'external_stdio',
+        });
       }
       clearTools();
-      try { for (const definition of definitions.values()) registrations.push(ctx.tools.register(definition)); entry.tools = metadata; }
+      try { for (const definition of definitions.values()) registrations.push(ctx.tools.register(definition)); entry.tools = metadata; entry.approvals = approvals; }
       catch (error) { clearTools(); throw error; }
     });
     sync = next.catch(() => {}); return next;

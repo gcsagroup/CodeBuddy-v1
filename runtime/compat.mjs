@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates } from "./context-updates.mjs";
+import { workStatusUpdates } from "./work-status.mjs";
 import {
   invalid,
   requireString,
@@ -204,6 +205,7 @@ export class Compat {
   constructor(store, driver) {
     this.store = store;
     this.driver = driver;
+    this.sessionToolApprovals = new WeakMap();
     this.active = new Map();
     this.initialized = new Set();
     this.initializing = new Map();
@@ -239,6 +241,7 @@ export class Compat {
       changed: () => {
         this.configurationRevision += 1;
         this.initialized.clear();
+        this.sessionToolApprovals = new WeakMap();
       },
       testExtension: (p) => this.testExtension(p),
       checkProviderMutation: (id) => this.checkProviderMutation(id),
@@ -791,12 +794,22 @@ export class Compat {
       ];
       if (!names.includes(tool.arguments?.server)) return false;
     }
-    const state = this.store.read();
-    const permission =
-      state.toolPermissions?.[publicToolName(tool.name)] ??
-      state.toolPermissions?.[tool.name];
-    const mode = s.mode ?? state.preferences.gooseMode ?? "approve";
-    if (permission === "never_allow" || mode === "chat") return false;
+    // Read the owner at each authorization boundary, including after an async
+    // safety check or a pending human decision. Child calls use this same root
+    // conversation id; they do not retain an independent mode snapshot.
+    const currentPolicy = () => {
+      // Rechecking a permission must not clone every chat and tool receipt.
+      const state = this.store.read(['toolPermissions', 'preferences']);
+      const session = this.store.readSession(s.id);
+      return {
+        mode: session?.mode ?? state.preferences.gooseMode ?? "approve",
+        permission: state.toolPermissions?.[publicToolName(tool.name)] ?? state.toolPermissions?.[tool.name],
+        missing: !session,
+        confirmedProject: session?.type === 'code_pro' && session.workspaceBinding === 'writable_project',
+      };
+    };
+    const blocked = ({ mode, permission, missing }) => missing || permission === "never_allow" || mode === "chat";
+    if (blocked(currentPolicy())) return false;
     const userMessages =
       this.active.get(s.id)?.userMessages ??
       (s.updates ?? [])
@@ -807,59 +820,104 @@ export class Compat {
         )
         .map((u) => u.content.text);
     const safety = await this.safety.inspect({ tool, userMessages, signal });
+    signal?.throwIfAborted();
+    const policy = currentPolicy();
+    if (blocked(policy)) return false;
+    const approval = tool.sessionApproval;
+    let grant;
+    if (approval?.isCurrent?.() === true) {
+      this.sessionToolApprovals ??= new WeakMap();
+      let tools = this.sessionToolApprovals.get(approval.owner);
+      if (!tools) { tools = new WeakMap(); this.sessionToolApprovals.set(approval.owner, tools); }
+      grant = tools.get(approval.tool);
+      if (!grant) { grant = { allowed: false, pending: null }; tools.set(approval.tool, grant); }
+    }
     if (
       !safety.requiresApproval &&
-      (permission === "always_allow" || mode === "auto")
+      (grant?.allowed === true || policy.permission === "always_allow" || policy.mode === "auto" ||
+        ((policy.mode === "approve" || policy.mode === "smart_approve") && (tool.readOnly === true || tool.delegationControl === true)) ||
+        (policy.mode === "smart_approve" && policy.confirmedProject && tool.confinedFileWrite === true))
     )
       return true;
-    const reply = await connection.ask(
-      "session/request_permission",
-      {
-        sessionId: s.id,
-        ...(directToolCall ? { _meta: { goose: { directToolCall: true } } } : {}),
-        toolCall: {
-          toolCallId: tool.id ?? randomUUID(),
-          title: tool.name,
-          status: "pending",
-          kind: "execute",
-          rawInput: tool.arguments,
-          ...(safety.requiresApproval
-            ? {
-                content: [
+    // Native delegated agents run unattended inside the parent's current grant.
+    // Reuse DSH's tool-denial result and completion delivery instead of opening
+    // a human approval RPC from a child. The parent can handle the limitation.
+    // This flag is supplied by the live native owner, never model arguments.
+    if (tool.delegated === true) return false;
+
+    // Parallel calls wait for the same tool's explicit choice, then recheck the
+    // owner. Allow-once still requires each later call to ask for itself.
+    if (grant?.pending && !safety.requiresApproval) {
+      let cancel;
+      try {
+        await Promise.race([grant.pending, new Promise((_, reject) => {
+          cancel = () => reject(signal.reason);
+          signal?.addEventListener('abort', cancel, { once: true });
+          if (signal?.aborted) cancel();
+        })]);
+      } finally { if (cancel) signal?.removeEventListener('abort', cancel); }
+      return this.approveTool(s, tool, connection, signal, directToolCall);
+    }
+    const reusable = Boolean(grant && !safety.requiresApproval);
+    const decision = reusable ? Promise.withResolvers() : null;
+    if (decision) grant.pending = decision.promise;
+    try {
+      const reply = await connection.ask(
+        "session/request_permission",
+        {
+          sessionId: s.id,
+          _meta: {
+            ...(directToolCall ? { goose: { directToolCall: true } } : {}),
+            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: approval.extensionSource } } : {}),
+          },
+          toolCall: {
+            toolCallId: tool.id ?? randomUUID(),
+            title: tool.name,
+            status: "pending",
+            kind: "execute",
+            rawInput: tool.arguments,
+            ...(safety.requiresApproval
+              ? {
+                  content: [
+                    {
+                      type: "content",
+                      content: { type: "text", text: safety.explanation },
+                    },
+                  ],
+                }
+              : {}),
+          },
+          options: [
+            { optionId: "allow_once", name: "Allow once", kind: "allow_once" },
+            ...(reusable
+              ? [
                   {
-                    type: "content",
-                    content: { type: "text", text: safety.explanation },
+                    optionId: "allow_always",
+                    name: "Allow this tool for this session",
+                    kind: "allow_always",
                   },
-                ],
-              }
-            : {}),
+                ]
+              : []),
+            { optionId: "reject_once", name: "Reject", kind: "reject_once" },
+          ],
         },
-        options: [
-          { optionId: "allow_once", name: "Allow once", kind: "allow_once" },
-          ...(!safety.requiresApproval
-            ? [
-                {
-                  optionId: "allow_always",
-                  name: "Always allow this tool",
-                  kind: "allow_always",
-                },
-              ]
-            : []),
-          { optionId: "reject_once", name: "Reject", kind: "reject_once" },
-        ],
-      },
-      signal,
-    );
-    const option =
-      reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
-    if (option === "allow_always" && !safety.requiresApproval)
-      await this.settings.request("tools/permissions/set", {
-        toolPermissions: [{ toolName: tool.name, permission: "always_allow" }],
-      });
-    return (
-      option === "allow_once" ||
-      (option === "allow_always" && !safety.requiresApproval)
-    );
+        signal,
+      );
+      signal?.throwIfAborted();
+      // Changing mode does not answer a pending question. A later explicit
+      // decision still cannot bypass a newly disabled tool or a hard deny.
+      if (!(await toolEnabled(s, this.settings, tool.name)) || blocked(currentPolicy())) return false;
+      const option =
+        reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
+      if (approval && !approval.isCurrent()) return false;
+      if (option === "allow_always" && reusable) grant.allowed = true;
+      return (
+        option === "allow_once" ||
+        (option === "allow_always" && reusable)
+      );
+    } finally {
+      if (decision) { grant.pending = null; decision.resolve(); }
+    }
   }
   async testExtension(p) {
     if (p.extension?.name === "git")
@@ -1612,6 +1670,7 @@ export class Compat {
           connection.notify("session/update", { sessionId: s.id, update });
         };
         let result;
+        let internalControl = false;
         try {
           result = await this.driver.callTool(
             s.id,
@@ -1620,7 +1679,8 @@ export class Compat {
             {
               onEvent: async (event) => {
                 await this.recordCapabilityUsage(s, event);
-                if (!recordHistory) return;
+                if (event.internalControl === true) internalControl = true;
+                if (!recordHistory || internalControl) return;
                 const metadata = { directToolCall: true, messageId: `direct-tool:${event.id}`, created };
                 const meta = { goose: { ...metadata, ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}) } };
                 if (event.type === "tool_call") await publish({
@@ -2075,6 +2135,11 @@ export class Compat {
       active.driverStarted = true;
       const nativeGoal = p._meta?.resumeRunId ? await this.driver.getGoal?.(s.id) : null;
       const projectContext = contextUpdates({ sessionId: s.id, runId: active.run?.runId, signal: controller.signal });
+      const internalToolCalls = new Set();
+      const projectWorkStatus = workStatusUpdates({
+        sessionId: s.nativeSessionId ?? s.id, sourceMessageId: userId,
+        runId: active.run?.runId ?? promptScope, signal: controller.signal,
+      });
       const callbacks = {
         signal: controller.signal,
         requestId: userId,
@@ -2098,6 +2163,7 @@ export class Compat {
                   ? `${tool.sessionId}:${tool.id}`
                   : tool.id,
               name: tool.name,
+              internal: tool.delegated === true || tool.delegationControl === true,
             });
             active.dispatched.set(
               JSON.stringify([tool.sessionId ?? s.id, tool.id]),
@@ -2108,6 +2174,10 @@ export class Compat {
         },
         onEvent: async (event) => {
           await this.recordCapabilityUsage(s, event);
+          // Do not persist these observations or turn them into chat messages.
+          // Child receipts remain filtered below; only their live wait target is shared.
+          for (const update of projectWorkStatus(event))
+            connection.notify("_goose/unstable/session/update", { sessionId: s.id, update });
           for (const update of projectContext(event)) {
             if (event.source !== 'streaming_estimate') {
               await writer?.appendUsage(update);
@@ -2200,6 +2270,14 @@ export class Compat {
             active.dispatched.delete(dispatchKey);
           }
           if (event.sessionId && event.sessionId !== s.id) return;
+          // Native logs retain every receipt. Main-chat projection omits
+          // delegation plumbing; child tools remain in their own transcript.
+          if (event.type === 'tool_call' && event.internalControl === true) internalToolCalls.add(event.id);
+          const internalControl = event.internalControl === true ||
+            (event.type === 'tool_result' && internalToolCalls.has(event.id));
+          if (event.type === 'tool_result') internalToolCalls.delete(event.id);
+          if (internalControl) return;
+
           if (
             event.type === "assistant_start" &&
             typeof event.attemptId === "string"

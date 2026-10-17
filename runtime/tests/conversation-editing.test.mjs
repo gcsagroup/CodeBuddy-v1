@@ -123,6 +123,40 @@ test('forking before the first prompt leaves no queued old input; plain full for
   assert.equal(f.store.read().sessions.find(s => s.id === id).updates.length, 2);
 });
 
+test('editing ignores UI-only failed submissions but preserves the exact admitted model prefix', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.store.update(state => {
+    const session = state.sessions.find(item => item.id === id);
+    for (const created of [1, 2]) {
+      const messageId = `not-admitted-${created}`;
+      session.updates.push({ sessionUpdate: 'user_message_chunk', messageId, content: { type: 'text', text: `USER_FAILED_${created}` }, _meta: { goose: { messageId, created } } });
+    }
+    session.messageCount = 2;
+  });
+  await f.turn(id, 'USER_ADMITTED_KEEP', 10);
+  await f.turn(id, 'USER_ADMITTED_REPLACE', 20);
+  await new ConversationEditing(f.store, f.driver).request('session/conversation/truncate', { sessionId: id, truncateFrom: 20 });
+  assert.equal(f.store.read().sessions.find(item => item.id === id).updates.length, 4);
+  await f.setup(id);
+  await f.turn(id, 'USER_EDITED_AFTER_FAILURE', 30);
+  const input = JSON.stringify(f.requests.at(-1).messages);
+  assert.match(input, /USER_ADMITTED_KEEP/);
+  assert.match(input, /USER_EDITED_AFTER_FAILURE/);
+  assert.doesNotMatch(input, /USER_FAILED_|USER_ADMITTED_REPLACE/);
+});
+
+test('editing a failed first submission cuts before the first admitted request', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.store.update(state => state.sessions.find(item => item.id === id).updates.push({ sessionUpdate: 'user_message_chunk', messageId: 'failed-first', content: { type: 'text', text: 'USER_FAILED_FIRST' }, _meta: { goose: { messageId: 'failed-first', created: 1 } } }));
+  await f.turn(id, 'USER_ADMITTED_AFTER_FAILURE', 10);
+  await new ConversationEditing(f.store, f.driver).request('session/conversation/truncate', { sessionId: id, truncateFrom: 1 });
+  await f.setup(id);
+  await f.turn(id, 'USER_RETRY_FROM_START', 20);
+  const input = JSON.stringify(f.requests.at(-1).messages);
+  assert.match(input, /USER_RETRY_FROM_START/);
+  assert.doesNotMatch(input, /USER_FAILED_FIRST|USER_ADMITTED_AFTER_FAILURE/);
+});
+
 test('CodePro editing requires idle owner cancellation and preserves source history if cancellation or commit fails', async t => {
   const f = await fixture(t), id = await f.create('code_pro');
   await f.turn(id, 'USER_BEFORE', 10); await f.turn(id, 'USER_AFTER', 20);
@@ -154,7 +188,7 @@ test('timestamps use original whole-second prefix semantics and reject ambiguous
   await assert.rejects(editing.request('session/fork', { sessionId: id, cwd: join(f.directory, 'different') }), /workspace/);
   await f.store.update(s => { const session = s.sessions.find(s => s.id === id); session.updates[0].messageId = 'legacy-ui-id'; });
   await assert.rejects(editing.request('session/fork', { sessionId: id }), /exact UI-to-Harness/);
-  await assert.rejects(editing.request('session/conversation/truncate', { sessionId: id, truncateFrom: 10 }), /exact prompt/);
+  await assert.rejects(editing.request('session/conversation/truncate', { sessionId: id, truncateFrom: 10 }), /exact UI-to-Harness/);
   await f.store.update(s => { s.sessions.find(s => s.id === id).readonlyHistory = true; });
   await assert.rejects(editing.request('session/fork', { sessionId: id }), /read-only/);
 });

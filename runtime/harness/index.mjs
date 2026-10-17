@@ -52,6 +52,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const extensionStates = new Map();
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
+  const approvalOwners = new WeakMap();
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
@@ -80,6 +81,44 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (!ctx.get(service)) { await ctx.fiber.dispose(); throw new Error(`Harness required service did not activate: ${service}`); }
   }
   const mcpPresets = await createMcpPresets(ctx);
+  // Reviewed capabilities of this pinned native composition, bound to the
+  // registered definition rather than a model-supplied name or annotation.
+  // A session override with the same name must establish its own capability.
+  const readOnlyDefinitions = new WeakSet();
+  for (const name of ['read', 'read_image', 'glob', 'grep', 'skill', 'list_agents']) {
+    const definition = ctx.tools.get(name);
+    if (definition) readOnlyDefinitions.add(definition);
+  }
+  const confinedWriteDefinitions = new WeakSet();
+  for (const name of ['write', 'edit']) {
+    const definition = ctx.tools.get(name);
+    if (definition) confinedWriteDefinitions.add(definition);
+  }
+  const directoryQuery = ctx.tools.get('working_directory');
+  // Native control remains confined to direct ownership by SubagentService.
+  // These definitions never grant the child's file or command permissions.
+  const delegationDefinitions = new WeakSet();
+  for (const name of ['subagent', 'send_message', 'interrupt_agent', 'list_agents']) {
+    const definition = ctx.tools.get(name);
+    if (definition) delegationDefinitions.add(definition);
+  }
+  function isReadOnlyCall(exec) {
+    const definition = ctx.tools.get(exec.name, exec.agent);
+    return Boolean(definition && (readOnlyDefinitions.has(definition) ||
+      (definition === directoryQuery && exec.arguments.cd === undefined)));
+  }
+  function isConfinedFileWrite(exec) {
+    const definition = ctx.tools.get(exec.name, exec.agent);
+    return Boolean(definition && confinedWriteDefinitions.has(definition) &&
+      exec.arguments.sandbox_permissions === undefined &&
+      ctx.fs.sandboxMode !== undefined &&
+      ctx.sandboxPolicy.resolve({ session: exec.agent.session }).mode === 'workspace-write');
+  }
+
+  function isInternalControl(agent, name) {
+    const definition = ctx.tools.get(name, agent);
+    return Boolean(definition && delegationDefinitions.has(definition));
+  }
 
   function runFor(agent) {
     if (!agent) return undefined;
@@ -187,20 +226,42 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   });
   ctx.on('tools/pre-execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
+    if (active?.cancelRequested || exec.signal.aborted) return { kind: 'cancel' };
     if (!active?.onPermission) return { kind: 'deny', reason: 'CodeBuddy tool approval is required.' };
     try {
       await abortable(active.events, exec.signal);
-      const accepted = await abortable(active.onPermission({ id: exec.callId, name: exec.name, arguments: exec.arguments, sessionId: exec.agent?.id, signal: exec.signal }), exec.signal);
-      if (exec.signal.aborted) return { kind: 'cancel' };
-      return accepted === true ? next() : { kind: 'deny', reason: 'Tool execution was declined.' };
+      const definition = ctx.tools.get(exec.name, exec.agent);
+      const binding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
+      const rootAgent = ctx.agents.get(active.sessionId);
+      let sessionApproval;
+      if (binding && rootAgent) {
+        let owner = approvalOwners.get(rootAgent);
+        if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
+        sessionApproval = {
+          owner, tool: binding.identity, extensionSource: binding.extensionSource,
+          isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent &&
+            mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding,
+        };
+      }
+      const accepted = await abortable(active.onPermission({
+        ...(sessionApproval ? { sessionApproval } : {}),
+        delegated: exec.agent.id !== active.sessionId,
+        id: exec.callId, name: exec.name, arguments: exec.arguments, readOnly: isReadOnlyCall(exec),
+        confinedFileWrite: isConfinedFileWrite(exec), delegationControl: Boolean(definition && delegationDefinitions.has(definition)),
+        sessionId: exec.agent?.id, signal: exec.signal,
+      }), exec.signal);
+      if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
+      return accepted === true ? next() : { kind: 'deny', reason: exec.agent.id !== active.sessionId
+        ? 'This operation is not authorized under the parent session policy. Report the limitation to the delegating agent; do not retry or bypass this denial.'
+        : 'Tool execution was declined.' };
     } catch (error) {
-      if (exec.signal.aborted) return { kind: 'cancel' };
+      if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
       return { kind: 'deny', reason: 'Tool approval did not complete.' };
     }
   });
   ctx.on('tools/result', (exec, result) => {
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
-    const receipt = { name: exec.name, arguments: exec.arguments, structuredContent: result.value, error: result.error, ...metadata };
+    const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata };
     const direct = directCalls.get(exec.callId);
     if (direct) direct.receipt = receipt;
     else if (runFor(exec.agent)) toolReceipts.set(`${exec.agent.id}\0${exec.callId}`, receipt);
@@ -245,7 +306,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       let args = chunk.block.arguments;
       try { args = JSON.parse(args); } catch { /* Preserve invalid upstream args for error display. */ }
       const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, chunk.block.name);
-      emit(run, { type: 'tool_call', id: chunk.block.id, name: chunk.block.name, arguments: args, attemptId: frame.attemptId, sessionId: agent.id, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
+      emit(run, { type: 'tool_call', id: chunk.block.id, name: chunk.block.name, internalControl: isInternalControl(agent, chunk.block.name), arguments: args, attemptId: frame.attemptId, sessionId: agent.id, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
     }
   });
   ctx.on('session/event', (session, event) => {
@@ -262,7 +323,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, ...receipt });
     }
     if (event.type === 'assistant/message') emit(run, { type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id });
-    if (event.type === 'turn/start' || event.type === 'todo/write' || event.type === 'goal/change' || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
+    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
     if (['request/context', 'user/message', 'assistant/message', 'tool/result', 'compaction/end'].includes(event.type))
       emit(run, contextUsage(session));
     if (event.type === 'turn/end' && runs.get(session.id) === run) {
@@ -278,6 +339,13 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('agent/error', ({ agent, error }) => runs.get(agent.id)?.reject(error));
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
+    // A stopped child can notify and wake its parent after user cancellation.
+    // Park that native turn before it requests another model step; a later
+    // user prompt gets a new run and can consume the retained inbox normally.
+    if (run?.cancelRequested) {
+      agent.cancel({ kind: 'user' }, { keepInbox: true });
+      return { kind: 'reject' };
+    }
     const limit = settingsFor(agent)?.maxTurns;
     if (run && limit && run.steps >= limit) {
       run.limitReached = limit;
@@ -413,21 +481,28 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           // Session policy must survive the child's native persona override.
           scoped.systemPrompt.section({ name: 'codebuddy:session-instructions', order: 100, text: settings.systemPrompt, interpolate: false });
         }
-        for (const tool of settings.tools ?? []) scoped.tools.register({
-          name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
-          output: {
-            schema: { type: 'object', additionalProperties: true },
-            render: (_args, value) => Array.isArray(value.content) ? value.content : [{ type: 'text', text: JSON.stringify(value) }],
-          },
-          async execute(args, exec) {
-            const issues = validateJsonSchemaValue(tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} }, args);
-            if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
-            const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
-            await active?.events;
-            const value = await tool.execute(args, { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId });
-            return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
-          },
-        });
+        for (const tool of settings.tools ?? []) {
+          scoped.tools.register({
+            name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
+            output: {
+              schema: { type: 'object', additionalProperties: true },
+              render: (_args, value) => Array.isArray(value.content) ? value.content : [{ type: 'text', text: JSON.stringify(value) }],
+            },
+            async execute(args, exec) {
+              const issues = validateJsonSchemaValue(tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} }, args);
+              if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
+              const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
+              await active?.events;
+              const value = await tool.execute(args, { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId });
+              return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
+            },
+          });
+          // Only host-authored definitions contribute capabilities here. MCP
+          // annotations are remote hints and never grant approval by themselves.
+          if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
+            readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
+          }
+        }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
           headroomTokens: 1024, maxTokens: 1024, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
@@ -465,7 +540,12 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
         connections.push(...statuses);
         if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
-        installToolDiscovery(scoped, agent);
+        const discovery = installToolDiscovery(scoped, agent);
+        if (discovery) {
+          readOnlyDefinitions.add(discovery);
+          // Loading tool schemas is internal plumbing, not a project operation.
+          delegationDefinitions.add(discovery);
+        }
       },
     });
     try { await fiber; if (fiber.state !== 2) throw new Error('Session capability configuration failed'); }
@@ -578,7 +658,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       try {
         return await agent.runMaintenance(async maintenanceSignal => {
           const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, name);
-          emit(run, { type: 'tool_call', id: callId, name, arguments: args, sessionId, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
+          emit(run, { type: 'tool_call', id: callId, name, internalControl: isInternalControl(agent, name), arguments: args, sessionId, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
           const result = await ctx.tools.execute({ callId, name, arguments: args, agent, signal: AbortSignal.any([signal, maintenanceSignal]) });
           emit(run, { type: 'tool_result', id: callId, result: result.content, isError: result.isError, sessionId, name, arguments: args, structuredContent: result.value, error: result.error, ...run.receipt });
           await run.events;

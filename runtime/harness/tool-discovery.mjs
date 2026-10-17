@@ -61,4 +61,5 @@ export function installToolDiscovery(ctx, agent) {
     });
     return { ...assembly, ...(sections ? { sections } : {}), tools };
   });
+  return ctx.tools.get('search_mcp_tools', agent);
 }

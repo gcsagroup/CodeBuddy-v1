@@ -25,6 +25,19 @@ async function fixture(executionOwner = 'harness', options = {}) {
 const goal = (phase = 'active') => ({ id: 'native-goal', revision: 1, objective: 'Implement multiple modules', phase, maxGoalRounds: 12, activation: phase === 'active' ? 'armed' : 'disarmed' });
 const native = (binding, type, seq, data) => ({ ...binding, nativeSessionId: 'native-session', event: { type, seq, time: 1000 + seq, data } });
 
+test('internal delegation retains audit evidence without creating main-chat activity rows', async () => {
+  const f=await fixture();
+  await f.runs.recordToolStart({...f.binding,callId:'internal-send',name:'send_message',internal:true});
+  await f.runs.recordToolResult({...f.binding,callId:'internal-send',outcome:'succeeded',kind:'tool'});
+  assert.ok(f.runs.context(f.binding).receipts.some(receipt=>receipt.outcome==='succeeded'));
+  assert.ok(f.updates.every(update=>update.notifications.length===0));
+  const events=f.store.read().codeproRuns[0].events;
+  assert.ok(events.some(entry=>entry.eventType==='tool_result'&&entry.payload.internal===true));
+  await f.runs.recordToolStart({...f.binding,callId:'project-read',name:'read'});
+  await f.runs.recordToolResult({...f.binding,callId:'project-read',outcome:'succeeded',kind:'read',path:'/fixture/source.txt'});
+  assert.ok(f.updates.some(update=>update.notifications.some(notification=>notification.update.status.data.tool_call_id==='project-read')));
+});
+
 test('normal Harness response completes without a project plan, receipts or special answer call', async () => {
   const f = await fixture();
   assert.ok(f.updates.every(update => update.notifications.length === 0), 'new chat is not a fabricated tool operation');

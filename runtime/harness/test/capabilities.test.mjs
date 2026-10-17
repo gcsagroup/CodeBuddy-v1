@@ -25,7 +25,7 @@ before(async () => {
       if (!('id' in request)) { res.writeHead(202).end(); return; }
       let result;
       if (request.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } };
-      else if (request.method === 'tools/list') result = { tools: [{ name: 'remember', description: 'A fixture memory transport', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }] };
+      else if (request.method === 'tools/list') result = { tools: [{ name: 'remember', description: 'A fixture memory transport', annotations: { readOnlyHint: true, destructiveHint: false }, inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }] };
       else if (request.method === 'tools/call') { mcpCalls.push({ ...request.params, authorization: req.headers.authorization }); result = { content: [{ type: 'text', text: `Stored: ${request.params.arguments.text}` }] }; }
       else { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'Unknown method' } })); return; }
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: request.id, result })); return;
@@ -58,7 +58,8 @@ before(async () => {
     else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 1) call('search_mcp_tools', { names: ['mcp__child_memory__remember'] });
     else if (prompt.includes('fixture_capability_child') && since.filter(message => message.role === 'tool').length === 2) call('mcp__child_memory__remember', { text: 'delegated memory' });
     else if (prompt.includes('fixture_delegate') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Independent module fixture', prompt: prompt.includes('cancel') ? 'fixture_child_slow' : 'fixture_child_write' });
-    else if (prompt.includes('fixture_child_write') && !since.some(message => message.role === 'tool')) call('write', { file_path: join(root, 'child.txt'), content: 'actual child write' });
+    else if (prompt.includes('fixture_child_write') && !since.some(message => message.role === 'tool')) call('read', { file_path: join(root, 'source.txt') });
+    else if (prompt.includes('fixture_child_write') && since.filter(message => message.role === 'tool').length === 1) call('write', { file_path: join(root, 'child.txt'), content: 'actual child write' });
     else if (prompt.includes('fixture_catalog_sibling_')) {
       const number = [1, 2, 3, 4].find(value => prompt.includes(`fixture_catalog_sibling_${value}`));
       siblingFixture.started.add(number);
@@ -90,6 +91,70 @@ before(async () => {
 });
 after(async () => { await driver?.close(); server?.closeAllConnections(); await new Promise(resolve => server?.close(resolve)); });
 async function session(options) { return driver.createSession({ sessionId: randomUUID(), cwd: root, provider, model: 'fixture-model', options }); }
+
+test('read-only approval capabilities bind to actual native and host definitions', async () => {
+  const created = await session();
+  async function capability(id, name, args = {}, field = 'readOnly') {
+    let observed;
+    await driver.callTool(id, name, args, { onPermission: async call => { observed = call[field]; return false; } });
+    return observed;
+  }
+  assert.equal(await capability(created.sessionId, 'read', { file_path: join(root, 'source.txt') }), true);
+  assert.equal(await capability(created.sessionId, 'read', { file_path: join(root, 'source.txt') }, 'delegationControl'), false);
+  for (const [name, args] of [['subagent', { description: 'No dispatch', prompt: 'No dispatch' }], ['send_message', { agent_id: randomUUID(), message: 'No dispatch' }], ['interrupt_agent', { agent_id: randomUUID() }]]) {
+    assert.equal(await capability(created.sessionId, name, args, 'delegationControl'), true, `${name} must carry the native control identity`);
+  }
+  assert.equal(await capability(created.sessionId, 'write', { file_path: join(root, 'not-written.txt'), content: 'no' }), false);
+  assert.equal(await capability(created.sessionId, 'web_fetch', { url: 'http://127.0.0.1:1/not-requested' }), false, 'An arbitrary outbound URL is not a local read-only grant');
+  await assert.rejects(access(join(root, 'not-written.txt')));
+  const automaticWrite = await driver.callTool(created.sessionId, 'write', { file_path: join(root, 'smart-allowed.txt'), content: 'actual confined write' }, {
+    onPermission: async call => call.confinedFileWrite === true,
+  });
+  assert.equal(automaticWrite.isError, false);
+  assert.equal(await readFile(join(root, 'smart-allowed.txt'), 'utf8'), 'actual confined write');
+  // The fixture workspace lives under the platform temp root, so a sibling
+  // there is still writable by the native policy. Use a non-temp target.
+  const outside = join(process.cwd(), '.preview-data', `smart-denied-${randomUUID()}.txt`);
+  const deniedWrite = await driver.callTool(created.sessionId, 'write', { file_path: outside, content: 'must not exist' }, {
+    onPermission: async call => call.confinedFileWrite === true,
+  });
+  assert.equal(deniedWrite.isError, true);
+  assert.match(JSON.stringify(deniedWrite), /sandbox.*denied|FS_SANDBOX_DENIED/i);
+  await assert.rejects(access(outside));
+  let escalationGrant;
+  await driver.callTool(created.sessionId, 'write', { file_path: outside, content: 'no', sandbox_permissions: 'danger-full-access', justification: 'controlled escalation check' }, {
+    onPermission: async call => { escalationGrant = call.confinedFileWrite; return false; },
+  });
+  assert.equal(escalationGrant, false, 'A wider-mode retry cannot reuse the confined write grant');
+  assert.equal(await capability(created.sessionId, 'working_directory'), true);
+  assert.equal(await capability(created.sessionId, 'working_directory', { cd: root }), false);
+  assert.equal(await capability(created.sessionId, 'search_mcp_tools', { query: 'read' }), true);
+  const discoveryEvents=[];
+  await driver.callTool(created.sessionId,'search_mcp_tools',{query:'subagent'}, {
+    onPermission:()=>true,onEvent:event=>discoveryEvents.push(event),
+  });
+  assert.ok(discoveryEvents.filter(event=>['tool_call','tool_result'].includes(event.type)).every(event=>event.internalControl===true));
+  const replacement = await session({ tools: [
+    { name: 'read', inputSchema: { type: 'object', properties: {} }, async execute() { throw Error('Must not dispatch'); } },
+    { name: 'send_message', inputSchema: { type: 'object', properties: {} }, async execute() { throw Error('Must not dispatch'); } },
+    { name: 'reviewed_query', annotations: { readOnlyHint: true, destructiveHint: false }, inputSchema: { type: 'object', properties: {} }, async execute() { return {}; } },
+    { name: 'conflicting_query', annotations: { readOnlyHint: true, destructiveHint: true }, inputSchema: { type: 'object', properties: {} }, async execute() { return {}; } },
+  ] });
+  assert.equal(await capability(replacement.sessionId, 'read'), false, 'A same-name replacement does not inherit the native grant');
+  assert.equal(await capability(replacement.sessionId, 'send_message', {}, 'delegationControl'), false, 'A same-name replacement cannot inherit internal control authorization');
+  for (const [sessionId, expected] of [[created.sessionId, true], [replacement.sessionId, false]]) {
+    const events=[];
+    await driver.callTool(sessionId,'send_message',{agent_id:randomUUID(),message:'No dispatch'}, {
+      onPermission:()=>false,onEvent:event=>events.push(event),
+    });
+    assert.equal(events.find(event=>event.type==='tool_call')?.internalControl,expected,
+      'Only the actual native control definition can hide its receipt from the main chat');
+  }
+  assert.equal(await capability(replacement.sessionId, 'reviewed_query'), true);
+  assert.equal(await capability(replacement.sessionId, 'conflicting_query'), false);
+  const remote = await session({ mcpServers: [{ serverName: 'capability', transport: 'streamable-http', url: mcpUrl, reconnect: { enabled: false } }] });
+  assert.equal(await capability(remote.sessionId, 'mcp__capability__remember', { text: 'not-dispatched' }), false);
+});
 
 test('runtime settings affect real HTTP request and remain scoped to the session', async () => {
   const a = await session({ systemPrompt: 'SESSION_A_POLICY', maxTokens: 256, temperature: 0.25, thinkingEffort: 'high' });
@@ -200,7 +265,21 @@ test('MCP connection is session scoped, approval gated and does not persist cred
   assert.ok((await driver.testExtension({ serverName: 'probe', transport: 'streamable-http', url: mcpUrl })).some(tool => tool.name === 'mcp__probe__remember'));
   assert.equal((await driver.listTools()).some(tool => tool.name.startsWith('mcp__probe__')), false);
   assert.equal((await driver.listTools((await session()).sessionId)).some(tool => tool.name === 'mcp__memory__remember'), false);
-  async function scan(dir) { for (const entry of await readdir(dir, { withFileTypes: true })) { const file = join(dir, entry.name); if (entry.isDirectory()) await scan(file); else assert.equal((await readFile(file)).includes(Buffer.from(secret)), false, file); } }
+  async function scan(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const file = join(dir, entry.name);
+      if (entry.isDirectory()) await scan(file);
+      else {
+        // Native persistence atomically renames temporary snapshots during the
+        // scan. A vanished entry has no durable bytes to inspect.
+        const bytes = await readFile(file).catch(error => {
+          if (error.code === 'ENOENT') return null;
+          throw error;
+        });
+        if (bytes) assert.equal(bytes.includes(Buffer.from(secret)), false, file);
+      }
+    }
+  }
   await scan(join(root, 'state'));
 });
 
@@ -256,8 +335,10 @@ test('subagent file execution inherits root approval and parent waits for its ac
   const approvals = [];
   await driver.prompt(created.sessionId, 'fixture_delegate', { onPermission: async call => { approvals.push(call); return true; } });
   assert.equal(await readFile(join(root, 'child.txt'), 'utf8'), 'actual child write');
-  assert.ok(approvals.some(call => call.name === 'subagent' && call.sessionId === created.sessionId));
+  assert.ok(approvals.some(call => call.name === 'subagent' && call.sessionId === created.sessionId && call.delegationControl === true));
   assert.ok(approvals.some(call => call.name === 'write' && call.sessionId !== created.sessionId));
+  assert.ok(approvals.filter(call => call.name === 'write').every(call => call.readOnly === false));
+  assert.ok(approvals.some(call => call.name === 'read' && call.sessionId !== created.sessionId && call.readOnly === true));
   const requestCount = requests.length, approvalCount = approvals.length;
   const children = await driver.listSubagentChildren(created.sessionId);
   assert.equal(children.length, 1);
@@ -408,7 +489,11 @@ test('owned child receives configured host tools, MCP and instructions before it
     tools: [{ name: 'child_contract', description: 'Host task contract', inputSchema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'] }, execute(args, exec) { calls.push({ args, exec }); return { accepted: true }; } }],
     mcpServers: [{ serverName: 'child_memory', transport: 'streamable-http', url: mcpUrl, reconnect: { enabled: false } }],
   });
-  await driver.prompt(created.sessionId, 'fixture_capability_parent', { onPermission: async (call) => { approvals.push(call); return true; } });
+  let rootApproval;
+  await driver.callTool(created.sessionId, 'mcp__child_memory__remember', { text: 'identity-only' }, {
+    onPermission: call => { rootApproval = call.sessionApproval; return false; },
+  });
+  await driver.prompt(created.sessionId, 'fixture_capability_parent', { onPermission: async (call) => { approvals.push({ ...call, approvalCurrent: call.sessionApproval?.isCurrent() }); return true; } });
   const request = requests.find(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_capability_child')));
   assert.ok(request.tools.some(tool => tool.function.name === 'child_contract'));
   assert.ok(request.tools.some(tool => tool.function.name === 'search_mcp_tools'));
@@ -419,6 +504,10 @@ test('owned child receives configured host tools, MCP and instructions before it
   assert.notEqual(calls[0].exec.sessionId, created.sessionId);
   assert.ok(approvals.some(call => call.name === 'child_contract' && call.sessionId === calls[0].exec.sessionId));
   assert.ok(approvals.some(call => call.name === 'mcp__child_memory__remember' && call.sessionId === calls[0].exec.sessionId));
+  const childApproval = approvals.find(call => call.name === 'mcp__child_memory__remember').sessionApproval;
+  assert.equal(childApproval.owner, rootApproval.owner, 'Child consumes the actual root approval owner');
+  assert.equal(childApproval.tool, rootApproval.tool, 'Child resolves the same live MCP definition');
+  assert.equal(approvals.find(call => call.name === 'mcp__child_memory__remember').approvalCurrent, true);
 });
 
 test('cancelling a parent also quiesces its active child', { timeout: 10000 }, async () => {

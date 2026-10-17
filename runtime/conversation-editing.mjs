@@ -41,10 +41,18 @@ export class ConversationEditing {
       const prefix = cutoff === undefined && !isTruncate ? { updates: source.updates ?? [], usageUpdates: source.usageUpdates ?? [] } : prefixAt(source, cutoff);
       const nativeSourceId = this.driver.nativeSessionId(source.id);
       const snapshot = digest(source);
-      const forked = await this.driver.fork(source.id, prefix.requestId ? { beforeRequestId: prefix.requestId } : {});
+      const sourceHistory = await this.driver.history(source.id);
+      const sourceRequests = new Set(sourceHistory.events.filter(event => event.type === 'agent/inbox/spliced').flatMap(event => event.data.inserted ?? []).filter(item => item.source?.kind === 'user').map(item => item.source.rpcId));
+      // A visible request can fail before native admission (for example while
+      // preparing MCP services). It belongs to UI history, not model context.
+      // Cut before the next admitted request, retaining the exact native prefix.
+      const requestedIndex = prefix.requestId ? (source.updates ?? []).findIndex(update => metaId(update) === prefix.requestId) : -1;
+      const nativeBoundary = requestedIndex < 0 ? undefined : (source.updates ?? []).slice(requestedIndex).find(update => update.sessionUpdate === 'user_message_chunk' && sourceRequests.has(metaId(update)));
+      const beforeRequestId = nativeBoundary ? metaId(nativeBoundary) : undefined;
+      const forked = await this.driver.fork(source.id, beforeRequestId ? { beforeRequestId } : {});
       const history = await this.driver.history(forked.sessionId);
       const nativeRequests = [...new Set(history.events.filter(event => event.type === 'agent/inbox/spliced').flatMap(event => event.data.inserted ?? []).filter(item => item.source?.kind === 'user').map(item => item.source.rpcId))];
-      const displayedRequests = [...new Set(prefix.updates.filter(u => u.sessionUpdate === 'user_message_chunk').map(metaId))];
+      const displayedRequests = [...new Set(prefix.updates.filter(u => u.sessionUpdate === 'user_message_chunk').map(metaId).filter(id => sourceRequests.has(id)))];
       if (JSON.stringify(nativeRequests) !== JSON.stringify(displayedRequests)) throw invalid('This history has no exact UI-to-Harness request mapping; start a new task');
       // Cancel the old control-plane run before publishing the new model context.
       // A failed state commit may leave an unused native fork and cancelled run;

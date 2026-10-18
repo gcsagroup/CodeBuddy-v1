@@ -93,18 +93,17 @@ Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait 
 
 [Code]
 var
-  DesktopShortcut: TNewCheckBox;
-  StartMenuShortcut: TNewCheckBox;
+  ShortcutOptions: TNewCheckListBox;
   ProgressText: TNewStaticText;
   ShortcutsApplied: Boolean;
 
 procedure ApplyShortcutChoices;
 begin
-  if DesktopShortcut.Checked and not FileCopy(
+  if ShortcutOptions.Checked[0] and not FileCopy(
     ExpandConstant('{app}\resources\CodeBuddy.lnk'),
     ExpandConstant('{autodesktop}\CodeBuddy.lnk'), False) then
     RaiseException('无法创建桌面快捷方式，请检查桌面文件夹的写入权限后重试。');
-  if StartMenuShortcut.Checked and not FileCopy(
+  if ShortcutOptions.Checked[1] and not FileCopy(
     ExpandConstant('{app}\resources\CodeBuddy.lnk'),
     ExpandConstant('{autoprograms}\CodeBuddy.lnk'), False) then
     RaiseException('无法添加到开始菜单，请检查开始菜单文件夹的写入权限后重试。');
@@ -150,16 +149,16 @@ begin
   WizardForm.FinishedLabel.Top := ScaleY(104);
   WizardForm.FinishedLabel.Width := WizardForm.FinishedHeadingLabel.Width;
   WizardForm.FinishedLabel.Height := ScaleY(36);
-  DesktopShortcut := TNewCheckBox.Create(WizardForm);
-  DesktopShortcut.Parent := WizardForm.FinishedPage;
-  DesktopShortcut.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(24));
-  DesktopShortcut.Caption := '创建桌面快捷方式';
-  DesktopShortcut.Checked := True;
-  StartMenuShortcut := TNewCheckBox.Create(WizardForm);
-  StartMenuShortcut.Parent := WizardForm.FinishedPage;
-  StartMenuShortcut.SetBounds(ScaleX(32), ScaleY(184), WizardForm.FinishedHeadingLabel.Width, ScaleY(24));
-  StartMenuShortcut.Caption := '添加到开始菜单';
-  StartMenuShortcut.Checked := True;
+  ShortcutOptions := TNewCheckListBox.Create(WizardForm);
+  ShortcutOptions.Parent := WizardForm.FinishedPage;
+  ShortcutOptions.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(64));
+  ShortcutOptions.BorderStyle := bsNone;
+  ShortcutOptions.ParentColor := True;
+  ShortcutOptions.Flat := True;
+  ShortcutOptions.Font.Assign(WizardForm.RunList.Font);
+  ShortcutOptions.MinItemHeight := ScaleY(32);
+  ShortcutOptions.AddCheckBox('创建桌面快捷方式', '', 0, True, True, False, True, nil);
+  ShortcutOptions.AddCheckBox('添加到开始菜单', '', 0, True, True, False, True, nil);
   WizardForm.RunList.Left := ScaleX(32);
   WizardForm.RunList.Top := ScaleY(216);
   WizardForm.RunList.Width := WizardForm.FinishedHeadingLabel.Width;

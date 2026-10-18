@@ -5,16 +5,19 @@ import { installModelResponseValidation } from '../model-response-validation.mjs
 
 function fixture() {
   let handler;
-  const dispose = installModelResponseValidation({ on(name, callback) {
+  const agents = new Map([['root', { session: { header: { origin: 'new' } } }], ['child', { session: { header: { origin: 'subagent' } } }]]);
+  const input = { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'User request' }] };
+  const options = (origin = 'root', source = 'user') => ({ sessionId: origin, messages: [{ ...input, source: { kind: source } }, { role: 'user', source: { kind: 'runtime-context', form: 'snapshot' }, content: [] }, { role: 'user', source: { kind: 'skill-catalog', form: 'catalog' }, content: [] }] });
+  const dispose = installModelResponseValidation({ agents, on(name, callback) {
     assert.equal(name, 'llm/stream'); handler = callback; return () => {};
   } });
-  return { stream: (chunks, agent = true) => handler(agent ? markAgentLoopRequest({}) : {}, async function* () { yield* chunks; }), handler, dispose };
+  return { stream: (chunks, agent = true, origin = 'root', source = 'user') => handler(agent ? markAgentLoopRequest(options(origin, source)) : {}, async function* () { yield* chunks; }), handler, options, dispose };
 }
 const reasoning = { type: 'reasoning-delta', text: 'Private reasoning and protocol-looking <|close|>response<|sep|> text.' };
 const stop = { type: 'finish', reason: { kind: 'stop' }, usage: { outputTokens: 3 } };
 const tool = { type: 'block-end', index: 1, block: { type: 'tool-call', id: 'call-1', name: 'read', arguments: '{}' } };
 
-test('only agent-loop stops without text or structured tool progress enter native empty-response recovery', async t => {
+test('only direct-user root stops without text or structured tool progress enter native empty-response recovery', async t => {
   const f = fixture(); t.after(f.dispose);
   for (const scenario of [
     { name: 'reasoning-only', chunks: [reasoning, stop], empty: true },
@@ -28,8 +31,13 @@ test('only agent-loop stops without text or structured tool progress enter nativ
     { name: 'cancel', chunks: [reasoning, { ...stop, reason: { kind: 'aborted', failure: { code: 'ABORTED', message: 'Cancelled' } } }] },
     { name: 'provider-error', chunks: [reasoning, { ...stop, reason: { kind: 'error', failure: { code: 'RATE_LIMIT', message: 'Slow down' } } }] },
     { name: 'auxiliary-stream', chunks: [reasoning, stop], agent: false },
+    { name: 'child-native-settlement', chunks: [reasoning, stop], origin: 'child' },
+    { name: 'parent-relay', chunks: [reasoning, stop], source: 'agent-message' },
+    { name: 'parent-settlement', chunks: [reasoning, stop], source: 'subagent-settled' },
+    { name: 'other-native-input', chunks: [reasoning, stop], source: 'goal-round' },
+    { name: 'unowned-auxiliary-session', chunks: [reasoning, stop], origin: 'missing' },
   ]) await t.test(scenario.name, async () => {
-    const received = []; for await (const chunk of f.stream(scenario.chunks, scenario.agent)) received.push(chunk);
+    const received = []; for await (const chunk of f.stream(scenario.chunks, scenario.agent, scenario.origin, scenario.source)) received.push(chunk);
     assert.strictEqual(received[0], reasoning);
     if (scenario.empty) {
       assert.equal(received.at(-1).reason.kind, 'error');
@@ -43,7 +51,7 @@ test('only agent-loop stops without text or structured tool progress enter nativ
 test('validation forwards reasoning immediately and keeps concurrent response state isolated', async () => {
   const f = fixture();
   const gate = Promise.withResolvers();
-  const iterator = f.handler(markAgentLoopRequest({}), async function* () {
+  const iterator = f.handler(markAgentLoopRequest(f.options()), async function* () {
     yield reasoning; await gate.promise; yield stop;
   })[Symbol.asyncIterator]();
   try {

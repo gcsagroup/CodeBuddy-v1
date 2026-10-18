@@ -79,16 +79,17 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
     assert.equal((await driver.prompt(s.sessionId, 'empty_fixture_length')).stopReason, 'max_tokens');
     assert.equal(counts.get('length'), 1);
   });
-  await t.test('a native child recovers within its own retry lifecycle and its parent can finish', async () => {
+  await t.test('a native child keeps upstream reasoning-only completion semantics and its parent can finish', async () => {
     const s = await session(); const events = [];
     const result = await driver.prompt(s.sessionId, 'empty_fixture_parent', { onPermission: async () => true, onEvent(event) {
       events.push(event); if (event.type === 'subagent_end') childEnded.resolve();
     } });
     assert.equal(result.stopReason, 'end_turn');
-    assert.equal(counts.get('child'), 2);
+    assert.equal(counts.get('child'), 1, 'Child completion belongs to DSH, not the direct-user answer compatibility check');
     const retries = events.filter(e => e.type === 'harness_event' && e.event.type === 'llm/retry');
-    assert.equal(retries.length, 1);
-    assert.notEqual(retries[0].sessionId, s.sessionId, 'the parent must not inherit the child retry as its own request');
-    assert.equal(retries[0].event.data.failure.code, 'EMPTY_RESPONSE');
+    assert.equal(retries.length, 0);
+    const child = events.find(event => event.type === 'subagent_end');
+    assert.equal(child.stopReason, 'completed');
+    assert.equal(child.lastAssistantMessage.some(block => block.type === 'text'), false, 'Do not manufacture a child closing message from reasoning');
   });
 });

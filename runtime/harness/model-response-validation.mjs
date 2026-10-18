@@ -6,6 +6,13 @@ import { chunkHasVisibleText, EMPTY_RESPONSE_CODE, isAgentLoopRequest } from '@d
 export function installModelResponseValidation(ctx) {
   return ctx.on('llm/stream', (options, next) => {
     if (!isAgentLoopRequest(options)) return next();
+    // This provider compatibility check protects direct user answers. Native
+    // child and notification turns may legitimately stop without new prose.
+    // Use durable origin/source attribution; never infer intent from text.
+    const agent = ctx.agents.get(options.sessionId);
+    const input = options.messages?.findLast(message => message.role === 'user' &&
+      !['snapshot', 'catalog'].includes(message.source?.form));
+    if (!agent || agent.session.header.origin === 'subagent' || input?.source?.kind !== 'user') return next();
     return (async function* () {
       let productive = false;
       for await (const chunk of next()) {

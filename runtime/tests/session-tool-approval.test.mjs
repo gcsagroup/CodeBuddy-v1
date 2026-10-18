@@ -254,3 +254,38 @@ test('allow once does not authorize waiting calls, and a replacement root cannot
   } }), false);
   assert.equal(replacementAsked, true, 'A new native root identity cannot consume an older grant');
 });
+
+
+test('automatic approval rechecks capability and binding after asynchronous safety classification', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-approval-race-'));
+  const store = await openStore(root);
+  const session = { id: randomUUID(), cwd: root, mode: 'auto', updates: [] };
+  await store.update(state => state.sessions.push(session));
+  let enabled = true, bound = true, gate, inspecting;
+  const host = Object.assign(Object.create(Compat.prototype), {
+    store, active: new Map(),
+    settings: { extensions: async () => [{ configKey: 'developer', enabled, extension: { name: 'developer', type: 'builtin' } }] },
+    safety: { async inspect() { inspecting.resolve(); await gate.promise; return { requiresApproval: false }; } },
+  });
+  const connection = { async ask() { assert.fail('A disabled or stale automatic grant must not open a permission question'); } };
+  for (const [mode, delegated, invalidate] of [
+    ['auto', false, 'tool'], ['auto', true, 'tool'],
+    ['smart_approve', false, 'tool'], ['approve', false, 'tool'],
+    ['auto', false, 'binding'], ['auto', true, 'binding'],
+  ]) {
+    enabled = true; bound = true; gate = Promise.withResolvers(); inspecting = Promise.withResolvers();
+    await store.update(state => { state.sessions[0].mode = mode; });
+    const call = { name: 'read', arguments: {}, readOnly: true, delegated,
+      ...(invalidate === 'binding' ? { sessionApproval: { owner: {}, tool: {}, isCurrent: () => bound } } : {}),
+    };
+    const pending = host.approveTool(session, call, connection);
+    await inspecting.promise;
+    if (invalidate === 'tool') enabled = false; else bound = false;
+    gate.resolve();
+    assert.equal(await pending, false, mode + ': ' + invalidate + ' changed during safety classification');
+  }
+  enabled = true; bound = true; gate = Promise.withResolvers(); inspecting = Promise.withResolvers();
+  const pending = host.approveTool(session, { name: 'read', arguments: {}, readOnly: true }, connection);
+  await inspecting.promise; gate.resolve();
+  assert.equal(await pending, true, 'An unchanged enabled read retains its ordinary approval behavior');
+});

@@ -839,9 +839,13 @@ export class Compat {
         .map((u) => u.content.text);
     const safety = await this.safety.inspect({ tool, userMessages, signal });
     signal?.throwIfAborted();
+    // Safety classification can await a remote model. Recheck capability and
+    // binding before automatic grants, just as after a human decision.
+    if (!(await toolEnabled(s, this.settings, tool.name))) return false;
     const policy = currentPolicy();
     if (blocked(policy)) return false;
     const approval = tool.sessionApproval;
+    if (approval && !approval.isCurrent()) return false;
     let grant;
     if (approval?.isCurrent?.() === true) {
       this.sessionToolApprovals ??= new WeakMap();

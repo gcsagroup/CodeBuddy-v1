@@ -99,6 +99,14 @@ describe('TurnTerminal CodePro report contract', () => {
     expect(parseTurnTerminalRecord(base)).toEqual(base);
   });
 
+  it('preserves an optional final-response observation and drops malformed observations only', () => {
+    expect(parseTurnTerminalRecord({ ...base, last_response_text_available: false })).toMatchObject(
+      { status: 'completed', last_response_text_available: false }
+    );
+    const parsed = parseTurnTerminalRecord({ ...base, last_response_text_available: 'false' });
+    expect(parsed).toEqual(base);
+  });
+
   it('accepts a cancellation only when its structured recovery contract matches', () => {
     const cancelled = {
       ...base,

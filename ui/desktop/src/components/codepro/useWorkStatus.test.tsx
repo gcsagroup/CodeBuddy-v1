@@ -7,6 +7,30 @@ import { useWorkStatus } from './useWorkStatus';
 afterEach(() => vi.useRealTimers());
 
 describe('specific live execution feedback', () => {
+  it('shows actual transport stages and keeps approval above transport waiting', () => {
+    const input = {
+      chatState: ChatState.Streaming,
+      checking: false,
+      stage: 'Earlier published context',
+      activity: {
+        promptAttemptId: 'fixture',
+        sourceUserMessageId: 'user',
+        startedAt: 1,
+        execution: {
+          phase: 'model' as const,
+          childCount: 0,
+          modelRequestPhase: 'waiting' as const,
+        },
+      },
+    };
+    const { result, rerender } = renderHook((props) => useWorkStatus(props), {
+      initialProps: input,
+      wrapper: IntlTestWrapper,
+    });
+    expect(result.current.message).toBe('Request sent; waiting for the model service to respond');
+    rerender({ ...input, chatState: ChatState.WaitingForUserInput });
+    expect(result.current.message).toBe('Waiting for your answer or approval');
+  });
   it('names the model being waited for instead of generic subsequent-output text', () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);

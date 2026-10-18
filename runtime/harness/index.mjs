@@ -15,6 +15,7 @@ import { profileEntries } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW, DEFAULT_OUTPUT_TOKENS } from '../model-defaults.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
+import { installModelResponseValidation } from './model-response-validation.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 
@@ -206,6 +207,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     emit(run, event);
     console.warn('[Harness model transport]', JSON.stringify(event));
   }), 'CodeBuddy model transport observation');
+  ctx.effect(() => installModelResponseValidation(ctx), 'CodeBuddy model response validation');
   ctx.on('agent/created', async ({ agent }) => {
     if (agent.session.header.origin !== 'subagent') return;
     const parent = ctx.agents.get(agent.session.header.parentSession);
@@ -322,7 +324,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       toolReceipts.delete(receiptKey);
       emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, ...receipt });
     }
-    if (event.type === 'assistant/message') emit(run, { type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id });
+    if (event.type === 'assistant/message') emit(run, {
+      type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,
+      hasText: event.data.message.content.some(block => block.type === 'text' && block.text.trim().length > 0),
+    });
     if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
     if (['request/context', 'user/message', 'assistant/message', 'tool/result', 'compaction/end'].includes(event.type))
       emit(run, contextUsage(session));

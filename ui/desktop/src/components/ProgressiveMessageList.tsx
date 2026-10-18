@@ -25,7 +25,7 @@ import {
   useState,
 } from 'react';
 import { defineMessages, useIntl } from '../i18n';
-import GooseMessage, { codeProTerminalPresentation } from './GooseMessage';
+import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
@@ -837,6 +837,7 @@ function ProgressiveMessageListContent({
         if (
           terminal &&
           codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
+          !hasMissingFinalReply(terminal) &&
           message.content.every((content) => content.type === 'systemNotification')
         )
           return null;

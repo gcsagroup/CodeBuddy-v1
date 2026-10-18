@@ -23,15 +23,23 @@ test('transport timings separate response wait from reasoning and text without c
     yield { type: 'reasoning-delta', text: 'private reasoning' };
     await delay(130);
     yield { type: 'text-delta', text: 'private answer' };
+    yield { type: 'finish', reason: { kind: 'stop' } };
   };
   const output = [];
   for await (const chunk of handler({ sessionId: 'fixture' }, next)) output.push(chunk);
-  assert.equal(output.length, 2);
+  assert.equal(output.length, 3);
   const reasoning = events.find(e => e.phase === 'first_reasoning');
   const text = events.find(e => e.phase === 'first_text');
   const end = events.at(-1);
+  const phases = events.map(event => event.phase);
+  for (const [before, after] of [['start','request_created'], ['request_created','request_sent'], ['request_sent','response_headers'], ['response_headers','first_reasoning']])
+    assert.ok(phases.indexOf(before) < phases.indexOf(after), `${before} precedes ${after}`);
   assert.ok(text.elapsedMs - reasoning.elapsedMs >= 100);
   assert.equal(end.requests, 1);
+  assert.equal(end.textDeltaChars, 'private answer'.length);
+  assert.equal(end.reasoningDeltaChars, 'private reasoning'.length);
+  assert.equal(end.toolCallBlocks, 0);
+  assert.equal(end.finishKind, 'stop');
   const timing = end.timings[0];
   assert.ok(timing.headersMs - timing.bodySentMs >= 100, JSON.stringify(timing));
   assert.ok(timing.sendHeadersMs >= timing.createdMs);

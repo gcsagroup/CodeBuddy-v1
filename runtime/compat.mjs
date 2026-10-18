@@ -2059,6 +2059,7 @@ export class Compat {
     if (!validated) throw validationError;
     let messageId = randomUUID();
     let afterToolResult = false;
+    let lastResponseTextAvailable;
     const created = Math.floor(Date.now() / 1000);
     let writer;
     const notify = async (update) => {
@@ -2270,6 +2271,8 @@ export class Compat {
             active.dispatched.delete(dispatchKey);
           }
           if (event.sessionId && event.sessionId !== s.id) return;
+          if (event.type === 'assistant_committed' && typeof event.hasText === 'boolean')
+            lastResponseTextAvailable = event.hasText;
           // Native logs retain every receipt. Main-chat projection omits
           // delegation plumbing; child tools remain in their own transcript.
           if (event.type === 'tool_call' && event.internalControl === true) internalToolCalls.add(event.id);
@@ -2404,6 +2407,9 @@ export class Compat {
             visible_text_available: updates.some(
               (u) => u.sessionUpdate === "agent_message_chunk",
             ),
+            ...(typeof lastResponseTextAvailable === 'boolean'
+              ? { last_response_text_available: lastResponseTextAvailable }
+              : {}),
             tool_action_count: context.receipts.length,
             copy_artifact_ref: null,
             finished_at: new Date().toISOString(),

@@ -6,10 +6,12 @@ import {
   driverProvider,
   inventory,
   resolvedInventory,
+  resolveImageCapability,
   modelBase,
   readProvider,
   saveProvider,
 } from "../providers.mjs";
+import { RuntimeSettings } from '../settings.mjs';
 import {
   zCustomProviderCreateResponse_unstable,
   zCustomProviderReadResponse_unstable,
@@ -61,12 +63,13 @@ test('Ollama cloud details supply capacity once per model; local architectural l
   t.mock.method(globalThis,'fetch',async (url, options={})=>{
     calls.push({url:String(url),body:options.body});
     return new Response(JSON.stringify(String(url).endsWith('/api/show')
-      ? {model_info:{'kimi-k3.context_length':1048576}}
+      ? {model_info:{'kimi-k3.context_length':1048576}, capabilities:['completion','vision','thinking']}
       : {data:[{id:'kimi-k3'}]}),{headers:{'content-type':'application/json'}});
   });
   const p={...input('https://ollama.com'),id:'cloud-capacity',models:['kimi-k3']};
   const [a,b]=await Promise.all([driverProvider(p,'kimi-k3'),driverProvider(p,'kimi-k3')]);
   assert.equal(a.contextWindow,1048576);assert.equal(b.contextSource,'service');
+  assert.deepEqual(await resolveImageCapability(p, 'kimi-k3'), {imageInput:'supported',source:'provider_metadata'});
   assert.equal(calls.filter(c=>c.url.endsWith('/api/show')).length,1);
   assert.equal((await driverProvider({...p,contextWindows:{'kimi-k3':65536}},'kimi-k3')).contextWindow,65536);
   const local=await driverProvider({...p,apiUrl:'http://localhost:11434'},'kimi-k3');
@@ -74,11 +77,33 @@ test('Ollama cloud details supply capacity once per model; local architectural l
   assert.equal(calls.filter(c=>c.url.includes('localhost')&&c.url.endsWith('/api/show')).length,0);
 });
 
+test('image capability uses declared metadata, preserves manual denial and never guesses from model names', async t => {
+  const api = await endpoint(t, (_req, res) => res.end(JSON.stringify({ data: [
+    { id: 'seeing', input_modalities: ['text', 'image'] },
+    { id: 'plain', input: ['text'] },
+    { id: 'vision-in-name-only', input_modalities: 'image' },
+  ] })));
+  const provider = { ...input(api.url), id: 'image-metadata', models: ['seeing', 'plain', 'vision-in-name-only'] };
+  const store = memoryStore();
+  await store.update(s => { s.providers = [provider]; });
+  const settings = new RuntimeSettings(store);
+  const resolve = modelId => settings.request('model-capabilities/resolve', { providerId: provider.id, modelId });
+  assert.equal((await resolve('seeing')).imageInput, 'supported');
+  assert.equal((await resolve('plain')).imageInput, 'unsupported');
+  assert.equal((await resolve('vision-in-name-only')).imageInput, 'unknown');
+  await settings.request('model-capabilities/save', { config: { version: 1, overrides: [
+    { providerId: provider.id, modelId: 'seeing', imageInput: 'force_unsupported' },
+  ] } });
+  assert.deepEqual(await resolve('seeing'), { providerId: provider.id, modelId: 'seeing', imageInput: 'unsupported', source: 'user_override' });
+  assert.equal(api.requests.length, 1, 'Capability and context share one cached discovery');
+});
+
 test('explicit catalog provider uses official Harness metadata and unknown model keeps upstream fallback', async t => {
-  const api=await endpoint(t,(_req,res)=>res.end(JSON.stringify({data:[{id:'gpt-4'},{id:'unknown'}]})));
+  const api=await endpoint(t,(_req,res)=>res.end(JSON.stringify({data:[{id:'gpt-4'},{id:'gpt-4o'},{id:'unknown'}]})));
   const p={...input(api.url),catalogProviderId:'openai'};
   const known=await driverProvider(p,'gpt-4');
   assert.equal(known.contextSource,'catalog');assert.ok(known.contextWindow>0);
+  assert.deepEqual(await resolveImageCapability(p, 'gpt-4o'), { imageInput: 'supported', source: 'catalog' });
   const unknown=await driverProvider(p,'unknown');
   assert.equal(unknown.contextSource,'fallback');assert.equal(unknown.contextWindow,262144);
 });

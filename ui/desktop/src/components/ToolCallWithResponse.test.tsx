@@ -23,6 +23,20 @@ vi.mock('../acp/permissionRequests', async (original) => ({
 beforeEach(() => vi.mocked(isAcpPermissionRequestPending).mockReturnValue(true));
 
 describe('tool response completion evidence', () => {
+  it('keeps generic compact tool receipts out of diagnostic drawers', () => {
+    render(<IntlProvider locale="en" messages={{}}>
+      <ToolCallWithResponse compact isCancelledMessage={false} isPendingApproval={false}
+        toolRequest={{ type: 'toolRequest', id: 'directory', toolCall: { status: 'success', value: {
+          name: 'working_directory', arguments: { internalDiagnostic: 'PRIVATE_PARAMETER' },
+        } } }}
+        toolResponse={{ type: 'toolResponse', id: 'directory', toolResult: { status: 'success', value: {
+          content: [{ type: 'text', text: 'PRIVATE_RAW_RECEIPT' }], isError: false,
+        } } }} />
+    </IntlProvider>);
+    expect(screen.queryByText('Diagnostic record')).not.toBeInTheDocument();
+    expect(screen.queryByText(/PRIVATE_PARAMETER|PRIVATE_RAW_RECEIPT/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { expanded: false })).not.toBeInTheDocument();
+  });
   it('opens the file receipt by call identity without toggling the row, including keyboard activation', async () => {
     const user = userEvent.setup(),
       open = vi.fn();

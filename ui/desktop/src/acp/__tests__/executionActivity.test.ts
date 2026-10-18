@@ -73,4 +73,18 @@ describe('live execution activity is scoped presentation only', () => {
     expect(store.getSnapshot(sessionId)?.chatState).toBe(ChatState.Idle);
     expect(store.getSnapshot(sessionId)?.promptActivity).toBeUndefined();
   });
+  it('accepts observed request phases and ignores an unknown optional phase', () => {
+    start();
+    receive({ phase: 'model', model_request_phase: 'waiting' });
+    expect(store.getSnapshot(sessionId)?.promptActivity?.execution).toEqual({
+      phase: 'model',
+      childCount: 1,
+      modelRequestPhase: 'waiting',
+    });
+    receive({ phase: 'model', model_request_phase: 'invented' });
+    expect(store.getSnapshot(sessionId)?.promptActivity?.execution).toEqual({
+      phase: 'model',
+      childCount: 1,
+    });
+  });
 });

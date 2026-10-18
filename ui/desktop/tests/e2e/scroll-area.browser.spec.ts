@@ -539,6 +539,45 @@ test('manual reading survives new output and Latest releases the reserved space 
   expect(await viewport.evaluate((el) => el.scrollTop)).toBe(readingTop);
 });
 
+test('scrolling down during a burst keeps following after the gesture ends', async () => {
+  await openFixture();
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  await page.getByRole('button', { name: 'Append burst', exact: true }).click();
+  const box = (await viewport.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 40);
+  await expect(page.getByRole('status')).toHaveText('Following output');
+  await expect
+    .poll(() => viewport.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), {
+      timeout: 5000,
+    })
+    .toBeLessThanOrEqual(2);
+});
+
+test('layout growth keeps following and manual return to the bottom resumes it', async () => {
+  await openFixture();
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  await page.getByRole('button', { name: 'Grow earlier content', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Following output');
+  await expect
+    .poll(() => viewport.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), {
+      timeout: 5000,
+    })
+    .toBeLessThanOrEqual(2);
+  const box = (await viewport.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect(page.getByRole('status')).toHaveText('Reading history');
+  await page.mouse.wheel(0, 2000);
+  await expect(page.getByRole('status')).toHaveText('Following output');
+  await page.getByRole('button', { name: 'Append output', exact: true }).click();
+  await expect
+    .poll(() => viewport.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), {
+      timeout: 3000,
+    })
+    .toBeLessThanOrEqual(2);
+});
+
 test('file-card disclosures preserve counts and motion while opening saved diffs in one workspace tab', async () => {
   await page.goto(
     `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?file-card`

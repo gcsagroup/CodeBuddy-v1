@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "Pergi ke laman utama"
   },
+  "baseChat.latest": {
+    "defaultMessage": "Back to latest"
+  },
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
@@ -8294,6 +8297,18 @@
   "workStatus.elapsed": {
     "defaultMessage": "{seconds}s"
   },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Request sent; waiting for the model service to respond"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
@@ -8305,5 +8320,8 @@
   },
   "workStatus.thought": {
     "defaultMessage": "Receiving model activity"
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   }
 }

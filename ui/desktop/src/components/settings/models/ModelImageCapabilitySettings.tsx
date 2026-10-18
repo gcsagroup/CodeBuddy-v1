@@ -16,13 +16,13 @@ const messages = defineMessages({
   description: {
     id: 'modelImageCapability.description',
     defaultMessage:
-      'Declare image support for a configured model based on its provider documentation or a successful image test. This applies to both the main and auxiliary vision agents. Unknown capability does not enable image input.',
+      'Image support is detected from provider metadata for both the main and auxiliary vision models. Use a manual override only when metadata is missing or incorrect.',
   },
   provider: { id: 'modelImageCapability.provider', defaultMessage: 'Image capability provider' },
   model: { id: 'modelImageCapability.model', defaultMessage: 'Image capability model' },
   capability: { id: 'modelImageCapability.capability', defaultMessage: 'Image support' },
   choose: { id: 'modelImageCapability.choose', defaultMessage: 'Select…' },
-  auto: { id: 'modelImageCapability.auto', defaultMessage: 'Automatic / unknown' },
+  auto: { id: 'modelImageCapability.auto', defaultMessage: 'Detect automatically' },
   supported: { id: 'modelImageCapability.supported', defaultMessage: 'Supports images' },
   unsupported: { id: 'modelImageCapability.unsupported', defaultMessage: 'Text only' },
   save: { id: 'modelImageCapability.save', defaultMessage: 'Save image capability' },

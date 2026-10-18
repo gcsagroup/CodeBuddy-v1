@@ -88,6 +88,7 @@ const i18n = defineMessages({
     id: 'baseChat.reconnecting',
     defaultMessage: 'Connection lost. Reconnecting…',
   },
+  latest: { id: 'baseChat.latest', defaultMessage: 'Back to latest' },
 });
 
 interface BaseChatProps {
@@ -119,6 +120,7 @@ export default function BaseChat({
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef<ScrollAreaHandle>(null);
+  const [followingOutput, setFollowingOutput] = useState(true);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
   const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
@@ -671,6 +673,7 @@ export default function BaseChat({
             ref={scrollRef}
             className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-6 pt-3' : contentClassName}`}
             autoScroll
+            onScrollChange={setFollowingOutput}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
@@ -740,6 +743,16 @@ export default function BaseChat({
               </>
             ) : null}
           </ScrollArea>
+
+          {!followingOutput && (
+            <button
+              type="button"
+              className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border-primary bg-background-primary px-4 py-2 text-sm text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+              onClick={() => scrollRef.current?.scrollToBottom()}
+            >
+              {intl.formatMessage(i18n.latest)}
+            </button>
+          )}
 
           {chatState !== ChatState.Idle && showFloatingProgress && !conversationLayout && (
             <div className="absolute bottom-1 left-4 right-4 z-20 pointer-events-none">

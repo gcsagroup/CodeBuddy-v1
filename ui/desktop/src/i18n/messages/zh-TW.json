@@ -164,6 +164,9 @@
   "baseChat.goHome": {
     "defaultMessage": "回到首頁"
   },
+  "baseChat.latest": {
+    "defaultMessage": "回到最新"
+  },
   "baseChat.lastStage": {
     "defaultMessage": "最近進度說明：{stage}"
   },
@@ -4218,7 +4221,7 @@
     "defaultMessage": "供應商名稱查詢"
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "自動 / 未知"
+    "defaultMessage": "自動識別"
   },
   "modelImageCapability.capability": {
     "defaultMessage": "圖像支援"
@@ -4227,7 +4230,7 @@
     "defaultMessage": "請選擇…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "根據模型廠商說明或成功的圖片測試，宣告已設定模型是否支援識圖。主 Agent 和輔助視覺 Agent 共用此設定；能力未知時不啟用圖像輸入。"
+    "defaultMessage": "主模型與輔助識圖模型會根據服務中繼資料自動識別圖像能力。僅在資料缺失或不準確時手動覆寫。"
   },
   "modelImageCapability.error": {
     "defaultMessage": "讀取或儲存識圖能力失敗。已保留目前選擇，請在連線恢復後重試。"
@@ -8297,6 +8300,18 @@
   "workStatus.elapsed": {
     "defaultMessage": "{seconds} 秒"
   },
+  "workStatus.preparing": {
+    "defaultMessage": "正在準備模型請求"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "正在連線模型服務"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "請求已傳送，等待模型服務回應"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "已連線，正在接收模型輸出"
+  },
   "workStatus.first": {
     "defaultMessage": "正在等待模型回應"
   },
@@ -8443,5 +8458,8 @@
   },
   "toolbox.officeDocuments": {
     "defaultMessage": "Office 文件"
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
   }
 }

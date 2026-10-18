@@ -983,6 +983,16 @@ function ToolCallView({
   }
   if (compact) {
     const preview = toolCall.arguments?.__inputPreview === true;
+    // Generic plumbing has no user-facing detail view. Full receipts remain
+    // available in the diagnostic export, rather than an empty/raw JSON drawer.
+    if (!readable && !preview && !childSessionId && !isProgressTool(toolCall.name)) {
+      return (
+        <div className="codepro-record-trigger flex min-h-7 items-center gap-1.5 py-1 text-sm">
+          <ToolActivityIcon name={toolCall.name} status={toolCallStatus} />
+          <span className="min-w-0">{toolLabel}</span>
+        </div>
+      );
+    }
     if (
       isProgressTool(toolCall.name) &&
       !toolResponse &&
@@ -1032,18 +1042,6 @@ function ToolCallView({
               {logs.join('\n')}
             </pre>
           )}
-          <details className="codepro-disclosure text-xs text-text-secondary">
-            <summary className="cursor-pointer">{intl.formatMessage(i18n.diagnostics)}</summary>
-            <div className="space-y-2 pt-2">
-              <pre className="whitespace-pre-wrap break-words">
-                {JSON.stringify(toolCall, null, 2)}
-              </pre>
-              {toolResults.map((result, index) => (
-                <ToolResultView key={index} toolCall={toolCall} result={result} isStartExpanded />
-              ))}
-              {toolAudit && <ToolAuditDetails receipt={toolAudit} />}
-            </div>
-          </details>
           {childSessionId && (
             <button
               type="button"

@@ -18,7 +18,8 @@ const groups = {
   cancellation: suite('node', ['runtime/tests/cancelled-subagent-retest.test.mjs']),
   queue: suite('ui', ['src/components/ChatInput.queue.test.tsx']),
   modeUi: suite('ui', ['src/components/SessionPermissionSummary.test.tsx']),
-  modeAcp: suite('node', ['runtime/tests/acp-contract.test.mjs'], ['--test-name-pattern', 'retest-20261016']),
+  modeAcp: suite('node', ['runtime/tests/acp-contract.test.mjs'], ['--test-name-pattern', 'mode changes during|three permission modes|all six live transitions|mode switching neither']),
+  modeNative: suite('node', ['runtime/tests/native-delegation.test.mjs']),
   profile: suite('ui', ['src/storage/packagedProfile.test.ts', 'src/storage/codeBuddyPaths.test.ts']),
   terminal: suite('ui', ['src/components/GooseMessage.handoff.test.tsx']),
   silence: suite('ui', ['src/components/codepro/useWorkStatus.test.tsx']),
@@ -34,7 +35,7 @@ const issues = [
   [8, '取消后的子任务通知不重新调用模型', ['cancellation']],
   [9, '立即发送等待旧请求结束且只提交一次', ['queue']],
   [10, '队列不再有展开层', ['queue']],
-  [11, '生成中切换权限，下轮才生效', ['modeUi', 'modeAcp']],
+  [11, '生成中切换权限，在下一次工具权限检查生效', ['modeUi', 'modeAcp', 'modeNative']],
   [12, '默认目录改名和数据兼容', ['profile']],
   [13, '宿主不追加未经证实的完成判词', ['terminal']],
   [14, '长静默反馈保留真实时间和状态', ['silence']],
@@ -44,7 +45,7 @@ const limits = {
   2: '验证 React 组件和回放数据；不包含 Electron 像素、滚动或真实流式服务时序。',
   7: '验证成功查询投影及错误保留；不保证真实模型永不轮询或自动选择合理的 Agent 数量。',
   8: '使用本机模拟模型和真实原生子 Agent 生命周期；不调用外部模型或用户会话。',
-  11: '验证真实 ACP 接口和请求权限快照，执行核心由隔离受控 Driver 驱动。',
+  11: '验证真实 ACP 接口与隔离原生子 Agent 的六向切换、冷恢复和权限继承；不回滚已运行动作，待处理审批仍需明确答复。不代表桌面 E2E。',
   12: '只迁移随机临时目录的合成文件，不迁移真实用户目录，也不验证安装包启动。',
   13: '验证界面不越权下结论；wind 的真实停止原因仍缺原生日志。',
   14: '验证静默反馈；wind 的 84 秒等待原因仍缺原生和传输日志。',
@@ -90,6 +91,7 @@ async function runGroup(name) {
     child.once('close', (code, signal) => { clearTimeout(timeout); log.end(() => resolve({ exitCode: code, signal })); });
   });
   let counts = { tests: 0, passed: 0, failed: 0, skipped: 0, cancelled: 0 }, failures = [], suiteErrors = [];
+  let emptySelection = false;
   if (spec.kind === 'ui' && fs.existsSync(path.join(output, name + '.json'))) {
     const report = JSON.parse(fs.readFileSync(path.join(output, name + '.json'), 'utf8'));
     counts = { tests: report.numTotalTests, passed: report.numPassedTests, failed: report.numFailedTests, skipped: report.numPendingTests, cancelled: 0 };
@@ -97,12 +99,15 @@ async function runGroup(name) {
     failures = report.testResults.flatMap(file => file.assertionResults.filter(test => test.status === 'failed').map(test => ({ name: test.fullName, messages: test.failureMessages })));
   } else if (spec.kind === 'node') {
     const text = fs.readFileSync(logFile, 'utf8');
+    // Node can count an unmatched file as one passing container. Its empty TAP
+    // plan is the evidence that none of that file's actual checks executed.
+    emptySelection = /^1\.\.0\s*$/m.test(text);
     for (const [field, label] of [['tests', 'tests'], ['passed', 'pass'], ['failed', 'fail'], ['skipped', 'skipped'], ['cancelled', 'cancelled']]) {
       const hits = [...text.matchAll(new RegExp('^# ' + label + ' (\\d+)', 'gm'))];
       counts[field] = Number(hits.at(-1)?.[1] ?? 0);
     }
   }
-  return { ...outcome, status: outcome.exitCode === 0 && !timedOut && counts.tests > 0 ? 'PASS' : 'FAIL', timedOut, durationMs: Date.now() - started, counts, failures, suiteErrors, command: [process.execPath, ...args], cwd, log: logFile };
+  return { ...outcome, status: outcome.exitCode === 0 && !timedOut && !emptySelection && counts.passed > 0 && counts.failed === 0 && counts.cancelled === 0 && suiteErrors.length === 0 ? 'PASS' : 'FAIL', timedOut, emptySelection, durationMs: Date.now() - started, counts, failures, suiteErrors, command: [process.execPath, ...args], cwd, log: logFile };
 }
 async function main() {
   fs.mkdirSync(output, { recursive: true });

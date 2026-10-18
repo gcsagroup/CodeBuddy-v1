@@ -361,7 +361,7 @@ const MarkdownContent = memo(function MarkdownContent({
       key={key}
       urlTransform={customUrlTransform}
       remarkPlugins={[
-        remarkGfm,
+        [remarkGfm, { singleTilde: false }],
         [remarkMath, { singleDollarTextMath: false }],
         ...(revealAt !== undefined && canRevealTree
           ? [

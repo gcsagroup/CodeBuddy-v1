@@ -16,6 +16,11 @@ function listingKey(provider) {
 function modelContext(model) {
   return [model?.max_model_len, model?.contextWindow, model?.context_window, model?.context_length, model?.max_input_tokens, model?.limit?.context].find(value => Number.isSafeInteger(value) && value > 0);
 }
+function modelImageProfile(model, source = 'provider_metadata') {
+  const input = model?.inputModalities ?? model?.input ?? model?.input_modalities ?? model?.architecture?.input_modalities;
+  if (!Array.isArray(input) || !input.length || !input.every(value => typeof value === 'string')) return undefined;
+  return { imageInput: input.includes('image') ? 'supported' : 'unsupported', source };
+}
 export function contextProfile(provider, model) {
   const discovered = cachedModels(provider)?.contexts?.[model];
   const configured = provider.contextWindows?.[model];
@@ -295,7 +300,9 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     throw providerError("no_models", "The model endpoint returned no models.");
   const contexts = Object.fromEntries(rawModels.filter(model => modelContext(model) !== undefined)
     .map(model => [model.id, modelContext(model)]));
-  modelListings.set(listingKey(provider), { contexts, expires: Date.now() + metadataTtlMs });
+  const inputs = Object.fromEntries(rawModels.filter(model => modelImageProfile(model))
+    .map(model => [model.id, modelImageProfile(model)]));
+  modelListings.set(listingKey(provider), { contexts, inputs, expires: Date.now() + metadataTtlMs });
   return ids;
 }
 
@@ -313,7 +320,7 @@ async function resolveContext(provider, model, authPending) {
   }
   await cached.pending;
   cached = cachedModels(provider);
-  if (cached && !cached.contexts?.[model]) {
+  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model])) {
     cached.details ??= new Map();
     if (!cached.details.has(model)) cached.details.set(model, (async () => {
       try {
@@ -326,10 +333,17 @@ async function resolveContext(provider, model, authPending) {
           const body = await requestJson(new URL('/api/show', base), { method: 'POST', headers: auth.requestHeaders,
             payload: { model }, timeoutMs: 5000 });
           capacity = Object.entries(body.model_info ?? {}).find(([k, v]) => k.endsWith('.context_length') && Number.isSafeInteger(v) && v > 0)?.[1];
+          if (Array.isArray(body.capabilities) && body.capabilities.length && body.capabilities.every(value => typeof value === 'string')) {
+            cached.inputs ??= {};
+            cached.inputs[model] = { imageInput: body.capabilities.includes('vision') ? 'supported' : 'unsupported', source: 'provider_metadata' };
+          }
           source = 'service';
         }
         if (!capacity && provider.catalogProviderId) {
-          capacity = (await catalogModels(provider.catalogProviderId)).find(m => m.id === model)?.contextWindow;
+          const info = (await catalogModels(provider.catalogProviderId)).find(m => m.id === model);
+          capacity = info?.contextWindow;
+          const input = modelImageProfile(info, 'catalog');
+          if (input && !cached.inputs?.[model]) { cached.inputs ??= {}; cached.inputs[model] = input; }
           source = 'catalog';
         }
         if (capacity) {
@@ -341,6 +355,11 @@ async function resolveContext(provider, model, authPending) {
     await cached.details.get(model);
   }
   return cachedModels(provider)?.contexts?.[model];
+}
+
+export async function resolveImageCapability(provider, model) {
+  await resolveContext(provider, model);
+  return cachedModels(provider)?.inputs?.[model] ?? { imageInput: 'unknown', source: 'unknown' };
 }
 
 async function validateSelection(provider, stored) {

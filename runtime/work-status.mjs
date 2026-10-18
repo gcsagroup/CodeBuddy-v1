@@ -4,7 +4,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
   let previous;
   return event => {
     if (signal?.aborted) return [];
-    let phase;
+    let phase, modelRequestPhase;
     if (event.type === 'subagent_start' && event.sessionId === sessionId) {
       children.add(event.childSessionId);
       phase = 'children';
@@ -19,18 +19,24 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
         phase = children.size ? 'children' : 'child_result';
       }
     } else if (event.sessionId === sessionId) {
-      if (event.type === 'assistant_start' || event.type === 'assistant_committed')
+      if (event.type === 'model_diagnostic') {
+        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving' })[event.phase];
+        if (event.phase === 'response_headers' && !(event.status >= 200 && event.status < 300)) modelRequestPhase = undefined;
+        if (!modelRequestPhase && !['end', 'response_headers'].includes(event.phase)) return [];
+        phase = children.size ? 'children' : 'model';
+      } else if (event.type === 'assistant_start' || event.type === 'assistant_committed')
         phase = children.size ? 'children' : 'model';
       else if (event.type === 'tool_result' && !event.internalControl)
         phase = children.size ? 'children' : 'tool_result';
     }
     if (!phase) return [];
-    const key = `${phase}:${children.size}`;
+    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}`;
     if (key === previous) return [];
     previous = key;
     return [{ sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: runId, phase, child_count: children.size,
+      ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),
     } } }];
   };
 }

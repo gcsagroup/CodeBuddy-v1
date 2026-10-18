@@ -68,6 +68,28 @@ test('ordinary Harness answer completes without an extra CodeBuddy task tool or 
   assert.equal(terminal.report, undefined, 'ordinary answers do not manufacture project verification cards');
 });
 
+test('final native response observation stays separate from progress, child messages and completion authority', async t => {
+  const f = await fixture(t);
+  for (const finalHasText of [false, true]) {
+    f.scripts.push(async ({ onEvent }) => {
+      await onEvent({ type: 'text_delta', text: 'Earlier progress.' });
+      await onEvent({ type: 'assistant_committed', hasText: true, sessionId: f.sessionId });
+      await onEvent({ type: 'thinking_delta', text: 'Private reasoning.' });
+      if (finalHasText) await onEvent({ type: 'text_delta', text: 'Final answer.' });
+      await onEvent({ type: 'assistant_committed', hasText: finalHasText, sessionId: f.sessionId });
+      await onEvent({ type: 'assistant_committed', hasText: !finalHasText, sessionId: 'child-session' });
+      return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+    });
+    const noticeStart = f.notices.length;
+    assert.equal((await f.prompt('Continue the work.')).stopReason, 'end_turn');
+    const terminal = f.notices.slice(noticeStart).map(n => n.params.update?.status?.data).find(d => d?.terminal_message_id);
+    assert.equal(terminal.status, 'completed', 'presentation must not override the native terminal state');
+    assert.equal(terminal.visible_text_available, true, 'earlier progress is still visible');
+    assert.equal(terminal.last_response_text_available, finalHasText);
+    assert.equal(f.scripts.length, 0, 'one user prompt consumes one native attempt without automatic repair');
+  }
+});
+
 test('transport failure preserves actual failure and does not become a successful Harness answer', async t => {
   const f = await fixture(t);
   f.scripts.push(async () => { throw Object.assign(Error('Isolated connection failure'), { code: 'TRANSPORT' }); });

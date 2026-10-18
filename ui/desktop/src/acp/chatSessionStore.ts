@@ -32,6 +32,7 @@ export interface PromptActivity {
   execution?: {
     phase: 'model' | 'children' | 'child_result' | 'tool_result';
     childCount: number;
+    modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
   };
 }
 
@@ -734,6 +735,15 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
+              ...(['preparing', 'connecting', 'waiting', 'receiving'].includes(
+                String(activity.model_request_phase)
+              )
+                ? {
+                    modelRequestPhase: activity.model_request_phase as NonNullable<
+                      PromptActivity['execution']
+                    >['modelRequestPhase'],
+                  }
+                : {}),
             },
           };
         return notify(notification.sessionId, entry);

@@ -66,7 +66,14 @@ describe('handoff versus an unexplained interruption', () => {
   });
 
   it('still tells the user when they stopped execution', () => {
-    show(terminal('cancelled'));
+    const message = terminal('cancelled');
+    const notification = message.content.find((content) => content.type === 'systemNotification');
+    if (notification?.type === 'systemNotification')
+      notification.data = { ...(notification.data as object), last_response_text_available: false };
+    show(message);
     expect(screen.getByText(/Stopped at your request/)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/The model response ended without a final reply/)
+    ).not.toBeInTheDocument();
   });
 });

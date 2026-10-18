@@ -33,15 +33,27 @@ import { showExtensionLoadResults } from '../../src/utils/extensionErrorUtils';
 function Fixture() {
   const area = useRef<ScrollAreaHandle>(null);
   const [lines, setLines] = useState(0);
+  const [following, setFollowing] = useState(true);
+  const [earlierHeight, setEarlierHeight] = useState(900);
   return (
     <main style={{ padding: 24, width: 850 }}>
       <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
         <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
         <button onClick={() => setLines((value) => value + 1)}>Append output</button>
+        <button onClick={() => setLines((value) => value + 8)}>Append burst</button>
+        <button onClick={() => setEarlierHeight((value) => value + 420)}>
+          Grow earlier content
+        </button>
+        <span role="status">{following ? 'Following output' : 'Reading history'}</span>
       </div>
-      <ScrollArea ref={area} autoScroll style={{ height: 520, border: '1px solid gray' }}>
+      <ScrollArea
+        ref={area}
+        autoScroll
+        onScrollChange={setFollowing}
+        style={{ height: 520, border: '1px solid gray' }}
+      >
         <div style={{ padding: '0 24px' }}>
-          <div style={{ height: 900 }}>Earlier conversation</div>
+          <div style={{ height: earlierHeight }}>Earlier conversation</div>
           <ToolCallExpandable compact label="Work history" isStartExpanded>
             <div style={{ height: 260 }}>Tool receipts</div>
           </ToolCallExpandable>

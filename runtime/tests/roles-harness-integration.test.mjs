@@ -125,6 +125,10 @@ test('ACP uses the selected main model and three native generic children despite
   await client.request(ext('preferences/save'), { expectedRevision: 0, values: [{ key: 'gooseThinkingEffort', value: 'high' }] });
   const lease = await client.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
   const session = await client.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
+  // Child execution is unattended. Project writes require the parent's smart
+  // policy; answering root approval RPCs cannot grant a child's denied write.
+  // Manual-mode denials are covered by native-delegation.test.mjs.
+  await client.request('session/set_mode', { sessionId: session.sessionId, modeId: 'smart_approve' });
   await client.request('session/set_config_option', { sessionId: session.sessionId, configId: 'model', value: 'selected-main' });
   const result = await client.request('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'official_role_fixture: develop and verify a multi-module project with independent workers' }], _meta: { 'codeagentpro/source-message-id': randomUUID() } }).catch(error => {
     throw new Error(`${error.message}; actual model counts=${JSON.stringify(model.count)}; fixture failures=${JSON.stringify(model.failures.map(failure => failure.message))}`, { cause: error });
@@ -141,6 +145,7 @@ test('ACP uses the selected main model and three native generic children despite
   const writes = events.filter(event => event.eventType === 'tool_result' && event.payload.callId.endsWith(':same-native-write-call-id'));
   assert.equal(writes.length, 2); assert.equal(new Set(writes.map(event => event.payload.callId)).size, 2);
   assert.ok(writes.every(event => event.payload.taskId === null), 'native workers do not need host task registration');
+  assert.ok(writes.every(event => event.payload.internal === true), 'child receipts remain internal while retaining their audit identity');
   assert.equal(events.filter(event => event.eventType === 'plan_submitted').length, 0);
   const lifecycle = events.filter(event => event.eventType === 'harness_event' && event.payload.event.type.startsWith('subagent/'));
   assert.equal(lifecycle.filter(event => event.payload.event.type === 'subagent/start').length, 3);

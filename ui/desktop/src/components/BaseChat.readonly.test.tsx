@@ -98,6 +98,17 @@ it('retains normal conversation controls outside imported history', () => {
   expect(screen.getByRole('button', { name: 'Resume task' })).toBeVisible();
 });
 
+it('offers a way back to the latest output after the reader pauses following', () => {
+  const { container } = show();
+  const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
+  viewport.scrollTo = vi.fn();
+  expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+  fireEvent.wheel(viewport, { deltaY: -100 });
+  fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
+  expect(viewport.scrollTo).toHaveBeenCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
+  expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+});
+
 it.each(['keyboard', 'menu'] as const)(
   'uses the actual search visibility for the history window when opened by %s',
   async (entry) => {

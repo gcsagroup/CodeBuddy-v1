@@ -5,6 +5,7 @@ import { mkdtemp, readFile, access } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
+import { workspaceIdentity } from '../workspaces.mjs';
 
 const secret = 'harness-integration-loopback-only';
 const ext = name => `_goose/unstable/${name}`;
@@ -62,6 +63,7 @@ async function connect(baseUrl) {
 
 async function fixtureServer(root) {
   const requests = [];
+  let bodylessResponses = 0;
   const server = http.createServer(async (req, res) => {
     if (req.url === '/v1/models') {
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -100,8 +102,11 @@ async function fixtureServer(root) {
     }
     if (prompt.includes('bridge_fixture_write') && !toolFinished) {
       emit({ role: 'assistant', content: 'Before the tool. ' });
-      emit({ tool_calls: [{ index: 0, id: 'bridge-call-write', type: 'function', function: { name: 'write', arguments: JSON.stringify({ file_path: path.join(root, prompt.includes('denied') ? 'denied.txt' : 'approved.txt'), content: 'actual Harness tool output\n' }) } }] });
+      emit({ tool_calls: [{ index: 0, id: 'bridge-call-write', type: 'function', function: { name: 'write', arguments: JSON.stringify({ file_path: path.join(root, ...(prompt.includes('reasoning_stop') ? ['bodyless'] : []), prompt.includes('denied') ? 'denied.txt' : 'approved.txt'), content: 'actual Harness tool output\n' }) } }] });
       emit({}, 'tool_calls');
+    } else if (prompt.includes('bridge_fixture_write_reasoning_stop') && bodylessResponses++ === 0) {
+      emit({ reasoning: 'Unclosed reasoning with orphan channel endings <|close|>response<|sep|><|close|>message<|sep|>.' });
+      emit({}, 'stop');
     } else {
       emit({ role: 'assistant', content: 'Harness bridge ' });
       emit({ content: 'complete.' });
@@ -130,6 +135,7 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
   const newSession = async () => (await client.request('session/new', { cwd: root, mcpServers: [] })).sessionId;
   const prompt = (sessionId, text) => client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   const updates = sessionId => client.notifications.filter(message => message.method === 'session/update' && message.params.sessionId === sessionId).map(message => message.params.update);
+  const terminals = sessionId => client.notifications.filter(message => message.method === ext('session/update') && message.params.sessionId === sessionId).map(message => message.params.update.status?.data).filter(data => data?.terminal_message_id);
   const permission = async sessionId => {
     const first = await client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId);
     if (first.params.toolCall.title !== 'search_mcp_tools') return first;
@@ -154,6 +160,31 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     assert.equal(text.map(update => update.content.text).join(''), 'Before the tool. Harness bridge complete.');
     assert.notEqual(text[0]._meta.goose.messageId, text.at(-1)._meta.goose.messageId, 'tool-separated model attempts need separate chat messages');
     assert.ok(model.requests.some(request => request.stream && request.tools.some(tool => tool.function.name === 'write')));
+  });
+
+  await t.test('native retry recovers a bodyless response without replaying the preceding file operation', async () => {
+    const cwd = path.join(root, 'bodyless');
+    const lease = await client.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
+    const { sessionId } = await client.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
+    const pending = prompt(sessionId, 'bridge_fixture_write_reasoning_stop approved');
+    const ask = await permission(sessionId);
+    client.reply(ask.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
+    assert.equal((await pending).stopReason, 'end_turn');
+    assert.equal(await readFile(path.join(cwd, 'approved.txt'), 'utf8'), 'actual Harness tool output\n');
+    const live = updates(sessionId);
+    const text = live.filter(update => update.sessionUpdate === 'agent_message_chunk').map(update => update.content.text).join('');
+    assert.equal(text, 'Before the tool. Harness bridge complete.', 'the actual retry supplies body text; reasoning is never reclassified');
+    assert.match(live.filter(update => update.sessionUpdate === 'agent_thought_chunk').map(update => update.content.text).join(''), /<\|close\|>response/);
+    const terminal = terminals(sessionId).at(-1);
+    assert.equal(terminal.status, 'completed');
+    assert.equal(terminal.visible_text_available, true);
+    assert.equal(terminal.last_response_text_available, true);
+    assert.equal(live.filter(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === 'bridge-call-write' && update.status === 'completed').length, 1, 'the completed file action must not be replayed');
+    const nativeCount = model.requests.length;
+    assert.equal((await prompt(sessionId, 'bridge_fixture_chat next_round')).stopReason, 'end_turn');
+    assert.equal(model.requests.length, nativeCount + 1, 'no hidden retry or extra model turn');
+    const nextTerminal = terminals(sessionId).at(-1);
+    assert.equal(nextTerminal.last_response_text_available, true, 'a later answer clears the observation through new native data');
   });
 
   await t.test('rejecting the original ACP permission leaves the tool target untouched', async () => {

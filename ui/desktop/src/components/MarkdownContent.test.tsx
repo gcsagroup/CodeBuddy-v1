@@ -14,6 +14,14 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('keeps numeric tilde ranges intact while retaining explicit double-tilde deletion', () => {
+    const { container } = renderWithIntl(
+      <MarkdownContent content={'宇航员上太空 40%~80% 前几天会吐，2~3 天后适应。\n\n~~明确删除~~'} />
+    );
+    expect(container).toHaveTextContent('40%~80% 前几天会吐，2~3 天后适应。');
+    expect(container.querySelectorAll('del')).toHaveLength(1);
+    expect(container.querySelector('del')).toHaveTextContent('明确删除');
+  });
   it('keeps existing links and animated words mounted while streaming text grows', () => {
     const content = '开头 **加粗重点** 与 [参考文档](https://example.com/docs)，hello world。';
     const { container, rerender } = renderWithIntl(

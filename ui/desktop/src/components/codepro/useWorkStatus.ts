@@ -5,6 +5,16 @@ import { ChatState } from '../../types/chatState';
 
 const labels = defineMessages({
   first: { id: 'workStatus.first', defaultMessage: 'Waiting for model response' },
+  preparing: { id: 'workStatus.preparing', defaultMessage: 'Preparing the model request' },
+  connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting to the model service' },
+  responseWait: {
+    id: 'workStatus.responseWait',
+    defaultMessage: 'Request sent; waiting for the model service to respond',
+  },
+  responseRead: {
+    id: 'workStatus.responseRead',
+    defaultMessage: 'Connection established; receiving model output',
+  },
   children: {
     id: 'workStatus.children',
     defaultMessage:
@@ -53,6 +63,17 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
     : 0;
   const recent = activity?.receivedAt !== undefined && silence < 3;
   const execution = activity?.execution;
+  const transportSource =
+    execution?.phase === 'model' && execution.modelRequestPhase
+      ? (
+          {
+            preparing: 'preparing',
+            connecting: 'connecting',
+            waiting: 'responseWait',
+            receiving: 'responseRead',
+          } as const
+        )[execution.modelRequestPhase]
+      : undefined;
   const source = action
     ? 'tool'
     : recent && activity?.kind === 'text'
@@ -65,9 +86,7 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
             ? 'childResult'
             : execution?.phase === 'tool_result'
               ? 'toolResult'
-              : stage && activity
-                ? 'stage'
-                : 'first';
+              : (transportSource ?? (stage && activity ? 'stage' : 'first'));
   return {
     source,
     title: source === 'stage' ? stage : source === 'tool' ? action : undefined,

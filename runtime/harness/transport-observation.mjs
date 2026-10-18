@@ -37,6 +37,7 @@ export function observeModelTransport(ctx, publish) {
         const timing = { request: scope.requests, createdMs: Math.round(performance.now() - scope.started) };
         requests.set(request, { scope, timing });
         scope.timings.push(timing);
+        scope.report?.('request_created');
       }
     },
     'undici:client:sendHeaders': ({ request }) => {
@@ -45,7 +46,10 @@ export function observeModelTransport(ctx, publish) {
     },
     'undici:request:bodySent': ({ request }) => {
       const entry = requests.get(request);
-      if (entry) entry.timing.bodySentMs = Math.round(performance.now() - entry.scope.started);
+      if (entry) {
+        entry.timing.bodySentMs = Math.round(performance.now() - entry.scope.started);
+        if (entry.timing.request === entry.scope.requests) entry.scope.report?.('request_sent');
+      }
     },
     'undici:request:headers': ({ request, response }) => {
       const entry = requests.get(request);
@@ -53,6 +57,7 @@ export function observeModelTransport(ctx, publish) {
         entry.scope.status = response.statusCode;
         entry.timing.status = response.statusCode;
         entry.timing.headersMs = Math.round(performance.now() - entry.scope.started);
+        if (entry.timing.request === entry.scope.requests) entry.scope.report?.('response_headers');
       }
     },
     'undici:request:error': ({ request, error }) => {
@@ -74,15 +79,22 @@ export function observeModelTransport(ctx, publish) {
       timings: scope.timings.map(timing => ({ ...timing })),
       ...(scope.status ? { status: scope.status } : {}), ...extra,
     });
+    scope.report = report;
     return (async function* () {
+      report('start');
       const iterator = context.run(scope, () => next()[Symbol.asyncIterator]());
-      let first = false, exhausted = false, failureCode;
+      let first = false, exhausted = false, failureCode, finishKind;
+      let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0;
       const seen = new Set();
       try {
         while (true) {
           const result = await context.run(scope, () => iterator.next());
           if (result.done) { exhausted = true; return; }
           scope.chunks += 1;
+          if (result.value.type === 'text-delta') textDeltaChars += result.value.text.length;
+          if (result.value.type === 'reasoning-delta') reasoningDeltaChars += result.value.text.length;
+          if (result.value.type === 'block-end' && result.value.block.type === 'tool-call') toolCallBlocks += 1;
+          if (result.value.type === 'finish') finishKind = result.value.reason.kind;
           if (!first && ['text-delta', 'reasoning-delta'].includes(result.value.type)) {
             first = true; report('first_chunk');
           }
@@ -98,7 +110,7 @@ export function observeModelTransport(ctx, publish) {
         throw error;
       } finally {
         try { if (!exhausted) await context.run(scope, () => iterator.return?.()); }
-        finally { report('end', { ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
+        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolCallBlocks, ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
       }
     })();
   });

@@ -114,10 +114,28 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       followFrame.current = requestAnimationFrame(tick);
     }, [stopFollowingMotion]);
 
-    React.useEffect(() => stopFollowingMotion, [stopFollowingMotion]);
+    React.useEffect(
+      () => () => {
+        stopFollowingMotion();
+        if (scrollTimeoutRef.current !== null) clearTimeout(scrollTimeoutRef.current);
+      },
+      [stopFollowingMotion]
+    );
     React.useEffect(() => {
       if (!autoScroll) stopFollowingMotion();
     }, [autoScroll, stopFollowingMotion]);
+
+    const trackNavigation = React.useCallback(() => {
+      isActivelyScrollingRef.current = true;
+      if (scrollTimeoutRef.current !== null) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        isActivelyScrollingRef.current = false;
+        scrollTimeoutRef.current = null;
+        // The last chunk can arrive during a gesture. Resume without requiring
+        // another chunk or resize to wake the existing following animation.
+        if (autoScroll && !userScrolledUpRef.current) followBottom();
+      }, 100);
+    }, [autoScroll, followBottom]);
 
     const clearDisclosureAnchor = React.useCallback(() => {
       disclosureAnchorRef.current = null;
@@ -211,13 +229,17 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         if (viewportRef.current) {
           stopFollowingMotion();
           clearDisclosureAnchor();
+          userScrolledUpRef.current = true;
+          setIsFollowing(false);
+          onScrollChange?.(false);
+          trackNavigation();
           viewportRef.current.scrollTo({
             top,
             behavior,
           });
         }
       },
-      [clearDisclosureAnchor, stopFollowingMotion]
+      [clearDisclosureAnchor, onScrollChange, stopFollowingMotion, trackNavigation]
     );
 
     // Expose the scroll methods to parent components
@@ -257,34 +279,28 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         handleScrollProp?.(viewport);
         return;
       }
+      if (!isActivelyScrollingRef.current) {
+        // Browser anchoring, image loads and layout clamping can emit scroll
+        // events too. Only a navigation gesture may change the reader's mode.
+        lastScrollTopRef.current = viewport.scrollTop;
+        setIsScrolled(viewport.scrollTop > 0);
+        handleScrollProp?.(viewport);
+        return;
+      }
       const { scrollTop } = viewport;
       const movingDown = scrollTop > lastScrollTopRef.current;
+      const movingUp = scrollTop < lastScrollTopRef.current;
       if (contentRef.current?.style.minHeight) {
         contentRef.current.style.minHeight = `${Math.ceil(scrollTop + viewport.clientHeight)}px`;
       }
       const currentIsAtBottom = isAtBottom();
 
-      // detect if this is a user-initiated scroll (position changed from last known position)
-      const scrollDelta = Math.abs(scrollTop - lastScrollTopRef.current);
-      if (scrollDelta > 0) {
-        // Mark that user is actively scrolling immediately
-        isActivelyScrollingRef.current = true;
-
-        // clear any existing timeout and set a new one
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-
-        // mark as not actively scrolling
-        scrollTimeoutRef.current = window.setTimeout(() => {
-          isActivelyScrollingRef.current = false;
-        }, 100);
-      }
+      if (scrollTop !== lastScrollTopRef.current) trackNavigation();
 
       lastScrollTopRef.current = scrollTop;
 
       // Detect if user manually scrolled up from the bottom
-      if (!currentIsAtBottom && isFollowing) {
+      if (!userScrolledUpRef.current && movingUp) {
         // user scrolled up, disabling auto-scroll
         userScrolledUpRef.current = true;
         setIsFollowing(false);
@@ -313,10 +329,10 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
     }, [
       autoScroll,
       isAtBottom,
-      isFollowing,
       onScrollChange,
       handleScrollProp,
       clearDisclosureAnchor,
+      trackNavigation,
     ]);
 
     // One animation owns both React updates and asynchronous layout growth.
@@ -356,6 +372,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         // can be trimmed without clamping the user's current scroll position.
         disclosureAnchorRef.current = null;
         stopFollowingMotion();
+        trackNavigation();
         if (event.deltaY < 0) pauseFollowing();
       };
       const handleDisclosure = (event: Event) => {
@@ -378,13 +395,22 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       };
       const handleNavigationKey = (event: KeyboardEvent) => {
         if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)) {
+          const target = event.target;
+          if (
+            target instanceof Element &&
+            target.closest('input, textarea, [contenteditable="true"]')
+          )
+            return;
           disclosureAnchorRef.current = null;
-          pauseFollowing();
+          stopFollowingMotion();
+          trackNavigation();
+          if (['ArrowUp', 'PageUp', 'Home'].includes(event.key)) pauseFollowing();
         }
       };
       const handlePointerDown = (event: PointerEvent) => {
         const target = event.target;
         stopFollowingMotion();
+        trackNavigation();
         // Keep an established reading anchor until actual navigation updates it.
         // A focus click by itself need not change the reader's position.
         if (
@@ -394,6 +420,12 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
           disclosureAnchorRef.current = null;
         }
       };
+      const handlePointerMove = (event: PointerEvent) => {
+        if (event.buttons || event.pointerType === 'touch') {
+          trackNavigation();
+          if (window.getSelection()?.isCollapsed === false) pauseFollowing();
+        }
+      };
       const root = rootRef.current;
 
       viewport.addEventListener('scroll', handleScroll, { passive: true });
@@ -401,17 +433,16 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       viewport.addEventListener('click', handleDisclosure, true);
       viewport.addEventListener('keydown', handleNavigationKey);
       root?.addEventListener('pointerdown', handlePointerDown, true);
+      root?.addEventListener('pointermove', handlePointerMove, { passive: true });
       return () => {
         viewport.removeEventListener('scroll', handleScroll);
         viewport.removeEventListener('wheel', handleWheel);
         viewport.removeEventListener('click', handleDisclosure, true);
         viewport.removeEventListener('keydown', handleNavigationKey);
         root?.removeEventListener('pointerdown', handlePointerDown, true);
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
+        root?.removeEventListener('pointermove', handlePointerMove);
       };
-    }, [autoScroll, handleScroll, onScrollChange, stopFollowingMotion]);
+    }, [autoScroll, handleScroll, onScrollChange, stopFollowingMotion, trackNavigation]);
 
     return (
       <ScrollAreaPrimitive.Root

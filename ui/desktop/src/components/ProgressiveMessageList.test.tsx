@@ -167,6 +167,65 @@ const sourceUserMessage: Message = {
 };
 
 describe('work / answer presentation boundary', () => {
+  it.each([
+    { earlierText: true, finalText: false, notice: true },
+    { earlierText: false, finalText: false, notice: true },
+    { earlierText: true, finalText: true, notice: false },
+    { earlierText: false, finalText: undefined, notice: true },
+    { earlierText: true, finalText: undefined, notice: false },
+  ])(
+    'reports a missing reply without promoting reasoning: %o',
+    ({ earlierText, finalText, notice }) => {
+      const thought: Message = {
+        ...message(2),
+        content: [
+          {
+            type: 'thinking',
+            thinking: 'Private reasoning with <|close|>message<|sep|>.',
+            signature: '',
+          },
+        ],
+      };
+      const terminal = terminalMessage('not_available', { askUser: true });
+      terminal.content = terminal.content.map((content) =>
+        content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
+          ? {
+              ...content,
+              data: {
+                ...content.data,
+                status: 'completed',
+                visible_text_available: earlierText || finalText === true,
+                ...(finalText === undefined ? {} : { last_response_text_available: finalText }),
+                report: { ...content.data.report!, outcome: 'completed', recovery_action: 'none' },
+              },
+            }
+          : content
+      );
+      const trace = [
+        sourceUserMessage,
+        ...(earlierText
+          ? [{ ...message(1), content: [{ type: 'text' as const, text: 'Earlier progress.' }] }]
+          : []),
+        thought,
+        ...(finalText === true
+          ? [{ ...message(3), content: [{ type: 'text' as const, text: 'Final reply.' }] }]
+          : []),
+        terminal,
+      ];
+      const original = JSON.stringify(trace);
+      render(show(trace, false), { wrapper: IntlTestWrapper });
+      const missingReply = screen.queryByText(/The model response ended without a final reply/);
+      expect(missingReply !== null).toBe(notice);
+      if (missingReply) expect(missingReply).toBeVisible();
+      expect(screen.queryByText(/Private reasoning with/)).not.toBeInTheDocument();
+      expect(screen.queryByText('FAIL')).not.toBeInTheDocument();
+      expect(screen.queryByText('PASS')).not.toBeInTheDocument();
+      expect(JSON.stringify(trace)).toBe(original);
+      if (earlierText) expect(screen.getByText('Earlier progress.')).toBeVisible();
+      if (finalText) expect(screen.getByText('Final reply.')).toBeVisible();
+    }
+  );
+
   it.each(['error', 'missing'] as const)(
     'does not label %s tool evidence successful just because Harness completed the turn',
     async (result) => {

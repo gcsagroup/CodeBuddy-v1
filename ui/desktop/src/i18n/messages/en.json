@@ -167,6 +167,9 @@
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
   },
+  "baseChat.latest": {
+    "defaultMessage": "Back to latest"
+  },
   "baseChat.readonlyHistory": {
     "defaultMessage": "Imported history is read-only. Start a new task to continue working."
   },
@@ -3230,6 +3233,9 @@
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
   },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
   "gooseMessage.turnStopped": {
     "defaultMessage": "Stopped"
   },
@@ -4263,7 +4269,7 @@
     "defaultMessage": "Provider name lookup"
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "Automatic / unknown"
+    "defaultMessage": "Detect automatically"
   },
   "modelImageCapability.capability": {
     "defaultMessage": "Image support"
@@ -4272,7 +4278,7 @@
     "defaultMessage": "Select…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "Declare image support for a configured model based on its provider documentation or a successful image test. This applies to both the main and auxiliary vision agents. Unknown capability does not enable image input."
+    "defaultMessage": "Image support is detected from provider metadata for both the main and auxiliary vision models. Use a manual override only when metadata is missing or incorrect."
   },
   "modelImageCapability.error": {
     "defaultMessage": "Could not load or save image capability. Your selection is kept; retry when the connection is available."
@@ -8120,14 +8126,26 @@
   "workStatus.children": {
     "defaultMessage": "{count,plural,one{Waiting for # subagent to return results} other{Waiting for # subagents to return results}}"
   },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds}s"
   },
   "workStatus.first": {
     "defaultMessage": "Waiting for model response"
   },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
   "workStatus.question": {
     "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Request sent; waiting for the model service to respond"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"

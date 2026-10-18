@@ -52,6 +52,14 @@ export function shouldSuppressProviderThinking(suppressProviderThinking: boolean
   return suppressProviderThinking;
 }
 
+export function hasMissingFinalReply(terminal: TurnTerminalRecord): boolean {
+  return (
+    terminal.status === 'completed' &&
+    (terminal.last_response_text_available === false ||
+      (terminal.last_response_text_available === undefined && !terminal.visible_text_available))
+  );
+}
+
 // The host can split one response into several tool messages with copied thinking.
 // Hide only the repeated view in that contiguous tool sequence; retain all source messages.
 export function isRepeatedToolThinking(message: Message, messages: Message[]): boolean {
@@ -136,6 +144,11 @@ export function codeProTerminalPresentation(
 }
 
 const i18n = defineMessages({
+  missingFinalReply: {
+    id: 'gooseMessage.missingFinalReply',
+    defaultMessage:
+      'The model response ended without a final reply. Earlier output and operation records are preserved.',
+  },
   pausedStatus: { id: 'codeProControlPlane.paused', defaultMessage: 'Paused' },
   cancelledExplanation: {
     id: 'gooseMessage.cancelledExplanation',
@@ -658,6 +671,12 @@ export default function GooseMessage({
         {priorAnswerText && !textContent.trim() && (
           <div role="status" className="mt-2 text-xs text-text-secondary">
             {intl.formatMessage(i18n.pausedStatus)}
+          </div>
+        )}
+
+        {turnTerminal && hasMissingFinalReply(turnTerminal) && (
+          <div role="status" className="mt-2 text-sm text-text-secondary">
+            {intl.formatMessage(i18n.missingFinalReply)}
           </div>
         )}
 

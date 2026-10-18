@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workStatusUpdates } from '../work-status.mjs';
 
+test('model transport publishes bounded public waiting phases without diagnostic internals', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  for (const [phase, expected] of [['start','preparing'], ['request_created','connecting'], ['request_sent','waiting'], ['response_headers','receiving']]) {
+    const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase, status: 200, timings: [{ private: 'diagnostic' }], requestId: 'internal-request' });
+    assert.equal(update.status.data.model_request_phase, expected);
+    assert.equal(update.status.data.phase, 'model');
+    assert.doesNotMatch(JSON.stringify(update), /diagnostic|internal-request|timings/);
+  }
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 401 })[0].status.data.model_request_phase, undefined);
+  project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' })[0].status.data.phase, 'children');
+});
+
 test('live child work has a specific wait target without exposing child receipts', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const waiting = project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

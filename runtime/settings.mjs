@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolveImageCapability } from './providers.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
 
@@ -177,7 +177,13 @@ export class RuntimeSettings {
       }
       case 'model-capabilities/resolve': {
         const o = this.store.read(["modelCapabilities"]).modelCapabilities?.overrides.find(o => o.providerId === p.providerId && o.modelId === p.modelId);
-        return { providerId: p.providerId, modelId: p.modelId, imageInput: o?.imageInput === 'force_supported' ? 'supported' : o?.imageInput === 'force_unsupported' ? 'unsupported' : 'unknown', source: o && o.imageInput !== 'auto' ? 'user_override' : 'unknown' };
+        if (o && o.imageInput !== 'auto') return { providerId: p.providerId, modelId: p.modelId,
+          imageInput: o.imageInput === 'force_supported' ? 'supported' : 'unsupported', source: 'user_override' };
+        const provider = this.store.read(["providers"]).providers.find(item => item.id === p.providerId && item.models.includes(p.modelId));
+        const capability = provider && providerStatus(provider).isConfigured
+          ? await resolveImageCapability(provider, p.modelId)
+          : { imageInput: 'unknown', source: 'unknown' };
+        return { providerId: p.providerId, modelId: p.modelId, ...capability };
       }
       case 'config/prompts/list': return { prompts: promptTemplates.map(t => ({ ...t, userContent: this.store.read(["prompts"]).prompts?.[t.name] ?? null, isCustomized: this.store.read(["prompts"]).prompts?.[t.name] != null })) };
       case 'config/prompts/get': {

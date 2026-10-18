@@ -980,6 +980,9 @@
   "codeProModels.saveError": {
     "defaultMessage": "Failed to save. Try again later."
   },
+  "codeProModels.saveVision": {
+    "defaultMessage": "Save vision settings"
+  },
   "codeProModels.saving": {
     "defaultMessage": "Saving…"
   },
@@ -4484,20 +4487,14 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modelsAndRuntime.agentModelConfiguration": {
-    "defaultMessage": "Agent model configuration"
-  },
-  "modelsAndRuntime.agentModelConfigurationDescription": {
-    "defaultMessage": "Use the current conversation model for every agent, or configure separate models for analysis, coding, testing, and review."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy model"
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.configureAgentModels": {
-    "defaultMessage": "Configure agent models"
   },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
@@ -4558,6 +4555,9 @@
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.templateModels": {
+    "defaultMessage": "Subagents use their template model settings"
   },
   "navigation.itemHome": {
     "defaultMessage": "New Task"
@@ -7237,6 +7237,54 @@
   },
   "subRecipeModal.subtitle": {
     "defaultMessage": "Configure a subrecipe that can be called as a tool during recipe execution"
+  },
+  "subagentTemplates.boundary": {
+    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+  },
+  "subagentTemplates.browser": {
+    "defaultMessage": "browser · Web and browser research"
+  },
+  "subagentTemplates.description": {
+    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+  },
+  "subagentTemplates.error": {
+    "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
+  },
+  "subagentTemplates.explorer": {
+    "defaultMessage": "explorer · Workspace exploration"
+  },
+  "subagentTemplates.generic": {
+    "defaultMessage": "Other chat-local responsibilities"
+  },
+  "subagentTemplates.inherit": {
+    "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.loading": {
+    "defaultMessage": "Loading settings…"
+  },
+  "subagentTemplates.model": {
+    "defaultMessage": "Model"
+  },
+  "subagentTemplates.modelError": {
+    "defaultMessage": "Could not load the model list. Enter a model id or retry."
+  },
+  "subagentTemplates.provider": {
+    "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.retry": {
+    "defaultMessage": "Retry"
+  },
+  "subagentTemplates.save": {
+    "defaultMessage": "Save subagent models"
+  },
+  "subagentTemplates.saved": {
+    "defaultMessage": "Saved. Applies to new subagents."
+  },
+  "subagentTemplates.title": {
+    "defaultMessage": "Subagent templates and models"
+  },
+  "subagentTemplates.unavailable": {
+    "defaultMessage": "Saved connection unavailable"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."

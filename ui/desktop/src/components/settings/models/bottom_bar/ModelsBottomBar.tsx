@@ -16,9 +16,7 @@ import { ModelSettingsPanel } from '../../localInference/ModelSettingsPanel';
 import { ScrollArea } from '../../../ui/scroll-area';
 import { defineMessages, useIntl } from '../../../../i18n';
 import type { Message } from '../../../../types/message';
-import { useLocation } from 'react-router-dom';
-import { CodeProModelModal } from '../../../codepro/CodeProModelModal';
-import { readCodeProModelRouting } from '../../../../acp/codeproModelRouting';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const i18n = defineMessages({
   selectModel: {
@@ -61,6 +59,10 @@ const i18n = defineMessages({
     id: 'modelsBottomBar.configureAgentModels',
     defaultMessage: 'Configure agent models',
   },
+  templateModels: {
+    id: 'modelsBottomBar.templateModels',
+    defaultMessage: 'Subagents use their template model settings',
+  },
   allAgentsFollowCurrent: {
     id: 'modelsBottomBar.allAgentsFollowCurrent',
     defaultMessage: 'All agents follow the current model',
@@ -101,6 +103,7 @@ export default function ModelsBottomBar({
   sessionLoaded,
 }: ModelsBottomBarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isCodeProMode = location.pathname.startsWith('/codepro');
   // ChatInput owns the override state and passes effective model/provider as sessionModel/sessionProvider.
   // Fall back to config defaults when no session-specific model is available.
@@ -114,11 +117,8 @@ export default function ModelsBottomBar({
     intl.formatMessage(i18n.selectModel)
   );
   const [isSwitchModelModalOpen, setIsSwitchModelModalOpen] = useState(false);
-  const [isAgentModelModalOpen, setIsAgentModelModalOpen] = useState(false);
   const [isLocalModelSettingsOpen, setIsLocalModelSettingsOpen] = useState(false);
   const [providerDefaultModel, setProviderDefaultModel] = useState<string | null>(null);
-  const [advancedRoutingEnabled, setAdvancedRoutingEnabled] = useState(false);
-  const [routingRevision, setRoutingRevision] = useState(0);
 
   // Show a visible loading placeholder while session metadata is still being fetched,
   // rather than flashing the config default or leaving the footer blank.
@@ -171,21 +171,6 @@ export default function ModelsBottomBar({
     setDisplayModelName(getModelDisplayName(currentModel));
   }, [currentModel]);
 
-  useEffect(() => {
-    if (!isCodeProMode) return;
-    let cancelled = false;
-    void readCodeProModelRouting()
-      .then((routing) => {
-        if (!cancelled) setAdvancedRoutingEnabled(routing?.advancedRoutingEnabled === true);
-      })
-      .catch(() => {
-        if (!cancelled) setAdvancedRoutingEnabled(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isCodeProMode, routingRevision]);
-
   const resolvedDisplayModelName = useMemo(
     () => (resolvedModel ? getModelDisplayName(resolvedModel) : null),
     [resolvedModel]
@@ -228,9 +213,7 @@ export default function ModelsBottomBar({
           </p>
           {isCodeProMode && (
             <p className="mx-2 pb-2 text-xs text-text-secondary">
-              {intl.formatMessage(
-                advancedRoutingEnabled ? i18n.advancedAgentModels : i18n.allAgentsFollowCurrent
-              )}
+              {intl.formatMessage(i18n.templateModels)}
             </p>
           )}
           {shouldShowResolvedModel && resolvedDisplayModelName && (
@@ -248,7 +231,9 @@ export default function ModelsBottomBar({
             <Sliders className="ml-auto h-4 w-4 rotate-90" />
           </DropdownMenuItem>
           {isCodeProMode && (
-            <DropdownMenuItem onSelect={() => setIsAgentModelModalOpen(true)}>
+            <DropdownMenuItem
+              onSelect={() => navigate('/codepro/settings', { state: { section: 'models' } })}
+            >
               <span>{intl.formatMessage(i18n.configureAgentModels)}</span>
               <Sliders className="ml-auto h-4 w-4 rotate-90" />
             </DropdownMenuItem>
@@ -268,26 +253,11 @@ export default function ModelsBottomBar({
           setView={setView}
           onClose={() => {
             setIsSwitchModelModalOpen(false);
-            setRoutingRevision((revision) => revision + 1);
           }}
           sessionModel={currentModel}
           sessionProvider={currentProvider}
           applyToAllAgents={isCodeProMode}
           onModelSelected={(model, provider) => handleModelSelected(model, provider)}
-        />
-      )}
-
-      {isAgentModelModalOpen && (
-        <CodeProModelModal
-          currentDefault={{ provider: currentProvider ?? '', model: currentModel ?? '' }}
-          onClose={() => {
-            setIsAgentModelModalOpen(false);
-            setRoutingRevision((revision) => revision + 1);
-          }}
-          onConfigureProvider={() => {
-            setIsAgentModelModalOpen(false);
-            setView('ConfigureProviders');
-          }}
         />
       )}
 

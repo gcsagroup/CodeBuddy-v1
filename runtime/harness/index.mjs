@@ -18,9 +18,14 @@ import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
+import { installSubagentTemplates } from './subagent-templates.mjs';
 
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
+
+function nativeProviderRoute(provider, model) {
+  return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...provider, model })).digest('hex').slice(0, 20);
+}
 
 function abortable(promise, signal) {
   if (signal.aborted) return Promise.reject(signal.reason ?? new Error('Cancelled'));
@@ -98,7 +103,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const directoryQuery = ctx.tools.get('working_directory');
   // Native control remains confined to direct ownership by SubagentService.
   // These definitions never grant the child's file or command permissions.
-  const delegationDefinitions = new WeakSet();
+  const nativeSubagent = ctx.tools.get('subagent');
+  const templateDefinitions = installSubagentTemplates(ctx, nativeSubagent, { generic: false });
+  const delegationDefinitions = new WeakSet(templateDefinitions);
   for (const name of ['subagent', 'send_message', 'interrupt_agent', 'list_agents']) {
     const definition = ctx.tools.get(name);
     if (definition) delegationDefinitions.add(definition);
@@ -217,6 +224,16 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Spawn intentionally creates a flat upstream scope. Install this host's
     // selected capabilities before its loop starts. Native delegation inherits
     // the parent's actual request model and effort without a host override.
+    // Cold continuation carries its exact native route, even after a template
+    // selects another model. Rehydrate only a matching current connection;
+    // never substitute the template's new model into that descriptor.
+    if (!providers.has(agent.options.provider) && inherited.restoreSubagentProvider) {
+      const provider = await inherited.restoreSubagentProvider(agent.options.model,
+        candidate => nativeProviderRoute(candidate, agent.options.model) === agent.options.provider);
+      if (!provider || nativeProviderRoute(provider, agent.options.model) !== agent.options.provider)
+        throw new Error('The original subagent model connection is unavailable; its model was not changed.');
+      await configureProvider(provider, agent.options.model);
+    }
     const { thinkingEffort: _parentEffort, ...capabilities } = inherited;
     await applySessionOptions(agent.id, capabilities, agent);
   });
@@ -382,8 +399,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (!provider || typeof provider.baseUrl !== 'string' || !provider.baseUrl.trim()) throw new Error('Configure a model endpoint before starting a Harness session.');
     if (typeof model !== 'string' || !model.trim()) throw new Error('A model id is required.');
     const protocol = provider.protocol ?? 'openai-completions';
-    const digest = createHash('sha256').update(JSON.stringify({ ...provider, model })).digest('hex').slice(0, 20);
-    const route = `codebuddy-${digest}`;
+    const route = nativeProviderRoute(provider, model);
+    const digest = route.slice('codebuddy-'.length);
     if (!providers.has(route)) {
       const keyRef = `CODEBUDDY_MODEL_${digest}`;
       // Always explicit: never let pi-ai fall through to ambient API credentials.
@@ -468,6 +485,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     for (const tool of settings.tools ?? []) {
       if (!tool.name || typeof tool.execute !== 'function') throw new TypeError('Host tools require name and execute');
     }
+    const subagentModels = {};
+    for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
+      if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
+      subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
+    }
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
@@ -544,6 +566,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: lease.reused, servers: lease.statuses.length }));
         }
         connections.push(...statuses);
+        if (agent.session.header.origin !== 'subagent') {
+          for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
+        }
         if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
         const discovery = installToolDiscovery(scoped, agent);
         if (discovery) {

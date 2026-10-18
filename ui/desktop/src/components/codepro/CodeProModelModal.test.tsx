@@ -610,3 +610,47 @@ describe('CodeProModelModal', () => {
     expect(saveCodeProModelRouting).toHaveBeenCalledTimes(1);
   });
 });
+
+it('keeps auxiliary vision editable without reviving or overwriting legacy role routing', async () => {
+  const saved: CodeProModelRoutingConfig = {
+    version: 2,
+    advancedRoutingEnabled: false,
+    routes: [{ role: 'reviewer', providerId: 'ollama_cloud', modelId: 'legacy-review' }],
+    visionRoute: {
+      enabled: true,
+      mode: 'auto',
+      providerId: 'ollama_cloud',
+      modelId: 'qwen3-coder',
+    },
+    maxParallelCoders: 1,
+  };
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    {
+      name: 'ollama_cloud',
+      is_configured: true,
+      provider_type: 'Custom',
+      metadata: { display_name: 'Ollama Cloud' },
+    },
+  ] as Awaited<ReturnType<typeof acpListProviderDetails>>);
+  vi.mocked(acpListProviderModels).mockResolvedValue([
+    { id: 'qwen3-coder', name: 'Qwen coder' },
+    { id: 'vision-two', name: 'Vision two' },
+  ]);
+  vi.mocked(readCodeProModelRouting).mockResolvedValue(saved);
+  vi.mocked(saveCodeProModelRouting).mockClear().mockResolvedValue();
+  render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
+  const model = await screen.findByLabelText('Vision model');
+  await waitFor(() => expect(model).toHaveTextContent('vision-two'));
+  expect(
+    screen.queryByRole('checkbox', { name: 'Enable advanced model routing' })
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Review agent model')).not.toBeInTheDocument();
+  fireEvent.change(model, { target: { value: 'vision-two' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  await waitFor(() =>
+    expect(saveCodeProModelRouting).toHaveBeenCalledWith({
+      ...saved,
+      visionRoute: { ...saved.visionRoute, modelId: 'vision-two' },
+    })
+  );
+});

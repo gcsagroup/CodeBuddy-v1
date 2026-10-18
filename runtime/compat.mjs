@@ -22,6 +22,7 @@ import {
 } from "./settings.mjs";
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
+import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels } from './subagent-templates.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -688,7 +689,7 @@ export class Compat {
     ];
   }
   async sessionOptions(s, prepared = {}) {
-    const state = this.store.read(["preferences", "prompts", "config"]);
+    const state = this.store.read(["preferences", "prompts", "config", "providers"]);
     const instructions = Object.values(s.instructions ?? {});
     const basePrompt =
       instructions.filter((x) => x.mode === "set" && x.text).at(-1)?.text ??
@@ -758,6 +759,23 @@ export class Compat {
           routing: state.modelRouting, providers: state.providers,
           content, toolName,
         });
+      },
+      subagentModels: await resolveSubagentModels(state.config, state.providers,
+        (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
+      restoreSubagentProvider: async (model, matches) => {
+        for (const provider of this.store.read(['providers']).providers) {
+          try {
+            const candidate = await driverProvider(provider, model);
+            if (matches(candidate)) return candidate;
+            const capability = await this.settings.request('model-capabilities/resolve', { providerId: provider.id, modelId: model });
+            const withCapabilities = value => capability.imageInput === 'supported' ? { ...value, inputModalities: ['text', 'image'] } : value;
+            const selected = withCapabilities(candidate);
+            if (matches(selected)) return selected;
+            const inherited = withCapabilities(applyModelThinking(candidate, this.store.read(['preferences']).preferences.gooseThinkingEffort).provider);
+            if (matches(inherited)) return inherited;
+          }
+          catch { /* A different or unavailable connection cannot replace this native route. */ }
+        }
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
@@ -1952,6 +1970,7 @@ export class Compat {
       case "config/upsert": {
         requireString(p.key, "key");
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
+        if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };

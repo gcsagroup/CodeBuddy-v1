@@ -14,6 +14,7 @@ vi.mock('../../../i18n', () => ({
 
 vi.mock('../../../acp/providers', () => ({
   acpListProviderDetails: vi.fn(),
+  acpListProviderModels: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('./ModelsSection', () => ({
@@ -26,8 +27,9 @@ vi.mock('./ModelsSection', () => ({
     </div>
   ),
 }));
-vi.mock('../../codepro/CodeProModelModal', () => ({
-  CodeProModelModal: () => <div>agent-model-configuration</div>,
+vi.mock('../../../acp/config', () => ({
+  acpReadConfig: vi.fn().mockResolvedValue(null),
+  acpUpsertConfig: vi.fn(),
 }));
 vi.mock('../providers/ProviderGrid', () => ({
   default: function ProviderGridFixture({
@@ -112,15 +114,17 @@ describe('ModelsAndRuntimeSettings', () => {
 
     expect(screen.queryByText('Model console')).not.toBeInTheDocument();
     expect(screen.queryByText('Built-in local model management')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Configure agent models' }));
-    expect(screen.getByText('agent-model-configuration')).toBeInTheDocument();
+    expect(screen.getByText('Subagent templates and models')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Configure agent models' })
+    ).not.toBeInTheDocument();
   });
 
   it('does not restore the GGUF console through the old deep-link state', () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
 
     expect(screen.queryByText('local-runtime-console')).not.toBeInTheDocument();
-    expect(screen.getByText('Agent model configuration')).toBeInTheDocument();
+    expect(screen.getByText('Subagent templates and models')).toBeInTheDocument();
   });
 
   it.each([false, true])(

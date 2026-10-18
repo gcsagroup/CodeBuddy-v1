@@ -24,6 +24,11 @@ const createDropdownRef = (): React.RefObject<HTMLDivElement> =>
 let mockCurrentModel: string | null = 'config-model';
 let mockCurrentProvider: string | null = 'config-provider';
 const mockGetProviders = vi.fn();
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
+  useNavigate: () => mockNavigate,
+}));
 const mockOnModelChanged = vi.fn();
 
 vi.mock('../../../ModelAndProviderContext', () => ({
@@ -205,7 +210,9 @@ describe('ModelsBottomBar', () => {
     );
 
     expect(screen.getByText('config-model')).toBeInTheDocument();
-    expect(await screen.findByText('All agents follow the current model')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Subagents use their template model settings')
+    ).toBeInTheDocument();
     expect(screen.queryByText('Agent model combination')).not.toBeInTheDocument();
   });
 
@@ -231,7 +238,9 @@ describe('ModelsBottomBar', () => {
     );
 
     expect(screen.getByText('session-model')).toBeInTheDocument();
-    expect(await screen.findByText('Some agents use separate models')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Subagents use their template model settings')
+    ).toBeInTheDocument();
   });
 
   it('lets a CodePro session switch its current model independently of role routing', async () => {
@@ -276,13 +285,9 @@ describe('ModelsBottomBar', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Configure agent models' }));
-    expect(screen.getByTestId('codepro-model-modal')).toHaveAttribute(
-      'data-current-default',
-      'config-provider/config-model'
-    );
-    await user.click(screen.getByRole('button', { name: 'Use another provider…' }));
-
-    expect(setView).toHaveBeenCalledWith('ConfigureProviders');
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings', {
+      state: { section: 'models' },
+    });
     expect(screen.queryByTestId('codepro-model-modal')).not.toBeInTheDocument();
   });
 });

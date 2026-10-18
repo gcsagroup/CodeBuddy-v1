@@ -84,7 +84,7 @@ async function modelFixture(cwd, completedChildren) {
         response = { name: 'search_mcp_tools', args: { names: [response.name] } };
       }
       assert.ok(!request.tools.some(tool => tool.function.name === 'codebuddy_task'));
-      assert.ok(!request.tools.some(tool => tool.function.name.startsWith('subagent_')));
+      assert.ok(!request.tools.some(tool => ['subagent_coder', 'subagent_planner', 'subagent_reviewer', 'subagent_tester'].includes(tool.function.name)));
       const spawnTool = request.tools.find(tool => tool.function.name === 'subagent');
       if (spawnTool) for (const key of ['provider', 'model', 'reasoning_effort']) assert.equal(Object.hasOwn(spawnTool.function.parameters.properties, key), false);
       if (response.name) assert.ok(request.tools.some(tool => tool.function.name === response.name), `Missing actual tool ${response.name}`);

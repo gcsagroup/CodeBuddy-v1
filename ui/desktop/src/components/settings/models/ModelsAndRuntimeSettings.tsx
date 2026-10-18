@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bot, FlaskConical, RefreshCw } from 'lucide-react';
+import { FlaskConical, RefreshCw } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 import { acpListProviderDetails } from '../../../acp/providers';
 import type { ProviderDetails } from '../../../types/providers';
+import SubagentTemplateSettings from './SubagentTemplateSettings';
 import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
 import ModelsSection from './ModelsSection';
@@ -13,6 +14,10 @@ import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
 
 const i18n = defineMessages({
+  auxiliaryVision: {
+    id: 'modelsAndRuntime.auxiliaryVision',
+    defaultMessage: 'Auxiliary vision settings',
+  },
   codeBuddyModel: {
     id: 'modelsAndRuntime.codeBuddyModel',
     defaultMessage: 'CodeBuddy model',
@@ -47,19 +52,6 @@ const i18n = defineMessages({
     id: 'modelsAndRuntime.retry',
     defaultMessage: 'Retry',
   },
-  agentModelConfiguration: {
-    id: 'modelsAndRuntime.agentModelConfiguration',
-    defaultMessage: 'Agent model configuration',
-  },
-  agentModelConfigurationDescription: {
-    id: 'modelsAndRuntime.agentModelConfigurationDescription',
-    defaultMessage:
-      'Use the current conversation model for every agent, or configure separate models for analysis, coding, testing, and review.',
-  },
-  configureAgentModels: {
-    id: 'modelsAndRuntime.configureAgentModels',
-    defaultMessage: 'Configure agent models',
-  },
 });
 
 interface ModelsAndRuntimeSettingsProps {
@@ -68,7 +60,7 @@ interface ModelsAndRuntimeSettingsProps {
 
 export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSettingsProps) {
   const intl = useIntl();
-  const [agentConfigurationOpen, setAgentConfigurationOpen] = useState(false);
+  const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
@@ -161,38 +153,22 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <div className="rounded-md bg-blue-500/10 p-2 text-blue-500">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle>{intl.formatMessage(i18n.agentModelConfiguration)}</CardTitle>
-                <CardDescription>
-                  {intl.formatMessage(i18n.agentModelConfigurationDescription)}
-                </CardDescription>
-              </div>
-            </div>
-            <Button variant="outline" onClick={() => setAgentConfigurationOpen(true)}>
-              <Bot className="h-4 w-4" />
-              {intl.formatMessage(i18n.configureAgentModels)}
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-      <ModelImageCapabilitySettings providers={customProviders} />
-      <ModelContextSettings providers={customProviders} />
-      {agentConfigurationOpen && (
+      <SubagentTemplateSettings providers={customProviders} />
+      <Button variant="outline" onClick={() => setVisionSettingsOpen(true)}>
+        {intl.formatMessage(i18n.auxiliaryVision)}
+      </Button>
+      {visionSettingsOpen && (
         <CodeProModelModal
-          onClose={() => setAgentConfigurationOpen(false)}
+          visionOnly
+          onClose={() => setVisionSettingsOpen(false)}
           onConfigureProvider={() => {
-            setAgentConfigurationOpen(false);
+            setVisionSettingsOpen(false);
             setView('ConfigureProviders');
           }}
         />
       )}
+      <ModelImageCapabilitySettings providers={customProviders} />
+      <ModelContextSettings providers={customProviders} />
     </div>
   );
 }

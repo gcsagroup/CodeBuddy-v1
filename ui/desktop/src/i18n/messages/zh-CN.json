@@ -8461,5 +8461,62 @@
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "本轮模型响应已结束，但没有返回最终正文。此前的输出和操作记录已保留。"
+  },
+  "subagentTemplates.title": {
+    "defaultMessage": "子 Agent 模板与模型"
+  },
+  "subagentTemplates.description": {
+    "defaultMessage": "按需使用两个默认模板；其他职责在当前聊天中创建并跨轮复用。"
+  },
+  "subagentTemplates.explorer": {
+    "defaultMessage": "explorer · 项目探索"
+  },
+  "subagentTemplates.browser": {
+    "defaultMessage": "browser · 网页与浏览器研究"
+  },
+  "subagentTemplates.generic": {
+    "defaultMessage": "其他聊天内职责"
+  },
+  "subagentTemplates.boundary": {
+    "defaultMessage": "模型设置对新建子 Agent 生效，已有子 Agent 保留原模型和历史。不同聊天共用模板，不共享聊天上下文。"
+  },
+  "subagentTemplates.provider": {
+    "defaultMessage": "模型连接"
+  },
+  "subagentTemplates.model": {
+    "defaultMessage": "模型"
+  },
+  "subagentTemplates.inherit": {
+    "defaultMessage": "继承主 Agent 模型"
+  },
+  "subagentTemplates.unavailable": {
+    "defaultMessage": "已保存的连接不可用"
+  },
+  "subagentTemplates.loading": {
+    "defaultMessage": "正在读取设置…"
+  },
+  "subagentTemplates.error": {
+    "defaultMessage": "读取或保存失败，已保存的配置未改变。"
+  },
+  "subagentTemplates.modelError": {
+    "defaultMessage": "模型列表读取失败，可填写模型 ID 或重试。"
+  },
+  "subagentTemplates.save": {
+    "defaultMessage": "保存子 Agent 模型"
+  },
+  "subagentTemplates.saved": {
+    "defaultMessage": "已保存，对新建子 Agent 生效。"
+  },
+  "subagentTemplates.retry": {
+    "defaultMessage": "重试"
+  },
+  "modelsBottomBar.templateModels": {
+    "defaultMessage": "子 Agent 使用各自模板的模型设置"
+  },
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "辅助视觉设置"
+  },
+  "codeProModels.saveVision": {
+    "defaultMessage": "保存视觉设置"
   }
 }

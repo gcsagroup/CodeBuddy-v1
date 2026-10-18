@@ -110,6 +110,7 @@ const i18n = defineMessages({
   },
   cancel: { id: 'codeProModels.cancel', defaultMessage: 'Cancel' },
   save: { id: 'codeProModels.save', defaultMessage: 'Save combination' },
+  saveVision: { id: 'codeProModels.saveVision', defaultMessage: 'Save vision settings' },
   saveAnyway: { id: 'codeProModels.saveAnyway', defaultMessage: 'Save anyway' },
   saving: { id: 'codeProModels.saving', defaultMessage: 'Saving…' },
   duplicateWarning: {
@@ -217,10 +218,12 @@ export function CodeProModelModal({
   onClose,
   onConfigureProvider,
   currentDefault,
+  visionOnly = false,
 }: {
   onClose: () => void;
   onConfigureProvider?: () => void;
   currentDefault?: AgentModelSelection;
+  visionOnly?: boolean;
 }) {
   const intl = useIntl();
   const [defaultSelection, setDefaultSelection] = useState<AgentModelSelection>(emptySelection());
@@ -342,7 +345,7 @@ export function CodeProModelModal({
   }, [currentDefaultProvider, currentDefaultModel, modelLoadError]);
 
   const selectedProvidersKey = providers
-    .filter(() => advancedRoutingEnabled)
+    .filter(() => advancedRoutingEnabled || visionOnly)
     .map((provider) => provider.name)
     .filter((provider) => !activationDisabledProviderIds.has(provider))
     .join('\0');
@@ -350,7 +353,7 @@ export function CodeProModelModal({
   useEffect(() => {
     const requestGeneration = ++modelRequestGeneration.current;
     if (!selectedProvidersKey) {
-      setModelDiscoveryComplete(advancedRoutingEnabled);
+      setModelDiscoveryComplete(advancedRoutingEnabled || visionOnly);
       return;
     }
     setModelDiscoveryComplete(false);
@@ -389,7 +392,7 @@ export function CodeProModelModal({
         })
         .finally(completeOne);
     });
-  }, [advancedRoutingEnabled, modelLoadError, modelLoadAttempt, selectedProvidersKey]);
+  }, [advancedRoutingEnabled, visionOnly, modelLoadError, modelLoadAttempt, selectedProvidersKey]);
 
   const providerOptions = modelDiscoveryComplete
     ? providers.filter((provider) => (modelsByProvider[provider.name]?.length ?? 0) > 0)
@@ -513,9 +516,27 @@ export function CodeProModelModal({
 
   const save = async () => {
     if (!configurationLoaded || saving) return;
-    const visionSelectionError = advancedRoutingEnabled ? invalidVisionSelectionMessage() : '';
+    const visionSelectionError =
+      advancedRoutingEnabled || visionOnly ? invalidVisionSelectionMessage() : '';
     if (visionSelectionError) {
       setOperationError(visionSelectionError);
+      return;
+    }
+    if (visionOnly) {
+      setSaving(true);
+      setOperationError('');
+      try {
+        const latest = await readCodeProModelRouting();
+        await saveCodeProModelRouting({
+          ...(latest ?? DISABLED_CODEPRO_MODEL_ROUTING),
+          visionRoute: { ...visionRoute },
+        });
+        onClose();
+      } catch {
+        setOperationError(intl.formatMessage(i18n.saveError));
+      } finally {
+        setSaving(false);
+      }
       return;
     }
     if (!advancedRoutingEnabled) {
@@ -583,9 +604,11 @@ export function CodeProModelModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            {intl.formatMessage(i18n.title)}
+            {intl.formatMessage(visionOnly ? i18n.visionAgent : i18n.title)}
           </DialogTitle>
-          <DialogDescription>{intl.formatMessage(i18n.description)}</DialogDescription>
+          <DialogDescription>
+            {intl.formatMessage(visionOnly ? i18n.visionAgentDescription : i18n.description)}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[60vh] space-y-3 overflow-y-auto py-2 pr-1">
@@ -594,7 +617,7 @@ export function CodeProModelModal({
               {intl.formatMessage(i18n.providerLoading)}
             </p>
           )}
-          {configurationLoaded && (
+          {configurationLoaded && !visionOnly && (
             <section className="rounded-lg border border-border-primary bg-background-secondary p-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-text-primary">
                 <input
@@ -628,6 +651,7 @@ export function CodeProModelModal({
             </section>
           )}
           {configurationLoaded &&
+            !visionOnly &&
             roles.map((role) => {
               const selection = selections[role.role];
               const effectiveProvider = selection.provider || defaultSelection.provider;
@@ -746,7 +770,7 @@ export function CodeProModelModal({
                   {intl.formatMessage(i18n.visionAgentDescription)}
                 </p>
               </div>
-              {advancedRoutingEnabled ? (
+              {advancedRoutingEnabled || visionOnly ? (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <select
                     aria-label={intl.formatMessage(i18n.providerLabel, {
@@ -856,26 +880,28 @@ export function CodeProModelModal({
 
         {operationError && <p className="text-sm text-red-600">{operationError}</p>}
 
-        {advancedRoutingEnabled && discoveryError && discoveryError !== operationError && (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-red-600">{discoveryError}</p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setDiscoveryError('');
-                setModelsByProvider((current) =>
-                  Object.fromEntries(
-                    Object.entries(current).filter(([, models]) => models.length > 0)
-                  )
-                );
-                setModelLoadAttempt((attempt) => attempt + 1);
-              }}
-            >
-              {intl.formatMessage(i18n.retry)}
-            </Button>
-          </div>
-        )}
+        {(advancedRoutingEnabled || visionOnly) &&
+          discoveryError &&
+          discoveryError !== operationError && (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-red-600">{discoveryError}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setDiscoveryError('');
+                  setModelsByProvider((current) =>
+                    Object.fromEntries(
+                      Object.entries(current).filter(([, models]) => models.length > 0)
+                    )
+                  );
+                  setModelLoadAttempt((attempt) => attempt + 1);
+                }}
+              >
+                {intl.formatMessage(i18n.retry)}
+              </Button>
+            </div>
+          )}
 
         <DialogFooter className="gap-2 sm:justify-end">
           <div className="flex gap-2">
@@ -885,7 +911,9 @@ export function CodeProModelModal({
             <Button type="button" onClick={save} disabled={saving || !configurationLoaded}>
               {saving
                 ? intl.formatMessage(i18n.saving)
-                : intl.formatMessage(duplicateWarning ? i18n.saveAnyway : i18n.save)}
+                : intl.formatMessage(
+                    visionOnly ? i18n.saveVision : duplicateWarning ? i18n.saveAnyway : i18n.save
+                  )}
             </Button>
           </div>
         </DialogFooter>

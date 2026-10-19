@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import {
   ChevronDown,
@@ -26,6 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
+import { cn } from '../utils';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
@@ -62,15 +64,22 @@ import {
 import { WorkspaceCodePreview } from './WorkspaceCodePreview';
 import './workspacePanel.css';
 
-export const WORKSPACE_PANEL_DEFAULT_WIDTH = 560;
 export const WORKSPACE_PANEL_GAP = 0;
+export const WORKSPACE_PANEL_TRANSITION = {
+  duration: 0.22,
+  ease: [0.22, 1, 0.36, 1] as const,
+};
 export type WorkspacePanelLayout = 'inline' | 'overlay' | 'drawer';
 type Props = {
   expanded: boolean;
   layout?: WorkspacePanelLayout;
   onExpandedChange: (open: boolean) => void;
   width: number;
-  onWidthChange?: (width: number) => void;
+  resizing?: boolean;
+  onWidthChange?: (width: number, commit?: boolean) => void;
+  chatCollapsed?: boolean;
+  onChatCollapsedChange?: (collapsed: boolean) => void;
+  onResetWidth?: () => void;
 };
 const EMPTY_MESSAGES: Message[] = [];
 export function WorkspacePanel(props: Props) {
@@ -84,7 +93,10 @@ export function WorkspacePanel(props: Props) {
     binding === 'root_container' ||
     binding === 'unbound';
   const scope = useMemo(
-    () => ({ sessionId: id, root: isContainer ? '' : (snapshot?.session?.working_dir ?? '') }),
+    () => ({
+      sessionId: id,
+      root: isContainer ? '' : (snapshot?.session?.working_dir ?? ''),
+    }),
     [id, snapshot?.session?.working_dir, isContainer]
   );
   return (
@@ -179,12 +191,20 @@ export function WorkspacePanelContent({
   expanded,
   onExpandedChange,
   width,
+  resizing = false,
   onWidthChange,
-  layout = 'inline',
+  chatCollapsed = false,
+  onChatCollapsedChange,
+  onResetWidth,
   messages = EMPTY_MESSAGES,
 }: Props & { scope: PanelScope; messages?: Message[] }) {
   const intl = useIntl(),
     key = scopeKey(scope);
+  const reducedMotion = useReducedMotion();
+  const [contentMounted, setContentMounted] = useState(expanded);
+  useEffect(() => {
+    if (expanded) setContentMounted(true);
+  }, [expanded]);
   const [state, setState] = useState(() => readWorkbench(key));
   const [confirmation, setConfirmation] = useState<{
     message: string;
@@ -204,8 +224,9 @@ export function WorkspacePanelContent({
   };
   useEffect(() => () => pendingConfirmation.current?.(false), []);
   const [error, setError] = useState(''),
-    [busy, setBusy] = useState(false),
-    [full, setFull] = useState(false);
+    [busy, setBusy] = useState(false);
+  const resizeCleanup = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => resizeCleanup.current?.(), []);
   const [treeOpen, setTreeOpen] = useState(false);
   const [wrap, setWrap] = useState(false);
   const tabStrip = useRef<HTMLDivElement>(null);
@@ -569,25 +590,8 @@ export function WorkspacePanelContent({
       fail(e);
     }
   };
-  if (!expanded)
-    return (
-      <button
-        className="absolute right-3 top-11 z-20 wb-icon bg-background-primary no-drag"
-        aria-label={intl.formatMessage(m.open)}
-        onClick={() => onExpandedChange(true)}
-      >
-        <PanelRightOpen size={18} />
-      </button>
-    );
-  const actualWidth = full
-    ? 'calc(100% - 16px)'
-    : Math.min(width, window.innerWidth - (layout === 'inline' ? 560 : 16));
-  return (
-    <aside
-      aria-label={intl.formatMessage(m.panel)}
-      className="workspace-panel absolute right-0 top-8 bottom-0 z-20 flex flex-col border-l border-border-primary bg-background-primary text-text-primary"
-      style={{ width: actualWidth }}
-    >
+  const panelContent = (
+    <div className="workspace-panel flex h-full flex-col border-l border-border-primary bg-background-primary text-text-primary">
       <ConfirmationModal
         isOpen={!!confirmation}
         title={intl.formatMessage(m.panel)}
@@ -599,41 +603,60 @@ export function WorkspacePanelContent({
         role="separator"
         aria-label={intl.formatMessage(m.resize)}
         aria-orientation="vertical"
+        aria-valuenow={Math.round(width)}
         tabIndex={0}
-        className="absolute left-[-3px] top-0 bottom-0 z-30 w-1.5 cursor-col-resize hover:bg-blue-400/40"
+        className="no-drag group absolute left-0 top-0 bottom-0 z-30 w-1.5 cursor-col-resize touch-none outline-none"
         onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
-            onWidthChange?.(
-              Math.max(320, Math.min(1000, width + (e.key === 'ArrowLeft' ? 32 : -32)))
-            );
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (chatCollapsed && e.key === 'ArrowRight') onChatCollapsedChange?.(false);
+            else onWidthChange?.(width + (e.key === 'ArrowLeft' ? 32 : -32));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            onResetWidth?.();
+          }
         }}
+        onDoubleClick={onResetWidth}
         onPointerDown={(e) => {
-          if (full) return;
+          if (e.button !== 0) return;
+          e.preventDefault();
+          resizeCleanup.current?.();
           const start = e.clientX;
           const target = e.currentTarget;
           target.setPointerCapture(e.pointerId);
+          let requested = width;
           // eslint-disable-next-line no-undef
-          const move = (event: PointerEvent) =>
-            onWidthChange?.(
-              Math.max(
-                320,
-                Math.min(
-                  1000,
-                  window.innerWidth - (layout === 'inline' ? 560 : 16),
-                  width + start - event.clientX
-                )
-              )
-            );
-          const stop = () => {
+          const move = (event: PointerEvent) => {
+            requested = width + start - event.clientX;
+            onWidthChange?.(requested, false);
+          };
+          const cleanup = () => {
             target.removeEventListener('pointermove', move);
             target.removeEventListener('pointerup', stop);
             target.removeEventListener('pointercancel', stop);
+            target.removeEventListener('lostpointercapture', stop);
+            resizeCleanup.current = undefined;
           };
+          // eslint-disable-next-line no-undef
+          const stop = (event: PointerEvent) => {
+            cleanup();
+            onWidthChange?.(event.type === 'pointerup' ? requested : width);
+          };
+          resizeCleanup.current = cleanup;
           target.addEventListener('pointermove', move);
           target.addEventListener('pointerup', stop);
           target.addEventListener('pointercancel', stop);
+          target.addEventListener('lostpointercapture', stop);
         }}
-      />
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-blue-500 group-focus-visible:bg-blue-500',
+            resizing && 'bg-blue-500'
+          )}
+        />
+      </div>
       <header className="wb-header">
         <button
           className="wb-icon"
@@ -743,9 +766,9 @@ export function WorkspacePanelContent({
         <button
           className="wb-icon"
           title={intl.formatMessage(m.maximize)}
-          onClick={() => setFull((v) => !v)}
+          onClick={() => onChatCollapsedChange?.(!chatCollapsed)}
         >
-          {full ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          {chatCollapsed ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
         </button>
         <button
           className="wb-icon"
@@ -1023,6 +1046,36 @@ export function WorkspacePanelContent({
           )}
         </div>
       )}
-    </aside>
+    </div>
+  );
+  return (
+    <>
+      {!expanded && (
+        <button
+          className="absolute right-3 top-11 z-20 wb-icon bg-background-primary no-drag"
+          aria-label={intl.formatMessage(m.open)}
+          onClick={() => onExpandedChange(true)}
+        >
+          <PanelRightOpen size={18} />
+        </button>
+      )}
+      <motion.aside
+        aria-label={intl.formatMessage(m.panel)}
+        aria-hidden={!expanded}
+        inert={!expanded}
+        className="absolute right-0 top-8 bottom-0 z-20 overflow-hidden"
+        initial={false}
+        animate={{ width: expanded ? width : 0 }}
+        transition={{
+          ...WORKSPACE_PANEL_TRANSITION,
+          duration: resizing || reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
+        }}
+        onAnimationComplete={() => {
+          if (!expanded) setContentMounted(false);
+        }}
+      >
+        {(expanded || contentMounted) && panelContent}
+      </motion.aside>
+    </>
   );
 }

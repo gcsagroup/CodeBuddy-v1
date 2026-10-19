@@ -448,8 +448,7 @@ export default function ChatInput({
   const [workingDirOverride, setWorkingDirOverride] = useState<string | null>(null);
   const currentWorkingDir = workingDirOverride ?? workingDir ?? getInitialWorkingDir();
 
-  // Hide non-essential bottom-bar controls when the chat input is narrow.
-  // Keep attachment input reachable alongside model, mic, and send controls.
+  // The composer width, not the window breakpoint, determines which controls fit.
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const [isBottomBarNarrow, setIsBottomBarNarrow] = useState(false);
   useEffect(() => {
@@ -1694,28 +1693,27 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Bottom action bar. Left side: model + working dir. Right side:
-          context indicator, extensions, attach, mic, send. When the bar is narrow
-          (e.g. on a small window), the secondary controls drop out so the
-          model selector + send button always stay visible. */}
+      {/* Narrow composers reserve room for approval, attachment and send/stop. */}
       <div ref={bottomBarRef} className="flex flex-row items-center gap-2 px-3 py-2 relative">
         {/* Left: model selector */}
-        <Tooltip>
-          <div>
-            <ModelsBottomBar
-              sessionId={sessionId}
-              dropdownRef={dropdownRef}
-              setView={setView}
-              sessionModel={effectiveModel}
-              sessionProvider={effectiveProvider}
-              latestInference={latestInference}
-              onModelChanged={setModelOverride}
-              sessionLoaded={sessionLoaded}
-            />
-          </div>
-        </Tooltip>
+        {!isBottomBarNarrow && (
+          <Tooltip>
+            <div className="min-w-0 max-w-48 flex-1">
+              <ModelsBottomBar
+                sessionId={sessionId}
+                dropdownRef={dropdownRef}
+                setView={setView}
+                sessionModel={effectiveModel}
+                sessionProvider={effectiveProvider}
+                latestInference={latestInference}
+                onModelChanged={setModelOverride}
+                sessionLoaded={sessionLoaded}
+              />
+            </div>
+          </Tooltip>
+        )}
 
-        {modelToolbarSlot}
+        <div className="shrink-0">{modelToolbarSlot}</div>
 
         {/* Left: working directory (leaf folder name only) */}
         {shouldShowWorkingDirectorySwitcher(isBottomBarNarrow, Boolean(onWorkingDirChange)) && (
@@ -1775,7 +1773,7 @@ export default function ChatInput({
           </Tooltip>
 
           {/* Right: mic — ghost icon, no background when idle */}
-          {dictationProvider && (
+          {!isBottomBarNarrow && dictationProvider && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

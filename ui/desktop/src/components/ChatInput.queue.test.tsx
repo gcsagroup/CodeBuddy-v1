@@ -18,7 +18,9 @@ vi.mock('./alerts', () => ({
 }));
 vi.mock('../hooks/useAudioRecorder', () => ({ useAudioRecorder: () => ({ isEnabled: false }) }));
 vi.mock('./bottom_menu/DirSwitcher', () => ({ DirSwitcher: () => null }));
-vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({ default: () => null }));
+vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({
+  default: () => <button>Model selector</button>,
+}));
 vi.mock('./bottom_menu/BottomMenuExtensionSelection', () => ({
   BottomMenuExtensionSelection: () => null,
 }));
@@ -197,8 +199,23 @@ describe('ChatInput queue delivery', () => {
         unobserve() {}
       }
     );
-    setup(vi.fn());
+    render(
+      <ChatInput
+        sessionId="narrow-composer"
+        handleSubmit={vi.fn()}
+        onStop={vi.fn()}
+        setView={vi.fn()}
+        chatState={ChatState.Thinking}
+        modelToolbarSlot={<button>Approval mode</button>}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'unsent draft' } });
     expect(screen.getByRole('button', { name: 'Attach file' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Approval mode' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Send$/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^Stop$/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Model selector' })).toBeNull();
   });
 
   it('restores unsent messages paused after the conversation is remounted', async () => {

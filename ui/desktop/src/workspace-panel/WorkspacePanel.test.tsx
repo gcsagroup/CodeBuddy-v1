@@ -28,6 +28,42 @@ vi.mock('react-router-dom', () => ({
 vi.mock('./WorkspaceTerminal', () => ({
   WorkspaceTerminal: ({ id }: { id: string }) => <div>terminal:{id}</div>,
 }));
+it('passes resize intent to the layout owner without imposing a second window clamp', () => {
+  const onWidthChange = vi.fn(),
+    onChatCollapsedChange = vi.fn(),
+    onResetWidth = vi.fn();
+  const view = render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'resize', root: '' }}
+      expanded
+      width={900}
+      onExpandedChange={vi.fn()}
+      onWidthChange={onWidthChange}
+      onChatCollapsedChange={onChatCollapsedChange}
+      onResetWidth={onResetWidth}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('complementary')).toHaveStyle({ width: '900px' });
+  const separator = screen.getByRole('separator');
+  fireEvent.keyDown(separator, { key: 'ArrowLeft' });
+  expect(onWidthChange).toHaveBeenLastCalledWith(932);
+  fireEvent.keyDown(separator, { key: 'Home' });
+  expect(onResetWidth).toHaveBeenCalledOnce();
+  view.rerender(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'resize', root: '' }}
+      expanded
+      width={1200}
+      chatCollapsed
+      onExpandedChange={vi.fn()}
+      onWidthChange={onWidthChange}
+      onChatCollapsedChange={onChatCollapsedChange}
+    />
+  );
+  fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+  expect(onChatCollapsedChange).toHaveBeenLastCalledWith(false);
+});
 vi.mock('./WorkspaceBrowser', () => ({
   WorkspaceBrowser: ({ id }: { id: string }) => <div>browser:{id}</div>,
 }));

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   getCodeProChatInset,
   getCodeProTaskPanelLayout,
+  getCodeProPanelWidth,
+  CODEPRO_TASK_PANEL_WIDTH_KEY,
   readCodeProTaskPanelPreferences,
   shouldRestoreNavigationForWorkspace,
   shouldShowCodeProTaskPanel,
@@ -11,15 +13,18 @@ describe('readCodeProTaskPanelPreferences', () => {
   it('restores only valid boolean and bounded numeric preferences', () => {
     const storage = {
       getItem: (key: string) =>
-        key.endsWith('.expanded') ? 'false' : key.endsWith('.width') ? '412' : null,
+        key.endsWith('.expanded') ? 'false' : key === CODEPRO_TASK_PANEL_WIDTH_KEY ? '412' : null,
     };
 
-    expect(readCodeProTaskPanelPreferences(storage)).toEqual({ expanded: false, width: 412 });
+    expect(readCodeProTaskPanelPreferences(storage)).toEqual({
+      expanded: false,
+      width: 412,
+    });
     expect(
       readCodeProTaskPanelPreferences({
-        getItem: (key: string) => (key.endsWith('.expanded') ? 'true' : '360'),
+        getItem: (key: string) => (key.endsWith('.expanded') ? 'true' : '340'),
       })
-    ).toEqual({ expanded: true, width: 360 });
+    ).toEqual({ expanded: true, width: 340 });
   });
 
   it('falls back safely for malformed or unavailable storage', () => {
@@ -27,14 +32,14 @@ describe('readCodeProTaskPanelPreferences', () => {
       readCodeProTaskPanelPreferences({
         getItem: () => 'not-a-preference',
       })
-    ).toEqual({ expanded: true, width: 560 });
+    ).toEqual({ expanded: true, width: null });
     expect(
       readCodeProTaskPanelPreferences({
         getItem: () => {
           throw new Error('storage denied');
         },
       })
-    ).toEqual({ expanded: true, width: 560 });
+    ).toEqual({ expanded: true, width: null });
   });
 });
 
@@ -51,14 +56,20 @@ describe('getCodeProChatInset', () => {
   });
 });
 
-describe('getCodeProTaskPanelLayout', () => {
-  it('uses drawer, overlay, and inline modes at the documented breakpoints', () => {
+describe('workspace split geometry', () => {
+  it('defaults to one third of the actual work area, with fixed pixel minimums', () => {
+    expect(getCodeProPanelWidth(1200, null)).toBe(400);
+    expect(getCodeProPanelWidth(960, null)).toBe(340);
+    expect(getCodeProPanelWidth(800, null)).toBe(340);
+    expect(getCodeProPanelWidth(800, 700)).toBe(480);
+    expect(getCodeProPanelWidth(1200, 700)).toBe(700);
+  });
+
+  it('uses a single pane when both absolute minimums cannot fit', () => {
     expect(getCodeProTaskPanelLayout(320)).toBe('drawer');
-    expect(getCodeProTaskPanelLayout(799)).toBe('drawer');
-    expect(getCodeProTaskPanelLayout(800)).toBe('overlay');
-    expect(getCodeProTaskPanelLayout(1199)).toBe('overlay');
-    expect(getCodeProTaskPanelLayout(1200)).toBe('inline');
-    expect(getCodeProTaskPanelLayout(1440)).toBe('inline');
+    expect(getCodeProTaskPanelLayout(659)).toBe('drawer');
+    expect(getCodeProTaskPanelLayout(660)).toBe('inline');
+    expect(getCodeProPanelWidth(600, 400)).toBe(600);
   });
 });
 

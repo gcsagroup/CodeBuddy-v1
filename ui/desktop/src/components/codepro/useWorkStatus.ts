@@ -63,6 +63,7 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
     : 0;
   const recent = activity?.receivedAt !== undefined && silence < 3;
   const execution = activity?.execution;
+  if (execution?.detail) return { source: 'stage' as const, title: execution.detail };
   const transportSource =
     execution?.phase === 'model' && execution.modelRequestPhase
       ? (
@@ -112,7 +113,7 @@ export function useWorkStatus(input: WorkStatusInput) {
     source === 'tool'
       ? [input.actionId ?? input.action, Boolean(input.toolPending)]
       : source === 'stage'
-        ? input.stage
+        ? selection.title
         : source === 'chat_state'
           ? input.chatState
           : source === 'children'

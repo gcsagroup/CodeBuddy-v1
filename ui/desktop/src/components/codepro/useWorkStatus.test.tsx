@@ -7,6 +7,41 @@ import { useWorkStatus } from './useWorkStatus';
 afterEach(() => vi.useRealTimers());
 
 describe('specific live execution feedback', () => {
+  it('renders native reconnection feedback, while long waiting alone never becomes an error', () => {
+    vi.useFakeTimers();
+    const input = {
+      chatState: ChatState.Streaming,
+      checking: false,
+      activity: {
+        promptAttemptId: 'attempt',
+        sourceUserMessageId: 'input',
+        startedAt: 1,
+        execution: {
+          phase: 'model' as const,
+          childCount: 0,
+          modelRequestPhase: 'waiting' as const,
+          detail: undefined as string | undefined,
+        },
+      },
+    };
+    const { result, rerender } = renderHook((props) => useWorkStatus(props), {
+      initialProps: input,
+      wrapper: IntlTestWrapper,
+    });
+    act(() => vi.advanceTimersByTime(600000));
+    expect(result.current.message).toContain('waiting for the model service to respond');
+    expect(result.current.message).not.toMatch(/reconnect|error|failed/i);
+    rerender({
+      ...input,
+      activity: {
+        ...input.activity,
+        execution: { ...input.activity.execution, detail: '连接发生错误；正在重新连接（1/5）' },
+      },
+    });
+    expect(result.current.message).toBe('连接发生错误；正在重新连接（1/5）');
+    rerender(input);
+    expect(result.current.message).toContain('waiting for the model service to respond');
+  });
   it('shows actual transport stages and keeps approval above transport waiting', () => {
     const input = {
       chatState: ChatState.Streaming,

@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { workStatusUpdates } from '../../work-status.mjs';
 
 async function fixture(t, handler, retryPolicy) {
   const root = await mkdtemp(join(tmpdir(), 'harness-recovery-'));
@@ -65,11 +66,16 @@ test('authentication failure is not retried and network backoff is cancellable',
 
 test('official finite retry exhaustion retains transport failure instead of successful completion', { timeout: 15000 }, async t => {
   const { driver, sessionId, requests } = await fixture(t, async (req) => req.socket.destroy(), { mode: 'normal', maxRetries: 2, backoff: { initialDelayMs: 5, maxDelayMs: 10, jitterRatio: 0 } });
-  await assert.rejects(driver.prompt(sessionId, 'hello'), error => error.code === 'TRANSPORT');
+  const project = workStatusUpdates({ sessionId, sourceMessageId: 'input', runId: 'run' }), statuses = [];
+  await assert.rejects(driver.prompt(sessionId, 'hello', { onEvent: event => statuses.push(...project(event)) }), error => error.code === 'TRANSPORT');
   assert.equal(requests.length, 3);
   const history = await driver.history(sessionId);
   assert.equal(history.events.filter(e => e.type === 'llm/retry').length, 2);
   assert.equal(history.events.at(-1).data.reason.kind, 'error');
+  assert.ok(statuses.some(update => update.status.message.includes('正在重新连接（1/2）')));
+  assert.ok(statuses.some(update => update.status.message.includes('正在重新连接（2/2）')));
+  assert.equal(statuses.at(-1).status.type, 'notice');
+  assert.match(statuses.at(-1).status.message, /原因尚未确认/);
 });
 
 test('stream interruption after a completed tool keeps partial evidence and retries without repeating the side effect', { timeout: 15000 }, async t => {

@@ -33,6 +33,7 @@ export interface PromptActivity {
     phase: 'model' | 'children' | 'child_result' | 'tool_result';
     childCount: number;
     modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
+    detail?: string;
   };
 }
 
@@ -709,8 +710,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
         return snapshotFromEntry(entry);
       }
       const update = notification.update;
-      const data = update.sessionUpdate === 'status_message' ? update.status.data : undefined;
+      const status = update.sessionUpdate === 'status_message' ? update.status : undefined;
+      const data = status?.data;
       if (
+        status &&
         data &&
         typeof data === 'object' &&
         'event' in data &&
@@ -729,12 +732,17 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
           ['model', 'children', 'child_result', 'tool_result'].includes(String(activity.phase)) &&
           Number.isInteger(activity.child_count) &&
           Number(activity.child_count) >= 0
-        )
+        ) {
           entry.promptActivity = {
             ...entry.promptActivity,
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
+              ...(typeof status.message === 'string' && status.message.trim()
+                ? {
+                    detail: status.message,
+                  }
+                : {}),
               ...(['preparing', 'connecting', 'waiting', 'receiving'].includes(
                 String(activity.model_request_phase)
               )
@@ -746,6 +754,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
                 : {}),
             },
           };
+          // Native terminal failure arrives before its RPC rejection. Preserve
+          // the explanation when the authoritative terminal seals this attempt.
+          if (status.type === 'notice' && status.message.trim()) entry.promptError = status.message;
+        }
         return notify(notification.sessionId, entry);
       }
       const changes = entry.adapter.applyGoose(notification, entry.sessionReplayActive);

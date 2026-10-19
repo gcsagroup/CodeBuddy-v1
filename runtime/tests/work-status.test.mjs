@@ -43,3 +43,53 @@ test('cancelled requests cannot publish late activity or execution conclusions',
   controller.abort();
   assert.deepEqual(project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'late' }), []);
 });
+
+test('only native failure and retry facts announce reconnection, and final failures remain notices', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const slow = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent', elapsedMs: 900000 });
+  assert.equal(slow[0].status.message, '', 'Slowness alone is not a failure');
+  project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', failureCode: 'TRANSPORT', transportCodes: ['UND_ERR_SOCKET'], timings: [{ private: 'never publish' }] });
+  const retry = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'llm/retry', data: { retry: 1, maxRetries: 5, delayMs: 1500, failure: { code: 'TRANSPORT', message: 'PRIVATE_UPSTREAM_MESSAGE' } } } });
+  assert.match(retry[0].status.message, /原因尚未确认/);
+  assert.match(retry[0].status.message, /^正在重新连接（1\/5）/);
+  assert.equal(retry[0].status.type, 'progress');
+  assert.doesNotMatch(JSON.stringify(retry), /PRIVATE_UPSTREAM_MESSAGE|never publish|UND_ERR_SOCKET/);
+  const restarted = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'start' });
+  assert.equal(restarted[0].status.message, '');
+  project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', failureCode: 'AUTH', status: 401 });
+  const failed = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'AUTH', message: 'PRIVATE_AUTH_DETAIL' } } } } });
+  assert.equal(failed[0].status.type, 'notice');
+  assert.match(failed[0].status.message, /HTTP 401/);
+  assert.doesNotMatch(JSON.stringify(failed), /PRIVATE_AUTH_DETAIL|重新连接/);
+});
+
+test('rate limits and unknown errors do not get invented network causes', () => {
+  const project = workStatusUpdates({ sessionId: 'parent' });
+  project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', status: 429 });
+  const limited = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'llm/retry', data: { retry: 1, delayMs: 0, failure: { code: 'RATE_LIMIT' } } } });
+  assert.match(limited[0].status.message, /^正在重试模型请求（第 1 次）.*HTTP 429/);
+  assert.doesNotMatch(limited[0].status.message, /重新连接|额度不足/);
+  project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'start' });
+  const unknown = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'UNRECOGNIZED' } } } } });
+  assert.equal(unknown[0].status.message, '请求失败，具体原因尚未确认');
+});
+
+test('child retries clear on that worker recovery without clearing another worker backoff', () => {
+  const project = workStatusUpdates({ sessionId: 'parent' });
+  const native = (sessionId, type, data) => project({ type: 'harness_event', sessionId, event: { type, data } });
+  const diagnostic = (sessionId, phase) => project({ type: 'model_diagnostic', sessionId, phase, status: 200 });
+  native('first', 'turn/start');
+  native('second', 'turn/start');
+  const retry = { retry: 1, maxRetries: 5, delayMs: 1000, failure: { code: 'TRANSPORT' } };
+  assert.match(native('first', 'llm/retry', retry)[0].status.message, /子任务.*重新连接/);
+  assert.deepEqual(diagnostic('second', 'start'), [], 'Unrelated worker activity cannot hide a pending retry');
+  const recovered = diagnostic('first', 'start')[0];
+  assert.equal(recovered.status.message, '');
+  assert.equal(recovered.status.data.phase, 'children');
+  assert.deepEqual(diagnostic('first', 'response_headers'), []);
+  assert.deepEqual(project({ type: 'text_delta', sessionId: 'first', text: 'private child output' }), []);
+  native('first', 'llm/retry', retry);
+  native('second', 'llm/retry', { ...retry, retry: 2 });
+  assert.deepEqual(native('first', 'llm/retry-started'), [], 'The other worker retry stays visible');
+  assert.equal(native('second', 'llm/retry-started')[0].status.message, '');
+});

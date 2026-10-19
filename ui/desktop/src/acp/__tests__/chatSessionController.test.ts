@@ -597,6 +597,24 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(onFinish).toHaveBeenCalledWith('Submit error: workspace rejected');
   });
 
+  it('keeps an observed failure explanation when the prompt RPC later rejects', async () => {
+    vi.mocked(acpPromptSession).mockRejectedValueOnce(new Error('raw provider failure'));
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+      ...snapshotWithActivePrompt(null),
+      promptError: '模型服务未通过身份验证（HTTP 401）',
+    });
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish: vi.fn(),
+    });
+    expect(acpChatSessionActions.finishPromptAttemptIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID,
+      expect.any(String),
+      '模型服务未通过身份验证（HTTP 401）'
+    );
+    expect(acpPromptSession).toHaveBeenCalledTimes(1);
+  });
+
   it('preserves the active prompt while ACP reconnect replays the durable run', async () => {
     vi.mocked(isAcpRecovering).mockReturnValue(true);
     vi.mocked(acpPromptSession).mockRejectedValueOnce(new Error('ACP connection closed'));

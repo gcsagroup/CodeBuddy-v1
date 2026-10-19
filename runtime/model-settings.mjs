@@ -1,6 +1,26 @@
 import { invalid } from './providers.mjs';
 
-export const THINKING_EFFORTS = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+export const THINKING_EFFORTS = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+
+export function modelThinkingPreference(profile, saved, legacy) {
+  if (typeof saved === 'string') return saved;
+  // Legacy global preferences remain a fallback only for a declared capability.
+  const level = legacy === 'none' ? 'off' : legacy;
+  if (profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, level)) return legacy;
+  return profile.thinkingDefault;
+}
+
+export function modelThinkingOptions(profile, saved, legacy) {
+  const levels = profile.reasoningEfforts;
+  if (!levels) return { options: [], value: null, toggle: false };
+  const selected = applyModelThinking(profile, modelThinkingPreference(profile, saved, legacy));
+  const value = selected.thinkingEffort === 'off' ? 'none' : selected.thinkingEffort ?? null;
+  return {
+    options: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].filter(level => Object.hasOwn(levels, level) && (!profile.thinkingToggle || ['off', 'medium'].includes(level))).map(level => level === 'off' ? 'none' : level),
+    value: profile.thinkingToggle && value !== 'none' && value !== null ? 'medium' : value,
+    toggle: profile.thinkingToggle === true,
+  };
+}
 
 // This creates a request-scoped compatibility override, not discovered model
 // capability metadata. Unknown models remain unknown until a user picks an
@@ -11,7 +31,8 @@ export function applyModelThinking(provider, requestedEffort) {
     // Only an established model profile can supply an enabled default. An
     // unknown endpoint must not receive an invented reasoning protocol.
     const efforts = provider.reasoningEfforts;
-    const thinkingEffort = efforts && ['medium', 'low', 'high', 'minimal', 'xhigh'].find(level => Object.hasOwn(efforts, level));
+    const thinkingEffort = efforts && (provider.thinkingDefault && Object.hasOwn(efforts, provider.thinkingDefault)
+      ? provider.thinkingDefault : ['medium', 'low', 'high', 'minimal', 'xhigh', 'max'].find(level => Object.hasOwn(efforts, level)));
     return thinkingEffort
       ? { provider: configured, thinkingEffort, source: 'model_default' }
       : { provider: configured, source: 'provider_default' };

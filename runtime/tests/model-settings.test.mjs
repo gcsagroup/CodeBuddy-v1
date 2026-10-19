@@ -59,7 +59,7 @@ test('explicit effort profiles declare only the requested transport control and 
     assert.equal(configured.provider.compat.supportsDeveloperRole, false);
   }
   assert.equal(provider.reasoningEfforts, undefined);
-  assert.throws(() => applyModelThinking(provider, 'max'), /Unknown/);
+  assert.throws(() => applyModelThinking(provider, 'unsupported'), /Unknown/);
   assert.throws(() => applyModelThinking({ ...provider, reasoningEfforts: false }, 'high'), /explicitly disables/);
   assert.throws(() => applyModelThinking({ ...provider, reasoningEfforts: { low: 'low' } }, 'high'), /absent/);
   assert.throws(() => applyModelThinking({ ...provider, compat: { supportsReasoningEffort: false } }, 'high'), /different thinking/);
@@ -92,5 +92,5 @@ test('all six original UI efforts reach the actual official Harness HTTP complet
     const policy = requests.at(-1).messages.find(message => JSON.stringify(message.content).includes('RECIPE_ROLE_REGRESSION_742'));
     assert.equal(policy?.role, 'system', 'Choosing an effort must not silently promote unknown endpoints to developer-role support');
   }
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, THINKING_EFFORTS.length + 1);
 });

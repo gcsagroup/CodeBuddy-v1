@@ -1698,7 +1698,7 @@ export default function ChatInput({
         {/* Left: model selector */}
         {!isBottomBarNarrow && (
           <Tooltip>
-            <div className="min-w-0 max-w-48 flex-1">
+            <div className="min-w-0 max-w-48">
               <ModelsBottomBar
                 sessionId={sessionId}
                 dropdownRef={dropdownRef}

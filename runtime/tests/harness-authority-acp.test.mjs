@@ -6,6 +6,8 @@ import path from 'node:path';
 import { Compat } from '../compat.mjs';
 import { openStore } from '../store.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
+import { driverProvider } from '../providers.mjs';
+import { isDeepStrictEqual } from 'node:util';
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-'));
@@ -34,6 +36,41 @@ async function fixture(t) {
   const prompt = text => request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   return { compat, store, notices, sessions, scripts, sessionId, prompt, request, setInitializer(fn) { initialize = fn; } };
 }
+
+test('model thinking migration restores historical child routes despite a stale effort preference', async t => {
+  const f = await fixture(t);
+  await f.store.update(state => {
+    state.providers[0].models.push('gpt-6.1-sol');
+    state.providers[0].catalogProviderId = 'openai';
+  });
+  f.scripts.push(async () => ({stopReason:'end_turn',reason:{kind:'completed'}}));
+  await f.prompt('Prepare the existing session.');
+  const provider = f.store.read(['providers']).providers[0];
+  const historical = await driverProvider(provider, 'gpt-6.1-sol', {legacyThinking:true});
+  await f.store.update(state => { state.providers[0].thinkingEfforts = {'gpt-6.1-sol':'none'}; });
+  const restore = f.sessions[0].options.restoreSubagentProvider;
+  assert.deepEqual(await restore('gpt-6.1-sol', candidate => isDeepStrictEqual(candidate,historical)), historical);
+  assert.equal(await restore('gpt-6.1-sol', candidate => candidate.baseUrl === 'https://unrelated.invalid/v1'), undefined,
+    'Only the exact recorded native connection can be restored');
+});
+
+test('model thinking changes preserve session authorization and the active turn, then apply to the next turn', async t => {
+  const f = await fixture(t);
+  await f.store.update(state => { state.providers[0].models.push('gemma4:31b'); });
+  await f.request('session/set_config_option', {sessionId:f.sessionId,configId:'model',value:'gemma4:31b'});
+  const started=Promise.withResolvers(), finish=Promise.withResolvers();
+  f.scripts.push(async ({onEvent})=>{started.resolve();await finish.promise;await onEvent({type:'text_delta',text:'First'});return{stopReason:'end_turn',reason:{kind:'completed'}};});
+  const active=f.prompt('First turn');await started.promise;
+  assert.equal(f.sessions[0].options.thinkingEffort,'medium');
+  const approvals=f.compat.sessionToolApprovals;
+  await f.request('_goose/unstable/providers/config/save',{providerId:'fixture',fields:[{key:'thinkingEffort:gemma4:31b',value:'none'}]});
+  assert.equal(f.compat.sessionToolApprovals,approvals,'Changing model effort does not revoke unrelated session approvals');
+  assert.equal(f.sessions[0].options.thinkingEffort,'medium','The active native request keeps its prepared snapshot');
+  finish.resolve();await active;
+  f.scripts.push(async({onEvent})=>{await onEvent({type:'text_delta',text:'Second'});return{stopReason:'end_turn',reason:{kind:'completed'}};});
+  await f.prompt('Second turn');
+  assert.equal(f.sessions.at(-1).options.thinkingEffort,'off');
+});
 
 test('new conversation is durable before any model or MCP startup; first message acknowledges before readiness', async t => {
   const f = await fixture(t);

@@ -13,6 +13,7 @@ import {
   driverProvider,
   providerStatus,
   readProvider,
+  thinkingProfile,
 } from "./providers.mjs";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import {
@@ -35,7 +36,7 @@ import { prepareRecipe } from "./recipe-execution.mjs";
 import { ScheduleService } from "./schedules.mjs";
 import { workspaceIdentity } from "./workspaces.mjs";
 import { harnessPrompt } from "./prompt-content.mjs";
-import { applyModelThinking } from "./model-settings.mjs";
+import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
@@ -239,10 +240,10 @@ export class Compat {
       ? new LibraryService(store, { driver, workspaces: this.workspaces })
       : null;
     this.settings = new RuntimeSettings(store, {
-      changed: () => {
+      changed: (change) => {
         this.configurationRevision += 1;
         this.initialized.clear();
-        this.sessionToolApprovals = new WeakMap();
+        if (change?.kind !== 'model-thinking') this.sessionToolApprovals = new WeakMap();
       },
       testExtension: (p) => this.testExtension(p),
       checkProviderMutation: (id) => this.checkProviderMutation(id),
@@ -430,10 +431,10 @@ export class Compat {
   }
   async runReview({ sessionId, reviewId, snapshot, signal, tool }) {
     const s = this.session(sessionId);
-    const selected = applyModelThinking(
-      await driverProvider(this.provider(snapshot.model.provider), snapshot.model.model),
-      this.store.read(["preferences"]).preferences.gooseThinkingEffort,
-    );
+    const configured = this.provider(snapshot.model.provider);
+    const profile = await driverProvider(configured, snapshot.model.model);
+    const selected = applyModelThinking(profile, modelThinkingPreference(thinkingProfile(configured, snapshot.model.model),
+      configured.thinkingEfforts?.[snapshot.model.model], this.store.read(['preferences']).preferences.gooseThinkingEffort));
     const id = `review-${reviewId}`;
     this.reviewExecutions.set(id, snapshot.model.provider);
     const cancel = () => {
@@ -771,8 +772,16 @@ export class Compat {
             const withCapabilities = value => capability.imageInput === 'supported' ? { ...value, inputModalities: ['text', 'image'] } : value;
             const selected = withCapabilities(candidate);
             if (matches(selected)) return selected;
-            const inherited = withCapabilities(applyModelThinking(candidate, this.store.read(['preferences']).preferences.gooseThinkingEffort).provider);
-            if (matches(inherited)) return inherited;
+            try {
+              const inherited = withCapabilities(applyModelThinking(candidate, modelThinkingPreference(candidate, provider.thinkingEfforts?.[model], this.store.read(['preferences']).preferences.gooseThinkingEffort)).provider);
+              if (matches(inherited)) return inherited;
+            } catch { /* A stale preference cannot prevent an exact historical route from restoring. */ }
+            // Pre-migration children retain their recorded native route. This
+            // candidate is accepted only when its complete connection identity matches.
+            const legacy = await driverProvider(provider, model, { legacyThinking: true });
+            if (matches(legacy)) return legacy;
+            const historical = withCapabilities(applyModelThinking(legacy, this.store.read(['preferences']).preferences.gooseThinkingEffort).provider);
+            if (matches(historical)) return historical;
           }
           catch { /* A different or unavailable connection cannot replace this native route. */ }
         }
@@ -1074,7 +1083,7 @@ export class Compat {
       const route = this.routing.get(s.id)?.main;
       const main = applyModelThinking(
         routing.main.provider,
-        this.store.read(["preferences"]).preferences.gooseThinkingEffort,
+        modelThinkingPreference(thinkingProfile(this.provider(routing.main.provider.id), routing.main.model), this.provider(routing.main.provider.id).thinkingEfforts?.[routing.main.model], this.store.read(['preferences']).preferences.gooseThinkingEffort),
       );
       const provider = main.provider;
       this.thinking.set(s.id, main.thinkingEffort);

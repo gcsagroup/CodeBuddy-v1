@@ -11,6 +11,7 @@ import type {
 import type {
   ProviderDetails,
   ThinkingEffort,
+  ModelThinkingSettings,
   UpdateCustomProviderRequest,
 } from '../types/providers';
 import { getAcpClient } from './acpConnection';
@@ -247,17 +248,81 @@ export async function acpClearDefaults(): Promise<void> {
 export async function acpReadThinkingEffort(): Promise<ThinkingEffort | null> {
   const response = await readPreferences(['gooseThinkingEffort']);
   const value = response.values.find((v) => v.key === 'gooseThinkingEffort')?.value;
+  if (value === 'none') return 'off';
   return value === 'off' ||
+    value === 'minimal' ||
     value === 'low' ||
     value === 'medium' ||
     value === 'high' ||
+    value === 'xhigh' ||
     value === 'max'
     ? value
     : null;
 }
 
-export async function acpSaveThinkingEffort(effort: ThinkingEffort): Promise<void> {
-  await savePreferences([{ key: 'gooseThinkingEffort', value: effort, isMutable: true }]);
+export async function acpReadModelThinkingSettings(
+  providerId: string,
+  modelId: string
+): Promise<ModelThinkingSettings> {
+  return (await acpReadModelDisplaySettings(providerId, modelId)).thinking;
+}
+
+export type ModelDisplaySettings = {
+  thinking: ModelThinkingSettings;
+  contextWindow: number | null;
+  contextSource: string | null;
+};
+
+export async function acpReadModelDisplaySettings(
+  providerId: string,
+  modelId: string
+): Promise<ModelDisplaySettings> {
+  // The canonical lookup primes the existing provider metadata cache for this model.
+  await acpGetCanonicalModelInfo(providerId, modelId);
+  const fields = await acpReadProviderConfig(providerId);
+  const raw = fields.find((field) => field.key === `thinkingEffort:${modelId}`)?.value;
+  if (typeof raw !== 'string') throw new Error('Model thinking settings are unavailable');
+  const data = JSON.parse(raw) as { options?: unknown; value?: unknown; toggle?: unknown };
+  const known = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+  if (!Array.isArray(data.options) || !data.options.every((value) => known.includes(value)))
+    throw new Error('Invalid model thinking options');
+  const options = data.options.map((value) =>
+    value === 'none' ? 'off' : value
+  ) as ThinkingEffort[];
+  const value = data.value === 'none' ? 'off' : data.value;
+  if (value !== null && !options.includes(value as ThinkingEffort))
+    throw new Error('Invalid model thinking selection');
+  let contextWindow: number | null = null;
+  let contextSource: string | null = null;
+  try {
+    const context = JSON.parse(
+      fields.find((field) => field.key === `contextWindow:${modelId}`)?.value ?? 'null'
+    );
+    if (Number.isSafeInteger(context?.contextWindow) && context.contextWindow > 0) {
+      contextWindow = context.contextWindow;
+      contextSource = typeof context.contextSource === 'string' ? context.contextSource : null;
+    }
+  } catch {
+    /* Optional display metadata does not invalidate a valid thinking configuration. */
+  }
+  return {
+    thinking: { options, value: value as ThinkingEffort | null, toggle: data.toggle === true },
+    contextWindow,
+    contextSource,
+  };
+}
+
+export async function acpSaveThinkingEffort(
+  effort: ThinkingEffort,
+  providerId?: string,
+  modelId?: string
+): Promise<void> {
+  const value = effort === 'off' ? 'none' : effort;
+  if (providerId && modelId) {
+    await acpSaveProviderConfig(providerId, [{ key: `thinkingEffort:${modelId}`, value }]);
+    return;
+  }
+  await savePreferences([{ key: 'gooseThinkingEffort', value, isMutable: true }]);
 }
 
 export type AppliedSessionProviderModel = {

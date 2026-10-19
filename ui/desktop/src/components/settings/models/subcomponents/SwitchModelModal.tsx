@@ -15,22 +15,20 @@ import { Input } from '../../../ui/input';
 import { Select } from '../../../ui/Select';
 import {
   acpListProviderDetails,
-  acpReadThinkingEffort,
+  acpReadModelThinkingSettings,
   acpSaveThinkingEffort,
 } from '../../../../acp/providers';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import type { View } from '../../../../utils/navigationUtils';
-import Model, {
-  fetchModelReasoning,
-  fetchModelsForProviders,
-  getProviderMetadata,
-} from '../modelInterface';
+import Model, { fetchModelsForProviders, getProviderMetadata } from '../modelInterface';
 import {
   providerActivationDisabledReason,
   type ProviderDetails,
   type ProviderType,
   type ThinkingEffort,
+  type ModelThinkingSettings,
 } from '../../../../types/providers';
+import { ThinkingEffortPicker } from '../../../ThinkingEffortPicker';
 import { trackModelChanged } from '../../../../utils/analytics';
 import { applyCodeProDefaultModelTransaction } from '../../../../acp/codeproModelRouting';
 
@@ -276,14 +274,6 @@ export const SwitchModelModal = ({
 }: SwitchModelModalProps) => {
   const intl = useIntl();
 
-  const THINKING_EFFORT_OPTIONS: { value: ThinkingEffort; label: string }[] = [
-    { value: 'off', label: intl.formatMessage(i18n.thinkingEffortOff) },
-    { value: 'low', label: intl.formatMessage(i18n.claudeEffortLow) },
-    { value: 'medium', label: intl.formatMessage(i18n.claudeEffortMedium) },
-    { value: 'high', label: intl.formatMessage(i18n.claudeEffortHigh) },
-    { value: 'max', label: intl.formatMessage(i18n.claudeEffortMax) },
-  ];
-
   const {
     changeModel,
     currentModel: configModel,
@@ -344,41 +334,38 @@ export const SwitchModelModal = ({
     modelObject: Model;
   } | null>(null);
   const [selectedModelReasoning, setSelectedModelReasoning] = useState<boolean | null>(null);
+  const [modelThinking, setModelThinking] = useState<
+    (ModelThinkingSettings & { identity: string }) | null
+  >(null);
 
   const modelReasoning = selectedModelReasoning ?? selectedPredefinedModel?.reasoning;
-  const showThinkingControl = modelReasoning === true;
+  const showThinkingControl =
+    modelReasoning === true &&
+    modelThinking?.identity === JSON.stringify([provider, model]) &&
+    modelThinking.options.length > 0;
   const resolveSelectedModelReasoning = useCallback(
     (providerName: string, modelName: string, fallback?: boolean) => {
       const requestId = ++reasoningRequestId.current;
       setSelectedModelReasoning(fallback ?? null);
-      fetchModelReasoning(providerName, modelName, fallback).then((reasoning) => {
-        if (requestId === reasoningRequestId.current) {
-          setSelectedModelReasoning(reasoning);
-        }
-      });
+      setModelThinking(null);
+      setThinkingEffortStatus('loading');
+      acpReadModelThinkingSettings(providerName, modelName)
+        .then((settings) => {
+          if (requestId === reasoningRequestId.current) {
+            setModelThinking({ ...settings, identity: JSON.stringify([providerName, modelName]) });
+            setSelectedModelReasoning(settings.options.length > 0);
+            setThinkingEffort(settings.value);
+            setThinkingEffortStatus('ready');
+          }
+        })
+        .catch(() => {
+          if (requestId !== reasoningRequestId.current) return;
+          setThinkingEffort(null);
+          setThinkingEffortStatus('unavailable');
+        });
     },
     []
   );
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const effort = await acpReadThinkingEffort();
-        if (!active) return;
-        setThinkingEffort(effort);
-        setThinkingEffortStatus('ready');
-      } catch {
-        if (!active) return;
-        console.warn('Unable to read thinking effort.');
-        setThinkingEffort(null);
-        setThinkingEffortStatus('unavailable');
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!provider || !model) return;
@@ -507,10 +494,13 @@ export const SwitchModelModal = ({
           };
 
           if (showThinkingControl) {
-            selectedEffort = thinkingEffort ?? modelObj.request_params?.thinking_effort ?? 'off';
+            selectedEffort = thinkingEffort ?? modelThinking?.value ?? null;
             modelObj = {
               ...modelObj,
-              request_params: { ...modelObj.request_params, thinking_effort: selectedEffort },
+              request_params: {
+                ...modelObj.request_params,
+                ...(selectedEffort ? { thinking_effort: selectedEffort } : {}),
+              },
             };
           }
 
@@ -546,7 +536,7 @@ export const SwitchModelModal = ({
 
         if (selectedEffort !== null) {
           try {
-            await acpSaveThinkingEffort(selectedEffort);
+            await acpSaveThinkingEffort(selectedEffort, modelObj.provider, modelObj.name);
           } catch {
             if (!isCurrentSession()) return;
             console.error('Unable to save thinking effort after switching models.');
@@ -855,23 +845,18 @@ export const SwitchModelModal = ({
       <label className="text-sm text-textSubtle mb-1 block">
         {intl.formatMessage(i18n.thinkingEffort)}
       </label>
-      <Select
-        options={THINKING_EFFORT_OPTIONS}
-        value={
-          thinkingEffortStatus === 'ready'
-            ? THINKING_EFFORT_OPTIONS.find((o) => o.value === (thinkingEffort ?? 'off'))
-            : null
-        }
-        onChange={(newValue: unknown) => {
-          if (submitInFlight.current) return;
-          const option = newValue as { value: ThinkingEffort; label: string } | null;
-          setThinkingEffort(option?.value || 'off');
-          setThinkingEffortStatus('ready');
-          setSubmissionError(null);
-        }}
-        placeholder={intl.formatMessage(i18n.selectEffortLevel)}
-        isDisabled={thinkingEffortStatus === 'loading' || isSubmitting || thinkingPending !== null}
-      />
+      {modelThinking && (
+        <ThinkingEffortPicker
+          settings={{ ...modelThinking, value: thinkingEffort }}
+          onChange={(value) => {
+            if (submitInFlight.current) return;
+            setThinkingEffort(value);
+            setThinkingEffortStatus('ready');
+            setSubmissionError(null);
+          }}
+          disabled={thinkingEffortStatus === 'loading' || isSubmitting || thinkingPending !== null}
+        />
+      )}
       {thinkingEffortStatus === 'unavailable' && (
         <div role="alert" className="text-red-500 text-sm mt-1">
           {intl.formatMessage(i18n.thinkingEffortUnavailable)}

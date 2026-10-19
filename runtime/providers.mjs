@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
-import { catalogModels } from './harness/model-catalog.mjs';
+import { catalogModels, catalogThinkingProfile } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -325,7 +325,7 @@ async function resolveContext(provider, model, authPending) {
   }
   await cached.pending;
   cached = cachedModels(provider);
-  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model] || !cached.outputs?.[model])) {
+  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model] || !cached.outputs?.[model] || !Object.hasOwn(cached.thinking ?? {}, model))) {
     cached.details ??= new Map();
     if (!cached.details.has(model)) cached.details.set(model, (async () => {
       try {
@@ -333,11 +333,14 @@ async function resolveContext(provider, model, authPending) {
         const base = new URL(provider.apiUrl);
         // Cloud uses its full window. Local model_info is only an architectural
         // maximum, not the running num_ctx; never adopt it as deployment capacity.
-        if (base.protocol === 'https:' && base.hostname === 'ollama.com') {
+        if (base.protocol === 'https:' && base.hostname === 'ollama.com' || provider.engine === 'ollama_compatible') {
           const auth = await (authPending ?? credentials(provider, provider));
           const body = await requestJson(new URL('/api/show', base), { method: 'POST', headers: auth.requestHeaders,
             payload: { model }, timeoutMs: 5000 });
-          capacity = Object.entries(body.model_info ?? {}).find(([k, v]) => k.endsWith('.context_length') && Number.isSafeInteger(v) && v > 0)?.[1];
+          if (base.protocol === 'https:' && base.hostname === 'ollama.com')
+            capacity = Object.entries(body.model_info ?? {}).find(([k, v]) => k.endsWith('.context_length') && Number.isSafeInteger(v) && v > 0)?.[1];
+          cached.thinking ??= {};
+          cached.thinking[model] = ollamaThinkingProfile(body);
           if (Array.isArray(body.capabilities) && body.capabilities.length && body.capabilities.every(value => typeof value === 'string')) {
             cached.inputs ??= {};
             cached.inputs[model] = { imageInput: body.capabilities.includes('vision') ? 'supported' : 'unsupported', source: 'provider_metadata' };
@@ -354,6 +357,9 @@ async function resolveContext(provider, model, authPending) {
           }
           source = 'catalog';
         }
+        cached.thinking ??= {};
+        if (!Object.keys(cached.thinking[model] ?? {}).length && provider.catalogProviderId)
+          cached.thinking[model] = catalogThinkingProfile(provider.catalogProviderId, model);
         if (capacity && !cached.contexts?.[model]) {
           cached.contexts ??= {}; cached.sources ??= {};
           cached.contexts[model] = capacity; cached.sources[model] = source;
@@ -433,6 +439,7 @@ export async function saveProvider(store, input, update = false) {
     requiresAuth: input.requiresAuth ?? true,
     models: modelIds(input.models ?? current?.models ?? []),
     ...(current?.contextWindows ? { contextWindows: current.contextWindows } : {}),
+    ...(current?.thinkingEfforts ? { thinkingEfforts: current.thinkingEfforts } : {}),
     supportsStreaming:
       input.supportsStreaming ?? current?.supportsStreaming ?? true,
     catalogProviderId:
@@ -496,7 +503,45 @@ function modelThinkingProfile(model) {
   return {
     compat: { thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' } }, supportsDeveloperRole: false },
     reasoningEfforts: { off: null, minimal: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'high' },
+    thinkingToggle: true,
   };
+}
+
+function ollamaThinkingProfile(body) {
+  const values = body.thinking?.values;
+  let efforts;
+  if (Array.isArray(values) && values.length && values.every(value => typeof value === 'boolean')) {
+    if (!values.includes(true)) return { reasoningEfforts: false };
+    efforts = { ...(values.includes(false) ? { off: 'none' } : {}), medium: 'medium' };
+  } else if (Array.isArray(values) && values.length && values.every(value => typeof value === 'string')) {
+    efforts = Object.fromEntries(values.filter(value => ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value))
+      .map(value => [value === 'none' ? 'off' : value, value]));
+  } else if (Array.isArray(body.capabilities) && body.capabilities.includes('thinking')) {
+    // Capability alone establishes an enabled control, not unsupported extra levels.
+    efforts = { medium: 'medium' };
+  }
+  if (!efforts || !Object.keys(efforts).some(level => level !== 'off')) return {};
+  return {
+    reasoningEfforts: efforts,
+    thinkingDefault: typeof body.thinking?.default === 'string' && body.thinking.default !== 'none' ? body.thinking.default : undefined,
+    thinkingToggle: Array.isArray(values) && values.every(value => typeof value === 'boolean') || Object.keys(efforts).every(level => ['off', 'medium'].includes(level)),
+    compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false },
+  };
+}
+
+export function thinkingProfile(provider, model) {
+  const discovered = cachedModels(provider)?.thinking?.[model];
+  if (discovered && Object.hasOwn(discovered, 'reasoningEfforts')) return discovered;
+  if (provider.catalogProviderId) {
+    const catalog = catalogThinkingProfile(provider.catalogProviderId, model);
+    if (Object.hasOwn(catalog, 'reasoningEfforts')) return catalog;
+  }
+  // Only non-Ollama Gemma deployments use the existing chat-template adapter.
+  const fallback = modelThinkingProfile(model);
+  if (Object.keys(fallback).length && (provider.engine === 'ollama_compatible' || new URL(provider.apiUrl).hostname === 'ollama.com'))
+    return { reasoningEfforts: { off: 'none', medium: 'medium' }, thinkingToggle: true,
+      compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false } };
+  return fallback;
 }
 
 export async function resolvedModelInfo(provider, model) {
@@ -504,7 +549,7 @@ export async function resolvedModelInfo(provider, model) {
   if (providerStatus(provider).isConfigured) await resolveContext(provider, model);
   const profile = contextProfile(provider, model);
   return { provider: provider.id, model, contextLimit: profile.contextWindow,
-    contextSource: profile.contextSource, reasoning: Boolean(modelThinkingProfile(model).reasoningEfforts), currency: 'USD' };
+    contextSource: profile.contextSource, reasoning: Boolean(thinkingProfile(provider, model).reasoningEfforts), currency: 'USD' };
 }
 
 export async function resolvedInventory(provider) {
@@ -536,18 +581,19 @@ export async function readProvider(provider) {
   };
 }
 
-export async function driverProvider(provider, model) {
+export async function driverProvider(provider, model, { legacyThinking = false } = {}) {
   const authPending = credentials(provider, provider);
   const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
+  const { thinkingToggle: _toggle, thinkingDefault: _default, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
     apiKey,
     headers,
     // The official Harness/pi-ai adapter owns serialization and streaming.
-    ...modelThinkingProfile(model),
+    ...nativeThinking,
     ...contextProfile(provider, model),
     ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens }),
     protocol: endpoints(provider).completion.pathname.endsWith("/responses")

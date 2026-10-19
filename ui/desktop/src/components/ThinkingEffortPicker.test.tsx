@@ -1,0 +1,182 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { IntlTestWrapper } from '../i18n/test-utils';
+import { ThinkingEffortPicker, ModelThinkingMenu } from './ThinkingEffortPicker';
+import {
+  acpReadModelDisplaySettings,
+  acpSaveThinkingEffort,
+  type ModelDisplaySettings,
+} from '../acp/providers';
+
+vi.mock('../acp/providers', () => ({
+  acpReadModelDisplaySettings: vi.fn(),
+  acpSaveThinkingEffort: vi.fn(),
+}));
+beforeEach(() => vi.resetAllMocks());
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((yes) => {
+    resolve = yes;
+  });
+  return { promise, resolve };
+}
+
+describe('ThinkingEffortPicker', () => {
+  it('renders preloaded details immediately and publishes the saved snapshot', async () => {
+    const initialSettings: ModelDisplaySettings = {
+      thinking: { options: ['off', 'medium'], value: 'medium', toggle: true },
+      contextWindow: 262144,
+      contextSource: 'service',
+    };
+    const changed = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ModelThinkingMenu
+        provider="p"
+        model="m"
+        showLabel
+        showContextWindow
+        initialSettings={initialSettings}
+        onEffortChanged={changed}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText('262,144 tokens')).toBeVisible();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(acpReadModelDisplaySettings).not.toHaveBeenCalled();
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Thinking effort: On' }));
+    await user.click(screen.getByRole('radio', { name: 'None' }));
+    await waitFor(() =>
+      expect(changed).toHaveBeenCalledWith({
+        ...initialSettings,
+        thinking: { ...initialSettings.thinking, value: 'off' },
+      })
+    );
+  });
+  it('activates the target model only after the effort is saved successfully', async () => {
+    vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
+      thinking: { options: ['low', 'high'], value: 'high', toggle: false },
+      contextWindow: 262144,
+      contextSource: 'service',
+    });
+    const saved = deferred<void>(),
+      applied = vi.fn(),
+      busy = vi.fn();
+    vi.mocked(acpSaveThinkingEffort).mockReturnValue(saved.promise);
+    const user = userEvent.setup();
+    render(
+      <ModelThinkingMenu provider="p" model="m" onEffortChanged={applied} onSavingChange={busy} />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(await screen.findByRole('button', { name: 'Thinking effort: High' }));
+    await user.click(screen.getByRole('radio', { name: 'Low' }));
+    expect(applied).not.toHaveBeenCalled();
+    expect(busy).toHaveBeenLastCalledWith(true);
+    saved.resolve(undefined);
+    await waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
+    expect(busy).toHaveBeenLastCalledWith(false);
+  });
+  it('shows a read state immediately and displays the context from the same model snapshot', async () => {
+    const ready = deferred<Awaited<ReturnType<typeof acpReadModelDisplaySettings>>>();
+    vi.mocked(acpReadModelDisplaySettings).mockReturnValue(ready.promise);
+    render(<ModelThinkingMenu provider="p" model="m" showLabel showContextWindow />, {
+      wrapper: IntlTestWrapper,
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Reading…');
+    ready.resolve({
+      thinking: { options: [], value: null, toggle: false },
+      contextWindow: 262144,
+      contextSource: 'service',
+    });
+    expect(await screen.findByText('262,144 tokens')).toBeVisible();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+  it('does not offer a disclosure for a single supported level or a non-reasoning model', () => {
+    const view = render(
+      <ThinkingEffortPicker
+        settings={{ options: ['high'], value: 'high', toggle: false }}
+        onChange={vi.fn()}
+        showLabel
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText('High')).toBeVisible();
+    expect(screen.getByText('Thinking effort')).toBeVisible();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    view.rerender(
+      <ThinkingEffortPicker
+        settings={{ options: [], value: null, toggle: false }}
+        onChange={vi.fn()}
+      />
+    );
+    expect(screen.queryByText('High')).not.toBeInTheDocument();
+  });
+  it('shows exactly the offered levels and forwards the chosen value', async () => {
+    const user = userEvent.setup(),
+      change = vi.fn();
+    render(
+      <ThinkingEffortPicker
+        settings={{ options: ['low', 'high'], value: 'high', toggle: false }}
+        onChange={change}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(screen.getByRole('button', { name: 'Thinking effort: High' }));
+    expect(screen.getAllByRole('radio').map((item) => item.getAttribute('value'))).toEqual([
+      'low',
+      'high',
+    ]);
+    expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: 'None' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Low' }));
+    expect(change).toHaveBeenCalledExactlyOnceWith('low');
+  });
+  it('uses an on/off card for a boolean-only model and saves against its provider and model', async () => {
+    vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
+      thinking: {
+        options: ['off', 'medium'],
+        value: 'medium',
+        toggle: true,
+      },
+      contextWindow: 262144,
+      contextSource: 'service',
+    });
+    vi.mocked(acpSaveThinkingEffort).mockResolvedValue();
+    const user = userEvent.setup();
+    render(<ModelThinkingMenu provider="connection-A" model="boolean-model" showLabel />, {
+      wrapper: IntlTestWrapper,
+    });
+    fireEvent.mouseEnter(await screen.findByRole('button', { name: 'Thinking effort: On' }));
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByRole('radio', { name: 'None' })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'None' }));
+    await waitFor(() =>
+      expect(acpSaveThinkingEffort).toHaveBeenCalledExactlyOnceWith(
+        'off',
+        'connection-A',
+        'boolean-model'
+      )
+    );
+    expect(await screen.findByRole('button', { name: 'Thinking effort: None' })).toBeVisible();
+  });
+  it('keeps a failed save open without changing the confirmed selection', async () => {
+    vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
+      thinking: {
+        options: ['low', 'high'],
+        value: 'high',
+        toggle: false,
+      },
+      contextWindow: 262144,
+      contextSource: 'service',
+    });
+    vi.mocked(acpSaveThinkingEffort).mockRejectedValue(new Error('private configuration path'));
+    const user = userEvent.setup();
+    render(<ModelThinkingMenu provider="p" model="m" />, { wrapper: IntlTestWrapper });
+    await user.click(await screen.findByRole('button', { name: 'Thinking effort: High' }));
+    await user.click(screen.getByRole('radio', { name: 'Low' }));
+    expect(await screen.findByRole('alert')).not.toHaveTextContent('private');
+    expect(screen.getByRole('radio', { name: 'High' })).toBeChecked();
+  });
+});

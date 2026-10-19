@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolveImageCapability } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolveImageCapability, thinkingProfile } from './providers.mjs';
+import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
 
@@ -13,7 +14,7 @@ const configKey = e => extensionConfigKey(requireString(extensionName(e), 'exten
 export function validatePreference(key, value) {
   if (value == null) return;
   if (key === 'gooseMode' && !['auto', 'approve', 'smart_approve', 'chat'].includes(value)) throw invalid('Unknown tool permission mode');
-  if (key === 'gooseThinkingEffort' && !['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].includes(value)) throw invalid('Unknown reasoning effort');
+  if (key === 'gooseThinkingEffort' && !THINKING_EFFORTS.includes(value)) throw invalid('Unknown reasoning effort');
   if (key === 'gooseMaxTurns' && (!Number.isSafeInteger(value) || value < 1 || value > 100000)) throw invalid('Maximum turns must be between 1 and 100000');
   if (key === 'autoCompactThreshold' && (!Number.isFinite(value) || value <= 0 || value >= 1)) throw invalid('Compaction threshold must be between zero and one');
   if (key === 'personalizedMemoryEnabled' && typeof value !== 'boolean') throw invalid('Memory preference must be boolean');
@@ -201,9 +202,43 @@ export class RuntimeSettings {
       case 'providers/config/read': {
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
         await resolvedInventory(provider);
-        return { fields: [ { key: 'apiUrl', value: provider.apiUrl, isSet: true, isSecret: false, required: true }, { key: 'apiKey', isSet: Boolean(provider.secret), isSecret: true, required: provider.requiresAuth }, ...provider.models.map(model => ({ key: `contextWindow:${model}`, value: JSON.stringify({ ...contextProfile(provider, model), configured: provider.contextWindows?.[model] ?? null }), isSet: provider.contextWindows?.[model] != null, isSecret: false, required: false })) ] };
+        return { fields: [ { key: 'apiUrl', value: provider.apiUrl, isSet: true, isSecret: false, required: true }, { key: 'apiKey', isSet: Boolean(provider.secret), isSecret: true, required: provider.requiresAuth }, ...provider.models.flatMap(model => [
+          { key: `contextWindow:${model}`, value: JSON.stringify({ ...contextProfile(provider, model), configured: provider.contextWindows?.[model] ?? null }), isSet: provider.contextWindows?.[model] != null, isSecret: false, required: false },
+          { key: `thinkingEffort:${model}`, value: JSON.stringify(modelThinkingOptions(thinkingProfile(provider, model), provider.thinkingEfforts?.[model], this.store.read(['preferences']).preferences?.gooseThinkingEffort)), isSet: provider.thinkingEfforts?.[model] != null, isSecret: false, required: false },
+        ]) ] };
       }
       case 'providers/config/save': {
+        const thinkingFields = [...(p.fields ?? []).map(f => f.key), ...(p.clearFields ?? [])];
+        if (thinkingFields.length && thinkingFields.every(key => key.startsWith('thinkingEffort:'))) {
+          const provider = this.store.read(['providers']).providers.find(item => item.id === p.providerId);
+          if (!provider) throw invalid('Unknown provider');
+          const updates = new Map();
+          for (const key of thinkingFields) {
+            const model = key.slice('thinkingEffort:'.length);
+            if (!provider.models.includes(model)) throw invalid('Unknown model for thinking effort');
+            const field = p.fields?.find(item => item.key === key);
+            const value = field?.value ?? null;
+            if (value !== null) {
+              const profile = thinkingProfile(provider, model);
+              const options = modelThinkingOptions(profile);
+              if (!THINKING_EFFORTS.includes(value) || !options.options.includes(value)) throw invalid('Selected thinking effort is unavailable for this model');
+              applyModelThinking(profile, value);
+            }
+            updates.set(model, value);
+          }
+          await this.store.update(state => {
+            const target = state.providers.find(item => item.id === provider.id);
+            if (!target) throw invalid('Provider was removed');
+            target.thinkingEfforts ??= {};
+            for (const [model, value] of updates) {
+              if (value === null) delete target.thinkingEfforts[model];
+              else Object.defineProperty(target.thinkingEfforts, model, { value, enumerable: true, writable: true, configurable: true });
+            }
+          });
+          // Preferences apply on the next prepared turn; active native requests keep their snapshot.
+          await this.changed({ kind: 'model-thinking' });
+          return { status: providerStatus(provider), refresh: { started: [] } };
+        }
         await this.checkProviderMutation(p.providerId);
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
         const contextFields = [...(p.fields ?? []).map(f => f.key), ...(p.clearFields ?? [])];

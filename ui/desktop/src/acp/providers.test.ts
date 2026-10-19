@@ -249,7 +249,7 @@ describe('thinking effort preferences', () => {
 
       expect(savePreferences).toHaveBeenCalledTimes(1);
       expect(savePreferences).toHaveBeenCalledWith([
-        { key: 'gooseThinkingEffort', value: effort, isMutable: true },
+        { key: 'gooseThinkingEffort', value: effort === 'off' ? 'none' : effort, isMutable: true },
       ]);
       expect(getAcpClient).not.toHaveBeenCalled();
     }

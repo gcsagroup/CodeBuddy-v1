@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   acpListProviderDetails,
-  acpReadThinkingEffort,
+  acpReadModelThinkingSettings,
   acpSaveThinkingEffort,
 } from '../../../../acp/providers';
 import type { ProviderDetails } from '../../../../types/providers';
@@ -28,7 +28,13 @@ vi.mock('../../../ModelAndProviderContext', () => ({
 
 vi.mock('../../../../acp/providers', () => ({
   acpListProviderDetails: vi.fn(),
-  acpReadThinkingEffort: vi.fn().mockResolvedValue(null),
+  acpReadModelThinkingSettings: vi
+    .fn()
+    .mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'medium',
+      toggle: false,
+    }),
   acpSaveThinkingEffort: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -72,7 +78,13 @@ describe('SwitchModelModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(acpListProviderDetails).mockReset().mockResolvedValue([]);
-    vi.mocked(acpReadThinkingEffort).mockReset().mockResolvedValue(null);
+    vi.mocked(acpReadModelThinkingSettings)
+      .mockReset()
+      .mockResolvedValue({
+        options: ['off', 'low', 'medium', 'high', 'max'],
+        value: 'medium',
+        toggle: false,
+      });
     vi.mocked(acpSaveThinkingEffort).mockReset().mockResolvedValue(undefined);
     vi.mocked(fetchModelReasoning).mockReset().mockResolvedValue(false);
     vi.mocked(fetchModelsForProviders).mockReset().mockResolvedValue([]);
@@ -280,16 +292,18 @@ describe('SwitchModelModal', () => {
     expect(screen.getByRole('option', { name: 'Use another provider…' })).toBeInTheDocument();
   });
 
-  it('shows a path-free unavailable state when thinking effort cannot be read', async () => {
+  it('keeps optional unavailable thinking controls from blocking model selection or leaking paths', async () => {
     const privatePath = 'C:\\Users\\private\\thinking.yaml';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.mocked(acpReadThinkingEffort).mockRejectedValue(new Error(privatePath));
+    vi.mocked(acpReadModelThinkingSettings).mockRejectedValue(new Error(privatePath));
 
     renderThinkingModal();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Thinking effort is unavailable.');
+    await waitFor(() => expect(acpReadModelThinkingSettings).toHaveBeenCalled());
+    expect(screen.queryByText('Thinking Effort')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select model' })).not.toBeDisabled();
     expect(screen.queryByText('Off - No extended thinking')).not.toBeInTheDocument();
     expect(
       JSON.stringify([...warn.mock.calls, ...error.mock.calls, ...log.mock.calls])
@@ -316,7 +330,11 @@ describe('SwitchModelModal', () => {
   });
 
   it('does not save thinking or close when the model switch returns false and allows retry', async () => {
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('high');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'high',
+      toggle: false,
+    });
     contextMocks.changeModel.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     const { onClose } = renderThinkingModal();
     const user = userEvent.setup();
@@ -331,7 +349,7 @@ describe('SwitchModelModal', () => {
 
     await user.click(screen.getByRole('button', { name: 'Select model' }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(acpSaveThinkingEffort).toHaveBeenCalledWith('high');
+    expect(acpSaveThinkingEffort).toHaveBeenCalledWith('high', enabledProvider.name, 'reasoner');
   });
 
   it('catches a rejected model switch without leaking its error or closing', async () => {
@@ -339,7 +357,11 @@ describe('SwitchModelModal', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('low');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'low',
+      toggle: false,
+    });
     contextMocks.changeModel.mockRejectedValue(new Error(privatePath));
     const { onClose } = renderThinkingModal();
     const user = userEvent.setup();
@@ -362,7 +384,11 @@ describe('SwitchModelModal', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('medium');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'medium',
+      toggle: false,
+    });
     vi.mocked(acpSaveThinkingEffort)
       .mockRejectedValueOnce(new Error(privatePath))
       .mockResolvedValueOnce(undefined);
@@ -396,7 +422,11 @@ describe('SwitchModelModal', () => {
   });
 
   it('changes the model again when the selection identity changes after a thinking failure', async () => {
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('high');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'high',
+      toggle: false,
+    });
     vi.mocked(acpSaveThinkingEffort)
       .mockRejectedValueOnce(new Error('first save failed'))
       .mockResolvedValueOnce(undefined);
@@ -419,11 +449,20 @@ describe('SwitchModelModal', () => {
       name: 'reasoner-2',
       provider: enabledProvider.name,
     });
-    expect(acpSaveThinkingEffort).toHaveBeenNthCalledWith(2, 'high');
+    expect(acpSaveThinkingEffort).toHaveBeenNthCalledWith(
+      2,
+      'high',
+      enabledProvider.name,
+      'reasoner-2'
+    );
   });
 
   it('does not reuse a committed model from another session when retrying thinking persistence', async () => {
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('high');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'high',
+      toggle: false,
+    });
     vi.mocked(acpSaveThinkingEffort)
       .mockRejectedValueOnce(new Error('first save failed'))
       .mockResolvedValueOnce(undefined);
@@ -450,7 +489,12 @@ describe('SwitchModelModal', () => {
       expect.objectContaining({ name: 'reasoner' }),
       { onError: expect.any(Function) }
     );
-    expect(acpSaveThinkingEffort).toHaveBeenNthCalledWith(2, 'high');
+    expect(acpSaveThinkingEffort).toHaveBeenNthCalledWith(
+      2,
+      'high',
+      enabledProvider.name,
+      'reasoner'
+    );
     expect(onModelSelected).toHaveBeenCalledTimes(1);
     expect(trackModelChanged).toHaveBeenCalledTimes(1);
   });
@@ -458,7 +502,11 @@ describe('SwitchModelModal', () => {
   it('freezes identity and all close paths while a submission is in flight', async () => {
     const modelSwitch = deferred<boolean>();
     const thinkingSave = deferred<void>();
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('max');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'max',
+      toggle: false,
+    });
     contextMocks.changeModel.mockReturnValue(modelSwitch.promise);
     vi.mocked(acpSaveThinkingEffort).mockReturnValue(thinkingSave.promise);
     const { onClose, onModelSelected } = renderThinkingModal();
@@ -480,7 +528,9 @@ describe('SwitchModelModal', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     modelSwitch.resolve(true);
-    await waitFor(() => expect(acpSaveThinkingEffort).toHaveBeenCalledWith('max'));
+    await waitFor(() =>
+      expect(acpSaveThinkingEffort).toHaveBeenCalledWith('max', enabledProvider.name, 'reasoner')
+    );
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await user.keyboard('{Escape}');
     expect(onClose).not.toHaveBeenCalled();
@@ -493,7 +543,11 @@ describe('SwitchModelModal', () => {
 
   it('freezes a custom model draft while its model switch is in flight', async () => {
     const modelSwitch = deferred<boolean>();
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('medium');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'medium',
+      toggle: false,
+    });
     contextMocks.changeModel.mockReturnValue(modelSwitch.promise);
     const { onClose } = renderThinkingModal('session-1', true);
     const user = userEvent.setup();
@@ -519,7 +573,11 @@ describe('SwitchModelModal', () => {
 
   it('ignores an old in-flight completion after the session target changes', async () => {
     const oldSwitch = deferred<boolean>();
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('high');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'high',
+      toggle: false,
+    });
     contextMocks.changeModel.mockReturnValueOnce(oldSwitch.promise).mockResolvedValueOnce(true);
     const { onClose, onModelSelected, rerenderSession } = renderThinkingModal();
     const user = userEvent.setup();
@@ -552,7 +610,11 @@ describe('SwitchModelModal', () => {
   it('awaits model switching, then thinking persistence, and closes only after both succeed', async () => {
     const modelSwitch = deferred<boolean>();
     const thinkingSave = deferred<void>();
-    vi.mocked(acpReadThinkingEffort).mockResolvedValue('max');
+    vi.mocked(acpReadModelThinkingSettings).mockResolvedValue({
+      options: ['off', 'low', 'medium', 'high', 'max'],
+      value: 'max',
+      toggle: false,
+    });
     contextMocks.changeModel.mockReturnValue(modelSwitch.promise);
     vi.mocked(acpSaveThinkingEffort).mockReturnValue(thinkingSave.promise);
     const { onClose, onModelSelected } = renderThinkingModal();
@@ -565,7 +627,9 @@ describe('SwitchModelModal', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     modelSwitch.resolve(true);
-    await waitFor(() => expect(acpSaveThinkingEffort).toHaveBeenCalledWith('max'));
+    await waitFor(() =>
+      expect(acpSaveThinkingEffort).toHaveBeenCalledWith('max', enabledProvider.name, 'reasoner')
+    );
     expect(onClose).not.toHaveBeenCalled();
 
     thinkingSave.resolve();

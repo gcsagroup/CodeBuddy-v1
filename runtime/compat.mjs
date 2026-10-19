@@ -890,7 +890,7 @@ export class Compat {
           sessionId: s.id,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
-            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: approval.extensionSource } } : {}),
+            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: approval.extensionSource, ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
           },
           toolCall: {
             toolCallId: tool.id ?? randomUUID(),
@@ -898,12 +898,17 @@ export class Compat {
             status: "pending",
             kind: "execute",
             rawInput: tool.arguments,
-            ...(safety.requiresApproval
+            ...(safety.requiresApproval || approval?.targetOrigin
               ? {
                   content: [
                     {
                       type: "content",
-                      content: { type: "text", text: safety.explanation },
+                      content: { type: "text", text: [
+                        ...(safety.requiresApproval ? [safety.explanation] : []),
+                        ...(approval?.targetOrigin
+                          ? [`允许本会话访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
+                          : []),
+                      ].join('\n') },
                     },
                   ],
                 }
@@ -915,7 +920,9 @@ export class Compat {
               ? [
                   {
                     optionId: "allow_always",
-                    name: "Allow this tool for this session",
+                    name: approval.targetOrigin
+                      ? `Allow ${approval.targetOrigin} for this session`
+                      : "Allow this tool for this session",
                     kind: "allow_always",
                   },
                 ]

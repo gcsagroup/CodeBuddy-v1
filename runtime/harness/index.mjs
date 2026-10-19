@@ -12,6 +12,7 @@ import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
 import { createScope, bindScopeParent } from '@deepseek-ai/dsh-scope';
+import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW, DEFAULT_OUTPUT_TOKENS } from '../model-defaults.mjs';
@@ -93,10 +94,15 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   // registered definition rather than a model-supplied name or annotation.
   // A session override with the same name must establish its own capability.
   const readOnlyDefinitions = new WeakSet();
-  for (const name of ['read', 'read_image', 'glob', 'grep', 'skill', 'list_agents']) {
+  for (const name of ['read', 'read_image', 'glob', 'grep', 'skill', 'list_agents', 'load_workspace_dependencies']) {
     const definition = ctx.tools.get(name);
     if (definition) readOnlyDefinitions.add(definition);
   }
+  // workspace-dependencies is mounted with source only: it validates the
+  // existing payload without installing or copying it. Bind its actual definition.
+  const webFetchDefinition = ctx.tools.get('web_fetch');
+  const webService = ctx.web[symbols.original];
+  const webApprovals = new WeakMap();
   const confinedWriteDefinitions = new WeakSet();
   for (const name of ['write', 'edit']) {
     const definition = ctx.tools.get(name);
@@ -123,6 +129,27 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       exec.arguments.sandbox_permissions === undefined &&
       ctx.fs.sandboxMode !== undefined &&
       ctx.sandboxPolicy.resolve({ session: exec.agent.session }).mode === 'workspace-write');
+  }
+
+  function webSessionApproval(exec, rootAgent) {
+    if (!rootAgent || !webFetchDefinition || ctx.web[symbols.original] !== webService ||
+      ctx.tools.get(exec.name, exec.agent) !== webFetchDefinition) return undefined;
+    let url;
+    try { url = new URL(exec.arguments.url); } catch { return undefined; }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return undefined;
+    let origins = webApprovals.get(rootAgent);
+    if (!origins) { origins = new Map(); webApprovals.set(rootAgent, origins); }
+    let binding = origins.get(url.origin);
+    if (!binding) {
+      binding = { identity: Object.freeze({}), extensionSource: 'builtin', targetOrigin: url.origin };
+      origins.set(url.origin, binding);
+    }
+    return {
+      ...binding,
+      isCurrent: () => ctx.web[symbols.original] === webService &&
+        ctx.tools.get(exec.name, exec.agent) === webFetchDefinition &&
+        webApprovals.get(rootAgent)?.get(url.origin) === binding,
+    };
   }
 
   function isInternalControl(agent, name) {
@@ -252,16 +279,18 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     try {
       await abortable(active.events, exec.signal);
       const definition = ctx.tools.get(exec.name, exec.agent);
-      const binding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
       const rootAgent = ctx.agents.get(active.sessionId);
+      const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
+      const binding = mcpBinding ?? webSessionApproval(exec, rootAgent);
       let sessionApproval;
       if (binding && rootAgent) {
         let owner = approvalOwners.get(rootAgent);
         if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
         sessionApproval = {
           owner, tool: binding.identity, extensionSource: binding.extensionSource,
+          ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
           isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent &&
-            mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding,
+            (mcpBinding ? mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding : binding.isCurrent()),
         };
       }
       const accepted = await abortable(active.onPermission({

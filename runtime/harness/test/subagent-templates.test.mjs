@@ -28,7 +28,8 @@ test('native templates preserve chat-local histories, roles and resolved models 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow: 32768 };
   const models = Object.fromEntries(['explorer', 'browser', 'generic'].map(role => [role, { provider, model: `fixture-${role}` }]));
-  const restoreSubagentProvider = async (_model, matches) => matches(provider) ? provider : undefined;
+  let currentProvider = provider;
+  const restoreSubagentProvider = async (_model, matches) => matches(currentProvider) ? currentProvider : undefined;
   const options = { subagentModels: models, restoreSubagentProvider };
   let driver;
   t.after(async () => { await driver?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
@@ -84,6 +85,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
   assert.notEqual(updatedExplorer, explorer);
   assert.equal(byTask('CHILD_NEW_MODEL_ONLY').at(-1).model, 'fixture-explorer-updated');
   await driver.close();
+  currentProvider = { ...provider, outputTokenCapacity: 8192 };
   driver = await createHarnessDriver({ dataDir: join(root, 'native'), cwd: root });
   await driver.createSession({ sessionId: main.sessionId, provider, model: 'fixture-main', options: updated });
   const before = (await driver.listSubagentChildren(main.sessionId)).map(row => row.id);

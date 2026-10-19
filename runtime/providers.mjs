@@ -16,6 +16,9 @@ function listingKey(provider) {
 function modelContext(model) {
   return [model?.max_model_len, model?.contextWindow, model?.context_window, model?.context_length, model?.max_input_tokens, model?.limit?.context].find(value => Number.isSafeInteger(value) && value > 0);
 }
+function modelOutput(model) {
+  return [model?.maxOutputTokens, model?.max_output_tokens, model?.maxTokens, model?.max_tokens, model?.limit?.output, model?.top_provider?.max_completion_tokens].find(value => Number.isSafeInteger(value) && value > 0);
+}
 function modelImageProfile(model, source = 'provider_metadata') {
   const input = model?.inputModalities ?? model?.input ?? model?.input_modalities ?? model?.architecture?.input_modalities;
   if (!Array.isArray(input) || !input.length || !input.every(value => typeof value === 'string')) return undefined;
@@ -302,7 +305,9 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     .map(model => [model.id, modelContext(model)]));
   const inputs = Object.fromEntries(rawModels.filter(model => modelImageProfile(model))
     .map(model => [model.id, modelImageProfile(model)]));
-  modelListings.set(listingKey(provider), { contexts, inputs, expires: Date.now() + metadataTtlMs });
+  const outputs = Object.fromEntries(rawModels.filter(model => modelOutput(model) !== undefined)
+    .map(model => [model.id, modelOutput(model)]));
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, expires: Date.now() + metadataTtlMs });
   return ids;
 }
 
@@ -320,7 +325,7 @@ async function resolveContext(provider, model, authPending) {
   }
   await cached.pending;
   cached = cachedModels(provider);
-  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model])) {
+  if (cached && (!cached.contexts?.[model] || !cached.inputs?.[model] || !cached.outputs?.[model])) {
     cached.details ??= new Map();
     if (!cached.details.has(model)) cached.details.set(model, (async () => {
       try {
@@ -344,9 +349,12 @@ async function resolveContext(provider, model, authPending) {
           capacity = info?.contextWindow;
           const input = modelImageProfile(info, 'catalog');
           if (input && !cached.inputs?.[model]) { cached.inputs ??= {}; cached.inputs[model] = input; }
+          if (!cached.outputs?.[model] && modelOutput(info) !== undefined) {
+            cached.outputs ??= {}; cached.outputs[model] = modelOutput(info);
+          }
           source = 'catalog';
         }
-        if (capacity) {
+        if (capacity && !cached.contexts?.[model]) {
           cached.contexts ??= {}; cached.sources ??= {};
           cached.contexts[model] = capacity; cached.sources[model] = source;
         }
@@ -482,12 +490,21 @@ export function inventory(provider) {
   };
 }
 
+function modelThinkingProfile(model) {
+  // Gemma 4 uses its published boolean chat-template switch, not reasoning_effort.
+  if (!/^gemma-?4(?:[-:]|$)/i.test(model?.split('/').at(-1) ?? '')) return {};
+  return {
+    compat: { thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' } }, supportsDeveloperRole: false },
+    reasoningEfforts: { off: null, minimal: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'high' },
+  };
+}
+
 export async function resolvedModelInfo(provider, model) {
   if (!provider.models.includes(model)) throw invalid('Unknown model for this provider');
   if (providerStatus(provider).isConfigured) await resolveContext(provider, model);
   const profile = contextProfile(provider, model);
   return { provider: provider.id, model, contextLimit: profile.contextWindow,
-    contextSource: profile.contextSource, reasoning: false, currency: 'USD' };
+    contextSource: profile.contextSource, reasoning: Boolean(modelThinkingProfile(model).reasoningEfforts), currency: 'USD' };
 }
 
 export async function resolvedInventory(provider) {
@@ -523,18 +540,16 @@ export async function driverProvider(provider, model) {
   const authPending = credentials(provider, provider);
   const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
   const { key: apiKey, customHeaders: headers } = auth;
+  const outputTokens = cachedModels(provider)?.outputs?.[model];
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
     apiKey,
     headers,
-    // Gemma 4 chat templates expose a boolean switch, not reasoning_effort.
     // The official Harness/pi-ai adapter owns serialization and streaming.
-    ...(/^gemma-?4(?:[-:]|$)/i.test(model?.split('/').at(-1) ?? '') ? {
-      compat: { thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' } }, supportsDeveloperRole: false },
-      reasoningEfforts: { off: null, minimal: 'low', low: 'low', medium: 'medium', high: 'high', xhigh: 'high' },
-    } : {}),
+    ...modelThinkingProfile(model),
     ...contextProfile(provider, model),
+    ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens }),
     protocol: endpoints(provider).completion.pathname.endsWith("/responses")
       ? "openai-responses"
       : "openai-completions",

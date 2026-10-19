@@ -22,6 +22,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('goal', 'dsh-goal'),
     entry('goal-round-driver', 'dsh-goal-round-driver'),
     entry('token-meter', 'dsh-token-meter'),
+    entry('tool-result-pruner', 'dsh-compaction-tool-result-pruner'),
     entry('working-directory', 'dsh-working-directory'),
     entry('session-persistence-jsonl', 'dsh-session-persistence-jsonl', { root: join(dataDir, 'sessions'), compression: 'none' }),
     entry('session-query', 'dsh-session-query-sqlite', { path: ':memory:', openAt: 'never' }),

@@ -103,9 +103,31 @@ test('explicit catalog provider uses official Harness metadata and unknown model
   const p={...input(api.url),catalogProviderId:'openai'};
   const known=await driverProvider(p,'gpt-4');
   assert.equal(known.contextSource,'catalog');assert.ok(known.contextWindow>0);
+  assert.ok(known.outputTokenCapacity > 0, 'the native catalog supplies the model output capacity');
   assert.deepEqual(await resolveImageCapability(p, 'gpt-4o'), { imageInput: 'supported', source: 'catalog' });
   const unknown=await driverProvider(p,'unknown');
   assert.equal(unknown.contextSource,'fallback');assert.equal(unknown.contextWindow,262144);
+  assert.equal(unknown.outputTokenCapacity, undefined, 'an unknown model leaves the fallback to the installed adapter');
+});
+
+test('service output capacities are per model, override catalog values and share the discovery cache', async t => {
+  const api = await endpoint(t, (_req, res) => res.end(JSON.stringify({ data: [
+    { id: 'gpt-4', max_model_len: 65536, max_output_tokens: 1536, input: ['text'] },
+    { id: 'other-model', context_window: 131072, limit: { output: 12288 } },
+    { id: 'invalid', max_output_tokens: -1 },
+  ] })));
+  const provider = { ...input(api.url), catalogProviderId: 'openai' };
+  const [a, b, again] = await Promise.all([
+    driverProvider(provider, 'gpt-4'), driverProvider(provider, 'other-model'), driverProvider(provider, 'gpt-4'),
+  ]);
+  assert.equal(a.outputTokenCapacity, 1536);
+  assert.equal(a.maxTokens, undefined, 'a capability must not become a fixed request default');
+  assert.equal(a.contextWindow, 65536);
+  assert.equal(a.contextSource, 'service');
+  assert.equal(b.outputTokenCapacity, 12288);
+  assert.equal(again.outputTokenCapacity, a.outputTokenCapacity);
+  assert.equal((await driverProvider(provider, 'invalid')).outputTokenCapacity, undefined);
+  assert.equal(api.requests.length, 1);
 });
 
 function input(apiUrl, overrides = {}) {

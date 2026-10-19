@@ -15,7 +15,7 @@ import { createScope, bindScopeParent } from '@deepseek-ai/dsh-scope';
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
-import { DEFAULT_CONTEXT_WINDOW, DEFAULT_OUTPUT_TOKENS } from '../model-defaults.mjs';
+import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
@@ -27,7 +27,10 @@ export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
 
 function nativeProviderRoute(provider, model) {
-  return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...provider, model })).digest('hex').slice(0, 20);
+  // Newly discovered capability metadata cannot invalidate existing children
+  // whose connection identity was recorded before that metadata was available.
+  const { outputTokenCapacity: _capacity, ...connection } = provider;
+  return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...connection, model })).digest('hex').slice(0, 20);
 }
 
 function abortable(promise, signal) {
@@ -365,7 +368,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
-    if (event.type === 'tool/result') {
+    if (event.type === 'tool/result' && event.surfaceOp?.op !== 'replace') {
       const msg = event.data.message;
       const receiptKey = `${session.id}\0${msg.toolCallId}`;
       const receipt = toolReceipts.get(receiptKey);
@@ -432,7 +435,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const protocol = provider.protocol ?? 'openai-completions';
     const route = nativeProviderRoute(provider, model);
     const digest = route.slice('codebuddy-'.length);
-    if (!providers.has(route)) {
+    if (!providers.has(route) || providers.get(route).defaultMaxTokens !== provider.outputTokenCapacity) {
       const keyRef = `CODEBUDDY_MODEL_${digest}`;
       // Always explicit: never let pi-ai fall through to ambient API credentials.
       credentials.set(keyRef, provider.apiKey || 'codebuddy-no-key');
@@ -442,8 +445,15 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         apiKeyEnv: keyRef,
         // Omission uses the official provider policy and the official retry plugin.
         ...(provider.retryPolicy ? { retryPolicy: provider.retryPolicy } : {}),
-        models: [{ id: model, contextWindow: provider.contextWindow ?? DEFAULT_CONTEXT_WINDOW, maxTokens: provider.maxTokens ?? DEFAULT_OUTPUT_TOKENS, input: provider.inputModalities ?? ['text'], ...(provider.reasoningEfforts !== undefined ? { reasoningEfforts: provider.reasoningEfforts } : {}) }],
-        ...(provider.compat ? { compat: provider.compat } : {}),
+        // A discovered output capability is not a fixed request budget. Keep
+        // native dynamic fitting; only an explicit budget becomes a call default.
+        ...(provider.outputTokenCapacity === undefined ? {} : { defaultMaxTokens: provider.outputTokenCapacity }),
+        models: [{ id: model, contextWindow: provider.contextWindow ?? DEFAULT_CONTEXT_WINDOW, ...(provider.maxTokens === undefined ? {} : { maxTokens: provider.maxTokens }), input: provider.inputModalities ?? ['text'], ...(provider.reasoningEfforts !== undefined ? { reasoningEfforts: provider.reasoningEfforts } : {}) }],
+        // Choose the supported native wire format without changing the saved
+        // route identity: old chat-local children must remain cold-resumable.
+        ...(protocol === 'openai-completions' && new URL(provider.baseUrl).hostname === 'ollama.com'
+          ? { compat: { ...provider.compat, maxTokensField: 'max_tokens' } }
+          : provider.compat ? { compat: provider.compat } : {}),
         ...(provider.headers ? { headers: provider.headers } : {}),
       };
       const next = new Map(providers);

@@ -7,7 +7,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { applyModelThinking, THINKING_EFFORTS } from '../model-settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
-import { driverProvider } from '../providers.mjs';
+import { driverProvider, resolvedModelInfo } from '../providers.mjs';
 
 test('Gemma chat-template thinking reaches Harness wire and streams reasoning separately', { timeout: 30000 }, async t => {
   const requests = [], model = 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16';
@@ -25,13 +25,15 @@ test('Gemma chat-template thinking reaches Harness wire and streams reasoning se
   const driver = await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
   t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(r=>server.close(r)); });
   const profile = await driverProvider({id:'gemma',engine:'openai_compatible',apiUrl:`http://127.0.0.1:${server.address().port}`,models:[model],requiresAuth:false},model);
-  for (const effort of ['high','none']) {
+  assert.equal((await resolvedModelInfo({id:'gemma',engine:'openai_compatible',apiUrl:`http://127.0.0.1:${server.address().port}`,models:[model],requiresAuth:false},model)).reasoning,true);
+  for (const effort of [undefined,'high','none']) {
     const config = applyModelThinking(profile,effort), events=[];
+    if (effort === undefined) assert.equal(config.thinkingEffort,'medium');
     const session = await driver.createSession({cwd:root,provider:config.provider,model,options:{thinkingEffort:config.thinkingEffort}});
     assert.equal((await driver.prompt(session.sessionId,'17*23',{onEvent:e=>events.push(e)})).stopReason,'end_turn');
-    assert.equal(requests.at(-1).chat_template_kwargs.enable_thinking,effort==='high');
+    assert.equal(requests.at(-1).chat_template_kwargs.enable_thinking,effort!=='none');
     assert.equal(requests.at(-1).reasoning_effort,undefined);
-    assert.equal(events.some(e=>e.type==='thinking_delta'),effort==='high');
+    assert.equal(events.some(e=>e.type==='thinking_delta'),effort!=='none');
     assert.equal((await driver.contextUsage(session.sessionId)).contextLimit,65536);
   }
 });

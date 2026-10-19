@@ -7,7 +7,15 @@ export const THINKING_EFFORTS = Object.freeze(['none', 'minimal', 'low', 'medium
 // effort. The endpoint still decides whether that requested control is valid.
 export function applyModelThinking(provider, requestedEffort) {
   const configured = structuredClone(provider);
-  if (requestedEffort == null) return { provider: configured, source: 'provider_default' };
+  if (requestedEffort == null) {
+    // Only an established model profile can supply an enabled default. An
+    // unknown endpoint must not receive an invented reasoning protocol.
+    const efforts = provider.reasoningEfforts;
+    const thinkingEffort = efforts && ['medium', 'low', 'high', 'minimal', 'xhigh'].find(level => Object.hasOwn(efforts, level));
+    return thinkingEffort
+      ? { provider: configured, thinkingEffort, source: 'model_default' }
+      : { provider: configured, source: 'provider_default' };
+  }
   if (!THINKING_EFFORTS.includes(requestedEffort)) throw invalid('Unknown reasoning effort');
   const protocol = provider.protocol ?? 'openai-completions';
   if (!['openai-completions', 'openai-responses'].includes(protocol)) throw invalid('Thinking controls require a configured protocol adapter');

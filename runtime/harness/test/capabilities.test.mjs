@@ -10,9 +10,11 @@ import { createHarnessDriver } from '../index.mjs';
 import { createConversationDriver } from '../../conversation-driver.mjs';
 import { listSubagentCatalog, readSubagentConversation } from '../../subagent-conversations.mjs';
 import sharp from 'sharp';
+import { Config as PiAiConfig } from '@deepseek-ai/dsh-llm-pi-ai';
 
 let driver, server, root, provider, mcpUrl;
 let siblingFixture, capacityFixture;
+let overflowExecutions = 0;
 const requests = [], mcpCalls = [];
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'codebuddy-harness-capabilities-'));
@@ -34,15 +36,24 @@ before(async () => {
     const lastUser = request.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_'));
     const prompt = JSON.stringify(request.messages[lastUser]?.content ?? '');
     const since = request.messages.slice(lastUser + 1);
+    const nativeBudget = PiAiConfig.dict.providers.inner.dict.defaultMaxTokens.meta.default;
+    const toolChars = request.messages.filter(m => m.role === 'tool').reduce((sum, m) => sum + String(m.content).length, 0);
+    if (request.model === 'fixture-retained-overflow' && toolChars + (request.max_tokens ?? request.max_completion_tokens) > nativeBudget * 2) {
+      res.writeHead(400, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: {
+        code: 'context_length_exceeded', message: 'This model\'s maximum context length is exceeded by the retained tool result and requested output tokens.',
+      } }));
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'capabilities', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     const call = (name, args) => { emit({ role: 'assistant', tool_calls: [{ index: 0, id: `call-${randomUUID()}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }); emit({}, 'tool_calls'); };
-    if (prompt.includes('fixture_child_slow')) {
+    if (prompt.includes('fixture_retained_overflow') && !since.some(message => message.role === 'tool')) call('oversized_evidence', {});
+    else if (prompt.includes('fixture_child_slow')) {
       emit({ role: 'assistant', content: 'child waiting' });
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
       res.on('close', () => clearTimeout(timer)); return;
     }
-    if (prompt.includes('fixture_capacity_child')) { await capacityFixture.promise; emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
+    else if (prompt.includes('fixture_capacity_child')) { await capacityFixture.promise; emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
     else if (prompt.includes('fixture_capacity_parent') && !since.some(message => message.role === 'tool')) {
       const count = prompt.includes('fixture_capacity_parent_five') ? 5 : 2;
       emit({ role: 'assistant', tool_calls: Array.from({ length: count }, (_, index) => ({ index, id: `capacity-${index}`, type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: `Capacity fixture ${index}`, prompt: 'fixture_capacity_child' }) } })) }); emit({}, 'tool_calls');
@@ -83,7 +94,7 @@ before(async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   mcpUrl = `http://127.0.0.1:${server.address().port}/mcp`;
-  provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-key', contextWindow: 32768, compat: { thinkingFormat: 'openai' }, reasoningEfforts: { low: 'low', high: 'high' } };
+  provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-key', contextWindow: 32768, maxTokens: 4096, compat: { thinkingFormat: 'openai' }, reasoningEfforts: { low: 'low', high: 'high' } };
   await writeFile(join(root, 'source.txt'), 'source fixture');
   await mkdir(join(root, '.dsh', 'skills', 'fixture-skill'), { recursive: true });
   await writeFile(join(root, '.dsh', 'skills', 'fixture-skill', 'SKILL.md'), '---\nname: fixture-skill\ndescription: Fixture skill for module tests\n---\nUse the existing module contracts.\n');
@@ -166,6 +177,21 @@ test('runtime settings affect real HTTP request and remain scoped to the session
   const b = await session();
   await driver.prompt(b.sessionId, 'fixture_settings');
   assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /SESSION_A_POLICY/);
+});
+
+test('output budgets use native defaults and preserve explicit provider and session overrides', async () => {
+  const nativeBudget = PiAiConfig.dict.providers.inner.dict.defaultMaxTokens.meta.default;
+  const { maxTokens: _fixtureBudget, ...route } = { ...provider, contextWindow: nativeBudget * 4 };
+  for (const { expected, ...settings } of [
+    { model: 'fixture-native-budget', provider: route, expected: nativeBudget },
+    { model: 'fixture-native-budget', provider: { ...route, outputTokenCapacity: nativeBudget / 2 }, expected: nativeBudget / 2 },
+    { model: 'fixture-provider-budget', provider: { ...route, maxTokens: 8192 }, expected: 8192 },
+    { model: 'fixture-session-budget', provider: { ...route, maxTokens: 8192 }, options: { maxTokens: 2048 }, expected: 2048 },
+  ]) {
+    const created = await driver.createSession({ cwd: root, ...settings });
+    await driver.prompt(created.sessionId, 'fixture_settings');
+    assert.equal(requests.at(-1).max_tokens ?? requests.at(-1).max_completion_tokens, expected);
+  }
 });
 
 test('official instructions load the configured global and project chain with isolated homes', async () => {
@@ -595,10 +621,10 @@ test('configured pressure threshold automatically compacts long conversation con
   assert.equal(events.findLast(e => e.type === 'context_usage').used, usage.used);
 });
 
-test('tool schema pressure preserves output budget with the actual model window and contributes to automatic compaction', async () => {
+test('tool schema pressure preserves explicit output budget with the actual model window and contributes to automatic compaction', async () => {
   const tools = [{ name: 'large_catalog_fixture', description: 'Schema reference '.repeat(10500), parameters: { type: 'object', properties: {} }, execute: async () => 'fixture' }];
   const created = await driver.createSession({ sessionId: randomUUID(), cwd: root,
-    provider: { ...provider, contextWindow: 65536 }, model: 'fixture-tool-capacity',
+    provider: { ...provider, contextWindow: 65536, maxTokens: 4096 }, model: 'fixture-tool-capacity',
     options: { tools, autoCompactThreshold: 0.8 } });
   const first = await driver.prompt(created.sessionId, 'fixture_settings');
   assert.equal(first.stopReason, 'end_turn');
@@ -610,6 +636,39 @@ test('tool schema pressure preserves output budget with the actual model window 
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(e => e.type === 'compaction/end' && !e.data.error), 'history pressure on top of tools triggers official compaction');
   assert.ok(requests.at(-1).tools.some(t => t.function?.name === 'large_catalog_fixture'), 'compaction preserves tool access');
+});
+
+test('output capability preserves native dynamic fitting on small windows without inventing a call default', async () => {
+  const nativeBudget = PiAiConfig.dict.providers.inner.dict.defaultMaxTokens.meta.default;
+  const { maxTokens: _fixtureBudget, ...route } = { ...provider, contextWindow: nativeBudget / 4, outputTokenCapacity: nativeBudget / 4 };
+  const created = await driver.createSession({ cwd: root, provider: route, model: 'fixture-small-capability' });
+  for (let n = 0; n < 2; n++) {
+    const result = await driver.prompt(created.sessionId, `fixture_settings small-window ${n}`);
+    assert.equal(result.stopReason, 'end_turn');
+    const wireBudget = requests.at(-1).max_tokens ?? requests.at(-1).max_completion_tokens;
+    assert.ok(wireBudget > 0 && wireBudget < route.contextWindow, 'native fitting leaves room for input');
+  }
+  const history = await driver.history(created.sessionId);
+  assert.ok(history.events.filter(e => e.type === 'request/header').every(e => e.data.header.config.maxTokens === undefined), 'capability is not a fixed request reservation');
+});
+
+test('native overflow recovery reduces a retained oversized receipt without re-executing its tool or erasing original evidence', async () => {
+  const nativeBudget = PiAiConfig.dict.providers.inner.dict.defaultMaxTokens.meta.default;
+  const { maxTokens: _fixtureBudget, ...route } = { ...provider, contextWindow: nativeBudget * 2 };
+  const evidence = 'overflow evidence '.repeat(3600);
+  overflowExecutions = 0;
+  const created = await driver.createSession({ cwd: root, provider: route, model: 'fixture-retained-overflow', options: {
+    tools: [{ name: 'oversized_evidence', description: 'Read fixture evidence', parameters: { type: 'object', properties: {} }, execute: async () => { overflowExecutions++; return evidence; } }],
+  } });
+  const events = [];
+  const result = await driver.prompt(created.sessionId, 'fixture_retained_overflow', { onPermission: async () => true, onEvent: event => events.push(event) });
+  assert.equal(result.stopReason, 'end_turn', 'native overflow recovery must reach a usable answer');
+  assert.equal(overflowExecutions, 1, 'retrying the model cannot replay the completed tool');
+  assert.equal(events.filter(e => e.type === 'tool_result').length, 1, 'a model-surface replacement is not a second execution receipt');
+  const history = await driver.history(created.sessionId);
+  assert.ok(history.events.some(e => e.type === 'compaction/prune'), 'the native pruner participates in overflow recovery');
+  assert.ok(history.events.some(e => e.type === 'tool/result' && JSON.stringify(e).includes(evidence)), 'the original full receipt remains in durable history');
+  assert.ok(requests.at(-1).messages.some(m => m.role === 'tool' && String(m.content).includes('tool result middle pruned')), 'the recovered request marks omitted content rather than fabricating it');
 });
 
 test('memory reuses Harness domain durability with project isolation across restart', async () => {

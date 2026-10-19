@@ -63,7 +63,9 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tool-subagent', 'dsh-tool-subagent', { provider: 'spawn' }),
     entry('tool-subagent-control', 'dsh-tool-subagent-control'),
     entry('tool-list-agents', 'dsh-tool-subagent-control/list-agents'),
-    entry('tool-fs', 'dsh-tool-fs'),
+    // Small minified sources must be readable without a shell. Keep DSH's
+    // 50 KiB selected-content budget; this cap fits even three-byte UTF-8 text.
+    entry('tool-fs', 'dsh-tool-fs', { readMaxLineLength: 16 * 1024 }),
     entry('tool-working-directory', 'dsh-tool-working-directory'),
     entry('tool-fs-search', 'dsh-tool-fs-search', { sampleOverCapGlobResults: false }),
     entry('subprocess', 'dsh-subprocess-local'),

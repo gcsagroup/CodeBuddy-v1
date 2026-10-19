@@ -261,10 +261,10 @@ export default function UserMessage({
                 )}
 
                 <div className="relative h-[22px] flex justify-end text-right">
-                  <div className="absolute w-40 font-mono right-0 text-xs text-text-secondary pt-1 transition-all duration-200 group-hover:-translate-y-4 group-hover:opacity-0">
-                    {timestamp}
-                  </div>
-                  <div className="absolute right-0 flex w-max items-center gap-2 whitespace-nowrap pt-1">
+                  <div className="codepro-user-message-actions absolute right-0 flex w-max items-center gap-2 whitespace-nowrap pt-1 transition-all duration-200 opacity-0 -translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 focus-within:opacity-100 focus-within:translate-y-0">
+                    <span className="shrink-0 font-mono text-xs text-text-secondary">
+                      {timestamp}
+                    </span>
                     {!readOnly && (
                       <button
                         onClick={handleEditClick}
@@ -274,7 +274,7 @@ export default function UserMessage({
                             handleEditClick();
                           }
                         }}
-                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary transition-all duration-200 opacity-0 group-hover:opacity-100 -translate-y-4 group-hover:translate-y-0 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-text-secondary hover:cursor-pointer hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 rounded"
                         aria-label={intl.formatMessage(i18n.editMessageAriaLabel, {
                           preview: `${textContent.substring(0, 50)}${textContent.length > 50 ? '...' : ''}`,
                         })}
@@ -285,7 +285,7 @@ export default function UserMessage({
                         <span>{intl.formatMessage(i18n.editButton)}</span>
                       </button>
                     )}
-                    <MessageCopyLink text={textContent} contentRef={contentRef} />
+                    <MessageCopyLink text={textContent} contentRef={contentRef} alwaysVisible />
                   </div>
                 </div>
               </div>

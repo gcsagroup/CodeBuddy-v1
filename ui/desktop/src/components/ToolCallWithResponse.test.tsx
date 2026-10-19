@@ -449,7 +449,7 @@ describe('tool response completion evidence', () => {
         />
       </IntlProvider>
     );
-    expect(await screen.findByRole('button', { name: /node --test.*Failed/i })).toBeVisible();
+    expect(await screen.findByRole('button', { name: /node --test.*Unsuccessful/i })).toBeVisible();
   });
 
   it('does not reinterpret unrelated MCP payloads or unfinished commands as native failures', () => {

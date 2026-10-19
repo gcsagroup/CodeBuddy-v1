@@ -94,6 +94,7 @@ export function resolveToolLoadingStatus(
 }
 
 const i18n = defineMessages({
+  unsuccessful: { id: 'operation.unsuccessful', defaultMessage: 'Unsuccessful' },
   searchQuery: { id: 'toolCallWithResponse.searchQuery', defaultMessage: 'Query' },
   searchSources: { id: 'toolCallWithResponse.searchSources', defaultMessage: 'Sources' },
   searchResponse: { id: 'toolCallWithResponse.searchResponse', defaultMessage: 'Search response' },
@@ -774,14 +775,16 @@ function ToolCallView({
         )
       : loadingStatus === 'success'
         ? formatToolCompleted(intl)
-        : formatCodeProActivityState(
-            intl,
-            loadingStatus === 'loading'
-              ? 'running'
-              : loadingStatus === 'error'
-                ? 'failed'
-                : loadingStatus
-          );
+        : compact && loadingStatus === 'error'
+          ? intl.formatMessage(i18n.unsuccessful)
+          : formatCodeProActivityState(
+              intl,
+              loadingStatus === 'loading'
+                ? 'running'
+                : loadingStatus === 'error'
+                  ? 'failed'
+                  : loadingStatus
+            );
   // Map LoadingStatus to ToolCallStatus
   const getToolCallStatus = (loadingStatus: LoadingStatus): ToolCallStatus => {
     switch (loadingStatus) {
@@ -827,7 +830,10 @@ function ToolCallView({
       type="button"
       title={filePath}
       aria-label={filePath}
-      className="mx-1 min-w-0 truncate rounded px-1 py-1 text-left font-mono text-xs text-text-secondary underline decoration-current/30 underline-offset-2 hover:text-text-primary focus-visible:outline focus-visible:outline-2"
+      className={cn(
+        'min-w-0 truncate rounded py-1 text-left font-mono text-xs text-text-secondary underline decoration-current/30 underline-offset-2 hover:text-text-primary focus-visible:outline focus-visible:outline-2',
+        compact ? 'px-0' : 'mx-1 px-1'
+      )}
       onClick={() =>
         openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
       }

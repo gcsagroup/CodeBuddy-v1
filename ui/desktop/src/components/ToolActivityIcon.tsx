@@ -1,13 +1,4 @@
-import {
-  FileText,
-  ListChecks,
-  Monitor,
-  Pencil,
-  Search,
-  Terminal,
-  TriangleAlert,
-  Wrench,
-} from 'lucide-react';
+import { FileText, ListChecks, Monitor, Pencil, Search, Terminal, Wrench } from 'lucide-react';
 import AnimatedIcons from './AnimatedIcons';
 import type { ToolCallStatus } from './ToolCallStatusIndicator';
 import { cn } from '../utils';
@@ -18,10 +9,10 @@ export function ToolActivityIcon({ name, status }: { name: string; status: ToolC
     return <AnimatedIcons className="shrink-0" cycleInterval={300} />;
   }
   const tool = name.split(/__|::/).pop() ?? '';
-  const attention = status === 'error' || status === 'warning';
-  const Icon = attention
-    ? TriangleAlert
-    : tool === 'shell'
+  // Individual operation failures keep their status text and original detail.
+  // The icon describes the operation rather than a second task-level verdict.
+  const Icon =
+    tool === 'shell'
       ? Terminal
       : tool === 'write' || tool === 'edit'
         ? Pencil
@@ -37,7 +28,10 @@ export function ToolActivityIcon({ name, status }: { name: string; status: ToolC
   return (
     <Icon
       aria-hidden="true"
-      className={cn('h-4 w-4 shrink-0', attention && 'text-amber-600 dark:text-amber-400')}
+      className={cn(
+        'h-4 w-4 shrink-0',
+        (status === 'error' || status === 'warning') && 'text-text-secondary'
+      )}
     />
   );
 }

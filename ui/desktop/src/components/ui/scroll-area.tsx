@@ -25,16 +25,38 @@ interface ScrollAreaProps extends React.ComponentPropsWithoutRef<typeof ScrollAr
 }
 
 function firstVisibleAnchor(root: Element, top: number, bottom: number): Element | null {
+  const stableAnchor = (element: Element) => {
+    let anchor = element;
+    for (
+      let parent = element.parentElement;
+      parent && parent !== root;
+      parent = parent.parentElement
+    ) {
+      // An inner scrollbar moves its paragraphs without moving the chat record.
+      // Anchor the independent viewport, never content whose offset it owns.
+      if (/^(auto|scroll|overlay)$/.test(window.getComputedStyle(parent).overflowY))
+        anchor = parent;
+    }
+    return anchor;
+  };
   // Prefer actual reading content over decorative SVG paths at the viewport
   // edge: those icons can stay still while a new history heading moves prose.
   for (const element of Array.from(root.querySelectorAll('p, pre, li, td, th, h1, h2, h3, h4'))) {
-    const rect = element.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0 && rect.top >= top && rect.bottom <= bottom)
-      return element;
+    const anchor = stableAnchor(element);
+    const rect = anchor.getBoundingClientRect();
+    if (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      (anchor === element
+        ? rect.top >= top && rect.bottom <= bottom
+        : rect.bottom > top && rect.top < bottom)
+    )
+      return anchor;
   }
   for (const child of Array.from(root.children)) {
     const rect = child.getBoundingClientRect();
     if (rect.height === 0 || rect.width === 0 || rect.bottom <= top || rect.top >= bottom) continue;
+    if (/^(auto|scroll|overlay)$/.test(window.getComputedStyle(child).overflowY)) return child;
     if (rect.top >= top && rect.bottom <= bottom) return child;
     const nested = firstVisibleAnchor(child, top, bottom);
     if (nested) return nested;

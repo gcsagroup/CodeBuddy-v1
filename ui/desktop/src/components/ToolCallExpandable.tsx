@@ -135,7 +135,11 @@ export function ToolCallExpandable({
       }}
     >
       {collapsible && (
-        <div className={headerAction ? 'flex min-w-0 items-center' : undefined}>
+        <div
+          className={
+            headerAction ? cn('flex min-w-0 items-center', compact && 'gap-1.5') : undefined
+          }
+        >
           <CollapsibleTrigger asChild>
             <Button
               type="button"
@@ -184,7 +188,10 @@ export function ToolCallExpandable({
                   variant="ghost"
                   tabIndex={-1}
                   aria-hidden="true"
-                  className="group flex h-auto min-h-7 min-w-5 flex-1 items-center justify-end gap-2 rounded-[10px] px-1 py-1 hover:bg-transparent"
+                  className={cn(
+                    'group flex h-auto min-h-7 min-w-5 items-center gap-1.5 rounded-[10px] py-1 hover:bg-transparent',
+                    compact ? 'shrink-0 justify-start !px-0' : 'flex-1 justify-end px-1'
+                  )}
                 >
                   {headerSuffix}
                   <ChevronRight
@@ -207,6 +214,7 @@ export function ToolCallExpandable({
       >
         <div
           ref={viewport}
+          tabIndex={compact && scrollable ? 0 : undefined}
           onPointerDownCapture={retainReadingFromInteraction}
           onFocusCapture={retainReadingFromInteraction}
           onWheelCapture={(event) => {
@@ -219,7 +227,9 @@ export function ToolCallExpandable({
           }}
           className={cn(
             compact && 'codepro-operation-details',
-            compact && scrollable && 'max-h-80 overflow-y-auto',
+            compact &&
+              scrollable &&
+              'my-1 max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border-primary bg-background-secondary/40 px-3 py-2 [scrollbar-width:thin] focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-primary',
             contentClassName
           )}
         >

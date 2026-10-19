@@ -5,7 +5,12 @@ import type { IpcRendererEvent } from 'electron';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import BaseChat from './BaseChat';
 
-const fixture = vi.hoisted(() => ({ readonly: true, loading: false, submit: vi.fn(), update: vi.fn() }));
+const fixture = vi.hoisted(() => ({
+  readonly: true,
+  loading: false,
+  submit: vi.fn(),
+  update: vi.fn(),
+}));
 vi.mock('../hooks/useChatSession', () => ({
   useChatSession: () => ({
     session: {
@@ -14,14 +19,16 @@ vi.mock('../hooks/useChatSession', () => ({
       session_type: 'code_pro',
       extension_data: { readonlyHistory: fixture.readonly },
     },
-    messages: fixture.loading ? [] : [
-      {
-        id: 'saved',
-        role: 'assistant',
-        content: [{ type: 'text', text: 'Saved answer' }],
-        metadata: { userVisible: true, agentVisible: true },
-      },
-    ],
+    messages: fixture.loading
+      ? []
+      : [
+          {
+            id: 'saved',
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Saved answer' }],
+            metadata: { userVisible: true, agentVisible: true },
+          },
+        ],
     chatState: fixture.loading ? 'loadingConversation' : 'idle',
     tokenState: {},
     notifications: new Map(),
@@ -97,6 +104,10 @@ it('keeps loading feedback until restored history has had a paint opportunity', 
     fixture.loading = true;
     const view = show();
     expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    expect(screen.getByTestId('conversation-loading').closest('.absolute')).toBeNull();
+    expect(
+      screen.getByTestId('conversation-loading').querySelector('[role="status"]')
+    ).toHaveTextContent('loading conversation...');
     fixture.loading = false;
     view.rerender(
       <MemoryRouter>

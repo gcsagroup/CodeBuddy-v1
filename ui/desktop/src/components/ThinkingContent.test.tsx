@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ThinkingContent from './ThinkingContent';
 
@@ -27,8 +27,49 @@ describe('ThinkingContent', () => {
     fireEvent.scroll(viewport);
     view.rerender(<ThinkingContent content="Third" isExpanded isStreaming />);
     expect(viewport.scrollTop).toBe(100);
-    fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
+    expect(screen.queryByRole('button', { name: 'Back to latest' })).not.toBeInTheDocument();
+    viewport.scrollTop = 700;
+    fireEvent.scroll(viewport);
+    view.rerender(<ThinkingContent content="Fourth" isExpanded isStreaming />);
     expect(viewport.scrollTop).toBe(900);
+  });
+
+  it('folds a quiet live thought without waiting for a complete tool call, but protects a reader', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<ThinkingContent content="Preparing a file." isExpanded isStreaming />);
+      act(() => vi.advanceTimersByTime(2500));
+      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+        'data-state',
+        'closed'
+      );
+      view.rerender(<ThinkingContent content="More thought arrived." isExpanded isStreaming />);
+      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+        'data-state',
+        'open'
+      );
+      const viewport = view.container.querySelector('.codepro-thinking-details') as HTMLDivElement;
+      Object.defineProperties(viewport, {
+        scrollHeight: { configurable: true, value: 900 },
+        clientHeight: { value: 200 },
+      });
+      viewport.scrollTop = 100;
+      fireEvent.pointerDown(viewport);
+      fireEvent.scroll(viewport);
+      act(() => vi.advanceTimersByTime(2500));
+      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+        'data-state',
+        'open'
+      );
+      view.rerender(<ThinkingContent content="More thought arrived." isExpanded={false} />);
+      expect(screen.getByRole('button', { name: 'Thinking' })).toHaveAttribute(
+        'data-state',
+        'open'
+      );
+      expect(viewport.scrollTop).toBe(100);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('labels the safe model-provided summary as thinking', () => {

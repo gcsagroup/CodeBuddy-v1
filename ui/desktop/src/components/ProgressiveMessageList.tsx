@@ -102,10 +102,6 @@ const i18n = defineMessages({
     id: 'progressiveMessageList.toolRecordsRegion',
     defaultMessage: 'Tool operation records',
   },
-  failedOperations: {
-    id: 'progressiveMessageList.failedOperations',
-    defaultMessage: '{count} unsuccessful operations',
-  },
   taskCheckRecords: {
     id: 'progressiveMessageList.taskCheckRecords',
     defaultMessage: 'Task check records {count}',
@@ -771,9 +767,6 @@ function ProgressiveMessageListContent({
         return call && isTaskContractCheck(call);
       });
       const operations = requests.filter((request) => !checks.includes(request));
-      const failed = operations.filter(
-        (request) => resolveToolLoadingStatus(responses.get(request.id), false, request) === 'error'
-      ).length;
       const successful = formatToolActionSummary(
         intl,
         operations.flatMap((request) => {
@@ -785,7 +778,6 @@ function ProgressiveMessageListContent({
       );
       return [
         successful,
-        failed ? intl.formatMessage(i18n.failedOperations, { count: failed }) : '',
         checks.length ? intl.formatMessage(i18n.taskCheckRecords, { count: checks.length }) : '',
       ]
         .filter(Boolean)

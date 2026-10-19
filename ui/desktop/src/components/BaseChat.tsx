@@ -765,11 +765,9 @@ export default function BaseChat({
 
           {showHistoryLoading && (
             <div
-              data-testid="conversation-loading"
-              className="absolute inset-0 z-20 bg-background-primary px-6 pt-6 pointer-events-none"
-            >
-              <LoadingGoose chatState={ChatState.LoadingConversation} />
-            </div>
+              aria-hidden="true"
+              className="absolute inset-0 z-20 bg-background-primary pointer-events-none"
+            />
           )}
 
           {!followingOutput && (
@@ -782,18 +780,26 @@ export default function BaseChat({
             </button>
           )}
 
-          {!showHistoryLoading && chatState !== ChatState.Idle && showFloatingProgress && !conversationLayout && (
-            <div className="absolute bottom-1 left-4 right-4 z-20 pointer-events-none">
-              <LoadingGoose
-                chatState={chatState}
-                compactionLifecycle={compactionLifecycle}
-                {...loadingIndicatorPresentation}
-              />
-            </div>
-          )}
+          {!showHistoryLoading &&
+            chatState !== ChatState.Idle &&
+            showFloatingProgress &&
+            !conversationLayout && (
+              <div className="absolute bottom-1 left-4 right-4 z-20 pointer-events-none">
+                <LoadingGoose
+                  chatState={chatState}
+                  compactionLifecycle={compactionLifecycle}
+                  {...loadingIndicatorPresentation}
+                />
+              </div>
+            )}
         </div>
 
         <div className={conversationLayout ? 'mx-auto w-full max-w-[55rem] px-2' : undefined}>
+          {showHistoryLoading && (
+            <div data-testid="conversation-loading" className="mx-4">
+              <LoadingGoose chatState={ChatState.LoadingConversation} />
+            </div>
+          )}
           {acpRecovering && (
             <div role="status" className="mx-4 mb-2 text-sm text-text-secondary">
               {intl.formatMessage(i18n.reconnecting)}

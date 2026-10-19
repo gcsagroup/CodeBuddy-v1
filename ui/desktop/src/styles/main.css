@@ -252,12 +252,6 @@
   }
 }
 
-/* Keep a single scroll container when a record is opened inside an operation group. */
-.codepro-tool-group .codepro-operation-details:not(.codepro-thinking-details) {
-  max-height: none;
-  overflow-y: visible;
-}
-
 /* Process rows form one compact list; prose retains its own paragraph rhythm. */
 .codepro-tool-group {
   display: flex;

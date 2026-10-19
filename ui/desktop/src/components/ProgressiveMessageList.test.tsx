@@ -271,7 +271,7 @@ describe('work / answer presentation boundary', () => {
       const tool = screen.getByRole('button', {
         name:
           result === 'error'
-            ? /Read file README.md.*Failed/
+            ? /Read file README.md.*Unsuccessful/
             : /Read file README.md.*Unknown status/,
       });
       expect(tool).toBeVisible();
@@ -849,9 +849,10 @@ describe('CodePro ordinary tool message presentation', () => {
         { wrapper: IntlTestWrapper }
       );
       const group = screen.getByRole('button', {
-        name: new RegExp(`^1 unsuccessful operations\\s+Task check records ${accepted ? 3 : 2}$`),
+        name: new RegExp(`^Task check records ${accepted ? 3 : 2}$`),
       });
       expect(group).toHaveAttribute('aria-expanded', 'false');
+      expect(group).not.toHaveTextContent('unsuccessful');
       expect(screen.queryByText(/Completed .*other operation/)).not.toBeInTheDocument();
       fireEvent.click(group);
       const rejections = screen.getAllByRole('button', {
@@ -864,7 +865,7 @@ describe('CodePro ordinary tool message presentation', () => {
           'duplicate requirement coverage'
         )
       ).toBeVisible();
-      expect(screen.getByText('Failed')).toBeVisible();
+      expect(screen.getByText('Unsuccessful')).toBeVisible();
     }
   );
 
@@ -1205,7 +1206,7 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('private reasoning must not be shown')).not.toBeInTheDocument();
     expect(screen.queryByText('npm.cmd test')).not.toBeInTheDocument();
     expect(screen.queryByText('Permission rejected')).not.toBeInTheDocument();
-    expect(screen.getByText('Failed')).toBeVisible();
+    expect(screen.getByText('Unsuccessful')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Run command/ }));
     expect(screen.getByText('npm.cmd test')).toBeVisible();
     expect(

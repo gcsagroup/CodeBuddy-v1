@@ -15,7 +15,6 @@ const i18n = defineMessages({
     id: 'thinkingContent.thinkingLive',
     defaultMessage: 'Thinking · Updating',
   },
-  latest: { id: 'thinkingContent.latest', defaultMessage: 'Back to latest' },
 });
 
 interface ThinkingContentProps {
@@ -47,12 +46,22 @@ export default function ThinkingContent({
   );
   const chatFollowing = useContext(ScrollFollowingContext);
   const [retainReading, setRetainReading] = useState(false);
+  const [idleFold, setIdleFold] = useState(false);
+  useEffect(() => {
+    setIdleFold(false);
+    if (!isExpanded || !isStreaming || !content.trim()) return;
+    // Disclosure only: silence is not evidence of a completed model phase.
+    // Tool arguments can still be streaming before their native call is ready.
+    const timer = window.setTimeout(() => setIdleFold(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, [content, isExpanded, isStreaming]);
   // A default-open thought may close at its boundary, but not under a reader.
   // This affects disclosure only; source events continue to arrive unchanged.
   useLayoutEffect(() => {
     if (isExpanded && !chatFollowing) setRetainReading(true);
   }, [isExpanded, chatFollowing]);
-  const targetExpanded = manualToggle !== null ? manualToggle : isExpanded || retainReading;
+  const targetExpanded =
+    manualToggle !== null ? manualToggle : (isExpanded && !idleFold) || retainReading;
   const [expanded, setExpanded] = useState(targetExpanded);
   const header = useRef<HTMLButtonElement>(null);
   const holdLayoutAnchor = useContext(ScrollLayoutAnchorContext);
@@ -82,7 +91,6 @@ export default function ThinkingContent({
   }, [expanded]);
   const viewport = useRef<HTMLDivElement>(null);
   const following = useRef(true);
-  const [awayFromLatest, setAwayFromLatest] = useState(false);
   useLayoutEffect(() => {
     if (expanded && following.current && viewport.current) {
       viewport.current.scrollTop = viewport.current.scrollHeight;
@@ -93,6 +101,17 @@ export default function ThinkingContent({
     if (storageKey && typeof window !== 'undefined') {
       window.localStorage.setItem(preferenceKey(storageKey), open ? 'open' : 'closed');
     }
+  };
+  const updateReadingPosition = () => {
+    const element = viewport.current;
+    if (!element) return;
+    following.current = element.scrollHeight - element.clientHeight - element.scrollTop <= 24;
+    const selection = window.getSelection();
+    const selecting =
+      selection?.isCollapsed === false &&
+      !!selection.anchorNode &&
+      element.contains(selection.anchorNode);
+    setRetainReading(!following.current || selecting || !chatFollowing);
   };
 
   return (
@@ -117,35 +136,27 @@ export default function ThinkingContent({
       <CollapsibleContent className="codepro-disclosure-content">
         <div
           ref={viewport}
-          onPointerDownCapture={() => setRetainReading(true)}
+          onPointerDownCapture={() => {
+            following.current = false;
+            setRetainReading(true);
+          }}
+          onPointerUpCapture={updateReadingPosition}
           onFocusCapture={() => setRetainReading(true)}
           onWheelCapture={(event) => {
-            if (event.deltaY < 0) setRetainReading(true);
+            if (event.deltaY < 0) {
+              following.current = false;
+              setRetainReading(true);
+            }
           }}
-          onScroll={(event) => {
-            const element = event.currentTarget;
-            following.current =
-              element.scrollHeight - element.clientHeight - element.scrollTop <= 24;
-            setAwayFromLatest(!following.current);
-            if (!following.current) setRetainReading(true);
-          }}
-          className="codepro-operation-details codepro-thinking-details mt-2 max-h-72 max-w-[42rem] overflow-y-auto overscroll-contain text-sm leading-relaxed text-text-secondary"
+          onScroll={updateReadingPosition}
+          className="codepro-operation-details codepro-thinking-details mt-2 w-full min-w-0 max-h-72 overflow-y-auto overscroll-x-contain overscroll-y-auto border-l-2 border-border-primary pl-4 pr-2 text-sm leading-relaxed text-text-secondary [scrollbar-width:thin]"
         >
-          <MarkdownContent content={content} animateIncoming={isStreaming} />
+          <MarkdownContent
+            content={content}
+            animateIncoming={isStreaming}
+            className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
+          />
         </div>
-        {awayFromLatest && (
-          <button
-            type="button"
-            className="mt-1 text-xs text-text-secondary hover:text-text-primary"
-            onClick={() => {
-              following.current = true;
-              setAwayFromLatest(false);
-              if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
-            }}
-          >
-            {intl.formatMessage(i18n.latest)}
-          </button>
-        )}
       </CollapsibleContent>
     </Collapsible>
   );

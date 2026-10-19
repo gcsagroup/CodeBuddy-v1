@@ -407,21 +407,6 @@ export default function GooseMessage({
   const timestamp = useMemo(() => formatMessageTimestamp(message.created), [message.created]);
   const toolRequests = getToolRequests(message);
   const messageIndex = messages.findIndex((msg) => msg.id === message.id);
-  const initialThinking = useMemo(() => {
-    if (!thinkingContent || messageIndex < 0) return false;
-    for (let index = messageIndex - 1; index >= 0; index -= 1) {
-      const prior = messages[index];
-      if (isRetryableUserMessage(prior)) break;
-      if (!prior.metadata.userVisible) continue;
-      if (
-        getThinkingContent(prior) ||
-        getToolRequests(prior).length > 0 ||
-        getTextAndImageContent(prior).textContent.trim()
-      )
-        return false;
-    }
-    return true;
-  }, [messageIndex, messages, thinkingContent]);
   const retrySource = useMemo(() => {
     if (messageIndex <= 0) return undefined;
     if (turnTerminal?.source_user_message_id) {
@@ -574,7 +559,7 @@ export default function GooseMessage({
                     ? `provider-${message.id}${block.start === 0 ? '' : `-${block.start}`}`
                     : undefined
                 }
-                isExpanded={active && initialThinking && index === 0}
+                isExpanded={active}
               />
             );
           }

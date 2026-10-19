@@ -5,7 +5,7 @@ import type { IpcRendererEvent } from 'electron';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import BaseChat from './BaseChat';
 
-const fixture = vi.hoisted(() => ({ readonly: true, submit: vi.fn(), update: vi.fn() }));
+const fixture = vi.hoisted(() => ({ readonly: true, loading: false, submit: vi.fn(), update: vi.fn() }));
 vi.mock('../hooks/useChatSession', () => ({
   useChatSession: () => ({
     session: {
@@ -14,7 +14,7 @@ vi.mock('../hooks/useChatSession', () => ({
       session_type: 'code_pro',
       extension_data: { readonlyHistory: fixture.readonly },
     },
-    messages: [
+    messages: fixture.loading ? [] : [
       {
         id: 'saved',
         role: 'assistant',
@@ -22,7 +22,7 @@ vi.mock('../hooks/useChatSession', () => ({
         metadata: { userVisible: true, agentVisible: true },
       },
     ],
-    chatState: 'idle',
+    chatState: fixture.loading ? 'loadingConversation' : 'idle',
     tokenState: {},
     notifications: new Map(),
     handleSubmit: fixture.submit,
@@ -57,6 +57,7 @@ vi.mock('./ProgressiveMessageList', () => ({
 
 beforeEach(() => {
   fixture.readonly = true;
+  fixture.loading = false;
   fixture.submit.mockReset();
   fixture.update.mockReset();
   vi.mocked(window.electron.on).mockClear();
@@ -88,6 +89,29 @@ it('shows archived content without composing, editing, retrying or auto-submitti
   expect(screen.queryByRole('button', { name: 'Edit or retry' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Resume task' })).toBeNull();
   await waitFor(() => expect(fixture.submit).not.toHaveBeenCalled());
+});
+
+it('keeps loading feedback until restored history has had a paint opportunity', () => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+  try {
+    fixture.loading = true;
+    const view = show();
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    fixture.loading = false;
+    view.rerender(
+      <MemoryRouter>
+        <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.queryByTestId('conversation-loading')).toBeNull();
+    expect(view.container.querySelector('.chat-history-enter')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it('retains normal conversation controls outside imported history', () => {

@@ -1,6 +1,6 @@
 import { AppEvents } from '../constants/events';
 import { useWorkStatus } from './codepro/useWorkStatus';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SearchView } from './conversation/SearchView';
@@ -464,6 +464,26 @@ export default function BaseChat({
 
   // Track if this is the initial render for session resuming
   const initialRenderRef = useRef(true);
+  const [historyReady, setHistoryReady] = useState(false);
+  const loadingHistory = chatState === ChatState.LoadingConversation;
+  const hasHistory = messages.length > 0;
+
+  useLayoutEffect(() => {
+    setHistoryReady(false);
+    if (loadingHistory || !hasHistory) return;
+    // Backend replay completion precedes the first painted history frame.
+    // Keep presentation feedback through that frame without changing run state.
+    let secondFrame: number | undefined;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setHistoryReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame !== undefined) cancelAnimationFrame(secondFrame);
+    };
+  }, [sessionId, loadingHistory, hasHistory]);
+
+  const showHistoryLoading = loadingHistory || (hasHistory && !historyReady);
 
   // Auto-scroll when messages are loaded (for session resuming)
   const handleRenderingComplete = React.useCallback(() => {
@@ -702,8 +722,7 @@ export default function BaseChat({
                 <div
                   className={cn(
                     'codepro-chat-history',
-                    conversationLayout && 'mx-auto w-full max-w-[52rem]',
-                    isActiveSession && !disableAnimation && 'chat-history-enter'
+                    conversationLayout && 'mx-auto w-full max-w-[52rem]'
                   )}
                 >
                   <SearchView onVisibilityChange={setSearchActive}>
@@ -744,6 +763,15 @@ export default function BaseChat({
             ) : null}
           </ScrollArea>
 
+          {showHistoryLoading && (
+            <div
+              data-testid="conversation-loading"
+              className="absolute inset-0 z-20 bg-background-primary px-6 pt-6 pointer-events-none"
+            >
+              <LoadingGoose chatState={ChatState.LoadingConversation} />
+            </div>
+          )}
+
           {!followingOutput && (
             <button
               type="button"
@@ -754,7 +782,7 @@ export default function BaseChat({
             </button>
           )}
 
-          {chatState !== ChatState.Idle && showFloatingProgress && !conversationLayout && (
+          {!showHistoryLoading && chatState !== ChatState.Idle && showFloatingProgress && !conversationLayout && (
             <div className="absolute bottom-1 left-4 right-4 z-20 pointer-events-none">
               <LoadingGoose
                 chatState={chatState}
@@ -774,6 +802,7 @@ export default function BaseChat({
 
           {conversationLayout
             ? !acpRecovering &&
+              !showHistoryLoading &&
               (chatState !== ChatState.Idle || cancelling) && (
                 <div className="mx-4">
                   <LoadingGoose

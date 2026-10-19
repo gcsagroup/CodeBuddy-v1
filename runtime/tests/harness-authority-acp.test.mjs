@@ -37,6 +37,32 @@ async function fixture(t) {
   return { compat, store, notices, sessions, scripts, sessionId, prompt, request, setInitializer(fn) { initialize = fn; } };
 }
 
+test('saved connection cards read locally without waiting for model metadata; the model picker filters live capabilities', { timeout: 3000 }, async t => {
+  const f = await fixture(t);
+  await f.store.update(state => {
+    state.providers[0].engine = 'ollama_compatible';
+    state.providers[0].models = ['fixture', 'decision'];
+  });
+  let fetches = 0;
+  t.mock.method(globalThis, 'fetch', async url => {
+    fetches++;
+    assert.equal(new URL(url).pathname, '/api/tags');
+    return Response.json({ models: [
+      { name: 'fixture', capabilities: ['completion'] },
+      { name: 'decision', capabilities: ['decision'] },
+    ] });
+  });
+  const first = await f.request('_goose/unstable/providers/list', {});
+  assert.equal(first.entries[0].providerId, 'fixture');
+  assert.equal(first.entries[0].configured, true);
+  assert.equal(fetches, 0, 'A saved connection must appear without a network metadata request');
+  const picker = await f.request('_goose/unstable/providers/supported-models/list', { providerId: 'fixture' });
+  assert.deepEqual(picker.models, ['fixture']);
+  const again = await f.request('_goose/unstable/providers/list', {});
+  assert.deepEqual(again.entries[0].models.map(model => model.id), ['fixture']);
+  assert.equal(fetches, 1, 'The connection card must not fetch per-model details during refresh');
+});
+
 test('model thinking migration restores historical child routes despite a stale effort preference', async t => {
   const f = await fixture(t);
   await f.store.update(state => {

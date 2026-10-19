@@ -40,8 +40,8 @@ export function invalid(message, data) {
   return Object.assign(new Error(message), { code: -32602, data });
 }
 
-function providerError(code, message) {
-  return invalid(message, { code: `custom_provider_${code}`, message });
+function providerError(code, message, details = {}) {
+  return invalid(message, { code: `custom_provider_${code}`, message, ...details });
 }
 
 export function requireString(value, name) {
@@ -114,7 +114,7 @@ function endpoints(provider) {
       ? append("chat/completions")
       : append("v1/chat/completions");
   const discoveryPath =
-    engine === "ollama_compatible"
+    engine === "ollama_compatible" || parsed.protocol === 'https:' && parsed.hostname === 'ollama.com'
       ? pathname.endsWith("api")
         ? append("tags")
         : "/api/tags"
@@ -237,8 +237,9 @@ async function requestJson(
     throw providerError(
       models ? "model_list_unavailable" : "model_unavailable",
       models
-        ? "The model list could not be loaded from this address."
-        : "The selected model could not complete a test request.",
+        ? `The model list could not be loaded from this address (HTTP ${response.status}).`
+        : `The selected model could not complete a test request (HTTP ${response.status}).`,
+      { httpStatus: response.status },
     );
   }
   if (Number(response.headers.get("content-length")) > RESPONSE_LIMIT) {
@@ -289,25 +290,27 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     models: true,
     timeoutMs,
   });
-  const rawModels =
-    endpoint.engine === "ollama_compatible"
-      ? body.models?.map((model) => model?.name)
-      : body.data;
+  const ollama = endpoint.discovery.pathname.endsWith('/api/tags');
+  const rawModels = ollama ? body.models : body.data;
   if (!Array.isArray(rawModels))
     throw providerError(
       "invalid_response",
       "The model endpoint did not return a model list.",
     );
-  const ids = modelIds(rawModels);
-  if (!ids.length)
-    throw providerError("no_models", "The model endpoint returned no models.");
-  const contexts = Object.fromEntries(rawModels.filter(model => modelContext(model) !== undefined)
+  const models = rawModels.map(model => ollama ? { ...model, id: model?.name } : model);
+  const nonChatModels = ollama ? models.filter(model => Array.isArray(model?.capabilities) &&
+    model.capabilities.length > 0 && model.capabilities.every(value => typeof value === 'string') &&
+    !model.capabilities.includes('completion')).map(model => model.id) : [];
+  const ids = modelIds(models).filter(id => !nonChatModels.includes(id));
+  if (!ids.length && !nonChatModels.length)
+    throw providerError("no_models", "The model endpoint returned no chat models.");
+  const contexts = Object.fromEntries(models.filter(model => modelContext(model) !== undefined)
     .map(model => [model.id, modelContext(model)]));
-  const inputs = Object.fromEntries(rawModels.filter(model => modelImageProfile(model))
+  const inputs = Object.fromEntries(models.filter(model => modelImageProfile(model))
     .map(model => [model.id, modelImageProfile(model)]));
-  const outputs = Object.fromEntries(rawModels.filter(model => modelOutput(model) !== undefined)
+  const outputs = Object.fromEntries(models.filter(model => modelOutput(model) !== undefined)
     .map(model => [model.id, modelOutput(model)]));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, expires: Date.now() + metadataTtlMs });
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, expires: Date.now() + metadataTtlMs });
   return ids;
 }
 
@@ -476,11 +479,12 @@ export function providerStatus(provider) {
 }
 
 export function inventory(provider) {
+  const models = provider.models.filter(id => !cachedModels(provider)?.nonChatModels?.includes(id));
   return {
     providerId: provider.id,
     providerName: provider.displayName,
     description: "Model connection used by CodeBuddy",
-    defaultModel: provider.models[0] ?? "",
+    defaultModel: models[0] ?? "",
     configured: providerStatus(provider).isConfigured,
     providerType: "Custom",
     category: "model",
@@ -488,7 +492,7 @@ export function inventory(provider) {
     setupSteps: [],
     supportsRefresh: true,
     refreshing: false,
-    models: provider.models.map((id) => ({
+    models: models.map((id) => ({
       id,
       name: id,
       contextLimit: contextProfile(provider, id).contextWindow,
@@ -513,9 +517,14 @@ function ollamaThinkingProfile(body) {
   if (Array.isArray(values) && values.length && values.every(value => typeof value === 'boolean')) {
     if (!values.includes(true)) return { reasoningEfforts: false };
     efforts = { ...(values.includes(false) ? { off: 'none' } : {}), medium: 'medium' };
-  } else if (Array.isArray(values) && values.length && values.every(value => typeof value === 'string')) {
-    efforts = Object.fromEntries(values.filter(value => ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value))
-      .map(value => [value === 'none' ? 'off' : value, value]));
+  } else if (Array.isArray(values) && values.length && values.every(value => typeof value === 'string' || typeof value === 'boolean')) {
+    // Cloud models can combine a boolean off switch with named effort levels.
+    efforts = Object.fromEntries(values.flatMap(value => {
+      if (value === false) return [['off', 'none']];
+      if (value === true) return [['medium', 'medium']];
+      return ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value)
+        ? [[value === 'none' ? 'off' : value, value]] : [];
+    }));
   } else if (Array.isArray(body.capabilities) && body.capabilities.includes('thinking')) {
     // Capability alone establishes an enabled control, not unsupported extra levels.
     efforts = { medium: 'medium' };
@@ -523,7 +532,8 @@ function ollamaThinkingProfile(body) {
   if (!efforts || !Object.keys(efforts).some(level => level !== 'off')) return {};
   return {
     reasoningEfforts: efforts,
-    thinkingDefault: typeof body.thinking?.default === 'string' && body.thinking.default !== 'none' ? body.thinking.default : undefined,
+    thinkingDefault: typeof body.thinking?.default === 'string' && body.thinking.default !== 'none' &&
+      Object.hasOwn(efforts, body.thinking.default) ? body.thinking.default : undefined,
     thinkingToggle: Array.isArray(values) && values.every(value => typeof value === 'boolean') || Object.keys(efforts).every(level => ['off', 'medium'].includes(level)),
     compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false },
   };
@@ -584,6 +594,8 @@ export async function readProvider(provider) {
 export async function driverProvider(provider, model, { legacyThinking = false } = {}) {
   const authPending = credentials(provider, provider);
   const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
+  if (cachedModels(provider)?.nonChatModels?.includes(model))
+    throw providerError('model_unavailable', 'The selected model does not support chat completions.');
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
   const { thinkingToggle: _toggle, thinkingDefault: _default, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);

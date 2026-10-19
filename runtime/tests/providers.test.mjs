@@ -64,6 +64,7 @@ test('Ollama cloud details supply capacity once per model; local architectural l
     calls.push({url:String(url),body:options.body});
     return new Response(JSON.stringify(String(url).endsWith('/api/show')
       ? {model_info:{'kimi-k3.context_length':1048576}, capabilities:['completion','vision','thinking']}
+      : String(url).endsWith('/api/tags') ? {models:[{name:'kimi-k3',capabilities:['completion','thinking']}]}
       : {data:[{id:'kimi-k3'}]}),{headers:{'content-type':'application/json'}});
   });
   const p={...input('https://ollama.com'),id:'cloud-capacity',models:['kimi-k3']};
@@ -75,6 +76,28 @@ test('Ollama cloud details supply capacity once per model; local architectural l
   const local=await driverProvider({...p,apiUrl:'http://localhost:11434'},'kimi-k3');
   assert.equal(local.contextSource,'fallback');
   assert.equal(calls.filter(c=>c.url.includes('localhost')&&c.url.endsWith('/api/show')).length,0);
+});
+
+test('Ollama discovery excludes declared decision and embedding models before save and chat selection', async t => {
+  const api = await endpoint(t, (req, res) => res.end(JSON.stringify(req.url.endsWith('/api/tags')
+    ? { models: [
+      { name: 'decision-model', capabilities: ['decision', 'vision'] },
+      { name: 'embedding-model', capabilities: ['embedding'] },
+      { name: 'chat-model', capabilities: ['completion', 'thinking'] },
+      { name: 'older-model' },
+    ] } : req.url.endsWith('/api/show') ? {} : { choices: [{ message: { role: 'assistant', content: 'OK' } }] })));
+  const config = input(api.url, { engine: 'ollama_compatible', models: ['chat-model', 'older-model'] });
+  assert.deepEqual(await discover(config), ['chat-model', 'older-model']);
+  const previous = { ...config, id: 'previous', models: ['decision-model', 'chat-model', 'embedding-model'] };
+  assert.deepEqual((await resolvedInventory(previous)).models.map(model => model.id), ['chat-model']);
+  assert.equal(previous.models.length, 3, 'Capability projection must not modify saved user configuration');
+  const store = memoryStore();
+  await assert.rejects(saveProvider(store, { ...config, models: ['decision-model'] }), /not available/);
+  assert.equal(store.read().providers.length, 0);
+  assert.ok(!api.requests.some(request => request.url.endsWith('/chat/completions')));
+  await saveProvider(store, config);
+  assert.equal(api.requests.filter(request => request.url.endsWith('/chat/completions')).length, 1);
+  await assert.rejects(driverProvider(previous, 'decision-model'), /does not support chat/);
 });
 
 test('image capability uses declared metadata, preserves manual denial and never guesses from model names', async t => {

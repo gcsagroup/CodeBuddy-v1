@@ -3,11 +3,16 @@ import { invalid } from './providers.mjs';
 export const THINKING_EFFORTS = Object.freeze(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
 export function modelThinkingPreference(profile, saved, legacy) {
-  if (typeof saved === 'string') return saved;
+  // A service can change capabilities after a preference was saved. Preserve
+  // the stored choice but do not send a level the current model rejects.
+  const savedLevel = saved === 'none' ? 'off' : saved;
+  if (typeof saved === 'string' && (!Object.hasOwn(profile, 'reasoningEfforts') ||
+    profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, savedLevel))) return saved;
   // Legacy global preferences remain a fallback only for a declared capability.
   const level = legacy === 'none' ? 'off' : legacy;
   if (profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, level)) return legacy;
-  return profile.thinkingDefault;
+  return profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, profile.thinkingDefault)
+    ? profile.thinkingDefault : undefined;
 }
 
 export function modelThinkingOptions(profile, saved, legacy) {

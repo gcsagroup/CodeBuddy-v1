@@ -70,3 +70,54 @@ test('Ollama profiles, per-connection preferences, persistence and actual DSH re
     assert.equal(events.some(event=>event.type==='thinking_delta'),model!=='toggle');
   }
 });
+
+test('fresh profiles read mixed Ollama Cloud efforts without breaking other model details', async t => {
+  // Public /api/show shapes captured on 2026-10-19; no account credentials.
+  const metadata = {
+    'gemma4:31b': { thinking: { values: [false, true], default: false }, model_info: { 'gemma4.context_length': 262144 } },
+    'glm-5.2': { thinking: { values: [false, 'high', 'max'], default: 'high' }, model_info: { 'glm5.2.context_length': 1048576 } },
+    'deepseek-v4.1-flash:1017': { thinking: { values: [false, 'low', 'high', 'max'], default: 'high' } },
+    'invalid-advisory-default': { thinking: { values: [false, 'high'], default: 'max' } },
+  };
+  const models = Object.keys(metadata);
+  t.mock.method(globalThis, 'fetch', async (input, options) => {
+    const url = new URL(input);
+    assert.equal(url.origin, 'https://ollama.com');
+    if (url.pathname === '/api/tags') return Response.json({ models: models.map(name => ({ name, capabilities: ['completion'] })) });
+    assert.equal(url.pathname, '/api/show');
+    const { model } = JSON.parse(options.body);
+    assert.ok(Object.hasOwn(metadata, model));
+    return Response.json({ capabilities: ['completion', 'thinking'], ...metadata[model] });
+  });
+  const root = await mkdtemp(path.join(tmpdir(), 'cloud-thinking-mixed-'));
+  const store = await openStore(root);
+  const provider = { id: 'mixed-cloud', engine: 'openai_compatible', apiUrl: 'https://ollama.com', models, requiresAuth: false };
+  await store.update(state => { state.providers = [provider]; });
+  const native = new Map();
+  for (const model of models) native.set(model, await driverProvider(provider, model));
+  const settings = new RuntimeSettings(store);
+  for (const legacy of [undefined, 'medium']) {
+    await store.update(state => {
+      if (legacy === undefined) delete state.preferences.gooseThinkingEffort;
+      else state.preferences.gooseThinkingEffort = legacy;
+    });
+    const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
+    const read = (kind, model) => JSON.parse(fields.find(field => field.key === `${kind}:${model}`).value);
+    assert.deepEqual(read('thinkingEffort', 'glm-5.2'), { options: ['none', 'high', 'max'], value: 'high', toggle: false });
+    assert.deepEqual(read('thinkingEffort', 'deepseek-v4.1-flash:1017'), { options: ['none', 'low', 'high', 'max'], value: 'high', toggle: false });
+    assert.deepEqual(read('thinkingEffort', 'gemma4:31b'), { options: ['none', 'medium'], value: 'medium', toggle: true });
+    assert.equal(read('contextWindow', 'gemma4:31b').contextWindow, 262144);
+    assert.equal(read('contextWindow', 'glm-5.2').contextWindow, 1048576);
+    assert.equal(read('thinkingEffort', 'invalid-advisory-default').value, 'high');
+    const selected = applyModelThinking(native.get('glm-5.2'), modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), undefined, legacy));
+    assert.equal(selected.thinkingEffort, 'high');
+  }
+  await assert.rejects(settings.request('providers/config/save', {
+    providerId: provider.id, fields: [{ key: 'thinkingEffort:glm-5.2', value: 'medium' }],
+  }), /unavailable/);
+  await store.update(state => { state.providers[0].thinkingEfforts = { 'glm-5.2': 'medium' }; });
+  const staleRead = await settings.request('providers/config/read', { providerId: provider.id });
+  assert.equal(JSON.parse(staleRead.fields.find(field => field.key === 'thinkingEffort:glm-5.2').value).value, 'high');
+  assert.equal(modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), 'medium'), 'high');
+  assert.equal(store.read().providers[0].thinkingEfforts['glm-5.2'], 'medium', 'Reading new capabilities must not overwrite an older user preference');
+});

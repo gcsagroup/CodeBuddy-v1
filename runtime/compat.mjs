@@ -1880,11 +1880,13 @@ export class Compat {
             )
             .map(inventory),
         };
-      case "providers/supported-models/list":
+      case "providers/supported-models/list": {
+        const provider = this.provider(p.providerId);
         return {
           providerId: p.providerId,
-          models: this.provider(p.providerId).models,
+          models: await discover(provider, provider, { timeoutMs: 2000 }),
         };
+      }
       case "providers/custom/discover-models":
         return {
           models: await discover(

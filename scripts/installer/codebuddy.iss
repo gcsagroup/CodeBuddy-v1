@@ -93,17 +93,19 @@ Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait 
 
 [Code]
 var
-  ShortcutOptions: TNewCheckListBox;
+  DesktopShortcut: TNewCheckBox;
+  StartMenuShortcut: TNewCheckBox;
+  LaunchOnFinish: TNewCheckBox;
   ProgressText: TNewStaticText;
   ShortcutsApplied: Boolean;
 
 procedure ApplyShortcutChoices;
 begin
-  if ShortcutOptions.Checked[0] and not FileCopy(
+  if DesktopShortcut.Checked and not FileCopy(
     ExpandConstant('{app}\resources\CodeBuddy.lnk'),
     ExpandConstant('{autodesktop}\CodeBuddy.lnk'), False) then
     RaiseException('无法创建桌面快捷方式，请检查桌面文件夹的写入权限后重试。');
-  if ShortcutOptions.Checked[1] and not FileCopy(
+  if StartMenuShortcut.Checked and not FileCopy(
     ExpandConstant('{app}\resources\CodeBuddy.lnk'),
     ExpandConstant('{autoprograms}\CodeBuddy.lnk'), False) then
     RaiseException('无法添加到开始菜单，请检查开始菜单文件夹的写入权限后重试。');
@@ -115,6 +117,12 @@ begin
   { Silent installs and closing the finished page must apply the same defaults. }
   if (CurStep = ssDone) and not ShortcutsApplied then
     ApplyShortcutChoices;
+end;
+
+procedure LaunchOnFinishClick(Sender: TObject);
+begin
+  if WizardForm.RunList.Items.Count > 0 then
+    WizardForm.RunList.Checked[0] := LaunchOnFinish.Checked;
 end;
 
 procedure InitializeWizard;
@@ -149,20 +157,37 @@ begin
   WizardForm.FinishedLabel.Top := ScaleY(104);
   WizardForm.FinishedLabel.Width := WizardForm.FinishedHeadingLabel.Width;
   WizardForm.FinishedLabel.Height := ScaleY(36);
-  ShortcutOptions := TNewCheckListBox.Create(WizardForm);
-  ShortcutOptions.Parent := WizardForm.FinishedPage;
-  ShortcutOptions.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(64));
-  ShortcutOptions.BorderStyle := bsNone;
-  ShortcutOptions.ParentColor := True;
-  ShortcutOptions.Flat := True;
-  ShortcutOptions.Font.Assign(WizardForm.RunList.Font);
-  ShortcutOptions.MinItemHeight := ScaleY(32);
-  ShortcutOptions.AddCheckBox('创建桌面快捷方式', '', 0, True, True, False, True, nil);
-  ShortcutOptions.AddCheckBox('添加到开始菜单', '', 0, True, True, False, True, nil);
-  WizardForm.RunList.Left := ScaleX(32);
-  WizardForm.RunList.Top := ScaleY(216);
-  WizardForm.RunList.Width := WizardForm.FinishedHeadingLabel.Width;
-  WizardForm.RunList.Height := ScaleY(48);
+  DesktopShortcut := TNewCheckBox.Create(WizardForm);
+  DesktopShortcut.Parent := WizardForm.FinishedPage;
+  DesktopShortcut.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
+  DesktopShortcut.Font.Assign(WizardForm.RunList.Font);
+  DesktopShortcut.Caption := '创建桌面快捷方式';
+  DesktopShortcut.Checked := True;
+  StartMenuShortcut := TNewCheckBox.Create(WizardForm);
+  StartMenuShortcut.Parent := WizardForm.FinishedPage;
+  StartMenuShortcut.SetBounds(ScaleX(32), ScaleY(184), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
+  StartMenuShortcut.Font.Assign(WizardForm.RunList.Font);
+  StartMenuShortcut.Caption := '添加到开始菜单';
+  StartMenuShortcut.Checked := True;
+  LaunchOnFinish := TNewCheckBox.Create(WizardForm);
+  LaunchOnFinish.Parent := WizardForm.FinishedPage;
+  LaunchOnFinish.SetBounds(ScaleX(32), ScaleY(216), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
+  LaunchOnFinish.Font.Assign(WizardForm.RunList.Font);
+  LaunchOnFinish.Caption := '启动 CodeBuddy';
+  LaunchOnFinish.Checked := True;
+  LaunchOnFinish.OnClick := @LaunchOnFinishClick;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpFinished then
+  begin
+    { Keep Inno responsible for [Run], using ordinary checkboxes for display. }
+    LaunchOnFinish.Visible := WizardForm.RunList.Items.Count > 0;
+    if LaunchOnFinish.Visible then
+      LaunchOnFinish.Checked := WizardForm.RunList.Checked[0];
+    WizardForm.RunList.Visible := False;
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;

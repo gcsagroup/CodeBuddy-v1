@@ -40,6 +40,7 @@ import { WorkspaceSubagent } from './WorkspaceSubagent';
 import { WorkspaceSubagents, subagentsMessages } from './WorkspaceSubagents';
 import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
 import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conversationChangePanel';
+import { OPEN_WORKSPACE_FILE, type WorkspaceFileTarget } from './workspaceFilePanel';
 import {
   collectConversationChanges,
   fileIdentity,
@@ -282,7 +283,8 @@ export function WorkspacePanelContent({
       window.removeEventListener(OPEN_SUBAGENT_CATALOG, openCatalog);
     };
   }, [scope.sessionId, update, onExpandedChange]);
-  const fileView = state.active === 'files' || selected?.kind === 'file';
+  const fileView =
+    state.active === 'files' || selected?.kind === 'file' || selected?.kind === 'file-info';
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -336,8 +338,9 @@ export function WorkspacePanelContent({
     async (entry: PanelEntry) => {
       const existing = latest.current.tabs.find(
         (t) =>
-          t.kind === 'file' &&
-          fileIdentity(t.document.path, scope.root) === fileIdentity(entry.path, scope.root)
+          (t.kind === 'file' || t.kind === 'file-info') &&
+          fileIdentity(t.kind === 'file' ? t.document.path : t.file.path, scope.root) ===
+            fileIdentity(entry.path, scope.root)
       );
       if (existing) {
         activate(existing.id);
@@ -346,6 +349,30 @@ export function WorkspacePanelContent({
       setBusy(true);
       setError('');
       try {
+        if (/\.(docx|xlsx|pptx|pdf)$/i.test(entry.path)) {
+          const reply = await window.electron.workspacePanel({
+            scope,
+            action: 'inspect',
+            path: entry.path,
+          });
+          if (!alive.current) return;
+          const file = reply?.file;
+          if (!file) throw new Error(intl.formatMessage(m.restartDesktop));
+          update((s) => {
+            const existing = s.tabs.find(
+              (t) =>
+                t.kind === 'file-info' &&
+                fileIdentity(t.file.path, scope.root) === fileIdentity(file.path, scope.root)
+            );
+            if (existing) return { ...s, active: existing.id };
+            const id = globalThis.crypto.randomUUID();
+            return {
+              tabs: [...s.tabs, { id, kind: 'file-info', title: entry.name, file }],
+              active: id,
+            };
+          });
+          return;
+        }
         const { document } = await window.electron.workspacePanel({
           scope,
           action: 'read',
@@ -381,8 +408,26 @@ export function WorkspacePanelContent({
         if (alive.current) setBusy(false);
       }
     },
-    [scope, activate, update, fail]
+    [scope, activate, update, fail, intl]
   );
+  useEffect(() => {
+    const open = (event: Event) => {
+      const target = (event as CustomEvent<WorkspaceFileTarget>).detail;
+      if (!target || target.sessionId !== scope.sessionId || !target.filePath) return;
+      onExpandedChange(true);
+      if (!available) {
+        setError(intl.formatMessage(m.noWorkspace));
+        return;
+      }
+      void openFile({
+        kind: 'file',
+        path: target.filePath,
+        name: target.filePath.replace(/\\/g, '/').split('/').pop() || target.filePath,
+      });
+    };
+    window.addEventListener(OPEN_WORKSPACE_FILE, open);
+    return () => window.removeEventListener(OPEN_WORKSPACE_FILE, open);
+  }, [scope.sessionId, available, openFile, onExpandedChange, intl]);
   useEffect(() => {
     const open = (event: Event) => {
       const target = (event as CustomEvent<ConversationChangeTarget>).detail;
@@ -734,7 +779,7 @@ export function WorkspacePanelContent({
               >
                 {t.kind === 'change' ? (
                   <FileDiff size={13} />
-                ) : t.kind === 'file' ? (
+                ) : t.kind === 'file' || t.kind === 'file-info' ? (
                   <FileCode2 size={13} />
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
@@ -916,7 +961,40 @@ export function WorkspacePanelContent({
               </div>
             </section>
           )}
-          {selected?.kind === 'file' ? (
+          {selected?.kind === 'file-info' ? (
+            <section className="min-w-0 flex-1 overflow-auto p-4">
+              <div className="flex items-center gap-2">
+                <File size={20} />
+                <strong className="break-all">{selected.title}</strong>
+              </div>
+              <p className="mt-3 break-all text-sm text-text-secondary">{selected.file.path}</p>
+              <p className="mt-2 text-sm text-text-secondary">
+                {intl.formatNumber(selected.file.size)} B
+              </p>
+              <p className="mt-4 text-sm text-text-secondary">
+                {intl.formatMessage(m.documentInfo)}
+              </p>
+              {selected.file.openExternally && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="mt-3 rounded-lg border border-border-primary px-3 py-2 text-sm hover:bg-background-secondary"
+                  onClick={() => {
+                    setBusy(true);
+                    setError('');
+                    void window.electron
+                      .workspacePanel({ scope, action: 'open-external', path: selected.file.path })
+                      .catch(fail)
+                      .finally(() => {
+                        if (alive.current) setBusy(false);
+                      });
+                  }}
+                >
+                  {intl.formatMessage(m.openDocument)}
+                </button>
+              )}
+            </section>
+          ) : selected?.kind === 'file' ? (
             <section className="flex min-w-0 flex-1 flex-col">
               <div className="wb-toolbar">
                 <button

@@ -1,4 +1,4 @@
-import type { PanelDocument, PanelScope } from './workspacePanelTypes';
+import type { PanelDocument, PanelFileInfo, PanelScope } from './workspacePanelTypes';
 export type WorkbenchTab =
   | {
       id: string;
@@ -8,6 +8,7 @@ export type WorkbenchTab =
       draft: string;
       preview: boolean;
     }
+  | { id: string; kind: 'file-info'; title: string; file: PanelFileInfo }
   | { id: string; kind: 'terminal' | 'browser'; title: string }
   | {
       id: string;

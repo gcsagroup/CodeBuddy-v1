@@ -194,6 +194,40 @@ function panel(id = globalThis.crypto.randomUUID()) {
   );
   return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
 }
+
+it('opens verified document entries as file information while preserving an edited file tab', async () => {
+  const { scope } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+    })
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+    target: { value: 'unsaved user draft' },
+  });
+  invoke.mockImplementation(async (r: PanelRequest) =>
+    r.action === 'inspect' ? { file: { path: r.path, size: 35000, openExternally: true } } : {}
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: 'foreign', filePath: 'ignore.docx' },
+    })
+  );
+  expect(screen.queryByRole('tab', { name: 'ignore.docx' })).toBeNull();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath: 'report.docx' },
+    })
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Open in default application' }));
+  expect(invoke).toHaveBeenCalledWith({ scope, action: 'open-external', path: 'report.docx' });
+  fireEvent.click(screen.getByRole('tab', { name: /note.txt/ }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
+});
 function fileOperation(
   id: string,
   name: string,

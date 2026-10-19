@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain, WebContentsView, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  WebContentsView,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -13,6 +20,8 @@ import type {
 } from './workspacePanelTypes';
 import {
   listPanelFiles,
+  inspectPanelFile,
+  externalPanelDocument,
   panelUrl,
   readPanelFile,
   savePanelFile,
@@ -137,6 +146,13 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       return searchPanelFiles(root, request.query);
     case 'read':
       return { document: await readPanelFile(root, request.path) };
+    case 'inspect':
+      return { file: await inspectPanelFile(root, request.path) };
+    case 'open-external': {
+      const error = await shell.openPath(await externalPanelDocument(root, request.path));
+      if (error) throw new Error(error);
+      return {};
+    }
     case 'save':
       return {
         document: await savePanelFile(root, request.path, request.content, request.version),

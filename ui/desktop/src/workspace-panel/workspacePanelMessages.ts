@@ -1,5 +1,18 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  relatedFiles: { id: 'workspacePanel.relatedFiles', defaultMessage: 'Referenced workspace files' },
+  openDocument: {
+    id: 'workspacePanel.openDocument',
+    defaultMessage: 'Open in default application',
+  },
+  documentInfo: {
+    id: 'workspacePanel.documentInfo',
+    defaultMessage: 'This document opens in its associated application.',
+  },
+  restartDesktop: {
+    id: 'workspacePanel.restartDesktop',
+    defaultMessage: 'Restart CodeBuddy to load this file-opening feature.',
+  },
   binaryFile: {
     id: 'workspacePanel.binaryFile',
     defaultMessage:

@@ -14,6 +14,11 @@ export interface PanelDocument {
   image?: string;
   binary?: boolean;
 }
+export interface PanelFileInfo {
+  path: string;
+  size: number;
+  openExternally: boolean;
+}
 export interface PanelBrowserState {
   id: string;
   url: string;
@@ -27,6 +32,8 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'list'; path: string }
   | { action: 'search'; query: string }
   | { action: 'read'; path: string }
+  | { action: 'inspect'; path: string }
+  | { action: 'open-external'; path: string }
   | { action: 'save'; path: string; content: string; version: string }
   | { action: 'terminal-create' }
   | { action: 'terminal-read'; id: string; offset: number }
@@ -48,6 +55,7 @@ export interface PanelReply {
   entries?: PanelEntry[];
   truncated?: boolean;
   document?: PanelDocument;
+  file?: PanelFileInfo;
   id?: string;
   data?: string;
   offset?: number;

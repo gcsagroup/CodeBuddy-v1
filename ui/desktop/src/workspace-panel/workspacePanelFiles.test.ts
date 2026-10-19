@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   listPanelFiles,
+  inspectPanelFile,
+  externalPanelDocument,
   panelPath,
   panelUrl,
   readPanelFile,
@@ -19,6 +21,34 @@ afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });
 });
 describe('workspace files using real filesystem data', () => {
+  it('inspects large documents without reading a preview and only opens existing scoped documents', async () => {
+    await fs.writeFile(path.join(root, 'report.docx'), Buffer.alloc(3 * 1024 * 1024));
+    expect(await inspectPanelFile(root, 'report.docx')).toMatchObject({
+      path: 'report.docx',
+      size: 3 * 1024 * 1024,
+      openExternally: true,
+    });
+    expect(await externalPanelDocument(root, 'report.docx')).toBe(
+      await fs.realpath(path.join(root, 'report.docx'))
+    );
+    await fs.writeFile(path.join(root, 'run.ps1'), 'Write-Output hello');
+    await expect(externalPanelDocument(root, 'run.ps1')).rejects.toThrow('document files only');
+    await expect(inspectPanelFile(root, 'missing.docx')).rejects.toThrow();
+    await expect(inspectPanelFile(root, '../outside.docx')).rejects.toThrow('outside');
+    await expect(inspectPanelFile(root, '.')).rejects.toThrow('regular file');
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-external-document-'));
+    try {
+      await fs.writeFile(path.join(outside, 'report.docx'), 'outside');
+      await fs.symlink(
+        outside,
+        path.join(root, 'linked'),
+        process.platform === 'win32' ? 'junction' : 'dir'
+      );
+      await expect(externalPanelDocument(root, 'linked/report.docx')).rejects.toThrow('outside');
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
   it('preserves Chinese, BOM and CRLF and truncates shorter saves', async () => {
     const source = '\ufeff你好\r\nsecond line\r\n';
     await fs.writeFile(path.join(root, '中文.txt'), source);

@@ -4,6 +4,7 @@ import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
 import './ui/stream-prose.css';
 import ThinkingContent from './ThinkingContent';
+import { WorkspaceFileReferences } from './WorkspaceFileReferences';
 import ToolCallWithResponse from './ToolCallWithResponse';
 import {
   getTextAndImageContent,
@@ -429,6 +430,20 @@ export default function GooseMessage({
   });
   const showMessageActions = actionPolicy.showActionGroup;
   const showTextMessageActions = actionPolicy.showTextActionGroup;
+  const hasLaterTurnContent = useMemo(() => {
+    for (let index = messageIndex + 1; index < messages.length; index += 1) {
+      const candidate = messages[index];
+      if (isRetryableUserMessage(candidate)) break;
+      if (
+        candidate.metadata.userVisible &&
+        (getToolRequests(candidate).length > 0 ||
+          (candidate.role === 'assistant' &&
+            getTextAndImageContent(candidate).textContent.trim().length > 0))
+      )
+        return true;
+    }
+    return false;
+  }, [messageIndex, messages]);
   const retryMode = actionPolicy.retryMode;
   const retryMessage =
     onRetryMessage && message.id
@@ -634,6 +649,13 @@ export default function GooseMessage({
             )}
           </div>
         )}
+        {!isTurnRunning &&
+          !isStreaming &&
+          !hasLaterTurnContent &&
+          showTextMessageActions &&
+          displayText.trim() && (
+            <WorkspaceFileReferences sessionId={sessionId} content={displayText} />
+          )}
         {toolRequests.length > 0 && !compactTools && !displayText.trim() && (
           <div className="flex items-center justify-between">
             <div

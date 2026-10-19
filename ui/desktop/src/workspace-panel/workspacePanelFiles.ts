@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import type { PanelDocument, PanelEntry } from './workspacePanelTypes';
+import type { PanelDocument, PanelEntry, PanelFileInfo } from './workspacePanelTypes';
 
 const LIMIT = 2 * 1024 * 1024;
 const version = (data: Buffer) => createHash('sha256').update(data).digest('hex');
@@ -43,6 +43,28 @@ export async function listPanelFiles(root: string, requested: string) {
     ),
     truncated: entries.length > 2000,
   };
+}
+
+const externalDocuments = new Set(['.docx', '.xlsx', '.pptx', '.pdf']);
+
+export async function inspectPanelFile(root: string, requested: string): Promise<PanelFileInfo> {
+  const realRoot = await fs.realpath(root);
+  const file = await panelPath(realRoot, requested);
+  const stat = await fs.stat(file);
+  if (!stat.isFile()) throw new Error('Path is not a regular file');
+  return {
+    path: path.relative(realRoot, file),
+    size: stat.size,
+    openExternally: externalDocuments.has(path.extname(file).toLowerCase()),
+  };
+}
+
+export async function externalPanelDocument(root: string, requested: string): Promise<string> {
+  const file = await panelPath(root, requested);
+  const stat = await fs.stat(file);
+  if (!stat.isFile() || !externalDocuments.has(path.extname(file).toLowerCase()))
+    throw new Error('External opening supports document files only');
+  return file;
 }
 
 export async function searchPanelFiles(root: string, query: string) {

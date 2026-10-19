@@ -4259,20 +4259,11 @@
   "modelImageCapability.unsupported": {
     "defaultMessage": "僅文字"
   },
-  "modelsAndRuntime.agentModelConfiguration": {
-    "defaultMessage": "Agent 模型設定"
-  },
-  "modelsAndRuntime.agentModelConfigurationDescription": {
-    "defaultMessage": "所有 Agent 使用目前對話模型，或分別設定分析、編碼、測試與審查模型。"
-  },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy 模型"
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "CodeBuddy 自有模型仍在開發中。"
-  },
-  "modelsAndRuntime.configureAgentModels": {
-    "defaultMessage": "設定 Agent 模型"
   },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "無法載入自訂連線。已儲存的設定沒有被變更。"
@@ -4292,41 +4283,8 @@
   "modelsAndRuntime.retry": {
     "defaultMessage": "重試"
   },
-  "modelsBottomBar.advancedAgentModels": {
-    "defaultMessage": "部分 Agent 使用獨立模型"
-  },
-  "modelsBottomBar.agentModelCombination": {
-    "defaultMessage": "Agent 模型組合"
-  },
-  "modelsBottomBar.allAgentsFollowCurrent": {
-    "defaultMessage": "所有 Agent 跟隨目前模型"
-  },
-  "modelsBottomBar.changeModel": {
-    "defaultMessage": "變更模型"
-  },
-  "modelsBottomBar.closeLocalModelSettings": {
-    "defaultMessage": "關閉本地模型設置"
-  },
-  "modelsBottomBar.configureAgentModels": {
-    "defaultMessage": "設定 Agent 模型"
-  },
-  "modelsBottomBar.currentModel": {
-    "defaultMessage": "目前模型"
-  },
-  "modelsBottomBar.independentAgentModels": {
-    "defaultMessage": "分析、編碼、測試和審查可使用不同模型"
-  },
   "modelsBottomBar.loadingModel": {
     "defaultMessage": "正在載入模型…"
-  },
-  "modelsBottomBar.localModelSettings": {
-    "defaultMessage": "本機模型設定"
-  },
-  "modelsBottomBar.localModelSettingsTitle": {
-    "defaultMessage": "本機模型設定 — {modelName}"
-  },
-  "modelsBottomBar.resolvedModel": {
-    "defaultMessage": "已解析的模型"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "選擇模型"
@@ -4990,9 +4948,6 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "我們收集的內容："
-  },
-  "progressiveMessageList.failedOperations": {
-    "defaultMessage": "{count} 項操作未成功"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "載入較早訊息（剩餘 {remaining} 則）"
@@ -7412,9 +7367,6 @@
   "themeSelector.theme": {
     "defaultMessage": "佈景主題"
   },
-  "thinkingContent.latest": {
-    "defaultMessage": "回到最新"
-  },
   "thinkingContent.thinking": {
     "defaultMessage": "思考過程"
   },
@@ -8510,13 +8462,154 @@
   "subagentTemplates.retry": {
     "defaultMessage": "重試"
   },
-  "modelsBottomBar.templateModels": {
-    "defaultMessage": "子 Agent 使用各自範本的模型設定"
-  },
   "modelsAndRuntime.auxiliaryVision": {
     "defaultMessage": "輔助視覺設定"
   },
   "codeProModels.saveVision": {
     "defaultMessage": "儲存視覺設定"
+  },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "相關檔案"
+  },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "在預設應用程式中開啟"
+  },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "此文件可在對應應用程式中開啟。"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "請重新啟動 CodeBuddy，以使用檔案開啟功能。"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "未成功"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "無"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "極低"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "開啟"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "超高"
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "高"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "中"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "思考強度儲存失敗，請重試。"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "低"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "極致"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "思考強度"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "模型切換失敗，請重試。"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "重試"
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "管理模型連線"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "正在切換模型…"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "模型清單載入失敗。"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "暫無已設定模型"
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google 的開放模型，面向推理、程式設計和多模態理解。"
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "Gemma 4 的自訂量化版本，具體能力以目前部署為準。"
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA 的專家混合模型，面向複雜多 Agent 任務與高效推理。"
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA 的高吞吐推理模型，面向持續執行的 Agent 工作流程。"
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare 的多模態模型，側重根據狀態與結構化問題作出決策。"
+  },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection 的開放模型，面向程式設計、工具使用與高效推理。"
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "智譜的旗艦模型，面向需要持續推進的長程任務。"
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "智譜的開放權重旗艦模型，面向程式設計與長程 Agent 任務。"
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "智譜的原生多模態模型，面向程式設計與 Agent 任務。"
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax 的多模態模型，面向程式設計與 Agent 工作流程。"
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral 的開放權重多模態模型，涵蓋通用理解與生成任務。"
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek 的高吞吐模型，側重推理速度與執行效率。"
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "開放多模態模型，面向程式設計、複雜軟體工程與多步推理。"
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "月之暗面的程式設計模型，側重真實情境中的長程程式碼任務。"
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi 的開放權重原生多模態模型，面向 Agent 任務。"
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA 的輕量開放模型，側重高效 Agent 工作流程。"
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek 的專家混合模型，面向複雜推理與長上下文任務。"
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI 的開放權重模型，面向推理、Agent 與開發者任務。"
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral 的多模態專家混合模型，面向正式環境與企業任務。"
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi 的開放多模態模型，面向長程程式設計與多 Agent 協作。"
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax 的程式設計與辦公模型，面向 Agent 工作流程和專業生產任務。"
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "由 {provider} 提供的自訂模型。"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "正在讀取…"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "讀取未成功"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "上下文視窗"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "未提供"
+  },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "目前預算；模型容量未確認"
   }
 }

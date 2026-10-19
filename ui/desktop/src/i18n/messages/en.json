@@ -4271,6 +4271,72 @@
   "modelAndProviderContext.unknownProviderTitle": {
     "defaultMessage": "Provider name lookup"
   },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "Custom model provided by {provider}."
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
+  },
   "modelImageCapability.auto": {
     "defaultMessage": "Detect automatically"
   },
@@ -4514,41 +4580,20 @@
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
   },
-  "modelsBottomBar.advancedAgentModels": {
-    "defaultMessage": "Some agents use separate models"
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
   },
-  "modelsBottomBar.agentModelCombination": {
-    "defaultMessage": "Agent model combination"
-  },
-  "modelsBottomBar.allAgentsFollowCurrent": {
-    "defaultMessage": "All agents follow the current model"
-  },
-  "modelsBottomBar.changeModel": {
-    "defaultMessage": "Change Model"
-  },
-  "modelsBottomBar.closeLocalModelSettings": {
-    "defaultMessage": "Close local model settings"
-  },
-  "modelsBottomBar.configureAgentModels": {
-    "defaultMessage": "Configure agent models"
-  },
-  "modelsBottomBar.currentModel": {
-    "defaultMessage": "Current model"
-  },
-  "modelsBottomBar.independentAgentModels": {
-    "defaultMessage": "Analysis, coding, testing, and review can use different models"
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
   },
   "modelsBottomBar.loadingModel": {
     "defaultMessage": "Loading model..."
   },
-  "modelsBottomBar.localModelSettings": {
-    "defaultMessage": "Local Model Settings"
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
   },
-  "modelsBottomBar.localModelSettingsTitle": {
-    "defaultMessage": "Local Model Settings — {modelName}"
-  },
-  "modelsBottomBar.resolvedModel": {
-    "defaultMessage": "Resolved model"
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Select Model"
@@ -4556,8 +4601,11 @@
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
   },
-  "modelsBottomBar.templateModels": {
-    "defaultMessage": "Subagents use their template model settings"
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "New Task"
@@ -4732,6 +4780,9 @@
   },
   "operation.draftStopped": {
     "defaultMessage": "Generation stopped — execution was not confirmed"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "Unsuccessful"
   },
   "parameterInput.defaultValue": {
     "defaultMessage": "Default Value"
@@ -5014,9 +5065,6 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "What we collect:"
-  },
-  "progressiveMessageList.failedOperations": {
-    "defaultMessage": "{count} unsuccessful operations"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Load earlier messages ({remaining} remaining)"
@@ -7484,14 +7532,56 @@
   "themeSelector.theme": {
     "defaultMessage": "Theme"
   },
-  "thinkingContent.latest": {
-    "defaultMessage": "Back to latest"
-  },
   "thinkingContent.thinking": {
     "defaultMessage": "Thinking"
   },
   "thinkingContent.thinkingLive": {
     "defaultMessage": "Thinking · Updating"
+  },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "Current budget; model capacity unconfirmed"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "Context window"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "Could not save thinking effort. Try again."
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "High"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "Low"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "Maximum"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "Medium"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "Minimal"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "None"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "On"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "Could not read model settings"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "Thinking effort"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "Not provided"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "Extra high"
   },
   "toasts.askCodeBuddy": {
     "defaultMessage": "Ask CodeBuddy"
@@ -8360,6 +8450,9 @@
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "This document opens in its associated application."
+  },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
   },
@@ -8405,6 +8498,9 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "Open in default application"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
   },
@@ -8414,11 +8510,17 @@
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "Referenced workspace files"
+  },
   "workspacePanel.reload": {
     "defaultMessage": "Reload file from disk"
   },
   "workspacePanel.resize": {
     "defaultMessage": "Resize workspace panel"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
   "workspacePanel.running": {
     "defaultMessage": "Running"

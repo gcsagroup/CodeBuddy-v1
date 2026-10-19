@@ -4259,20 +4259,11 @@
   "modelImageCapability.unsupported": {
     "defaultMessage": "仅文本"
   },
-  "modelsAndRuntime.agentModelConfiguration": {
-    "defaultMessage": "Agent 模型配置"
-  },
-  "modelsAndRuntime.agentModelConfigurationDescription": {
-    "defaultMessage": "所有 Agent 使用当前对话模型，或分别配置分析、编码、测试和审查模型。"
-  },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy 模型"
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "CodeBuddy 自有模型仍在开发中。"
-  },
-  "modelsAndRuntime.configureAgentModels": {
-    "defaultMessage": "配置 Agent 模型"
   },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "无法加载自定义连接。已保存的配置没有被更改。"
@@ -4292,41 +4283,8 @@
   "modelsAndRuntime.retry": {
     "defaultMessage": "重试"
   },
-  "modelsBottomBar.advancedAgentModels": {
-    "defaultMessage": "部分 Agent 使用独立模型"
-  },
-  "modelsBottomBar.agentModelCombination": {
-    "defaultMessage": "Agent 模型组合"
-  },
-  "modelsBottomBar.allAgentsFollowCurrent": {
-    "defaultMessage": "所有 Agent 跟随当前模型"
-  },
-  "modelsBottomBar.changeModel": {
-    "defaultMessage": "切换模型"
-  },
-  "modelsBottomBar.closeLocalModelSettings": {
-    "defaultMessage": "关闭本地模型设置"
-  },
-  "modelsBottomBar.configureAgentModels": {
-    "defaultMessage": "配置 Agent 模型"
-  },
-  "modelsBottomBar.currentModel": {
-    "defaultMessage": "当前模型"
-  },
-  "modelsBottomBar.independentAgentModels": {
-    "defaultMessage": "分析、编码、测试和审查可使用不同模型"
-  },
   "modelsBottomBar.loadingModel": {
     "defaultMessage": "正在加载模型…"
-  },
-  "modelsBottomBar.localModelSettings": {
-    "defaultMessage": "本地模型设置"
-  },
-  "modelsBottomBar.localModelSettingsTitle": {
-    "defaultMessage": "本地模型设置 — {modelName}"
-  },
-  "modelsBottomBar.resolvedModel": {
-    "defaultMessage": "解析后的模型"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "选择模型"
@@ -4990,9 +4948,6 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "我们采集的内容："
-  },
-  "progressiveMessageList.failedOperations": {
-    "defaultMessage": "{count} 项操作未成功"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "加载更早消息（剩余 {remaining} 条）"
@@ -7412,9 +7367,6 @@
   "themeSelector.theme": {
     "defaultMessage": "主题"
   },
-  "thinkingContent.latest": {
-    "defaultMessage": "回到最新"
-  },
   "thinkingContent.thinking": {
     "defaultMessage": "深度思考"
   },
@@ -8510,13 +8462,154 @@
   "subagentTemplates.retry": {
     "defaultMessage": "重试"
   },
-  "modelsBottomBar.templateModels": {
-    "defaultMessage": "子 Agent 使用各自模板的模型设置"
-  },
   "modelsAndRuntime.auxiliaryVision": {
     "defaultMessage": "辅助视觉设置"
   },
   "codeProModels.saveVision": {
     "defaultMessage": "保存视觉设置"
+  },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "相关文件"
+  },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "在默认应用中打开"
+  },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "此文档可在对应应用中打开。"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "请重启 CodeBuddy，以使用文件打开功能。"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "未成功"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "无"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "极低"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "开启"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "超高"
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "高"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "中"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "思考强度保存失败，请重试。"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "低"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "极致"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "思考强度"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "模型切换失败，请重试。"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "重试"
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "管理模型连接"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "正在切换模型…"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "模型列表加载失败。"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "暂无已配置模型"
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google 的开放模型，面向推理、编程和多模态理解。"
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "Gemma 4 的自定义量化版本，具体能力以当前部署为准。"
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA 的专家混合模型，面向复杂多 Agent 任务与高效推理。"
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA 的高吞吐推理模型，面向持续运行的 Agent 工作流。"
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare 的多模态模型，侧重根据状态与结构化问题作出决策。"
+  },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection 的开放模型，面向编程、工具使用与高效推理。"
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "智谱的旗舰模型，面向需要持续推进的长程任务。"
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "智谱的开放权重旗舰模型，面向编程与长程 Agent 任务。"
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "智谱的原生多模态模型，面向编程与 Agent 任务。"
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax 的多模态模型，面向编程与 Agent 工作流。"
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral 的开放权重多模态模型，覆盖通用理解与生成任务。"
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek 的高吞吐模型，侧重推理速度与执行效率。"
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "开放多模态模型，面向编程、复杂软件工程与多步推理。"
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "月之暗面的编程模型，侧重真实场景中的长程代码任务。"
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi 的开放权重原生多模态模型，面向 Agent 任务。"
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA 的轻量开放模型，侧重高效 Agent 工作流。"
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek 的专家混合模型，面向复杂推理与长上下文任务。"
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI 的开放权重模型，面向推理、Agent 与开发者任务。"
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral 的多模态专家混合模型，面向生产与企业任务。"
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi 的开放多模态模型，面向长程编程与多 Agent 协作。"
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax 的编程与办公模型，面向 Agent 工作流和专业生产任务。"
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "由 {provider} 提供的自定义模型。"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "正在读取…"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "读取未成功"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "上下文窗口"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "未提供"
+  },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "当前预算；模型容量未确认"
   }
 }

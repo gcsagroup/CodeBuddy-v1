@@ -2018,9 +2018,6 @@
   "customProviderForm.reasoning": {
     "defaultMessage": "推理"
   },
-  "customProviderForm.recommended": {
-    "defaultMessage": "建議"
-  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "此供應商需要 API 金鑰"
   },
@@ -4616,23 +4613,8 @@
   "onboardingGuard.configureModel": {
     "defaultMessage": "進入設定"
   },
-  "onboardingGuard.emptyModels": {
-    "defaultMessage": "服務未傳回任何模型。請聯絡服務管理員提供可用模型，然後重試。"
-  },
-  "onboardingGuard.multipleModels": {
-    "defaultMessage": "服務傳回了多個模型，請進入設定選擇要使用的預設模型。"
-  },
   "onboardingGuard.retry": {
     "defaultMessage": "重試"
-  },
-  "onboardingGuard.setupFailed": {
-    "defaultMessage": "預設模型尚未設定完成"
-  },
-  "onboardingGuard.setupTimeout": {
-    "defaultMessage": "模型設定逾時，請檢查服務連線後重試。"
-  },
-  "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "請進入設定選擇預設模型；若服務暫時無法使用，也可以稍後重試。"
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "一切就緒，您可以開始使用 CodeBuddy 了。"
@@ -8611,5 +8593,11 @@
   },
   "thinkingEffortPicker.budget": {
     "defaultMessage": "目前預算；模型容量未確認"
+  },
+  "onboardingGuard.configureDescription": {
+    "defaultMessage": "請先在設定中新增模型連線，再到對話欄選擇模型。"
+  },
+  "onboardingGuard.configureTitle": {
+    "defaultMessage": "連接模型後開始使用"
   }
 }

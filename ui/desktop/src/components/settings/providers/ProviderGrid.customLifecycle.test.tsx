@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../../i18n/test-utils';
@@ -82,9 +82,15 @@ describe('ProviderGrid custom provider lifecycle', () => {
     providerApi.remove.mockResolvedValue({});
   });
 
-  it('updates an edited connection without requiring a separate retest and opens model selection', async () => {
+  it('waits for the saved card inventory before closing, without opening model selection', async () => {
     const user = userEvent.setup();
-    const refreshProviders = vi.fn();
+    let finishRefresh!: () => void;
+    const refreshProviders = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        })
+    );
     render(
       <ProviderGrid
         providers={[customProvider]}
@@ -111,28 +117,42 @@ describe('ProviderGrid custom provider lifecycle', () => {
       })
     );
     expect(refreshProviders).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText('Choose model for custom_office_local')).toBeInTheDocument();
-    expect(screen.getByText('Choose model for custom_office_local')).toHaveAttribute(
-      'data-initial-model',
-      'qwen3:8b'
-    );
+    expect(screen.getByText('Edit Provider')).toBeInTheDocument();
+    await act(async () => finishRefresh());
+    await waitFor(() => expect(screen.queryByText('Edit Provider')).not.toBeInTheDocument());
+    expect(screen.queryByText('Choose model for custom_office_local')).not.toBeInTheDocument();
   });
 
-  it('passes the model verified during creation to the activation dialog', async () => {
+  it('saves the verified model and closes configuration without another model dialog', async () => {
     providerApi.discover.mockResolvedValue(['gemini-3.6-flash', 'ollama-dev']);
     providerApi.create.mockResolvedValue({ provider_name: 'custom_new_gateway' });
     const user = userEvent.setup();
-    render(<ProviderGrid providers={[]} isOnboarding={false} compactConnectionSetup />, {
-      wrapper: IntlTestWrapper,
-    });
+    const refreshProviders = vi.fn();
+    render(
+      <ProviderGrid
+        providers={[]}
+        isOnboarding={false}
+        compactConnectionSetup
+        refreshProviders={refreshProviders}
+      />,
+      {
+        wrapper: IntlTestWrapper,
+      }
+    );
     await user.click(screen.getByTestId('add-custom-provider-card'));
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     await user.selectOptions(await screen.findByLabelText('Discovered models'), 'ollama-dev');
     await user.click(screen.getByRole('button', { name: 'Create Provider' }));
-    expect(await screen.findByText('Choose model for custom_new_gateway')).toHaveAttribute(
-      'data-initial-model',
-      'ollama-dev'
+    expect(providerApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        models: ['ollama-dev', 'gemini-3.6-flash'],
+      })
     );
+    expect(refreshProviders).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Create Provider' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Choose model for custom_new_gateway')).not.toBeInTheDocument();
   });
 
   it('deletes an inactive custom connection after the explicit confirmation', async () => {

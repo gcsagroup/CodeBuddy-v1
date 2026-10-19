@@ -260,10 +260,6 @@ const i18n = defineMessages({
     id: 'customProviderForm.customOpenAiEndpoint',
     defaultMessage: 'Custom OpenAI endpoint',
   },
-  recommended: {
-    id: 'customProviderForm.recommended',
-    defaultMessage: 'Recommended',
-  },
   invalidCredentials: {
     id: 'customProviderForm.invalidCredentials',
     defaultMessage: 'The API key was rejected. Check it and try again.',
@@ -326,12 +322,12 @@ type CompactProviderPreset = {
 
 const COMPACT_PROVIDER_PRESETS: CompactProviderPreset[] = [
   {
-    id: 'codebuddy_lan',
-    label: 'CodeBuddy LAN',
+    id: 'custom_openai',
+    label: 'OpenAI-compatible API',
     engine: 'openai_compatible',
-    displayName: 'CodeBuddy LAN',
-    apiUrl: 'http://192.168.9.120:8001',
-    requiresAuth: false,
+    displayName: '',
+    apiUrl: '',
+    requiresAuth: true,
   },
   {
     id: 'local_ollama',
@@ -387,14 +383,6 @@ const COMPACT_PROVIDER_PRESETS: CompactProviderPreset[] = [
     engine: 'openai_compatible',
     displayName: 'Alibaba Cloud Model Studio',
     apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    requiresAuth: true,
-  },
-  {
-    id: 'custom_openai',
-    label: 'OpenAI-compatible API',
-    engine: 'openai_compatible',
-    displayName: '',
-    apiUrl: '',
     requiresAuth: true,
   },
 ];
@@ -888,11 +876,6 @@ export default function CustomProviderForm({
             <span aria-hidden="true" className="text-red-500 ml-1">
               *
             </span>
-            {compactSetup && compactPresetId === DEFAULT_COMPACT_PROVIDER_PRESET.id && (
-              <span className="ml-2 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-normal text-blue-600">
-                {intl.formatMessage(i18n.recommended)}
-              </span>
-            )}
           </label>
           <Select
             inputId="provider-select"

@@ -31,6 +31,14 @@ export default function ModelsSection({
   const loadModelData = useCallback(async () => {
     try {
       setIsLoading(true);
+      const { providerId: gooseProvider, modelId } = await acpReadDefaults();
+      if (!gooseProvider || !modelId) {
+        // An added connection need not be selected yet. This is the normal
+        // first-run state, not an unknown provider or a broken configuration.
+        setDisplayModelName(intl.formatMessage(modelAndProviderMessages.selectModel));
+        setProvider(null);
+        return;
+      }
 
       // Get display name (alias if available, otherwise model name)
       const modelDisplayName = await getCurrentModelDisplayName();
@@ -42,7 +50,6 @@ export default function ModelsSection({
         setProvider(providerDisplayName);
       } else {
         // Fallback to original provider lookup
-        const { providerId: gooseProvider } = await acpReadDefaults();
         const providers = await acpListProviderDetails();
         const providerDetailsList = providers.filter((provider) => provider.name === gooseProvider);
 

@@ -2033,9 +2033,6 @@
   "customProviderForm.reasoning": {
     "defaultMessage": "Reasoning"
   },
-  "customProviderForm.recommended": {
-    "defaultMessage": "Recommended"
-  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "This provider requires an API key"
   },
@@ -4727,26 +4724,17 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "Unable to connect to CodeBuddy server"
   },
+  "onboardingGuard.configureDescription": {
+    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
+  },
   "onboardingGuard.configureModel": {
     "defaultMessage": "Open model settings"
   },
-  "onboardingGuard.emptyModels": {
-    "defaultMessage": "The service returned no models. Ask the service administrator to make a model available, then retry."
-  },
-  "onboardingGuard.multipleModels": {
-    "defaultMessage": "The service returned multiple models. Choose a default model in settings."
+  "onboardingGuard.configureTitle": {
+    "defaultMessage": "Connect a model to get started"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "Retry"
-  },
-  "onboardingGuard.setupFailed": {
-    "defaultMessage": "Default model setup is not complete"
-  },
-  "onboardingGuard.setupTimeout": {
-    "defaultMessage": "Model setup timed out. Check the service connection and retry."
-  },
-  "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "Open model settings to choose a default model, or retry if the service is temporarily unavailable."
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "You're all set to start using CodeBuddy."

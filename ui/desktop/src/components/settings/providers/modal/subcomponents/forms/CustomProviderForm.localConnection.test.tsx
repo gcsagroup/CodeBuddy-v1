@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../../../../../i18n/test-utils';
 import CustomProviderForm from './CustomProviderForm';
 
+async function chooseLocal(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+  await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
+}
+
 describe('CustomProviderForm local connection setup', () => {
   it('keeps the catalog after a selected model fails and allows saving another model', async () => {
     const user = userEvent.setup();
@@ -23,6 +28,7 @@ describe('CustomProviderForm local connection setup', () => {
       />,
       { wrapper: IntlTestWrapper }
     );
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Models loaded. The selected model will be verified when you save.'
@@ -57,18 +63,18 @@ describe('CustomProviderForm local connection setup', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    expect(screen.getByText('CodeBuddy LAN')).toBeInTheDocument();
+    expect(screen.getByText('OpenAI-compatible API')).toBeInTheDocument();
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
     expect(await screen.findByText('DeepSeek')).toBeInTheDocument();
     expect(screen.getByText('SiliconFlow')).toBeInTheDocument();
     expect(screen.getByText('Kimi / Moonshot')).toBeInTheDocument();
     expect(screen.getByText('Zhipu AI')).toBeInTheDocument();
     expect(screen.getByText('Alibaba Cloud Model Studio')).toBeInTheDocument();
-    expect(await screen.findByText('OpenAI-compatible API')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'OpenAI-compatible API' })).toBeInTheDocument();
     expect(screen.getByText('Local Ollama')).toBeInTheDocument();
   });
 
-  it('starts with the default LAN endpoint and discovers models before save', async () => {
+  it('starts without a URL or key and only discovers a connection the user chooses', async () => {
     const discoverModels = vi.fn().mockResolvedValue(['qwen3-coder', 'deepseek-r1']);
     const user = userEvent.setup();
 
@@ -85,20 +91,20 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     expect(screen.queryByText('Start from a provider template')).not.toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'API URL' })).toHaveValue(
-      'http://192.168.9.120:8001'
-    );
-    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('CodeBuddy LAN');
-    expect(screen.getByText('CodeBuddy LAN')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'API URL' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('');
+    expect(screen.getByLabelText(/^API Key/)).toHaveValue('');
+    expect(discoverModels).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('Available Models (comma-separated)')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
 
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
 
     expect(discoverModels).toHaveBeenCalledWith(
       expect.objectContaining({
-        engine: 'openai_compatible',
-        api_url: 'http://192.168.9.120:8001',
+        engine: 'ollama_compatible',
+        api_url: 'http://127.0.0.1:11434',
       })
     );
     expect(await screen.findByRole('option', { name: 'qwen3-coder' })).toBeInTheDocument();
@@ -126,6 +132,7 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'Offline local model');
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('offline');
@@ -149,6 +156,7 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'My local model');
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     await user.selectOptions(await screen.findByLabelText('Discovered models'), 'beta-model');
     await user.click(screen.getByRole('button', { name: 'Create Provider' }));
@@ -180,6 +188,7 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'My local model');
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     const createButton = screen.getByRole('button', { name: 'Create Provider' });
     const form = createButton.closest('form');
@@ -268,7 +277,7 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
-    await user.click(await screen.findByText('OpenAI-compatible API'));
+    await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
     expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('');
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'Remote test');
     await user.type(screen.getByRole('textbox', { name: 'API URL' }), 'https://example.test');
@@ -296,6 +305,7 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'My local model');
+    await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     expect(screen.getByRole('button', { name: 'Create Provider' })).toBeEnabled();
     await user.type(screen.getByRole('textbox', { name: 'API URL' }), '/changed');
@@ -317,10 +327,11 @@ describe('CustomProviderForm local connection setup', () => {
     );
 
     const displayName = screen.getByRole('textbox', { name: 'Display Name' });
-    expect(displayName).toHaveValue('CodeBuddy LAN');
+    await chooseLocal(user);
+    expect(displayName).toHaveValue('Local Ollama');
     await user.type(displayName, 'temporary name');
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
-    await user.click(await screen.findByText('OpenAI-compatible API'));
+    await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
     expect(displayName).toHaveValue('');
   });
 });

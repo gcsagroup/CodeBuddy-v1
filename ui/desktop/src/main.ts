@@ -81,11 +81,7 @@ const harnessPackaged = app.isPackaged;
 // This product has one Agent runtime. Development must use start-preview.ps1.
 if (harnessPackaged) {
   if (!process.env.CODEBUDDY_HOME) {
-    process.env.CODEBUDDY_HOME = resolvePackagedCodeBuddyHome(os.homedir(), (error) => {
-      log.warn('Profile directory rename deferred', {
-        code: error instanceof Error && 'code' in error ? error.code : undefined,
-      });
-    });
+    process.env.CODEBUDDY_HOME = resolvePackagedCodeBuddyHome(os.homedir());
   }
   process.env.CODEBUDDY_WORKSPACE_ROOT ||= path.join(os.homedir(), 'CodeBuddy-Workspace');
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';

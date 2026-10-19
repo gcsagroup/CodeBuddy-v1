@@ -1,213 +1,124 @@
 import { StrictMode } from 'react';
-import { IntlProvider } from 'react-intl';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAcpClient } from '../../acp/acpConnection';
 import {
+  acpListProviderDetails as list,
   acpCreateCustomProviderFromRequest as create,
   acpDiscoverCustomProviderModels as discover,
   acpSaveDefaults as save,
 } from '../../acp/providers';
-import zhMessages from '../../i18n/compiled/zh-CN.json';
+import type { ProviderDetails } from '../../types/providers';
+import { IntlTestWrapper } from '../../i18n/test-utils';
 import OnboardingGuard from './OnboardingGuard';
-const refresh = vi.fn();
-const read = vi.fn();
+
 const configure = vi.fn();
-vi.mock('../ModelAndProviderContext', () => ({
-  useModelAndProvider: () => ({ refreshCurrentModelAndProvider: refresh }),
-}));
-vi.mock('../../acp/acpConnection', () => ({ getAcpClient: vi.fn() }));
 vi.mock('../../acp/providers', () => ({
+  acpListProviderDetails: vi.fn(),
   acpCreateCustomProviderFromRequest: vi.fn(),
   acpDiscoverCustomProviderModels: vi.fn(),
   acpSaveDefaults: vi.fn(),
 }));
-function guard({ requireModel = true } = {}) {
+const connection: ProviderDetails = {
+  name: 'custom_user',
+  is_configured: true,
+  provider_type: 'Custom',
+  metadata: {
+    name: 'custom_user',
+    display_name: 'My models',
+    description: '',
+    default_model: 'model-a',
+    model_doc_link: '',
+    known_models: [{ name: 'model-a', context_limit: 0 }],
+    config_keys: [],
+    setup_steps: [],
+  },
+};
+function guard(requireModel = true) {
   return (
     <StrictMode>
-      <IntlProvider locale="zh-CN" messages={zhMessages}>
+      <IntlTestWrapper>
         <OnboardingGuard onConfigure={configure} requireModel={requireModel}>
           <div>chat</div>
         </OnboardingGuard>
-      </IntlProvider>
+      </IntlTestWrapper>
     </StrictMode>
   );
 }
-function show(options = {}) {
-  return render(guard(options));
-}
-describe('OnboardingGuard', () => {
+
+describe('manual model onboarding', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(getAcpClient).mockResolvedValue({
-      goose: { defaultsRead_unstable: read },
-    } as unknown as Awaited<ReturnType<typeof getAcpClient>>);
-    read.mockResolvedValue({ providerId: null, modelId: null });
-    vi.mocked(discover).mockResolvedValue([' only-model ', 'only-model']);
-    vi.mocked(create).mockResolvedValue({ provider_name: 'custom_lan' });
-    vi.mocked(save).mockResolvedValue(undefined);
-    refresh.mockResolvedValue(undefined);
+    vi.mocked(list).mockResolvedValue([]);
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-  it('waits for persistence and context refresh and creates once under StrictMode', async () => {
-    let finish!: () => void;
-    refresh.mockReturnValue(
-      new Promise<void>((resolve) => {
-        finish = resolve;
-      })
-    );
-    show();
-    expect(screen.getByRole('status')).toHaveTextContent('正在加载提供商');
-    await act(async () => {});
+  afterEach(() => vi.restoreAllMocks());
+
+  it('keeps a fresh installation empty and opens settings only at the user request', async () => {
+    render(guard());
+    expect(await screen.findByText('Connect a model to get started')).toBeInTheDocument();
     expect(screen.queryByText('chat')).not.toBeInTheDocument();
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(save).toHaveBeenCalledWith('custom_lan', 'only-model');
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        api_url: 'http://192.168.9.120:8001',
-        requires_auth: false,
-        api_key: '',
-        models: ['only-model'],
-      })
-    );
-    await act(async () => finish());
-    expect(screen.getByText('chat')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
+    expect(discover).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(configure).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Open model settings' }));
+    expect(configure).toHaveBeenCalledOnce();
   });
-  it.each([
-    { providerId: 'existing', modelId: 'chosen' },
-    { providerId: 'existing', modelId: null },
-    { providerId: null, modelId: 'chosen' },
-  ])('preserves user defaults %j', async (defaults) => {
-    read.mockResolvedValue(defaults);
-    show();
+
+  it('allows a saved connection without choosing a global default model first', async () => {
+    vi.mocked(list).mockResolvedValue([connection]);
+    render(guard());
     expect(await screen.findByText('chat')).toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a connection missing required credentials as configured', async () => {
+    vi.mocked(list).mockResolvedValue([{ ...connection, is_configured: false }]);
+    render(guard());
+    expect(await screen.findByText('Connect a model to get started')).toBeInTheDocument();
+    expect(screen.queryByText('chat')).not.toBeInTheDocument();
+  });
+
+  it('retries an inventory failure without creating a default connection', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('offline')).mockResolvedValue([connection]);
+    render(guard());
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('chat')).toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(2);
     expect(discover).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
   });
-  it('recovers from offline failure using Retry', async () => {
-    vi.mocked(discover).mockRejectedValueOnce(new Error('offline'));
-    show();
-    fireEvent.click(await screen.findByRole('button', { name: '重试' }));
-    expect(await screen.findByText('chat')).toBeInTheDocument();
-    expect(save).toHaveBeenCalledTimes(1);
-  });
-  it('offers configuration after setup fails without requiring another retry', async () => {
-    vi.mocked(discover).mockRejectedValue(new Error('offline'));
-    show();
-    await screen.findByRole('button', { name: '重试' });
-    fireEvent.click(screen.getByRole('button', { name: '进入配置' }));
-    expect(configure).toHaveBeenCalledOnce();
-    expect(discover).toHaveBeenCalledTimes(1);
-    expect(save).not.toHaveBeenCalled();
-  });
-  it('allows configuration while automatic discovery is still pending', async () => {
-    let finish!: (models: string[]) => void;
-    vi.mocked(discover).mockReturnValue(
+
+  it('keeps settings reachable while a single StrictMode inventory request is pending', async () => {
+    let finish!: (providers: ProviderDetails[]) => void;
+    vi.mocked(list).mockReturnValue(
       new Promise((resolve) => {
         finish = resolve;
       })
     );
-    show();
-    await act(async () => {});
-    fireEvent.click(screen.getByRole('button', { name: '进入配置' }));
+    const view = render(guard());
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open model settings' }));
     expect(configure).toHaveBeenCalledOnce();
+    expect(list).toHaveBeenCalledTimes(1);
+    view.rerender(guard(false));
+    expect(screen.getByText('chat')).toBeInTheDocument();
     await act(async () => finish([]));
-  });
-  it('does not gate settings on a configured model or contact the automatic endpoint', async () => {
-    show({ requireModel: false });
     expect(screen.getByText('chat')).toBeInTheDocument();
-    expect(read).not.toHaveBeenCalled();
-    expect(discover).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
   });
-  it('uses the saved manual model when returning from settings', async () => {
-    vi.mocked(discover).mockRejectedValue(new Error('offline'));
-    const view = show();
-    fireEvent.click(await screen.findByRole('button', { name: '进入配置' }));
-    view.rerender(guard({ requireModel: false }));
+
+  it('does not check settings, and refreshes connections when returning to chat', async () => {
+    const view = render(guard(false));
     expect(screen.getByText('chat')).toBeInTheDocument();
-    read.mockResolvedValue({ providerId: 'manual-provider', modelId: 'selected-model' });
+    expect(list).not.toHaveBeenCalled();
+    view.rerender(guard());
+    await screen.findByText('Connect a model to get started');
+    view.rerender(guard(false));
+    vi.mocked(list).mockResolvedValue([connection]);
     view.rerender(guard());
     expect(await screen.findByText('chat')).toBeInTheDocument();
-    expect(read).toHaveBeenCalled();
-    expect(discover).toHaveBeenCalledTimes(1);
-    expect(save).not.toHaveBeenCalled();
-  });
-  it.each([{ models: [] }, { models: [' ', ''] }, { models: ['one', 'two'] }])(
-    'rejects ambiguous or empty models %j',
-    async ({ models }) => {
-      vi.mocked(discover).mockResolvedValue(models);
-      show();
-      expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument();
-      expect(screen.getByText('http://192.168.9.120:8001')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          models.length === 2 && models[0] === 'one'
-            ? '服务返回了多个模型，请进入配置选择要使用的默认模型。'
-            : '服务未返回任何模型。请联系服务管理员提供可用模型，然后重试。'
-        )
-      ).toBeInTheDocument();
-      expect(screen.queryByText('chat')).not.toBeInTheDocument();
-      expect(create).not.toHaveBeenCalled();
-    }
-  );
-  it('bounds stalled discovery and ignores late results', async () => {
-    vi.useFakeTimers();
-    let finish!: (models: string[]) => void;
-    vi.mocked(discover).mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-    );
-    show();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_001);
-    });
-    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
-    await act(async () => finish(['late']));
-    expect(create).not.toHaveBeenCalled();
-  });
-  it('preserves defaults changed during discovery', async () => {
-    read
-      .mockResolvedValueOnce({ providerId: null, modelId: null })
-      .mockResolvedValue({ providerId: 'user', modelId: 'choice' });
-    show();
-    expect(await screen.findByText('chat')).toBeInTheDocument();
-    expect(create).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
-  });
-  it('allows retry after persistence fails', async () => {
-    vi.mocked(save).mockRejectedValueOnce(new Error('disk'));
-    show();
-    fireEvent.click(await screen.findByRole('button', { name: '重试' }));
-    expect(await screen.findByText('chat')).toBeInTheDocument();
-    expect(save).toHaveBeenCalledTimes(2);
-  });
-  it('does not write defaults when provider creation fails', async () => {
-    vi.mocked(create).mockRejectedValue(new Error('provider unavailable'));
-    show();
-    expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument();
-    expect(save).not.toHaveBeenCalled();
-  });
-  it('does not treat unreadable user defaults as a fresh install', async () => {
-    read.mockRejectedValue(new Error('config unreadable'));
-    show();
-    expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument();
-    expect(discover).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
-  });
-  it('preserves a user choice made while the provider is being created', async () => {
-    read
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
-      .mockResolvedValue({ providerId: 'user', modelId: 'choice' });
-    show();
-    expect(await screen.findByText('chat')).toBeInTheDocument();
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(save).not.toHaveBeenCalled();
+    expect(list).toHaveBeenCalledTimes(2);
   });
 });

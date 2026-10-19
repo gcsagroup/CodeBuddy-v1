@@ -14,7 +14,7 @@
 
 CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.5`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-frontend-merge.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
 
-Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。模型、历史及设置保存在 `.preview-data`，日志位于 `.preview-data/logs/preview`。安装版默认数据目录为 `~/.CodeBuddy`；旧目录 `~/.CodeBuddy-Harness` 仅在目标不存在时原样更名。如果目标已存在或旧目录被占用，则继续使用旧目录，不自动合并、覆盖已有数据。新任务可使用默认工作区，也可选择现有项目。
+Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。模型、历史及设置保存在 `.preview-data`，日志位于 `.preview-data/logs/preview`。安装版默认数据目录为 `~/.CodeBuddy`，不自动导入预览版或旧目录 `~/.CodeBuddy-Harness`；旧数据保持原样。首次启动由用户添加模型连接，不自动创建内网连接；以后启动保留本安装版已经保存的配置。新任务可使用默认工作区，也可选择现有项目。
 
 Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊天数据、运行载荷和构建产物。首次克隆需要准备开发依赖及独立工具，详见下文。
 

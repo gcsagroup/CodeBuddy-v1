@@ -193,14 +193,11 @@ function ProviderCards({
       if (!editingProvider) return;
 
       await acpUpdateCustomProviderFromRequest(editingProvider.id, data);
-      const providerId = editingProvider.id;
+      if (refreshProviders) {
+        await refreshProviders();
+      }
       setShowCustomProviderModal(false);
       setEditingProvider(null);
-      if (refreshProviders) {
-        refreshProviders();
-      }
-      setSwitchModelSelection({ provider: providerId, model: data.models[0] });
-      setShowSwitchModelModal(true);
     },
     [editingProvider, refreshProviders]
   );
@@ -230,17 +227,12 @@ function ProviderCards({
     }
   }, [refreshProviders]);
 
-  const onProviderConfigured = useCallback(
-    async (provider: ProviderDetails) => {
-      setConfiguringProvider(null);
-      if (refreshProviders) {
-        await refreshProviders();
-      }
-      setSwitchModelSelection({ provider: provider.name });
-      setShowSwitchModelModal(true);
-    },
-    [refreshProviders]
-  );
+  const onProviderConfigured = useCallback(async () => {
+    if (refreshProviders) {
+      await refreshProviders();
+    }
+    setConfiguringProvider(null);
+  }, [refreshProviders]);
 
   const onCloseSwitchModelModal = useCallback(() => {
     setShowSwitchModelModal(false);
@@ -258,14 +250,11 @@ function ProviderCards({
 
   const handleCreateCustomProvider = useCallback(
     async (data: UpdateCustomProviderRequest) => {
-      const result = await acpCreateCustomProviderFromRequest(data);
-      const providerId = result.provider_name;
-      setShowCustomProviderModal(false);
+      await acpCreateCustomProviderFromRequest(data);
       if (refreshProviders) {
         await refreshProviders();
       }
-      setSwitchModelSelection({ provider: providerId, model: data.models[0] });
-      setShowSwitchModelModal(true);
+      setShowCustomProviderModal(false);
     },
     [refreshProviders]
   );

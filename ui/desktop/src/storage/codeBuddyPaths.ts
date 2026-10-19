@@ -1,26 +1,10 @@
 import { join, posix, win32 } from 'node:path';
-import { existsSync, lstatSync, realpathSync, renameSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 
-export function resolvePackagedCodeBuddyHome(
-  userHome: string,
-  onRenameDeferred?: (error: unknown) => void
-): string {
-  const home = realpathSync(userHome);
-  const profile = join(home, '.CodeBuddy');
-  const previousProfile = join(home, '.CodeBuddy-Harness');
-  if (!existsSync(profile) && existsSync(previousProfile)) {
-    const previous = lstatSync(previousProfile);
-    if (previous.isDirectory() && !previous.isSymbolicLink()) {
-      try {
-        renameSync(previousProfile, profile);
-      } catch (error) {
-        // A running copy may hold this directory. Keep its data usable and retry
-        // on a later launch instead of starting empty or merging two profiles.
-        onRenameDeferred?.(error);
-      }
-    }
-  }
-  return existsSync(previousProfile) ? previousProfile : profile;
+export function resolvePackagedCodeBuddyHome(userHome: string): string {
+  // Preview and previous installers must not silently supply model connections.
+  // Reopening this installation still retains its own saved configuration.
+  return join(realpathSync(userHome), '.CodeBuddy');
 }
 
 export const CURRENT_STORAGE_LAYOUT_VERSION = 1;

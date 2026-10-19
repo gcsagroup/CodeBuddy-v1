@@ -1,37 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useModelAndProvider } from '../ModelAndProviderContext';
-import {
-  DEFAULT_LAN_PROVIDER,
-  DefaultLanSetupError,
-  ensureDefaultLanProvider,
-} from './defaultLanProvider';
+import { useEffect, useRef, useState } from 'react';
+import { acpListProviderDetails } from '../../acp/providers';
 import { CodeBuddyMark } from '../CodeBuddyMark';
 import { Button } from '../ui/button';
 import { defineMessages, useIntl } from '../../i18n';
 import { LoaderCircle } from 'lucide-react';
 
 const i18n = defineMessages({
-  setupFailed: {
-    id: 'onboardingGuard.setupFailed',
-    defaultMessage: 'Default model setup is not complete',
+  configureTitle: {
+    id: 'onboardingGuard.configureTitle',
+    defaultMessage: 'Connect a model to get started',
   },
-  setupUnavailable: {
-    id: 'onboardingGuard.setupUnavailable',
-    defaultMessage:
-      'Open model settings to choose a default model, or retry if the service is temporarily unavailable.',
-  },
-  empty: {
-    id: 'onboardingGuard.emptyModels',
-    defaultMessage:
-      'The service returned no models. Ask the service administrator to make a model available, then retry.',
-  },
-  multiple: {
-    id: 'onboardingGuard.multipleModels',
-    defaultMessage: 'The service returned multiple models. Choose a default model in settings.',
-  },
-  timeout: {
-    id: 'onboardingGuard.setupTimeout',
-    defaultMessage: 'Model setup timed out. Check the service connection and retry.',
+  configureDescription: {
+    id: 'onboardingGuard.configureDescription',
+    defaultMessage: 'Add your model provider in settings, then choose a model in the chat.',
   },
   checkProviderErrorTitle: {
     id: 'onboardingGuard.checkProviderErrorTitle',
@@ -67,40 +48,43 @@ export default function OnboardingGuard({
   requireModel = true,
 }: OnboardingGuardProps) {
   const intl = useIntl();
-  const { refreshCurrentModelAndProvider } = useModelAndProvider();
-  const pending = useRef<Promise<void> | null>(null);
-  const [isCheckingProvider, setIsCheckingProvider] = useState(true);
-  const [checkProviderError, setCheckProviderError] = useState(false);
-  const [errorReason, setErrorReason] = useState<'empty' | 'multiple' | 'timeout' | null>(null);
-
-  const checkProvider = useCallback(async () => {
-    setIsCheckingProvider(true);
-    setCheckProviderError(false);
-    setErrorReason(null);
-    try {
-      pending.current ??= ensureDefaultLanProvider().finally(() => {
-        pending.current = null;
-      });
-      await pending.current;
-      await refreshCurrentModelAndProvider();
-      setIsCheckingProvider(false);
-      return;
-    } catch (error) {
-      setErrorReason(error instanceof DefaultLanSetupError ? error.reason : null);
-      console.error('Failed to initialize default model:', error);
-    }
-    setCheckProviderError(true);
-    setIsCheckingProvider(false);
-  }, [refreshCurrentModelAndProvider]);
+  const pending = useRef<Promise<boolean> | null>(null);
+  const [checkState, setCheckState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (requireModel) void checkProvider();
-  }, [checkProvider, requireModel]);
+    if (!requireModel) return;
+    let cancelled = false;
+    setCheckState('loading');
+    // The runtime owns configured connections. Opening the app only reads them;
+    // model selection belongs to the chat, so defaults need not be set yet.
+    pending.current ??= acpListProviderDetails()
+      .then((providers) =>
+        providers.some(
+          (provider) => provider.is_configured && provider.metadata.known_models.length > 0
+        )
+      )
+      .finally(() => {
+        pending.current = null;
+      });
+    pending.current.then(
+      (configured) => {
+        if (!cancelled) setCheckState(configured ? 'ready' : 'empty');
+      },
+      (error) => {
+        console.error('Failed to read model connections:', error);
+        if (!cancelled) setCheckState('error');
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [requireModel, attempt]);
 
-  // Settings must remain reachable to repair the configuration this guard checks.
-  if (!requireModel) return <>{children}</>;
+  // Settings must remain reachable even if the connection inventory cannot load.
+  if (!requireModel || checkState === 'ready') return <>{children}</>;
 
-  if (isCheckingProvider) {
+  if (checkState === 'loading') {
     return (
       <div
         role="status"
@@ -119,28 +103,30 @@ export default function OnboardingGuard({
     );
   }
 
-  if (checkProviderError) {
-    return (
-      <div className="h-screen w-full bg-background-default flex flex-col items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="mb-4">
-            <CodeBuddyMark className="size-8 mx-auto" />
-          </div>
-          <h1 className="text-xl font-light mb-3">{intl.formatMessage(i18n.setupFailed)}</h1>
-          <p className="text-text-muted mb-6">
-            {intl.formatMessage(errorReason ? i18n[errorReason] : i18n.setupUnavailable)}
-          </p>
-          <p className="text-text-muted mb-6">{DEFAULT_LAN_PROVIDER.api_url}</p>
-          <div className="flex justify-center gap-3">
-            <Button onClick={onConfigure}>{intl.formatMessage(i18n.configureModel)}</Button>
-            <Button variant="outline" onClick={() => void checkProvider()}>
+  const failed = checkState === 'error';
+  return (
+    <div className="h-screen w-full bg-background-default flex flex-col items-center justify-center">
+      <div className="text-center max-w-md">
+        <div className="mb-4">
+          <CodeBuddyMark className="size-8 mx-auto" />
+        </div>
+        <h1 className="text-xl font-light mb-3">
+          {intl.formatMessage(failed ? i18n.checkProviderErrorTitle : i18n.configureTitle)}
+        </h1>
+        <p className="text-text-muted mb-6">
+          {intl.formatMessage(
+            failed ? i18n.checkProviderErrorDescription : i18n.configureDescription
+          )}
+        </p>
+        <div className="flex justify-center gap-3">
+          <Button onClick={onConfigure}>{intl.formatMessage(i18n.configureModel)}</Button>
+          {failed && (
+            <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
               {intl.formatMessage(i18n.retry)}
             </Button>
-          </div>
+          )}
         </div>
       </div>
-    );
-  }
-
-  return <>{children}</>;
+    </div>
+  );
 }

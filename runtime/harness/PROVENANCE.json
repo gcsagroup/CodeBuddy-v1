@@ -22,5 +22,17 @@
     "platform": "Windows",
     "model": "controlled loopback HTTP fixture; no user endpoint or credentials read",
     "testCommand": "node --test test/driver.test.mjs"
+  },
+  "compatibilityPatches": {
+    "subagentReturnContract": {
+      "adapter": "subagent-return-contract.mjs",
+      "version": "0.2.1-alpha.2",
+      "scope": "In-memory replacement of the child bootstrap and delegation-tool wording only. Native final delivery, optional send_message, lifecycle, permissions and persisted histories remain upstream-owned.",
+      "sourceSha256": {
+        "@deepseek-ai/dsh-subagent/lib/index.js": "09da454106ce761ac44137366a03c9fbe485a4d21f23d1aa117b2e38f82150fa",
+        "@deepseek-ai/dsh-tool-subagent/lib/index.js": "a155eac1e9acc532d43899e31915d6f7c856c6cf30fd34a327b2295643773526"
+      },
+      "removal": "Remove on an upstream automatic-final-report contract; dependency upgrades must re-review these exact pinned sources."
+    }
   }
 }

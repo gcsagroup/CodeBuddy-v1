@@ -1,3 +1,5 @@
+// Keep this before DSH plugin imports: the pinned contract must load once.
+import './subagent-return-contract.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

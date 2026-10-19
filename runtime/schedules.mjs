@@ -5,10 +5,12 @@ import path from "node:path";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { zRecipeDto } from "../ui/sdk/dist/generated/zod.gen.js";
 import { assertRecipeExecutable } from "./recipe-execution.mjs";
-import {
-  createCronScheduleRecord,
-  parseCronInput,
-} from "./harness/node_modules/@deepseek-ai/dsh-schedule/lib/index.js";
+// Schedule helpers transitively import subagents; establish its native contract
+// before that module graph is loaded, including the server's lazy driver path.
+import './harness/subagent-return-contract.mjs';
+const { createCronScheduleRecord, parseCronInput } = await import(
+  './harness/node_modules/@deepseek-ai/dsh-schedule/lib/index.js'
+);
 
 const require = createRequire(
   new URL("../ui/desktop/package.json", import.meta.url),

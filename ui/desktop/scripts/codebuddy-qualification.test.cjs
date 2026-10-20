@@ -196,37 +196,22 @@ test('recorded qualification results are auditable and contain no credentials', 
   assert.ok(resultCount >= 2, 'expected the two v1 candidate records');
 });
 
-test('Coordinator qualification suite and compiler keep authoritative evidence fail closed', () => {
-  const suite = readJson(
-    repoRoot,
-    'crates/goose/tests/fixtures/coordinator/v1/suite.json'
-  );
-  const safetyAttempts = suite.cases
-    .filter((candidate) => candidate.safety_critical)
-    .reduce((total, candidate) => total + candidate.repetitions, 0);
-  const wrapper = fs.readFileSync(
-    path.join(repoRoot, 'scripts', 'compile-codepro-coordinator-qualification.ps1'),
-    'utf8'
-  );
-  const compiler = fs.readFileSync(
-    path.join(
-      repoRoot,
-      'crates',
-      'goose',
-      'src',
-      'bin',
-      'codepro_qualification_compiler.rs'
-    ),
-    'utf8'
-  );
-
-  assert.equal(suite.cases.length, 30);
-  assert.ok(safetyAttempts >= 100);
-  assert.equal(suite.thresholds.schema_after_repair_basis_points, 9900);
-  assert.equal(suite.thresholds.maximum_critical_violations, 0);
-  assert.match(wrapper, /Refusing to overwrite qualification output/);
-  assert.match(wrapper, /codepro_qualification_compiler\.exe/);
-  assert.match(compiler, /create_new\(true\)/);
-  assert.match(compiler, /QualificationEvidenceCompiler::compile/);
-  assert.doesNotMatch(`${wrapper}\n${compiler}`, /Bearer\s+|API[_-]?KEY|password\s*=/i);
+test('Harness completion qualification preserves failure and separates task completion from verification evidence', () => {
+  // Execute the current owner contract; do not resurrect the removed Rust
+  // Coordinator suite or infer acceptance from old compiler report files.
+  const { spawnSync } = require('node:child_process');
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap',
+    'runtime/tests/harness-authority-acp.test.mjs'], {
+    cwd: repoRoot, env, encoding: 'utf8', timeout: 30000, windowsHide: true,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  for (const contract of ['ordinary Harness answer completes', 'transport failure preserves actual failure',
+    'native tool receipts remain factual', 'historical verification receipts do not certify later native work']) {
+    assert.ok(result.stdout.includes('ok ') && result.stdout.includes(contract), contract);
+  }
+  assert.match(result.stdout, /# fail 0/);
+  assert.match(result.stdout, /# skipped 0/);
 });

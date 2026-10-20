@@ -185,30 +185,19 @@ test('first-run onboarding cannot enable telemetry when the distribution disable
   assert.match(onboardingSuccess, /TELEMETRY_UI_ENABLED\s*&&\s*telemetryOptIn/);
   assert.match(onboardingSuccess, /{TELEMETRY_UI_ENABLED\s*&&\s*\(/);
 
-  const mainProcess = readDesktopFile(path.join('src', 'main.ts'));
-  assert.match(mainProcess, /GOOSE_TELEMETRY_OFF:\s*['"]1['"]/);
+  assert.equal(readJson(path.join(desktopRoot, 'codebuddy.distro.json')).telemetryUiEnabled, false);
+  assert.match(readDesktopFile('src/updates.ts'), /TELEMETRY_UI_ENABLED\s*=\s*distro\.telemetryUiEnabled/);
 });
 
-test('the bundled Ollama Cloud provider exposes only the authorized default model', () => {
-  const provider = readJson(
-    path.join(
-      repoRoot,
-      'crates',
-      'goose-providers',
-      'src',
-      'declarative',
-      'definitions',
-      'ollama_cloud.json'
-    )
-  );
-
-  assert.equal(provider.name, 'ollama_cloud');
-  assert.equal(provider.engine, 'openai');
-  assert.equal(provider.api_key_env, 'OLLAMA_CLOUD_API_KEY');
-  assert.equal(provider.base_url, 'https://ollama.com/v1/chat/completions');
-  assert.equal(provider.dynamic_models, true);
-  assert.equal(provider.supports_streaming, true);
-  assert.deepEqual(provider.models, [{ name: 'glm-5.2', context_limit: 1000000 }]);
+test('a fresh Harness profile has no bundled endpoint or forced model selection', async t => {
+  const { temporaryRoot } = require('./test-helpers/harness-fixtures.cjs');
+  const { pathToFileURL } = require('node:url');
+  const { openStore } = await import(pathToFileURL(path.join(repoRoot, 'runtime/store.mjs')));
+  const store = await openStore(temporaryRoot(t));
+  assert.deepEqual(store.read(['defaults', 'providers']), {
+    defaults: { providerId: null, modelId: null }, providers: [],
+  });
+  await store.flush();
 });
 
 test('onboarding connects a user-supplied endpoint without a bundled recommendation', () => {
@@ -478,299 +467,70 @@ test('technical evidence and critical icon controls keep their accessibility con
   assert.match(taskPanel, /<TechnicalValue[\s\S]*value=\{workspacePath\}/);
   assert.match(technicalValue, /navigator\.clipboard\.writeText\(value\)/);
   assert.match(technicalValue, /aria-expanded=\{expanded\}/);
-  assert.match(modelBar, /aria-label=\{modelTriggerLabel\}[\s\S]*title=\{modelTriggerLabel\}/);
+  assert.match(modelBar, /aria-label=\{intl\.formatMessage\(i18n\.choose\)\}[\s\S]*title=\{intl\.formatMessage\(i18n\.choose\)\}/);
   assert.match(messageActions, /aria-label=\{copyLabel\}[\s\S]*title=\{copyLabel\}/);
   assert.match(messageActions, /aria-label=\{retryLabel\}[\s\S]*title=\{retryLabel\}/);
 });
 
-test('the Windows build script enforces the CodeBuddy quality gates', () => {
-  const buildScript = fs.readFileSync(
-    path.join(repoRoot, 'scripts', 'build-codebuddy-windows.ps1'),
-    'utf8'
-  );
-
-  assert.match(buildScript, /vswhere\.exe/);
-  assert.match(buildScript, /Microsoft\.VisualStudio\.Component\.VC\.Tools\.x86\.x64/);
-  assert.match(buildScript, /VsDevCmd\.bat/);
-  assert.match(buildScript, /-arch=x64\s+-host_arch=x64/);
-  assert.match(buildScript, /LIBCLANG_PATH/);
-  assert.match(buildScript, /function\s+Ensure-V8BuildJunction/);
-  assert.match(buildScript, /cargo\s+metadata\s+--format-version\s+1/);
-  assert.match(buildScript, /New-Item\s+-ItemType\s+Junction/);
-  assert.match(
-    buildScript,
-    /Ensure-V8BuildJunction\s+-Profile\s+["']debug["'][\s\S]*cargo\s+clippy/
-  );
-  assert.match(
-    buildScript,
-    /Ensure-V8BuildJunction\s+-Profile\s+["']release["'][\s\S]*cargo\s+build\s+--release/
-  );
-  assert.match(buildScript, /Require-Command\s+["']cmake["']/);
-  assert.match(buildScript, /Import-VisualStudioBuildEnvironment[\s\S]*cargo\s+fmt/);
-  assert.match(buildScript, /cargo\s+fmt\s+--all\s+--\s+--check/);
-  assert.match(
-    buildScript,
-    /cargo\s+clippy\s+--workspace\s+--all-targets\s+--exclude\s+v8\s+--jobs\s+\$CheckJobs\s+--\s+-D\s+warnings/
-  );
-  for (const parameter of ['CheckJobs', 'BuildJobs']) {
-    assert.match(
-      buildScript,
-      new RegExp(`\\[ValidateRange\\(1,\\s*16\\)\\]\\[int\\]\\$${parameter}\\s*=\\s*1\\s*,`)
-    );
-  }
-  assert.doesNotMatch(buildScript, /cargo\s+clippy[^\r\n]*--all-features/);
-  assert.match(
-    buildScript,
-    /if\s*\(-not\s+\$SkipTests\)\s*\{[\s\S]*\$env:CARGO_PROFILE_TEST_DEBUG\s*=\s*["']0["'][\s\S]*\$env:CARGO_INCREMENTAL\s*=\s*["']0["'][\s\S]*cargo\s+test\s+-p\s+goose-providers\s+declarative[\s\S]*cargo\s+test\s+--workspace\s+--jobs\s+1/
-  );
-  assert.match(buildScript, /test:distribution/);
-  assert.match(buildScript, /typecheck/);
-  assert.match(buildScript, /lint:check/);
-  assert.match(
-    buildScript,
-    /node\s+\.\\scripts\\prepare-platform-binaries\.js[\s\S]*electron-forge\s+package/
-  );
-  assert.match(buildScript, /function\s+Copy-AppLocalVisualCppRuntime/);
-  assert.match(buildScript, /VCToolsRedistDir/);
-  assert.match(buildScript, /protectedProcessEnvironmentNames[\s\S]*PSModulePath/);
-  assert.match(
-    buildScript,
-    /Import-Module\s+Microsoft\.PowerShell\.Security\s+-ErrorAction\s+Stop/
-  );
-  assert.match(buildScript, /Microsoft\.VC\*\.CRT/);
-  assert.match(buildScript, /MSVCP140\.dll/);
-  assert.match(buildScript, /VCRUNTIME140\.dll/);
-  assert.match(buildScript, /VCRUNTIME140_1\.dll/);
-  assert.match(
-    buildScript,
-    /Copy-AppLocalVisualCppRuntime\s+-Destination\s+\$packagingBin[\s\S]*prepare-platform-binaries\.js/
-  );
-  assert.match(buildScript, /CodeBuddy-win32/);
-  assert.match(buildScript, /CodeBuddy-Setup\.exe/);
-  assert.match(buildScript, /\[switch\]\$UseExistingReleaseBackend/);
-  assert.match(buildScript, /target\\codebuddy-package/);
-  assert.match(buildScript, /Refusing to reset a reparse-point packaging stage/);
-  assert.match(buildScript, /CODEBUDDY_BACKEND_RESOURCE_DIR/);
-  assert.match(buildScript, /\[switch\]\$RunInstallerSmoke/);
-  assert.match(buildScript, /\[string\]\$PreviousInstallerPath/);
-  assert.match(buildScript, /\[string\]\$ExpectedDisposableWindowsAccountSid/);
-  assert.match(buildScript, /inspect-codebuddy-windows-package\.ps1/);
-  assert.match(buildScript, /test-codebuddy-windows-installer\.ps1/);
-  assert.match(buildScript, /test-codebuddy-windows-lifecycle\.ps1/);
-  assert.match(buildScript, /target\\codebuddy-lifecycle/);
-  assert.match(buildScript, /ConfirmIsolatedLifecycle/);
-  assert.match(buildScript, /ConfirmDisposableWindowsAccount/);
-  assert.match(buildScript, /Get-DisposableIdentityArguments/);
-  assert.match(buildScript, /\$installerSmokeArguments\s*\+=\s*\$disposableIdentityArguments/);
-  assert.match(buildScript, /\$lifecycleArguments\s*\+=\s*\$disposableIdentityArguments/);
-  assert.doesNotMatch(buildScript, /OLLAMA_CLOUD_API_KEY\s*=/);
+test('Harness Windows build verifies the staged runtime before packaging and stops on verification failure', async t => {
+  const { windowsBuild } = require('./test-helpers/harness-fixtures.cjs');
+  const fixture = windowsBuild(t);
+  await fixture.run();
+  const runs = fixture.calls.filter(call => call.kind === 'run');
+  assert.match(runs[0].args[0], /typescript[\\/]bin[\\/]tsc$/);
+  assert.match(runs[1].args[0], /i18n-compile\.js$/);
+  assert.match(runs[2].args[0], /verify-harness-stage\.mjs$/);
+  assert.equal(runs[2].executable, path.join(fixture.stage, 'node/node.exe'));
+  assert.equal(runs[3].args[1], 'make');
+  assert.equal(runs[3].options.env.CODEBUDDY_HARNESS_RESOURCE_DIR, fixture.stage);
+  const failed = windowsBuild(t, { failStep: args => args[0].endsWith('verify-harness-stage.mjs') });
+  await assert.rejects(failed.run(), /Build step exited 1/);
+  assert.ok(!failed.calls.some(call => call.args?.includes('make')));
 });
 
-test('the Windows build selects only the exact win32 x64 package output', (t) => {
-  const buildPath = path.join(repoRoot, 'scripts', 'build-codebuddy-windows.ps1');
-  const buildScript = fs.readFileSync(buildPath, 'utf8');
-
-  assert.match(buildScript, /\$packagePlatform\s*=\s*["']win32["']/);
-  assert.match(buildScript, /\$packageArchitecture\s*=\s*["']x64["']/);
-  assert.match(
-    buildScript,
-    /electron-forge\s+package\s+--platform\s+\$packagePlatform\s+--arch\s+\$packageArchitecture/
-  );
-  assert.match(
-    buildScript,
-    /electron-forge\s+make\s+--platform\s+\$packagePlatform\s+--arch\s+\$packageArchitecture/
-  );
-  assert.match(buildScript, /function\s+Get-ExactPackagedExecutable/);
-  assert.match(buildScript, /Test-Path\s+-LiteralPath\s+\$packageDirectory/);
-  assert.match(buildScript, /Get-Item\s+-LiteralPath\s+\$packageDirectory/);
-  assert.match(buildScript, /FileAttributes\]::ReparsePoint/);
-  assert.doesNotMatch(
-    buildScript,
-    /Get-ChildItem[^\r\n]*CodeBuddy\.exe[^\r\n]*-Recurse[\s\S]*?Select-Object\s+-First\s+1/
-  );
-
-  if (process.platform !== 'win32') {
-    t.skip('PowerShell exact package selection contract');
-    return;
-  }
-
-  const { spawnSync } = require('node:child_process');
-  const os = require('node:os');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-package-selector-'));
-  const exactDirectory = path.join(root, 'out', 'CodeBuddy-win32-x64');
-  const failedDirectory = path.join(root, 'out', 'failed-old', 'CodeBuddy-win32-x64');
-  fs.mkdirSync(exactDirectory, { recursive: true });
-  fs.mkdirSync(failedDirectory, { recursive: true });
-  fs.writeFileSync(path.join(exactDirectory, 'CodeBuddy.exe'), 'current');
-  fs.writeFileSync(path.join(failedDirectory, 'CodeBuddy.exe'), 'failed-old');
-
-  try {
-    const prefix = [
-      `$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile('${buildPath.replaceAll("'", "''")}',[ref]$tokens,[ref]$errors)`,
-      `$functionAst=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ExactPackagedExecutable'},$true)`,
-      'Invoke-Expression $functionAst.Extent.Text',
-    ].join(';');
-    const selected = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};(Get-ExactPackagedExecutable -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64').FullName`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.equal(selected.status, 0, selected.stderr);
-    assert.equal(
-      path.normalize(selected.stdout.trim()),
-      path.join(exactDirectory, 'CodeBuddy.exe')
-    );
-
-    fs.rmSync(exactDirectory, { recursive: true, force: true });
-    const failedOnly = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};Get-ExactPackagedExecutable -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64'`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.notEqual(failedOnly.status, 0);
-    assert.match(`${failedOnly.stdout}\n${failedOnly.stderr}`, /exact packaged application/i);
-    assert.doesNotMatch(
-      `${failedOnly.stdout}\n${failedOnly.stderr}`,
-      /failed-old[\\/]CodeBuddy\.exe/i
-    );
-
-    const reparseTarget = path.join(root, 'reparse-target');
-    fs.mkdirSync(reparseTarget);
-    fs.writeFileSync(path.join(reparseTarget, 'CodeBuddy.exe'), 'reparse-target');
-    fs.symlinkSync(reparseTarget, exactDirectory, 'junction');
-    const reparseDirectory = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};Get-ExactPackagedExecutable -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64'`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.notEqual(reparseDirectory.status, 0);
-    assert.match(`${reparseDirectory.stdout}\n${reparseDirectory.stderr}`, /reparse-point/i);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
+test('Harness continuation requires the exact x64 package and matching runtime manifest', async t => {
+  const { windowsBuild } = require('./test-helpers/harness-fixtures.cjs');
+  const fixture = windowsBuild(t, { args: ['--make-only'] });
+  fixture.packaged('out/old/CodeBuddy-win32-x64');
+  fixture.packaged('out/CodeBuddy-win32-arm64');
+  await assert.rejects(fixture.run(), /ENOENT/);
+  const packaged = fixture.packaged();
+  fs.writeFileSync(path.join(packaged, 'resources/harness-distribution/manifest.json'), '{}');
+  await assert.rejects(fixture.run(), /matching this Harness stage/);
+  fixture.packaged();
+  await fixture.run();
+  const make = fixture.calls.find(call => call.args?.includes('make'));
+  assert.ok(make.args.includes('--platform=win32') && make.args.includes('--arch=x64'));
+  assert.ok(make.args.includes('--skip-package'));
 });
 
-test('the Windows build selects only the exact x64 Squirrel installer', (t) => {
-  const buildPath = path.join(repoRoot, 'scripts', 'build-codebuddy-windows.ps1');
-  const buildScript = fs.readFileSync(buildPath, 'utf8');
-
-  assert.match(buildScript, /function\s+Get-ExactSquirrelInstaller/);
-  assert.match(
-    buildScript,
-    /out[\\/]make[\\/]squirrel\.windows[\\/]x64[\\/]CodeBuddy-Setup\.exe/
-  );
-  assert.match(buildScript, /Test-Path\s+-LiteralPath\s+\$installerPath/);
-  assert.match(buildScript, /Get-Item\s+-LiteralPath\s+\$installerPath/);
-  assert.doesNotMatch(
-    buildScript,
-    /Get-ChildItem[^\r\n]*CodeBuddy-Setup\.exe[^\r\n]*-Recurse[\s\S]*?Select-Object\s+-First\s+1/
-  );
-
-  if (process.platform !== 'win32') {
-    t.skip('PowerShell exact installer selection contract');
-    return;
+test('Harness Squirrel finalization verifies the exact x64 archive before invoking the packager', async t => {
+  const { temporaryRoot } = require('./test-helpers/harness-fixtures.cjs');
+  const { finalizeInstaller } = require(path.join(repoRoot, 'scripts/windows-installer-tools.cjs'));
+  const root = temporaryRoot(t);
+  // Reuse installed dependency resolution, but keep every fixture and output in temp.
+  const desktop = path.join(root, 'desktop');
+  fs.mkdirSync(desktop);
+  fs.writeFileSync(path.join(desktop, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+  fs.symlinkSync(path.join(repoRoot, 'ui/node_modules'), path.join(desktop, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  const exact = path.join(desktop, 'out/make/squirrel.windows/x64');
+  for (const relative of ['out/make/old/squirrel.windows/x64', 'out/make/squirrel.windows/ia32']) {
+    fs.mkdirSync(path.join(desktop, relative), { recursive: true });
+    fs.writeFileSync(path.join(desktop, relative, 'CodeBuddyHarness.1.0.0.nupkg'), 'decoy');
   }
-
-  const { spawnSync } = require('node:child_process');
-  const os = require('node:os');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-installer-selector-'));
-  const exactDirectory = path.join(root, 'out', 'make', 'squirrel.windows', 'x64');
-  const exactInstaller = path.join(exactDirectory, 'CodeBuddy-Setup.exe');
-  const failedInstaller = path.join(
-    root,
-    'out',
-    'make',
-    'failed-old',
-    'squirrel.windows',
-    'x64',
-    'CodeBuddy-Setup.exe'
-  );
-  const otherArchitectureInstaller = path.join(
-    root,
-    'out',
-    'make',
-    'squirrel.windows',
-    'ia32',
-    'CodeBuddy-Setup.exe'
-  );
-  fs.mkdirSync(exactDirectory, { recursive: true });
-  fs.mkdirSync(path.dirname(failedInstaller), { recursive: true });
-  fs.mkdirSync(path.dirname(otherArchitectureInstaller), { recursive: true });
-  fs.writeFileSync(exactInstaller, 'current');
-  fs.writeFileSync(failedInstaller, 'failed-old');
-  fs.writeFileSync(otherArchitectureInstaller, 'other-architecture');
-
-  try {
-    const prefix = [
-      `$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile('${buildPath.replaceAll("'", "''")}',[ref]$tokens,[ref]$errors)`,
-      `$functionAst=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ExactSquirrelInstaller'},$true)`,
-      'Invoke-Expression $functionAst.Extent.Text',
-    ].join(';');
-    const selected = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};(Get-ExactSquirrelInstaller -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64').FullName`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.equal(selected.status, 0, selected.stderr);
-    assert.equal(path.normalize(selected.stdout.trim()), exactInstaller);
-
-    fs.rmSync(exactDirectory, { recursive: true, force: true });
-    const decoysOnly = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};Get-ExactSquirrelInstaller -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64'`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.notEqual(decoysOnly.status, 0);
-    assert.match(`${decoysOnly.stdout}\n${decoysOnly.stderr}`, /exact Squirrel installer/i);
-    assert.doesNotMatch(
-      `${decoysOnly.stdout}\n${decoysOnly.stderr}`,
-      /(?:failed-old|ia32)[\\/]CodeBuddy-Setup\.exe/i
-    );
-
-    const reparseTarget = path.join(root, 'installer-reparse-target');
-    fs.mkdirSync(reparseTarget);
-    fs.writeFileSync(path.join(reparseTarget, 'CodeBuddy-Setup.exe'), 'reparse-target');
-    fs.symlinkSync(reparseTarget, exactDirectory, 'junction');
-    const reparseParent = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `${prefix};Get-ExactSquirrelInstaller -DesktopRoot '${root.replaceAll("'", "''")}' -Platform 'win32' -Architecture 'x64'`,
-      ],
-      { encoding: 'utf8' }
-    );
-    assert.notEqual(reparseParent.status, 0);
-    assert.match(`${reparseParent.stdout}\n${reparseParent.stderr}`, /reparse-point/i);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
+  const packagedResources = path.join(desktop, 'out/CodeBuddy-win32-x64/resources');
+  fs.mkdirSync(path.join(packagedResources, 'harness-distribution'), { recursive: true });
+  fs.writeFileSync(path.join(packagedResources, 'harness-distribution/manifest.json'), '{}');
+  fs.writeFileSync(path.join(packagedResources, 'app.asar'), 'fixture');
+  const options = { desktop, vendor: path.join(root, 'unused-vendor') };
+  await assert.rejects(finalizeInstaller(options), error => error.code === 'ENOENT' && error.path.startsWith(exact));
+  fs.mkdirSync(exact, { recursive: true });
+  fs.writeFileSync(path.join(exact, 'CodeBuddyHarness.1.0.0.nupkg'), 'invalid archive');
+  await assert.rejects(finalizeInstaller(options), /signature|zip|buffer|file/i);
+  assert.ok(!fs.existsSync(options.vendor), 'no installer process was started');
+  fs.writeFileSync(path.join(exact, 'CodeBuddy-Setup.exe'), 'keep existing installer');
+  await assert.rejects(finalizeInstaller(options), /Installer already exists/);
+  assert.equal(fs.readFileSync(path.join(exact, 'CodeBuddy-Setup.exe'), 'utf8'), 'keep existing installer');
 });
 
 test('legacy Squirrel maker and legacy smoke scripts retain their distribution install ID', () => {
@@ -1062,30 +822,17 @@ test('installer preflight decisions reject environment overrides and protected f
   assert.match(`${footprint.stdout}\n${footprint.stderr}`, /existing protected footprint/i);
 });
 
-test('the Windows build forwards the disposable SID to installer and lifecycle calls', (t) => {
-  if (process.platform !== 'win32') {
-    t.skip('PowerShell build argument contract');
-    return;
-  }
-  const { spawnSync } = require('node:child_process');
-  const buildPath = path.join(repoRoot, 'scripts', 'build-codebuddy-windows.ps1');
-  const command = [
-    `$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile('${buildPath.replaceAll("'", "''")}',[ref]$tokens,[ref]$errors)`,
-    `$functionAst=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-DisposableIdentityArguments'},$true)`,
-    'Invoke-Expression $functionAst.Extent.Text',
-    `Get-DisposableIdentityArguments -ExpectedSid 'S-1-5-21-1-2-3-1003'`,
-  ].join(';');
-  const result = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', command],
-    { encoding: 'utf8' }
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.stdout.trim().split(/\r?\n/), [
-    '-ConfirmDisposableWindowsAccount',
-    '-ExpectedDisposableWindowsAccountSid',
-    'S-1-5-21-1-2-3-1003',
-  ]);
+test('Harness build does not run installation or legacy account lifecycle actions', async t => {
+  const { windowsBuild } = require('./test-helpers/harness-fixtures.cjs');
+  const fixture = windowsBuild(t, { args: ['--make-only', '--installer=inno'] });
+  fixture.packaged();
+  await fixture.run();
+  assert.equal(fixture.calls.filter(call => call.kind === 'wizard').length, 1);
+  assert.equal(fixture.calls.filter(call => call.kind === 'run').length, 1);
+  assert.match(fixture.calls.find(call => call.kind === 'run').args[0], /verify-harness-stage\.mjs$/);
+  const unsupported = windowsBuild(t, { args: ['--install'] });
+  await assert.rejects(unsupported.run(), /Usage/);
+  assert.equal(unsupported.calls.length, 0);
 });
 
 test('Windows package inspection is non-destructive and emits bounded artifact evidence', () => {
@@ -1104,93 +851,15 @@ test('Windows package inspection is non-destructive and emits bounded artifact e
   assert.doesNotMatch(inspection, /Remove-Item[^\r\n]*-Recurse/);
 });
 
-test('Windows packaging rejects debug CRT backends and binds the package to target release', (t) => {
+test('direct Forge packaging fails without a verified Harness stage instead of accepting a legacy backend', () => {
   const { spawnSync } = require('node:child_process');
-  const peGatePath = path.join(repoRoot, 'scripts', 'codebuddy-windows-pe.ps1');
-  const buildPath = path.join(repoRoot, 'scripts', 'build-codebuddy-windows.ps1');
-  const inspectionPath = path.join(repoRoot, 'scripts', 'inspect-codebuddy-windows-package.ps1');
-  const forgePath = path.join(desktopRoot, 'forge.config.ts');
-
-  assert.ok(fs.existsSync(peGatePath), 'the shared PE release gate must exist');
-  const peGate = fs.readFileSync(peGatePath, 'utf8');
-  const build = fs.readFileSync(buildPath, 'utf8');
-  const inspection = fs.readFileSync(inspectionPath, 'utf8');
-  const forge = fs.readFileSync(forgePath, 'utf8');
-
-  assert.match(peGate, /VCRUNTIME\.\*D/i);
-  assert.match(peGate, /MSVCP\.\*D/i);
-  assert.match(peGate, /ucrtbased/i);
-  assert.match(peGate, /dumpbin(?:\.exe)?/i);
-  assert.match(peGate, /\/DEPENDENTS/);
-  assert.match(peGate, /Assert-CodeBuddyReleaseBackend/);
-  assert.match(build, /codebuddy-windows-pe\.ps1/);
-  assert.match(build, /\.\s+\$peInspectionScript/);
-  assert.match(
-    build,
-    /Assert-CodeBuddyReleaseBackend[\s\S]*-BackendPath\s+\$backendSource[\s\S]*-ExpectedReleaseBackendPath\s+\$backendSource/
-  );
-  assert.match(build, /-UseExistingBackend[^\r\n]*(?:disabled|removed|unsupported)/i);
-  assert.match(build, /Write-PackagingBackendManifest/);
-  assert.match(build, /CODEBUDDY_BACKEND_MANIFEST_PATH/);
-  assert.match(
-    build,
-    /\$packagingBin\s*=\s*Use-PackagingBackendStage[\s\S]*Sync-PackagingBackendStage/
-  );
-  assert.match(inspection, /ExpectedReleaseBackendPath/);
-  assert.match(
-    inspection,
-    /Assert-CodeBuddyReleaseBackend[\s\S]*-BackendPath\s+\$backendMatches\[0\]\.FullName[\s\S]*-ExpectedReleaseBackendPath\s+\$ExpectedReleaseBackendPath/
-  );
-  assert.match(forge, /isWindowsDistribution/);
-  assert.match(forge, /CODEBUDDY_BACKEND_MANIFEST_PATH/);
-  assert.match(forge, /target['"],\s*['"]codebuddy-package/);
-  assert.match(forge, /manifest\.profile\s*!==\s*['"]release['"]/);
-  assert.match(forge, /manifest\.backendSha256\s*!==\s*stagedBackendSha256/);
-
-  if (process.platform !== 'win32') {
-    t.skip('PowerShell PE dependency gate');
-    return;
-  }
-
-  const directForgeEnv = { ...process.env };
-  delete directForgeEnv.CODEBUDDY_BACKEND_RESOURCE_DIR;
-  delete directForgeEnv.CODEBUDDY_BACKEND_MANIFEST_PATH;
-  const directForge = spawnSync(
-    process.execPath,
-    ['-e', `process.argv.push('package');require(${JSON.stringify(forgePath)})`],
-    { encoding: 'utf8', env: directForgeEnv }
-  );
-  assert.notEqual(directForge.status, 0);
-  assert.match(
-    `${directForge.stdout}\n${directForge.stderr}`,
-    /requires the verified Release backend stage/i
-  );
-
-  const commandPrefix = `. '${peGatePath.replaceAll("'", "''")}'`;
-  const releaseFixture = spawnSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      `${commandPrefix};Assert-CodeBuddyDependencySet -DependencyNames @('KERNEL32.dll','VCRUNTIME140.dll','MSVCP140.dll','ucrtbase.dll') | Out-Null`,
-    ],
-    { encoding: 'utf8' }
-  );
-  assert.equal(releaseFixture.status, 0, releaseFixture.stderr);
-
-  const debugFixture = spawnSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      `${commandPrefix};Assert-CodeBuddyDependencySet -DependencyNames @('KERNEL32.dll','VCRUNTIME140D.dll','ucrtbased.dll') | Out-Null`,
-    ],
-    { encoding: 'utf8' }
-  );
-  assert.notEqual(debugFixture.status, 0);
-  assert.match(`${debugFixture.stdout}\n${debugFixture.stderr}`, /Debug CRT/i);
+  const env = { ...process.env, CODEBUDDY_BACKEND_RESOURCE_DIR: 'legacy-stage', CODEBUDDY_BACKEND_MANIFEST_PATH: 'legacy-manifest' };
+  delete env.CODEBUDDY_HARNESS_RESOURCE_DIR;
+  const result = spawnSync(process.execPath,
+    ['-e', `process.argv.push('package');require(${JSON.stringify(path.join(desktopRoot, 'forge.config.ts'))})`],
+    { encoding: 'utf8', env, windowsHide: true });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /requires a verified Harness distribution stage/);
 });
 
 test('the explicit Windows lifecycle gate requires a disposable account and isolated data root', () => {
@@ -1338,19 +1007,26 @@ test('the installer and lifecycle executable selectors order semantic versions n
   }
 });
 
-test('storage migration cancellation stops the child tree before desktop exit', () => {
-  const mainProcess = readDesktopFile('src/main.ts');
-  const migration = readDesktopFile('src/storage/storageMigration.ts');
-
-  assert.match(mainProcess, /progressWindow\.on\('closed', cancelMigration\)/);
-  assert.match(mainProcess, /app\.on\('before-quit', cancelMigrationForQuit\)/);
-  assert.match(mainProcess, /event\.preventDefault\(\)/);
-  assert.match(mainProcess, /signal: migrationController\.signal/);
-  assert.match(mainProcess, /if \(quitAfterMigrationCancel\)[\s\S]*app\.exit\(0\)/);
-  assert.match(migration, /taskkill\.exe/);
-  assert.match(migration, /\['\/PID', String\(pid\), '\/T', '\/F'\]/);
-  assert.match(migration, /terminate\('timed_out'\)/);
-  assert.match(migration, /terminate\('cancelled'\)/);
+test('desktop shutdown waits for its Harness owner and bounds an unresponsive service', async t => {
+  const { harnessService } = require('./test-helpers/harness-fixtures.cjs');
+  const fixture = harnessService(t);
+  fixture.announce();
+  const service = await fixture.ready;
+  let closed = false;
+  const close = service.close();
+  assert.equal(service.close(), close, 'shutdown is idempotent');
+  close.then(() => { closed = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(closed, false, 'wait for the service to release its Harness and MCP owners');
+  assert.equal(fixture.calls.filter(call => call.kind === 'send' && call.message.type === 'shutdown').length, 1);
+  const timer = [...fixture.timers.values()].find(timer => timer.delay === 15000);
+  assert.ok(timer, 'shutdown has a bounded fallback');
+  timer.fn();
+  await close;
+  assert.equal(fixture.calls.filter(call => call.kind === 'kill').length, 1);
+  assert.equal(fixture.unexpected(), 0);
+  const main = readDesktopFile('src/main.ts');
+  assert.match(main, /app\.on\('before-quit'[\s\S]*packagedHarnessService\.close\(\)\.finally/);
 });
 
 test('main window is revealed only after the React renderer reports ready', () => {

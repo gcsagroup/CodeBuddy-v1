@@ -74,13 +74,25 @@ test('CodePro unified mode hides the workspace switcher while preserving titleba
   assert.match(sessions, /\['code_pro'\]/);
 });
 
-test('local TLS backend uses the loopback readiness probe before fingerprint pinning', () => {
-  const main = readDesktopSource('src/main.ts');
-  const localBackendStart = main.slice(
-    main.indexOf('gooseServeResult = await startGooseServe({'),
-    main.indexOf('if (!gooseServeResult.certFingerprint)')
-  );
-
-  assert.doesNotMatch(localBackendStart, /readinessFetch:\s*net\.fetch/);
-  assert.match(main, /localCertificateTrust\.trust\.fingerprint = localCertFingerprint/);
+test('packaged Harness admits only loopback IPC readiness and supplies a fresh service secret', async t => {
+  const { harnessService } = require('./test-helpers/harness-fixtures.cjs');
+  const fixture = harnessService(t);
+  let ready = false;
+  fixture.ready.then(() => { ready = true; });
+  fixture.announce('http://example.com:4567');
+  fixture.announce('https://127.0.0.1:4567');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ready, false, 'remote or TLS announcements are not the local Harness endpoint');
+  fixture.announce();
+  const service = await fixture.ready;
+  assert.equal(service.url, 'http://127.0.0.1:4567');
+  assert.match(service.secret, /^[a-f0-9]{64}$/);
+  const launch = fixture.calls.find(call => call.kind === 'spawn');
+  assert.equal(launch.args[2].env.CODEBUDDY_SERVER__SECRET_KEY, service.secret);
+  assert.match(launch.args[1][0], /runtime[\\/]desktop-entry\.mjs$/);
+  assert.ok(!fs.readFileSync(path.join(fixture.root, 'home/logs/harness/launch.json'), 'utf8').includes(service.secret));
+  const closing = service.close();
+  fixture.child.emit('exit', 0);
+  await closing;
+  assert.equal(fixture.unexpected(), 0);
 });

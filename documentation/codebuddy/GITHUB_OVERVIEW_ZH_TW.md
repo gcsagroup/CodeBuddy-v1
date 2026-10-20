@@ -14,7 +14,7 @@ CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令
 .\start-preview.ps1
 ```
 
-啟動器使用既有依賴，啟動執行服務與 Electron。開發資料位於 `.preview-data`，啟動日誌位於 `.preview-data/logs/preview`。模型在設定中配置。新任務可使用預設工作區或選擇現有專案。
+啟動器使用既有依賴，啟動執行服務與 Electron。開發版與安裝版預設資料根統一為 `~/.CodeBuddy`，啟動日誌位於其中的 `logs/preview`，預設工作區位於 `workspaces`。模型在設定中配置；既有專案保留原位置。覆寫與遷移方式見[儲存目錄說明](../../docs/storage-layout.zh-TW.md)。
 
 ## Windows 安裝包
 
@@ -22,7 +22,7 @@ CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令
 node scripts/build-harness-windows.cjs
 ```
 
-安裝程式為 `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`，應用名稱為 CodeBuddy。安裝識別 `CodeBuddyHarness` 與資料目錄 `~/.CodeBuddy-Harness` 保留既有相容性；顯示名稱調整不搬移使用者資料。
+安裝程式為 `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`，應用名稱為 CodeBuddy。安裝識別 `CodeBuddyHarness` 保留安裝相容性；預設資料目錄為 `~/.CodeBuddy`。啟動不會自動匯入或覆寫舊資料目錄。
 
 首次封裝前依 [Office 建構器說明](../../scripts/office-builder/README.md) 準備 `runtime/py` 與 `runtime/office`。準備步驟會下載依賴；正常封裝僅複製及驗證已有檔案。包內包含 Node 與所需執行載荷；專案開發工具鏈仍依專案需求準備。
 

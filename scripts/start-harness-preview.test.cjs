@@ -54,6 +54,7 @@ function fixture(t) {
     root,
     options: {
       repoRoot: root, serverPath,
+      dataDirectory: path.join(root, '.preview-data'),
       env: { ...process.env, CODEBUDDY_WORKSPACE_ROOT: path.join(root, 'user-workspace') },
       commands: { prepare: [], desktop: { args: [desktopPath], cwd: root } },
       readinessTimeoutMs: 5000,
@@ -61,36 +62,44 @@ function fixture(t) {
   };
 }
 
-test('preview isolates inherited legacy profile, migration and update settings', () => {
+test('preview uses the product data root, supports isolation and rejects legacy aliases', () => {
+  const root = path.resolve('preview-fixture');
   const inherited = {
     Path: process.env.Path || process.env.PATH,
-    CODEBUDDY_HOME: 'legacy-profile', CODEBUDDY_USER_DATA_DIR: 'legacy-ui',
+    CODEBUDDY_HOME: path.join(root, 'user-data'), CODEBUDDY_USER_DATA_DIR: 'legacy-ui',
     CODEAGENTPRO_HOME: 'legacy-alias', GOOSE_PATH_ROOT: 'legacy-root',
     CODEBUDDY_MIGRATE_LEGACY: 'true', CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION: 'false',
     ELECTRON_RUN_AS_NODE: '1', ENABLE_DEV_UPDATES: 'true',
   };
-  const root = path.resolve('preview-fixture');
   const env = previewEnvironment(root, 12345, 'fixture-secret', inherited);
-  assert.equal(env.CODEBUDDY_HOME, path.join(root, '.preview-data'));
-  assert.equal(env.CODEBUDDY_USER_DATA_DIR, path.join(root, '.preview-data', 'state', 'electron-app'));
+  assert.equal(env.CODEBUDDY_HOME, inherited.CODEBUDDY_HOME);
+  assert.equal(env.CODEBUDDY_USER_DATA_DIR, path.join(inherited.CODEBUDDY_HOME, 'state', 'electron-app'));
+  assert.equal(env.CODEBUDDY_WORKSPACE_ROOT, path.join(inherited.CODEBUDDY_HOME, 'workspaces'));
+  assert.equal(env.GOOSE_WORKING_DIR, env.CODEBUDDY_WORKSPACE_ROOT);
   assert.equal(env.CODEBUDDY_MIGRATE_LEGACY, 'false');
   assert.equal(env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION, 'true');
   assert.equal(env.ENABLE_DEV_UPDATES, 'false');
   assert.equal(env.CODEAGENTPRO_HOME, undefined);
   assert.equal(env.GOOSE_PATH_ROOT, undefined);
   assert.equal(env.ELECTRON_RUN_AS_NODE, undefined);
-  assert.equal(inherited.CODEBUDDY_HOME, 'legacy-profile');
+  assert.equal(inherited.CODEBUDDY_HOME, path.join(root, 'user-data'));
   const isolatedHome = path.join(root, '.controlled-e2e');
   const isolated = previewEnvironment(root, 12346, 'fixture-secret', inherited, isolatedHome);
   assert.equal(isolated.CODEBUDDY_HOME, isolatedHome);
   assert.equal(isolated.CODEBUDDY_USER_DATA_DIR, path.join(isolatedHome, 'state', 'electron-app'));
+  assert.equal(isolated.CODEBUDDY_WORKSPACE_ROOT, path.join(isolatedHome, 'workspaces'));
+  const defaults = previewEnvironment(root, 12345, 'fixture-secret', {});
+  assert.equal(defaults.CODEBUDDY_HOME, path.join(os.homedir(), '.CodeBuddy'));
+  assert.equal(defaults.CODEBUDDY_WORKSPACE_ROOT, path.join(defaults.CODEBUDDY_HOME, 'workspaces'));
   assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', inherited, 'relative-data'), /absolute path/);
+  assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', { CODEBUDDY_HOME: 'relative' }), /absolute non-root/);
+  assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', {}, path.parse(root).root), /non-root/);
 });
 
 for (const configured of [false, true]) {
   test(`starts authenticated bridge, sets configuration route=${!configured}, then reaps owned runtime`, async (t) => {
     const { root, options } = fixture(t);
-    const dataDirectory = configured ? undefined : path.join(root, '.controlled-e2e');
+    const dataDirectory = configured ? options.dataDirectory : path.join(root, '.controlled-e2e');
     const expectedHome = dataDirectory || path.join(root, '.preview-data');
     const code = await startPreview({ ...options, dataDirectory, env: { ...options.env, FIXTURE_CONFIGURED: configured ? '1' : '0' } });
     assert.equal(code, 0);

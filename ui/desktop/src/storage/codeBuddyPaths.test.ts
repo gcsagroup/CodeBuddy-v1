@@ -53,6 +53,7 @@ describe('resolveCodeBuddyPaths', () => {
     const paths = resolveCodeBuddyPaths(windowsInput);
 
     expect(paths.homeDir).toBe(String.raw`C:\Users\tester\.CodeBuddy`);
+    expect(paths.workspacesDir).toBe(String.raw`C:\Users\tester\.CodeBuddy\workspaces`);
     expect(paths.profileConfigDir).toBe(
       String.raw`C:\Users\tester\.CodeBuddy\profiles\local\config`
     );
@@ -77,6 +78,7 @@ describe('resolveCodeBuddyPaths', () => {
     });
 
     expect(paths.homeDir).toBe(String.raw`D:\new-root`);
+    expect(paths.workspacesDir).toBe(String.raw`D:\new-root\workspaces`);
     expect(paths.legacyOverrideSource).toBe(String.raw`D:\legacy-root`);
   });
 

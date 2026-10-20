@@ -2,8 +2,8 @@ import { join, posix, win32 } from 'node:path';
 import { existsSync, realpathSync } from 'node:fs';
 
 export function resolvePackagedCodeBuddyHome(userHome: string): string {
-  // Preview and previous installers must not silently supply model connections.
-  // Reopening this installation still retains its own saved configuration.
+  // Old directories are never imported implicitly. Explicit migration may seed
+  // this shared product root before either desktop entry point starts.
   return join(realpathSync(userHome), '.CodeBuddy');
 }
 
@@ -32,6 +32,7 @@ export interface StoragePathInput {
 
 export interface CodeBuddyPaths {
   homeDir: string;
+  workspacesDir: string;
   appConfigDir: string;
   profileDir: string;
   profileConfigDir: string;
@@ -79,6 +80,7 @@ export function resolveCodeBuddyPaths(input: StoragePathInput): CodeBuddyPaths {
 
   return {
     homeDir,
+    workspacesDir: pathApi.join(homeDir, 'workspaces'),
     appConfigDir: pathApi.join(homeDir, 'config'),
     profileDir,
     profileConfigDir: pathApi.join(profileDir, 'config'),

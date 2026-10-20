@@ -8,15 +8,12 @@ function defaultWorkspaceRoot({
   env = process.env,
   platform = process.platform,
   home = os.homedir(),
-  exists = fs.existsSync,
 } = {}) {
   const paths = platform === "win32" ? path.win32 : path.posix;
   const configured = env.CODEBUDDY_WORKSPACE_ROOT;
   const root =
     configured ||
-    (platform === "win32" && exists("D:\\")
-      ? "D:\\CodeBuddy-Workspace"
-      : paths.join(home, "Documents", "CodeBuddy Workspace"));
+    paths.join(env.CODEBUDDY_HOME || paths.join(home, ".CodeBuddy"), "workspaces");
   if (
     typeof root !== "string" ||
     !paths.isAbsolute(root) ||

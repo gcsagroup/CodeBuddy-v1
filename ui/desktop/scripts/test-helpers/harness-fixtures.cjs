@@ -90,7 +90,9 @@ function harnessService(t) {
   child.send = message => calls.push({ kind: 'send', message });
   child.kill = () => { calls.push({ kind: 'kill' }); child.emit('exit', 0); };
   const exports = {};
-  const source = ts.transpileModule(fs.readFileSync(path.join(repoRoot, 'ui/desktop/src/harnessService.ts'), 'utf8'), {
+  const serviceFile = path.join(repoRoot, 'ui/desktop/src/harnessService.ts');
+  const serviceRequire = require('node:module').createRequire(serviceFile);
+  const source = ts.transpileModule(fs.readFileSync(serviceFile, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(source, {
@@ -99,7 +101,7 @@ function harnessService(t) {
     clearTimeout(key) { timers.delete(key); },
     require(name) {
       if (name === 'node:child_process') return { spawn(...args) { calls.push({ kind: 'spawn', args }); return child; } };
-      return require(name);
+      return serviceRequire(name);
     },
   });
   let unexpected = 0;

@@ -14,7 +14,7 @@
 
 CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.5`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-frontend-merge.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
 
-Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。模型、历史及设置保存在 `.preview-data`，日志位于 `.preview-data/logs/preview`。安装版默认数据目录为 `~/.CodeBuddy`，不自动导入预览版或旧目录 `~/.CodeBuddy-Harness`；旧数据保持原样。首次启动由用户添加模型连接，不自动创建内网连接；以后启动保留本安装版已经保存的配置。新任务可使用默认工作区，也可选择现有项目。
+Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。首次启动空数据目录时由用户添加模型连接。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
 
 Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊天数据、运行载荷和构建产物。首次克隆需要准备开发依赖及独立工具，详见下文。
 
@@ -91,7 +91,7 @@ Pop-Location
 
 已有匹配版本 pnpm 时，可将 `corepack pnpm` 替换为 `pnpm.cmd`。UI、兼容服务和 Harness 是不同依赖目录；任一步失败先查看该步错误，不直接进入启动。不为绕过安装错误修改依赖版本或锁文件。
 
-以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查 `.preview-data/logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
+以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查数据根下的 `logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
 
 ## 第一次使用
 

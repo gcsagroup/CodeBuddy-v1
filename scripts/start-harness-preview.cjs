@@ -5,8 +5,10 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
+const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { defaultWorkspaceRoot, prepareDefaultWorkspace } = require('./default-workspace.cjs');
+const { createRotatingLog } = require('../runtime/rotating-log.cjs');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -25,7 +27,12 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
   if (dataDirectory !== undefined && (typeof dataDirectory !== 'string' || !path.isAbsolute(dataDirectory))) {
     throw new Error('The preview data directory must be an absolute path');
   }
-  const previewHome = dataDirectory ? path.normalize(dataDirectory) : path.join(repoRoot, '.preview-data');
+  const requestedHome = dataDirectory ?? inherited.CODEBUDDY_HOME ?? path.join(os.homedir(), '.CodeBuddy');
+  if (!path.isAbsolute(requestedHome) || path.resolve(requestedHome) === path.parse(path.resolve(requestedHome)).root) {
+    throw new Error('The CodeBuddy data directory must be an absolute non-root path');
+  }
+  const previewHome = path.normalize(requestedHome);
+  const workspaceRoot = defaultWorkspaceRoot({ env: { ...inherited, CODEBUDDY_HOME: previewHome } });
   const env = {
     ...inherited,
     CODEBUDDY_HARNESS_PREVIEW: '1',
@@ -38,8 +45,8 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
     CODEBUDDY_EXTERNAL_BACKEND_URL: `http://127.0.0.1:${port}`,
     CODEBUDDY_SERVER__SECRET_KEY: secret,
     ENABLE_DEV_UPDATES: 'false',
-    CODEBUDDY_WORKSPACE_ROOT: defaultWorkspaceRoot({ env: inherited }),
-    GOOSE_WORKING_DIR: defaultWorkspaceRoot({ env: inherited }),
+    CODEBUDDY_WORKSPACE_ROOT: workspaceRoot,
+    GOOSE_WORKING_DIR: workspaceRoot,
     GOOSE_TELEMETRY_OFF: '1',
   };
   // Legacy aliases must not reintroduce an existing profile during startup.
@@ -57,7 +64,7 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
 }
 
 function spawnLogged(command, args, options, logPath, keepStdinOpen = false) {
-  const output = fs.createWriteStream(logPath, { flags: 'a' });
+  const output = createRotatingLog(logPath);
   const child = spawn(command, args, {
     ...options,
     shell: false,
@@ -68,6 +75,11 @@ function spawnLogged(command, args, options, logPath, keepStdinOpen = false) {
   });
   child.stdout.pipe(output, { end: false });
   child.stderr.pipe(output, { end: false });
+  output.on('error', error => {
+    console.error('Log output failed:', error.message);
+    child.stdout.resume();
+    child.stderr.resume();
+  });
   const tracked = { child, ended: false, result: null, completion: null };
   tracked.completion = new Promise((resolve) => {
     const finish = (result) => {

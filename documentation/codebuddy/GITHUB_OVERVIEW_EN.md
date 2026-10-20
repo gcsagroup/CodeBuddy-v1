@@ -14,7 +14,7 @@ From the repository root:
 .\start-preview.ps1
 ```
 
-The launcher uses existing dependencies and starts the runtime and Electron. Development data lives in `.preview-data`, with launch logs under `.preview-data/logs/preview`. Configure your model in Settings. New tasks can use the default workspace or an existing project.
+The launcher uses existing dependencies and starts the runtime and Electron. Preview and packaged data default to `~/.CodeBuddy`, with launch logs under `logs/preview` and default workspaces under `workspaces`. Configure your model in Settings. Existing projects keep their locations. See the [storage layout](../../docs/storage-layout.en.md) for overrides and migration.
 
 ## Windows package
 
@@ -22,7 +22,7 @@ The launcher uses existing dependencies and starts the runtime and Electron. Dev
 node scripts/build-harness-windows.cjs
 ```
 
-The installer is `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`; the application name is CodeBuddy. The existing installation ID `CodeBuddyHarness` and data directory `~/.CodeBuddy-Harness` remain compatible with previous releases. Renaming the display does not move user data.
+The installer is `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`; the application name is CodeBuddy. The installation ID `CodeBuddyHarness` retains installer compatibility; the default data directory is `~/.CodeBuddy`. Older data directories are not imported or overwritten automatically.
 
 Prepare `runtime/py` and `runtime/office` using the [Office builder](../../scripts/office-builder/README.md) before first packaging. Preparation downloads dependencies; ordinary packaging copies and verifies existing files. The package includes Node and the required runtime payload. Project-specific development toolchains remain project prerequisites.
 

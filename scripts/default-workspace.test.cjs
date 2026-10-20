@@ -15,22 +15,20 @@ test("default workspaces are outside the application checkout and portable acros
       env: {},
       platform: "win32",
       home: "C:\\Users\\Test",
-      exists: () => true,
     }),
-    "D:\\CodeBuddy-Workspace",
+    "C:\\Users\\Test\\.CodeBuddy\\workspaces",
   );
   assert.equal(
     defaultWorkspaceRoot({
-      env: {},
       platform: "win32",
       home: "C:\\Users\\Test",
-      exists: () => false,
+      env: { CODEBUDDY_HOME: "E:\\My CodeBuddy" },
     }),
-    "C:\\Users\\Test\\Documents\\CodeBuddy Workspace",
+    "E:\\My CodeBuddy\\workspaces",
   );
   assert.equal(
     defaultWorkspaceRoot({ env: {}, platform: "darwin", home: "/Users/test" }),
-    "/Users/test/Documents/CodeBuddy Workspace",
+    "/Users/test/.CodeBuddy/workspaces",
   );
   assert.throws(
     () =>

@@ -47,6 +47,20 @@ describe('packaged Harness service', () => {
     await expect(startHarnessService(f.options)).rejects.toThrow();
     expect(mock.spawn).toHaveBeenCalledTimes(1);
   });
+  it('drains child output after a log write failure so disk errors do not stall the service', async () => {
+    const f = fixture();
+    fs.mkdirSync(path.join(f.options.home, 'logs/harness/runtime.log'), { recursive: true });
+    let reportError!: () => void;
+    const reported = new Promise<void>(resolve => { reportError = resolve; });
+    vi.spyOn(console, 'error').mockImplementation(() => reportError());
+    const service = await startHarnessService(f.options);
+    f.child.stdout.write('log write failure fixture');
+    await reported;
+    expect(f.child.stdout.readableFlowing).toBe(true);
+    expect(f.child.stderr.readableFlowing).toBe(true);
+    await service.close();
+    expect(f.options.onUnexpectedExit).not.toHaveBeenCalled();
+  });
   it('anchors merged Windows app-container directories to the physical manifest file', async () => {
     const f = fixture();
     const alias = path.join(f.root, 'logical-resources');

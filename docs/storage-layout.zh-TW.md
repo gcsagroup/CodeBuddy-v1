@@ -1,0 +1,25 @@
+# CodeBuddy 資料目錄
+
+預設根目錄為 `~/.CodeBuddy`，Windows 為 `C:\Users\<使用者名稱>\.CodeBuddy`。開發版與安裝版共用此預設規則；執行階段鎖保護同一資料根。測試及並行開發須明確指定隔離目錄。
+
+新工作區位於 `workspaces/<任務目錄>`，圖片和影片保存在對應工作區的 `generated-images`、`generated-videos`。寵物與選中項位於 `state/electron-app/pets`；聊天、模型設定、自動任務及工具回執沿用 `backend`；設定檔和快取位於 `profiles/local`、`state/electron-app`；日誌位於 `logs`、`state/electron-app/logs`；外掛與遷移記錄按需放在 `plugins/packages`、`migrations`。
+
+檔案選單提供「開啟 CodeBuddy 資料目錄」。`CODEBUDDY_HOME` 指定整體資料根，預設工作區隨之變動；`CODEBUDDY_WORKSPACE_ROOT` 可單獨指定工作區。使用者選擇的既有專案保留原位置，生成素材隨專案保存。遠端生成服務的模型、工作流程和快取仍由該服務管理。
+
+啟動不自動合併 `.CodeBuddy-Harness` 或 `.preview-data`。遷移時先退出來源應用，複製至不存在的目標並逐檔校驗，保留來源作回退副本；已有目標須先選擇資料來源。舊專案及聊天絕對路徑保留。回退前備份新目錄，避免遺失切換後的狀態。
+
+本機選擇以目前開發版為主，舊安裝版獨立保留；既有 `D:\CodeBuddy-Workspace` 繼續供歷史聊天使用。
+
+參考：[VS Code](https://code.visualstudio.com/docs/setup/portable)、[Electron](https://github.com/electron/electron/blob/main/docs/api/app.md)。
+
+## 空間控制
+
+- 每個瀏覽器工作階段的 HTTP 快取預算為 128 MiB；啟動及每 6 小時檢查，超出時透過 Electron 回收。編譯腳本快取超過 64 MiB 時回收。保留 Cookie、網站儲存、聊天和使用者檔案。這是定期回收門檻，不是整個目錄的硬配額。
+- 開發啟動及安裝版執行記錄每段 10 MiB，保留目前及前一段；桌面主記錄沿用 electron-log 的 1 MiB 輪替。
+- 圖片/影片提交前檢查工作區和記錄所在磁碟，下載儲存前再次檢查：除了輸出大小，至少保留 512 MiB。空間不足會提示釋放空間或選擇其他磁碟；遠端已生成結果可用同一工作 ID 重試下載，不需重新生成。檢查不是磁碟預留，其他程式仍可能同時寫入。
+- 預覽讀取既有作品，不複製第二份媒體。聊天、作品、寵物及回退副本不自動刪除，仍會隨使用增長；遷移驗收後由使用者決定清理時間。可將 CODEBUDDY_HOME 或 CODEBUDDY_WORKSPACE_ROOT 指向其他磁碟。
+- ComfyUI 伺服器模型及輸出由伺服器管理，本機限額不清理伺服器磁碟。
+
+快取使用 [Electron Session API](https://www.electronjs.org/docs/latest/api/session)，避免刪除整個瀏覽器設定檔。
+
+舊目錄也可能仍被歷史專案引用（例如早期寵物製作工作區）。此時來源不只是回退副本，先處理專案引用再考慮清理，避免整個目錄刪除導致舊聊天素材失效。

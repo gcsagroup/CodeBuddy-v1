@@ -73,9 +73,9 @@ import {
   resolveCodeBuddyPaths,
   resolvePackagedCodeBuddyHome,
 } from './storage/codeBuddyPaths';
-import { configureElectronProfile, profilePartition } from './storage/electronProfile';
+import { configureElectronProfile, profilePartition, maintainElectronCache } from './storage/electronProfile';
 
-// The preview has an independent profile and must always use the Harness bridge.
+// Preview and packaged launches use the same data root unless explicitly isolated.
 // A missing launcher configuration must never fall back to the retired backend.
 const harnessPreview = process.env.CODEBUDDY_HARNESS_PREVIEW === '1';
 const harnessPackaged = app.isPackaged;
@@ -84,7 +84,6 @@ if (harnessPackaged) {
   if (!process.env.CODEBUDDY_HOME) {
     process.env.CODEBUDDY_HOME = resolvePackagedCodeBuddyHome(os.homedir());
   }
-  process.env.CODEBUDDY_WORKSPACE_ROOT ||= path.join(os.homedir(), 'CodeBuddy-Workspace');
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
   process.env.CODEPRO_UNIFIED_MODE ??= 'true';
@@ -118,6 +117,7 @@ const storagePaths = resolveCodeBuddyPaths({
   platform: process.platform === 'win32' ? 'win32' : 'posix',
 });
 process.env.CODEBUDDY_HOME = storagePaths.homeDir;
+process.env.CODEBUDDY_WORKSPACE_ROOT ||= storagePaths.workspacesDir;
 if (!started) {
   configureElectronProfile(app, storagePaths);
   const isolatedUserDataDir = resolveCodeBuddyUserDataDir(process.env.CODEBUDDY_USER_DATA_DIR);
@@ -2861,6 +2861,17 @@ async function appMain() {
       );
     }
 
+    fileMenu.submenu.insert(
+      menuIndex++,
+      new MenuItem({
+        label: nativeT('Open CodeBuddy Data Folder', '打开 CodeBuddy 数据目录', '開啟 CodeBuddy 資料目錄'),
+        click: async () => {
+          const error = await shell.openPath(storagePaths.homeDir);
+          if (error) log.error('Could not open CodeBuddy data directory', error);
+        },
+      })
+    );
+
     const recentFilesSubmenu = buildRecentFilesMenu();
     if (recentFilesSubmenu.length > 0) {
       fileMenu.submenu.insert(
@@ -3331,7 +3342,17 @@ async function appMain() {
 
 app.whenReady().then(async () => {
   try {
+    const maintainCaches = async () => {
+      for (const target of [session.defaultSession, session.fromPartition(localProfilePartition)]) {
+        try { await maintainElectronCache(target); }
+        catch (error) { log.warn('Browser cache maintenance failed', error); }
+      }
+    };
     await appMain();
+    // Large legacy caches must not delay opening the user's main window.
+    void maintainCaches();
+    const cacheTimer = setInterval(() => { void maintainCaches(); }, 6 * 60 * 60 * 1000);
+    cacheTimer.unref();
     await registerDesktopPet({
       preload: path.join(__dirname, 'preload.js'),
       rendererUrl: formatUrl(getAppUrl()),

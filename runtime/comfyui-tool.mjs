@@ -1,6 +1,6 @@
 import { watchMedia, mediaStreamKey, mediaObservation, stopMedia } from './comfyui-live.mjs';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, stat, writeFile, rename, readdir } from 'node:fs/promises';
+import { mkdir, readFile, realpath, stat, statfs, open, unlink, writeFile, rename, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -78,7 +78,7 @@ export function comfyuiTool(options) {
 }
 
 // Both media tools share the same receipts, cancellation and output-publication rules.
-export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_COMFYUI_URL, fetchImpl = fetch }, media) {
+export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_COMFYUI_URL, fetchImpl = fetch, statfsImpl = statfs }, media) {
   const toolName = media?.name ?? IMAGE_TOOL_NAME;
   const kind = media ? 'video' : 'image';
   const outputKey = media ? 'videos' : 'images';
@@ -86,6 +86,14 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
   const server = comfyuiUrl(baseUrl);
   // Receipts belong to this session, independent of a model-supplied filesystem path.
   const records = path.join(dataDir, `${kind}-jobs`, Buffer.from(sessionId).toString('hex'));
+  async function checkSpace(directory, bytes = 0) {
+    const disk = await statfsImpl(directory);
+    const available = Number(disk.bavail) * Number(disk.bsize);
+    // Leave room for receipts and other applications; this is a preflight, not a reservation.
+    if (available < bytes + 512 * 1024 * 1024) {
+      throw new Error(`磁盘空间不足：${directory} 剩余 ${Math.floor(available / 1024 / 1024)} MiB。请释放空间或选择其他磁盘后重试；已有作品会保留。Low disk space; keep at least 512 MiB free plus the output size.`);
+    }
+  }
   async function request(base, route, { signal, ...options } = {}) {
     const timeout = AbortSignal.timeout(300_000);
     const response = await fetchImpl(`${comfyuiUrl(base)}${route}`, {
@@ -144,12 +152,23 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         await mkdir(directory, { recursive: true }); await inside(root, directory);
         job[outputKey] = [];
         for (const [i, image] of outputs.slice(0, 8).entries()) {
+          await checkSpace(directory);
           const query = new URLSearchParams({ filename: image.filename, subfolder: image.subfolder ?? '', type: 'output' });
           const bytes = await limitedBody(await request(job.server, `/view?${query}`, { signal }), media?.maxBytes ?? 32 * 1024 * 1024);
           const dimensions = media ? media.inspect(bytes) : pngDimensions(bytes);
           const file = path.join(directory, `${i + 1}.${media?.extension ?? 'png'}`);
           // Exclusive writes preserve user changes, including links placed at an output path.
-          try { await writeFile(file, bytes, { flag: 'wx' }); }
+          try {
+            await checkSpace(directory, bytes.length);
+            const handle = await open(file, 'wx');
+            try { await handle.writeFile(bytes); }
+            catch (error) {
+              await handle.close();
+              await unlink(file);
+              throw error;
+            }
+            await handle.close();
+          }
           catch (error) {
             if (error.code !== 'EEXIST' || !bytes.equals(await readFile(await inside(root, file)))) throw error;
           }
@@ -214,6 +233,17 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         if (!uuid.test(id)) throw new Error('request_id must be a UUID');
         // Validate dimensions before contacting the service.
         workflow(input, [], id);
+        // An existing receipt remains queryable even when the disk becomes full.
+        const existing = await load(id).catch(error => {
+          if (error.code === 'ENOENT') return null;
+          throw error;
+        });
+        if (existing) {
+          if (JSON.stringify(existing.input) !== JSON.stringify(input)) throw new Error(`request_id already belongs to a different ${kind} request`);
+          return result(existing);
+        }
+        await checkSpace(cwd, media?.maxBytes ?? 32 * 1024 * 1024);
+        await checkSpace(dataDir);
         await mkdir(records, { recursive: true });
         const job = { job_id: id, prompt_id: id, server, status: 'preparing', created_at: new Date().toISOString(), input };
         try { await writeFile(path.join(records, `${id}.json`), JSON.stringify(job), { flag: 'wx' }); }

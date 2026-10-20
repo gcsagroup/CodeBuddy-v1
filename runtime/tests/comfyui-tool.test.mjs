@@ -34,6 +34,25 @@ async function fixture(t) {
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
 
+test('low disk space prevents submission; completed remote output can be downloaded after space is freed without resubmission', async t => {
+  const f = await fixture(t);
+  let free = 100 * 1024 * 1024;
+  const tool = comfyuiTool({ ...f.options, statfsImpl: async () => ({ bavail: free, bsize: 1 }) });
+  await assert.rejects(tool.execute(generate), /Low disk space/);
+  assert.equal(f.calls.length, 0);
+  free = 2 * 1024 ** 3;
+  assert.equal((await tool.execute(generate)).status, 'queued');
+  f.state('completed');
+  free = 100 * 1024 * 1024;
+  await assert.rejects(tool.execute({ operation: 'status', job_id: id }), /Low disk space/);
+  assert.equal((await tool.execute(generate)).status, 'queued');
+  free = 2 * 1024 ** 3;
+  const result = await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(result.status, 'completed');
+  assert.deepEqual(await readFile(result.images[0].path), f.png);
+  assert.equal(f.calls.filter(x => x.url.endsWith('/prompt')).length, 1);
+});
+
 test('real PNG result survives tool recreation, routes by prompt ID, and repeated submit does not enqueue twice', async t => {
   const f = await fixture(t);
   assert.equal((await f.tool.execute(generate)).status, 'queued');

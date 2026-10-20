@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import { createRotatingLog } from '../../../runtime/rotating-log.cjs';
 
 export async function startHarnessService(options: {
   resourcesPath: string;
@@ -24,9 +25,7 @@ export async function startHarnessService(options: {
   const logs = path.join(options.home, 'logs', 'harness');
   fs.mkdirSync(logs, { recursive: true });
   const secret = randomBytes(32).toString('hex');
-  const output = fs.createWriteStream(path.join(logs, 'runtime.log'), {
-    fd: fs.openSync(path.join(logs, 'runtime.log'), 'a'),
-  });
+  const output = createRotatingLog(path.join(logs, 'runtime.log'));
   const child = spawn(node, [path.join(root, 'runtime', 'desktop-entry.mjs')], {
     windowsHide: true,
     cwd: options.workspace,
@@ -35,6 +34,11 @@ export async function startHarnessService(options: {
   });
   child.stdout?.pipe(output, { end: false });
   child.stderr?.pipe(output, { end: false });
+  output.on('error', error => {
+    console.error('Harness log output failed:', error.message);
+    child.stdout?.resume();
+    child.stderr?.resume();
+  });
   let stopping = false;
   let exited = false;
   const exit = new Promise<void>(resolve => child.once('exit', () => {

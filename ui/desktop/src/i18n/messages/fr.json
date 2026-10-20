@@ -2015,9 +2015,6 @@
   "customProviderForm.reasoning": {
     "defaultMessage": "Raisonnement"
   },
-  "customProviderForm.recommended": {
-    "defaultMessage": "Recommended"
-  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "Ce fournisseur nécessite une clé API"
   },
@@ -4256,20 +4253,11 @@
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
   },
-  "modelsAndRuntime.agentModelConfiguration": {
-    "defaultMessage": "Agent model configuration"
-  },
-  "modelsAndRuntime.agentModelConfigurationDescription": {
-    "defaultMessage": "Use the current conversation model for every agent, or configure separate models for analysis, coding, testing, and review."
-  },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy model"
   },
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.configureAgentModels": {
-    "defaultMessage": "Configure agent models"
   },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
@@ -4289,41 +4277,8 @@
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
   },
-  "modelsBottomBar.advancedAgentModels": {
-    "defaultMessage": "Some agents use separate models"
-  },
-  "modelsBottomBar.agentModelCombination": {
-    "defaultMessage": "Agent model combination"
-  },
-  "modelsBottomBar.allAgentsFollowCurrent": {
-    "defaultMessage": "All agents follow the current model"
-  },
-  "modelsBottomBar.changeModel": {
-    "defaultMessage": "Changer de modèle"
-  },
-  "modelsBottomBar.closeLocalModelSettings": {
-    "defaultMessage": "Close local model settings"
-  },
-  "modelsBottomBar.configureAgentModels": {
-    "defaultMessage": "Configure agent models"
-  },
-  "modelsBottomBar.currentModel": {
-    "defaultMessage": "Modèle actuel"
-  },
-  "modelsBottomBar.independentAgentModels": {
-    "defaultMessage": "Analysis, coding, testing, and review can use different models"
-  },
   "modelsBottomBar.loadingModel": {
     "defaultMessage": "Chargement du modèle..."
-  },
-  "modelsBottomBar.localModelSettings": {
-    "defaultMessage": "Paramètres du modèle local"
-  },
-  "modelsBottomBar.localModelSettingsTitle": {
-    "defaultMessage": "Paramètres du modèle local — {modelName}"
-  },
-  "modelsBottomBar.resolvedModel": {
-    "defaultMessage": "Modèle résolu"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Sélectionner un modèle"
@@ -4652,23 +4607,8 @@
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "Impossible de se connecter au serveur CodeBuddy"
   },
-  "onboardingGuard.emptyModels": {
-    "defaultMessage": "Le service n’a renvoyé aucun modèle. Demandez à l’administrateur de rendre un modèle disponible, puis réessayez."
-  },
-  "onboardingGuard.multipleModels": {
-    "defaultMessage": "Le service a renvoyé plusieurs modèles. Un modèle par défaut doit être confirmé avant de poursuivre la configuration automatique."
-  },
   "onboardingGuard.retry": {
     "defaultMessage": "Réessayer"
-  },
-  "onboardingGuard.setupFailed": {
-    "defaultMessage": "La configuration du modèle par défaut est incomplète"
-  },
-  "onboardingGuard.setupTimeout": {
-    "defaultMessage": "La configuration du modèle a expiré. Vérifiez la connexion au service et réessayez."
-  },
-  "onboardingGuard.setupUnavailable": {
-    "defaultMessage": "Vérifiez que le service de modèles est disponible, puis réessayez. La conversation sera disponible une fois la configuration terminée."
   },
   "onboardingSuccess.allSet": {
     "defaultMessage": "Vous êtes prêt à commencer à utiliser CodeBuddy."
@@ -4984,9 +4924,6 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Ce que nous collectons :"
-  },
-  "progressiveMessageList.failedOperations": {
-    "defaultMessage": "{count} unsuccessful operations"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Charger les messages précédents ({remaining} restants)"
@@ -7406,9 +7343,6 @@
   "themeSelector.theme": {
     "defaultMessage": "Thème"
   },
-  "thinkingContent.latest": {
-    "defaultMessage": "Revenir au contenu le plus récent"
-  },
   "thinkingContent.thinking": {
     "defaultMessage": "Thinking"
   },
@@ -8372,13 +8306,301 @@
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
-  "modelsBottomBar.templateModels": {
-    "defaultMessage": "Subagents use their template model settings"
-  },
   "modelsAndRuntime.auxiliaryVision": {
     "defaultMessage": "Auxiliary vision settings"
   },
   "codeProModels.saveVision": {
     "defaultMessage": "Save vision settings"
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
+  },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "Historical diff unavailable for some operations"
+  },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "Show {count} more files"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "View changes"
+  },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
+  },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "Custom model provided by {provider}."
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
+  },
+  "onboardingGuard.configureDescription": {
+    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
+  },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "Open model settings"
+  },
+  "onboardingGuard.configureTitle": {
+    "defaultMessage": "Connect a model to get started"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "Unsuccessful"
+  },
+  "settingsCenter.pagePets": {
+    "defaultMessage": "Virtual pets"
+  },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "Current budget; model capacity unconfirmed"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "Context window"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "Could not save thinking effort. Try again."
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "High"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "Low"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "Maximum"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "Medium"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "Minimal"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "None"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "On"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "Could not read model settings"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "Thinking effort"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "Not provided"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "Extra high"
+  },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "All turns"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "No recorded file changes yet."
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "This change is no longer present in the conversation records."
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "Edit {number}"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "Changes"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{files} files across {turns} turns"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "This long diff has been shortened."
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "Turn {number}"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "Earlier records"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
+  },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "Open in default application"
+  },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "Referenced workspace files"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
+  },
+  "workspaceSubagent.all": {
+    "defaultMessage": "All subagents"
+  },
+  "workspaceSubagent.empty": {
+    "defaultMessage": "No conversation records yet."
+  },
+  "workspaceSubagent.readonly": {
+    "defaultMessage": "Read only"
+  },
+  "workspaceSubagent.refresh": {
+    "defaultMessage": "Refresh conversation"
+  },
+  "workspaceSubagent.stale": {
+    "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
+  },
+  "workspaceSubagent.status": {
+    "defaultMessage": "{state,select,running{Turn record still open} completed{Turn ended} failed{Turn failed} interrupted{Turn interrupted} other{Status not yet available}}"
+  },
+  "workspaceSubagent.title": {
+    "defaultMessage": "Subagent conversation"
+  },
+  "workspaceSubagent.truncated": {
+    "defaultMessage": "Some long records are shortened."
+  },
+  "workspaceSubagents.children": {
+    "defaultMessage": "Children of {name}"
+  },
+  "workspaceSubagents.empty": {
+    "defaultMessage": "No subagents in this directory."
+  },
+  "workspaceSubagents.external": {
+    "defaultMessage": "External agent"
+  },
+  "workspaceSubagents.hint": {
+    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
+  },
+  "workspaceSubagents.loading": {
+    "defaultMessage": "Loading subagents…"
+  },
+  "workspaceSubagents.refresh": {
+    "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.stale": {
+    "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
+  },
+  "workspaceSubagents.title": {
+    "defaultMessage": "Subagents"
+  },
+  "workspaceSubagents.unknown": {
+    "defaultMessage": "Conversation unavailable"
   }
 }

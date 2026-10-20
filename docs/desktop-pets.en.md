@@ -1,5 +1,9 @@
 # Desktop pets
 
+Task cards use a light rounded surface, soft shadow, and distinct title, status, and action areas. Titles wrap to two lines; the expanded list scrolls. The reading hierarchy references [Fluent toast guidance](https://fluent2.microsoft.design/components/web/react/core/toast/usage), without adding a UI dependency.
+
+Drag positions are validated against the union of display work areas, allowing the window to span adjacent screens. Positions beyond outer edges or on disconnected displays recover to the nearest visible work area. Passive hover updates mouse passthrough without raising the window; explicit pet interaction restores its stacking order. This reduces capture-overlay conflicts but does not implement global screenshot detection or automatic animation freezing. WeChat capture and mixed-scale multi-monitor behavior still require acceptance in the corresponding desktop environment.
+
 Settings → Pets offers Red Panda, Cream Cat and White Fox. Red Panda is the default. Click a card to preview, then choose Set as desktop pet to select and show it. Show and Hide are also available separately. Existing custom selections are retained; the early `buddy` default migrates to `red-panda`.
 
 Animations cover idle, wave, jump, working, waiting for input, blocked, review completed and gaze directions. Drag to move, click to greet and double-click to jump. Task notices consume structured ACP session state; clicking a notice opens its session. Reduce motion is available in settings.

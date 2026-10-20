@@ -313,7 +313,10 @@ export async function registerDesktopPet(options: {
     const result = queue.then(async () => {
       if (!request || typeof request.action !== 'string') throw new Error('Invalid pet request');
       const fromPet = event.sender === petWindow?.webContents;
-      if (fromPet && !['get', 'open-task', 'pause-task', 'drag-start', 'drag-end'].includes(request.action))
+      if (
+        fromPet &&
+        !['get', 'open-task', 'pause-task', 'drag-start', 'drag-end'].includes(request.action)
+      )
         throw new Error('Pet window request denied');
       if (!fromPet && !applicationWindows().some((w) => w.webContents === event.sender))
         throw new Error('Unknown pet client');
@@ -342,6 +345,7 @@ export async function registerDesktopPet(options: {
           if (fromPet && petWindow) {
             const b = petWindow.getBounds();
             drag = { cursor: screen.getCursorScreenPoint(), ...b, moved: false };
+            restoreOverlayOrder();
           }
           break;
         case 'drag-end':
@@ -366,6 +370,7 @@ export async function registerDesktopPet(options: {
               petWindow.setBounds(bounds);
               save();
             }
+            restoreOverlayOrder();
           }
           break;
         case 'open-task':
@@ -420,7 +425,8 @@ export async function registerDesktopPet(options: {
       if (ignore !== ignoresMouse) {
         ignoresMouse = ignore;
         petWindow?.setIgnoreMouseEvents(ignore, { forward: true });
-        restoreOverlayOrder();
+        // Passive hover must not raise us over another app's capture overlay.
+        // Explicit pet clicks and our own window activation restore the z-order.
       }
     }
   });
@@ -464,7 +470,7 @@ export async function registerDesktopPet(options: {
     }
   });
   const restore = () => {
-    if (petWindow) {
+    if (petWindow && !drag) {
       syncWindow();
       broadcast();
     }

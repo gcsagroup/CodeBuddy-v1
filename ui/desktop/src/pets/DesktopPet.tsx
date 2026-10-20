@@ -4,6 +4,8 @@ import type { PetAnimation, PetSnapshot, PetTask } from './petTypes';
 import { petPanelHeight, petPanelWidth } from './petPolicy';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
+import { ArrowUpRight, ChevronDown, MessageCircle, Pause } from 'lucide-react';
+import './desktopPet.css';
 
 const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
 const labels = {
@@ -36,7 +38,7 @@ function TaskCard({ task }: { task: PetTask }) {
     ? `${activityLabels[activity.kind]}${activity.toolName ? ` · ${activity.toolName}` : ''}`
     : inputLabel || labels[task.state];
   return (
-    <div>
+    <div className="pet-task-card" data-state={task.state}>
       <button
         type="button"
         aria-label={`${task.title} · ${detail}`}
@@ -44,75 +46,27 @@ function TaskCard({ task }: { task: PetTask }) {
         onClick={() =>
           void window.electron.desktopPet({ action: 'open-task', sessionId: task.sessionId })
         }
-        style={{
-          display: 'block',
-          width: '100%',
-          textAlign: 'left',
-          padding: '9px 12px',
-          color: 'inherit',
-          cursor: 'pointer',
-          border: 0,
-          borderBottom: '1px solid #ffffff20',
-          background: 'transparent',
-        }}
+        className="pet-task-open"
       >
-        <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
-          <span
-            aria-hidden="true"
-            style={{
-              color:
-                task.state === 'completed'
-                  ? '#86efac'
-                  : task.state === 'working'
-                    ? '#93c5fd'
-                    : '#fcd34d',
-            }}
-          >
+        <div className="pet-task-heading">
+          <span aria-hidden="true" className="pet-task-indicator">
             {task.state === 'completed' ? '✓' : task.state === 'working' ? '●' : '!'}
           </span>
-          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {task.title}
-          </strong>
+          <strong>{task.title}</strong>
         </div>
-        <div
-          style={{
-            marginTop: 3,
-            opacity: 0.85,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {detail}
-        </div>
+        <div className="pet-task-detail">{detail}</div>
         {activity && activity.stage && (
-          <div
-            style={{
-              opacity: 0.7,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
+          <div className="pet-task-detail pet-task-step">
             {t('Step', '当前步骤', '目前步驟')} · {activity.stage}
           </div>
         )}
         {task.inputRequest?.summary && (
-          <div
-            style={{
-              marginTop: 3,
-              opacity: 0.85,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={task.inputRequest.summary}
-          >
+          <div className="pet-task-question" title={task.inputRequest.summary}>
             {task.inputRequest.summary}
           </div>
         )}
       </button>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px 6px', gap: 8 }}>
+      <div className="pet-task-actions">
         {task.state === 'working' && activity && activity.kind !== 'stopping' && (
           <button
             type="button"
@@ -120,11 +74,13 @@ function TaskCard({ task }: { task: PetTask }) {
               void window.electron.desktopPet({ action: 'pause-task', sessionId: task.sessionId })
             }
           >
+            <Pause size={11} aria-hidden="true" />
             {t('Pause', '暂停', '暫停')}
           </button>
         )}
         <button
           type="button"
+          className="pet-task-follow"
           onClick={() =>
             void window.electron.desktopPet({ action: 'open-task', sessionId: task.sessionId })
           }
@@ -132,6 +88,7 @@ function TaskCard({ task }: { task: PetTask }) {
           {task.state === 'input'
             ? t('Reply', '去处理', '去處理')
             : t('Follow up', '继续跟进', '繼續跟進')}
+          <ArrowUpRight size={12} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -230,26 +187,22 @@ export default function DesktopPet() {
     gazing && !task && !reducedMotion && Math.hypot(dx, dy) < 500 && Math.hypot(dx, dy) > 40;
   return (
     <div
+      className="desktop-pet"
       style={{
         position: 'relative',
         width: petPanelWidth,
         height: petPanelHeight + Math.round((snapshot.preferences.size * 208) / 192),
-        color: '#fff',
-        font: '12px system-ui',
       }}
     >
       {task && (
         <div
           ref={panel}
+          className="pet-task-panel"
           style={{
             position: 'absolute',
             bottom: Math.round((snapshot.preferences.size * 208) / 192) + 8,
-            left: 4,
-            right: 4,
-            borderRadius: 14,
-            overflow: 'hidden',
-            background: '#202124f2',
-            border: '1px solid #ffffff30',
+            left: 10,
+            right: 10,
           }}
         >
           {tasks.length > 1 && (
@@ -257,20 +210,19 @@ export default function DesktopPet() {
               type="button"
               aria-expanded={expanded}
               onClick={() => setExpanded(!expanded)}
-              style={{
-                width: '100%',
-                padding: '7px 12px',
-                textAlign: 'left',
-                color: 'inherit',
-                background: '#ffffff12',
-                border: 0,
-                cursor: 'pointer',
-              }}
+              className="pet-task-toggle"
             >
-              {expanded ? '▾' : '▸'} {t('Conversations', '对话', '對話')} · {tasks.length}
+              <MessageCircle size={13} aria-hidden="true" />
+              <span>{t('Conversations', '对话', '對話')}</span>
+              <span className="pet-task-count">{tasks.length}</span>
+              <ChevronDown
+                size={13}
+                aria-hidden="true"
+                style={{ transform: expanded ? 'rotate(180deg)' : undefined }}
+              />
             </button>
           )}
-          <div style={{ maxHeight: 224, overflowY: 'auto' }}>
+          <div className="pet-task-list">
             {(expanded ? tasks : [task]).map((item) => (
               <TaskCard key={item.sessionId} task={item} />
             ))}

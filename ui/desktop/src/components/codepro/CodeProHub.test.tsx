@@ -122,13 +122,33 @@ describe('CodeProHub', () => {
     vi.mocked(createSession).mockResolvedValue(session);
   });
 
+  it('keeps a pet template on the new-task page until the user sends it', async () => {
+    const user = userEvent.setup();
+    render(
+      <CodeProHub
+        launchIntent={{
+          draftOnly: true,
+          workingDir: 'D:/pets/custom',
+          initialMessage: { msg: '宠物形象：小熊猫', images: [] },
+          noAutoSubmit: true,
+        }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByTestId('draft-message')).toHaveTextContent('宠物形象：小熊猫');
+    await act(async () => {});
+    expect(startCodeProSession).not.toHaveBeenCalled();
+    expect(createSession).not.toHaveBeenCalled();
+    expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Submit development goal' }));
+    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledTimes(1));
+  });
+
   it('renders product copy in the current language', () => {
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
 
     expect(screen.getByText('Multi-Agent development workspace')).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: 'Welcome to CodeBuddy' })
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Welcome to CodeBuddy' })).toBeVisible();
     expect(screen.getByText('Automatic task breakdown')).toBeVisible();
     expect(screen.getByText('Multi-model collaboration')).toBeVisible();
     expect(screen.getByText('Edit in place with a complete activity trail')).toBeVisible();

@@ -72,4 +72,40 @@ describe('desktop pet boundaries', () => {
       })
     ).toThrow(/Clipped/);
   });
+  it('keeps drops across adjacent monitor seams in both directions, including negative coordinates', () => {
+    const p = normalizePetPreferences({ size: 160 });
+    const areas = [
+      { x: -1920, y: 0, width: 1920, height: 1040 },
+      { x: 0, y: 0, width: 2560, height: 1400 },
+    ];
+    for (const x of [-240, -160, -40, 20]) {
+      expect(restorePetBounds({ ...p, position: { x, y: 400 } }, areas)).toMatchObject({
+        x,
+        y: 400,
+      });
+    }
+    const stacked = [
+      { x: 0, y: -1080, width: 1920, height: 1080 },
+      { x: 0, y: 0, width: 1920, height: 1040 },
+    ];
+    expect(restorePetBounds({ ...p, position: { x: 500, y: -100 } }, stacked)).toMatchObject({
+      x: 500,
+      y: -100,
+    });
+  });
+  it('recovers outer edges and gaps to the closest display instead of the first display', () => {
+    const p = normalizePetPreferences({ size: 160 });
+    const areas = [
+      { x: 0, y: 0, width: 1920, height: 1040 },
+      { x: 1920, y: 200, width: 1600, height: 1000 },
+    ];
+    expect(restorePetBounds({ ...p, position: { x: 3500, y: 300 } }, areas)).toMatchObject({
+      x: 3200,
+      y: 300,
+    });
+    expect(restorePetBounds({ ...p, position: { x: 1850, y: 50 } }, areas)).toMatchObject({
+      x: 1920,
+      y: 200,
+    });
+  });
 });

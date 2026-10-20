@@ -77,7 +77,9 @@ export default function PetSettings() {
           </div>
         )}
         <p className="font-medium">{pet?.name}</p>
-        <p className="mt-1 text-sm text-text-muted">{pet?.description}</p>
+        <p className="mt-1 max-w-lg break-words text-center text-sm text-text-muted">
+          {pet?.description}
+        </p>
         <label className="mt-3 flex items-center gap-2 text-sm">
           {t('Preview animation', '预览动作', '預覽動作')}
           <select
@@ -146,30 +148,38 @@ export default function PetSettings() {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div
+        className="grid gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))' }}
+      >
         {pets.map((item) => (
           <article
             key={item.id}
-            className={`rounded-xl border p-4 ${preferences.selectedId === item.id ? 'border-text-primary' : 'border-border-subtle'}`}
+            className={`flex min-w-0 flex-col rounded-xl border p-4 ${preferences.selectedId === item.id ? 'border-text-primary' : 'border-border-subtle'}`}
           >
             <button
-              className="flex w-full flex-col items-center"
+              className="flex w-full min-w-0 flex-1 flex-col items-center text-center"
               onClick={() => setPreviewId(item.id)}
               aria-label={`${t('Preview', '预览', '預覽')} ${item.name}`}
             >
               <div style={{ width: 112, height: 122 }}>
                 <PetSprite pet={item} reducedMotion={preferences.reducedMotion} />
               </div>
-              <span className="font-medium">{item.name}</span>
+              <span className="line-clamp-2 break-words font-medium">{item.name}</span>
               {item.id === defaultPetId && (
                 <span className="mt-1 text-xs text-text-muted">
                   {t('Default companion', '默认宠物', '預設寵物')}
                 </span>
               )}
-              <span className="mt-1 text-sm text-text-muted">{item.description}</span>
+              <span
+                title={item.description}
+                className="mt-2 line-clamp-3 break-words text-sm text-text-muted"
+              >
+                {item.description}
+              </span>
             </button>
             <button
-              className={`${button} mt-3 w-full`}
+              className={`${button} mt-4 w-full shrink-0`}
               disabled={busy || preferences.selectedId === item.id}
               onClick={() => {
                 setPreviewId(item.id);

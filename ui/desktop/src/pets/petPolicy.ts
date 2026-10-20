@@ -57,33 +57,47 @@ export function restorePetBounds(
   p: PetPreferences,
   areas: Array<{ x: number; y: number; width: number; height: number }>
 ) {
-  const area =
-    areas.find(
-      (a) =>
-        p.position &&
-        p.position.x >= a.x &&
-        p.position.x < a.x + a.width &&
-        p.position.y >= a.y &&
-        p.position.y < a.y + a.height
-    ) || areas[0];
   const width = petPanelWidth;
   const height = Math.round((p.size * 208) / 192) + petPanelHeight;
-  return {
+  const position = p.position ?? {
+    x: areas[0].x + areas[0].width - width - 32,
+    y: areas[0].y + areas[0].height - height - 24,
+  };
+  // A transparent pet window can span adjacent displays. Test the union, not
+  // the display containing its invisible top-left corner.
+  const xs = [
+    ...new Set([
+      position.x,
+      position.x + width,
+      ...areas
+        .flatMap((a) => [a.x, a.x + a.width])
+        .filter((x) => x > position.x && x < position.x + width),
+    ]),
+  ].sort((a, b) => a - b);
+  const covered = xs.slice(0, -1).every((left, i) => {
+    const spans = areas
+      .filter((a) => a.x <= left && a.x + a.width >= xs[i + 1])
+      .sort((a, b) => a.y - b.y);
+    let bottom = position.y;
+    for (const a of spans) {
+      if (a.y > bottom) break;
+      bottom = Math.max(bottom, a.y + a.height);
+    }
+    return bottom >= position.y + height;
+  });
+  if (covered) return { ...position, width, height };
+  // A removed display or an outer edge needs recovery to the closest work area.
+  const candidates = areas.map((area) => ({
+    x: Math.round(Math.max(area.x, Math.min(position.x, area.x + area.width - width))),
+    y: Math.round(Math.max(area.y, Math.min(position.y, area.y + area.height - height))),
     width,
     height,
-    x: Math.round(
-      Math.max(
-        area.x,
-        Math.min(p.position?.x ?? area.x + area.width - width - 32, area.x + area.width - width)
-      )
-    ),
-    y: Math.round(
-      Math.max(
-        area.y,
-        Math.min(p.position?.y ?? area.y + area.height - height - 24, area.y + area.height - height)
-      )
-    ),
-  };
+  }));
+  return candidates.sort(
+    (a, b) =>
+      Math.hypot(a.x - position.x, a.y - position.y) -
+      Math.hypot(b.x - position.x, b.y - position.y)
+  )[0];
 }
 export function selectPetTask(tasks: PetTask[]): PetTask | null {
   return sortPetTasks(tasks)[0] || null;

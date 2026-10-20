@@ -324,17 +324,16 @@ describe('bundled pet registry and saved selection', () => {
     hit(event, true);
     hit(event, true);
     expect(floating.setIgnoreMouseEvents).toHaveBeenCalledTimes(1);
-    if (process.platform === 'win32') {
-      expect(floating.setAlwaysOnTop).toHaveBeenCalledWith(true, 'screen-saver');
-      expect(floating.moveTop).toHaveBeenCalledTimes(1);
-      expect(floating.moveTop.mock.invocationCallOrder[0]).toBeGreaterThan(
-        floating.setIgnoreMouseEvents.mock.invocationCallOrder[0]
-      );
-    }
+    expect(floating.moveTop).not.toHaveBeenCalled();
+    expect(floating.setAlwaysOnTop).not.toHaveBeenCalled();
     const dispatch = (action: PetRequest['action']) =>
       host.handlers.get('desktop-pet')!(event, { action });
     host.cursor = { x: 1800, y: 900 };
     await dispatch('drag-start');
+    if (process.platform === 'win32') {
+      expect(floating.setAlwaysOnTop).toHaveBeenCalledWith(true, 'screen-saver');
+      expect(floating.moveTop).toHaveBeenCalledTimes(1);
+    }
     hit(event, false);
     expect(floating.setIgnoreMouseEvents).toHaveBeenCalledTimes(1);
     await dispatch('drag-end');

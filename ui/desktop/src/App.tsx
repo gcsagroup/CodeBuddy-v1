@@ -31,6 +31,7 @@ interface PairRouteState {
   resumeSessionId?: string;
   initialMessage?: UserInput;
   noAutoSubmit?: boolean;
+  draftOnly?: boolean;
   recipeDeeplink?: string;
   recipeId?: string;
 }
@@ -251,6 +252,7 @@ export const PairRouteWrapper = ({
       <CodeProHub
         launchIntent={{
           initialMessage,
+          draftOnly: routeState.draftOnly,
           recipeDeeplink,
           recipeId,
           noAutoSubmit,
@@ -433,6 +435,7 @@ export function AppInner() {
       if (typeof request?.dir !== 'string' || typeof request.query !== 'string') return;
       navigate(withWorkspaceMode('/pair', getWorkspaceModeFromPath(location.pathname)), {
         state: {
+          draftOnly: true,
           workingDir: request.dir,
           initialMessage: { msg: request.query, images: [] },
           noAutoSubmit: true,

@@ -558,6 +558,7 @@ describe('App Component - Brand New State', () => {
     handler({}, { dir: 'D:/pets/custom', query: '宠物形象：\n名字：' });
     expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
       state: {
+        draftOnly: true,
         workingDir: 'D:/pets/custom',
         initialMessage: { msg: '宠物形象：\n名字：', images: [] },
         noAutoSubmit: true,

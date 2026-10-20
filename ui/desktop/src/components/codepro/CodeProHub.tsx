@@ -55,6 +55,7 @@ export interface CodeProLaunchIntent {
   recipeDeeplink?: string;
   recipeId?: string;
   noAutoSubmit?: boolean;
+  draftOnly?: boolean;
 }
 
 interface PendingCodeProStart {
@@ -236,6 +237,8 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   useEffect(() => {
     if (!launchIntent || launchConsumedRef.current) return;
     launchConsumedRef.current = true;
+    // Draft-only entry points must not allocate a conversation before Send.
+    if (launchIntent.draftOnly) return;
     void inspectAndStage(launchIntent).catch(() => {});
   }, [inspectAndStage, launchIntent]);
 

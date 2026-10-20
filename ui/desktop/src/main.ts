@@ -2,7 +2,7 @@ import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './p
 import { registerGitHubCliAuth } from './github/githubCliMain';
 import { startHarnessService } from './harnessService';
 import { readFileResponse } from './storage/readFileResponse';
-import { registerWorkspacePanel } from './workspace-panel/workspacePanelMain';
+import { registerWorkspacePanel, registerWorkspaceMediaSession } from './workspace-panel/workspacePanelMain';
 import type { OpenDialogOptions, OpenDialogReturnValue, Session } from 'electron';
 import {
   app,
@@ -521,6 +521,9 @@ function installBackendCertificateVerification(targetSession: Session): void {
 app.whenReady().then(() => {
   installBackendCertificateVerification(session.defaultSession);
   installBackendCertificateVerification(session.fromPartition(localProfilePartition));
+  // Chromium captures protocol handlers when the renderer loads. Register before
+  // creating windows; lazy registration at the first file IPC misses a cold load.
+  registerWorkspaceMediaSession(session.fromPartition(localProfilePartition));
 });
 
 if (harnessPreview && process.env.CODEBUDDY_PREVIEW_DEVTOOLS_PORT) {

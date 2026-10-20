@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, type RenderOptions } from '@testing-library/react';
+import { render, fireEvent, type RenderOptions } from '@testing-library/react';
 import { screen, waitFor } from '@testing-library/dom';
 import MarkdownContent from './MarkdownContent';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -16,7 +16,9 @@ vi.mock('./icons', () => ({
 describe('MarkdownContent', () => {
   it('keeps numeric tilde ranges intact while retaining explicit double-tilde deletion', () => {
     const { container } = renderWithIntl(
-      <MarkdownContent content={'宇航员上太空 40%~80% 前几天会吐，2~3 天后适应。\n\n~~明确删除~~'} />
+      <MarkdownContent
+        content={'宇航员上太空 40%~80% 前几天会吐，2~3 天后适应。\n\n~~明确删除~~'}
+      />
     );
     expect(container).toHaveTextContent('40%~80% 前几天会吐，2~3 天后适应。');
     expect(container.querySelectorAll('del')).toHaveLength(1);
@@ -679,4 +681,27 @@ for the result.`;
       });
     });
   });
+});
+
+it('routes legacy file image syntax and local links to the scoped right panel without loading file URLs', () => {
+  const opened = vi.fn();
+  window.addEventListener('codebuddy:open-workspace-file', opened);
+  try {
+    const view = renderWithIntl(
+      <MarkdownContent
+        sessionId="media"
+        content={'![Video](file:///D:/fixture/a%20b.mp4)\n\n[Image](D:/fixture/image.png)'}
+      />
+    );
+    expect(view.container.querySelector('img')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Video' }));
+    expect(opened.mock.calls[0][0].detail).toEqual({
+      sessionId: 'media',
+      filePath: 'D:/fixture/a b.mp4',
+    });
+    fireEvent.click(screen.getByRole('link', { name: 'Image' }));
+    expect(opened.mock.calls[1][0].detail.filePath).toBe('D:/fixture/image.png');
+  } finally {
+    window.removeEventListener('codebuddy:open-workspace-file', opened);
+  }
 });

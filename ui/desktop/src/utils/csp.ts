@@ -66,12 +66,12 @@ export function buildCSP(externalBackend?: ExternalBackendConfig): string {
     "default-src 'self';" +
     "style-src 'self' 'unsafe-inline';" +
     "script-src 'self' 'unsafe-inline';" +
-    "img-src 'self' data: https:;" +
+    "img-src 'self' data: https: codebuddy-media:;" +
     `connect-src ${connectSrc};` +
     "object-src 'none';" +
     "frame-src 'self' https: http:;" +
     "font-src 'self' data: https:;" +
-    "media-src 'self' mediastream:;" +
+    "media-src 'self' mediastream: codebuddy-media:;" +
     "form-action 'none';" +
     "base-uri 'self';" +
     "manifest-src 'self';" +

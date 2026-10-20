@@ -418,15 +418,14 @@ it('opens only this parent child in the existing panel and reuses its tab', asyn
   expect(screen.queryByText('child-conversation:child-1')).not.toBeInTheDocument();
   expect(invoke.mock.calls.length).toBe(before);
 });
-it('opens the existing Git and review panel with the active session workspace', () => {
-  const { scope } = panel();
-  fireEvent.click(screen.getByRole('button', { name: /Git and review\s*Inspect/ }));
-  expect(screen.getByTestId('git-scope')).toHaveTextContent(`${scope.sessionId}:${scope.root}`);
-  fireEvent.click(screen.getAllByTitle('Start')[0]);
-  fireEvent.click(screen.getByRole('tab', { name: 'Git and review' }));
-  expect(screen.getByTestId('git-scope')).toHaveTextContent(`${scope.sessionId}:${scope.root}`);
+it('removes Git and review launchers while keeping files and conversation changes', () => {
+  panel();
+  expect(screen.queryByRole('tab', { name: 'Git and review' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Git and review\s*Inspect/ })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Workspace files' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'Changes' })).toBeInTheDocument();
 });
-it('keeps Git unavailable before a concrete session workspace is bound', () => {
+it('keeps removed Git entries absent before a session is bound', () => {
   render(
     <WorkspacePanelContent
       scope={{ sessionId: '', root: '' }}
@@ -436,8 +435,8 @@ it('keeps Git unavailable before a concrete session workspace is bound', () => {
     />,
     { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByRole('tab', { name: 'Git and review' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: /Git and review\s*Inspect/ })).toBeDisabled();
+  expect(screen.queryByRole('tab', { name: 'Git and review' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /Git and review\s*Inspect/ })).toBeNull();
   expect(screen.queryByTestId('git-scope')).toBeNull();
 });
 it('shows the three entries and saves an edit with the session scope and original version', async () => {
@@ -599,12 +598,7 @@ it('does not expose executable workspace tools for imported readonly history', (
   render(<WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />, {
     wrapper: IntlTestWrapper,
   });
-  for (const name of [
-    /Workspace files.*Browse/,
-    /New terminal.*Run/,
-    /Browser.*Browse/,
-    /Git and review.*Inspect/,
-  ]) {
+  for (const name of [/Workspace files.*Browse/, /New terminal.*Run/, /Browser.*Browse/]) {
     const entry = screen.getByRole('button', { name });
     expect(entry).toBeDisabled();
     fireEvent.click(entry);
@@ -651,4 +645,49 @@ it('clears a previous error when returning to an existing file tab, keeping its 
   expect(screen.queryByRole('alert')).toBeNull();
   fireEvent.click(screen.getByRole('tab', { name: /^note\.txt/ }));
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
+});
+
+it('opens a local video in the right panel with playback controls and no editing controls', async () => {
+  invoke.mockImplementation(async (request: PanelRequest) =>
+    request.action === 'read'
+      ? {
+          document: {
+            path: 'clip.mp4',
+            content: '',
+            version: '',
+            media: {
+              kind: 'video',
+              mimeType: 'video/mp4',
+              url: 'codebuddy-media://preview/token',
+            },
+          },
+        }
+      : { entries: [] }
+  );
+  const view = render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'media-panel', root: 'D:\\fixture' }}
+      expanded
+      width={600}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: 'media-panel', filePath: 'clip.mp4' },
+    })
+  );
+  await waitFor(() => expect(view.container.querySelector('video')).toHaveAttribute('controls'));
+  expect(view.container.querySelector('video')).toHaveAttribute(
+    'src',
+    'codebuddy-media://preview/token'
+  );
+  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+  fireEvent.error(view.container.querySelector('video')!);
+  expect(screen.getByRole('status')).toHaveTextContent('Media could not be loaded');
+  fireEvent.click(screen.getByRole('button', { name: 'Reload file from disk' }));
+  await waitFor(() => expect(view.container.querySelector('video')).toHaveAttribute('controls'));
 });

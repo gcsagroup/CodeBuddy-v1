@@ -583,6 +583,7 @@ export default function GooseMessage({
             return text.trim() ? (
               <div key={key} ref={contentRef} className="w-full" aria-busy={isStreaming}>
                 <MarkdownContent
+                  sessionId={sessionId}
                   content={text}
                   animateIncoming={isStreaming}
                   className="codepro-assistant-prose codepro-stream-prose"

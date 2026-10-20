@@ -8602,5 +8602,11 @@
   },
   "settingsCenter.pagePets": {
     "defaultMessage": "虚拟宠物"
+  },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "媒体加载失败，请重新加载预览，或检查本地文件和格式。"
+  },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "在右侧查看"
   }
 }

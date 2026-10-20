@@ -8,7 +8,6 @@ import {
   Folder,
   FolderOpen,
   Globe,
-  GitBranch,
   Home,
   Maximize2,
   Minimize2,
@@ -31,8 +30,8 @@ import { cn } from '../utils';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
+import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
-import { GitRepositoryPanel } from '../components/codepro/GitRepositoryPanel';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
@@ -63,7 +62,9 @@ import {
   type WorkbenchTab,
 } from './workspacePanelStore';
 import { WorkspaceCodePreview } from './WorkspaceCodePreview';
+import { WorkspaceGeneration, useMediaJobs, mediaText } from './WorkspaceGeneration';
 import './workspacePanel.css';
+const openedMediaJobs = new Set<string>();
 
 export const WORKSPACE_PANEL_GAP = 0;
 export const WORKSPACE_PANEL_TRANSITION = {
@@ -206,7 +207,10 @@ export function WorkspacePanelContent({
   useEffect(() => {
     if (expanded) setContentMounted(true);
   }, [expanded]);
-  const [state, setState] = useState(() => readWorkbench(key));
+  const [state, setState] = useState(() => {
+    const saved = readWorkbench(key);
+    return saved.active === 'git' ? { ...saved, active: 'start' } : saved;
+  });
   const [confirmation, setConfirmation] = useState<{
     message: string;
     resolve: (value: boolean) => void;
@@ -250,6 +254,19 @@ export function WorkspacePanelContent({
     },
     [key]
   );
+  const { jobs: mediaJobs, disconnected: mediaDisconnected } = useMediaJobs(scope.sessionId);
+  useEffect(() => {
+    const fresh = mediaJobs.find(
+      (job) =>
+        !openedMediaJobs.has(`${scope.sessionId}:${job.job_id}`) &&
+        ['queued', 'running', 'preparing'].includes(job.status) &&
+        Date.now() - Date.parse(job.created_at) < 300_000
+    );
+    if (!fresh) return;
+    openedMediaJobs.add(`${scope.sessionId}:${fresh.job_id}`);
+    update((current) => ({ ...current, active: 'media' }));
+    onExpandedChange(true);
+  }, [mediaJobs, scope.sessionId, update, onExpandedChange]);
   const selected = state.tabs.find((t) => t.id === state.active);
   useEffect(() => {
     tabStrip.current
@@ -526,6 +543,7 @@ export function WorkspacePanelContent({
     if (
       tab?.kind !== 'file' ||
       tab.document.image ||
+      tab.document.media ||
       tab.document.binary ||
       tab.draft === tab.document.content
     )
@@ -732,16 +750,6 @@ export function WorkspacePanelContent({
           </button>
           <button
             role="tab"
-            aria-selected={state.active === 'git'}
-            className="wb-tab"
-            onClick={() => activate('git')}
-            disabled={!available}
-            title={intl.formatMessage(m.git)}
-          >
-            <GitBranch size={14} />
-          </button>
-          <button
-            role="tab"
             aria-selected={state.active === 'changes'}
             aria-label={intl.formatMessage(changeMessages.title)}
             className="wb-tab"
@@ -768,6 +776,16 @@ export function WorkspacePanelContent({
               {intl.formatMessage(subagentsMessages.title)}
             </span>
           </button>
+          {mediaJobs.length > 0 && (
+            <button
+              role="tab"
+              aria-selected={state.active === 'media'}
+              className="wb-tab"
+              onClick={() => activate('media')}
+            >
+              {mediaText('Generation', '生成预览', '生成預覽')}
+            </button>
+          )}
           {state.tabs.map((t) => (
             <div key={t.id} className={`wb-tab ${t.id === state.active ? 'is-active' : ''}`}>
               <button
@@ -836,6 +854,8 @@ export function WorkspacePanelContent({
       )}
       {state.active === 'subagents' ? (
         <WorkspaceSubagents parentSessionId={scope.sessionId} />
+      ) : state.active === 'media' ? (
+        <WorkspaceGeneration scope={scope} jobs={mediaJobs} disconnected={mediaDisconnected} />
       ) : state.active === 'changes' || selected?.kind === 'change' ? (
         <WorkspaceChanges
           sessionId={scope.sessionId}
@@ -870,13 +890,6 @@ export function WorkspacePanelContent({
               icon: <Globe size={20} className="text-blue-500" />,
               click: () => void add('browser'),
             },
-            {
-              label: m.git,
-              sub: m.gitHint,
-              shortcut: '',
-              icon: <GitBranch size={20} className="text-blue-500" />,
-              click: () => activate('git'),
-            },
           ].map((card) => (
             <button
               key={card.label.id}
@@ -900,10 +913,6 @@ export function WorkspacePanelContent({
           >
             {available ? scope.root : intl.formatMessage(m.noWorkspace)}
           </p>
-        </div>
-      ) : state.active === 'git' ? (
-        <div className="min-h-0 flex-1 overflow-auto p-3">
-          <GitRepositoryPanel sessionId={scope.sessionId} workingDirectory={scope.root} />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -1016,51 +1025,57 @@ export function WorkspacePanelContent({
                 >
                   <RefreshCw size={14} />
                 </button>
-                {!selected.document.image && !selected.document.binary && (
-                  <>
-                    <button
-                      className="wb-icon"
-                      title={intl.formatMessage(m.wrap)}
-                      aria-label={intl.formatMessage(m.wrap)}
-                      aria-pressed={wrap}
-                      onClick={() => setWrap((value) => !value)}
-                    >
-                      <WrapText size={15} />
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded hover:bg-background-secondary"
-                      onClick={() =>
-                        update((s) => ({
-                          ...s,
-                          tabs: s.tabs.map((t) =>
-                            t.id === selected.id && t.kind === 'file'
-                              ? { ...t, preview: !t.preview }
-                              : t
-                          ),
-                        }))
-                      }
-                    >
-                      {intl.formatMessage(selected.preview ? m.edit : m.preview)}
-                    </button>
-                    <button
-                      className="wb-icon"
-                      title={intl.formatMessage(m.save, {
-                        shortcut: formatShortcut('CommandOrControl+S'),
-                      })}
-                      aria-label={intl.formatMessage(m.save, {
-                        shortcut: formatShortcut('CommandOrControl+S'),
-                      })}
-                      disabled={busy || selected.draft === selected.document.content}
-                      onClick={() => void save()}
-                    >
-                      <Save size={15} />
-                    </button>
-                  </>
-                )}
+                {!selected.document.image &&
+                  !selected.document.media &&
+                  !selected.document.binary && (
+                    <>
+                      <button
+                        className="wb-icon"
+                        title={intl.formatMessage(m.wrap)}
+                        aria-label={intl.formatMessage(m.wrap)}
+                        aria-pressed={wrap}
+                        onClick={() => setWrap((value) => !value)}
+                      >
+                        <WrapText size={15} />
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded hover:bg-background-secondary"
+                        onClick={() =>
+                          update((s) => ({
+                            ...s,
+                            tabs: s.tabs.map((t) =>
+                              t.id === selected.id && t.kind === 'file'
+                                ? { ...t, preview: !t.preview }
+                                : t
+                            ),
+                          }))
+                        }
+                      >
+                        {intl.formatMessage(selected.preview ? m.edit : m.preview)}
+                      </button>
+                      <button
+                        className="wb-icon"
+                        title={intl.formatMessage(m.save, {
+                          shortcut: formatShortcut('CommandOrControl+S'),
+                        })}
+                        aria-label={intl.formatMessage(m.save, {
+                          shortcut: formatShortcut('CommandOrControl+S'),
+                        })}
+                        disabled={busy || selected.draft === selected.document.content}
+                        onClick={() => void save()}
+                      >
+                        <Save size={15} />
+                      </button>
+                    </>
+                  )}
               </div>
               {selected.document.binary ? (
                 <div role="status" className="p-4 text-sm text-text-secondary">
                   {intl.formatMessage(m.binaryFile, { name: selected.title })}
+                </div>
+              ) : selected.document.media ? (
+                <div className="wb-media-preview">
+                  <WorkspaceMedia media={selected.document.media} title={selected.title} />
                 </div>
               ) : selected.document.image ? (
                 <div className="overflow-auto p-4">
@@ -1101,7 +1116,7 @@ export function WorkspacePanelContent({
                 <span>
                   {selected.draft !== selected.document.content
                     ? intl.formatMessage(m.unsaved)
-                    : 'UTF-8'}
+                    : (selected.document.media?.mimeType ?? 'UTF-8')}
                 </span>
               </footer>
             </section>

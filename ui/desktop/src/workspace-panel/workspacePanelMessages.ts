@@ -1,5 +1,11 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  previewMedia: { id: 'workspacePanel.previewMedia', defaultMessage: 'View in right panel' },
+  mediaFailed: {
+    id: 'workspacePanel.mediaFailed',
+    defaultMessage:
+      'Media could not be loaded. Reload the preview or check the local file and format.',
+  },
   relatedFiles: { id: 'workspacePanel.relatedFiles', defaultMessage: 'Referenced workspace files' },
   openDocument: {
     id: 'workspacePanel.openDocument',

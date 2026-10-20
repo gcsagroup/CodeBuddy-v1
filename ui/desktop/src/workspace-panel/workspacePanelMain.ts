@@ -2,14 +2,18 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  net,
+  protocol,
   shell,
   WebContentsView,
   type IpcMainInvokeEvent,
+  type Session,
 } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { MEDIA_SCHEME, PanelMediaRegistry, mediaRange } from './workspacePanelMedia';
 import type { IPty } from 'node-pty';
 import { terminalModulePath, terminalShell } from './workspacePanelTerminal';
 import type {
@@ -48,8 +52,53 @@ interface Owner {
   browsers: Map<string, BrowserState>;
 }
 const owners = new Map<number, Owner>();
+const mediaFiles = new PanelMediaRegistry();
+const mediaSessions = new WeakSet<Session>();
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: MEDIA_SCHEME,
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+  },
+]);
+
+export function registerWorkspaceMediaSession(session: Session) {
+  if (mediaSessions.has(session)) return;
+  mediaSessions.add(session);
+  session.protocol.handle(MEDIA_SCHEME, async (request) => {
+    if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 });
+    try {
+      const media = await mediaFiles.resolve(request.url);
+      const range = mediaRange(request.headers.get('Range'), media.size);
+      const headers = new globalThis.Headers({
+        'Content-Type': media.mimeType,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Accept-Ranges': 'bytes',
+      });
+      if (range.status === 416) {
+        headers.set('Content-Range', `bytes */${media.size}`);
+        return new Response(null, { status: 416, headers });
+      }
+      headers.set('Content-Length', String(range.length));
+      if (range.status === 206)
+        headers.set('Content-Range', `bytes ${range.start}-${range.end}/${media.size}`);
+      if (request.method === 'HEAD') return new Response(null, { status: range.status, headers });
+      const response = await net.fetch(media.url, {
+        headers: range.status === 206 ? { Range: `bytes=${range.start}-${range.end}` } : {},
+      });
+      return new Response(response.body, { status: range.status, headers });
+    } catch (error) {
+      console.warn(
+        'Workspace media preview failed:',
+        error instanceof Error ? error.message : String(error)
+      );
+      return new Response(null, { status: 404 });
+    }
+  });
+}
 
 function dispose(owner: Owner) {
+  mediaFiles.revoke(owner.id);
   for (const terminal of owner.terminals.values()) {
     if (!terminal.exited) {
       try {
@@ -82,6 +131,7 @@ function ownerFor(event: IpcMainInvokeEvent): Owner {
       browsers: new Map(),
     };
     owners.set(event.sender.id, owner);
+    registerWorkspaceMediaSession(event.sender.session);
     const current = owner;
     win.once('closed', () => dispose(current));
     win.webContents.on('render-process-gone', () => dispose(current));
@@ -144,10 +194,16 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       return listPanelFiles(root, request.path);
     case 'search':
       return searchPanelFiles(root, request.query);
-    case 'read':
-      return { document: await readPanelFile(root, request.path) };
-    case 'inspect':
-      return { file: await inspectPanelFile(root, request.path) };
+    case 'read': {
+      const document = await readPanelFile(root, request.path);
+      if (document.media) document.media.url = mediaFiles.grant(owner.id, root, request.path);
+      return { document };
+    }
+    case 'inspect': {
+      const file = await inspectPanelFile(root, request.path);
+      if (file.media) file.media.url = mediaFiles.grant(owner.id, root, request.path);
+      return { file };
+    }
     case 'open-external': {
       const error = await shell.openPath(await externalPanelDocument(root, request.path));
       if (error) throw new Error(error);

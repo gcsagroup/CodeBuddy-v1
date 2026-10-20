@@ -110,3 +110,23 @@ test('official Harness discovers and executes the video tool with the existing p
     assert.match(JSON.stringify(result), /queued/);
   } finally { await driver.close(); }
 });
+
+
+test('live catalog is session-scoped and publishes completion once without resubmission', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(input);
+  assert.equal(JSON.parse(f.calls.find(call => call.url.endsWith('/prompt')).body).extra_data.preview_method, 'auto');
+  assert.deepEqual(await comfyuiVideoTool({ ...f.options, sessionId: 'other' }).jobs(), []);
+  f.state('running');
+  const active = await f.tool.jobs();
+  assert.equal(active[0].status, 'running');
+  assert.equal(active[0].videos.length, 0);
+  f.state('completed');
+  const [catalog, receipt] = await Promise.all([f.tool.jobs(), f.tool.execute({ operation: 'status', job_id: id })]);
+  assert.equal(catalog[0].status, 'completed');
+  assert.equal(receipt.status, 'completed');
+  assert.equal(receipt.live, undefined); // Preview bytes never enter the model transcript.
+  assert.ok((await readFile(catalog[0].videos[0].path)).equals(f.bytes));
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+  assert.equal(f.calls.filter(call => call.url.includes('/view?')).length, 1);
+});

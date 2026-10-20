@@ -5,6 +5,7 @@ import { useIntl } from '../i18n';
 import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
 import type { PanelFileInfo } from '../workspace-panel/workspacePanelTypes';
+import { WorkspaceMedia } from '../workspace-panel/WorkspaceMedia';
 
 // These are navigation candidates, never evidence that a file was written or a task completed.
 function fileReferenceCandidates(content: string): string[] {
@@ -16,15 +17,28 @@ function fileReferenceCandidates(content: string): string[] {
     candidates.add(value);
     if (candidates.size >= 12) break;
   }
-  return [...candidates];
+  // Models also return a standalone media path inside a code block. Treat it only
+  // as a candidate and let the main process verify its workspace and existence.
+  for (const line of content.split(/\r?\n/)) {
+    const value = line.trim();
+    if (
+      value.length <= 1024 &&
+      /^(?:[a-z]:[\\/]|\/)[^\r\n]*\.(png|jpe?g|webp|gif|mp4|webm|mov)$/i.test(value)
+    )
+      candidates.add(value);
+    if (candidates.size >= 12) break;
+  }
+  return [...candidates].slice(0, 12);
 }
 
 export function WorkspaceFileReferences({
   sessionId,
   content,
+  paths,
 }: {
   sessionId: string;
   content: string;
+  paths?: string[];
 }) {
   const intl = useIntl();
   const snapshot = useAcpChatSessionSnapshot(sessionId);
@@ -37,7 +51,10 @@ export function WorkspaceFileReferences({
     binding === 'unbound'
       ? ''
       : (session?.working_dir ?? '');
-  const candidates = useMemo(() => fileReferenceCandidates(content), [content]);
+  const candidates = useMemo(
+    () => [...new Set([...(paths ?? []), ...fileReferenceCandidates(content)])].slice(0, 12),
+    [content, paths]
+  );
   const key = JSON.stringify([sessionId, root, candidates]);
   const [verified, setVerified] = useState<{ key: string; files: PanelFileInfo[] }>();
   useEffect(() => {
@@ -81,10 +98,26 @@ export function WorkspaceFileReferences({
           className="flex w-full min-w-0 items-center gap-2 border-t border-border-primary px-3 py-2 text-left text-sm hover:bg-background-secondary"
           onClick={() => openWorkspaceFile({ sessionId, filePath: file.path })}
         >
-          <File size={16} className="shrink-0 text-text-secondary" />
-          <span className="min-w-0 flex-1 truncate underline underline-offset-2">
-            {file.path.replace(/\\/g, '/').split('/').pop()}
-          </span>
+          {file.media ? (
+            <span className="flex min-w-0 flex-1 flex-col items-start gap-2">
+              <WorkspaceMedia
+                media={file.media}
+                title={file.path.replace(/\\/g, '/').split('/').pop()!}
+                thumbnail
+              />
+              <span>
+                {intl.formatMessage(panelMessages.previewMedia)} ·{' '}
+                {file.path.replace(/\\/g, '/').split('/').pop()}
+              </span>
+            </span>
+          ) : (
+            <File size={16} className="shrink-0 text-text-secondary" />
+          )}
+          {!file.media && (
+            <span className="min-w-0 flex-1 truncate underline underline-offset-2">
+              {file.path.replace(/\\/g, '/').split('/').pop()}
+            </span>
+          )}
           <span className="shrink-0 text-xs text-text-secondary">
             {intl.formatNumber(file.size)} B
           </span>

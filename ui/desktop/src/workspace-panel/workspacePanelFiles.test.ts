@@ -131,7 +131,10 @@ describe('workspace files using real filesystem data', () => {
     await fs.writeFile(path.join(root, 'large.txt'), Buffer.alloc(2 * 1024 * 1024 + 1, 65));
     await expect(readPanelFile(root, 'large.txt')).rejects.toThrow('2 MB');
     await fs.writeFile(path.join(root, 'image.png'), Buffer.from([137, 80, 78, 71]));
-    expect((await readPanelFile(root, 'image.png')).image).toMatch(/^data:image\/png;base64,/);
+    expect((await readPanelFile(root, 'image.png')).media).toMatchObject({
+      kind: 'image',
+      mimeType: 'image/png',
+    });
   });
   it('allows web addresses but rejects local files, scripts and URL credentials', () => {
     expect(panelUrl('example.com')).toBe('https://example.com/');

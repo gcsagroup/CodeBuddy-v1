@@ -1,3 +1,4 @@
+import { closeMediaStreams } from './comfyui-live.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -1179,6 +1180,13 @@ export class Compat {
       );
     if (this.apps.handles(method.replace(prefix, "")))
       return this.apps.request(method.replace(prefix, ""), p);
+    if (method === "_codebuddy/media/jobs") {
+      requireString(p.sessionId, "sessionId");
+      const session = this.session(p.sessionId);
+      const options = { cwd: session.cwd, dataDir: this.store.directory, sessionId: session.id };
+      const [images, videos] = await Promise.all([comfyuiTool(options).jobs(), comfyuiVideoTool(options).jobs()]);
+      return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
+    }
     if (method === "initialize")
       return {
         protocolVersion: 1,
@@ -2587,6 +2595,7 @@ export class Compat {
     return { stopReason: result?.stopReason ?? "end_turn" };
   }
   async close() {
+    closeMediaStreams(this.store.directory);
     this.closing = true;
     await this.transcription.close();
     await this.reviews.close();

@@ -74,3 +74,51 @@ it('remains usable when an older desktop process does not support file inspectio
   await act(async () => {});
   expect(view.container).toBeEmptyDOMElement();
 });
+
+it('previews verified local image and video cards and opens them in the same session panel', async () => {
+  inspect.mockImplementation(async (request) => ({
+    file: {
+      path: 'path' in request ? request.path : '',
+      size: 3000000,
+      openExternally: false,
+      media: {
+        kind: 'path' in request && request.path.endsWith('.png') ? 'image' : 'video',
+        mimeType: 'video/mp4',
+        url: 'codebuddy-media://preview/token',
+      },
+    },
+  }));
+  const opened = vi.fn();
+  window.addEventListener('codebuddy:open-workspace-file', opened);
+  try {
+    const view = render(
+      <WorkspaceFileReferences sessionId="media" content={'`photo.png` and `clip.mp4`'} />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(await screen.findByAltText('photo.png')).toHaveAttribute(
+      'src',
+      'codebuddy-media://preview/token'
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /clip.mp4/ }));
+    expect(opened.mock.calls[0][0].detail).toEqual({ sessionId: 'media', filePath: 'clip.mp4' });
+    expect(view.container.querySelector('video')).not.toHaveAttribute('autoplay');
+    fireEvent.error(view.container.querySelector('video')!);
+    expect(screen.getByRole('status')).toHaveTextContent('Media could not be loaded');
+  } finally {
+    window.removeEventListener('codebuddy:open-workspace-file', opened);
+  }
+});
+
+it('recognizes a standalone media path in a historical code block and verifies it first', async () => {
+  inspect.mockResolvedValue({ file: { path: 'clip.mp4', size: 3, openExternally: false } });
+  render(
+    <WorkspaceFileReferences sessionId="fenced" content={'```text\nD:/fixture/clip.mp4\n```'} />,
+    { wrapper: IntlTestWrapper }
+  );
+  await screen.findByRole('button', { name: /clip.mp4/ });
+  expect(inspect).toHaveBeenCalledWith({
+    scope: { sessionId: 'fenced', root: 'D:\\fixture' },
+    action: 'inspect',
+    path: 'D:/fixture/clip.mp4',
+  });
+});

@@ -1,10 +1,12 @@
+import { watchMedia, mediaStreamKey, mediaObservation, stopMedia } from './comfyui-live.mjs';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, stat, writeFile, rename } from 'node:fs/promises';
+import { mkdir, readFile, realpath, stat, writeFile, rename, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export const IMAGE_TOOL_NAME = 'generate_image';
 export const DEFAULT_COMFYUI_URL = 'http://192.168.9.111:8188';
+const refreshes = new Map();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const models = {
   unet: 'qwen_image_2.1_int8_convrot.safetensors',
@@ -106,13 +108,17 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
     if (!uuid.test(id ?? '')) throw new Error('A valid job_id from generate is required');
     return JSON.parse(await readFile(path.join(records, `${id}.json`), 'utf8'));
   }
+  const streamKey = job => mediaStreamKey(dataDir, sessionId, kind, job.job_id);
   function result(job) {
     return { job_id: job.job_id, prompt_id: job.prompt_id, status: job.status, [outputKey]: job[outputKey] ?? [], error: job.error ?? null,
+      kind, created_at: job.created_at,
       next: ['completed', 'failed', 'cancelled'].includes(job.status) ? null
         : ['submission_unknown', 'unavailable'].includes(job.status) ? 'Submission or server history is uncertain. Check this job_id with status; do not generate again automatically.'
           : `Call ${toolName} with operation=status, this job_id and wait_seconds=30. Do not submit generation again.` };
   }
-  async function refresh(job, signal) {
+  async function refreshJob(job, signal) {
+    if (!['completed', 'failed', 'cancelled'].includes(job.status) && fetchImpl === fetch)
+      await watchMedia(streamKey(job), job.server, job);
     // Older video receipts used image Markdown. Refresh their output metadata once
     // without resubmitting generation, so chat can offer a playable HTTP link.
     const needsVideoLink = media && job.status === 'completed' && job.videos?.some(video => !video.preview_url);
@@ -162,9 +168,29 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         : queue.queue_pending?.some(x => x[1] === job.prompt_id) ? 'queued'
           : job.cancel_requested ? 'cancelled' : job.status === 'submission_unknown' ? 'submission_unknown' : 'unavailable';
     }
-    await save(job); return result(job);
+    await save(job);
+    const value = result(job);
+    if (['completed', 'failed', 'cancelled'].includes(job.status)) stopMedia(streamKey(job));
+    return value;
+  }
+  async function refresh(job, signal) {
+    const key = streamKey(job);
+    if (refreshes.has(key)) return refreshes.get(key);
+    const pending = refreshJob(job, signal).finally(() => refreshes.delete(key));
+    refreshes.set(key, pending); return pending;
   }
   return {
+    async jobs() {
+      const files = await readdir(records).catch(error => { if (error.code === 'ENOENT') return []; throw error; });
+      const jobs = await Promise.all(files.filter(file => uuid.test(file.replace(/\.json$/, '')) && file.endsWith('.json')).map(async file => JSON.parse(await readFile(path.join(records, file), 'utf8'))));
+      const latest = jobs.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 20);
+      return Promise.all(latest.map(async job => {
+        try {
+          const value = ['preparing', 'submission_unknown'].includes(job.status) ? result(job) : await refresh(job, AbortSignal.timeout(15_000));
+          return { ...value, live: mediaObservation(streamKey(job)) };
+        } catch { return { ...result(job), live: mediaObservation(streamKey(job)), observation_error: true }; }
+      }));
+    },
     name: toolName,
     description: media?.description ?? 'Generate or edit any image with the configured ComfyUI service / 生图、图片编辑、透明素材、宠物动画. Submit once; use status with job_id to wait and download actual PNGs. Supports up to two workspace-local reference images. Main Agent writes the prompt. Never report completion before status=completed. Do not use shell scripts for this workflow.',
     inputSchema: media?.inputSchema ?? { type: 'object', properties: {
@@ -210,7 +236,8 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
             uploaded.push(`${upload.subfolder ? upload.subfolder + '/' : ''}${upload.name}`);
           }
           job.status = 'submission_unknown'; await save(job);
-          const receipt = await json(server, '/prompt', post({ prompt_id: id, client_id: id, prompt: workflow(input, uploaded, id) }, signal));
+          if (fetchImpl === fetch) await watchMedia(streamKey(job), server, job);
+          const receipt = await json(server, '/prompt', post({ prompt_id: id, client_id: id, extra_data: { preview_method: 'auto' }, prompt: workflow(input, uploaded, id) }, signal));
           if (!uuid.test(receipt.prompt_id ?? '')) throw new Error('ComfyUI did not return a valid prompt_id');
           job.prompt_id = receipt.prompt_id; job.status = 'queued'; await save(job);
           return result(job);

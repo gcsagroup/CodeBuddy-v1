@@ -8602,5 +8602,11 @@
   },
   "settingsCenter.pagePets": {
     "defaultMessage": "虛擬寵物"
+  },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "媒體載入失敗，請重新載入預覽，或檢查本機檔案和格式。"
+  },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "在右側查看"
   }
 }

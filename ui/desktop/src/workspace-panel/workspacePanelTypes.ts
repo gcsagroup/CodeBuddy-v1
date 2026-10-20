@@ -12,12 +12,19 @@ export interface PanelDocument {
   content: string;
   version: string;
   image?: string;
+  media?: PanelMedia;
   binary?: boolean;
+}
+export interface PanelMedia {
+  kind: 'image' | 'video';
+  mimeType: string;
+  url: string;
 }
 export interface PanelFileInfo {
   path: string;
   size: number;
   openExternally: boolean;
+  media?: PanelMedia;
 }
 export interface PanelBrowserState {
   id: string;

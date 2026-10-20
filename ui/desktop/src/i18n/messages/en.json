@@ -8483,6 +8483,9 @@
   "workspacePanel.maximize": {
     "defaultMessage": "Expand or restore panel"
   },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "Select a workspace and open a conversation to use files and terminals."
   },
@@ -8497,6 +8500,9 @@
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
+  },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "View in right panel"
   },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"

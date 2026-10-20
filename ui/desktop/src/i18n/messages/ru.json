@@ -8602,5 +8602,11 @@
   },
   "workspaceSubagents.unknown": {
     "defaultMessage": "Conversation unavailable"
+  },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "View in right panel"
   }
 }

@@ -1,4 +1,5 @@
 import { computerToolOutcome } from './computerToolOutcome';
+import { GeneratedMedia } from './GeneratedMedia';
 import { fileChangeReceipt, FileChangeCount } from './codepro/CodeProFileChange';
 import {
   CodeProPlan,
@@ -425,6 +426,9 @@ export default function ToolCallWithResponse({
           }}
         />
         {/* Inline approval UI */}
+        {sessionId && !isPendingApproval && (
+          <GeneratedMedia sessionId={sessionId} toolName={toolCall.name} response={toolResponse} />
+        )}
         {showInlineApproval && (
           <div className="border-t border-amber-500/30">
             {confirmationContent.prompt && (

@@ -1,11 +1,30 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import type { PanelDocument, PanelEntry, PanelFileInfo } from './workspacePanelTypes';
+import type { PanelDocument, PanelEntry, PanelFileInfo, PanelMedia } from './workspacePanelTypes';
 
 const LIMIT = 2 * 1024 * 1024;
 const version = (data: Buffer) => createHash('sha256').update(data).digest('hex');
 const writes = new Map<string, Promise<unknown>>();
+
+export function panelMedia(file: string, size: number): PanelMedia | undefined {
+  const types: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+  };
+  const mimeType = types[path.extname(file).toLowerCase()];
+  if (!mimeType) return undefined;
+  const kind = mimeType.startsWith('image/') ? 'image' : 'video';
+  const limit = (kind === 'image' ? 32 : 128) * 1024 * 1024;
+  if (size > limit) throw new Error('Media exceeds the preview size limit');
+  return { kind, mimeType, url: '' };
+}
 
 export function inside(root: string, file: string): boolean {
   const relative = path.relative(root, file);
@@ -56,6 +75,7 @@ export async function inspectPanelFile(root: string, requested: string): Promise
     path: path.relative(realRoot, file),
     size: stat.size,
     openExternally: externalDocuments.has(path.extname(file).toLowerCase()),
+    media: panelMedia(file, stat.size),
   };
 }
 
@@ -104,24 +124,12 @@ function decodeText(data: Buffer): string | null {
 export async function readPanelFile(root: string, requested: string): Promise<PanelDocument> {
   const file = await panelPath(root, requested);
   const stat = await fs.stat(file);
+  if (!stat.isFile()) throw new Error('Path is not a regular file');
+  const media = panelMedia(file, stat.size);
+  if (media) return { path: requested, content: '', version: '', media };
   if (!stat.isFile() || stat.size > LIMIT) throw new Error('Preview supports files up to 2 MB');
   const data = await fs.readFile(file);
   if (data.length > LIMIT) throw new Error('File grew beyond the preview limit');
-  const ext = path.extname(file).toLowerCase();
-  const imageTypes: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-  };
-  if (imageTypes[ext])
-    return {
-      path: requested,
-      content: '',
-      version: version(data),
-      image: `data:${imageTypes[ext]};base64,${data.toString('base64')}`,
-    };
   const content = decodeText(data);
   return content === null
     ? { path: requested, content: '', version: version(data), binary: true }
@@ -137,6 +145,7 @@ export async function savePanelFile(
   if (Buffer.byteLength(content, 'utf8') > LIMIT)
     throw new Error('File exceeds the 2 MB editing limit');
   const file = await panelPath(root, requested);
+  if (panelMedia(file, 0)) throw new Error('Media files are read-only');
   const previous = writes.get(file) ?? Promise.resolve();
   const operation = previous
     .catch(() => {})

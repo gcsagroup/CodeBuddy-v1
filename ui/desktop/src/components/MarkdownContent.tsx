@@ -34,6 +34,8 @@ import { Check, Copy } from './icons';
 import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { isProtocolSafe, getProtocol, BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { ConfirmationModal } from './ui/ConfirmationModal';
+import { openWorkspaceFile, workspaceLinkPath } from '../workspace-panel/workspaceFilePanel';
+import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { defineMessages, useIntl } from '../i18n';
 
 const i18n = defineMessages({
@@ -77,6 +79,7 @@ interface CodeProps extends React.ClassAttributes<HTMLElement>, React.HTMLAttrib
 }
 
 interface MarkdownContentProps {
+  sessionId?: string;
   content: string;
   className?: string;
   revealAt?: number;
@@ -280,9 +283,11 @@ const MarkdownContent = memo(function MarkdownContent({
   className = '',
   revealAt,
   animateIncoming = false,
+  sessionId,
 }: MarkdownContentProps) {
   const intl = useIntl();
   const splitIncoming = animateIncoming;
+  const previewLabel = intl.formatMessage(panelMessages.previewMedia);
   const [pendingLink, setPendingLink] = useState<{ protocol: string; href: string } | null>(null);
 
   const completeSegments = useMemo(() => {
@@ -342,6 +347,11 @@ const MarkdownContent = memo(function MarkdownContent({
             e.preventDefault();
             e.stopPropagation();
             if (!props.href) return;
+            const filePath = workspaceLinkPath(props.href);
+            if (sessionId && filePath) {
+              openWorkspaceFile({ sessionId, filePath });
+              return;
+            }
             if (isProtocolSafe(props.href)) {
               window.electron.openExternal(props.href);
             } else {
@@ -351,15 +361,27 @@ const MarkdownContent = memo(function MarkdownContent({
           }}
         />
       ),
+      img: ({ src, alt }) =>
+        sessionId && typeof src === 'string' && workspaceLinkPath(src) ? (
+          <button
+            type="button"
+            className="underline"
+            onClick={() => openWorkspaceFile({ sessionId, filePath: workspaceLinkPath(src)! })}
+          >
+            {alt || previewLabel}
+          </button>
+        ) : (
+          <img src={src} alt={alt} />
+        ),
       code: MarkdownCode,
     }),
-    []
+    [sessionId, previewLabel]
   );
 
   const renderMarkdown = (markdown: string, key: string) => (
     <ReactMarkdown
       key={key}
-      urlTransform={customUrlTransform}
+      urlTransform={(url) => (sessionId && workspaceLinkPath(url) ? url : customUrlTransform(url))}
       remarkPlugins={[
         [remarkGfm, { singleTilde: false }],
         [remarkMath, { singleDollarTextMath: false }],

@@ -407,3 +407,10 @@ Mac 审计回执仅在内存中保存持有的 Inspection 与原能力。审计�
 `runtime/secrets.mjs` 继续拥有配置密文的保护/解封调用边界。Mac 独立 `codebuddy-credentials` helper 通过 Security Keychain 持有随机主密钥，以 CryptoKit AES-GCM 处理版本化密文；打包流程拥有 helper 的固定路径、哈希和签名身份。解密只读取已有密钥，缺失或无权访问时失败；不改变 Harness 执行或 MCP 权限所有权。Windows DPAPI 数据不迁移。
 
 繁體：Mac 獨立憑證 helper 擁有 Keychain 主金鑰與加解密，既有設定與 Harness 權威不變。English: The standalone Mac credential helper owns its Keychain master key and encryption; existing settings and Harness authority remain unchanged.
+
+
+## 2026-10-20 已批准：媒体实时预览消费者
+
+`comfyui-tool.mjs` 继续独占任务收据、状态确认与产物落盘；`comfyui-live.mjs` 只缓存该任务 WebSocket 的节点进度和最近预览帧，不裁决任务或 Agent 完成。认证后的 `_codebuddy/media/jobs` 根据宿主持有的会话目录读取收据并复用原发布逻辑，不接受客户端指定服务或文件目录，不提交、取消或重放生成。帧数据不进入模型工具回执或对话持久化。前端右侧仅消费结构化观测，断线保留提示并重试；已完成产物通过原工作区媒体协议播放。旧收据无需迁移，关闭窗口后生成仍归 ComfyUI，关闭宿主清理观测连接。
+
+繁體：工具持有收據與落盤，WebSocket 快取僅供預覽；右側透過認證 RPC 消費，不重新提交生成。English: media tools retain receipts and publication ownership; WebSocket observations are transient, and the authenticated side-panel consumer never resubmits generation.

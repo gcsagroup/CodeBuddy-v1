@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, writeFile, readFile, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, access, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHarnessDriver } from '../harness/index.mjs';
@@ -16,7 +16,7 @@ const allow = { outcome: { outcome: 'selected', optionId: 'allow_once' } };
 const stopped = pid => assert.throws(() => process.kill(pid, 0), /ESRCH/, `MCP process ${pid} must stop`);
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-session-lifecycle-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-session-lifecycle-')));
   const script = path.join(root, 'mcp.mjs'), pidFile = path.join(root, 'pids.jsonl');
   await writeFile(script, String.raw`import {appendFileSync} from 'node:fs'; import {createInterface} from 'node:readline';
 appendFileSync(process.argv[2],JSON.stringify({pid:process.pid})+'\n');

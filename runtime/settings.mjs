@@ -4,6 +4,7 @@ import { invalid, requireString, providerStatus, readProvider, saveProvider, con
 import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
+import { comfyuiUrl } from './comfyui-tool.mjs';
 
 const permissionLevels = new Set(['always_allow', 'ask_before', 'never_allow']);
 const roles = new Set(['main', 'planner', 'coder', 'tester', 'reviewer']);
@@ -13,6 +14,10 @@ const configKey = e => extensionConfigKey(requireString(extensionName(e), 'exten
 
 export function validatePreference(key, value) {
   if (value == null) return;
+  if (key === 'comfyuiBaseUrl') {
+    if (typeof value !== 'string' || !value.trim()) throw invalid('ComfyUI URL is required');
+    try { comfyuiUrl(value); } catch (error) { throw invalid(error.message); }
+  }
   if (key === 'gooseMode' && !['auto', 'approve', 'smart_approve', 'chat'].includes(value)) throw invalid('Unknown tool permission mode');
   if (key === 'gooseThinkingEffort' && !THINKING_EFFORTS.includes(value)) throw invalid('Unknown reasoning effort');
   if (key === 'gooseMaxTurns' && (!Number.isSafeInteger(value) || value < 1 || value > 100000)) throw invalid('Maximum turns must be between 1 and 100000');
@@ -100,8 +105,8 @@ export class RuntimeSettings {
     });
     if (changed) {
       this.extensionRevision += 1;
-    this.decodedExtensions.clear();
-      await this.changed();
+      this.decodedExtensions.clear();
+      await this.changed({ extensionConfigKeys: [...new Set([key, ...(replacing ? [p.configKey] : [])])] });
     }
     return {};
   }
@@ -124,8 +129,8 @@ export class RuntimeSettings {
         });
         if (changed) {
           this.extensionRevision += 1;
-    this.decodedExtensions.clear();
-          await this.changed();
+          this.decodedExtensions.clear();
+          await this.changed({ extensionConfigKeys: [p.configKey] });
         }
         return {};
       }

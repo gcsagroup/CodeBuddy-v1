@@ -2124,6 +2124,7 @@ export type PreferencesReadRequest_unstable = {
 };
 
 export type PreferenceKey =
+  | "comfyuiBaseUrl"
   | "autoCompactThreshold"
   | "gooseMode"
   | "gooseThinkingEffort"

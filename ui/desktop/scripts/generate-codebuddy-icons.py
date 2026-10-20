@@ -1,50 +1,71 @@
-"""Generate CodeBuddy PNG and Windows ICO assets from the distribution mark."""
-
+"""Export desktop icon formats from the checked-in CodeBuddy artwork (Pillow)."""
+import base64
+import io
 from pathlib import Path
+from PIL import Image, ImageDraw, ImageOps
 
-from PIL import Image, ImageDraw
+DESKTOP = Path(__file__).resolve().parent.parent
+IMAGES_DIR = DESKTOP / "src" / "images"
+BRANDING_DIR = DESKTOP / "branding"
 
 
-IMAGES_DIR = Path(__file__).resolve().parent.parent / "src" / "images"
-CANVAS_SIZE = 1024
+def resized(image: Image.Image, size: int) -> Image.Image:
+    # Fit instead of stretching if a future source includes asymmetric margins.
+    fitted = ImageOps.contain(image, (size, size), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size))
+    canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+    return canvas
 
 
-def build_mark() -> Image.Image:
-    image = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), (0, 0, 0, 0))
-    mask = Image.new("L", image.size, 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle((32, 32, 992, 992), radius=224, fill=255)
+def svg_wrapper(image: Image.Image, destination: Path) -> None:
+    # Embed the same artwork, rather than trace a different brand mark.
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    data = base64.b64encode(buffer.getvalue()).decode("ascii")
+    destination.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" '
+        'viewBox="0 0 512 512"><image width="512" height="512" '
+        f'href="data:image/png;base64,{data}"/></svg>\n', encoding="utf-8"
+    )
 
-    gradient = Image.new("RGBA", image.size)
-    gradient_pixels = gradient.load()
-    start = (23, 37, 84)
-    end = (7, 17, 31)
-    for y in range(CANVAS_SIZE):
-        ratio = y / (CANVAS_SIZE - 1)
-        color = tuple(round(start[index] * (1 - ratio) + end[index] * ratio) for index in range(3))
-        for x in range(CANVAS_SIZE):
-            gradient_pixels[x, y] = (*color, 255)
 
-    image.alpha_composite(Image.composite(gradient, Image.new("RGBA", image.size), mask))
-    draw = ImageDraw.Draw(image)
-    cyan = (103, 232, 249, 255)
-    lime = (163, 230, 53, 255)
-    draw.line([(348, 284), (184, 512), (348, 740)], fill=cyan, width=84, joint="curve")
-    draw.line([(676, 284), (840, 512), (676, 740)], fill=cyan, width=84, joint="curve")
-    draw.line([(572, 256), (452, 768)], fill=lime, width=68)
-    return image
+def with_update_badge(image: Image.Image, *, template: bool) -> Image.Image:
+    # The badge is status chrome; the underlying artwork is unchanged.
+    result = image.copy()
+    size = result.width
+    draw = ImageDraw.Draw(result)
+    bounds = tuple(round(value * size) for value in (0.71, 0.04, 0.98, 0.31))
+    draw.ellipse(bounds, fill="black" if template else "#FBBF24",
+                 outline=(0, 0, 0, 0) if template else "#202020",
+                 width=max(1, round(size * 0.025)))
+    return result
 
 
 def main() -> None:
-    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    mark = build_mark()
-    mark.save(IMAGES_DIR / "icon.png")
-    mark.resize((512, 512), Image.Resampling.LANCZOS).save(IMAGES_DIR / "icon-512.png")
-    mark.resize((2048, 2048), Image.Resampling.LANCZOS).save(IMAGES_DIR / "icon@2x.png")
-    mark.save(
-        IMAGES_DIR / "icon.ico",
-        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
-    )
+    mark = Image.open(BRANDING_DIR / "codebuddy-master.png").convert("RGBA")
+    template = Image.open(BRANDING_DIR / "codebuddy-template-master.png").convert("RGBA")
+    for name, size in {
+        "icon.png": 1024, "icon@2x.png": 2048, "icon-512.png": 512,
+        "icon-light.png": 1024, "mark.png": 128, "mark@2x.png": 256,
+        "favicon.png": 32,
+    }.items():
+        resized(mark, size).save(IMAGES_DIR / name)
+    resized(mark, 1024).save(IMAGES_DIR / "icon.icns", format="ICNS")
+    (IMAGES_DIR / "icon-light.icns").write_bytes((IMAGES_DIR / "icon.icns").read_bytes())
+    sizes = [(s, s) for s in (16, 20, 24, 32, 40, 48, 64, 128, 256)]
+    resized(mark, 256).save(IMAGES_DIR / "icon.ico", sizes=sizes,
+                           append_images=[resized(mark, s) for s, _ in sizes])
+    update = with_update_badge(mark, template=False)
+    resized(update, 256).save(IMAGES_DIR / "iconUpdate.ico", sizes=sizes,
+                             append_images=[resized(update, s) for s, _ in sizes])
+    svg_wrapper(resized(mark, 512), IMAGES_DIR / "icon.svg")
+    svg_wrapper(resized(template, 512), IMAGES_DIR / "glyph.svg")
+    for suffix, size in (("", 22), ("@2x", 44)):
+        resized(template, size).save(IMAGES_DIR / f"iconTemplate{suffix}.png")
+        resized(with_update_badge(template, template=True), size).save(
+            IMAGES_DIR / f"iconTemplateUpdate{suffix}.png")
+    resized(with_update_badge(mark, template=False), 128).save(IMAGES_DIR / "iconUpdate.png")
+    print("Exported CodeBuddy PNG, ICO, ICNS, SVG wrappers and tray icons.")
 
 
 if __name__ == "__main__":

@@ -6926,6 +6926,9 @@
   "settingsCenter.pageModels": {
     "defaultMessage": "Models and runtime"
   },
+  "settingsCenter.pagePets": {
+    "defaultMessage": "Virtual pets"
+  },
   "settingsCenter.pageSecurity": {
     "defaultMessage": "Security and permissions"
   },

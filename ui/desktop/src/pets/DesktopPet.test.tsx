@@ -1,0 +1,125 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import DesktopPet from './DesktopPet';
+import type { PetSnapshot } from './petTypes';
+
+vi.mock('../i18n', () => ({ currentLocale: 'en' }));
+vi.mock('./PetSprite', () => ({
+  PetSprite: ({ animation }: { animation: string }) => <span role="img" aria-label={animation} />,
+}));
+const request = vi.fn();
+const snapshot = {
+  preferences: { visible: true, selectedId: 'red-panda', size: 160, reducedMotion: false },
+  pets: [{ id: 'red-panda', fps: 6 }],
+  task: null,
+} as unknown as PetSnapshot;
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.stubGlobal('PointerEvent', MouseEvent);
+  Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
+    configurable: true,
+    value: vi.fn(),
+  });
+  request.mockReset().mockResolvedValue(snapshot);
+  Object.assign(window, {
+    electron: { desktopPet: request, petSignal: vi.fn(), on: vi.fn(), off: vi.fn() },
+  });
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+it('waves for a full cycle after a click, then stays visible and returns to idle', async () => {
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  const sprite = screen.getByRole('img');
+  fireEvent.pointerDown(sprite, { button: 0, screenX: 100, screenY: 100 });
+  fireEvent.pointerUp(sprite, { button: 0, screenX: 100, screenY: 100 });
+  expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(999);
+  });
+  expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(201);
+  });
+  expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
+  expect(request.mock.calls.map(([value]) => value.action)).toEqual([
+    'get',
+    'drag-start',
+    'drag-end',
+  ]);
+});
+
+it('does not open a task during a drag, but opens it on a stationary click', async () => {
+  request.mockResolvedValue({
+    ...snapshot,
+    task: { state: 'completed', sessionId: 'fixture', title: 'Done' },
+  });
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  const sprite = screen.getByRole('img');
+  fireEvent.pointerDown(sprite, { button: 0, screenX: 100, screenY: 100 });
+  fireEvent.pointerUp(sprite, { button: 0, screenX: 150, screenY: 100 });
+  expect(request.mock.calls.some(([value]) => value.action === 'open-task')).toBe(false);
+  fireEvent.pointerDown(sprite, { button: 0, screenX: 150, screenY: 100 });
+  fireEvent.pointerUp(sprite, { button: 0, screenX: 150, screenY: 100 });
+  expect(request).toHaveBeenCalledWith({ action: 'open-task', sessionId: 'fixture' });
+  expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
+});
+
+it('shows conversation identity, live action and completed check; list clicks open their own session without dragging', async () => {
+  const tasks = [
+    { sessionId: 'approval', title: 'Publish website', state: 'input' },
+    {
+      sessionId: 'build',
+      title: 'Build desktop',
+      state: 'working',
+      activity: { kind: 'tool', toolName: 'pwsh', stage: 'Run regression tests' },
+    },
+    { sessionId: 'done', title: 'Draw rabbit', state: 'completed' },
+  ];
+  request.mockResolvedValue({ ...snapshot, task: tasks[0], tasks });
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  expect(screen.getByText('Publish website')).toBeInTheDocument();
+  expect(screen.queryByText('Build desktop')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Conversations/ }));
+  expect(screen.getByText('Run regression tests', { exact: false })).toBeInTheDocument();
+  expect(screen.getByText('Running tool · pwsh')).toBeInTheDocument();
+  expect(screen.getByText('✓')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Build desktop/ }));
+  expect(request).toHaveBeenCalledWith({ action: 'open-task', sessionId: 'build' });
+  expect(request.mock.calls.some(([value]) => value.action === 'drag-start')).toBe(false);
+  expect(screen.getByRole('img', { name: 'waiting' })).toBeInTheDocument();
+});
+
+it('shows question detail, preserves waiting on click, and pauses a running task through its owner', async () => {
+  const question = {
+    sessionId: 'q',
+    title: 'Choose pet',
+    state: 'input',
+    inputRequest: { kind: 'question', summary: 'Which color?' },
+  };
+  const working = {
+    sessionId: 'w',
+    title: 'Render video',
+    state: 'working',
+    activity: { kind: 'tool', toolName: 'generate_video' },
+  };
+  request.mockResolvedValue({ ...snapshot, task: question, tasks: [question, working] });
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  expect(screen.getByText('Waiting for your reply')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Choose pet/ }));
+  expect(screen.getByText('Which color?')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Conversations/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+  expect(request).toHaveBeenCalledWith({ action: 'pause-task', sessionId: 'w' });
+});

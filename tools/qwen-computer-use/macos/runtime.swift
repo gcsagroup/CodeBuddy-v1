@@ -181,9 +181,10 @@ func lookup(_ expected: NativeElement, in window: NativeWindow) throws -> AXUIEl
 
 @MainActor
 func assertForeground(_ window: NativeWindow, keyboard: Bool = false) throws {
-    guard NSWorkspace.shared.frontmostApplication?.processIdentifier == window.pid,
-          !keyboard || focusedWindow(pid: window.pid, candidates: windows())?.id == window.id else {
-        throw RuntimeFailure("Foreground window changed; observe the active window before retrying.")
+    let activePID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    let focusedID = keyboard ? focusedWindow(pid: window.pid, candidates: windows())?.id : nil
+    guard activePID == window.pid, !keyboard || focusedID == window.id else {
+        throw RuntimeFailure("Foreground window changed; observe the active window before retrying. Expected pid=\(window.pid), window=\(window.id); active pid=\(activePID.map(String.init) ?? "unknown"), focused window=\(focusedID.map(String.init) ?? "unchecked").")
     }
 }
 
@@ -212,6 +213,12 @@ struct NativeRuntime {
             try emit(["ok": true, "desktopEnvironment": diagnostic.dictionary,
                 "text": "macOS runtime available. Desktop=\(diagnostic.desktopAvailable), Accessibility=\(diagnostic.accessibility), ScreenRecording=\(diagnostic.screenRecording), LockSignal=\(diagnostic.lockSignal)."])
                 return
+            }
+            let desktop = DesktopEnvironmentDiagnostic(
+                session: CGSessionCopyCurrentDictionary() as? [String: Any], userID: getuid(),
+                accessibility: AXIsProcessTrusted(), screenRecording: CGPreflightScreenCaptureAccess())
+            guard desktop.desktopAvailable else {
+                throw RuntimeFailure("The current macOS desktop session is unavailable or locked. Ask the user to unlock the same logged-in desktop and observe again. No desktop input was dispatched.")
             }
             let permissionApplication = PermissionApplication.locate(
                 executable: Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0]),

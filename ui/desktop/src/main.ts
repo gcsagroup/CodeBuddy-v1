@@ -1,3 +1,4 @@
+import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerGitHubCliAuth } from './github/githubCliMain';
 import { startHarnessService } from './harnessService';
 import { readFileResponse } from './storage/readFileResponse';
@@ -65,7 +66,7 @@ import distro from '../codebuddy.distro.json';
 import { hasSupportedDeepLinkPrefix, PRIMARY_DEEP_LINK_PREFIX } from './utils/deepLinkProtocol';
 import { listGitWorktreeDirs } from './codepro/workspaceOperations';
 import { confirmCodeProWorkspace, inspectCodeProWorkspace } from './codepro/projectWorkspace';
-import { trayIconFileName, trayTooltip, windowIconFileName } from './utils/appIcons';
+import { trayIconFileName, trayTooltip, windowIconFileName, windowsAppUserModelId } from './utils/appIcons';
 import { resolveCodeBuddyUserDataDir } from './utils/userDataPath';
 import {
   applyLegacyEnvironment,
@@ -121,6 +122,7 @@ if (!started) {
   configureElectronProfile(app, storagePaths);
   const isolatedUserDataDir = resolveCodeBuddyUserDataDir(process.env.CODEBUDDY_USER_DATA_DIR);
   if (isolatedUserDataDir) app.setPath('userData', isolatedUserDataDir);
+  process.env.CODEBUDDY_PET_DIRECTORY = path.join(app.getPath('userData'), 'pets', 'custom');
 }
 
 const localProfilePartition = profilePartition('local');
@@ -133,8 +135,8 @@ log.info('Desktop startup preflight', {
 // Keep development and packaged profiles under the same internal Electron name.
 // Source: https://www.electronjs.org/docs/latest/api/app#appsetnamename
 app.setName(distro.productName);
-if (harnessPreview && process.platform === 'win32') {
-  app.setAppUserModelId('local.codebuddy.harness.preview');
+if (process.platform === 'win32') {
+  app.setAppUserModelId(windowsAppUserModelId(app.isPackaged));
 }
 
 function findSupportedDeepLink(args: string[]): string | undefined {
@@ -619,7 +621,7 @@ if (process.platform !== 'darwin') {
       }
 
       // Only focus existing windows for non-bot/recipe URLs
-      const existingWindows = BrowserWindow.getAllWindows();
+      const existingWindows = applicationWindows();
       if (existingWindows.length > 0) {
         const mainWindow = existingWindows[0];
         if (mainWindow.isMinimized()) {
@@ -647,7 +649,7 @@ if (process.platform !== 'darwin') {
         await handleProtocolUrl(protocolUrl, parsedUrl);
       } catch (error) {
         log.error('[Main] Failed to handle startup protocol URL:', errorMessage(error));
-        if (BrowserWindow.getAllWindows().length === 0) {
+        if (applicationWindows().length === 0) {
           const { dirPath } = parseArgs();
           await createNewWindow(app, dirPath);
         }
@@ -751,12 +753,12 @@ async function handleProtocolUrl(url: string, parsedUrl: URL) {
     await createResumeChatWindow(parsedUrl);
     return;
   } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
-    const existingWindows = BrowserWindow.getAllWindows();
+    const existingWindows = applicationWindows();
     const targetWindow = existingWindows.length > 0 ? existingWindows[0] : await createChat(app);
     if (!targetWindow) return;
     await processProtocolUrl(url, parsedUrl, targetWindow);
   } else {
-    const existingWindows = BrowserWindow.getAllWindows();
+    const existingWindows = applicationWindows();
     let targetWindow: BrowserWindow | undefined;
     if (existingWindows.length > 0) {
       targetWindow = existingWindows[0];
@@ -846,7 +848,7 @@ app.on('open-url', async (_event, url) => {
     }
 
     // For extension/session URLs, send to existing window or store pending for new one
-    const existingWindows = BrowserWindow.getAllWindows();
+    const existingWindows = applicationWindows();
     if (existingWindows.length > 0) {
       const targetWindow = existingWindows[0];
       if (targetWindow.isMinimized()) targetWindow.restore();
@@ -1075,8 +1077,10 @@ const gooseServeLeases = new GooseServeLeaseRegistry(log);
 
 const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blockerId
 // Track pending initial messages per window
-const pendingInitialMessages = new Map<number, string>(); // windowId -> initialMessage
-const pendingInitialMessageNoAutoSubmit = new Set<number>(); // windowIds whose initialMessage should NOT auto-submit
+const pendingInitialMessages = new Map<
+  number,
+  { message: string; noAutoSubmit: boolean; workingDir?: string }
+>();
 
 interface CreateChatOptions {
   initialMessage?: string;
@@ -1346,7 +1350,11 @@ const createChat = async (
       minWidth: 480,
       minHeight: 400,
       resizable: true,
-      icon: path.join(__dirname, '../images', windowIconFileName(process.platform)),
+      icon: path.join(
+        app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'src'),
+        'images',
+        windowIconFileName(process.platform)
+      ),
       webPreferences: {
         spellcheck: settings.spellcheckEnabled ?? true,
         preload: path.join(__dirname, 'preload.js'),
@@ -1378,6 +1386,20 @@ const createChat = async (
   } catch (error) {
     await cleanupUnregisteredGooseServeLease();
     throw error;
+  }
+
+  if (process.platform === 'win32') {
+    // Window icons alone do not identify the taskbar group (notably in Forge).
+    // https://www.electronjs.org/docs/latest/api/base-window#winsetappdetailsoptions-windows
+    mainWindow.setAppDetails({
+      appId: windowsAppUserModelId(app.isPackaged),
+      appIconPath: path.join(
+        app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'src'),
+        'images',
+        'icon.ico'
+      ),
+      appIconIndex: 0,
+    });
   }
 
   if (gooseServeLease) {
@@ -1549,10 +1571,12 @@ const createChat = async (
 
   // If we have an initial message, store it to send after React is ready
   if (initialMessage) {
-    pendingInitialMessages.set(mainWindow.id, initialMessage);
-    if (initialMessageNoAutoSubmit) {
-      pendingInitialMessageNoAutoSubmit.add(mainWindow.id);
-    }
+    pendingInitialMessages.set(mainWindow.id, {
+      message: initialMessage,
+      noAutoSubmit: Boolean(initialMessageNoAutoSubmit),
+      // Carry only the explicitly requested folder, never the recent-project fallback.
+      ...(dir?.trim() ? { workingDir: dir } : {}),
+    });
   }
 
   // Set up local keyboard shortcuts that only work when the window is focused
@@ -1598,6 +1622,7 @@ const createChat = async (
   // Handle window closure
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
+    if (windowMap.size === 0 && (process.platform !== 'darwin' || !tray)) app.quit();
 
     pendingInitialMessages.delete(windowId);
     pendingDeepLinks.delete(windowId);
@@ -1673,6 +1698,7 @@ const createLauncher = () => {
   const url = getAppUrl();
 
   url.hash = '/launcher';
+  markAuxiliaryWindow(launcherWindow);
   launcherWindow.loadURL(formatUrl(url));
   activeLauncherWindow = launcherWindow;
 
@@ -1750,7 +1776,7 @@ const createTray = () => {
 };
 
 const showWindow = async () => {
-  const windows = BrowserWindow.getAllWindows();
+  const windows = applicationWindows();
 
   if (windows.length === 0) {
     log.info('No windows are open, creating a new one...');
@@ -1939,7 +1965,7 @@ function parseRecipeDeeplink(url: string): RecipeDeeplinkData | undefined {
 
 // Global error handler
 const handleFatalError = (error: Error) => {
-  const windows = BrowserWindow.getAllWindows();
+  const windows = applicationWindows();
   windows.forEach((win) => {
     win.webContents.send('fatal-error', error.message || 'An unexpected error occurred');
   });
@@ -1973,12 +1999,10 @@ ipcMain.on('react-ready', (event) => {
 
   // Send any pending initial message for this window
   if (windowId && pendingInitialMessages.has(windowId)) {
-    const initialMessage = pendingInitialMessages.get(windowId)!;
-    const noAutoSubmit = pendingInitialMessageNoAutoSubmit.has(windowId);
-    log.info('Sending pending initial message to window:', initialMessage);
-    window.webContents.send('set-initial-message', initialMessage, { noAutoSubmit });
+    const { message, ...options } = pendingInitialMessages.get(windowId)!;
+    log.info('Sending pending initial message to window:', message);
+    window.webContents.send('set-initial-message', message, options);
     pendingInitialMessages.delete(windowId);
-    pendingInitialMessageNoAutoSubmit.delete(windowId);
   }
 
   if (windowId && pendingDeepLinks.has(windowId) && window) {
@@ -2565,7 +2589,7 @@ const createNewWindow = async (app: App, dir?: string | null) => {
 };
 
 const focusWindow = () => {
-  const windows = BrowserWindow.getAllWindows();
+  const windows = applicationWindows();
   if (windows.length > 0) {
     windows.forEach((win) => {
       win.show();
@@ -2625,7 +2649,7 @@ async function appMain() {
     if (status.modelConfigured !== true) previewInitialRoute = '/configure-providers';
   }
   powerMonitor.on('resume', () => {
-    for (const window of BrowserWindow.getAllWindows()) {
+    for (const window of applicationWindows()) {
       if (!window.isDestroyed()) {
         window.webContents.send('system-resume');
       }
@@ -3004,7 +3028,7 @@ async function appMain() {
   }
 
   app.on('activate', () => {
-    if (!fileOpenQueue.hasPending && BrowserWindow.getAllWindows().length === 0) {
+    if (!fileOpenQueue.hasPending && applicationWindows().length === 0) {
       createNewWindow(app);
     }
   });
@@ -3020,7 +3044,7 @@ async function appMain() {
     if (isFromLauncher) {
       const senderWindow = BrowserWindow.fromWebContents(event.sender);
       const launcherWindowId = senderWindow?.id;
-      const allWindows = BrowserWindow.getAllWindows();
+      const allWindows = applicationWindows();
 
       const existingWindows = allWindows.filter(
         (win) => !win.isDestroyed() && win.id !== launcherWindowId
@@ -3127,7 +3151,7 @@ async function appMain() {
 
   ipcMain.on('broadcast-theme-change', (event, themeData) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
-    const allWindows = BrowserWindow.getAllWindows();
+    const allWindows = applicationWindows();
 
     allWindows.forEach((window) => {
       if (window.id !== senderWindow?.id) {
@@ -3305,6 +3329,12 @@ async function appMain() {
 app.whenReady().then(async () => {
   try {
     await appMain();
+    await registerDesktopPet({
+      preload: path.join(__dirname, 'preload.js'),
+      rendererUrl: formatUrl(getAppUrl()),
+      builtinDirectory: path.join(app.isPackaged ? process.resourcesPath : app.getAppPath(), app.isPackaged ? 'assets' : 'src/pets/assets'),
+      openChat: ({ query, dir, resumeSessionId }) => createChat(app, { initialMessage: query, initialMessageNoAutoSubmit: Boolean(query), dir, resumeSessionId }),
+    });
   } catch (error) {
     dialog.showErrorBox(
       nativeT(

@@ -2,3 +2,6 @@ crates/goose/src/agents/snapshots/*.snap linguist-language=Text
 
 # Qualification fixture hashes must be identical on Windows, macOS, and Linux.
 evals/codebuddy/ollama-cloud-*/fixtures/** text eol=lf
+
+# Keep the macOS preview entry executable by Bash after Windows checkouts.
+/start-preview.sh text eol=lf

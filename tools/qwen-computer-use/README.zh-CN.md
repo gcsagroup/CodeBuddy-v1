@@ -26,9 +26,9 @@
 
 ## macOS 14+ 执行层（待实机验收）
 
-Mac 共用 Go MCP 接口和快照/回执合同，通过同目录 `qwen-computer-runtime` Swift helper 调用 AppKit、Accessibility、ScreenCaptureKit。九工具已有源码路径；Go 已在 Windows 测试并交叉编译，Swift 原生构建及合同测试已在 arm64 Mac 通过；真实输入待 TCC 授权及实机验收。元件文件不是安装包。
+Mac 共用 Go MCP 接口和快照/回执合同，通过同目录 `qwen-computer-runtime` Swift helper 调用 AppKit、Accessibility、ScreenCaptureKit。九工具已接入当前 Harness 的工具目录、开发启动和打包。此前历史验证不作为本批证据；本批按用户要求只开发，原生构建、测试及真实输入验收均待执行。元件文件不是安装包。
 
-桌面 `pnpm run bundle:mac --arch arm64`（Intel 选 x64）会执行 Go/Swift 合同测试，编译并封装两个 helper。需要 Go 1.22+、Xcode/Swift；可用 CODEBUDDY_GO_EXECUTABLE 指定 Go。Mac 开发入口同步两者。见[完整记录](../../documentation/codebuddy/MACOS_ZH_CN.md)。
+使用 `node scripts/build-harness-macos.cjs --arch arm64 --node-license /path/to/Node/LICENSE`；Intel 选 x64。需要已有 Go 1.22+、Xcode/Swift、项目 Rust 工具链与离线依赖；可用 CODEBUDDY_GO_EXECUTABLE 指定 Go。Mac 开发入口先构建并同步两个 helper 和独立 Rust MCP，默认不执行测试。合同测试保留为 `buildMacComputer(repo, arch, { test: true })`。签名后前端与 helper 的身份一起校验。见[当前开发说明](../../docs/macos.zh-CN.md)。
 
 用户须授予屏幕录制/辅助功能权限，输入需 `--foreground-input`。`cmd`/`super` 是 Command，`ctrl` 是 Control；文字用 type_text。`window:PID:WINDOW_ID` 绑定精确窗口，图片坐标是窗口相对点。窗口移动、元素变化、输入结果未知时重新观察。
 

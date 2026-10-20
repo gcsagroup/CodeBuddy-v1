@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "cream-cat",
+  "name": "奶油猫 · Cream Cat",
+  "description": "系着薄荷围巾的好奇小猫",
+  "image": "sprites.png",
+  "columns": 6,
+  "rows": 8,
+  "cellWidth": 192,
+  "cellHeight": 208,
+  "fps": 6
+}

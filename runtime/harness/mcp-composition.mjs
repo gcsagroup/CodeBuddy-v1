@@ -27,4 +27,7 @@ export async function apply(ctx, { servers }) {
   ctx.effect(() => () => states.delete(key), 'codebuddy-mcp.status');
 }
 
-export const compositionStatus = key => structuredClone(states.get(key) ?? []);
+export const compositionStatus = key => (states.get(key) ?? []).map(status => {
+  const live = mcpPlugin.mcpConnectionStatus(key, status.serverName);
+  return live ? { serverName: status.serverName, status: live, ...(live === 'error' ? { error: 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(status);
+});

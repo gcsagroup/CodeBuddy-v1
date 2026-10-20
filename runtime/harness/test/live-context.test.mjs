@@ -20,6 +20,7 @@ test('live stream updates survive SDK parsing; one multi-step turn compacts repe
     const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'live',object:'chat.completion.chunk',created:1,model:body.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
     if(summary){summaries++;emit({content:'Goal: complete eight fixture steps. Preserve API A and requirement B. Continue remaining steps.'});emit({},'stop');}
     else if(calls<8){
+      emit({content: `Step ${calls} analysis: ` + 'Preserve API A and requirement B; verified module facts. '.repeat(450)});
       emit({tool_calls:[{index:0,id:'c'+calls,type:'function',function:{name:'fixture_step',arguments:'{}'}}]});emit({},'tool_calls');
     } else {
       for(let n=0;n<4;n++){emit({content:'Verified module output. '.repeat(80)});await delay(300);}
@@ -31,7 +32,7 @@ test('live stream updates survive SDK parsing; one multi-step turn compacts repe
   const root=await mkdtemp(join(tmpdir(),'harness-live-context-'));
   const driver=await createHarnessDriver({cwd:root,dataDir:join(root,'state')});
   t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(r=>server.close(r));});
-  const s=await driver.createSession({cwd:root,provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536,contextSource:'configured'},model:'fixture',options:{autoCompactThreshold:0.25,tools:[{name:'fixture_step',parameters:{type:'object',properties:{}},execute:async()=>{calls++;return {content:[{type:'text',text:`Completed step ${calls}. `+'file facts and verification results '.repeat(600)}]};}}]}});
+  const s=await driver.createSession({cwd:root,provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536,maxTokens:2048,contextSource:'configured'},model:'fixture',options:{autoCompactThreshold:0.25,tools:[{name:'fixture_step',parameters:{type:'object',properties:{}},execute:async()=>{calls++;return {content:[{type:'text',text:`Completed step ${calls}. `+'file facts and verification results '.repeat(600)}]};}}]}});
   const project=contextUpdates({sessionId:s.sessionId});
   const events=[];
   const result=await driver.prompt(s.sessionId,'Develop the fixture across eight steps; preserve API A and requirement B.',{onPermission:()=>true,onEvent:event=>{

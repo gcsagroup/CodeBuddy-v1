@@ -348,7 +348,7 @@ test("schedule extension credentials are protected at rest and restored only for
   const sourceText = await readFile(created.job.source, "utf8");
   assert.ok(!stateText.includes(secretMarker));
   assert.ok(!sourceText.includes(secretMarker));
-  assert.ok(stateText.includes("windows-dpapi"));
+  assert.ok(stateText.includes(process.platform === "darwin" ? "macos-keychain-aesgcm-v1" : "windows-dpapi"));
   await call("run-now", { scheduleId: created.job.id });
   assert.equal(runs[0].recipe.extensions[0].envs.TOKEN, secretMarker);
   assert.equal(runs[0].protectedRecipeExtensions, undefined);

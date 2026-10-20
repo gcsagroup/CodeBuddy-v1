@@ -2,6 +2,7 @@ import { registerHooks, createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { readdir, readFile, stat, rename, rmdir } from 'node:fs/promises';
+import { distributionTarget } from './stage-harness-distribution.cjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const requireHarness = createRequire(join(root, 'runtime/harness/package.json'));
@@ -13,8 +14,9 @@ registerHooks({ resolve(specifier, context, next) {
   }
   return next(specifier, context);
 } });
-if (process.platform !== 'win32' || process.arch !== 'x64' || Number(process.versions.node.split('.')[0]) < 24)
-  throw Error('Use Node 24+ on Windows x64 for this payload');
+const target = distributionTarget().office;
+if (Number(process.versions.node.split('.')[0]) < 24)
+  throw Error('Use the existing native Node 24+ runtime for this payload');
 const output = join(root, 'runtime/office-assets');
 for (const name of ['py', 'office']) {
   if (await stat(join(root, 'runtime', name)).catch(error => { if (error.code !== 'ENOENT') throw error; }))
@@ -25,7 +27,7 @@ catch (error) { if (error.code !== 'ENOENT') throw error; }
 const { preparePrimaryRuntime, smokePrimaryRuntime } = await import('./office-builder/upstream/prepare.ts');
 const { version } = JSON.parse(await readFile(join(root, 'ui/desktop/package.json'), 'utf8'));
 console.log('Preparing the official pinned Python-only Office payload; system Python is unchanged.');
-await preparePrimaryRuntime({ target: 'win-x64', output,
+await preparePrimaryRuntime({ target, output,
   cache: join(root, 'target/harness-office-downloads'), version, pythonOnly: true,
   skillSource: join(dirname(requireHarness.resolve('@deepseek-ai/dsh-skill-office/package.json')), 'assets'),
 });

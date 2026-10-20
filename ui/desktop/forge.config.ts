@@ -6,6 +6,8 @@ const { resolve, sep } = require('path');
 const distro = require('./codebuddy.distro.json');
 const desktopPackage = require('./package.json');
 const { stagePty, preparePty } = require('./scripts/macos-package.cjs');
+const { macSigningOptionsForFile, ignoreNonMacCode } = require('../../scripts/macos-tool-artifacts.cjs');
+const { signingPlan } = require('./scripts/macos-signing.cjs');
 
 const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 const harnessResourceDir = process.env.CODEBUDDY_HARNESS_RESOURCE_DIR;
@@ -21,7 +23,7 @@ if (harnessResourceDir) {
   }
 }
 if (process.argv.some(argument => ['package', 'make'].includes(argument)) && !harnessResourceDir) {
-  throw new Error('Packaging requires a verified Harness distribution stage; use scripts/build-harness-windows.cjs on Windows.');
+  throw new Error('Packaging requires a verified Harness distribution stage; use scripts/build-harness-windows.cjs or scripts/build-harness-macos.cjs on the native host.');
 }
 const electronArtifactName = `electron-v${desktopPackage.devDependencies.electron}-win32-x64.zip`;
 const electronArtifactSha256 = 'bbb798d1817bc173a187c1de30432247e48046f737fa13ade126fe3788303b81';
@@ -48,7 +50,7 @@ let cfg = {
         },
       }
     : {}),
-  extraResource: [...(harnessResourceDir ? [harnessResourceDir] : []), 'src/images', 'src/app-update.yml'],
+  extraResource: [...(harnessResourceDir ? [harnessResourceDir] : []), 'src/images', 'src/pets/assets', 'src/app-update.yml'],
   icon: 'src/images/icon',
   appBundleId: 'local.codebuddy.desktop',
   appCategoryType: 'public.app-category.developer-tools',
@@ -88,18 +90,20 @@ let cfg = {
   },
 };
 
-// macOS code signing and notarization via Electron Forge
-// Activated when APPLE_TEAM_ID is set (CI signing builds)
-if (targetPlatform === 'darwin' && process.env.APPLE_TEAM_ID) {
-  if (!process.env.APPLE_ID || !process.env.APPLE_ID_PASSWORD) {
-    throw new Error(
-      'macOS notarization requires APPLE_ID and APPLE_ID_PASSWORD with APPLE_TEAM_ID'
-    );
-  }
+const macSigning = targetPlatform === 'darwin' ? signingPlan() : { kind: 'ad-hoc' };
+if (macSigning.identity) {
   cfg.osxSign = {
+    identity: macSigning.identity,
+    type: macSigning.kind === 'development' ? 'development' : 'distribution',
+    preAutoEntitlements: false,
+    preEmbedProvisioningProfile: false,
     keychain: process.env.KEYCHAIN_PATH || undefined,
-    optionsForFile: () => ({ entitlements: resolve(__dirname, 'entitlements.plist') }),
+    // osx-sign 1.3.3 drops array-form ignore; its single predicate form survives validation.
+    ignore: ignoreNonMacCode,
+    optionsForFile: (file) => macSigningOptionsForFile(file, resolve(__dirname, 'entitlements.plist')),
   };
+}
+if (macSigning.notarize) {
   cfg.osxNotarize = {
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD,

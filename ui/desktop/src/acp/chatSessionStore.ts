@@ -1,3 +1,4 @@
+import { petTaskFromSnapshot } from '../pets/petTaskAdapter';
 import { useEffect, useState } from 'react';
 import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
 import type { RequestPermissionRequest, SessionNotification } from '@agentclientprotocol/sdk';
@@ -53,6 +54,7 @@ export interface AcpChatSessionSnapshot {
   promptRequestId?: string | null;
   activeRunId: string | null;
   activeToolCallIds?: string[];
+  pendingInputRequestIds?: string[];
   // Ephemeral UI activity, never persisted or used for execution/completion.
   thinkingActivity?: { messageId?: string; receivedAt: number };
   promptActivity?: PromptActivity;
@@ -199,6 +201,15 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   };
 
   const deleteSnapshot: AcpChatSessionActions['deleteSnapshot'] = (sessionId) => {
+    if (
+      petObservations.has(sessionId) &&
+      typeof window !== 'undefined' &&
+      typeof window.electron?.petSignal === 'function'
+    ) {
+      window.electron.petSignal('pet-task', { sessionId, title: '', state: 'idle' });
+    }
+    petObservations.delete(sessionId);
+    petLiveSessions.delete(sessionId);
     sessionsById.delete(sessionId);
   };
 
@@ -236,8 +247,24 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     return entry;
   };
 
+  const petObservations = new Map<string, string>();
+  const petLiveSessions = new Set<string>();
   const notify = (sessionId: string, entry: StoreEntry): AcpChatSessionSnapshot => {
     const snapshot = snapshotFromEntry(entry);
+    if (typeof window !== 'undefined' && typeof window.electron?.desktopPet === 'function') {
+      const task = petTaskFromSnapshot(sessionId, snapshot);
+      if (
+        !entry.sessionReplayActive &&
+        (entry.activePromptAttemptId || task.state === 'working' || task.state === 'input')
+      )
+        petLiveSessions.add(sessionId);
+      if (task.terminalId && !petLiveSessions.has(sessionId)) task.state = 'idle';
+      const key = JSON.stringify(task);
+      if (petObservations.get(sessionId) !== key) {
+        petObservations.set(sessionId, key);
+        window.electron.petSignal('pet-task', task);
+      }
+    }
     const listeners = listenersBySessionId.get(sessionId);
     if (listeners) {
       for (const listener of listeners) {
@@ -1346,6 +1373,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
         ? [...entry.liveToolCallIds]
         : [],
     pendingCancelPromptAttemptId: entry.pendingCancelPromptAttemptId,
+    pendingInputRequestIds: [...entry.pendingUserInputRequestIds],
   };
 }
 

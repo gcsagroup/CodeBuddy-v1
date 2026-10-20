@@ -13,6 +13,8 @@ import { reconnectAcpAfterSystemResume } from './acp/acpConnection';
 import { acpReadDefaults } from './acp/providers';
 import { createSession } from './sessions';
 
+vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+
 // Set up globals for jsdom
 Object.defineProperty(window, 'location', {
   value: {
@@ -502,6 +504,65 @@ describe('App Component - Brand New State', () => {
     setViewHandler?.({} as any, 'settings', 'models');
 
     expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings?section=models');
+  });
+
+  it.each(['/codepro', '/codepro/settings', '/pair'])(
+    'opens the exact pet task through the router from %s and clears stale route state',
+    async (pathname) => {
+      mockLocationPath = pathname;
+      mockLocationState = { initialMessage: { msg: 'Previous draft', images: [] } };
+      render(<AppInner />, { wrapper: AppInnerTestWrapper });
+      await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+      const handler = mockElectron.on.mock.calls.find(
+        ([channel]) => channel === 'pet-open-session'
+      )?.[1];
+      expect(handler).toBeDefined();
+      mockNavigate.mockClear();
+      handler({}, 'task/b');
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `${pathname.startsWith('/codepro') ? '/codepro' : ''}/pair?resumeSessionId=task%2Fb`,
+        { state: null }
+      );
+      mockNavigate.mockClear();
+      handler({}, '');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([undefined, 'D:/CodeBuddy/pets/custom'])(
+    'preserves an explicit creation workspace without inheriting a prior project (%s)',
+    async (workingDir) => {
+      render(<AppInner />, { wrapper: AppInnerTestWrapper });
+      await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+      const handler = mockElectron.on.mock.calls.find(
+        ([channel]) => channel === 'set-initial-message'
+      )?.[1];
+      expect(handler).toBeDefined();
+      await handler({}, 'Create my pet', { noAutoSubmit: true, workingDir });
+      expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+        state: {
+          initialMessage: { msg: 'Create my pet', images: [] },
+          noAutoSubmit: true,
+          ...(workingDir ? { workingDir } : {}),
+        },
+      });
+    }
+  );
+
+  it('opens custom pet creation as an editable draft in the current window', async () => {
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(
+      ([channel]) => channel === 'pet-create-session'
+    )?.[1];
+    handler({}, { dir: 'D:/pets/custom', query: '宠物形象：\n名字：' });
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+      state: {
+        workingDir: 'D:/pets/custom',
+        initialMessage: { msg: '宠物形象：\n名字：', images: [] },
+        noAutoSubmit: true,
+      },
+    });
   });
 
   it('should reconnect ACP when the main process emits system-resume', async () => {

@@ -4,8 +4,17 @@ export function windowIconFileName(platform: typeof process.platform): string {
   return 'icon.png';
 }
 
-export function trayIconFileName(platform: typeof process.platform): string {
-  return platform === 'win32' ? 'icon.png' : 'iconTemplate.png';
+export function trayIconFileName(platform: typeof process.platform, hasUpdate = false): string {
+  if (platform === 'win32') return hasUpdate ? 'iconUpdate.ico' : 'icon.ico';
+  if (platform === 'darwin') {
+    return hasUpdate ? 'iconTemplateUpdate.png' : 'iconTemplate.png';
+  }
+  return hasUpdate ? 'iconUpdate.png' : 'icon.png';
 }
 
 export const trayTooltip = 'CodeBuddy';
+
+export function windowsAppUserModelId(packaged: boolean): string {
+  // Match the shortcut ID created by the existing Squirrel package.
+  return packaged ? 'com.squirrel.CodeBuddyHarness.CodeBuddy' : 'local.codebuddy.harness.preview';
+}

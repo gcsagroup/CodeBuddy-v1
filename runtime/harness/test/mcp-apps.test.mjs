@@ -114,7 +114,7 @@ test('new sessions reuse one remote composition while retaining exact per-sessio
   assert.equal((await driver.listTools(second)).some(tool => tool.name === 'mcp__chart__chart'), false);
   const third = await session({ mcpServers: [{ reconnect: mcp.reconnect, url: mcp.url, transport: mcp.transport, serverName: mcp.serverName }] });
   assert.equal((await driver.callTool(third, 'mcp__chart__chart', {}, { onPermission: async () => true })).isError, false);
-  assert.equal(calls.filter(call => call.method === 'initialize').length, 1, 'released sessions do not discard the warm standing composition');
+  assert.equal(calls.filter(call => call.method === 'initialize').length, 2, 'explicit removal retires the old composition while existing leases remain usable');
 });
 
 test('credential changes select another composition and old sessions retain their own connection after retirement', async t => {

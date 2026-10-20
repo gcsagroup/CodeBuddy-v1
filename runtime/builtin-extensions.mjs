@@ -1,34 +1,19 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { invalid } from "./providers.mjs";
 import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
+import { builtinArtifacts, verifiedBinary } from './builtin-artifacts.mjs';
 
-const binDirectory = fileURLToPath(new URL("./tools/bin/", import.meta.url));
-const artifacts = {
-  tools: {
-    file: "codebuddy-tools.exe",
-    bytes: 21821440,
-    sha256: "486f7d48c060a77ca9b3e6b5044987ad7110cae708b58efa360b72438bc13a39",
-  },
-  computer: {
-    file: "qwen-computer-use.exe",
-    bytes: 4736000,
-    sha256: "5b08525ee3825d611a4ef643badbdf15dd55e95816e4f5f15fd06dbe30c5f9b8",
-  },
-};
 const builtins = {
   commonqueries: {
-    artifact: artifacts.tools,
+    artifact: 'tools',
     args: ["mcp", "commonqueries"],
     displayName: "时间与天气",
     description: "读取主机时间、解析城市并按设置查询天气。",
     tools: ["time_now", "location_resolve", "weather_get"],
   },
   qwen_computer: {
-    artifact: artifacts.computer,
+    artifact: 'computer',
     args: ["--foreground-input", "mcp"],
     displayName: "电脑操作",
     description: "通过独立 MCP 服务读取桌面状态并执行电脑操作。",
@@ -45,14 +30,14 @@ const builtins = {
     ],
   },
   computercontroller: {
-    artifact: artifacts.tools,
+    artifact: 'tools',
     args: ["mcp", "computercontroller"],
     displayName: "PDF 与网页文件",
     description: "提取 PDF、保存网页文件并管理工具缓存。Word、Excel 和 PowerPoint 使用 Office 技能。",
     tools: ["cache", "pdf_tool", "web_scrape"],
   },
   autovisualiser: {
-    artifact: artifacts.tools,
+    artifact: 'tools',
     args: ["mcp", "autovisualiser"],
     displayName: "图表可视化",
     description: "生成图表、地图和 Mermaid 图形。",
@@ -68,7 +53,6 @@ const builtins = {
     ],
   },
 };
-const verified = new Map();
 const normalizePath = (value) =>
   process.platform === "win32"
     ? path.resolve(value).toLowerCase()
@@ -84,53 +68,15 @@ export function builtinToolNames(name) {
   return Object.hasOwn(builtins, name) ? [...builtins[name].tools] : [];
 }
 
-async function verifiedBinary(artifact) {
-  const file = path.join(binDirectory, artifact.file);
-  const info = await lstat(file, { bigint: true });
-  if (
-    !info.isFile() ||
-    info.isSymbolicLink() ||
-    info.size !== BigInt(artifact.bytes) ||
-    normalizePath(await realpath(file)) !== normalizePath(file)
-  ) {
-    throw invalid(`Bundled MCP artifact identity is invalid: ${artifact.file}`);
-  }
-  const signature = [
-    info.dev,
-    info.ino,
-    info.size,
-    info.mtimeNs,
-    info.ctimeNs,
-  ].join(":");
-  const cached = verified.get(file);
-  if (cached?.signature === signature) return cached.promise;
-  const promise = (async () => {
-    const hash = createHash("sha256");
-    for await (const bytes of createReadStream(file)) hash.update(bytes);
-    if (hash.digest("hex") !== artifact.sha256)
-      throw invalid(`Bundled MCP artifact checksum differs: ${artifact.file}`);
-    const current = await lstat(file, { bigint: true });
-    if (
-      [
-        current.dev,
-        current.ino,
-        current.size,
-        current.mtimeNs,
-        current.ctimeNs,
-      ].join(":") !== signature
-    )
-      throw invalid(
-        `Bundled MCP artifact changed during verification: ${artifact.file}`,
-      );
-    return file;
-  })();
-  verified.set(file, { signature, promise });
+
+async function verifiedEntry(entry, platform = process.platform, arch = process.arch) {
   try {
-    return await promise;
-  } catch (error) {
-    verified.delete(file);
-    throw error;
-  }
+    const artifacts = await builtinArtifacts(platform, arch);
+    // Go dispatches to this fixed sibling helper. Validate both parts before
+    // catalog availability or startup, not merely the MCP front-end executable.
+    if (entry.artifact === 'computer' && platform === 'darwin') await verifiedBinary(artifacts.helper);
+    return await verifiedBinary(artifacts[entry.artifact]);
+  } catch (error) { throw invalid(error.message); }
 }
 
 /** Availability is artifact validation, not a live MCP tools/list result. */
@@ -141,14 +87,11 @@ export async function listAvailableBuiltins({
   return Promise.all(
     Object.entries(builtins).map(async ([name, entry]) => {
       let reason;
-      if (platform !== "win32" || arch !== "x64")
-        reason = `Bundled MCP artifact has not been supplied for ${platform}/${arch}`;
-      else
-        try {
-          await verifiedBinary(entry.artifact);
-        } catch (error) {
-          reason = error.message;
-        }
+      try {
+        await verifiedEntry(entry, platform, arch);
+      } catch (error) {
+        reason = error.message;
+      }
       return {
         configKey: name,
         enabled: false,
@@ -258,14 +201,12 @@ async function toolEnvironment(dataDir, name) {
 /** Only tool-only stdio MCP entrypoints are shipped; no legacy Agent executable. */
 export async function builtinMcp(extension, { cwd, dataDir } = {}) {
   if (!isBuiltinMcp(extension)) return undefined;
-  if (process.platform !== "win32" || process.arch !== "x64")
-    throw invalid(
-      `Builtin MCP ${extension.name} is awaiting an artifact for ${process.platform}/${process.arch}`,
-    );
   const toolCallTimeoutMs = mcpToolCallTimeoutMs(extension);
   const directory = await canonicalDirectory(cwd, "Workspace cwd");
   const entry = builtins[extension.name];
-  const command = await verifiedBinary(entry.artifact);
+  let command;
+  try { command = await verifiedEntry(entry); }
+  catch (error) { throw invalid(error.message); }
   return {
     serverName: extension.name,
     transport: "stdio",

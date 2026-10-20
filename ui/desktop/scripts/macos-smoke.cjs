@@ -6,7 +6,8 @@ const http = require('node:http');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { chromium } = require('@playwright/test');
-const { bundlePaths, verifyMachO } = require('./macos-package.cjs');
+const { bundlePaths } = require('./macos-package.cjs');
+const { verifyHarnessBundle } = require('./bundle-macos.cjs');
 const distro = require('../codebuddy.distro.json');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,7 +28,7 @@ async function main() {
     process.argv.slice(2).find((arg) => arg !== '--') ||
     bundlePaths(path.resolve(__dirname, '..'), process.arch).app;
   const executable = path.join(app, 'Contents/MacOS', distro.executableName);
-  verifyMachO(path.join(app, 'Contents/Resources/bin/goose'), process.arch);
+  verifyHarnessBundle(app, process.arch);
   const evidence = await fs.mkdtemp(path.resolve(__dirname, `../out/macos-smoke-${process.arch}-`));
   const workspace = path.join(evidence, 'workspace 中文');
   await fs.mkdir(workspace);
@@ -48,6 +49,9 @@ async function main() {
       ...process.env,
       CODEBUDDY_HOME: path.join(evidence, 'profile'),
       CODEBUDDY_USER_DATA_DIR: path.join(evidence, 'electron'),
+      CODEBUDDY_WORKSPACE_ROOT: workspace,
+      CODEBUDDY_MIGRATE_LEGACY: 'false',
+      CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION: 'true',
       GOOSE_WORKING_DIR: workspace,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

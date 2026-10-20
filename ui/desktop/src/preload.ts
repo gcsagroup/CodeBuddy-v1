@@ -1,3 +1,4 @@
+import type { PetRequest, PetSnapshot } from './pets/petTypes';
 import type { GitHubCliStatus, GitHubCliChallenge, GitHubCliPoll } from './github/githubCliTypes';
 import type { PanelRequest, PanelReply } from './workspace-panel/workspacePanelTypes';
 import Electron, { contextBridge, ipcRenderer, webUtils } from 'electron';
@@ -106,6 +107,8 @@ export interface CreateChatWindowOptions {
 
 // Define the API types in a single place
 type ElectronAPI = {
+  desktopPet: (request: PetRequest) => Promise<PetSnapshot>;
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
   platform: string;
   arch: string;
@@ -213,6 +216,7 @@ type AppConfigAPI = {
 };
 
 const electronAPI: ElectronAPI = {
+  desktopPet: (request) => ipcRenderer.invoke('desktop-pet', request),
   workspacePanel: (request) => ipcRenderer.invoke('workspace-panel', request),
   platform: process.platform,
   arch: process.arch,
@@ -324,6 +328,10 @@ const electronAPI: ElectronAPI = {
   },
   emit: (channel: string, ...args: unknown[]) => {
     ipcRenderer.emit(channel, ...args);
+  },
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => {
+    if (channel === 'pet-hit-test' || channel === 'pet-task' || channel === 'pet-read')
+      ipcRenderer.send(channel, payload);
   },
   broadcastThemeChange: (themeData: {
     mode: string;

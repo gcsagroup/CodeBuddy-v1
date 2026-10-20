@@ -31,6 +31,7 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
     CODEBUDDY_HARNESS_PREVIEW: '1',
     CODEBUDDY_HOME: previewHome,
     CODEBUDDY_USER_DATA_DIR: path.join(previewHome, 'state', 'electron-app'),
+    CODEBUDDY_PET_DIRECTORY: path.join(previewHome, 'state', 'electron-app', 'pets', 'custom'),
     CODEBUDDY_MIGRATE_LEGACY: 'false',
     CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION: 'true',
     CODEBUDDY_EXTERNAL_BACKEND: '1',
@@ -134,6 +135,7 @@ function defaultCommands(repoRoot) {
   const forgeBin = typeof forgePackage.bin === 'string' ? forgePackage.bin : forgePackage.bin['electron-forge'];
   return {
     prepare: [
+      ...(process.platform === 'darwin' ? [{ args: [path.join(repoRoot, 'scripts/prepare-harness-macos-tools.cjs')], cwd: repoRoot }] : []),
       { args: [tsc, '--project', path.join(sdkRoot, 'tsconfig.json')], cwd: sdkRoot },
       { args: [path.join(desktopRoot, 'scripts', 'i18n-compile.js')], cwd: desktopRoot },
     ],

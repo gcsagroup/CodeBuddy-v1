@@ -12,6 +12,7 @@ import ProviderGrid from '../providers/ProviderGrid';
 import ModelsSection from './ModelsSection';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
+import ImageGenerationSettings from './ImageGenerationSettings';
 
 const i18n = defineMessages({
   auxiliaryVision: {
@@ -168,6 +169,7 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
         />
       )}
       <ModelImageCapabilitySettings providers={customProviders} />
+      <ImageGenerationSettings />
       <ModelContextSettings providers={customProviders} />
     </div>
   );

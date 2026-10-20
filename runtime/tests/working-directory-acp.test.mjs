@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, access, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
@@ -24,7 +24,7 @@ async function connect(url) {
 }
 
 test('ordinary ACP directory switch rebinds tools, project memory and stdio MCP, preserves history after restart and rejects CodePro/read-only/active changes', { timeout: 60_000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-directory-acp-')), dirA = path.join(root, 'a'), dirB = path.join(root, 'b');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-directory-acp-'))), dirA = path.join(root, 'a'), dirB = path.join(root, 'b');
   await mkdir(dirA); await mkdir(dirB);
   const script = path.join(root, 'mcp.mjs');
   await writeFile(script, String.raw`import {writeFileSync} from 'node:fs'; import {join} from 'node:path'; import {createInterface} from 'node:readline';

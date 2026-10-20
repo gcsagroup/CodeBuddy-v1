@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { userInfo } from 'node:os';
+import { builtinArtifacts, verifiedBinary } from './builtin-artifacts.mjs';
 
 // Concurrent UI and session preparation reads can request the same ciphertext.
 // Share only the in-flight OS operation; retain no decrypted value after it settles.
@@ -49,20 +51,57 @@ async function dpapi(action, value) {
     p.stdin.end(JSON.stringify({ action, value }));
   });
 }
+async function macCredential(action, value) {
+  const binary = await verifiedBinary((await builtinArtifacts()).credentials);
+  return new Promise((resolve, reject) => {
+    // Tool/test profiles can redirect HOME. Keychain belongs to the logged-in
+    // OS account, so only this helper receives the account's real home.
+    const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: false,
+      env: { ...process.env, HOME: userInfo().homedir } });
+    const chunks = [];
+    let bytes = 0, settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) return reject(error);
+      try {
+        const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (typeof result !== 'string') throw Error();
+        resolve(result);
+      } catch { reject(Error('Mac credential protection returned an invalid response')); }
+    };
+    const timer = setTimeout(() => { child.kill(); finish(Error('Mac credential protection timed out')); }, 30000);
+    child.stdout.on('data', chunk => {
+      bytes += chunk.length;
+      if (bytes > 8 * 1024 * 1024) { child.kill(); finish(Error('Mac credential response exceeds its limit')); }
+      else chunks.push(chunk);
+    });
+    child.stderr.resume();
+    child.on('error', () => finish(Error('Mac credential protection could not start')));
+    child.stdin.on('error', () => finish(Error('Mac credential protection input failed')));
+    child.on('close', code => finish(code === 0 ? null : Error('Mac credential protection failed; check Keychain access')));
+    child.stdin.end(JSON.stringify({ action, value }));
+  });
+}
+const platformKind = () => process.platform === 'darwin' ? 'macos-keychain-aesgcm-v1' : 'windows-dpapi';
+const transform = (action, value) => process.platform === 'darwin' ? macCredential(action, value) : dpapi(action, value);
 export async function protectSecret(value) {
   return value
     ? {
-        kind: "windows-dpapi",
-        ciphertext: await dpapi("protect", String(value)),
+        kind: platformKind(),
+        ciphertext: await transform("protect", String(value)),
       }
     : null;
 }
 export async function revealSecret(value) {
   if (!value) return "";
-  if (value.kind !== "windows-dpapi") throw Error("Unknown credential format");
-  const key = value.ciphertext;
+  if (!['windows-dpapi', 'macos-keychain-aesgcm-v1'].includes(value.kind)) throw Error("Unknown credential format");
+  if (value.kind !== platformKind()) throw Error('Credential belongs to another platform');
+  if (typeof value.ciphertext !== 'string' || !value.ciphertext) throw Error('Invalid credential ciphertext');
+  const key = `${value.kind}:${value.ciphertext}`;
   if (!revealing.has(key)) {
-    const pending = dpapi("unprotect", key).finally(() => revealing.delete(key));
+    const pending = transform("unprotect", value.ciphertext).finally(() => revealing.delete(key));
     revealing.set(key, pending);
   }
   return revealing.get(key);

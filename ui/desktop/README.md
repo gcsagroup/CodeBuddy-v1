@@ -14,4 +14,4 @@ corepack pnpm run test:run
 corepack pnpm run lint:check
 ```
 
-For macOS packaging, run `pnpm run bundle:mac` on a native Mac; inspect `scripts/README.md` for platform prerequisites. Windows checks do not establish macOS acceptance.
+macOS：[简体中文](../../docs/macos.zh-CN.md) · [繁體中文](../../docs/macos.zh-TW.md) · [English](../../docs/macos.en.md)。Use the native Harness packaging entry described there. The retired Rust Agent is not a build input. Native build and product acceptance remain pending.

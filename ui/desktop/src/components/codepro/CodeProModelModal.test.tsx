@@ -640,7 +640,7 @@ it('keeps auxiliary vision editable without reviving or overwriting legacy role 
   vi.mocked(saveCodeProModelRouting).mockClear().mockResolvedValue();
   render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
   const model = await screen.findByLabelText('Vision model');
-  await waitFor(() => expect(model).toHaveTextContent('vision-two'));
+  await waitFor(() => expect(within(model).getByRole('option', { name: 'Vision two' })).toHaveValue('vision-two'));
   expect(
     screen.queryByRole('checkbox', { name: 'Enable advanced model routing' })
   ).not.toBeInTheDocument();

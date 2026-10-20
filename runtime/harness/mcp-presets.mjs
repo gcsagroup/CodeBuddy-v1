@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry';
 import { compositionStatus } from './mcp-composition.mjs';
+import { extensionConfigKey } from '../session-extensions.mjs';
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -35,7 +36,8 @@ export async function createMcpPresets(ctx) {
   const definitions = new Map();
   const retire = async (key, entry) => {
     if (definitions.get(key) === entry) definitions.delete(key);
-    await (await entry.ready).unregister();
+    entry.retirement ??= entry.ready.then(value => value.unregister());
+    await entry.retirement;
   };
   const trim = async () => {
     while (definitions.size > 8) {
@@ -47,13 +49,17 @@ export async function createMcpPresets(ctx) {
     }
   };
   return {
+    async invalidate(configKeys) {
+      const keys = new Set(configKeys.map(extensionConfigKey));
+      await Promise.all([...definitions].filter(([, entry]) => entry.servers.some(server => keys.has(extensionConfigKey(server.serverName)))).map(([key, entry]) => retire(key, entry)));
+    },
     async acquire(servers) {
       if (!servers.length) return;
       const key = createHash('sha256').update(JSON.stringify(canonical(servers))).digest('hex');
       let entry = definitions.get(key);
       const reused = Boolean(entry);
       if (!entry) {
-        entry = { acquiring: 0, ready: (async () => {
+        entry = { servers: structuredClone(servers), acquiring: 0, ready: (async () => {
           const id = `codebuddy-mcp-${randomUUID()}`;
           const unregister = await registry.register({ id, plugins: [{
             id: 'connections', name: new URL('./mcp-composition.mjs', import.meta.url).href,

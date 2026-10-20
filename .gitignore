@@ -146,6 +146,11 @@ gooseselftest/
 # Local upstream inspection copies and generated native MCP executables
 /vendor/deepseek-harness/
 /runtime/tools/bin/
+/runtime/tools/artifacts.json
+/runtime/tools/.artifacts-*.json
+/runtime/tools/provenance.macos.json
+/runtime/tools/licenses/codebuddy-tools-Apache-2.0.txt
+/runtime/tools/licenses/qwen-computer-use-macos-MIT.txt
 /runtime/office-assets/
 /runtime/py/
 /runtime/office/

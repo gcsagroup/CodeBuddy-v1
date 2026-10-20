@@ -8599,5 +8599,8 @@
   },
   "onboardingGuard.configureTitle": {
     "defaultMessage": "连接模型后开始使用"
+  },
+  "settingsCenter.pagePets": {
+    "defaultMessage": "虚拟宠物"
   }
 }

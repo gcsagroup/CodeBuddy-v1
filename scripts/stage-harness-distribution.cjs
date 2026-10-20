@@ -5,29 +5,47 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const { dependencyClosure, commonJsImports, profilePackageNames } = require('./harness-dependencies.cjs');
 
-async function stageHarness(repoRoot, destination) {
+function distributionTarget(platform = process.platform, arch = process.arch) {
+  if (platform === 'win32' && arch === 'x64') return { node: 'node.exe', office: 'win-x64' };
+  if (platform === 'darwin' && ['arm64', 'x64'].includes(arch)) return { node: 'node', office: `mac-${arch}` };
+  throw new Error(`Unsupported Harness distribution: ${platform}/${arch}`);
+}
+
+function assertOfficeTarget(manifest, platform = process.platform, arch = process.arch) {
+  distributionTarget(platform, arch);
+  if (manifest.platform !== platform || manifest.arch !== arch)
+    throw new Error(`Office payload ${manifest.platform}/${manifest.arch} does not match ${platform}/${arch}`);
+}
+
+async function stageHarness(repoRoot, destination, options = {}) {
+  const target = distributionTarget();
+  if (Number(process.versions.node.split('.')[0]) < 24)
+    throw new Error('Stage with the existing native Node 24+ runtime');
+  const runtime = path.join(repoRoot, 'runtime');
+  const officeManifest = await fs.readFile(path.join(runtime, 'py/runtime.json'), 'utf8').catch(() => {
+    throw new Error('Prepare the approved native Office payload with node scripts/prepare-harness-office.mjs before packaging');
+  });
+  assertOfficeTarget(JSON.parse(officeManifest));
+  const toolsDirectory = options.toolsDirectory || path.join(runtime, 'tools');
+  if (process.platform === 'darwin') {
+    const { verifyMacArtifacts } = require('./macos-tool-artifacts.cjs');
+    verifyMacArtifacts(toolsDirectory, process.arch, 'staged');
+  }
+  // Windows MSI installs can omit the adjacent license; use the matching bundled release.
+  let nodeLicense = options.nodeLicense || path.join(path.dirname(process.execPath), 'LICENSE');
+  if (!options.nodeLicense && !await fs.stat(nodeLicense).catch(error => { if (error.code !== 'ENOENT') throw error; })) {
+    nodeLicense = path.join(runtime, 'tools/licenses', `node-v${process.versions.node}-LICENSE.txt`);
+  }
+  await fs.access(nodeLicense).catch(() => {
+    throw new Error(`Missing Node ${process.versions.node} distribution license: ${nodeLicense}`);
+  });
   // Each build uses a fresh stage. Never delete a prior candidate or profile.
   await fs.mkdir(destination, { recursive: false });
-  if (process.platform !== 'win32' || Number(process.versions.node.split('.')[0]) < 24)
-    throw new Error('Stage with the existing Windows Node 24+ runtime');
-  const runtime = path.join(repoRoot, 'runtime');
-  await fs.access(path.join(runtime, 'py/runtime.json')).catch(() => {
-    throw new Error('Prepare the approved Office payload with node scripts/prepare-harness-office.mjs before packaging');
-  });
-  // The Windows MSI does not place LICENSE beside node.exe. Keep a matching,
-  // versioned upstream copy in source instead of changing the host installation.
-  let nodeLicense = path.join(path.dirname(process.execPath), 'LICENSE');
-  if (!await fs.stat(nodeLicense).catch(error => { if (error.code !== 'ENOENT') throw error; })) {
-    nodeLicense = path.join(runtime, 'tools/licenses', `node-v${process.versions.node}-LICENSE.txt`);
-    await fs.access(nodeLicense).catch(() => {
-      throw new Error(`Missing Node ${process.versions.node} distribution license; prepare ${nodeLicense} from the matching official release`);
-    });
-  }
   const copy = async (source, target) => {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.cp(source, target, { recursive: true, dereference: true, filter: file => !['.bin', '.cache', '.DS_Store'].includes(path.basename(file)) });
   };
-  await copy(process.execPath, path.join(destination, 'node/node.exe'));
+  await copy(process.execPath, path.join(destination, 'node', target.node));
   await copy(path.join(runtime, 'py'), path.join(destination, 'runtime/py'));
   await copy(path.join(runtime, 'office'), path.join(destination, 'runtime/office'));
   await copy(nodeLicense, path.join(destination, 'node/LICENSE'));
@@ -83,10 +101,25 @@ async function stageHarness(repoRoot, destination) {
     await fs.cp(directory, target, { recursive: true, dereference: true, filter: file =>
       file === directory || !['node_modules', '.bin', '.cache', '.DS_Store'].includes(path.basename(file)) &&
       !file.endsWith('.map') && !file.endsWith('.d.ts') });
+    if (process.platform === 'darwin' && JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8')).name === 'node-pty') {
+      // Harness runs under standalone Node, separately from Electron's PTY.
+      // Repair only the staged helper's execute bit before hashing/signing.
+      const { preparePty } = require('../ui/desktop/scripts/macos-package.cjs');
+      preparePty(path.dirname(path.dirname(target)), process.arch);
+    }
   }
-  await copy(path.join(runtime, 'tools/provenance.json'), path.join(destination, 'runtime/tools/provenance.json'));
-  for (const binary of ['codebuddy-tools.exe', 'qwen-computer-use.exe']) {
-    await copy(path.join(runtime, 'tools/bin', binary), path.join(destination, 'runtime/tools/bin', binary));
+  if (process.platform === 'win32') {
+    await copy(path.join(runtime, 'tools/provenance.json'), path.join(destination, 'runtime/tools/provenance.json'));
+    for (const binary of ['codebuddy-tools.exe', 'qwen-computer-use.exe']) {
+      await copy(path.join(runtime, 'tools/bin', binary), path.join(destination, 'runtime/tools/bin', binary));
+    }
+  } else {
+    const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
+    for (const file of Object.values(macArtifactFiles))
+      await copy(path.join(toolsDirectory, 'bin', file), path.join(destination, 'runtime/tools/bin', file));
+    for (const file of ['artifacts.json', 'licenses'])
+      await copy(path.join(toolsDirectory, file), path.join(destination, 'runtime/tools', file));
+    await copy(path.join(toolsDirectory, options.toolsDirectory ? 'provenance.json' : 'provenance.macos.json'), path.join(destination, 'runtime/tools/provenance.json'));
   }
   await copy(path.join(repoRoot, 'ui/sdk/dist/generated/zod.gen.js'), path.join(destination, 'ui/sdk/dist/generated/zod.gen.js'));
   await fs.writeFile(path.join(destination, 'ui/sdk/package.json'), '{"type":"module"}\n');
@@ -108,7 +141,7 @@ async function stageHarness(repoRoot, destination) {
   await fs.writeFile(path.join(destination, 'manifest.json'), JSON.stringify({ schemaVersion: 1, engine: 'deepseek-harness', nodeVersion: process.versions.node, createdAt: new Date().toISOString(), sourceDigest, runtimeDependencies: [...roots].sort(), adapterDependencies, files }, null, 2));
   return { destination, sourceDigest, files: files.length };
 }
-module.exports = { stageHarness };
+module.exports = { stageHarness, distributionTarget, assertOfficeTarget };
 if (require.main === module) {
   stageHarness(path.resolve(__dirname, '..'), path.resolve(process.argv[2])).then(result => console.log(JSON.stringify(result))).catch(error => { console.error(error); process.exitCode = 1; });
 }

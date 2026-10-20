@@ -18,6 +18,10 @@ Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。模型、
 
 Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊天数据、运行载荷和构建产物。首次克隆需要准备开发依赖及独立工具，详见下文。
 
+## macOS 开发（待验证）
+
+macOS Apple Silicon 开发启动、电脑控制及独立 MCP 工具构建/打包见 [Mac 版开发说明](docs/macos.zh-CN.md)。这些接入已在源码补齐，当前批次尚未执行 Mac 原生构建或产品验收；实际可用状态由本机工具产物校验决定。
+
 ## Windows 构建
 
 使用已有 Node.js 24+ 和项目依赖，在仓库根目录执行：
@@ -42,7 +46,7 @@ node scripts/build-harness-windows.cjs --installer=inno
 cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools --jobs 1
 ```
 
-更新工具产物时须同步核对 `runtime/tools/provenance.json`、`runtime/builtin-extensions.mjs` 中的大小和 SHA256。运行依赖以 `runtime/harness/package-lock.json` 为准。
+更新工具产物时须同步核对 `runtime/tools/provenance.json`、`runtime/builtin-artifacts.mjs` 中的大小和 SHA256。运行依赖以 `runtime/harness/package-lock.json` 为准。
 
 同批源码、同一暂存目录且应用已完整构建时，才可使用 `node scripts/build-harness-windows.cjs <stage-directory> --make-only` 接续安装包生成。NuGet 已完成、仅 Squirrel 封装中断时可使用 `--finalize-only`；脚本先验证 NuGet 内应用与当前产物一致。源码变更后必须重新构建，不复用旧暂存目录。
 

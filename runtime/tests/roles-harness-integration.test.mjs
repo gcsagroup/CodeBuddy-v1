@@ -69,9 +69,12 @@ async function modelFixture(cwd, completedChildren) {
   const models = ['selected-main', ...['default', 'main', 'planner', 'coder', 'tester', 'reviewer'].map(role => `role-${role}`)];
   const server = http.createServer(async (req, res) => {
     try {
+      if (req.url.endsWith('/api/tags')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({models: models.map(name => ({name}))})); return; }
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: models.map(id => ({ id })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk;
-      const request = JSON.parse(raw); requests.push(request);
+      const request = JSON.parse(raw);
+      if (req.url.endsWith('/api/show')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({capabilities:['completion','thinking'],thinking:{values:['low','medium','high'],default:'medium'}})); return; }
+      requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       assert.equal(request.model, 'selected-main', 'the current session model owns main and child requests despite saved role routes');
       assert.equal(request.reasoning_effort, 'high', 'native children inherit the actual parent effort');
@@ -119,7 +122,7 @@ test('ACP uses the selected main model and three native generic children despite
   const app = await createCompatServer({ dataDir, secret, driver }); client = await connect(await app.listen());
   t.after(async () => { client.close(); await model.close(); await app.close(); });
   await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
-  const provider = await client.request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Official roles fixture', apiUrl: model.url, requiresAuth: false, models: model.models, supportsStreaming: true, headers: {} });
+  const provider = await client.request(ext('providers/custom/create'), { engine: 'ollama_compatible', displayName: 'Official roles fixture', apiUrl: model.url, requiresAuth: false, models: model.models, supportsStreaming: true, headers: {} });
   await client.request(ext('defaults/save'), { providerId: provider.providerId, modelId: 'role-default' });
   await client.request(ext('codepro/model-routing/save'), { config: { version: 2, advancedRoutingEnabled: true, routes: ['main', 'planner', 'coder', 'tester', 'reviewer'].map(role => ({ role, providerId: provider.providerId, modelId: `role-${role}` })), maxParallelCoders: 2, visionRoute: { enabled: false, mode: 'disabled' } } });
   await client.request(ext('preferences/save'), { expectedRevision: 0, values: [{ key: 'gooseThinkingEffort', value: 'high' }] });

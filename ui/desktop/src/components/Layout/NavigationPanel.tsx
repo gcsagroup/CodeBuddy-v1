@@ -371,6 +371,22 @@ export const Navigation: React.FC<NavigationProps> = ({
   } = useNavigationSessions();
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
+  const [petUnread, setPetUnread] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!window.electron?.desktopPet) return;
+    const receive = (_event: unknown, value: unknown) => {
+      const snapshot = value as import('../../pets/petTypes').PetSnapshot;
+      // The sidebar dot and pet check consume one shared unread snapshot.
+      setPetUnread(
+        new Set(
+          (snapshot.tasks ?? []).filter((t) => t.state === 'completed').map((t) => t.sessionId)
+        )
+      );
+    };
+    void window.electron.desktopPet({ action: 'get' }).then((value) => receive(null, value));
+    window.electron.on('pet-changed', receive);
+    return () => window.electron.off('pet-changed', receive);
+  }, []);
 
   useEffect(() => {
     const handleStatusUpdate = (event: Event) => {
@@ -455,7 +471,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                   key={session.id}
                   session={session}
                   active={session.id === activeSessionId}
-                  status={sessionStatuses.get(session.id)}
+                  status={{
+                    streamState: sessionStatuses.get(session.id)?.streamState ?? 'idle',
+                    hasUnreadActivity:
+                      petUnread?.has(session.id) ??
+                      sessionStatuses.get(session.id)?.hasUnreadActivity ??
+                      false,
+                  }}
                   onClick={() => {
                     clearUnread(session.id);
                     handleSessionClick(session.id);

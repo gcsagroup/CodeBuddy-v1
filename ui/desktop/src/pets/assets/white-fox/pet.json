@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "white-fox",
+  "name": "白狐 · White Fox",
+  "description": "戴着珊瑚围巾的温柔白狐",
+  "image": "sprites.png",
+  "columns": 6,
+  "rows": 8,
+  "cellWidth": 192,
+  "cellHeight": 208,
+  "fps": 6
+}

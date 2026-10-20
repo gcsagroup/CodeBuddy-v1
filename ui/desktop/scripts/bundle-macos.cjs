@@ -1,187 +1,120 @@
+'use strict';
+
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { parseArgs } = require('node:util');
-const { buildMacComputer } = require('./build-macos-computer.cjs');
-const {
-  targetFor,
-  stageBackend,
-  bundlePaths,
-  verifyMachO,
-  verifyBundle,
-  sha256,
-} = require('./macos-package.cjs');
+const { stageHarness } = require('../../../scripts/stage-harness-distribution.cjs');
+const { targetFor, bundlePaths, verifyMachO, preparePty, sha256 } = require('./macos-package.cjs');
+const { buildMacTools } = require('../../../scripts/prepare-harness-macos-tools.cjs');
+const { verifyMacArtifacts, macSigningOptionsForFile, ignoreNonMacCode } = require('../../../scripts/macos-tool-artifacts.cjs');
+const { signingPlan, inspectSignature } = require('./macos-signing.cjs');
+const { macArtifactFiles } = require('../../../runtime/builtin-artifacts.mjs');
 
-function run(command, args, cwd, env = process.env) {
-  const result = spawnSync(command, args, { cwd, env, stdio: 'inherit', shell: false });
+function run(command, args, cwd, env = process.env, capture = false) {
+  const result = spawnSync(command, args, {
+    cwd, env, shell: false, ...(capture ? { encoding: 'utf8' } : { stdio: 'inherit' }),
+  });
   if (result.error) throw result.error;
-  if (result.status !== 0)
-    throw new Error(`${command} exited with ${result.status ?? result.signal}`);
+  if (result.status !== 0) throw new Error(`${command} exited with ${result.status ?? result.signal}`);
+  return result.stdout?.trim();
+}
+
+function verifyHarnessBundle(app, arch, expectedManifest, phase) {
+  const resources = path.join(app, 'Contents/Resources');
+  const root = path.join(resources, 'harness-distribution');
+  const manifest = fs.readFileSync(path.join(root, 'manifest.json'), 'utf8');
+  if (expectedManifest !== undefined && manifest !== expectedManifest)
+    throw new Error('Packaged Harness manifest differs from this build stage');
+  const parsed = JSON.parse(manifest);
+  if (parsed.engine !== 'deepseek-harness' || parsed.schemaVersion !== 1)
+    throw new Error('Invalid packaged Harness manifest');
+  verifyMachO(path.join(root, 'node/node'), arch);
+  const office = JSON.parse(fs.readFileSync(path.join(root, 'runtime/py/runtime.json'), 'utf8'));
+  if (office.platform !== 'darwin' || office.arch !== arch)
+    throw new Error('Packaged Office payload does not match macOS architecture');
+  for (const entry of parsed.files) {
+    if (/(?:^|\/)(?:goose|goosed)(?:\.exe)?$|^runtime\/tools\/bin\/.*\.exe$/i.test(entry.path))
+      throw new Error(`Unexpected executable in macOS Harness stage: ${entry.path}`);
+  }
+  preparePty(path.join(resources, 'app.asar.unpacked'), arch, false);
+  verifyMacArtifacts(path.join(root, 'runtime/tools'), arch, phase);
+  return root;
 }
 
 async function main() {
-  const { values } = parseArgs({
-    options: {
-      arch: { type: 'string', default: process.arch },
-      backend: { type: 'string' },
-      help: { type: 'boolean' },
-    },
-  });
+  const { values } = parseArgs({ options: {
+    arch: { type: 'string', default: process.arch },
+    'node-license': { type: 'string' },
+    help: { type: 'boolean' },
+  } });
   if (values.help) {
-    console.log(
-      'Usage: pnpm run bundle:mac --arch arm64|x64 [--backend /absolute/path/to/release/goose]\nRun on a Mac of the selected architecture. Without --backend, builds the Release backend first.'
-    );
+    console.log('Usage: node scripts/build-harness-macos.cjs --arch arm64|x64 --node-license /path/to/Node/LICENSE\nRun with existing native Node 24+ and prepared native Office/UI/Harness dependencies. No legacy Rust Agent is built.');
     return;
   }
-  const target = targetFor(values.arch);
-  if (process.platform !== 'darwin' || process.arch !== values.arch) {
-    throw new Error(
-      `Run this build natively on a ${values.arch} Mac; native addons and Apple signing require macOS.`
-    );
-  }
+  targetFor(values.arch);
+  if (process.platform !== 'darwin' || process.arch !== values.arch || Number(process.versions.node.split('.')[0]) < 24)
+    throw new Error(`Use existing native Node 24+ on a ${values.arch} Mac`);
+  if (!values['node-license']) throw new Error('--node-license must identify the LICENSE from this Node distribution');
+  const signing = signingPlan();
   const desktop = path.resolve(__dirname, '..');
   const repo = path.resolve(desktop, '../..');
-  const deployment = process.env.MACOSX_DEPLOYMENT_TARGET || '14.0';
-  const env = { ...process.env, MACOSX_DEPLOYMENT_TARGET: deployment };
-  const backend = values.backend
-    ? path.resolve(values.backend)
-    : path.join(repo, 'target', target, 'release/goose');
-  if (!values.backend)
-    run(
-      'cargo',
-      [
-        'build',
-        '--release',
-        '-p',
-        'goose-cli',
-        '--bin',
-        'goose',
-        '--target',
-        target,
-        '--jobs',
-        '1',
-      ],
-      repo,
-      env
-    );
-  verifyMachO(backend, values.arch);
-  const revision = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' });
-  const status = spawnSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' });
-  if (revision.status !== 0 || status.status !== 0)
-    throw new Error('Could not record source identity');
-  const computerDirectory = buildMacComputer(repo, values.arch);
-  const stage = stageBackend(
-    desktop,
-    backend,
-    values.arch,
-    {
-      revision: revision.stdout.trim(),
-      dirty: status.stdout.length > 0,
-      backend: values.backend ? 'provided-release-artifact' : 'local-release-build',
-      deployment,
-    },
-    computerDirectory
-  );
-  env.CODEBUDDY_BACKEND_RESOURCE_DIR = stage.resourceDirectory;
-  env.CODEBUDDY_BACKEND_MANIFEST_PATH = stage.manifestPath;
-  run('pnpm', ['run', 'make', '--platform=darwin', `--arch=${values.arch}`], desktop, env);
+  const source = {
+    revision: run('git', ['rev-parse', 'HEAD'], repo, process.env, true),
+    dirty: run('git', ['status', '--porcelain'], repo, process.env, true).length > 0,
+  };
+  verifyMachO(process.execPath, values.arch);
+  const parent = path.join(repo, 'target');
+  fs.mkdirSync(parent, { recursive: true });
+  const build = fs.mkdtempSync(path.join(parent, `harness-macos-${values.arch}-`));
+  const stage = path.join(build, 'harness-distribution');
+  const env = { ...process.env, CODEBUDDY_HARNESS_RESOURCE_DIR: stage };
+  run(process.execPath, [require.resolve('typescript/bin/tsc'), '--project', path.join(repo, 'ui/sdk/tsconfig.json')], desktop, env);
+  run(process.execPath, [path.join(desktop, 'scripts/i18n-compile.js')], desktop, env);
+  const toolsDirectory = buildMacTools(repo, values.arch);
+  await stageHarness(repo, stage, { nodeLicense: path.resolve(values['node-license']), toolsDirectory });
+  const stageManifest = fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8');
+  run(path.join(stage, 'node/node'), [path.join(repo, 'scripts/verify-harness-stage.mjs'), stage], repo, env);
+  const forgePackage = require.resolve('@electron-forge/cli/package.json');
+  const forge = JSON.parse(fs.readFileSync(forgePackage, 'utf8'));
+  run(process.execPath, [path.resolve(path.dirname(forgePackage), forge.bin['electron-forge']), 'package', '--platform=darwin', `--arch=${values.arch}`], desktop, env);
   const output = bundlePaths(desktop, values.arch);
-  const packagedManifest = verifyBundle(output.app, values.arch, stage.manifestPath);
-  if (!process.env.APPLE_TEAM_ID) {
-    // Packager changes Electron's plist and helpers after the fuse hook. Seal the
-    // completed local-test bundle only after checking all unsigned source hashes.
+  verifyHarnessBundle(output.app, values.arch, stageManifest);
+  if (signing.kind === 'ad-hoc') {
     const { signAsync } = require('@electron/osx-sign');
     await signAsync({
-      app: output.app,
-      platform: 'darwin',
-      identity: '-',
-      identityValidation: false,
-      preAutoEntitlements: false,
-      preEmbedProvisioningProfile: false,
-      optionsForFile: () => ({
-        entitlements: path.join(desktop, 'entitlements.plist'),
-        hardenedRuntime: false,
-      }),
+      app: output.app, platform: 'darwin', identity: '-', identityValidation: false,
+      // Keep the predicate form: osx-sign 1.3.3 discards array-form ignore.
+      ignore: ignoreNonMacCode,
+      preAutoEntitlements: false, preEmbedProvisioningProfile: false,
+      optionsForFile: file => macSigningOptionsForFile(file, path.join(desktop, 'entitlements.plist'), false),
     });
   }
   run('codesign', ['--verify', '--deep', '--strict', output.app], desktop, env);
-  packagedManifest.signing = process.env.APPLE_TEAM_ID ? 'developer-id' : 'ad-hoc';
-  packagedManifest.packagedBackendSha256 = sha256(
-    path.join(output.app, 'Contents/Resources/bin/goose')
-  );
-  for (const name of Object.keys(packagedManifest.packagedComputerHashes)) {
-    packagedManifest.packagedComputerHashes[name] = sha256(
-      path.join(output.app, 'Contents/Resources/bin', name)
-    );
-  }
-  run(
-    process.execPath,
-    [path.join(__dirname, 'verify-mac-update-resources.js'), output.app],
-    desktop,
-    env
-  );
-  run(
-    'ditto',
-    ['-c', '-k', '--sequesterRsrc', '--keepParent', output.app, output.zip],
-    desktop,
-    env
-  );
-  // A separate image root keeps ZIPs and build metadata outside the installer.
-  const imageRoot = fs.mkdtempSync(path.join(path.dirname(stage.resourceDirectory), 'dmg-'));
-  run('ditto', [output.app, path.join(imageRoot, path.basename(output.app))], desktop, env);
-  fs.symlinkSync('/Applications', path.join(imageRoot, 'Applications'));
-  run(
-    'hdiutil',
-    [
-      'create',
-      '-ov',
-      '-format',
-      'UDZO',
-      '-volname',
-      path.basename(output.app, '.app'),
-      '-srcfolder',
-      imageRoot,
-      output.dmg,
-    ],
-    desktop,
-    env
-  );
+  const packaged = verifyHarnessBundle(output.app, values.arch, stageManifest, 'signed');
+  const signatures = { app: inspectSignature(output.app, signing) };
+  if (signatures.app.identifier !== 'local.codebuddy.desktop') throw new Error('Unexpected application signing identifier');
+  for (const file of Object.values(macArtifactFiles))
+    signatures[file] = inspectSignature(path.join(packaged, 'runtime/tools/bin', file), { ...signing, teamId: signatures.app.teamId });
+  // Exercise the installed-layout interpreter and libraries after signing.
+  run(path.join(packaged, 'node/node'), [path.join(repo, 'scripts/verify-harness-stage.mjs'), packaged, build], repo, env);
+  run('codesign', ['--verify', '--deep', '--strict', output.app], desktop, env);
+  run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', output.app, output.zip], desktop, env);
+  const image = path.join(build, 'image');
+  fs.mkdirSync(image);
+  run('ditto', [output.app, path.join(image, path.basename(output.app))], desktop, env);
+  fs.symlinkSync('/Applications', path.join(image, 'Applications'));
+  run('hdiutil', ['create', '-ov', '-format', 'UDZO', '-volname', 'CodeBuddy', '-srcfolder', image, output.dmg], desktop, env);
   run('hdiutil', ['verify', output.dmg], desktop, env);
-  fs.writeFileSync(
-    path.join(output.directory, 'backend-manifest.json'),
-    JSON.stringify(packagedManifest, null, 2) + '\n'
-  );
-  const artifacts = [output.zip, output.dmg].map((file) => ({
-    file: path.basename(file),
-    bytes: fs.statSync(file).size,
-    sha256: sha256(file),
-  }));
-  fs.writeFileSync(
-    path.join(output.directory, 'artifacts.json'),
-    JSON.stringify(
-      {
-        schemaVersion: 1,
-        createdAt: new Date().toISOString(),
-        version: require('../package.json').version,
-        arch: values.arch,
-        source: packagedManifest.source,
-        signing: packagedManifest.signing,
-        artifacts,
-      },
-      null,
-      2
-    ) + '\n'
-  );
-  fs.writeFileSync(
-    path.join(output.directory, 'SHA256SUMS'),
-    artifacts.map((artifact) => `${artifact.sha256}  ${artifact.file}`).join('\n') + '\n'
-  );
-  console.log(
-    `macOS ${values.arch} packages:\n${output.dmg}\n${output.zip}\nManifest: ${output.directory}/artifacts.json`
-  );
+  const artifacts = [output.zip, output.dmg].map(file => ({ file: path.basename(file), bytes: fs.statSync(file).size, sha256: sha256(file) }));
+  fs.writeFileSync(path.join(output.directory, 'artifacts.json'), JSON.stringify({
+    schemaVersion: 1, createdAt: new Date().toISOString(), version: require('../package.json').version,
+    arch: values.arch, source, sourceDigest: JSON.parse(stageManifest).sourceDigest,
+    signing: signing.kind, signatures, notarized: Boolean(signing.notarize), artifacts,
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(output.directory, 'SHA256SUMS'), artifacts.map(a => `${a.sha256}  ${a.file}`).join('\n') + '\n');
+  console.log(`macOS ${values.arch}: ${output.dmg}\n${output.zip}\nSource: ${source.revision} (dirty=${source.dirty})`);
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+module.exports = { main, verifyHarnessBundle };
+if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });

@@ -87,7 +87,7 @@ async function fixture({ codepro = false } = {}) {
   const created = [];
   const driver = {
     createSession: async (options) => {
-      const { mcpImageFallback, mcpRequestMetadata, ...serializableOptions } = options.options;
+      const { mcpImageFallback, mcpRequestMetadata, restoreSubagentProvider, ...serializableOptions } = options.options;
       assert.equal(typeof mcpImageFallback, "function");
       created.push(
         structuredClone({
@@ -317,7 +317,7 @@ test("listing tools after global preference save does not reconfigure an active 
   }
   await f.compat.ensureSession(f.session);
   assert.equal(f.created.length, 2);
-  assert.equal(f.created[1].options.thinkingEffort, "high");
+  assert.equal(f.created[1].options.thinkingEffort, undefined, "unknown models must not inherit undeclared reasoning controls from legacy global preferences");
 });
 
 test("changing a saved MCP configuration value refreshes the next idle session connection", async () => {

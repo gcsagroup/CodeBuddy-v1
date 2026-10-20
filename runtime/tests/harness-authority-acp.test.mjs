@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Compat } from '../compat.mjs';
@@ -10,7 +10,7 @@ import { driverProvider } from '../providers.mjs';
 import { isDeepStrictEqual } from 'node:util';
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-')));
   const store = await openStore(path.join(root, 'data'));
   await store.update(state => {
     state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false }];

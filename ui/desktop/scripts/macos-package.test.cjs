@@ -188,7 +188,7 @@ test('Forge parses --arch= syntax and preserves native rebuild for macOS', () =>
     process.execPath,
     [
       '-e',
-      `const c=require(${JSON.stringify(config)});console.log(JSON.stringify({rebuild:c.rebuildConfig,sign:c.packagerConfig.osxSign?.optionsForFile(),id:c.packagerConfig.appBundleId}));`,
+      `const c=require(${JSON.stringify(config)});console.log(JSON.stringify({rebuild:c.rebuildConfig,sign:c.packagerConfig.osxSign?.optionsForFile('/fixture/CodeBuddy.app/Contents/MacOS/CodeBuddy'),id:c.packagerConfig.appBundleId}));`,
       '--',
       '--platform=darwin',
       '--arch=x64',
@@ -197,7 +197,8 @@ test('Forge parses --arch= syntax and preserves native rebuild for macOS', () =>
       encoding: 'utf8',
       env: {
         ...process.env,
-        APPLE_TEAM_ID: 'fixture',
+        APPLE_TEAM_ID: 'ABCDE12345',
+        CODEBUDDY_MAC_SIGN_IDENTITY: 'Developer ID Application: Fixture (ABCDE12345)',
         APPLE_ID: 'fixture@example.invalid',
         APPLE_ID_PASSWORD: 'fixture',
       },
@@ -216,6 +217,52 @@ test('bundle help is available without downloading or building', () => {
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /arm64\|x64/);
+});
+
+test('Forge signing skips non-code resources through the installed signer API', t => {
+  const { root } = fixture(t);
+  const app = path.join(root, 'Signing.app');
+  const native = path.join(app, 'Contents/MacOS/Signing');
+  const resource = path.join(app, 'Contents/Resources/locale.pak');
+  macho(native, 'arm64');
+  fs.mkdirSync(path.dirname(resource), { recursive: true });
+  fs.writeFileSync(resource, Buffer.from([5, 0, 0, 0, 0, 0, 0, 0]));
+  const result = spawnSync(process.execPath, ['-e', `
+    const calls=[];
+    const signPath=require.resolve('@electron/osx-sign');
+    const util=require(require('node:path').join(require('node:path').dirname(signPath),'util.js'));
+    util.execFileAsync=async (command,args)=>{calls.push({command,args});return '';};
+    const options=require(${JSON.stringify(path.resolve(__dirname, '../forge.config.ts'))}).packagerConfig.osxSign;
+    require('@electron/osx-sign').signAsync({...options, app:${JSON.stringify(app)}, platform:'darwin', identityValidation:false})
+      .then(()=>console.log(JSON.stringify(calls.filter(c=>c.args.includes('--sign')).map(c=>c.args.at(-1)))))
+      .catch(error=>{console.error(error);process.exitCode=1});
+  `, '--', '--platform=darwin', '--arch=arm64'], {
+    cwd: path.resolve(__dirname, '..'), encoding: 'utf8',
+    env: { ...process.env, CODEBUDDY_MAC_SIGN_IDENTITY: 'Apple Development: Fixture (ABCDE12345)', APPLE_TEAM_ID: '' },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const signed = JSON.parse(result.stdout);
+  assert.ok(signed.includes(native), 'Native code receives a nested signature');
+  assert.ok(signed.includes(app), 'Outer application is sealed');
+  assert.ok(!signed.includes(resource), 'Ordinary resources must not be signed as code');
+});
+
+test('signing requires an explicit compatible identity and reports the actual certificate', () => {
+  const { signingPlan, parseSignature } = require('./macos-signing.cjs');
+  assert.deepEqual(signingPlan({}), { kind: 'ad-hoc' });
+  assert.throws(() => signingPlan({ APPLE_TEAM_ID: 'ABCDE12345' }), /explicitly/);
+  assert.throws(() => signingPlan({ CODEBUDDY_MAC_SIGN_IDENTITY: 'Apple Distribution: Fixture (ABCDE12345)' }), /full/);
+  const identity = 'Apple Development: Fixture (ABCDE12345)';
+  const plan = signingPlan({ CODEBUDDY_MAC_SIGN_IDENTITY: identity });
+  assert.equal(plan.kind, 'development');
+  assert.equal(plan.notarize, false);
+  assert.throws(() => signingPlan({ CODEBUDDY_MAC_SIGN_IDENTITY: identity, APPLE_TEAM_ID: 'ABCDE12345' }), /Developer ID/);
+  const output = `Identifier=local.codebuddy.desktop\nAuthority=${identity}\nTeamIdentifier=ABCDE12345\ndesignated => identifier "local.codebuddy.desktop" and anchor apple generic`;
+  assert.equal(parseSignature(output, plan).identity, identity);
+  assert.throws(() => parseSignature(output.replace('Authority=' + identity, 'Authority=Unexpected'), plan), /differs/);
+  assert.equal(parseSignature(output.replace('TeamIdentifier=ABCDE12345', 'TeamIdentifier=OTHER12345'), plan).teamId, 'OTHER12345');
+  assert.throws(() => parseSignature(output.replace('TeamIdentifier=ABCDE12345', 'TeamIdentifier=OTHER12345'), { ...plan, teamId: 'ABCDE12345' }), /differs/);
+  assert.throws(() => parseSignature('Identifier=local.codebuddy.desktop\nSignature=adhoc\ndesignated => cdhash H"123"', plan), /differs/);
 });
 
 test('packaging refuses a missing or wrong-architecture computer runtime', (t) => {

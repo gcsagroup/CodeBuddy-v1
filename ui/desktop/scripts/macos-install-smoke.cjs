@@ -1,7 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { bundlePaths, sha256, verifyMachO, verifyArtifact } = require('./macos-package.cjs');
+const { bundlePaths, sha256, verifyArtifact } = require('./macos-package.cjs');
+const { verifyHarnessBundle } = require('./bundle-macos.cjs');
 
 function main() {
   if (process.platform !== 'darwin') throw new Error('Run installation acceptance on macOS.');
@@ -43,7 +44,7 @@ function main() {
     fs.mkdirSync(path.dirname(installed));
     run('ditto', [path.join(mount, apps[0]), installed]);
     result.installedApp = installed;
-    verifyMachO(path.join(installed, 'Contents/Resources/bin/goose'), process.arch);
+    verifyHarnessBundle(installed, process.arch);
     run('codesign', ['--verify', '--deep', '--strict', installed]);
     // Detach first: successful launch must use only the installed copy.
     run('hdiutil', ['detach', mount]);

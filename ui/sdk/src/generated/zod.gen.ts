@@ -1807,6 +1807,7 @@ export const zCanonicalModelInfoResponse_unstable = z.object({
 });
 
 export const zPreferenceKey = z.enum([
+  "comfyuiBaseUrl",
   "autoCompactThreshold",
   "gooseMode",
   "gooseThinkingEffort",

@@ -298,7 +298,7 @@ test("actual ACP recipe startup renders user parameters, selects model/tools and
     !persisted.includes("isolated-recipe-extension-secret"),
     "Session recipe projections must not duplicate sealed extension secrets",
   );
-  assert.ok(persisted.includes("windows-dpapi"));
+  assert.ok(persisted.includes(process.platform === "darwin" ? "macos-keychain-aesgcm-v1" : "windows-dpapi"));
   assert.equal(
     (
       await context.client.request("session/prompt", {
@@ -763,12 +763,15 @@ test("native skill loads update toolbox usage without counting discovery, reject
     "official skill tool receipt is counted",
   );
   assert.equal((await usage())[0].recentResult, "instructions loaded");
+  await client.request(method("tools/permissions/set"), { toolPermissions: [{ toolName: "developer__skill", permission: "never_allow" }] });
   allow = false;
-  await client.request(method("tools/call"), {
+  const denied = await client.request(method("tools/call"), {
     sessionId: session.sessionId,
     name: "skill",
     arguments: { name: "usage-proof" },
   });
+  assert.equal(denied.isError, true);
+  await client.request(method("tools/permissions/set"), { toolPermissions: [{ toolName: "developer__skill", permission: "ask_before" }] });
   allow = true;
   await client.request(method("tools/call"), {
     sessionId: session.sessionId,

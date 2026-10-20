@@ -41,6 +41,8 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
       includeRuntimeContext: true,
     }),
     entry('tools', 'dsh-tools', { mode: 'native' }),
+    entry('user-questions', 'dsh-user-questions'),
+    entry('tool-ask-user', 'dsh-tool-ask-user', { mode: 'legacy' }),
     entry('web', 'dsh-web', { fetchProvider: 'http' }),
     entry('web-fetch-http', 'dsh-web-fetch-http', { userAgent: 'CodeBuddy/1.43' }),
     entry('tool-web', 'dsh-tool-web', { search: false, fetch: true }),

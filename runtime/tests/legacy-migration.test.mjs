@@ -16,6 +16,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   inspectLegacyProfile,
@@ -572,7 +573,7 @@ test("CLI defaults to a read-only inventory and requires an explicit offline app
     const child = spawn(
       process.execPath,
       [
-        path.resolve("scripts/migrate-legacy-profile.mjs"),
+        fileURLToPath(new URL("../../scripts/migrate-legacy-profile.mjs", import.meta.url)),
         "--source",
         context.source,
         "--target",

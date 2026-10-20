@@ -7,7 +7,8 @@ export type SettingsPageId =
   | 'memory'
   | 'sharing'
   | 'auth'
-  | 'keyboard';
+  | 'keyboard'
+  | 'pets';
 
 export type SettingsGroupId = 'common' | 'ai' | 'connections';
 
@@ -20,6 +21,13 @@ export interface SettingsNavigationItem {
 }
 
 export const settingsNavigationItems: SettingsNavigationItem[] = [
+  {
+    id: 'pets',
+    group: 'common',
+    label: 'Virtual pets',
+    description: 'Desktop companion and task notifications',
+    keywords: ['pet', 'companion', '宠物', '寵物'],
+  },
   {
     id: 'app',
     group: 'common',
@@ -159,6 +167,7 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
 ];
 
 const legacySectionToPage: Record<string, SettingsPageId> = {
+  pets: 'pets',
   update: 'app',
   app: 'app',
   models: 'models',

@@ -20,6 +20,7 @@ import TelemetryConsentPrompt from './components/TelemetryConsentPrompt';
 import OnboardingGuard from './components/onboarding/OnboardingGuard';
 import { createSession } from './sessions';
 import { acpListSessions, acpDeleteSession } from './acp/sessions';
+import { acpChatSessionController } from './acp/chatSessionController';
 
 import { ChatType } from './types/chat';
 import Hub from './components/Hub';
@@ -413,6 +414,39 @@ export function AppInner() {
     ? (location.state as ViewOptions | null)?.backgroundLocation
     : undefined;
 
+  useEffect(() => {
+    const openPetSession = (_event: IpcRendererEvent, sessionId: unknown) => {
+      if (typeof sessionId !== 'string' || !sessionId.trim()) return;
+      // Use the router so its visible route and history state follow the target chat together.
+      const pairPath = withWorkspaceMode('/pair', getWorkspaceModeFromPath(location.pathname));
+      navigate(`${pairPath}?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
+    };
+    window.electron.on('pet-open-session', openPetSession);
+    const pausePetSession = (event: IpcRendererEvent, sessionId: unknown) => {
+      if (typeof sessionId !== 'string' || !sessionId.trim()) return;
+      acpChatSessionController.stop(sessionId);
+      openPetSession(event, sessionId);
+    };
+    window.electron.on('pet-pause-session', pausePetSession);
+    const createPetSession = (_event: IpcRendererEvent, value: unknown) => {
+      const request = value as { dir?: unknown; query?: unknown } | null;
+      if (typeof request?.dir !== 'string' || typeof request.query !== 'string') return;
+      navigate(withWorkspaceMode('/pair', getWorkspaceModeFromPath(location.pathname)), {
+        state: {
+          workingDir: request.dir,
+          initialMessage: { msg: request.query, images: [] },
+          noAutoSubmit: true,
+        },
+      });
+    };
+    window.electron.on('pet-create-session', createPetSession);
+    return () => {
+      window.electron.off('pet-open-session', openPetSession);
+      window.electron.off('pet-pause-session', pausePetSession);
+      window.electron.off('pet-create-session', createPetSession);
+    };
+  }, [location.pathname, navigate]);
+
   const [chat, setChat] = useState<ChatType>({
     sessionId: '',
     name: DEFAULT_CHAT_TITLE,
@@ -678,7 +712,8 @@ export function AppInner() {
   useEffect(() => {
     const handleSetInitialMessage = async (_event: IpcRendererEvent, ...args: unknown[]) => {
       const initialMessage = args[0] as string;
-      const options = (args[1] as { noAutoSubmit?: boolean } | undefined) || {};
+      const options =
+        (args[1] as { noAutoSubmit?: boolean; workingDir?: string } | undefined) || {};
 
       if (initialMessage && !isProcessingRef.current) {
         isProcessingRef.current = true;
@@ -686,6 +721,9 @@ export function AppInner() {
           state: {
             initialMessage: { msg: initialMessage, images: [] },
             noAutoSubmit: options.noAutoSubmit,
+            ...(typeof options.workingDir === 'string' && options.workingDir.trim()
+              ? { workingDir: options.workingDir }
+              : {}),
           },
         });
         setTimeout(() => {

@@ -11,7 +11,7 @@ test('native capabilities and guidance are loaded on demand without removing the
  const names=['read','pwsh','edit','skill','project_memory','create_goal','subagent','job_list','web_fetch','load_workspace_dependencies'];
  const catalog=names.map(name=>({name,description:name,parameters:{type:'object',properties:{}}}));
  let hook,search;
- const ctx={tools:{schemas:()=>catalog,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
+ const ctx={tools:{schemas:()=>catalog,get:()=>search,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
  installToolDiscovery(ctx,{session:{requestHeader:()=>undefined}});
  const assembly=()=>({tools:catalog,sections:['tool:read','tool:pwsh','tool:edit','tool:goal','tool:subagent','tool:jobs','tool:web_fetch','tool:load_workspace_dependencies','sandbox'].map(name=>({name,text:name}))});
  const initial=await hook({}, {}, async()=>assembly());
@@ -30,7 +30,7 @@ test('native capabilities and guidance are loaded on demand without removing the
 test('legacy full-catalog headers are not restored as selected tools', async () => {
  const catalog=Array.from({length:200},(_,i)=>({name:'mcp__old__tool_'+i}));
  let assemble;
- installToolDiscovery({tools:{schemas:()=>catalog,register(){}},systemPrompt:{section(){}},on(_name,hook){assemble=hook;}},
+ installToolDiscovery({tools:{schemas:()=>catalog,get(){},register(){}},systemPrompt:{section(){}},on(_name,hook){assemble=hook;}},
   {session:{requestHeader:()=>({tools:catalog})}});
  assert.deepEqual((await assemble({}, {}, async()=>({tools:catalog}))).tools,[]);
 });
@@ -38,7 +38,7 @@ test('legacy full-catalog headers are not restored as selected tools', async () 
 test('optional Git and role tools load through the same registry and restore only selected declarations', async()=>{
  const catalog=['read','git_status','subagent_coder'].map(name=>({name,description:name,parameters:{type:'object',properties:{}}}));
  let hook,search;
- const ctx={tools:{schemas:()=>catalog,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
+ const ctx={tools:{schemas:()=>catalog,get:()=>search,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
  installToolDiscovery(ctx,{session:{requestHeader:()=>undefined}});
  const assembly=()=>({tools:catalog,sections:[{name:'mcp:unused',text:'UNNEEDED_SERVER_GUIDANCE'},{name:'sandbox',text:'PRESERVE_POLICY'}]});
  assert.deepEqual((await hook({}, {}, async()=>assembly())).tools.map(t=>t.name),['read']);

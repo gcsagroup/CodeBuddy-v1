@@ -23,7 +23,7 @@ async function fixture(t, handler, { sessionOptions = {}, effectValue } = {}) {
     const body = JSON.parse(raw); requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: `fixture-${requests.length}`, object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
-    const tool = (name, args) => { emit({ tool_calls: [{ index: 0, id: `call-${requests.length}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }); emit({}, 'tool_calls'); };
+    const tool = (name, args, analysis) => { if (analysis) emit({ content: analysis }); emit({ tool_calls: [{ index: 0, id: `call-${requests.length}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }); emit({}, 'tool_calls'); };
     const text = value => { emit({ content: value }); emit({}, 'stop'); };
     try { await handler({ body, count: requests.length, tool, text }); }
     catch (error) { text(`Fixture error: ${error.message}`); }
@@ -33,7 +33,7 @@ async function fixture(t, handler, { sessionOptions = {}, effectValue } = {}) {
   let driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
   const input = {
     sessionId: randomUUID(), cwd: root, model: 'fixture',
-    provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture', contextWindow: 32768 },
+    provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture', contextWindow: 32768, maxTokens: 1024 },
     options: { ...sessionOptions, tools: [{ name: 'fixture_effect', description: 'Write the isolated test marker once', inputSchema: { type: 'object', properties: {} }, async execute() { effects.push('write'); await writeFile(join(root, 'once.txt'), 'preserved checkpoint'); return { count: effects.length, ...(effectValue ? { evidence: effectValue } : {}) }; } }] },
   };
   await driver.createSession(input);
@@ -94,7 +94,7 @@ test('official automatic compaction preserves native goal and todo evidence whil
     const n = ++steps;
     if (n === 1) tool('create_goal', { objective: 'Retain the native objective across automatic compaction', max_goal_rounds: 3 });
     else if (n === 2) tool('todo_write', { todos: [todo] });
-    else if (n === 3) tool('fixture_effect', {});
+    else if (n === 3) tool('fixture_effect', {}, 'Module A verified; module B requirements remain unchanged. '.repeat(1800));
     else if (n === 4) tool('get_goal', {});
     else if (n === 5) tool('todo_write', { todos: [{ ...todo, status: 'completed' }] });
     else if (n === 6) { const goal = lastGoal(body); tool('update_goal', { goal_id: goal.id, revision: goal.revision, action: 'complete' }); }
@@ -109,7 +109,11 @@ test('official automatic compaction preserves native goal and todo evidence whil
   const todos = history.events.filter(e => e.type === 'todo/write');
   assert.deepEqual(todos[0].data.todos, [todo]); assert.deepEqual(todos.at(-1).data.todos, [{ ...todo, status: 'completed' }]);
   assert.ok(compact.seq > todos[0].seq && compact.seq < todos.at(-1).seq);
-  assert.equal(history.events.filter(e => e.type === 'tool/result' && e.data.message.toolCallId === 'call-3').length, 1);
+  // Native compaction may copy a retained receipt; it must not repeat the side effect.
+  const receipts = history.events.filter(e => e.type === 'tool/result' && e.data.message.toolCallId === 'call-3');
+  assert.ok(receipts.length >= 1);
+  assert.equal(JSON.parse(receipts[0].data.message.content[0].text).count, 1);
+  assert.equal(await readFile(join(f.root, 'once.txt'), 'utf8'), 'preserved checkpoint');
 });
 
 test('structured human resume retains official paused-goal CAS and keeps permissions attached', { timeout: 15000 }, async t => {

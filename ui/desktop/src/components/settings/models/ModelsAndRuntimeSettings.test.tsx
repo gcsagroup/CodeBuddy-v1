@@ -5,6 +5,7 @@ import { acpListProviderDetails } from '../../../acp/providers';
 import ModelsAndRuntimeSettings from './ModelsAndRuntimeSettings';
 
 vi.mock('../../../i18n', () => ({
+  currentLocale: 'en',
   defineMessages: <T,>(messages: T) => messages,
   useIntl: () => ({
     locale: 'en',

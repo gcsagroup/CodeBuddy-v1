@@ -1,7 +1,7 @@
 // MCP connection adaptation for CodeBuddy's existing Apps protocol. Naming,
 // transport policy and connection lifecycle follow dsh-mcp-client (MIT, 0.2.1-alpha.2).
 // Official MCP SDK and Harness tool/resource runtimes still own protocol and execution.
-import { StreamableHTTPClientTransport, specTypeSchemas } from '@modelcontextprotocol/client';
+import { StreamableHTTPClientTransport, SdkHttpError, specTypeSchemas } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { Config as UpstreamConfig, createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client';
 import Schema from '@deepseek-ai/schemastery';
@@ -19,6 +19,20 @@ export const name = 'codebuddy-mcp-client', inject = ['tools'];
 const scopes = new WeakMap(), receipts = new Map();
 const clone = value => structuredClone(value);
 const MAX_META_BYTES = 16 * 1024 * 1024;
+
+export const mcpConnectionStatus = (scope, serverName) => scopes.get(scope)?.get(serverName)?.status;
+
+function sessionExpired(error) {
+  if (!(error instanceof SdkHttpError)) return false;
+  if (error.status === 404) return true;
+  // Legacy servers sometimes use HTTP 400 for this exact JSON-RPC rejection.
+  // Generic invalid requests, authentication errors and tool text are not expiry.
+  if (error.status !== 400) return false;
+  try {
+    const body = JSON.parse(error.data.text);
+    return body.jsonrpc === '2.0' && body.error?.code === -32600 && body.error.message === 'Session not found';
+  } catch { return false; }
+}
 
 function publicName(server, raw) {
   const joined = `mcp__${server}__${raw}`, normalized = joined.replace(/[^A-Za-z0-9_-]/g, '_');
@@ -61,7 +75,7 @@ export async function apply(ctx, config) {
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
   if (registry.has(config.serverName)) throw Error(`MCP server ${config.serverName} is already registered in this scope`);
-  const entry = { tools: new Map(), approvals: new Map() }; registry.set(config.serverName, entry);
+  const entry = { tools: new Map(), approvals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
   const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
@@ -71,9 +85,9 @@ export async function apply(ctx, config) {
   const live = current => !disposed && generation === current && current.ready;
   async function synchronize(current) {
     const next = sync.then(async () => {
-      if (disposed || generation !== current) return;
+      if (disposed || generation !== current || current.down) return;
       const response = current.client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await current.client.listTools(undefined, { cacheMode: 'refresh', timeout });
-      if (disposed || generation !== current) return;
+      if (disposed || generation !== current || current.down) return;
       const definitions = new Map(), metadata = new Map(), approvals = new Map();
       for (const tool of response.tools) {
         const name = publicName(config.serverName, tool.name), mcpApp = appMetadata(config.serverName, tool);
@@ -144,6 +158,7 @@ export async function apply(ctx, config) {
   function disconnected(current) {
     if (disposed || generation !== current || current.down) return;
     current.down = true; current.ready = false; instructions = '';
+    entry.status = 'error';
     if (connectedAt && Date.now() - connectedAt >= policy.maxDelayMs) failures = 0;
     connectedAt = undefined;
     if (!policy.enabled || ++failures > policy.maxAttempts) { clearTools(); return; }
@@ -156,7 +171,10 @@ export async function apply(ctx, config) {
   }
   async function connect(startup) {
     if (disposed) return;
-    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers ?? {} } });
+    // Session identity belongs to the transport handshake, never saved headers.
+    const headers = new Headers(config.headers ?? {});
+    headers.delete('mcp-session-id');
+    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
     const current = { transport, ready: false, closed: false, connecting: true };
     current.client = new McpTaskClient({ name: 'codebuddy-harness-mcp', version: '0.1.0' }, {
       capabilities: { extensions: { 'io.modelcontextprotocol/tasks': {}, 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } },
@@ -165,7 +183,11 @@ export async function apply(ctx, config) {
     });
     generation = current;
     current.client.onclose = () => { current.closed = true; if (!current.connecting) disconnected(current); };
-    current.client.onerror = () => {}; // Request promises carry failures; do not log credentials or server payloads.
+    current.client.onerror = error => {
+      // Reconnect once per generation; never replay an invocation (including
+      // Tasks polling failures). The original request retains its actual error.
+      if (!current.connecting && transport.sessionId && sessionExpired(error)) disconnected(current);
+    };
     try {
       await current.client.connect(transport, { timeout });
       if (disposed || generation !== current || current.closed) throw Error('MCP connection closed during startup');
@@ -174,7 +196,7 @@ export async function apply(ctx, config) {
       if (Buffer.byteLength(contribution) > (config.maxInstructionBytes ?? 32768)) throw Error('MCP instructions exceed configured limit');
       await synchronize(current);
       if (disposed || current.closed) throw Error('MCP connection closed during tool discovery');
-      current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution;
+      current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution; entry.status = 'ready';
     } catch (error) {
       current.connecting = false;
       if (await closeGeneration(current)) disconnected(current);

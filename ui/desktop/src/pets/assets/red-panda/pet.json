@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "red-panda",
+  "name": "小熊猫 · Red Panda",
+  "description": "暖棕条纹尾巴的桌面伙伴",
+  "image": "sprites.png",
+  "columns": 6,
+  "rows": 8,
+  "cellWidth": 192,
+  "cellHeight": 208,
+  "fps": 6
+}

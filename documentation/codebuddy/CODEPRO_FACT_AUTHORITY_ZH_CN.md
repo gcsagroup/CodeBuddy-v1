@@ -65,6 +65,30 @@ CodeBuddy 适配层把模板、职责、已配置模型转换成 DSH 公开 `Sub
 
 本批参考原生审批的单次请求和调用边界设计，不挂载 `permission-presets` 或 Windows ACL 沙箱；不宣称现有模式等同于原生沙箱预设。验证结果单独记录，不由本表宣布产品通过。
 
+## 2026-10-19 桌面宠物展示消费者
+
+本批补充（用户已要求）：侧栏完成绿色未读点与宠物完成勾选共同消费 Electron 提醒快照，由真实可见且聚焦的会话确认已读，不维护两份完成未读裁决。宠物暂停按钮委托现有会话 controller.stop，继续跟进打开对应会话；不引入第二套暂停或恢复状态。官方 Harness `userQuestions` 与 `ask_user_question` 通过 ACP `elicitation/create` 接到现有表单，待回答事实仍来自实际输入请求，宠物仅展示摘要。媒体工具沿用 ComfyUI 服务端队列和历史回执，图像与视频使用独立任务收据目录，不改变 Harness 完成语义。
+
+繁體：側欄未讀點與寵物勾選共用提醒快照；暫停委託現有 controller，提問由官方 Harness 經 ACP 表單傳遞。English: sidebar unread dots and pet checks share the notification snapshot; pause delegates to the existing controller, and official Harness questions use the existing ACP form channel.
+
+桌面宠物复用现有 ACP 会话快照、输入请求、错误及 `turnTerminal` 结构化记录，仅选择展示动作和提醒优先级，不解析对话文字、改变任务终态或驱动 Agent。Harness 的执行、审批与完成所有权保持。Electron `petMain` 持有宠物选择、显示、尺寸、位置、素材校验缓存及本次运行的提醒已读状态；提醒已读不修改会话。悬浮窗口属于辅助窗口，不成为会话事件的宿主。
+
+自定义创建通过现有 CodeBuddy Agent 会话提出请求，图像工具的可用性与权限仍由该会话决定；文件生成后由本地素材加载器验证，最后发布有效素材。静态内置素材及 Codex 的制作工具不授予产品图像生成能力。用户确认小熊猫为默认，奶油猫和白狐作为其他内置选择。详见[宠物说明](../../docs/desktop-pets.zh-CN.md)。
+
+繁體：寵物僅消費 ACP 結構化狀態；Harness 保留執行與完成權威。Electron 持有顯示偏好、素材驗證及提醒已讀，不改寫聊天。建立寵物沿用實際 Agent 與既有工具權限。
+
+English: pets only consume structured ACP state. Harness retains execution and completion authority. Electron owns display preferences, validated art and local notice acknowledgements, without rewriting sessions. Pet creation uses the real Agent chat and its existing tool permissions.
+
+## 2026-10-16 Mac 独立工具接入（实现待统一测试）
+
+用户明确要求补齐 Mac 电脑控制和独立 MCP，并在开发完成后统一测试。平台适配复用 Go/Swift `qwen_computer` 与 Rust `codebuddy-tools`，不恢复旧 Agent/CLI。Mac `computercontroller` 与 Windows 一样只公开 PDF、网页文件、缓存；桌面操作唯一入口是现有九工具合同，权限仍由 Harness 回调与 macOS 屏幕录制/辅助功能实际授权共同约束。
+
+工具原生构建、来源和载荷身份由打包脚本持有；`runtime/builtin-artifacts.mjs` 只解析固定文件名的包内清单，运行时校验二进制大小/哈希/普通文件与执行权限。电脑控制前端和同目录 Swift helper 一起校验；配置、环境变量及外部同名 MCP 不取得内置信任。签名回调在所有内部代码签名后、外层应用封装前写入最终工具哈希，保留签名前来源；不在已签名应用启动时修改资源。Windows 原固定身份和配置键保留。清单有效只表示产物可用，不代表 MCP 发现、TCC 授权或桌面 E2E 通过。
+
+繁體：Mac 共用既有 Go/Swift 電腦控制及 Rust 工具，Harness 持有執行與核准，系統持有 TCC 授權。封裝持有固定工具檔案身份，內部簽名後、外層封裝前更新雜湊；啟動不修改已簽名資源。文檔工具不另公開桌面動作，實機驗收尚未執行。
+
+English: Mac reuses existing Go/Swift computer control and Rust tools. Harness owns execution/approval; macOS owns TCC grants. Packaging owns fixed artifact identities and refreshes hashes after child signing but before the outer seal. Startup never rewrites signed resources. Document tools expose no second desktop route. Artifact validation is distinct from discovery, permissions and desktop acceptance; tests remain deferred.
+
 ## 2026-10-16 同事分支合并：原生子 Agent 与只读投影
 
 本次按用户要求合并 `codex/dsh-frontend-ux`。当前会话选择的模型和思考强度是实际请求来源；原生子 Agent 继承父 Agent 的实际模型与强度，旧角色路由配置保留可读但不再覆盖执行选择。Host 的子 Agent 插件限制为同时 3 个、深度 1；旧配置中的角色并发值不修改原生 Host。此条覆盖下方历史角色路由执行约定，不删除保存的配置或历史。
@@ -377,3 +401,9 @@ Todo 的既有 `content` 文本补充 `[-]` 进行中展示约定，兼容原 `[
 用户在 stage27 具体方案后回复“允许”，批准调整 MACOS_CLEANUP_DESIGN 第 5 步：原有 workspace_lease 继续拥有 root/session/run/sourceMessage/nonce 校验与生命周期；cleanup::Inspection 读取目标摘要。Mac 仅连接 audit/cancel，明确返回 executionAvailable=false；Agent 通知也携带同一平台能力，UI 只消费该结构化字段。Windows 回应新增 true，旧 Windows 无该字段仍保留原语义；非法字段拒绝显示动作。
 
 Mac 审计回执仅在内存中保存持有的 Inspection 与原能力。审计提交、取消和会话撤销按同一 receipt→capability 锁序串行，撤销期间的检查不得重新插入回执。取消令 audit token 失效，只在原有效期内释放原只读能力以便重新选择；过期不续期、不恢复权限，重启不载入回执。五个其余清理入口继续由后端返回 cleanup_read_only；通过检查不授予隔离、删除或恢复权限。没有新增持久化库、修改 Windows 日志或降低精确对象写入保证。
+
+### 2026-10-16 已批准：Mac 凭据保护
+
+`runtime/secrets.mjs` 继续拥有配置密文的保护/解封调用边界。Mac 独立 `codebuddy-credentials` helper 通过 Security Keychain 持有随机主密钥，以 CryptoKit AES-GCM 处理版本化密文；打包流程拥有 helper 的固定路径、哈希和签名身份。解密只读取已有密钥，缺失或无权访问时失败；不改变 Harness 执行或 MCP 权限所有权。Windows DPAPI 数据不迁移。
+
+繁體：Mac 獨立憑證 helper 擁有 Keychain 主金鑰與加解密，既有設定與 Harness 權威不變。English: The standalone Mac credential helper owns its Keychain master key and encryption; existing settings and Harness authority remain unchanged.

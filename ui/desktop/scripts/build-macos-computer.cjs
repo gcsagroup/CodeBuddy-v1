@@ -3,7 +3,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { verifyMachO, targetFor } = require('./macos-package.cjs');
 
-function buildMacComputer(repo, arch) {
+function buildMacComputer(repo, arch, { test = false } = {}) {
   targetFor(arch);
   if (process.platform !== 'darwin' || process.arch !== arch)
     throw new Error(`Build the computer runtime on a native ${arch} Mac.`);
@@ -17,6 +17,8 @@ function buildMacComputer(repo, arch) {
     CGO_ENABLED: '0',
     GOOS: 'darwin',
     GOARCH: arch === 'arm64' ? 'arm64' : 'amd64',
+    GOTOOLCHAIN: 'local',
+    GOPROXY: 'off',
   };
   function run(command, args, cwd = root) {
     const result = spawnSync(command, args, { cwd, env, stdio: 'inherit', shell: false });
@@ -25,7 +27,7 @@ function buildMacComputer(repo, arch) {
       throw new Error(`${command} failed with ${result.status ?? result.signal}`);
   }
   const go = process.env.CODEBUDDY_GO_EXECUTABLE || 'go';
-  run(go, ['test', './...']);
+  if (test) run(go, ['test', './...']);
   const triple = `${arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos14.0`;
   const common = [
     'swiftc',
@@ -35,9 +37,11 @@ function buildMacComputer(repo, arch) {
     triple,
     path.join(native, 'RuntimeContract.swift'),
   ];
-  const checks = path.join(output, 'contract-tests');
-  run('xcrun', [...common, path.join(native, 'contract-tests.swift'), '-o', checks]);
-  run(checks, []);
+  if (test) {
+    const checks = path.join(output, 'contract-tests');
+    run('xcrun', [...common, path.join(native, 'contract-tests.swift'), '-o', checks]);
+    run(checks, []);
+  }
   run(go, ['build', '-trimpath', '-o', path.join(output, 'qwen-computer-use'), '.']);
   run('xcrun', [
     ...common,

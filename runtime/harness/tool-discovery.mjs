@@ -2,7 +2,7 @@ import { getMcpToolMetadata } from './mcp-bridge.mjs';
 
 // Optional adapter capabilities share Harness's registry and logged assembly.
 // The canonical registry, authorization, execution and inventory stay unchanged.
-const optionalNative = new Set(['write', 'edit', 'glob', 'grep', 'pwsh', 'bash', 'read_image', 'working_directory',
+const optionalNative = new Set(['generate_image', 'generate_video', 'create_desktop_pet', 'write', 'edit', 'glob', 'grep', 'pwsh', 'bash', 'read_image', 'working_directory',
   'skill', 'web_fetch', 'load_workspace_dependencies', 'todo_write', 'project_memory', 'create_goal', 'get_goal', 'update_goal', 'subagent', 'subagent_explorer', 'subagent_browser', 'list_agents',
   'interrupt_agent', 'send_message', 'job_kill', 'job_list', 'job_output',
   'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']);

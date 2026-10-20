@@ -9,7 +9,7 @@ import test from "node:test";
 let credentialProcesses = 0;
 const spawn = cp.spawn;
 cp.spawn = function (command, ...args) {
-  if (path.basename(command).toLowerCase() === "powershell.exe")
+  if (["powershell.exe", "codebuddy-credentials"].includes(path.basename(command).toLowerCase()))
     credentialProcesses++;
   return spawn.call(this, command, ...args);
 };
@@ -36,7 +36,7 @@ const extension = (name) => ({
   },
 });
 
-test('concurrent reads share DPAPI work without retaining plaintext or failures', async () => {
+test('concurrent reads share OS credential work without retaining plaintext or failures', async () => {
   const first = await protectSecret('fixture-first'), second = await protectSecret('fixture-rotated');
   let before = credentialProcesses;
   const values = await Promise.all(Array.from({length: 8}, () => revealSecret(structuredClone(first))));
@@ -45,7 +45,7 @@ test('concurrent reads share DPAPI work without retaining plaintext or failures'
   before = credentialProcesses;
   assert.deepEqual(await Promise.all([revealSecret(first), revealSecret(second)]), ['fixture-first', 'fixture-rotated']);
   assert.equal(credentialProcesses - before, 2, 'settled results must not be cached');
-  const invalid = {kind:'windows-dpapi',ciphertext:'invalid-fixture'};
+  const invalid = {kind:first.kind,ciphertext:'invalid-fixture'};
   before = credentialProcesses;
   const errors = await Promise.allSettled([revealSecret(invalid), revealSecret(invalid)]);
   assert.ok(errors.every(result => result.status === 'rejected'));

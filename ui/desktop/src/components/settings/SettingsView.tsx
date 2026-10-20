@@ -1,3 +1,4 @@
+import PetSettings from '../../pets/PetSettings';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppWindow,
@@ -35,6 +36,7 @@ import {
 } from './settingsNavigation';
 
 const i18n = defineMessages({
+  pagePets: { id: 'settingsCenter.pagePets', defaultMessage: 'Virtual pets' },
   title: {
     id: 'settingsView.title',
     defaultMessage: 'Settings',
@@ -104,6 +106,7 @@ const settingsGroups: Array<{
 ];
 
 const pageMessages: Record<SettingsPageId, (typeof i18n)[keyof typeof i18n]> = {
+  pets: i18n.pagePets,
   app: i18n.pageApp,
   keyboard: i18n.pageKeyboard,
   models: i18n.pageModels,
@@ -119,6 +122,8 @@ function SettingsPageIcon({ page }: { page: SettingsPageId }) {
   const className = 'h-4 w-4 shrink-0';
 
   switch (page) {
+    case 'pets':
+      return <Bot className={className} />;
     case 'app':
       return <AppWindow className={className} />;
     case 'keyboard':
@@ -187,6 +192,8 @@ export default function SettingsView({
 
   const activeContent = (() => {
     switch (activePage) {
+      case 'pets':
+        return <PetSettings />;
       case 'models':
         return <ModelsAndRuntimeSettings setView={setView} />;
       case 'chat':

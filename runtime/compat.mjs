@@ -54,6 +54,9 @@ import { listSubagentCatalog, readSubagentConversation } from "./subagent-conver
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
+import { desktopPetTool, PET_TOOL_NAME } from "./desktop-pet-tool.mjs";
+import { comfyuiTool, IMAGE_TOOL_NAME } from "./comfyui-tool.mjs";
+import { comfyuiVideoTool, VIDEO_TOOL_NAME } from "./comfyui-video-tool.mjs";
 import {
   sealSessionExtensions,
   selectedExtensions,
@@ -100,6 +103,7 @@ function toolResultUpdate(event, metadata) {
 }
 
 const preferenceKeys = [
+  "comfyuiBaseUrl",
   "autoCompactThreshold",
   "gooseMode",
   "gooseThinkingEffort",
@@ -240,9 +244,10 @@ export class Compat {
       ? new LibraryService(store, { driver, workspaces: this.workspaces })
       : null;
     this.settings = new RuntimeSettings(store, {
-      changed: (change) => {
+      changed: async (change) => {
         this.configurationRevision += 1;
         this.initialized.clear();
+        if (change?.extensionConfigKeys) await this.driver.invalidateMcpServers?.(change.extensionConfigKeys);
         if (change?.kind !== 'model-thinking') this.sessionToolApprovals = new WeakMap();
       },
       testExtension: (p) => this.testExtension(p),
@@ -730,6 +735,9 @@ export class Compat {
       if (await toolEnabled(s, this.settings, tool.name, resolvedExtensions))
         nativeAllowed.push(tool.name);
     resolvedExtensions.assertCurrent(s);
+    const petEnabled = Boolean(process.env.CODEBUDDY_PET_DIRECTORY) && await toolEnabled(s, this.settings, PET_TOOL_NAME, resolvedExtensions);
+    const imageEnabled = await toolEnabled(s, this.settings, IMAGE_TOOL_NAME, resolvedExtensions);
+    const videoEnabled = await toolEnabled(s, this.settings, VIDEO_TOOL_NAME, resolvedExtensions);
     return {
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
@@ -788,6 +796,9 @@ export class Compat {
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
+        ...(imageEnabled ? [comfyuiTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
+        ...(videoEnabled ? [comfyuiVideoTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
+        ...(petEnabled ? [desktopPetTool({ cwd: s.cwd })] : []),
         ...(extensions.some((e) => e.configKey === "projectmemory")
           ? this.memory.tools(s)
           : []),
@@ -1646,6 +1657,7 @@ export class Compat {
           );
         });
         this.initialized.delete(s.id);
+        await this.driver.invalidateMcpServers?.([name.endsWith("add") ? extensionName(p.extension) : p.name]);
         return {};
       }
       case "codepro/run/get":
@@ -2185,6 +2197,23 @@ export class Compat {
       const callbacks = {
         signal: controller.signal,
         requestId: userId,
+        onUserQuestions: async ({ questions, signal }) => {
+          const properties = Object.fromEntries(questions.map((q, i) => [`answer_${i}`, {
+            type: 'string', title: q.question,
+            description: [q.detail, q.options?.map(o => `${o.label}${o.description ? `: ${o.description}` : ''}`).join('; ')].filter(Boolean).join('\n'),
+          }]));
+          const reply = await connection.ask('elicitation/create', {
+            sessionId: s.id, mode: 'form', message: questions.map(q => q.question).join('\n'),
+            requestedSchema: { type: 'object', properties, required: Object.keys(properties) },
+          }, signal ?? controller.signal);
+          if (reply?.action !== 'accept') throw new Error('User question was cancelled or expired without an answer');
+          return { answers: questions.map((q, i) => {
+            const answer = reply.content?.[`answer_${i}`];
+            if (typeof answer !== 'string') throw new Error('Missing user question answer');
+            const selected = (q.options ?? []).some(o => o.label === answer) ? [answer] : [];
+            return { id: q.id, selected, ...(selected.length ? {} : { custom: answer }) };
+          }) };
+        },
         ...(["paused", "blocked"].includes(nativeGoal?.phase)
           ? { resumeGoal: { goalId: nativeGoal.id, revision: nativeGoal.revision } }
           : {}),

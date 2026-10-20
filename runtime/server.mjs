@@ -70,11 +70,12 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           "rename",
           "readResource",
           "listResources",
+          "invalidateMcpServers",
         ].map((name) => [
           name,
           async (...args) => {
             if (
-              ["close", "releaseNativeSessionCapabilities"].includes(name) &&
+              ["close", "releaseNativeSessionCapabilities", "invalidateMcpServers"].includes(name) &&
               !loaded
             )
               return;

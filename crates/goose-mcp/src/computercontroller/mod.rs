@@ -389,10 +389,10 @@ impl ComputerControllerServer {
         if !has_display {
             tool_router.remove_route("computer_control");
         }
-        let instructions = if cfg!(windows) {
+        let instructions = if cfg!(any(windows, target_os = "macos")) {
             tool_router.remove_route("computer_control");
             tool_router.remove_route("automation_script");
-            format!("Document and web tools: use pdf_tool for PDF extraction; Office editing uses Harness office-docx, office-xlsx and office-pptx skills; prefer Harness web_fetch for public text, while web_scrape saves web files; cache manages this extension's cached files at {}. Desktop observation and input are provided by the structured computer extension. This extension does not expose desktop actions or arbitrary automation scripts on Windows.", cache_dir.display())
+            format!("Document and web tools: use pdf_tool for PDF extraction; Office editing uses Harness office-docx, office-xlsx and office-pptx skills; prefer Harness web_fetch for public text, while web_scrape saves web files; cache manages this extension's cached files at {}. Desktop observation and input are provided by the structured computer extension. This extension does not expose desktop actions or arbitrary automation scripts on Windows or macOS.", cache_dir.display())
         } else {
             instructions
         };
@@ -1219,8 +1219,8 @@ impl ComputerControllerServer {
     }
 }
 
-#[cfg(all(test, windows))]
-mod windows_tool_inventory_tests {
+#[cfg(all(test, any(windows, target_os = "macos")))]
+mod desktop_tool_inventory_tests {
     use super::ComputerControllerServer;
 
     #[test]

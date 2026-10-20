@@ -1,3 +1,4 @@
+import DesktopPet from './pets/DesktopPet';
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
@@ -28,6 +29,10 @@ function handleIntlError(err: { code: string; message?: string }) {
 }
 
 (async () => {
+  if (window.location.hash.startsWith('#/desktop-pet')) {
+    ReactDOM.createRoot(document.getElementById('root')!).render(<DesktopPet />);
+    return;
+  }
   const messages = await loadMessages(currentMessageLocale);
 
   ReactDOM.createRoot(document.getElementById('root')!).render(

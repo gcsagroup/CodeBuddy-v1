@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { build } from '../../ui/node_modules/esbuild/lib/main.js';
@@ -82,7 +83,7 @@ test('ACP live threshold, repeated compaction, manual command, cancellation and 
   await rpc('session/cancel', { sessionId }); assert.equal((await running).stopReason, 'cancelled');
   assert.equal(compact().at(-1).status.data.status, 'cancelled'); slow = false;
   // Existing renderer consumes the same usage and lifecycle contract unchanged.
-  const output = await build({ entryPoints: [path.resolve('ui/desktop/src/acp/sessionNotificationAdapter.ts')], bundle: true, platform: 'node', format: 'esm', write: false });
+  const output = await build({ entryPoints: [fileURLToPath(new URL('../../ui/desktop/src/acp/sessionNotificationAdapter.ts', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false });
   const { createAcpSessionNotificationAdapter } = await import('data:text/javascript;base64,' + Buffer.from(output.outputFiles[0].text).toString('base64'));
   const adapter = createAcpSessionNotificationAdapter();
   const changes = notifications.filter(n => n.method === '_goose/unstable/session/update').flatMap(n => adapter.applyGoose(n.params));
@@ -129,7 +130,7 @@ test('a process killed during compaction restarts without a stale renderer spinn
   let child, ws, seq = 0, stderr = '';
   const secret = 'controlled-crash-secret';
   async function connect() {
-    child = spawn(process.execPath, ['runtime/server.mjs', '--port', '0', '--data-dir', path.join(root, 'data')], {
+    child = spawn(process.execPath, [fileURLToPath(new URL('../server.mjs', import.meta.url)), '--port', '0', '--data-dir', path.join(root, 'data')], {
       windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, CODEBUDDY_SERVER__SECRET_KEY: secret },
     });
     child.stderr.on('data', chunk => { stderr += chunk; });
@@ -166,11 +167,17 @@ test('a process killed during compaction restarts without a stale renderer spinn
   const { sessionId } = await rpc('session/new', { cwd: root, mcpServers: [], _meta: { enabledExtensions: [] } });
   const prompt = text => rpc('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   await prompt('Remember ORION-739, integer cents, and shipping is never taxed.');
+  // A completed response must survive an immediate process loss, even while
+  // the upstream writer's background batching deadline has not elapsed.
+  const persistedRoot = path.join(root, 'data', 'harness', 'sessions');
+  const logs = (await readdir(persistedRoot, { recursive: true })).filter(file => file.endsWith('.jsonl'));
+  const persisted = await Promise.all(logs.map(file => readFile(path.join(persistedRoot, file), 'utf8')));
+  assert.ok(persisted.some(content => content.includes('shipping is never taxed')), 'completed response must have durable original facts before compaction begins');
   slow = true; const running = prompt('/compact').catch(error => error); await started.promise;
   await kill(); assert.match((await running).message, /disconnected/);
   slow = false; await connect(); notifications.length = 0;
   await rpc('session/load', { sessionId, cwd: root, mcpServers: [] });
-  const output = await build({ entryPoints: [path.resolve('ui/desktop/src/acp/sessionNotificationAdapter.ts')], bundle: true, platform: 'node', format: 'esm', write: false });
+  const output = await build({ entryPoints: [fileURLToPath(new URL('../../ui/desktop/src/acp/sessionNotificationAdapter.ts', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false });
   const { createAcpSessionNotificationAdapter } = await import('data:text/javascript;base64,' + Buffer.from(output.outputFiles[0].text).toString('base64'));
   const adapter = createAcpSessionNotificationAdapter();
   const changes = notifications.filter(n => n.method === '_goose/unstable/session/update').flatMap(n => adapter.applyGoose(n.params));

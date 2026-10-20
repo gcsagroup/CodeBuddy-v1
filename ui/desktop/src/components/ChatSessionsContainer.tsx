@@ -1,3 +1,5 @@
+import { subscribeToAcpChatSession, acpChatSessionStore } from '../acp/chatSessionStore';
+import { petTaskFromSnapshot } from '../pets/petTaskAdapter';
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import BaseChat from './BaseChat';
@@ -8,6 +10,7 @@ import { acpChatSessionController } from '../acp/chatSessionController';
 
 interface ChatSessionsContainerProps {
   setChat: (chat: ChatType) => void;
+  isChatVisible: boolean;
   activeSessions: Array<{
     sessionId: string;
     initialMessage?: UserInput;
@@ -23,6 +26,7 @@ interface ChatSessionsContainerProps {
 export default function ChatSessionsContainer({
   setChat,
   activeSessions,
+  isChatVisible,
 }: ChatSessionsContainerProps) {
   const [searchParams] = useSearchParams();
   const currentSessionId = searchParams.get('resumeSessionId') ?? undefined;
@@ -48,6 +52,30 @@ export default function ChatSessionsContainer({
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!isChatVisible || !currentSessionId || !window.electron?.desktopPet) return;
+    const markRead = () => {
+      if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
+      const snapshot = acpChatSessionStore.getSnapshot(currentSessionId);
+      if (!snapshot) return;
+      const task = petTaskFromSnapshot(currentSessionId, snapshot);
+      if (task.terminalId)
+        window.electron.petSignal('pet-read', {
+          sessionId: currentSessionId,
+          terminalId: task.terminalId,
+        });
+    };
+    markRead();
+    const unsubscribe = subscribeToAcpChatSession(currentSessionId, markRead);
+    window.addEventListener('focus', markRead);
+    document.addEventListener('visibilitychange', markRead);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', markRead);
+      document.removeEventListener('visibilitychange', markRead);
+    };
+  }, [currentSessionId, isChatVisible]);
 
   // Always render active sessions to keep SSE connections alive, even when not on /pair route
   if (!currentSessionId && activeSessions.length === 0) {

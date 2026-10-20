@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, access, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,7 @@ import { openStore } from '../store.mjs';
 async function fixture(t, { outsideTemp = false } = {}) {
   const base = outsideTemp ? fileURLToPath(new URL('../../.preview-evidence/', import.meta.url)) : tmpdir();
   await mkdir(base, { recursive: true });
-  const root = await mkdtemp(path.join(base, 'codebuddy-directory-harness-')), dirA = path.join(root, 'a'), dirB = path.join(root, 'b'), dirC = path.join(root, 'c');
+  const root = await realpath(await mkdtemp(path.join(base, 'codebuddy-directory-harness-'))), dirA = path.join(root, 'a'), dirB = path.join(root, 'b'), dirC = path.join(root, 'c');
   for (const [dir, label] of [[dirA, 'A'], [dirB, 'B'], [dirC, 'C']]) { await mkdir(path.join(dir, '.git'), { recursive: true }); await writeFile(path.join(dir, 'AGENTS.md'), `DIRECTORY_${label}_INSTRUCTIONS: use ${label} project conventions.`); }
   const requests = [], slow = Promise.withResolvers();
   const server = createServer(async (req, res) => {
@@ -92,4 +92,17 @@ test('directory fork rejects an active native prompt and approval still applies 
   controller.abort(); assert.equal((await running).stopReason, 'cancelled');
   await f.publish(f.dirB); await f.create('product', f.dirB);
   const result = await f.driver.callTool('product', 'write', { file_path: 'denied.txt', content: 'denied' }); assert.equal(result.isError, true); await assert.rejects(access(path.join(f.dirB, 'denied.txt')));
+});
+
+test('a directory fork can be reopened through a filesystem alias without adopting a different workspace', async t => {
+  const f = await fixture(t, { outsideTemp: true }), alias = path.join(f.root, 'b-alias');
+  await symlink(f.dirB, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  const moved = await f.publish(alias);
+  assert.equal(moved.cwd, f.dirB);
+  assert.equal((await f.create('product', alias)).cwd, f.dirB);
+  await f.restart();
+  assert.equal((await f.create('product', alias)).cwd, f.dirB);
+  await assert.rejects(f.create('product', f.dirC), error => error.code === 'session/conflict');
+  assert.equal((await f.driver.callTool('product', 'write', { file_path: 'alias.txt', content: 'same workspace' }, { onPermission: () => true })).isError, false);
+  assert.equal(await readFile(path.join(f.dirB, 'alias.txt'), 'utf8'), 'same workspace');
 });

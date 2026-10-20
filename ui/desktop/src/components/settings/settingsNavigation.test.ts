@@ -24,7 +24,18 @@ describe('settings navigation', () => {
 
   it('includes every existing top-level settings page exactly once', () => {
     expect(settingsNavigationItems.map((item) => item.id).sort()).toEqual(
-      ['app', 'auth', 'chat', 'input', 'keyboard', 'memory', 'models', 'security', 'sharing'].sort()
+      [
+        'app',
+        'auth',
+        'chat',
+        'input',
+        'keyboard',
+        'memory',
+        'models',
+        'pets',
+        'security',
+        'sharing',
+      ].sort()
     );
   });
 

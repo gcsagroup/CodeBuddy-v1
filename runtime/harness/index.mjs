@@ -11,7 +11,7 @@ import compactionPlugin from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
-import { createScope, bindScopeParent } from '@deepseek-ai/dsh-scope';
+import { createScope, bindScopeParent, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
@@ -203,6 +203,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     run.events = run.events.then(() => run.onEvent?.(event));
     run.events.catch(error => { run.error = error; run.reject(error); });
   }
+  ctx.on('user-questions/request', async (request, next) => {
+    const active = runFor(request.agent);
+    if (!active?.onUserQuestions) return next();
+    return active.onUserQuestions(request);
+  });
   function contextUsage(session) {
     const snapshot = ctx.sessionProjections.snapshot(session, ['tokenUsage', 'contextPressure']);
     const meter = ctx.tokenMeter.measure(session);
@@ -531,6 +536,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
     }
+    await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !names.has(server.serverName)).map(server => server.serverName));
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
@@ -644,6 +650,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     version: HARNESS_VERSION,
     referenceSourceCommit: HARNESS_REFERENCE_COMMIT,
     dataDir: root,
+    invalidateMcpServers(configKeys) { return mcpPresets.invalidate(configKeys); },
     async warmMcpServers(servers) {
       if (servers.some(server => server.transport !== 'streamable-http')) throw new TypeError('Startup preparation accepts remote MCP connections only');
       const lease = await mcpPresets.acquire(servers);
@@ -653,23 +660,33 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     async createSession({ sessionId = randomUUID(), cwd: workingDirectory = cwd, provider, model, options }) {
       const work = creation.then(async () => {
         selection = await configureProvider(provider, model);
-        const created = await ctx.sessionController.create({ sessionId, cwd: resolve(workingDirectory) });
+        let sessionCwd = resolve(workingDirectory), created;
+        try { created = await ctx.sessionController.create({ sessionId, cwd: sessionCwd }); }
+        catch (error) {
+          const recorded = error.details?.existingCwd;
+          if (error.code !== 'session/conflict' || error.details?.sessionId !== sessionId || typeof recorded !== 'string') throw error;
+          const [requestedTarget, recordedTarget] = await Promise.all([ctx.fs.resolve(sessionCwd), ctx.fs.resolve(recorded)]);
+          if (ctx.fs.processPath(requestedTarget) !== ctx.fs.processPath(recordedTarget)) throw error;
+          // The controller owns the persisted spelling; aliases must not rewrite it.
+          sessionCwd = recorded;
+          created = await ctx.sessionController.create({ sessionId, cwd: sessionCwd });
+        }
         await ctx.sessionController.selectModel({ sessionId: created.sessionId, ...selection });
         contextSources.set(created.sessionId, provider.contextSource ?? (provider.contextWindow ? 'configured' : 'fallback'));
         if (options || !sessionScopes.has(created.sessionId)) await configureSession(created.sessionId, options);
-        return { ...created, cwd: resolve(workingDirectory), provider: provider.id, model };
+        return { ...created, cwd: sessionCwd, provider: provider.id, model };
       });
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, signal, requestId = randomUUID(), resumeGoal } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onUserQuestions, signal, requestId = randomUUID(), resumeGoal } = {}) {
       if (runs.has(sessionId)) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
       signal?.throwIfAborted();
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, events: Promise.resolve(), steps: 0, sessionId };
+      const run = { ...completion, onEvent, onPermission, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId };
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -687,6 +704,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         const jobs = run.jobSettlement ? await run.jobSettlement : [];
         await run.events;
         if (run.error) throw run.error;
+        // Idle ends execution, but the native JSONL writer may still batch events.
+        // A completed ACP response must survive an immediate process loss.
+        await ctx.sessions.flush(agent.session);
         const goal = ctx.goals.get(agent);
         if (signal?.aborted || run.cancelRequested || run.lastResult?.stopReason === 'cancelled') return { stopReason: 'cancelled', reason: run.lastResult?.reason, jobs, ...(goal ? { goal } : {}) };
         return { ...(run.lastResult ?? result), ...(jobs.length ? { jobs } : {}), ...(goal ? { goal } : {}) };
@@ -706,7 +726,13 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       }
     },
     configureSession,
-    extensionStatus(sessionId) { return structuredClone(extensionStates.get(sessionId) ?? []); },
+    extensionStatus(sessionId) {
+      const agent = ctx.agents.get(sessionId);
+      return (extensionStates.get(sessionId) ?? []).map(state => {
+        const status = agent && [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionStatus(key, state.serverName)).find(Boolean);
+        return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
+      });
+    },
     async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID() } = {}) {
       if (!runs.has(sessionId)) throw new Error('Steering requires an active prompt; use prompt for an idle session');
       return ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);

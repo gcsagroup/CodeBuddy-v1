@@ -16,6 +16,7 @@ import * as fs from 'fs/promises';
 import log from './logger';
 import { githubUpdater } from './githubUpdater';
 import { errorMessage } from './conversionUtils';
+import { trayIconFileName } from './appIcons';
 import {
   trackUpdateCheckStarted,
   trackUpdateCheckCompleted,
@@ -759,26 +760,12 @@ function updateTrayIcon(hasUpdate: boolean) {
     hasUpdate = false;
   }
 
-  const isDev = !app.isPackaged;
-  let iconPath: string;
-
-  if (hasUpdate) {
-    // Use icon with update indicator
-    if (isDev) {
-      iconPath = path.join(process.cwd(), 'src', 'images', 'iconTemplateUpdate.png');
-    } else {
-      iconPath = path.join(process.resourcesPath, 'images', 'iconTemplateUpdate.png');
-    }
-    trayRef.setToolTip('CodeBuddy - Update Available');
-  } else {
-    // Use normal icon
-    if (isDev) {
-      iconPath = path.join(process.cwd(), 'src', 'images', 'iconTemplate.png');
-    } else {
-      iconPath = path.join(process.resourcesPath, 'images', 'iconTemplate.png');
-    }
-    trayRef.setToolTip('CodeBuddy');
-  }
+  const iconPath = path.join(
+    app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'src'),
+    'images',
+    trayIconFileName(process.platform, hasUpdate)
+  );
+  trayRef.setToolTip(hasUpdate ? 'CodeBuddy - Update Available' : 'CodeBuddy');
 
   const icon = nativeImage.createFromPath(iconPath);
   if (process.platform === 'darwin') {

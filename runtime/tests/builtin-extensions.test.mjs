@@ -11,6 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { existsSync } from 'node:fs';
 import {
   builtinMcp,
   builtinToolNames,
@@ -22,7 +23,11 @@ import { createHarnessDriver } from "../harness/index.mjs";
 import { openStore } from "../store.mjs";
 import { commonQueryMetadata, COMMON_QUERY_KEY } from "../common-query-settings.mjs";
 
-test("standalone query MCP uses current settings in an already connected Harness session", { skip: process.platform !== "win32", timeout: 60_000 }, async t => {
+const nativeArtifactsPrepared = process.platform === 'win32' && process.arch === 'x64' ||
+  process.platform === 'darwin' && ['arm64', 'x64'].includes(process.arch) &&
+  existsSync(new URL('../tools/artifacts.json', import.meta.url));
+
+test("standalone query MCP uses current settings in an already connected Harness session", { skip: !nativeArtifactsPrepared, timeout: 60_000 }, async t => {
   const options = await fixture(t);
   const store = await openStore(options.dataDir);
   await store.update(s => { s.config[COMMON_QUERY_KEY] = { value: { network_enabled: false, timezone: "Asia/Shanghai" } }; });
@@ -60,7 +65,7 @@ async function fixture(t) {
   return { root, cwd, dataDir };
 }
 
-test("legacy document configuration reconnects with residual tools and upstream Office skills", { skip: process.platform !== "win32", timeout: 60_000 }, async t => {
+test("legacy document configuration reconnects with residual tools and upstream Office skills", { skip: !nativeArtifactsPrepared, timeout: 60_000 }, async t => {
   const options = await fixture(t);
   const dataDir = path.join(options.root, "harness-office-migration");
   const config = await builtinMcp({ type: "builtin", name: "computercontroller" }, options);
@@ -98,22 +103,23 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
   for (const row of catalog) {
     assert.equal(
       row.available,
-      process.platform === "win32" && process.arch === "x64",
+      nativeArtifactsPrepared,
       row.reason,
     );
     assert.equal(row.enabled, false);
     assert.equal(row.extension.type, "builtin");
   }
   for (const row of await listAvailableBuiltins({
-    platform: "darwin",
+    platform: "linux",
     arch: "arm64",
   })) {
     assert.equal(row.available, false);
-    assert.match(row.reason, /darwin\/arm64/u);
+    assert.match(row.reason, /linux\/arm64/u);
   }
   assert.equal(isBuiltinMcp({ type: "mcp", name: "qwen_computer" }), false);
   assert.equal(isBuiltinMcp({ type: "builtin", name: "__proto__" }), false);
   assert.deepEqual(builtinToolNames("__proto__"), []);
+  if (process.platform !== 'win32') return;
   const provenance = JSON.parse(
     await readFile(
       new URL("../tools/provenance.json", import.meta.url),
@@ -131,7 +137,7 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
 
 test(
   "builtin launch uses fixed commands and private profile/cache roots without mutating parent environment",
-  { skip: process.platform !== "win32" || process.arch !== "x64" },
+  { skip: !nativeArtifactsPrepared },
   async (t) => {
     const fixtureOptions = await fixture(t);
     const before = { ...process.env };
@@ -149,7 +155,7 @@ test(
     assert.equal(config.serverName, "computercontroller");
     assert.equal(config.transport, "stdio");
     assert.deepEqual(config.args, ["mcp", "computercontroller"]);
-    assert.equal(path.basename(config.command), "codebuddy-tools.exe");
+    assert.equal(path.basename(config.command), process.platform === 'win32' ? 'codebuddy-tools.exe' : 'codebuddy-tools');
     assert.equal(config.cwd, fixtureOptions.cwd);
     assert.equal(config.toolCallTimeoutMs, 42000);
     assert.equal(config.failOnStartupError, true);
@@ -225,7 +231,7 @@ test(
 test(
   "official Harness discovers the three real standalone MCP servers without executing any tool",
   {
-    skip: process.platform !== "win32" || process.arch !== "x64",
+    skip: !nativeArtifactsPrepared,
     timeout: 60_000,
   },
   async (t) => {
@@ -257,10 +263,13 @@ test(
         if (name !== "qwen_computer") {
           await assert.rejects(readdir(path.join(config.env.CODEBUDDY_HOME, "logs")),
             { code: 'ENOENT' }, 'Tool-only startup must not initialize legacy CLI state');
-          assert.ok(
-            (await readdir(config.env.LOCALAPPDATA)).length > 0,
-            "Document/chart cache must use isolated LOCALAPPDATA",
-          );
+          if (process.platform === 'win32') {
+            assert.ok((await readdir(config.env.LOCALAPPDATA)).length > 0,
+              "Document/chart cache must use isolated LOCALAPPDATA");
+          } else {
+            assert.ok((await readdir(config.env.XDG_CACHE_HOME)).length > 0,
+              "Document/chart cache must use isolated XDG_CACHE_HOME");
+          }
         }
       }
       assert.deepEqual(

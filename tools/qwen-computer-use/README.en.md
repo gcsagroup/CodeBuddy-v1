@@ -26,9 +26,9 @@ Reuse fresh action after-states. For an app that is not running, choose an avail
 
 ## macOS 14+ runtime (native acceptance pending)
 
-Mac reuses this Go MCP interface and snapshot/receipt contract. Its sibling `qwen-computer-runtime` Swift helper executes AppKit, Accessibility and ScreenCaptureKit operations. All nine tools have source paths; Go tests and cross-compilation passed on Windows. Native Swift compilation and contract checks passed on arm64 Mac; real input awaits TCC grants and acceptance. Component binaries are not installers.
+Mac reuses this Go MCP interface and snapshot/receipt contract. Its sibling `qwen-computer-runtime` Swift helper executes AppKit, Accessibility and ScreenCaptureKit operations. All nine tools are integrated with the current Harness catalog, preview and packaging. Historical validation is not evidence for this batch. At the user's request this batch performs development only; native builds, tests and real-input acceptance remain pending. Component binaries are not installers.
 
-Desktop `pnpm run bundle:mac --arch arm64` (x64 on Intel) runs Go/Swift contract tests, builds and packages both helpers. Requires Go 1.22+ and Xcode/Swift; CODEBUDDY_GO_EXECUTABLE may select Go outside PATH. Mac development startup synchronizes both helpers. See the [Mac record](../../documentation/codebuddy/MACOS_EN.md).
+Use `node scripts/build-harness-macos.cjs --arch arm64 --node-license /path/to/Node/LICENSE` (x64 on Intel). Existing Go 1.22+, Xcode/Swift, project Rust and offline dependencies are required; CODEBUDDY_GO_EXECUTABLE can select Go. Preview builds/synchronizes both helpers and tool-only Rust MCP without running tests by default. Contracts remain available through `buildMacComputer(repo, arch, { test: true })`. Both binary identities are checked after signing. See the [current Mac guide](../../docs/macos.en.md).
 
 Users must grant Screen Recording/Accessibility; input requires `--foreground-input`. `cmd`/`super` mean Command and `ctrl` means Control; use type_text for text. `window:PID:WINDOW_ID` binds an exact window and screenshot coordinates use window-relative points. Re-observe changed windows/elements and uncertain input outcomes.
 

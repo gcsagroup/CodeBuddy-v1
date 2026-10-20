@@ -2,7 +2,7 @@
 
 [繁體中文](macos.zh-TW.md) · [English](macos.en.md)
 
-目标为 macOS 14+、Apple Silicon 原生 arm64。脚本也保留 Intel x64 的同架构构建路径。截至 2026-10-19，开发证书签名 v10 批次已生成 DMG/ZIP，原生构建、包内 smoke 与 DMG 安装 smoke 均退出 0。电脑控制完整输入流程和覆盖升级权限保留仍在验收；v10 不包含后续 v11 签名性能修复及最新虚拟宠物改动。初始记录见[本轮测试记录](reconstruction/2026-10-16-macos-validation.zh-CN.md)，签名升级状态见本文末节。
+目标为 macOS 14+、Apple Silicon 原生 arm64，保留 Intel x64 的同架构构建路径。2026-10-20 的开发证书签名 v14 已完成原生打包、DMG 安装、九个电脑控制工具及独立 MCP 关键调用的本机验收，并验证覆盖升级后的权限和 Keychain 密文连续性。本批构建来源与未验收范围见末节；不包含其他对话最新的桌面宠物改动。
 
 ## 架构与范围
 
@@ -72,7 +72,7 @@ corepack pnpm --dir ui/desktop run test:macos-smoke
 corepack pnpm --dir ui/desktop run test:macos-install
 ```
 
-后两项须使用同批 Mac 产物。`test:macos-native` 在本机执行 Go/Swift 合同测试；默认构建不执行这些测试。新增用例覆盖固定工具身份、架构/路径拒绝、缺失 helper、签名后哈希及文档工具清单。历史 Mac 批次已执行原生合同测试，当前签名升级与 TCC 验证仍在进行。
+后两项须使用同批 Mac 产物。`test:macos-native` 在本机执行 Go/Swift 合同测试；默认构建不执行这些测试。新增用例覆盖固定工具身份、架构/路径拒绝、缺失 helper、签名后哈希及文档工具清单。本批原生合同、签名升级与 TCC 实际调用结果见末节。
 
 脚本 smoke 覆盖启动、工作区、PTY 和内嵌浏览器的接口路径，不替代真实模型对话或完整用户交互。打包验证会检查四个 MCP 的真实工具发现，但不宣称桌面输入通过。后续通过 RustDesk 核对 Finder 启动、中文项目、实际模型与工具调用、退出重启及历史持久化；电脑控制单独验收 TCC、截图、中文输入、窗口切换和动作后置结果。验收前记录 revision、dirty 差异、产物清单和哈希。
 
@@ -88,6 +88,8 @@ Mac 使用独立 `codebuddy-credentials` Swift helper，将随机 256 位主密�
 
 ## 签名身份与升级权限（2026-10-19）
 
+以下为 10 月 19 日历史状态；最新结果见 v14 验收节。
+
 签名构建必须显式设置 CODEBUDDY_MAC_SIGN_IDENTITY 为证书完整名称。Apple Development 用于本机开发验收；Developer ID Application 用于站外分发。设置 APPLE_TEAM_ID 时还必须提供匹配的 Developer ID 身份及已有公证凭据。未选择身份的构建仍为 ad-hoc，不保证跨构建保留隐私授权。
 
 构建后读取主程序与四个原生工具的真实签名，核对证书、Team ID 和应用标识，并在 artifacts.json 记录 designated requirement；环境变量不再充当签名成功证据。不要每次升级重置 TCC 或删除权限条目。保持应用标识、签名身份与安装位置连续，在实际覆盖升级后检查录屏、辅助功能和 Keychain。实时权限查询已存在，但不替代系统授权。
@@ -97,3 +99,34 @@ Mac 使用独立 `codebuddy-credentials` Swift helper，将随机 256 位主密�
 v10 本机验收使用 `Apple Development: YuanHong Lin (U3ZPY586Q2)`，实际签名 Team ID 为 `R3JK7R29AC`。证书名称末尾的个人标识与 Team ID 不同，以实际签名为准。当前同一安装副本的虚构凭据加密/解密基线已通过；尚需用下一次构建解密原密文，基线通过不代表跨版本连续性通过。
 
 录屏和辅助功能已为固定安装位置的新签名副本重新添加。安装版已执行时间、缓存、PDF 提取与图表回执检查，电脑控制仍在前台窗口校验处失败。后续应依据真实工具回执修复，再验证截图、中文输入与保存；权限开关开启和工具发现成功均不代替输入验收。
+
+## 安装版电脑控制修复（2026-10-20）
+
+在真实安装版子进程中复现了两项独立问题：`NSWorkspace.frontmostApplication` 的进程号为 `-1`，而系统辅助功能接口报告了正确的输入应用；Dock 的全屏透明跟踪窗口又被几何遮挡判断误认为会拦截所有点击。
+
+原生运行时现在读取系统级 `AXFocusedApplication`，拒绝未知身份或有效身份冲突；当窗口矩形不能可靠代表输入目标时，使用系统级 `AXUIElementCopyElementAtPosition` 确认实际命中应用和窗口。保留目标 PID、窗口、元素、几何、焦点与真实遮挡校验，不按应用名称忽略窗口。原生回归覆盖无效 AppKit PID、身份冲突和全屏跟踪窗口。
+
+依据：[Apple 焦点应用属性](https://developer.apple.com/documentation/applicationservices/kaxfocusedapplicationattribute)、[Apple 坐标命中接口](https://developer.apple.com/documentation/applicationservices/1462077-axuielementcopyelementatposition)。采用系统现有 API，无新增依赖。
+
+另一次输入失败由远控会话残留的 Command 修饰键引起：原生事件默认继承系统修饰键，导致普通文字被解释成快捷键。普通鼠标、滚动和文字事件现在显式使用空修饰键；`press_key` 继续使用请求中明确指定的修饰键。修复前后在相同残留 Command 状态下执行了中文、Emoji 输入与保存对比。
+
+## v14 本机验收结果（2026-10-20）
+
+构建来源为远端 `732113504de3601ab087a609ce20827b814db2c2` 的既有 dirty Mac 批次，加 v11–v14 签名与电脑控制增量；不是当前本地 main 的完整快照。产物版本 `1.43.5`，Apple Silicon arm64，签名身份和安装位置保持连续。
+
+| 验证 | 结果 |
+| --- | --- |
+| `test:macos-package` | 20 通过、0 失败，退出 0 |
+| `buildMacComputer(..., {test:true})` | Swift 合同测试和编译退出 0；Go 测试复用有效缓存 |
+| `build-harness-macos.cjs --arch arm64` | 原生 DMG/ZIP 构建退出 0 |
+| `test:macos-smoke`、`test:macos-install` | 均退出 0 |
+| 安装版 MCP 核心与扩展验收脚本 | 均退出 0 |
+| 安装版凭据连续性脚本 | 退出 0，v10 密文在 v14 中解密成功 |
+
+真实 TextEdit 流程覆盖 `list_apps`、`get_app_state`、`click`、`type_text`、`press_key`、`perform_secondary_action`、`scroll`、`set_value`、`drag`。核对截图、中文/Emoji 保存文件、滚动条值及窗口实际几何；真实遮挡窗口下的点击在发送输入前被拒绝。独立 MCP 验证时间查询、缓存列表、真实 PDF 文本提取及图表回执。核心会话为 `f1b59a6b-dcb8-4e02-b2f0-ccf0b65af0aa`，扩展会话为 `249d9332-9d9a-43c6-bef5-5078053e4507`。
+
+本轮覆盖升级没有重置 TCC、删除权限或重新添加条目；实际截图和输入继续可用。旧 Keychain 虚构密文跨 v10、v12、v13、v14 验证通过。SSH 会话中遇到的钥匙串锁定经正常解锁后复测通过，锁定与升级丢失授权应分别判断。
+
+本机记录与安装包保存在 `.preview-evidence/mac-acceptance-20261020/v14/`。DMG SHA256：`9438f4584282d19730f78add458f7807568633f783e98663857b6e83596f099a`；签名前载荷摘要：`9236280515eea0bd4f50678cd18c2d17bdb8193edc100c6d8002d58b92eb4a51`。
+
+尚未执行真实模型驱动的完整对话、Finder 手动拖放、Intel 验收、Developer ID 公证与公开分发验收。测试使用独立 profile 和虚构值；以上结果不证明其他对话最新功能通过。macOS 14 的 `activateIgnoringOtherApps` 弃用警告仍存在，未影响本批验收。

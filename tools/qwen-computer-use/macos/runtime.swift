@@ -63,6 +63,23 @@ func windows() -> [NativeWindow] {
 }
 
 @MainActor
+func frontmostPID() -> pid_t? {
+    let workspacePID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    // Installed child processes can receive AppKit's invalid PID (-1) even
+    // while system-wide AX identifies the application accepting keyboard input.
+    guard AXIsProcessTrusted() else {
+        return workspacePID.flatMap { $0 > 0 ? $0 : nil }
+    }
+    let system = AXUIElementCreateSystemWide()
+    AXUIElementSetMessagingTimeout(system, 1)
+    guard let value = attribute(system, kAXFocusedApplicationAttribute),
+          CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+    var focusedPID: pid_t = -1
+    guard AXUIElementGetPid(value as! AXUIElement, &focusedPID) == .success else { return nil }
+    return confirmedForegroundPID(accessibilityPID: focusedPID, workspacePID: workspacePID)
+}
+
+@MainActor
 func focusedWindow(pid: pid_t, candidates: [NativeWindow]) -> NativeWindow? {
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 1)
@@ -84,7 +101,7 @@ func resolve(_ request: NativeRequest) throws -> NativeWindow {
     }
     let query = (request.app ?? "").lowercased()
     if query == "foreground" {
-        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+        guard let pid = frontmostPID(),
               let front = focusedWindow(pid: pid, candidates: all) ?? all.first(where: { $0.pid == pid }) else { throw RuntimeFailure("No foreground window.") }
         return front
     }
@@ -158,7 +175,7 @@ func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
         "screenshotPngBase64": png.base64EncodedString(), "treeLines": lines,
         "elements": try JSONSerialization.jsonObject(with: encoded)
     ]
-    if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+    if let pid = frontmostPID(),
        let front = focusedWindow(pid: pid, candidates: windows()) ?? windows().first(where: { $0.pid == pid }) {
         result["foreground"] = ["name": front.name, "pid": front.pid, "windowHandle": front.id, "title": front.title]
     }
@@ -181,7 +198,7 @@ func lookup(_ expected: NativeElement, in window: NativeWindow) throws -> AXUIEl
 
 @MainActor
 func assertForeground(_ window: NativeWindow, keyboard: Bool = false) throws {
-    let activePID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    let activePID = frontmostPID()
     let focusedID = keyboard ? focusedWindow(pid: window.pid, candidates: windows())?.id : nil
     guard activePID == window.pid, !keyboard || focusedID == window.id else {
         throw RuntimeFailure("Foreground window changed; observe the active window before retrying. Expected pid=\(window.pid), window=\(window.id); active pid=\(activePID.map(String.init) ?? "unknown"), focused window=\(focusedID.map(String.init) ?? "unchecked").")
@@ -193,6 +210,7 @@ func mouse(_ type: CGEventType, _ point: CGPoint, _ button: CGMouseButton = .lef
     guard let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: button) else {
         throw RuntimeFailure("Failed to create mouse input.")
     }
+    event.flags = []
     event.setIntegerValueField(.mouseEventClickState, value: Int64(count))
     receipt.perform { event.post(tap: .cghidEventTap) }
 }
@@ -245,7 +263,7 @@ struct NativeRuntime {
                 _ = try request.element.map { try lookup($0, in: window) }
                 guard let app = NSRunningApplication(processIdentifier: window.pid) else { throw RuntimeFailure("Target process exited.") }
                 // Activation can change focus but is not the requested keyboard/mouse input.
-                if NSWorkspace.shared.frontmostApplication?.processIdentifier != window.pid
+                if frontmostPID() != window.pid
                     || (request.requiresKeyboardFocus && focusedWindow(pid: window.pid, candidates: windows())?.id != window.id) {
                     app.activate(options: [.activateIgnoringOtherApps])
                     if let root = try? accessibilityWindow(window) { AXUIElementPerformAction(root, kAXRaiseAction as CFString) }
@@ -280,9 +298,28 @@ struct NativeRuntime {
             return try window.bounds.globalPoint(x: request.x, y: request.y)
         }
         func visiblePoint(_ point: CGPoint) throws {
-            // Input targets the live desktop, so a covering window must not receive it.
-            guard windows().first(where: { $0.bounds.rect.contains(point) })?.id == window.id else {
-                throw RuntimeFailure("Another window covers the input point; re-observe.")
+            let candidates = windows()
+            if candidates.first(where: { $0.bounds.rect.contains(point) })?.id == window.id { return }
+            // A compositor tracking surface can cover the display geometrically
+            // without receiving input. System-wide AX hit-testing resolves the
+            // actual topmost window at the point, including real overlays.
+            let system = AXUIElementCreateSystemWide()
+            AXUIElementSetMessagingTimeout(system, 1)
+            var hit: AXUIElement?
+            var hitPID: pid_t = -1
+            guard AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit) == .success,
+                  let hit, AXUIElementGetPid(hit, &hitPID) == .success, hitPID == window.pid else {
+                throw RuntimeFailure("Another window covers the input point or its target is unavailable; re-observe.")
+            }
+            let root: AXUIElement
+            if textAttribute(hit, kAXRoleAttribute) == kAXWindowRole { root = hit }
+            else if let value = attribute(hit, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() {
+                root = value as! AXUIElement
+            } else { throw RuntimeFailure("The input point has no confirmed accessibility window; re-observe.") }
+            guard let rect = elementRect(root),
+                  matchFocusedWindow(candidates, pid: hitPID, frame: WindowFrame(rect),
+                    title: textAttribute(root, kAXTitleAttribute))?.id == window.id else {
+                throw RuntimeFailure("The input point belongs to a different or ambiguous window; re-observe.")
             }
         }
         switch request.tool {
@@ -334,6 +371,7 @@ struct NativeRuntime {
             }
             try mouse(.mouseMoved, p, receipt: receipt)
             guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: vertical, wheel2: horizontal, wheel3: 0) else { throw RuntimeFailure("Failed to create scroll input.") }
+            event.flags = []
             event.location = p
             receipt.perform { event.post(tap: .cghidEventTap) }
         case "press_key":
@@ -349,6 +387,8 @@ struct NativeRuntime {
                 let units = Array(String(character).utf16)
                 guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
                       let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else { throw RuntimeFailure("Failed to create text input.") }
+                // A remote session can leave Command held; text must not become shortcuts.
+                down.flags = []; up.flags = []
                 units.withUnsafeBufferPointer { buffer in
                     down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
                     up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)

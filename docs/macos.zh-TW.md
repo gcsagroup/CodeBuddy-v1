@@ -2,7 +2,7 @@
 
 [简体中文](macos.zh-CN.md) · [English](macos.en.md)
 
-目標為 macOS 14+、Apple Silicon 原生 arm64，保留 Intel x64 的同架構建置路徑。截至 2026-10-19，開發憑證簽名 v10 批次已產生 DMG/ZIP，原生建置、套件 smoke 與 DMG 安裝 smoke 均退出 0。電腦控制完整輸入流程及覆蓋升級權限保留仍在驗收；v10 未包含後續 v11 簽名效能修復及最新虛擬寵物改動。初始記錄見[本輪測試記錄](reconstruction/2026-10-16-macos-validation.zh-TW.md)，簽名升級狀態見本文末節。
+目標為 macOS 14+、Apple Silicon 原生 arm64，保留 Intel x64 的同架構建置路徑。2026-10-20 的開發憑證簽名 v14 已完成原生封裝、DMG 安裝、九個電腦控制工具及獨立 MCP 關鍵呼叫的本機驗收，並驗證覆蓋升級後的權限和 Keychain 密文連續性。本批建置來源與未驗收範圍見末節；不包含其他對話最新的桌面寵物改動。
 
 ## 架構與功能邊界
 
@@ -61,7 +61,7 @@ corepack pnpm --dir ui/desktop run test:macos-smoke
 corepack pnpm --dir ui/desktop run test:macos-install
 ```
 
-後兩項需使用同批 Mac 產物。`test:macos-native` 在本機執行 Go/Swift 合同測試。回歸涵蓋工具身份、架構/路徑拒絕、helper 缺失、簽名後雜湊及文檔清單。歷史 Mac 批次已執行原生合同測試，目前簽名升級與 TCC 驗證仍在進行。封裝檢查四個 MCP 的真實發現，不代表桌面輸入通過。
+後兩項需使用同批 Mac 產物。`test:macos-native` 在本機執行 Go/Swift 合同測試。回歸涵蓋工具身份、架構/路徑拒絕、helper 缺失、簽名後雜湊及文檔清單。本批原生合同、簽名升級與 TCC 實際呼叫結果見末節。封裝檢查四個 MCP 的真實發現，不代表桌面輸入通過。
 
 介面 smoke 不代表真實模型或完整使用流程通過。後續透過 RustDesk 驗收 Finder 啟動、中文專案、模型與工具呼叫、退出重啟及歷史持久化；電腦控制另驗 TCC、截圖、中文輸入、視窗切換及動作後置結果，記錄原始碼身份與產物雜湊。
 
@@ -77,6 +77,8 @@ Mac 使用獨立 `codebuddy-credentials` Swift helper，將隨機 256 位元主�
 
 ## 簽名身分與升級權限（2026-10-19）
 
+以下為 10 月 19 日歷史狀態；最新結果見 v14 驗收節。
+
 簽名建置必須明確設定 CODEBUDDY_MAC_SIGN_IDENTITY 為憑證完整名稱。Apple Development 用於本機開發驗收；Developer ID Application 用於站外散布。設定 APPLE_TEAM_ID 時還須提供相符的 Developer ID 身分及既有公證憑據。未選擇身分的建置仍為 ad-hoc，不保證跨建置保留隱私授權。
 
 建置後讀取主程式與四個原生工具的實際簽名，核對憑證、Team ID 和應用程式識別碼，並在 artifacts.json 記錄 designated requirement；環境變數不再作為簽名成功證據。升級不應慣例重設 TCC 或刪除權限項目。保持應用程式識別碼、簽名身分與安裝位置連續，於實際覆蓋升級後檢查錄影、輔助使用和 Keychain。即時權限查詢已存在，但不取代系統授權。
@@ -86,3 +88,34 @@ Mac 使用獨立 `codebuddy-credentials` Swift helper，將隨機 256 位元主�
 v10 本機驗收使用 `Apple Development: YuanHong Lin (U3ZPY586Q2)`，實際簽名 Team ID 為 `R3JK7R29AC`。憑證名稱末尾的個人識別碼與 Team ID 不同，以實際簽名為準。同一安裝副本的虛構憑據加密/解密基線已通過；仍須用下一次建置解密原密文，基線通過不代表跨版本連續性通過。
 
 錄影與輔助使用已為固定安裝位置的新簽名副本重新加入。安裝版已執行時間、快取、PDF 擷取及圖表回執檢查，電腦控制仍在前景視窗校驗處失敗。後續須依真實工具回執修復，再驗證截圖、中文輸入與儲存；權限開關啟用和工具探索成功均不代替輸入驗收。
+
+## 安裝版電腦控制修復（2026-10-20）
+
+在實際安裝版子程序重現兩項獨立問題：`NSWorkspace.frontmostApplication` 的程序編號為 `-1`，而系統輔助使用介面回報正確的輸入應用程式；Dock 的全螢幕透明追蹤視窗又被幾何遮擋判斷誤認為會攔截所有點擊。
+
+原生執行程式現在讀取系統級 `AXFocusedApplication`，拒絕未知身分或有效身分衝突；視窗矩形不足以可靠代表輸入目標時，使用系統級 `AXUIElementCopyElementAtPosition` 確認實際命中的應用程式及視窗。保留目標 PID、視窗、元素、幾何、焦點及真實遮擋校驗，不依應用程式名稱忽略視窗。原生回歸涵蓋無效 AppKit PID、身分衝突及全螢幕追蹤視窗。
+
+依據：[Apple 焦點應用程式屬性](https://developer.apple.com/documentation/applicationservices/kaxfocusedapplicationattribute)、[Apple 座標命中介面](https://developer.apple.com/documentation/applicationservices/1462077-axuielementcopyelementatposition)。採用系統既有 API，未新增相依套件。
+
+另一次輸入失敗由遠控工作階段殘留的 Command 修飾鍵引起：原生事件預設繼承系統修飾鍵，導致一般文字被解讀為快捷鍵。一般滑鼠、捲動和文字事件現在明確使用空修飾鍵；`press_key` 繼續使用請求中明確指定的修飾鍵。修復前後在相同殘留 Command 狀態下執行了中文、Emoji 輸入與儲存對比。
+
+## v14 本機驗收結果（2026-10-20）
+
+建置來源為遠端 `732113504de3601ab087a609ce20827b814db2c2` 的既有 dirty Mac 批次，加 v11–v14 簽名與電腦控制增量；不是目前本機 main 的完整快照。產物版本 `1.43.5`，Apple Silicon arm64，簽名身分和安裝位置保持連續。
+
+| 驗證 | 結果 |
+| --- | --- |
+| `test:macos-package` | 20 通過、0 失敗，退出 0 |
+| `buildMacComputer(..., {test:true})` | Swift 合同測試與編譯退出 0；Go 測試重用有效快取 |
+| `build-harness-macos.cjs --arch arm64` | 原生 DMG/ZIP 建置退出 0 |
+| `test:macos-smoke`、`test:macos-install` | 均退出 0 |
+| 安裝版 MCP 核心與擴充驗收腳本 | 均退出 0 |
+| 安裝版憑據連續性腳本 | 退出 0，v10 密文在 v14 中解密成功 |
+
+真實 TextEdit 流程涵蓋 `list_apps`、`get_app_state`、`click`、`type_text`、`press_key`、`perform_secondary_action`、`scroll`、`set_value`、`drag`。核對截圖、中文/Emoji 儲存檔案、捲動條數值及視窗實際幾何；真實遮擋視窗下的點擊在傳送輸入前被拒絕。獨立 MCP 驗證時間查詢、快取清單、真實 PDF 文字擷取及圖表回執。核心工作階段為 `f1b59a6b-dcb8-4e02-b2f0-ccf0b65af0aa`，擴充工作階段為 `249d9332-9d9a-43c6-bef5-5078053e4507`。
+
+本輪覆蓋升級沒有重設 TCC、刪除權限或重新新增項目；實際截圖和輸入繼續可用。舊 Keychain 虛構密文跨 v10、v12、v13、v14 驗證通過。SSH 工作階段中的鑰匙圈鎖定經正常解鎖後複測通過，鎖定與升級遺失授權應分別判斷。
+
+本機記錄與安裝包位於 `.preview-evidence/mac-acceptance-20261020/v14/`。DMG SHA256：`9438f4584282d19730f78add458f7807568633f783e98663857b6e83596f099a`；簽名前載荷摘要：`9236280515eea0bd4f50678cd18c2d17bdb8193edc100c6d8002d58b92eb4a51`。
+
+尚未執行真實模型驅動的完整對話、Finder 手動拖放、Intel 驗收、Developer ID 公證與公開分發驗收。測試使用獨立 profile 和虛構值；以上結果不證明其他對話最新功能通過。macOS 14 的 `activateIgnoringOtherApps` 棄用警告仍存在，未影響本批驗收。

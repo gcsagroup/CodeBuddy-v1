@@ -18,12 +18,33 @@ struct ContractTests {
         try rejects { try input.perform { throw RuntimeFailure("Native operation failed after dispatch") } }
         try require(input.dispatched && input.failureDescription(RuntimeFailure("After-state unavailable")).contains("Input may have occurred"), "Partial dispatch lost its uncertainty")
         print("Input receipt: preflight and uncertain native dispatch distinguished.")
+        try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: -1) == 54081,
+            "Installed helper rejected the actual focused app when AppKit returned an invalid PID")
+        try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: nil) == 54081,
+            "Missing AppKit metadata rejected a confirmed system-wide focus")
+        try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: 54081) == 54081,
+            "Agreeing focus identities rejected")
+        try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: 76) == nil,
+            "Conflicting foreground identities accepted")
+        for invalid in [nil, -1, 0] as [pid_t?] {
+            try require(confirmedForegroundPID(accessibilityPID: invalid, workspacePID: 54081) == nil,
+                "Unconfirmed system-wide focus accepted for input")
+        }
+        print("Foreground identity: installed helper invalid AppKit PID and fail-closed conflicts passed.")
         let mainWindow = NativeWindow(id: 575, pid: 76632, name: "WeChat", bundle: "com.tencent.xinWeChat", title: "微信", bounds: WindowFrame(CGRect(x: 273, y: 156, width: 880, height: 640)))
         let popover = NativeWindow(id: 772, pid: 76632, name: "WeChat", bundle: "com.tencent.xinWeChat", title: "", bounds: WindowFrame(CGRect(x: 321, y: 191, width: 368, height: 96)))
         try require(matchFocusedWindow([popover, mainWindow], pid: 76632, frame: mainWindow.bounds, title: "微信")?.id == 575, "Search popover stole keyboard focus solely due to stacking order")
         try require(matchFocusedWindow([popover, mainWindow], pid: 76632, frame: popover.bounds, title: "")?.id == 772, "A genuinely focused popup was ignored")
         try require(matchFocusedWindow([mainWindow, mainWindow], pid: 76632, frame: mainWindow.bounds, title: "微信") == nil, "Ambiguous focus identity was accepted")
         try require(matchFocusedWindow([mainWindow], pid: 123, frame: mainWindow.bounds, title: "微信") == nil, "Focus crossed process identity")
+        let trackingSurface = NativeWindow(id: 70, pid: 39855, name: "Compositor", bundle: "", title: "",
+            bounds: WindowFrame(CGRect(x: 0, y: 0, width: 1470, height: 956)))
+        try require(matchFocusedWindow([trackingSurface, mainWindow], pid: mainWindow.pid,
+            frame: mainWindow.bounds, title: mainWindow.title)?.id == mainWindow.id,
+            "A full-display tracking surface replaced the system-wide AX hit window")
+        try require(matchFocusedWindow([trackingSurface, mainWindow], pid: trackingSurface.pid,
+            frame: trackingSurface.bounds, title: "")?.id != mainWindow.id,
+            "A real hit on another process was accepted as the intended window")
         print("Focus contract: nonactivating popover, focused dialog, ambiguity and process isolation passed.")
         var granted = true
         var prompts = 0

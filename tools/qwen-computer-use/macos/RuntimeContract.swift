@@ -33,6 +33,12 @@ struct NativeWindow {
 }
 
 
+func confirmedForegroundPID(accessibilityPID: pid_t?, workspacePID: pid_t?) -> pid_t? {
+    guard let focused = accessibilityPID, focused > 0 else { return nil }
+    if let workspacePID, workspacePID > 0, workspacePID != focused { return nil }
+    return focused
+}
+
 // Window stacking and keyboard focus differ when an app shows a nonactivating popover.
 func matchFocusedWindow(_ candidates: [NativeWindow], pid: pid_t, frame: WindowFrame, title: String) -> NativeWindow? {
     let matches = candidates.filter { $0.pid == pid && $0.bounds.matches(frame) && $0.title == title }

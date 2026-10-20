@@ -18,9 +18,11 @@ Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版
 
 Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊天数据、运行载荷和构建产物。首次克隆需要准备开发依赖及独立工具，详见下文。
 
-## macOS 开发（待验证）
+## macOS 开发与本机验收
 
-macOS Apple Silicon 开发启动、电脑控制及独立 MCP 工具构建/打包见 [Mac 版开发说明](docs/macos.zh-CN.md)。这些接入已在源码补齐，当前批次尚未执行 Mac 原生构建或产品验收；实际可用状态由本机工具产物校验决定。
+macOS Apple Silicon 原生构建、签名 DMG 安装、电脑控制及独立 MCP 关键路径已完成本机验收，范围与源码版本见 [Mac 版开发说明](docs/macos.zh-CN.md)。本批使用开发证书；公开分发公证、真实模型对话及最新桌面宠物改动不在本批通过范围内。
+
+繁體：[Mac 開發與本機驗收](docs/macos.zh-TW.md)。English: [Mac development and local acceptance](docs/macos.en.md).
 
 ## Windows 构建
 

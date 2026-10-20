@@ -2,7 +2,7 @@
 
 [简体中文](macos.zh-CN.md) · [繁體中文](macos.zh-TW.md)
 
-Target: macOS 14+, native Apple Silicon arm64. The scripts also retain native Intel x64 builds. As of 2026-10-19, development-signed v10 produced DMG/ZIP artifacts; native packaging, package smoke and DMG installation smoke exited 0. Complete computer input and permission continuity across replacement upgrades remain under acceptance. v10 excludes the later v11 signing performance fix and latest virtual-pet changes. See the [initial validation record](reconstruction/2026-10-16-macos-validation.en.md) and the signing section below.
+Target: macOS 14+, native Apple Silicon arm64; native Intel x64 build support is retained. On 2026-10-20, development-signed v14 passed native packaging, DMG installation, all nine computer-control tools, and selected standalone MCP calls on the Mac. Replacement upgrades retained working permissions and Keychain ciphertext access. Build provenance and exclusions are recorded below; this candidate excludes the latest desktop-pet changes from other work.
 
 ## Architecture and scope
 
@@ -61,7 +61,7 @@ corepack pnpm --dir ui/desktop run test:macos-smoke
 corepack pnpm --dir ui/desktop run test:macos-install
 ```
 
-The last two require matching native artifacts. `test:macos-native` runs Go/Swift contracts on the native host. Regressions cover identities, rejected architectures/paths, missing helpers, post-sign hashes and document inventories. Earlier Mac batches ran native contracts; current signed-update and TCC checks are in progress. Packaging checks actual discovery of all four MCP services without claiming desktop-input acceptance.
+The last two require matching native artifacts. `test:macos-native` runs Go/Swift contracts on the native host. Regressions cover identities, rejected architectures/paths, missing helpers, post-sign hashes and document inventories. Current native contract, signed-update, and real TCC operation results are recorded below. Packaging checks actual discovery of all four MCP services without claiming desktop-input acceptance.
 
 API smoke exercises startup, workspace, PTY and embedded-browser paths; it does not establish real-model or complete user-flow acceptance. Subsequent RustDesk acceptance should cover Finder launch, Unicode projects, model/tool execution, exit/restart and durable history. Computer control separately needs TCC, screenshots, Unicode input, window transitions and action postconditions, recording source identity and artifact hashes.
 
@@ -77,6 +77,8 @@ Historical status: Mac dependencies, Office payload, native Go/Swift components 
 
 ## Signing identity and upgrade permissions (2026-10-19)
 
+The following records the October 19 state; current results are in the v14 section.
+
 Signed builds require CODEBUDDY_MAC_SIGN_IDENTITY with the full certificate name. Apple Development is for local acceptance; Developer ID Application is for external distribution. APPLE_TEAM_ID additionally requires a matching Developer ID identity and existing notarization credentials. Builds without an explicit identity remain ad-hoc and do not guarantee permission continuity between builds.
 
 Packaging inspects the actual signatures of the app and four native tools, verifies the certificate, Team ID and app identifier, and records designated requirements in artifacts.json. Environment variables are no longer treated as proof of signing. Do not routinely reset TCC or remove permission entries on upgrade. Preserve app identity, signing identity and installation location, then test screen recording, accessibility and Keychain after an actual replacement upgrade. Live permission checks already exist but do not replace system consent.
@@ -86,3 +88,34 @@ References: [Apple TN3127](https://developer.apple.com/documentation/technotes/t
 Local v10 acceptance uses `Apple Development: YuanHong Lin (U3ZPY586Q2)` with actual signing Team ID `R3JK7R29AC`. The personal identifier in the certificate name differs from its Team ID; inspect the signature. Synthetic credential encryption/decryption passed for the same installed copy. The next build must decrypt that original ciphertext before cross-version continuity is established.
 
 Screen Recording and Accessibility entries have been added for the newly signed app at the fixed installation path. Installed time, cache, PDF extraction and chart-receipt checks have run; computer control still fails at foreground-window validation. Use actual tool receipts to repair the failure, then verify screenshots, Unicode input and saving. Enabled permission switches and successful tool discovery do not establish input acceptance.
+
+## Installed computer-control fixes (2026-10-20)
+
+Two independent failures were reproduced in installed-app child processes: `NSWorkspace.frontmostApplication` reported PID `-1` while system-wide Accessibility identified the actual input application; a full-display transparent Dock tracking surface was then mistaken for an opaque input blocker by rectangular window-order checks.
+
+The native runtime now reads system-wide `AXFocusedApplication` and rejects unknown or conflicting valid identities. Where window rectangles do not reliably describe the input target, system-wide `AXUIElementCopyElementAtPosition` confirms the actual application and window at the point. PID, window, element, geometry, keyboard-focus and real-occlusion guards remain enforced; no application-name exclusion is used. Native regressions cover invalid AppKit PIDs, conflicting identities and a full-display tracking surface.
+
+References: [Apple focused-application attribute](https://developer.apple.com/documentation/applicationservices/kaxfocusedapplicationattribute), [Apple point hit-testing API](https://developer.apple.com/documentation/applicationservices/1462077-axuielementcopyelementatposition). Existing system APIs are used without new dependencies.
+
+A separate input failure came from a Command modifier left active by the remote session: native events inherited system modifiers and ordinary text became shortcuts. Mouse, scroll, and text events now explicitly clear modifiers; `press_key` retains the modifiers explicitly requested. Before-and-after native checks used Chinese text, emoji, and file saving while the same Command state remained active.
+
+## v14 local acceptance (2026-10-20)
+
+The build uses the existing dirty Mac batch at `732113504de3601ab087a609ce20827b814db2c2`, plus the v11–v14 signing and computer-control deltas. It is not a complete snapshot of current local main. Artifact version: `1.43.5`, Apple Silicon arm64; signing identity and installation location remain stable.
+
+| Check | Result |
+| --- | --- |
+| `test:macos-package` | 20 passed, 0 failed, exit 0 |
+| `buildMacComputer(..., {test:true})` | Swift contract tests and compilation exited 0; Go reused a valid test cache |
+| `build-harness-macos.cjs --arch arm64` | Native DMG/ZIP build exited 0 |
+| `test:macos-smoke`, `test:macos-install` | Both exited 0 |
+| Installed MCP core and extended acceptance scripts | Both exited 0 |
+| Installed credential continuity script | Exit 0; v14 decrypted the original v10 ciphertext |
+
+The real TextEdit workflow exercised `list_apps`, `get_app_state`, `click`, `type_text`, `press_key`, `perform_secondary_action`, `scroll`, `set_value`, and `drag`. Checks covered screenshots, saved Chinese/emoji text, scrollbar values, and actual window geometry. A click blocked by another real window was rejected before dispatch. Standalone MCP checks covered time, cache listing, real PDF text extraction, and a chart receipt. Core session: `f1b59a6b-dcb8-4e02-b2f0-ccf0b65af0aa`; extended session: `249d9332-9d9a-43c6-bef5-5078053e4507`.
+
+Replacement upgrades in this run did not reset TCC, delete permissions, or add grants again; screenshots and input remained functional. Original synthetic Keychain ciphertext survived v10, v12, v13, and v14. A locked keychain in the SSH session passed on retest after normal unlocking; keychain locking is distinct from an upgrade losing authorization.
+
+Local evidence and the installer are under `.preview-evidence/mac-acceptance-20261020/v14/`. DMG SHA256: `9438f4584282d19730f78add458f7807568633f783e98663857b6e83596f099a`; pre-sign payload digest: `9236280515eea0bd4f50678cd18c2d17bdb8193edc100c6d8002d58b92eb4a51`.
+
+Not run: a complete real-model conversation, manual Finder drag-and-drop, Intel acceptance, Developer ID notarization, and public distribution acceptance. Tests used isolated profiles and synthetic values; they do not validate the latest changes from other work. The existing macOS 14 `activateIgnoringOtherApps` deprecation warning remains and did not block this acceptance.

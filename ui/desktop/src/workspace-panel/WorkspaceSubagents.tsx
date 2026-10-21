@@ -132,9 +132,10 @@ function CatalogBranch({
         setError('');
         // Only this visible directory and expanded branches are mounted.
         // Catalog discovery does not activate agents or infer their task state.
-        timer = setTimeout(() => void read(), 5000);
       } catch (e) {
         if (!disposed) setError(String(e));
+      } finally {
+        if (!disposed) timer = setTimeout(() => void read(), 5000);
       }
     };
     void read();

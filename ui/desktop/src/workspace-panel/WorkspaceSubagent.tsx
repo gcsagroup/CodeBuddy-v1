@@ -90,6 +90,7 @@ export function WorkspaceSubagent({
         if (!disposed) {
           setError(String(e));
           setStatus(undefined);
+          timer = setTimeout(() => void read(), 5000);
         }
       }
     };

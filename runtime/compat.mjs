@@ -2199,7 +2199,7 @@ export class Compat {
       const projectContext = contextUpdates({ sessionId: s.id, runId: active.run?.runId, signal: controller.signal });
       const internalToolCalls = new Set();
       const projectWorkStatus = workStatusUpdates({
-        sessionId: s.nativeSessionId ?? s.id, sourceMessageId: userId,
+        sessionId: s.id, sourceMessageId: userId,
         runId: active.run?.runId ?? promptScope, signal: controller.signal,
       });
       const callbacks = {

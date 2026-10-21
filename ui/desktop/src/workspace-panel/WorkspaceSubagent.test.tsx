@@ -155,7 +155,7 @@ it('marks stale open-turn records as unknown after a read failure instead of cla
   expect(screen.getByText('Checking edge cases')).toBeVisible();
 });
 
-it('rejects a failed read without automatic task or transport retries', async () => {
+it('keeps ownership failures visible and repeats only the read request, including manual refresh', async () => {
   vi.mocked(readSubagentConversation).mockRejectedValue(
     new Error('Subagent does not belong to this conversation')
   );
@@ -169,12 +169,38 @@ it('rejects a failed read without automatic task or transport retries', async ()
   await act(async () => {
     vi.advanceTimersByTime(6000);
   });
-  expect(readSubagentConversation).toHaveBeenCalledTimes(1);
+  expect(readSubagentConversation).toHaveBeenCalledTimes(2);
   fireEvent.click(screen.getByRole('button', { name: 'Refresh conversation' }));
   await act(async () => {
     await Promise.resolve();
   });
-  expect(readSubagentConversation).toHaveBeenCalledTimes(2);
+  expect(readSubagentConversation).toHaveBeenCalledTimes(3);
+});
+
+it('recovers a transient read failure at the last committed cursor without duplicating messages', async () => {
+  vi.mocked(readSubagentConversation)
+    .mockResolvedValueOnce(first)
+    .mockRejectedValueOnce(new Error('Session is changing'))
+    .mockResolvedValue(
+      page([{ seq: 3, type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } }], 3)
+    );
+  render(<WorkspaceSubagent parentSessionId="parent" childSessionId="child" title="Review" />, {
+    wrapper: IntlTestWrapper,
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    vi.advanceTimersByTime(1500);
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent('Session is changing');
+  await act(async () => {
+    vi.advanceTimersByTime(5000);
+  });
+  expect(readSubagentConversation).toHaveBeenLastCalledWith('parent', 'child', 2);
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByRole('status')).toHaveTextContent('Turn ended');
+  expect(screen.getAllByText('Checking edge cases')).toHaveLength(1);
 });
 
 it('continues observing a completed child that receives a new turn later', async () => {

@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
+import { AppEvents } from '../constants/events';
 import { cn } from '../utils';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
@@ -233,6 +234,7 @@ export function WorkspacePanelContent({
   const resizeCleanup = useRef<(() => void) | undefined>(undefined);
   useEffect(() => () => resizeCleanup.current?.(), []);
   const [treeOpen, setTreeOpen] = useState(false);
+  const [conversationRevision, setConversationRevision] = useState(0);
   const [wrap, setWrap] = useState(false);
   const tabStrip = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(''),
@@ -254,6 +256,23 @@ export function WorkspacePanelContent({
     },
     [key]
   );
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId !== scope.sessionId)
+        return;
+      // These native child addresses belong to the retired conversation.
+      // Keep file tabs and unsaved drafts in the unchanged workspace.
+      update((current) => ({
+        tabs: current.tabs.filter((tab) => tab.kind !== 'subagent'),
+        active: current.tabs.some((tab) => tab.id === current.active && tab.kind === 'subagent')
+          ? 'subagents'
+          : current.active,
+      }));
+      setConversationRevision((value) => value + 1);
+    };
+    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+    return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+  }, [scope.sessionId, update]);
   const { jobs: mediaJobs, disconnected: mediaDisconnected } = useMediaJobs(scope.sessionId);
   useEffect(() => {
     const fresh = mediaJobs.find(
@@ -853,7 +872,7 @@ export function WorkspacePanelContent({
         </div>
       )}
       {state.active === 'subagents' ? (
-        <WorkspaceSubagents parentSessionId={scope.sessionId} />
+        <WorkspaceSubagents key={conversationRevision} parentSessionId={scope.sessionId} />
       ) : state.active === 'media' ? (
         <WorkspaceGeneration scope={scope} jobs={mediaJobs} disconnected={mediaDisconnected} />
       ) : state.active === 'changes' || selected?.kind === 'change' ? (

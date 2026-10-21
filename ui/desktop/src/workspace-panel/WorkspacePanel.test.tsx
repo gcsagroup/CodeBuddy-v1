@@ -5,6 +5,7 @@ import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
 import type { Message } from '../types/message';
+import { AppEvents } from '../constants/events';
 vi.mock('./WorkspaceSubagent', () => ({
   WorkspaceSubagent: ({ childSessionId }: { childSessionId: string }) => (
     <div>child-conversation:{childSessionId}</div>
@@ -194,6 +195,42 @@ function panel(id = globalThis.crypto.randomUUID()) {
   );
   return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
 }
+
+it('invalidates retired child views after a confirmed edit, preserving file drafts and other chats', async () => {
+  const { scope } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+    })
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+    target: { value: 'unsaved user draft' },
+  });
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-subagent-conversation', {
+      detail: { parentSessionId: scope.sessionId, childSessionId: 'old-child', title: 'Old child' },
+    })
+  );
+  expect(screen.getByText('child-conversation:old-child')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent(AppEvents.SESSION_CONVERSATION_CHANGED, { detail: { sessionId: 'other-chat' } })
+  );
+  expect(screen.getByText('child-conversation:old-child')).toBeVisible();
+  fireEvent(
+    window,
+    new CustomEvent(AppEvents.SESSION_CONVERSATION_CHANGED, {
+      detail: { sessionId: scope.sessionId },
+    })
+  );
+  expect(screen.queryByRole('tab', { name: 'Old child' })).toBeNull();
+  expect(await screen.findByRole('button', { name: 'Catalog review' })).toBeVisible();
+  fireEvent.click(screen.getByRole('tab', { name: 'note.txt ●' }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
+});
 
 it('opens verified document entries as file information while preserving an edited file tab', async () => {
   const { scope } = panel();

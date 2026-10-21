@@ -15,6 +15,7 @@ import { CodeProWorkspaceReconfirmationRequiredError } from '../codepro/resumeCo
 import { errorMessage } from '../utils/conversionUtils';
 import { canForkSession } from '../utils/sessionCapabilities';
 import { parseSessionMode } from '../utils/sessionMode';
+import { AppEvents } from '../constants/events';
 
 // CurrentModeUpdate is the existing store's authority. Do not change the
 // global preference or optimistically claim a session permission change.
@@ -422,6 +423,9 @@ export async function acpTruncateSessionConversation(
 ): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionConversationTruncate_unstable({ sessionId, truncateFrom });
+  window.dispatchEvent(
+    new CustomEvent(AppEvents.SESSION_CONVERSATION_CHANGED, { detail: { sessionId } })
+  );
 }
 
 export async function acpForkSession(

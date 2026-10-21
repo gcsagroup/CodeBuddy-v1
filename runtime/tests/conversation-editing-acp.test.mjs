@@ -61,6 +61,8 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
   const client = await connect(await app.listen());
   t.after(async () => { client.close(); await app.close(); model.closeAllConnections(); await new Promise(resolve => model.close(resolve)); });
   await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  // This fixture exercises native execution, not the optional bundled MCP binary.
+  await client.request(ext('config/extensions/set-enabled'), { configKey: 'commonqueries', enabled: false });
   const provider = await client.request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Conversation fixture', apiUrl: `http://127.0.0.1:${model.address().port}`, requiresAuth: false, models: ['edit-model'], supportsStreaming: true, headers: {} });
   await client.request(ext('defaults/save'), { providerId: provider.providerId, modelId: 'edit-model' });
   const lease = await client.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
@@ -89,5 +91,11 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
   assert.equal(after.sessions.filter(s => s.id === id).length, 1);
   assert.match(JSON.stringify(requests.at(-1).messages), /ACP_EDIT_REPLACED/);
   assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /ACP_EDIT_ORIGINAL/);
+  const activity = client.notifications
+    .filter(notification => notification.method === ext('session/update'))
+    .map(notification => notification.params.update.status?.data)
+    .filter(data => data?.event === 'execution_activity');
+  assert.ok(activity.length > 0);
+  assert.ok(activity.every(data => data.child_count === 0), 'Neither original nor edited turn delegated any child work');
   assert.deepEqual(failures, []); assert.deepEqual(counts, { original: 4, replaced: 2 });
 });

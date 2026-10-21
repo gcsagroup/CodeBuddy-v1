@@ -2,6 +2,7 @@ import type { SessionInfo } from '@agentclientprotocol/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAcpClient } from '../acpConnection';
 import { CodeProWorkspaceReconfirmationRequiredError } from '../../codepro/resumeCodeProSession';
+import { AppEvents } from '../../constants/events';
 import {
   acpForkSession,
   acpGetSessionListItem,
@@ -9,6 +10,7 @@ import {
   acpListSessions,
   acpLoadSession,
   acpNewSession,
+  acpTruncateSessionConversation,
   sessionInfoToSession,
 } from '../sessions';
 
@@ -32,6 +34,34 @@ function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
 }
 
 describe('ACP sessions', () => {
+  it('invalidates child views only after the backend confirms an in-place edit', async () => {
+    let confirm!: () => void;
+    const truncate = vi.fn().mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        confirm = resolve;
+      })
+    );
+    const client = { goose: { sessionConversationTruncate_unstable: truncate } };
+    vi.mocked(getAcpClient).mockResolvedValue(
+      client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+    const listener = vi.fn();
+    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, listener);
+    try {
+      const pending = acpTruncateSessionConversation('root', 100);
+      await Promise.resolve();
+      expect(listener).not.toHaveBeenCalled();
+      confirm();
+      await pending;
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({ sessionId: 'root' });
+      truncate.mockRejectedValueOnce(new Error('Edit refused'));
+      await expect(acpTruncateSessionConversation('root', 100)).rejects.toThrow('Edit refused');
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, listener);
+    }
+  });
   it('preserves imported history as a readonly presentation instead of an executable workspace', () => {
     const session = sessionInfoToSession(
       sessionInfo({

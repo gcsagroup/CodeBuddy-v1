@@ -86,7 +86,7 @@ it('loads native directories lazily, opens exact readonly paths, and stops polli
   window.removeEventListener('codebuddy:open-subagent-conversation', listener);
 });
 
-it('preserves visible entries on refresh failure and retries only when the user refreshes', async () => {
+it('preserves visible entries during a read failure and automatically recovers without user refresh', async () => {
   vi.mocked(readSubagentCatalog)
     .mockResolvedValueOnce(root)
     .mockRejectedValue(new Error('Catalog unreadable'));
@@ -98,13 +98,12 @@ it('preserves visible entries on refresh failure and retries only when the user 
   expect(screen.getByRole('alert')).toHaveTextContent('Catalog unreadable');
   expect(screen.getByRole('button', { name: 'Review files' })).toBeVisible();
   expect(screen.queryByText('No subagents in this directory.')).toBeNull();
-  await act(async () => {
-    vi.advanceTimersByTime(10000);
-  });
   expect(readSubagentCatalog).toHaveBeenCalledTimes(2);
   vi.mocked(readSubagentCatalog).mockResolvedValue({ ...root, children: [] });
-  fireEvent.click(screen.getByRole('button', { name: 'Refresh subagents' }));
-  await settle();
+  await act(async () => {
+    vi.advanceTimersByTime(5000);
+  });
+  expect(readSubagentCatalog).toHaveBeenCalledTimes(3);
   expect(screen.queryByRole('alert')).toBeNull();
   expect(screen.getByText('No subagents in this directory.')).toBeVisible();
 });

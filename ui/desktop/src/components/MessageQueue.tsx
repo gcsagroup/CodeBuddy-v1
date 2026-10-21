@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { X, Clock, Send, GripVertical, Zap, Sparkles, LoaderCircle } from 'lucide-react';
+import {
+  X,
+  Clock,
+  Send,
+  GripVertical,
+  Zap,
+  Sparkles,
+  LoaderCircle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
@@ -133,6 +143,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   blockedReason,
 }) => {
   const intl = useIntl();
+  const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
   const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
@@ -208,8 +219,71 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   };
 
   const hasSendingMessages = queuedMessages.some((message) => isSendingMessage(message.id));
+  const hasUncertainDelivery = queuedMessages.some(
+    (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
+  );
+  const nextMessage = queuedMessages[0];
+  const waiting = waitingMessageId === nextMessage.id;
 
-  // One queue list: no second disclosure layer around editing and sending.
+  // Keep the normal queue in one line. Uncertain delivery keeps its existing
+  // confirmation controls visible, even when the user has not expanded the list.
+  if (!isExpanded && !hasUncertainDelivery) {
+    return (
+      <div className={`relative ${className}`}>
+        <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
+          <span
+            className={`size-1.5 shrink-0 rounded-full ${isPaused && !waiting ? 'bg-amber-500' : 'bg-blue-500'}`}
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left text-text-secondary hover:text-text-primary"
+            aria-label={intl.formatMessage(i18n.expandQueue)}
+            aria-expanded={false}
+            title={blockedReason ?? nextMessage.content}
+            onClick={() => setIsExpanded(true)}
+          >
+            <span className="shrink-0">
+              {intl.formatMessage(isPaused && !waiting ? i18n.paused : i18n.next)}
+            </span>
+            <span className="min-w-0 truncate">{nextMessage.content}</span>
+            {queuedMessages.length > 1 && (
+              <span className="shrink-0">+{queuedMessages.length - 1}</span>
+            )}
+            <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+          </button>
+          {onStopAndSend && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
+              title={intl.formatMessage(i18n.stopAndSend)}
+              disabled={isSendingMessage(nextMessage.id)}
+              onClick={() => onStopAndSend(nextMessage.id)}
+            >
+              <span>{intl.formatMessage(i18n.sendNow)}</span>
+              {waiting || isSendingMessage(nextMessage.id) ? (
+                <LoaderCircle className="size-3 animate-spin" aria-label={blockedReason} />
+              ) : (
+                <Send className="size-3" aria-hidden="true" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-6 shrink-0 p-0 text-text-secondary hover:text-text-primary"
+            title={intl.formatMessage(i18n.removeFromQueue)}
+            disabled={isSendingMessage(nextMessage.id)}
+            onClick={() => onRemoveMessage(nextMessage.id)}
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative ${className}`}>
       {/* Expanded Header */}
@@ -246,6 +320,17 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {!hasUncertainDelivery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              title={intl.formatMessage(i18n.collapseQueue)}
+              onClick={() => setIsExpanded(false)}
+            >
+              <ChevronUp className="size-4" />
+            </Button>
+          )}
           {queuedMessages.length > 1 && (
             <Button
               variant="ghost"

@@ -40,7 +40,7 @@ function deferred<T>() {
 }
 
 function expandQueueIfPresent() {
-  const expand = screen.queryByTitle('Expand queue');
+  const expand = screen.queryByRole('button', { name: 'Expand queue' });
   if (expand) fireEvent.click(expand);
 }
 
@@ -106,9 +106,9 @@ async function queue(text: string) {
 
 const sendNow = () => screen.getByTitle('Stop current processing and send this message now');
 
-describe('single queue list presentation', () => {
+describe('compact queue presentation', () => {
   const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };
-  it('shows queued rows and their send actions without a disclosure layer', async () => {
+  it('keeps the next message and send action compact and expands only on request', async () => {
     const send = vi.fn();
     render(
       <MessageQueue
@@ -119,15 +119,48 @@ describe('single queue list presentation', () => {
       />,
       { wrapper: IntlTestWrapper }
     );
-    expect(screen.getByText('Message Queue')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
+    expect(screen.queryByText('Message Queue')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expand queue' })).toBeVisible();
+    expect(screen.getByText('+1')).toBeVisible();
     const action = screen.getAllByRole('button', { name: 'Send now' })[0];
     expect(action).toHaveAttribute('title', 'Stop current processing and send this message now');
     await userEvent.click(action);
     expect(send).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledWith('first');
+    expect(screen.queryByText('Message Queue')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
     expect(screen.getByText('Message Queue')).toBeVisible();
     expect(screen.getByText('Second queued request')).toBeVisible();
+  });
+
+  it('keeps cancellation feedback inline without flashing a paused banner or delivery warning', () => {
+    const view = render(
+      <MessageQueue
+        queuedMessages={[item]}
+        onRemoveMessage={vi.fn()}
+        onClearQueue={vi.fn()}
+        onStopAndSend={vi.fn()}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    view.rerender(
+      <MessageQueue
+        queuedMessages={[item]}
+        onRemoveMessage={vi.fn()}
+        onClearQueue={vi.fn()}
+        onStopAndSend={vi.fn()}
+        isPaused
+        waitingMessageId="first"
+        blockedReason="Waiting for cancellation"
+      />
+    );
+    expect(screen.queryByText('Queue Paused')).toBeNull();
+    expect(screen.queryByText('Paused')).toBeNull();
+    expect(
+      screen.queryByText('Sending result unknown. Check the conversation before retrying.')
+    ).toBeNull();
+    expect(screen.getByLabelText('Waiting for cancellation')).toBeVisible();
+    expect(screen.getByText('First queued request')).toBeVisible();
   });
 
   it('keeps an uncertain delivery and its confirmation controls directly visible', async () => {
@@ -155,6 +188,33 @@ describe('single queue list presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it('does not offer the submitted draft again while acceptance is pending, but keeps a newer interjection usable', async () => {
+    const pending = deferred<void>();
+    let lifecycle!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
+      lifecycle = callbacks!;
+      return pending.promise;
+    });
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'submit once' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    view.changeState(ChatState.Thinking);
+    expect(input).toHaveValue('submit once');
+    expect(screen.getByRole('button', { name: /^Stop$/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Send$/ })).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
+    expect(submit).toHaveBeenCalledOnce();
+    fireEvent.change(input, { target: { value: 'new interjection' } });
+    expect(screen.getByRole('button', { name: /^Send$/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Stop$/ })).toBeNull();
+    act(() => lifecycle.onAccepted());
+    expect(input).toHaveValue('new interjection');
+    await act(async () => pending.resolve());
+  });
+
   it('keeps pending input paused after Stop and sends it once on explicit resume', async () => {
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
       lifecycle?.onAccepted()
@@ -214,7 +274,7 @@ describe('ChatInput queue delivery', () => {
     expect(screen.getByRole('button', { name: 'Attach file' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Approval mode' })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Send$/ })).toBeVisible();
-    expect(screen.getByRole('button', { name: /^Stop$/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Stop$/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Model selector' })).toBeVisible();
   });
 

@@ -228,7 +228,7 @@ interface ChatInputProps {
 
 export function chatInputActionVisibility(isLoading: boolean, hasSubmittableContent: boolean) {
   return {
-    showStop: isLoading,
+    showStop: isLoading && !hasSubmittableContent,
     showSend: !isLoading || hasSubmittableContent,
   };
 }
@@ -280,6 +280,12 @@ export default function ChatInput({
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
   const submitInFlightRef = useRef(false);
   const inputRevisionRef = useRef(0);
+  const [pendingDraft, setPendingDraft] = useState<{
+    sessionId: string | null;
+    revision: number;
+  }>();
+  const isCurrentDraftSubmitted =
+    pendingDraft?.sessionId === sessionId && pendingDraft?.revision === inputRevisionRef.current;
 
   // Derived state - chatState != Idle means we're in some form of loading state
   const isLoading = chatState !== ChatState.Idle;
@@ -1096,6 +1102,7 @@ export default function ChatInput({
   };
 
   const queueWhileBusy = () => {
+    if (isCurrentDraftSubmitted) return false;
     if ((!isLoading && !queueProcessingBlocked) || !hasSubmittableContent) return false;
     const newMessage: QueuedMessage = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -1133,11 +1140,15 @@ export default function ChatInput({
         );
         const submittedPastedImages = [...pastedImages];
         const submittedLocalDroppedFiles = [...localDroppedFiles];
+        const pending = { sessionId, revision: submittedDraft.revision };
+        const clearPendingDraft = () =>
+          setPendingDraft((current) => (current === pending ? undefined : current));
         let accepted = false;
         const lifecycle: MessageSubmissionLifecycle = {
           onAccepted: () => {
             if (accepted) return;
             accepted = true;
+            clearPendingDraft();
             if (displayValue.trim()) {
               LocalMessageStorage.addMessage(displayValue);
             } else {
@@ -1158,6 +1169,7 @@ export default function ChatInput({
             }
           },
           onRejectedBeforeAcceptance: () => {
+            clearPendingDraft();
             const rejected = rejectSubmittedDraft(submittedDraft, inputRevisionRef.current);
             if (!rejected.shouldRestore) return;
             setDisplayValue(rejected.text);
@@ -1167,6 +1179,7 @@ export default function ChatInput({
           },
         };
         submitInFlightRef.current = true;
+        setPendingDraft(pending);
         try {
           await handleSubmit({ msg: textToSend, images: imageData }, lifecycle);
         } catch {
@@ -1174,6 +1187,7 @@ export default function ChatInput({
           return;
         } finally {
           submitInFlightRef.current = false;
+          clearPendingDraft();
         }
       }
     },
@@ -1187,6 +1201,7 @@ export default function ChatInput({
       handleSubmit,
       clearInputState,
       setLocalDroppedFiles,
+      sessionId,
     ]
   );
 
@@ -1368,11 +1383,15 @@ export default function ChatInput({
     displayValue.trim() ||
     pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
     allDroppedFiles.some((file) => !file.error && !file.isLoading);
-  const actionVisibility = chatInputActionVisibility(isLoading, Boolean(hasSubmittableContent));
+  const actionVisibility = chatInputActionVisibility(
+    isLoading,
+    Boolean(hasSubmittableContent) && !isCurrentDraftSubmitted
+  );
   const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
   const isAnyDroppedFileLoading = allDroppedFiles.some((file) => file.isLoading);
 
   const isSubmitButtonDisabled =
+    isCurrentDraftSubmitted ||
     !hasSubmittableContent ||
     isAnyImageLoading ||
     isAnyDroppedFileLoading ||

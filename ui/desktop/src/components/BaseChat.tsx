@@ -259,7 +259,7 @@ export default function BaseChat({
     if (!import.meta.env.DEV || !conversationLayout) return;
     // Observe the presentation selector. This is a React
     // commit, not proof of screen paint or of the model's internal activity.
-    const visible = !acpRecovering && (chatState !== ChatState.Idle || cancelling);
+    const visible = !acpRecovering && !cancelling && chatState !== ChatState.Idle;
     const source = visible ? workStatus.source : 'hidden';
     const fields = {
       session_id: sessionId,
@@ -809,7 +809,8 @@ export default function BaseChat({
           {conversationLayout
             ? !acpRecovering &&
               !showHistoryLoading &&
-              (chatState !== ChatState.Idle || cancelling) && (
+              !cancelling &&
+              chatState !== ChatState.Idle && (
                 <div className="mx-4">
                   <LoadingGoose
                     key={sessionId}

@@ -8,6 +8,8 @@ import BaseChat from './BaseChat';
 const fixture = vi.hoisted(() => ({
   readonly: true,
   loading: false,
+  cancelling: false,
+  busy: false,
   submit: vi.fn(),
   update: vi.fn(),
 }));
@@ -29,7 +31,8 @@ vi.mock('../hooks/useChatSession', () => ({
             metadata: { userVisible: true, agentVisible: true },
           },
         ],
-    chatState: fixture.loading ? 'loadingConversation' : 'idle',
+    chatState: fixture.loading ? 'loadingConversation' : fixture.busy ? 'thinking' : 'idle',
+    cancelling: fixture.cancelling,
     tokenState: {},
     notifications: new Map(),
     handleSubmit: fixture.submit,
@@ -65,6 +68,8 @@ vi.mock('./ProgressiveMessageList', () => ({
 beforeEach(() => {
   fixture.readonly = true;
   fixture.loading = false;
+  fixture.cancelling = false;
+  fixture.busy = false;
   fixture.submit.mockReset();
   fixture.update.mockReset();
   vi.mocked(window.electron.on).mockClear();
@@ -85,6 +90,20 @@ function show() {
     { wrapper: IntlTestWrapper }
   );
 }
+
+it.each([false, true])(
+  'keeps the stop confirmation internal without flashing its loading banner (busy=%s)',
+  async (busy) => {
+    fixture.readonly = false;
+    fixture.cancelling = true;
+    fixture.busy = busy;
+    show();
+    await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
+    expect(screen.queryByText(/Stopping; waiting for confirmation/)).toBeNull();
+    expect(screen.queryByTestId('loading-indicator')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Compose message' })).toBeVisible();
+  }
+);
 
 it('shows archived content without composing, editing, retrying or auto-submitting old continuation', async () => {
   show();

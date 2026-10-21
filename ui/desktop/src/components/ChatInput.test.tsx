@@ -32,9 +32,9 @@ describe('ChatInput stop control', () => {
     expect(shouldShowWorkingDirectorySwitcher(false)).toBe(false);
   });
 
-  it('keeps emergency stop visible while a running task has a sendable draft', () => {
+  it('uses one action: send a new draft or stop the current task', () => {
     expect(chatInputActionVisibility(true, true)).toEqual({
-      showStop: true,
+      showStop: false,
       showSend: true,
     });
     expect(chatInputActionVisibility(true, false)).toEqual({

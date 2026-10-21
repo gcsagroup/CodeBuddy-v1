@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolveImageCapability, thinkingProfile } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile } from './providers.mjs';
 import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
@@ -225,6 +225,9 @@ export class RuntimeSettings {
             const field = p.fields?.find(item => item.key === key);
             const value = field?.value ?? null;
             if (value !== null) {
+              // The picker can outlive the metadata cache, and refreshing the
+              // model list also replaces it. Resolve this model before checking.
+              await resolvedModelInfo(provider, model);
               const profile = thinkingProfile(provider, model);
               const options = modelThinkingOptions(profile);
               if (!THINKING_EFFORTS.includes(value) || !options.options.includes(value)) throw invalid('Selected thinking effort is unavailable for this model');
@@ -235,6 +238,8 @@ export class RuntimeSettings {
           await this.store.update(state => {
             const target = state.providers.find(item => item.id === provider.id);
             if (!target) throw invalid('Provider was removed');
+            if (!isDeepStrictEqual({ ...target, thinkingEfforts: undefined }, { ...provider, thinkingEfforts: undefined }))
+              throw invalid('Model connection changed; reload model settings');
             target.thinkingEfforts ??= {};
             for (const [model, value] of updates) {
               if (value === null) delete target.thinkingEfforts[model];

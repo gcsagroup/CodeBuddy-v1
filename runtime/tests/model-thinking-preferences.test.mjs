@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openStore } from '../store.mjs';
 import { RuntimeSettings } from '../settings.mjs';
-import { driverProvider, thinkingProfile } from '../providers.mjs';
+import { discover, driverProvider, resolvedModelInfo, thinkingProfile } from '../providers.mjs';
 import { applyModelThinking, modelThinkingOptions, modelThinkingPreference } from '../model-settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { catalogThinkingProfile } from '../harness/model-catalog.mjs';
@@ -120,4 +120,85 @@ test('fresh profiles read mixed Ollama Cloud efforts without breaking other mode
   assert.equal(JSON.parse(staleRead.fields.find(field => field.key === 'thinkingEffort:glm-5.2').value).value, 'high');
   assert.equal(modelThinkingPreference(thinkingProfile(provider, 'glm-5.2'), 'medium'), 'high');
   assert.equal(store.read().providers[0].thinkingEfforts['glm-5.2'], 'medium', 'Reading new capabilities must not overwrite an older user preference');
+});
+
+for (const invalidation of ['expiry', 'model-list refresh']) {
+  test(`thinking saves resolve the selected model after metadata ${invalidation}`, async t => {
+    let now = Date.now();
+    t.mock.method(Date, 'now', () => now);
+    const model = 'deepseek-v4.1-flash';
+    const models = ['other-first-model', model];
+    let values = [false, 'low', 'high', 'max'];
+    let offline = false;
+    const lookups = [];
+    t.mock.method(globalThis, 'fetch', async (input, options) => {
+      if (offline) throw new Error('Fixture offline');
+      const url = new URL(input);
+      assert.equal(url.origin, 'https://ollama.com');
+      if (url.pathname === '/api/tags') return Response.json({ models: models.map(name => ({ name })) });
+      assert.equal(url.pathname, '/api/show');
+      const selected = JSON.parse(options.body).model;
+      lookups.push(selected);
+      return Response.json(selected === model
+        ? { capabilities: ['completion', 'thinking'], thinking: { values, default: 'low' } }
+        : { capabilities: ['completion'] });
+    });
+    const root = await mkdtemp(path.join(tmpdir(), 'thinking-save-refresh-'));
+    const store = await openStore(root);
+    const provider = { id: 'save-refresh', engine: 'openai_compatible', apiUrl: 'https://ollama.com', models, requiresAuth: false, headers: { 'x-fixture': invalidation } };
+    await store.update(state => { state.providers = [provider]; });
+    const settings = new RuntimeSettings(store);
+    await resolvedModelInfo(provider, model);
+    const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
+    const offered = JSON.parse(fields.find(field => field.key === `thinkingEffort:${model}`).value);
+    assert.deepEqual(offered, { options: ['none', 'low', 'high', 'max'], value: 'low', toggle: false });
+    if (invalidation === 'expiry') now += 5 * 60_000 + 1;
+    else await discover(provider, provider);
+
+    const save = value => settings.request('providers/config/save', {
+      providerId: provider.id, fields: [{ key: `thinkingEffort:${model}`, value }],
+    });
+    await save('high');
+    assert.equal(store.read(['providers']).providers[0].thinkingEfforts[model], 'high');
+    const refreshed = lookups.length;
+    assert.equal(lookups.at(-1), model, 'Saving must resolve the selected model, even when it is not first in the connection');
+    await save('max');
+    assert.equal(lookups.length, refreshed, 'A warm save reuses the existing bounded metadata cache');
+    assert.equal((await openStore(root)).read(['providers']).providers[0].thinkingEfforts[model], 'max');
+    await assert.rejects(save('medium'), /unavailable/);
+
+    now += 5 * 60_000 + 1;
+    values = [false, 'low'];
+    await assert.rejects(save('high'), /unavailable/, 'Real capability changes still reject removed levels');
+    assert.equal(store.read(['providers']).providers[0].thinkingEfforts[model], 'max');
+    offline = true;
+    await settings.request('providers/config/save', {
+      providerId: provider.id, fields: [], clearFields: [`thinkingEffort:${model}`],
+    });
+    assert.equal(store.read(['providers']).providers[0].thinkingEfforts[model], undefined, 'Clearing a preference does not require a reachable provider');
+  });
+}
+
+test('thinking metadata fetched for an old connection cannot validate a save to its replacement', async t => {
+  const started = Promise.withResolvers(), finish = Promise.withResolvers();
+  t.after(() => finish.resolve());
+  const model = 'deepseek-v4.1-flash';
+  const provider = { id: 'replaced', engine: 'openai_compatible', apiUrl: 'https://ollama.com', models: [model], requiresAuth: false, headers: { 'x-fixture': 'replacement' } };
+  t.mock.method(globalThis, 'fetch', async input => {
+    if (new URL(input).pathname === '/api/tags') return Response.json({ models: [{ name: model }] });
+    started.resolve();
+    await finish.promise;
+    return Response.json({ capabilities: ['completion', 'thinking'], thinking: { values: ['low', 'high'], default: 'low' } });
+  });
+  const store = await openStore(await mkdtemp(path.join(tmpdir(), 'thinking-save-replaced-')));
+  await store.update(state => { state.providers = [provider]; });
+  const settings = new RuntimeSettings(store);
+  const pending = settings.request('providers/config/save', {
+    providerId: provider.id, fields: [{ key: `thinkingEffort:${model}`, value: 'high' }],
+  });
+  await started.promise;
+  await store.update(state => { state.providers[0].apiUrl = 'https://replacement.invalid'; });
+  finish.resolve();
+  await assert.rejects(pending, /connection changed/);
+  assert.equal(store.read(['providers']).providers[0].thinkingEfforts, undefined);
 });

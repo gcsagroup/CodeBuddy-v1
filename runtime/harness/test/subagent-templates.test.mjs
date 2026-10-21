@@ -68,6 +68,10 @@ test('native templates preserve chat-local histories, roles and resolved models 
   assert.equal((await driver.listSubagentChildren(main.sessionId)).find(row => row.id === reviewer).label, role);
   assert.equal(byTask('CHILD_BACKEND_ONLY').at(-1).model, 'fixture-generic');
   assert.ok(JSON.stringify(byTask('CHILD_BACKEND_ONLY').at(-1)).includes('代码审查'));
+  for (const request of [requests[0], byTask('CHILD_JULY_ONLY').at(-1), byTask('CHILD_BACKEND_ONLY').at(-1)]) {
+    const instructions = JSON.stringify(request.messages.filter(message => ['system', 'developer'].includes(message.role)));
+    assert.ok(instructions.includes('Write delegation prompts and follow-up messages'), 'The shared conversation-language instruction must survive template and custom child personas');
+  }
   await spawn(main.sessionId, 'subagent_browser', { description: 'Browser research', prompt: 'CHILD_BROWSER_ONLY' });
   assert.equal(byTask('CHILD_BROWSER_ONLY').at(-1).model, 'fixture-browser');
   const other = await driver.createSession({ sessionId: randomUUID(), provider, model: 'fixture-other', options: { restoreSubagentProvider } });
@@ -95,6 +99,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
   await action(main.sessionId, 'send_message', { agent_id: reviewer, message: 'CHILD_COLD_REVIEW_ONLY' });
   assert.equal(byTask('CHILD_COLD_REVIEW_ONLY').at(-1).model, 'fixture-generic');
   assert.ok(JSON.stringify(byTask('CHILD_COLD_REVIEW_ONLY').at(-1)).includes('代码审查'));
+  assert.ok(JSON.stringify(byTask('CHILD_COLD_REVIEW_ONLY').at(-1).messages.filter(message => ['system', 'developer'].includes(message.role))).includes('Write delegation prompts and follow-up messages'), 'Cold-resumed children retain the conversation-language instruction');
   assert.deepEqual((await driver.listSubagentChildren(main.sessionId)).map(row => row.id), before);
   await driver.configureSession(main.sessionId, { ...updated, subagentModels: { ...updated.subagentModels, explorer: { error: 'Configured explorer connection unavailable' } } });
   assert.equal((await action(main.sessionId, 'subagent_explorer', { description: 'Unavailable route', prompt: 'NO_NEW_CHILD' })).isError, true);

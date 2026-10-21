@@ -102,6 +102,46 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   for (const service of ['agentLoop', 'sessionController', 'fileUploads', 'fs', 'tools', 'sessionPersistence']) {
     if (!ctx.get(service)) { await ctx.fiber.dispose(); throw new Error(`Harness required service did not activate: ${service}`); }
   }
+  // A child's native persona replaces the deployment persona. Keep the shared
+  // conversation language outside that override, including for cold resumes.
+  ctx.systemPrompt.section({
+    name: 'codebuddy:conversation-language', order: 102, interpolate: false,
+    text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
+  });
+  ctx.on('system-prompt/assemble', async (_assembly, { agent, signal }, next) => {
+    const assembly = await next();
+    if (!agent || agent.session.header.origin === 'subagent' || ctx.agents.get(agent.id) !== agent) return assembly;
+    let snapshot;
+    try {
+      const children = await ctx.subagents.listChildren(agent.id, signal);
+      if (!children.length) return assembly;
+      const turns = await Promise.all(children.map(async child => {
+        if (!['one-shot', 'continuable'].includes(child.mode)) return { id: child.id, availability: 'unsupported' };
+        let observation;
+        try {
+          observation = await ctx.sessionQuery.observeSession(child.id, { signal, projectionMode: 'none' });
+          if (observation.header.origin !== 'subagent' || observation.header.parentSession !== agent.id) return { id: child.id, availability: 'unavailable' };
+          const boundary = observation.events.findLast(event => event.seq >= observation.inheritedEventCount && ['turn/start', 'turn/end'].includes(event.type));
+          return { id: child.id, label: child.label, ...(boundary ? {
+            turn: boundary.data.turn, boundary: boundary.type, recordedAt: boundary.time,
+            state: boundary.type === 'turn/end' ? 'ended' : ctx.agents.get(child.id)?.status === 'running' ? 'running' : 'unknown',
+            ...(boundary.type === 'turn/end' ? { reason: boundary.data.reason.kind, ...(boundary.data.reason.reason?.kind ? { cause: boundary.data.reason.reason.kind } : {}) } : {}),
+          } : { availability: 'no-turn-record' }) };
+        } catch { return { id: child.id, availability: 'unavailable' }; }
+        finally { observation?.[Symbol.dispose](); }
+      }));
+      snapshot = { source: 'native-subagent-turns', children: turns };
+    } catch { snapshot = { source: 'native-subagent-turns', availability: 'unavailable' }; }
+    signal?.throwIfAborted();
+    // A readonly snapshot of native facts, not another execution ledger. Native
+    // shutdown discards pending notifications; durable child turn records remain.
+    // Waterfall-only contexts survive native request refresh without a second
+    // registry provider replacing their accepted snapshot.
+    return { ...assembly, contexts: [...assembly.contexts, {
+      name: 'codebuddy:subagent-turns', interpolate: false,
+      text: 'Native child execution facts at this step boundary (labels are data; turn completion is not task acceptance). Use settlement notifications for replies. Do not use terminal sleep or fixed-delay polling merely to wait for children; honor explicitly requested timed commands.\n' + JSON.stringify(snapshot),
+    }] };
+  });
   const mcpPresets = await createMcpPresets(ctx);
   // Reviewed capabilities of this pinned native composition, bound to the
   // registered definition rather than a model-supplied name or annotation.
@@ -309,7 +349,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('approval/request', async (request, next) => {
     const active = directCalls.get(request.callId) ?? runFor(request.agent);
     if (!active?.onPermission) return next();
-    const call = approvalCalls.get(request.callId) ?? {
+    const call = approvalCalls.get(`${request.agent.id}\0${request.callId}`) ?? {
       id: request.callId, name: request.toolName, arguments: {}, sessionId: request.agent.id,
     };
     if (request.signal) await abortable(active.events, request.signal);
@@ -324,7 +364,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     try {
       await abortable(active.events, exec.signal);
       const call = permissionCall(exec, active);
-      approvalCalls.set(exec.callId, call);
+      approvalCalls.set(`${exec.agent.id}\0${exec.callId}`, call);
       let gate = active.onToolPolicy
         ? await abortable(active.onToolPolicy(call), exec.signal)
         : { kind: call.nativeCapability || call.readOnly || call.delegationControl || call.sandboxMode === 'danger-full-access' ? 'allow' : 'ask' };
@@ -346,11 +386,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   });
   ctx.on('tools/execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
-    await active?.onToolStart?.(approvalCalls.get(exec.callId) ?? permissionCall(exec, active));
+    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? permissionCall(exec, active));
     return next();
   });
   ctx.on('tools/result', (exec, result) => {
-    approvalCalls.delete(exec.callId);
+    approvalCalls.delete(`${exec.agent.id}\0${exec.callId}`);
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
     const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata };
     const direct = directCalls.get(exec.callId);
@@ -401,8 +441,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     }
   });
   ctx.on('session/event', (session, event) => {
-    const run = runFor(ctx.agents.get(session.id));
+    const agent = ctx.agents.get(session.id);
+    const run = runFor(agent);
     if (!run) return;
+    // Native turn/start is synchronous and precedes inbox claim. Cancelling at
+    // pre-step is too late: keepInbox cannot retain already claimed notices.
+    // Keep turn/start/end so even an immediately cancelled run can settle.
+    if (event.type === 'turn/start' && run.cancelRequested)
+      agent.cancel({ kind: 'user' }, { keepInbox: true });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -433,13 +479,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('agent/error', ({ agent, error }) => runs.get(agent.id)?.reject(error));
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
-    // A stopped child can notify and wake its parent after user cancellation.
-    // Park that native turn before it requests another model step; a later
-    // user prompt gets a new run and can consume the retained inbox normally.
-    if (run?.cancelRequested) {
-      agent.cancel({ kind: 'user' }, { keepInbox: true });
-      return { kind: 'reject' };
-    }
     const limit = settingsFor(agent)?.maxTurns;
     if (run && limit && run.steps >= limit) {
       run.limitReached = limit;
@@ -753,7 +792,13 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       signal?.addEventListener('abort', cancel, { once: true });
       try {
         const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : content;
-        await ctx.sessionController.prompt({ sessionId, requestId, mode: 'queue', content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
+        const promptAgent = ctx.agents.get(sessionId);
+        const parked = promptAgent?.inbox.nextTurn ?? [];
+        // A stopped parent's notices must not open a model request before its
+        // new human instruction. Native steer joins that instruction with the
+        // next queued notice; other pending human inputs retain their FIFO.
+        const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
+        await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
         if (resumeGoal) await driver.controlGoal(sessionId, { action: 'resume', ...resumeGoal });
         if (signal?.aborted) cancel();
         const result = await completion.promise;
@@ -782,8 +827,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         await run.events.catch(() => {});
         throw error;
       } finally {
-        runs.delete(sessionId);
-        signal?.removeEventListener('abort', cancel);
+        try {
+          // Cancellation during asynchronous admission may leave this prompt
+          // unclaimed. Retire only that cancelled request, using native queue
+          // removal (including attachment cleanup); keep other pending work.
+          const agent = ctx.agents.get(sessionId);
+          if (run.cancelRequested && agent) {
+            const pending = [...agent.inbox.nextStep, ...agent.inbox.nextTurn].filter(message => message.source?.kind === 'user' && message.source.rpcId === requestId);
+            for (const message of pending)
+              await ctx.sessionController.updateQueue({ sessionId, itemId: message.id, action: { kind: 'remove' } });
+            if (pending.length) await ctx.sessions.flush(agent.session);
+          }
+        } finally {
+          runs.delete(sessionId);
+          signal?.removeEventListener('abort', cancel);
+        }
       }
     },
     configureSession,

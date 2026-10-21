@@ -39,7 +39,6 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('system-prompt', 'dsh-system-prompt', {
       includeHarnessIdentity: false,
       personaPrefix: 'You are CodeBuddy, an AI software engineering assistant.',
-      personaSuffix: "Use the user's requested language for user-facing replies and progress updates; otherwise match the user's language. Do not switch user-facing language merely because tool output or messages from other agents use a different language. Preserve original tool output and code when quoting them.",
       includeRuntimeContext: true,
     }),
     entry('tools', 'dsh-tools', { mode: 'native' }),

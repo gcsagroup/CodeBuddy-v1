@@ -8,73 +8,162 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../harness/index.mjs';
 
-test('[retest-20261016] child cancellation notices cannot restart a cancelled parent, and a fresh turn still works', { timeout: 30_000 }, async t => {
+async function fixture(t, { childCount = 1 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'codebuddy-retest-cancel-'));
-  const requests = [], events = [], failures = [];
+  const requests = [], failures = [], childResponses = [];
   const childStarted = Promise.withResolvers();
-  let childResponse;
+  let childId, driver;
   const model = createServer(async (req, res) => {
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const body = JSON.parse(raw);
-      // Native runtime-context snapshots are also user-role messages. Select
-      // only our synthetic test input rather than interpreting that snapshot.
-      const latest = [...body.messages].reverse().find(message => message.role === 'user' && /CHILD_WAIT_RETEST|FRESH_USER_TURN|PARENT_DELEGATE_RETEST/.test(JSON.stringify(message.content)));
-      const child = JSON.stringify(latest?.content).includes('CHILD_WAIT_RETEST');
-      const fresh = JSON.stringify(latest?.content).includes('FRESH_USER_TURN');
-      requests.push({ child, fresh, body });
+      // Synthetic test markers only; native injected user-role context is not
+      // a human input. Product routing never uses this fixture classifier.
+      const index = body.messages.findLastIndex(message => message.role === 'user' && /CHILD_WAIT_RETEST|CHILD_RESUME_RETEST|REUSE_CHILD_RETEST|FRESH_USER_TURN|PARENT_DELEGATE_RETEST/.test(JSON.stringify(message.content)));
+      const latest = JSON.stringify(body.messages[index]?.content);
+      const resume = latest?.includes('CHILD_RESUME_RETEST');
+      const child = resume || latest?.includes('CHILD_WAIT_RETEST');
+      const fresh = latest?.includes('FRESH_USER_TURN');
+      const reuse = latest?.includes('REUSE_CHILD_RETEST');
+      requests.push({ child, fresh, reuse, resume, body });
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
       const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] }) + '\n\n');
-      if (child) {
-        childResponse = res;
+      if (child && !resume) {
+        childResponses.push(res);
         res.flushHeaders();
-        childStarted.resolve();
+        if (childResponses.length === childCount) childStarted.resolve();
         return;
       }
-      const spawned = body.messages.some(message => message.role === 'tool');
-      if (!spawned && !fresh) {
-        emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'delegate-once', type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: 'Independent waiting fixture', prompt: 'CHILD_WAIT_RETEST' }) } }] });
+      const serviced = body.messages.slice(index + 1).some(message => message.role === 'tool');
+      if (!child && !fresh && !serviced) {
+        const calls = reuse
+          ? [{ name: 'send_message', arguments: { agent_id: childId, message: 'CHILD_RESUME_RETEST' } }]
+          : Array.from({ length: childCount }, (_, i) => ({ name: 'subagent', arguments: { description: 'Independent waiting fixture ' + i, prompt: 'CHILD_WAIT_RETEST ' + i } }));
+        emit({ role: 'assistant', tool_calls: calls.map((call, i) => ({ index: i, id: randomUUID(), type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) });
         emit({}, 'tool_calls');
       } else {
-        emit({ role: 'assistant', content: fresh ? 'FRESH_TURN_OK' : 'The independent child is working.' });
+        emit({ role: 'assistant', content: fresh ? 'FRESH_TURN_OK' : resume ? 'SAME_CHILD_OK' : 'The independent children are working.' });
         emit({}, 'stop');
       }
       res.end('data: [DONE]\n\n');
     } catch (error) { failures.push(error); res.destroy(error); }
   });
   await new Promise(resolve => model.listen(0, '127.0.0.1', resolve));
-  const driver = await createHarnessDriver({ dataDir: join(directory, 'native'), cwd: directory });
+  const provider = { id: 'local-cancel-fixture', baseUrl: 'http://127.0.0.1:' + model.address().port + '/v1', apiKey: 'synthetic-token', protocol: 'openai-completions' };
+  const sessionId = randomUUID();
+  async function open() {
+    driver = await createHarnessDriver({ dataDir: join(directory, 'native'), cwd: directory });
+    await driver.createSession({ sessionId, cwd: directory, provider, model: 'fixture-model', options: { tools: [] } });
+  }
+  await open();
   t.after(async () => {
-    childResponse?.destroy();
+    for (const response of childResponses) response.destroy();
     await driver.close();
     model.closeAllConnections();
     await new Promise(resolve => model.close(resolve));
   });
-  const sessionId = randomUUID();
-  await driver.createSession({ sessionId, cwd: directory, provider: { id: 'local-cancel-fixture', baseUrl: 'http://127.0.0.1:' + model.address().port + '/v1', apiKey: 'synthetic-token', protocol: 'openai-completions' }, model: 'fixture-model', options: { tools: [] } });
+  return {
+    requests, failures, sessionId, childStarted,
+    get waitingChildren() { return childResponses.length; },
+    get driver() { return driver; },
+    set childId(id) { childId = id; },
+    async otherSession() {
+      const other = randomUUID();
+      await driver.createSession({ sessionId: other, cwd: directory, provider, model: 'fixture-model', options: { tools: [] } });
+      return other;
+    },
+    async restart() { await driver.close(); await open(); },
+  };
+}
+
+for (const restart of [false, true]) test(`cancelled child notices survive ${restart ? 'cold restart' : 'live recovery'} without waking the stopped parent or replaying the old child task`, { timeout: 30_000 }, async t => {
+  const f = await fixture(t, { childCount: 2 });
+  const events = [];
   const controller = new AbortController();
-  const pending = driver.prompt(sessionId, 'PARENT_DELEGATE_RETEST', { signal: controller.signal, onPermission: () => true, onEvent: event => events.push(event) });
+  const pending = f.driver.prompt(f.sessionId, 'PARENT_DELEGATE_RETEST', { signal: controller.signal, onPermission: () => true, onEvent: event => events.push(event) });
   pending.catch(() => {});
-  await childStarted.promise;
+  await f.childStarted.promise;
   const deadline = Date.now() + 5_000;
-  let completed = false;
-  while (Date.now() < deadline) {
-    const history = await driver.history(sessionId);
-    if (history.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed')) { completed = true; break; }
-    await delay(10);
-  }
-  assert.equal(completed, true, 'Parent must be waiting for its child after completing its own native turn');
-  const beforeCancel = requests.length;
+  while (Date.now() < deadline && !(await f.driver.history(f.sessionId)).events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed')) await delay(10);
+  assert.ok((await f.driver.history(f.sessionId)).events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed'));
+  const ids = (await f.driver.listSubagentChildren(f.sessionId)).map(child => child.id);
+  assert.equal(ids.length, 2);
+  const beforeCancel = f.requests.length;
   controller.abort();
-  const stopped = await pending;
-  assert.equal(stopped.stopReason, 'cancelled');
-  assert.equal(requests.length, beforeCancel, 'Child stopped notification must not request another model step');
-  assert.ok(events.some(event => event.type === 'subagent_start'), 'Exercise real native delegation');
-  const history = await driver.history(sessionId);
-  assert.ok(history.events.some(event => event.type === 'agent/inbox/spliced' && event.data.inserted?.some(item => item.source?.kind === 'subagent-settled')), 'Exercise actual child settlement delivery');
-  const freshEvents = [];
-  const result = await driver.prompt(sessionId, 'FRESH_USER_TURN', { onPermission: () => true, onEvent: event => freshEvents.push(event) });
-  assert.equal(result.stopReason, 'end_turn');
-  assert.ok(freshEvents.some(event => event.type === 'text_delta' && event.text.includes('FRESH_TURN_OK')));
-  assert.deepEqual(failures, []);
+  assert.equal((await pending).stopReason, 'cancelled');
+  assert.equal(f.requests.length, beforeCancel, 'Settlement cannot make an automatic model request after cancellation');
+  const stopped = (await f.driver.history(f.sessionId)).events.flatMap(event => event.type === 'agent/inbox/spliced' ? event.data.inserted ?? [] : []).filter(message => message.source?.kind === 'subagent-settled');
+  assert.equal(stopped.length, 2);
+  for (const id of ids) {
+    const child = await f.driver.history(id);
+    assert.ok(child.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted'));
+  }
+  if (restart) {
+    await f.restart();
+    assert.equal(f.requests.length, beforeCancel, 'Cold inspection and reconstruction must not start a model');
+  }
+  await f.driver.prompt(f.sessionId, 'FRESH_USER_TURN: report the actual stopped children; do not repeat their tasks.', { onPermission: () => true });
+  const first = f.requests[beforeCancel];
+  assert.equal(first.fresh, true, 'The first recovery request must already include the new human instruction');
+  assert.ok(ids.every(id => JSON.stringify(first.body.messages).includes(id)) && JSON.stringify(first.body.messages).includes('native-subagent-turns'), 'The first recovery request includes the native child execution snapshot');
+  if (!restart) assert.ok(stopped.some(message => JSON.stringify(first.body.messages).includes(message.source.summary)), 'Live recovery also includes a real settlement');
+  const history = await f.driver.history(f.sessionId);
+  const delivered = history.events.filter(event => event.type === 'user/message' && event.data.source?.kind === 'subagent-settled');
+  assert.deepEqual(delivered.map(event => event.data.id).sort(), restart ? [] : stopped.map(message => message.id).sort(), 'Live notices use native FIFO exactly once; native shutdown-discarded notices are not replayed');
+  const context = history.events.findLast(event => event.type === 'user/message' && event.data.source?.kind === 'runtime-context' && event.data.source.sections?.some(section => section.name === 'codebuddy:subagent-turns'));
+  const text = context?.data.source.sections.find(section => section.name === 'codebuddy:subagent-turns').text;
+  const facts = JSON.parse(text.slice(text.indexOf('\n') + 1));
+  assert.deepEqual(facts.children.map(child => child.id).sort(), [...ids].sort());
+  assert.ok(facts.children.every(child => child.reason === 'aborted' && child.state === 'ended'), 'Stopped is derived from native terminal records, including after shutdown');
+  assert.equal(f.requests.filter(request => request.child).length, 2, 'Recovery must not replay either old child task');
+  f.childId = ids[0];
+  await f.driver.prompt(f.sessionId, 'REUSE_CHILD_RETEST', { onPermission: () => true });
+  assert.deepEqual((await f.driver.listSubagentChildren(f.sessionId)).map(child => child.id), ids);
+  const resumed = f.requests.find(request => request.resume);
+  assert.ok(resumed && JSON.stringify(resumed.body.messages).includes('CHILD_WAIT_RETEST'), 'The same child continues with its existing history');
+  assert.deepEqual(f.failures, []);
+});
+
+test('immediate cancellation retires only its unclaimed prompt and returns a native terminal before a new user turn', { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  const controller = new AbortController();
+  const pending = f.driver.prompt(f.sessionId, 'PARENT_DELEGATE_RETEST', { requestId: 'cancelled-admission', signal: controller.signal });
+  controller.abort();
+  assert.equal((await pending).stopReason, 'cancelled');
+  assert.equal(f.requests.length, 0);
+  const history = await f.driver.history(f.sessionId);
+  assert.ok(history.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted'));
+  await f.driver.prompt(f.sessionId, 'FRESH_USER_TURN: no old task is authorized.', { onPermission: () => true });
+  assert.equal(f.requests[0].fresh, true);
+  assert.ok(!JSON.stringify(f.requests[0].body.messages).includes('PARENT_DELEGATE_RETEST'), 'The cancelled unclaimed task cannot execute in a later turn');
+  assert.deepEqual(f.failures, []);
+});
+
+test('stopping one chat leaves another chat child running and excludes its facts from recovery', { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  const a = new AbortController(), b = new AbortController();
+  const first = f.driver.prompt(f.sessionId, 'PARENT_DELEGATE_RETEST A', { signal: a.signal, onPermission: () => true });
+  first.catch(() => {});
+  await f.childStarted.promise;
+  const other = await f.otherSession();
+  const second = f.driver.prompt(other, 'PARENT_DELEGATE_RETEST B', { signal: b.signal, onPermission: () => true });
+  second.catch(() => {});
+  const deadline = Date.now() + 5_000;
+  while (f.waitingChildren < 2 && Date.now() < deadline) await delay(10);
+  assert.equal(f.waitingChildren, 2);
+  const own = (await f.driver.listSubagentChildren(f.sessionId))[0].id;
+  const foreign = (await f.driver.listSubagentChildren(other))[0].id;
+  a.abort();
+  assert.equal((await first).stopReason, 'cancelled');
+  const otherHistory = await f.driver.history(foreign);
+  assert.equal(otherHistory.events.findLast(event => ['turn/start', 'turn/end'].includes(event.type)).type, 'turn/start', 'Stopping A must not stop the running child in B');
+  const beforeRecovery = f.requests.length;
+  await f.driver.prompt(f.sessionId, 'FRESH_USER_TURN A', { onPermission: () => true });
+  const recovered = JSON.stringify(f.requests[beforeRecovery].body.messages);
+  assert.ok(recovered.includes(own) && recovered.includes('native-subagent-turns'));
+  assert.ok(!recovered.includes(foreign), 'A recovery cannot read B child identities or execution facts');
+  assert.equal(f.requests.filter(request => request.child).length, 2, 'Neither child task is replayed by A recovery');
+  b.abort();
+  assert.equal((await second).stopReason, 'cancelled');
+  assert.deepEqual(f.failures, []);
 });

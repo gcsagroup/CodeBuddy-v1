@@ -178,6 +178,7 @@ interface GooseMessageProps {
   sessionId: string;
   message: Message;
   messages: Message[];
+  fileReferenceExclusions?: string[];
   toolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   toolChains?: number[][];
   suppressProviderThinking?: boolean;
@@ -293,6 +294,7 @@ export default function GooseMessage({
   sessionId,
   message,
   messages,
+  fileReferenceExclusions,
   toolResponses,
   toolChains,
   suppressProviderThinking = false,
@@ -655,7 +657,11 @@ export default function GooseMessage({
           !hasLaterTurnContent &&
           showTextMessageActions &&
           displayText.trim() && (
-            <WorkspaceFileReferences sessionId={sessionId} content={displayText} />
+            <WorkspaceFileReferences
+              sessionId={sessionId}
+              content={displayText}
+              excludePaths={fileReferenceExclusions}
+            />
           )}
         {toolRequests.length > 0 && !compactTools && !displayText.trim() && (
           <div className="flex items-center justify-between">

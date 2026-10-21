@@ -66,6 +66,22 @@ it('discards late verification after switching conversations', async () => {
   expect(screen.queryByRole('button', { name: /old.docx/ })).toBeNull();
 });
 
+it('omits files already covered by the recorded changes card, keeping unrelated references', async () => {
+  inspect.mockImplementation(async (request) => ({
+    file: { path: 'path' in request ? request.path : '', size: 3, openExternally: false },
+  }));
+  render(
+    <WorkspaceFileReferences
+      sessionId="one"
+      content={'`app.py` and `guide.md`'}
+      excludePaths={['D:/fixture/app.py']}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(await screen.findByRole('button', { name: /guide.md/ })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /app.py/ })).toBeNull();
+});
+
 it('remains usable when an older desktop process does not support file inspection', async () => {
   inspect.mockResolvedValue(undefined as unknown as PanelReply);
   const view = render(<WorkspaceFileReferences sessionId="older" content={'`report.docx`'} />, {

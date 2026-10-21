@@ -43,6 +43,41 @@ function fixture(events = [], inheritedEventCount = 0) {
   return { state, reads, history, driver, params, compat, request: extra => compat.request(method, { ...params, ...extra }), rebind() { nativeParent = 'forked-parent'; } };
 }
 
+test('child file receipts use native human-input ids rather than compatibility message timestamps', async () => {
+  const f = fixture([
+    event(15, 'tool/call', { callId: 'first-write', name: 'write', arguments: '{"file_path":"a.py"}' }),
+    event(25, 'tool/call', { callId: 'second-edit', name: 'edit', arguments: '{"file_path":"a.py"}' }),
+  ]);
+  const read = f.driver.nativeHistory;
+  f.driver.nativeHistory = async id => id === 'parent-native' ? {
+    meta: { id }, events: [
+      event(10, 'agent/inbox/spliced', { inserted: [{ source: { kind: 'user', rpcId: 'first-human' } }] }),
+      event(20, 'agent/inbox/spliced', { inserted: [{ source: { kind: 'user', rpcId: 'second-human' } }] }),
+      event(21, 'user/message', { source: { kind: 'user', rpcId: 'second-human' } }),
+    ],
+  } : read(id);
+  const page = await f.request();
+  assert.deepEqual(page.events.map(item => item.data.parentUserMessageId), ['first-human', 'second-human']);
+  const readOwner = f.driver.nativeHistory;
+  f.driver.nativeHistory = async id => {
+    const value = await readOwner(id);
+    return id === 'parent-native' ? { ...value, meta: { id: 'foreign' } } : value;
+  };
+  assert.ok((await f.request()).events.every(item => item.data.parentUserMessageId === undefined));
+  f.driver.nativeHistory = async id => {
+    if (id === 'parent-native') throw new Error('Parent inspection temporarily unavailable');
+    return read(id);
+  };
+  const withoutParent = await f.request();
+  assert.equal(withoutParent.events.length, 2, 'Optional statistics must not block readable child tool records');
+  assert.ok(withoutParent.events.every(item => item.data.parentUserMessageId === undefined));
+  assert.equal(withoutParent.attributionUnavailable, true, 'A recoverable inspection gap must permit background backfill');
+  f.driver.nativeHistory = readOwner;
+  const recovered = await f.request();
+  assert.equal(recovered.attributionUnavailable, undefined);
+  assert.deepEqual(recovered.events.map(item => item.data.parentUserMessageId), ['first-human', 'second-human']);
+});
+
 test('Compat validates the product parent and exact native child ownership without activating any session', async () => {
   const f = fixture();
   assert.deepEqual(await f.request(), { ...f.params, throughSeq: -1, hasMore: false, events: [] });

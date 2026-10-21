@@ -2,9 +2,17 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { readSubagentCatalog, type SubagentCatalogPage } from '../acp/subagentCatalog';
-import { WorkspaceSubagents, SubagentCatalogProvider } from './WorkspaceSubagents';
+import {
+  WorkspaceSubagents,
+  SubagentCatalogProvider,
+  useConversationChangeMessages,
+  usePreloadedSubagentConversation,
+} from './WorkspaceSubagents';
 import { readSubagentConversation } from '../acp/subagentConversation';
 import { AppEvents } from '../constants/events';
+import type { Message } from '../types/message';
+import { collectConversationChanges } from '../components/codepro/conversationChanges';
+import { CodeProConversationFiles } from '../components/codepro/CodeProConversationFiles';
 
 vi.mock('../acp/subagentCatalog', () => ({ readSubagentCatalog: vi.fn() }));
 vi.mock('../acp/subagentConversation', async (original) => ({
@@ -37,6 +45,185 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.useRealTimers());
+
+it('switches readonly cache ownership without remounting the main chat subtree', async () => {
+  vi.mocked(readSubagentCatalog).mockResolvedValue({ ...root, children: [] });
+  const tree = (id: string, cacheKey = id) => (
+    <SubagentCatalogProvider parentSessionId={id} cacheKey={cacheKey}>
+      <input aria-label="Unsent draft" defaultValue="" />
+    </SubagentCatalogProvider>
+  );
+  const view = render(tree(parent), { wrapper: IntlTestWrapper });
+  fireEvent.change(screen.getByLabelText('Unsent draft'), {
+    target: { value: 'Keep my draft and connection' },
+  });
+  view.rerender(tree('other'));
+  expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep my draft and connection');
+  view.rerender(tree('other', 'changed-workspace'));
+  expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep my draft and connection');
+  await settle();
+});
+
+it('shares preloaded child edit evidence with the main card without leaking into another chat', async () => {
+  vi.mocked(readSubagentCatalog).mockResolvedValue(root);
+  vi.mocked(readSubagentConversation).mockResolvedValue({
+    sessionId: parent,
+    childSessionId: 'review',
+    throughSeq: 2,
+    hasMore: false,
+    events: [
+      {
+        seq: 0,
+        time: 1100,
+        type: 'tool/call',
+        data: {
+          callId: 'edit',
+          name: 'write',
+          arguments: '{"file_path":"/fixture/child.py"}',
+          parentUserMessageId: 'human',
+        },
+      },
+      {
+        seq: 1,
+        time: 1200,
+        type: 'tool/result',
+        data: {
+          message: { id: 'receipt', role: 'tool', toolCallId: 'edit', content: [], isError: false },
+          fileResult: {
+            path: '/fixture/child.py',
+            operation: 'create',
+            diffs: [{ oldText: '', newText: 'child\n' }],
+          },
+        },
+      },
+      { seq: 2, time: 1300, type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
+    ],
+  });
+  const messages: Message[] = [
+    {
+      id: 'human',
+      role: 'user',
+      created: 1,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'text', text: 'Make a file' }],
+    },
+  ];
+  function MainCard({ sessionId }: { sessionId: string }) {
+    const source = useConversationChangeMessages(sessionId, messages);
+    return (
+      <CodeProConversationFiles
+        messages={messages}
+        sourceChanges={collectConversationChanges(source)}
+        sessionId={sessionId}
+      />
+    );
+  }
+  const view = render(
+    <SubagentCatalogProvider parentSessionId={parent}>
+      <MainCard sessionId={parent} />
+      <MainCard sessionId="other" />
+    </SubagentCatalogProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  await settle();
+  expect(screen.getAllByRole('button', { name: 'Modified 1 files this turn' })).toHaveLength(1);
+  const listener = vi.fn();
+  window.addEventListener('codebuddy:open-conversation-change', listener);
+  try {
+    fireEvent.click(screen.getByRole('button', { name: '/fixture/child.py' }));
+    expect(listener.mock.calls[0][0].detail).toEqual({
+      sessionId: parent,
+      turnId: 'human',
+      filePath: '/fixture/child.py',
+    });
+  } finally {
+    window.removeEventListener('codebuddy:open-conversation-change', listener);
+  }
+  view.rerender(
+    <SubagentCatalogProvider parentSessionId="other">
+      <MainCard sessionId="other" />
+    </SubagentCatalogProvider>
+  );
+  expect(screen.queryByRole('button', { name: '/fixture/child.py' })).toBeNull();
+});
+
+it('backfills a temporarily unavailable parent attribution without duplicating readable child messages', async () => {
+  vi.mocked(readSubagentCatalog).mockResolvedValue({ ...root, children: [root.children[0]] });
+  const events = [
+    {
+      seq: 0,
+      time: 1100,
+      type: 'tool/call',
+      data: { callId: 'edit', name: 'write', arguments: '{"file_path":"/fixture/child.py"}' },
+    },
+    {
+      seq: 1,
+      time: 1200,
+      type: 'tool/result',
+      data: {
+        message: { id: 'receipt', role: 'tool', toolCallId: 'edit', content: [], isError: false },
+        fileResult: {
+          path: '/fixture/child.py',
+          operation: 'create',
+          diffs: [{ oldText: '', newText: 'child\n' }],
+        },
+      },
+    },
+    { seq: 2, time: 1300, type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } },
+  ];
+  const page = {
+    sessionId: parent,
+    childSessionId: 'review',
+    throughSeq: 2,
+    hasMore: false,
+    events,
+  };
+  vi.mocked(readSubagentConversation).mockResolvedValue({ ...page, attributionUnavailable: true });
+  const messages: Message[] = [
+    {
+      id: 'human',
+      role: 'user',
+      created: 1,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'text', text: 'Make a file' }],
+    },
+  ];
+  function Evidence() {
+    const source = useConversationChangeMessages(parent, messages);
+    const history = usePreloadedSubagentConversation(parent, 'review')?.snapshot?.messages ?? [];
+    return (
+      <>
+        <output aria-label="File count">
+          {collectConversationChanges(source).flatMap((turn) => turn.files).length}
+        </output>
+        <output aria-label="Readable messages">{history.length}</output>
+      </>
+    );
+  }
+  render(
+    <SubagentCatalogProvider parentSessionId={parent} active={false}>
+      <Evidence />
+    </SubagentCatalogProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  await settle();
+  const count = screen.getByLabelText('Readable messages').textContent;
+  expect(Number(count)).toBeGreaterThan(0);
+  expect(screen.getByLabelText('File count')).toHaveTextContent('0');
+  vi.mocked(readSubagentConversation).mockResolvedValue({
+    ...page,
+    events: [
+      { ...events[0], data: { ...events[0].data, parentUserMessageId: 'human' } },
+      ...events.slice(1),
+    ],
+  });
+  await act(async () => {
+    vi.advanceTimersByTime(5000);
+  });
+  expect(readSubagentConversation).toHaveBeenLastCalledWith(parent, 'review', -1, []);
+  expect(screen.getByLabelText('File count')).toHaveTextContent('1');
+  expect(screen.getByLabelText('Readable messages')).toHaveTextContent(count!);
+});
 
 it('opens exact readonly children without tree arrows or creation dates and stops polling closed views', async () => {
   vi.mocked(readSubagentCatalog).mockResolvedValue(root);

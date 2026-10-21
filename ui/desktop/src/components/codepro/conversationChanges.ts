@@ -30,6 +30,46 @@ export interface ConversationChangeTurn {
   removed: number;
 }
 
+/** Merge only committed child tool records into the display ledger. The main
+ * conversation still supplies its user-turn boundaries; child prose and tasks
+ * must never create extra main turns. Native admission identifies each call's
+ * parent user message; missing ownership stays out of the main-turn totals.
+ */
+export function conversationChangeMessages(
+  messages: Message[],
+  children: ReadonlyArray<{ id: string; messages: Message[] }>
+): Message[] {
+  const records: Message[] = [];
+  const users = new Set(messages.filter(isUserTurn).map((message) => message.id));
+  for (const child of children) {
+    const admitted = new Set(
+      child.messages
+        .flatMap(getToolRequests)
+        .filter(
+          (request) =>
+            typeof request.metadata?.parentUserMessageId === 'string' &&
+            users.has(request.metadata.parentUserMessageId)
+        )
+        .map((request) => request.id)
+    );
+    for (const message of child.messages) {
+      const content = message.content.flatMap((entry) =>
+        (entry.type === 'toolRequest' || entry.type === 'toolResponse') && admitted.has(entry.id)
+          ? [{ ...entry, id: `child:${JSON.stringify([child.id, entry.id])}` }]
+          : []
+      );
+      if (content.length && Number.isFinite(message.created))
+        records.push({
+          ...message,
+          id: `child:${JSON.stringify([child.id, message.id])}`,
+          content,
+        });
+    }
+  }
+  if (!records.length) return messages;
+  return [...messages, ...records];
+}
+
 function isUserTurn(message: Message): boolean {
   return (
     message.role === 'user' &&
@@ -169,7 +209,14 @@ export function collectConversationChanges(
     }
     for (const request of getToolRequests(message)) {
       // A replay may replace a partial argument snapshot, never its original turn.
-      requests.set(request.id, { request, turn: requests.get(request.id)?.turn ?? current });
+      const parent = request.metadata?.parentUserMessageId;
+      requests.set(request.id, {
+        request,
+        turn:
+          requests.get(request.id)?.turn ??
+          (typeof parent === 'string' ? byUserId.get(parent) : undefined) ??
+          current,
+      });
     }
     for (const response of getToolResponses(message)) {
       // ACP responses are terminal: replaying the same receipt must not count twice.

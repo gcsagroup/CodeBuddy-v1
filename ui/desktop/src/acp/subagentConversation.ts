@@ -17,6 +17,7 @@ export interface SubagentConversationPage {
   ancestorSessionIds?: string[];
   throughSeq: number;
   hasMore: boolean;
+  attributionUnavailable?: boolean;
   events: SubagentConversationEvent[];
 }
 
@@ -76,14 +77,23 @@ export function createSubagentConversationProjection(sessionId: string) {
   let throughSeq = -1;
   let initialTaskSeen = false;
   let status: 'running' | 'completed' | 'failed' | 'interrupted' | undefined;
+  const parentInputs = new Map<string, string>();
   const apply = (update: SessionNotification['update']) => adapter.apply({ sessionId, update });
   return {
     append(events: SubagentConversationEvent[]): Message[] {
       for (const event of events) {
+        // A background reread can recover optional attribution after the
+        // transcript was already displayed. Never replay its native messages.
+        if (
+          event.type === 'tool/call' &&
+          typeof event.data.callId === 'string' &&
+          typeof event.data.parentUserMessageId === 'string'
+        )
+          parentInputs.set(event.data.callId, event.data.parentUserMessageId);
         if (event.seq <= throughSeq) continue;
         throughSeq = event.seq;
         const data = event.data;
-        const created = Math.floor(new Date(event.time ?? 0).getTime() / 1000);
+        const created = new Date(event.time ?? 0).getTime() / 1000;
         const message = record(event.type === 'user/message' ? data : data.message);
         // The initial delegated task includes Harness's private return guidance.
         // The panel title names that task; later parent messages remain visible.
@@ -161,7 +171,17 @@ export function createSubagentConversationProjection(sessionId: string) {
           });
         }
       }
-      return adapter.getMessages();
+      return adapter.getMessages().map((message) => ({
+        ...message,
+        content: message.content.map((entry) =>
+          entry.type === 'toolRequest' && parentInputs.has(entry.id)
+            ? {
+                ...entry,
+                metadata: { ...entry.metadata, parentUserMessageId: parentInputs.get(entry.id)! },
+              }
+            : entry
+        ),
+      }));
     },
     get status() {
       return status;

@@ -10,6 +10,7 @@ import {
 } from '../components/codepro/conversationChanges';
 import { FileChangeCount, FileChangeDiff } from '../components/codepro/CodeProFileChange';
 import { openConversationChange } from './conversationChangePanel';
+import { useConversationChangeMessages } from './WorkspaceSubagents';
 
 export const changeMessages = defineMessages({
   title: { id: 'workspaceChanges.title', defaultMessage: 'Changes' },
@@ -61,16 +62,17 @@ export function WorkspaceChanges({
   selection?: { turnId?: string; filePath: string; toolCallId?: string };
 }) {
   const intl = useIntl();
+  const changeSource = useConversationChangeMessages(sessionId, messages);
   const turns = useMemo(
-    () => collectConversationChanges(messages, workspaceRoot),
-    [messages, workspaceRoot]
+    () => collectConversationChanges(changeSource, workspaceRoot),
+    [changeSource, workspaceRoot]
   );
   const [filter, setFilter] = useState('all');
   const label = (number: number) =>
     intl.formatMessage(number ? changeMessages.turn : changeMessages.unassigned, { number });
   const turn = selection && turns.find((item) => item.id === selection.turnId);
   const operation = selection?.toolCallId
-    ? conversationFileOperation(messages, selection.toolCallId)
+    ? conversationFileOperation(changeSource, selection.toolCallId)
     : undefined;
   const file = selection?.toolCallId
     ? operation?.kind === 'change' &&

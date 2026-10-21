@@ -7,6 +7,7 @@ import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
 import type { PanelFileInfo } from '../workspace-panel/workspacePanelTypes';
 import { WorkspaceMedia } from '../workspace-panel/WorkspaceMedia';
+import { fileIdentity } from './codepro/conversationChanges';
 
 // These are navigation candidates, never evidence that a file was written or a task completed.
 function fileReferenceCandidates(content: string): string[] {
@@ -36,10 +37,12 @@ export function WorkspaceFileReferences({
   sessionId,
   content,
   paths,
+  excludePaths,
 }: {
   sessionId: string;
   content: string;
   paths?: string[];
+  excludePaths?: string[];
 }) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
@@ -83,7 +86,12 @@ export function WorkspaceFileReferences({
       cancelled = true;
     };
   }, [sessionId, root, candidates, key]);
-  if (verified?.key !== key || !verified.files.length) return null;
+  const excluded = new Set(excludePaths?.map((path) => fileIdentity(path, root)));
+  const files =
+    verified?.key === key
+      ? verified.files.filter((file) => !excluded.has(fileIdentity(file.path, root)))
+      : [];
+  if (!files.length) return null;
   return (
     <Collapsible
       open={expanded}
@@ -107,7 +115,7 @@ export function WorkspaceFileReferences({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent className="codepro-disclosure-content border-t border-border-subtle py-1">
-        {verified.files.map((file) => (
+        {files.map((file) => (
           <button
             key={file.path}
             type="button"

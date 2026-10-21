@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '../../types/message';
-import { collectConversationChanges, conversationFileOperation } from './conversationChanges';
+import {
+  collectConversationChanges,
+  conversationFileOperation,
+  conversationChangeMessages,
+} from './conversationChanges';
 
 const metadata = { userVisible: true, agentVisible: true };
 const audit = {
@@ -70,6 +74,53 @@ const operation = (id: string, path = '/fixture/app.py') => [
 ];
 
 describe('conversation change evidence ledger', () => {
+  it('merges child receipts across reuse without child prose, call-id collisions or late-result reassignment', () => {
+    const main = [
+      user('first'),
+      ...operation('same', '/fixture/main.py'),
+      { ...user('next'), created: 13 },
+    ];
+    const child = [
+      { ...user('child-task'), created: 10.5 },
+      { ...request('same', '/fixture/child.py'), created: 11.1 },
+      {
+        ...response('same', { path: '/fixture/child.py', before: '', after: 'child\n' }),
+        created: 15,
+      },
+      { ...request('reuse', '/fixture/later.py'), created: 14 },
+      {
+        ...response('reuse', { path: '/fixture/later.py', before: '', after: 'later\n' }),
+        created: 16,
+      },
+    ];
+    const second = operation('same', '/fixture/second.py');
+    for (const entry of [...child, ...second])
+      for (const request of entry.content)
+        if (request.type === 'toolRequest')
+          request.metadata = {
+            ...request.metadata,
+            parentUserMessageId: request.id === 'reuse' ? 'next' : 'first',
+          };
+    const merged = conversationChangeMessages(main, [
+      { id: 'a', messages: child },
+      { id: 'b', messages: second },
+    ]);
+    const turns = collectConversationChanges(merged, '/fixture');
+    expect(turns.map((turn) => turn.id)).toEqual(['first', 'next']);
+    expect(turns[0].files.map((file) => file.path)).toEqual([
+      '/fixture/main.py',
+      '/fixture/child.py',
+      '/fixture/second.py',
+    ]);
+    expect(turns[1].files.map((file) => file.path)).toEqual(['/fixture/later.py']);
+    expect(turns[0].files.every((file) => file.changes.length === 1)).toBe(true);
+    expect(conversationFileOperation(merged, 'child:["a","same"]')?.path).toBe('/fixture/child.py');
+    expect(child[1].content[0]).toMatchObject({ id: 'same' });
+    expect(conversationChangeMessages(main, [])).toBe(main);
+    expect(
+      conversationChangeMessages(main, [{ id: 'unowned', messages: operation('unowned') }])
+    ).toBe(main);
+  });
   it('resolves the exact operation with a late result, using its receipt path and never a later edit', () => {
     const a = request('a', '/fixture/stale.py');
     const result = response('a', { path: '/fixture/actual.py', before: 'old\n', after: 'first\n' });

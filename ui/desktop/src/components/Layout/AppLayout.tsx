@@ -18,6 +18,7 @@ import {
   WORKSPACE_PANEL_GAP as CODEPRO_TASK_PANEL_GAP,
   WORKSPACE_PANEL_TRANSITION,
   WorkspacePanel as CodeProTaskPanel,
+  WorkspaceSubagentProvider,
   type WorkspacePanelLayout as CodeProTaskPanelLayout,
 } from '../../workspace-panel/WorkspacePanel';
 
@@ -277,54 +278,61 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
         </div>
 
         {/* Main content — no border / no card; just flows on the canvas. */}
-        <div ref={workAreaRef} className="relative flex-1 min-w-0 overflow-hidden min-h-0">
-          <motion.div
-            initial={false}
-            animate={{
-              width: chatHidden
-                ? 0
-                : availableWidth -
-                  (getCodeProChatInset(
-                    showCodeProTaskPanel,
-                    isCodeProTaskPanelExpanded,
-                    panelWidth,
-                    codeProTaskPanelLayout
-                  ) ?? 0),
-            }}
-            transition={{
-              ...WORKSPACE_PANEL_TRANSITION,
-              duration: isPanelResizing || reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
-            }}
-            className="h-full min-w-0 overflow-hidden min-h-0"
-            aria-hidden={chatHidden}
-            inert={chatHidden}
-          >
-            <div className="h-full" style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}>
-              <Outlet />
-              {/* Always render ChatSessionsContainer to keep SSE connections alive.
-              When navigating away from /pair, hide it with CSS */}
-              <div className={isOnPairRoute ? 'contents' : 'hidden'}>
-                <ChatSessionsContainer setChat={setChat} activeSessions={activeSessions} isChatVisible={isOnPairRoute} />
-              </div>
-            </div>
-          </motion.div>
-          {showCodeProTaskPanel && (
-            <CodeProTaskPanel
-              expanded={isCodeProTaskPanelExpanded}
-              layout={codeProTaskPanelLayout}
-              onExpandedChange={(expanded) => {
-                setIsCodeProTaskPanelExpanded(expanded);
-                setIsChatCollapsed(false);
+        <WorkspaceSubagentProvider expanded={showCodeProTaskPanel && isCodeProTaskPanelExpanded}>
+          <div ref={workAreaRef} className="relative flex-1 min-w-0 overflow-hidden min-h-0">
+            <motion.div
+              initial={false}
+              animate={{
+                width: chatHidden
+                  ? 0
+                  : availableWidth -
+                    (getCodeProChatInset(
+                      showCodeProTaskPanel,
+                      isCodeProTaskPanelExpanded,
+                      panelWidth,
+                      codeProTaskPanelLayout
+                    ) ?? 0),
               }}
-              width={panelWidth}
-              resizing={isPanelResizing}
-              onWidthChange={resizePanel}
-              chatCollapsed={chatHidden}
-              onChatCollapsedChange={changeChatCollapsed}
-              onResetWidth={resetPanelWidth}
-            />
-          )}
-        </div>
+              transition={{
+                ...WORKSPACE_PANEL_TRANSITION,
+                duration:
+                  isPanelResizing || reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
+              }}
+              className="h-full min-w-0 overflow-hidden min-h-0"
+              aria-hidden={chatHidden}
+              inert={chatHidden}
+            >
+              <div className="h-full" style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}>
+                <Outlet />
+                {/* Always render ChatSessionsContainer to keep SSE connections alive.
+              When navigating away from /pair, hide it with CSS */}
+                <div className={isOnPairRoute ? 'contents' : 'hidden'}>
+                  <ChatSessionsContainer
+                    setChat={setChat}
+                    activeSessions={activeSessions}
+                    isChatVisible={isOnPairRoute}
+                  />
+                </div>
+              </div>
+            </motion.div>
+            {showCodeProTaskPanel && (
+              <CodeProTaskPanel
+                expanded={isCodeProTaskPanelExpanded}
+                layout={codeProTaskPanelLayout}
+                onExpandedChange={(expanded) => {
+                  setIsCodeProTaskPanelExpanded(expanded);
+                  setIsChatCollapsed(false);
+                }}
+                width={panelWidth}
+                resizing={isPanelResizing}
+                onWidthChange={resizePanel}
+                chatCollapsed={chatHidden}
+                onChatCollapsedChange={changeChatCollapsed}
+                onResetWidth={resetPanelWidth}
+              />
+            )}
+          </div>
+        </WorkspaceSubagentProvider>
       </div>
     </div>
   );

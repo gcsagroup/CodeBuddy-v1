@@ -11,11 +11,16 @@ vi.mock('./WorkspaceSubagent', () => ({
     <div>child-conversation:{childSessionId}</div>
   ),
 }));
-const snapshotMock = vi.hoisted(() => ({ binding: 'project_container', readonlyHistory: false }));
+const snapshotMock = vi.hoisted(() => ({
+  binding: 'project_container',
+  readonlyHistory: false,
+  sessionId: 'container',
+  root: '/Users/test/Projects',
+}));
 vi.mock('../acp/chatSessionStore', () => ({
   useAcpChatSessionSnapshot: () => ({
     session: {
-      working_dir: '/Users/test/Projects',
+      working_dir: snapshotMock.root,
       extension_data: {
         workspaceBinding: snapshotMock.binding,
         readonlyHistory: snapshotMock.readonlyHistory,
@@ -24,7 +29,7 @@ vi.mock('../acp/chatSessionStore', () => ({
   }),
 }));
 vi.mock('react-router-dom', () => ({
-  useSearchParams: () => [new URLSearchParams('resumeSessionId=container')],
+  useSearchParams: () => [new URLSearchParams({ resumeSessionId: snapshotMock.sessionId })],
 }));
 vi.mock('./WorkspaceTerminal', () => ({
   WorkspaceTerminal: ({ id }: { id: string }) => <div>terminal:{id}</div>,
@@ -173,7 +178,10 @@ it('opens historical changes without a writable workspace and keeps file tabs se
   expect(invoke).not.toHaveBeenCalled();
 });
 beforeEach(() => {
+  snapshotMock.binding = 'project_container';
   snapshotMock.readonlyHistory = false;
+  snapshotMock.sessionId = 'container';
+  snapshotMock.root = '/Users/test/Projects';
   invoke.mockReset();
   Object.assign(window.electron, { workspacePanel: invoke, platform: 'win32' });
   invoke.mockImplementation(async (r: PanelRequest) => {
@@ -195,6 +203,79 @@ function panel(id = globalThis.crypto.randomUUID()) {
   );
   return { ...render(element, { wrapper: IntlTestWrapper }), scope, element };
 }
+
+it('isolates workbench tabs and drafts on route and workspace changes while keeping the main subtree mounted', async () => {
+  const first = globalThis.crypto.randomUUID(),
+    second = globalThis.crypto.randomUUID();
+  snapshotMock.binding = 'writable_project';
+  snapshotMock.sessionId = first;
+  snapshotMock.root = 'D:/fixture/first';
+  const tree = () => (
+    <>
+      <input aria-label="Main conversation draft" defaultValue="" />
+      <WorkspacePanel expanded width={560} onExpandedChange={vi.fn()} />
+    </>
+  );
+  const view = render(tree(), { wrapper: IntlTestWrapper });
+  fireEvent.change(screen.getByLabelText('Main conversation draft'), {
+    target: { value: 'Keep the main conversation mounted' },
+  });
+  const openDraft = async (id: string, draft: string) => {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: id, filePath: 'note.txt' },
+      })
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+      target: { value: draft },
+    });
+  };
+  const openChild = (id: string, child: string) =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-subagent-conversation', {
+        detail: { parentSessionId: id, childSessionId: child, title: child },
+      })
+    );
+  const switchTo = (id: string, root: string) => {
+    snapshotMock.sessionId = id;
+    snapshotMock.root = root;
+    view.rerender(tree());
+    expect(screen.getByLabelText('Main conversation draft')).toHaveValue(
+      'Keep the main conversation mounted'
+    );
+  };
+
+  await openDraft(first, 'first chat draft');
+  openChild(first, 'first-child');
+  expect(screen.getByText('child-conversation:first-child')).toBeVisible();
+
+  switchTo(second, 'D:/fixture/second');
+  expect(screen.queryByRole('tab', { name: 'first-child' })).toBeNull();
+  expect(screen.queryByRole('tab', { name: /note\.txt/ })).toBeNull();
+  expect(screen.queryByText('child-conversation:first-child')).toBeNull();
+  await openDraft(second, 'second chat draft');
+  openChild(second, 'second-child');
+
+  switchTo(first, 'D:/fixture/first');
+  expect(screen.getByText('child-conversation:first-child')).toBeVisible();
+  expect(screen.queryByRole('tab', { name: 'second-child' })).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: /note\.txt/ }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('first chat draft');
+
+  switchTo(first, 'D:/fixture/rebound');
+  expect(screen.queryByRole('tab', { name: /note\.txt|first-child/ })).toBeNull();
+  openChild(first, 'rebound-child');
+  expect(screen.getByText('child-conversation:rebound-child')).toBeVisible();
+
+  switchTo(second, 'D:/fixture/second');
+  expect(screen.getByText('child-conversation:second-child')).toBeVisible();
+  expect(screen.queryByRole('tab', { name: 'rebound-child' })).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: /note\.txt/ }));
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('second chat draft');
+});
 
 it('invalidates retired child views after a confirmed edit, preserving file drafts and other chats', async () => {
   const { scope } = panel();

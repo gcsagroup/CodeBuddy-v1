@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -41,6 +41,7 @@ import {
   WorkspaceSubagents,
   SubagentCatalogProvider,
   subagentsMessages,
+  useConversationChangeMessages,
 } from './WorkspaceSubagents';
 import { ChatState } from '../types/chatState';
 import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
@@ -90,7 +91,7 @@ type Props = {
   onResetWidth?: () => void;
 };
 const EMPTY_MESSAGES: Message[] = [];
-export function WorkspacePanel(props: Props) {
+function useWorkspaceScope() {
   const [params] = useSearchParams();
   const id = params.get('resumeSessionId') ?? '';
   const snapshot = useAcpChatSessionSnapshot(id);
@@ -107,25 +108,44 @@ export function WorkspacePanel(props: Props) {
     }),
     [id, snapshot?.session?.working_dir, isContainer]
   );
+  return { scope, snapshot };
+}
+
+export function WorkspaceSubagentProvider({
+  expanded,
+  children,
+}: {
+  expanded: boolean;
+  children: ReactNode;
+}) {
+  const { scope, snapshot } = useWorkspaceScope();
   return (
     <SubagentCatalogProvider
-      key={scopeKey(scope)}
-      parentSessionId={id}
+      cacheKey={scopeKey(scope)}
+      parentSessionId={scope.sessionId}
       enabled={
         !!snapshot?.session && !!scope.root && snapshot.chatState !== ChatState.LoadingConversation
       }
       active={
-        props.expanded ||
+        expanded ||
         (!!snapshot &&
           ![ChatState.Idle, ChatState.LoadingConversation].includes(snapshot.chatState))
       }
     >
-      <WorkspacePanelContent
-        {...props}
-        scope={scope}
-        messages={snapshot?.messages ?? EMPTY_MESSAGES}
-      />
+      {children}
     </SubagentCatalogProvider>
+  );
+}
+
+export function WorkspacePanel(props: Props) {
+  const { scope, snapshot } = useWorkspaceScope();
+  return (
+    <WorkspacePanelContent
+      key={scopeKey(scope)}
+      {...props}
+      scope={scope}
+      messages={snapshot?.messages ?? EMPTY_MESSAGES}
+    />
   );
 }
 
@@ -220,6 +240,7 @@ export function WorkspacePanelContent({
 }: Props & { scope: PanelScope; messages?: Message[] }) {
   const intl = useIntl(),
     key = scopeKey(scope);
+  const changeSource = useConversationChangeMessages(scope.sessionId, messages);
   const reducedMotion = useReducedMotion();
   const [contentMounted, setContentMounted] = useState(expanded);
   useEffect(() => {
@@ -486,7 +507,7 @@ export function WorkspacePanelContent({
       const target = (event as CustomEvent<ConversationChangeTarget>).detail;
       if (!target || target.sessionId !== scope.sessionId) return;
       const operation = target.toolCallId
-        ? conversationFileOperation(messages, target.toolCallId)
+        ? conversationFileOperation(changeSource, target.toolCallId)
         : undefined;
       if (
         target.toolCallId &&
@@ -516,7 +537,7 @@ export function WorkspacePanelContent({
           : `change:${JSON.stringify([turnId, fileIdentity(filePath, scope.root)])}`;
         const turn =
           turnId &&
-          collectConversationChanges(messages, scope.root).find((item) => item.id === turnId);
+          collectConversationChanges(changeSource, scope.root).find((item) => item.id === turnId);
         const name = filePath.replace(/\\/g, '/').split('/').pop() || filePath;
         const title = turn
           ? `${intl.formatMessage(turn.number ? changeMessages.turn : changeMessages.unassigned, { number: turn.number })} · ${name}`
@@ -542,7 +563,16 @@ export function WorkspacePanelContent({
     };
     window.addEventListener(OPEN_CONVERSATION_CHANGE, open);
     return () => window.removeEventListener(OPEN_CONVERSATION_CHANGE, open);
-  }, [scope.sessionId, scope.root, messages, intl, update, onExpandedChange, available, openFile]);
+  }, [
+    scope.sessionId,
+    scope.root,
+    changeSource,
+    intl,
+    update,
+    onExpandedChange,
+    available,
+    openFile,
+  ]);
   const add = useCallback(
     async (kind: 'terminal' | 'browser') => {
       if (!available) return;

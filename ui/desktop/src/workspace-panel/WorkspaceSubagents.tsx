@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
 } from '../acp/subagentConversation';
 import { AppEvents } from '../constants/events';
 import type { Message } from '../types/message';
+import { conversationChangeMessages } from '../components/codepro/conversationChanges';
 
 export const subagentsMessages = defineMessages({
   title: { id: 'workspaceSubagents.title', defaultMessage: 'Subagents' },
@@ -82,11 +84,18 @@ function SubagentObservation({
     let messages: Message[] = [];
     let truncated = false;
     let reading = false;
+    let retryAttribution = false;
     const projection = createSubagentConversationProjection(childSessionId);
     onChange(childSessionId, null);
     const read = async (required = false) => {
       if (disposed || reading) return;
-      if (!required && !activeRef.current && latest?.status && latest.status !== 'running') {
+      if (
+        !required &&
+        !retryAttribution &&
+        !activeRef.current &&
+        latest?.status &&
+        latest.status !== 'running'
+      ) {
         timer = setTimeout(() => void read(), 5000);
         return;
       }
@@ -100,6 +109,8 @@ function SubagentObservation({
           ancestors
         );
         if (disposed) return;
+        if (afterSeq === -1) retryAttribution = false;
+        retryAttribution ||= page.attributionUnavailable === true;
         afterSeq = page.throughSeq;
         if (page.events.length) messages = projection.append(page.events);
         truncated ||= page.events.some((event) => event.truncated);
@@ -107,7 +118,12 @@ function SubagentObservation({
         hasMore = page.hasMore;
         // Publish only the tail of a complete native read, not an old start in
         // the first page. These are display facts, never execution control.
-        if (!hasMore) onChange(childSessionId, { turn: latest, messages, truncated });
+        if (!hasMore) {
+          onChange(childSessionId, { turn: latest, messages, truncated });
+          // Optional root-history failure must not hide readable child content
+          // or permanently lose file statistics. Retry on the normal interval.
+          if (retryAttribution) afterSeq = -1;
+        }
       } catch (error) {
         if (!disposed)
           onChange(childSessionId, { turn: undefined, messages, truncated, error: String(error) });
@@ -248,6 +264,22 @@ interface SubagentCatalogSnapshot {
 
 const SubagentCatalogContext = createContext<SubagentCatalogSnapshot | undefined>(undefined);
 
+export function useConversationChangeMessages(sessionId: string | undefined, messages: Message[]) {
+  const cache = useContext(SubagentCatalogContext);
+  return useMemo(() => {
+    if (!cache?.enabled || cache.parentSessionId !== sessionId || !cache.children) return messages;
+    return conversationChangeMessages(
+      messages,
+      cache.children.flatMap((entry) => {
+        const snapshot = cache.turns[entry.id];
+        return snapshot && ['one-shot', 'continuable'].includes(entry.mode)
+          ? [{ id: entry.id, messages: snapshot.messages }]
+          : [];
+      })
+    );
+  }, [cache, sessionId, messages]);
+}
+
 export function usePreloadedSubagentConversation(
   parentSessionId: string,
   childSessionId: string,
@@ -272,13 +304,59 @@ export function usePreloadedSubagentConversation(
 
 interface SubagentCatalogProviderProps {
   parentSessionId: string;
+  cacheKey?: string;
   enabled?: boolean;
   active?: boolean;
   children: ReactNode;
 }
 
-export function SubagentCatalogProvider(props: SubagentCatalogProviderProps) {
-  return <SubagentCatalogCache key={props.parentSessionId} {...props} />;
+export function SubagentCatalogProvider({
+  children,
+  cacheKey,
+  ...props
+}: SubagentCatalogProviderProps) {
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId === props.parentSessionId)
+        setEpoch((value) => value + 1);
+    };
+    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+    return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+  }, [props.parentSessionId]);
+  const identity = JSON.stringify([cacheKey ?? props.parentSessionId, epoch]);
+  const currentIdentity = useRef(identity);
+  currentIdentity.current = identity;
+  const [published, setPublished] = useState<{
+    identity: string;
+    snapshot: SubagentCatalogSnapshot;
+  }>();
+  const publish = useCallback(
+    (snapshot: SubagentCatalogSnapshot) => {
+      if (currentIdentity.current === identity) setPublished({ identity, snapshot });
+    },
+    [identity]
+  );
+  const snapshot =
+    published?.identity === identity &&
+    published.snapshot.enabled === (props.enabled !== false) &&
+    props.enabled !== false
+      ? published.snapshot
+      : {
+          parentSessionId: props.parentSessionId,
+          turns: {},
+          error: '',
+          refresh: () => {},
+          enabled: props.enabled !== false,
+        };
+  // Only the readonly loader remounts. Main chats keep their SSE connections and
+  // local state when switching the current conversation or workspace binding.
+  return (
+    <SubagentCatalogContext.Provider value={snapshot}>
+      <SubagentCatalogCache key={identity} {...props} onChange={publish} />
+      {children}
+    </SubagentCatalogContext.Provider>
+  );
 }
 
 // One readonly display cache per mounted main conversation. It starts after the
@@ -287,8 +365,10 @@ function SubagentCatalogCache({
   parentSessionId,
   enabled = true,
   active = true,
-  children: content,
-}: SubagentCatalogProviderProps) {
+  onChange,
+}: Omit<SubagentCatalogProviderProps, 'children' | 'cacheKey'> & {
+  onChange: (snapshot: SubagentCatalogSnapshot) => void;
+}) {
   const [revision, setRevision] = useState(0);
   const [children, setChildren] = useState<SubagentCatalogEntry[]>();
   const [turns, setTurns] = useState<Record<string, SubagentObservationValue>>({});
@@ -298,17 +378,8 @@ function SubagentCatalogCache({
   const [error, setError] = useState('');
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
-    const changed = (event: Event) => {
-      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId !== parentSessionId)
-        return;
-      setChildren(undefined);
-      setTurns({});
-      setError('');
-      refresh();
-    };
-    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
-    return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
-  }, [parentSessionId, refresh]);
+    onChange({ parentSessionId, children, turns, error, refresh, enabled });
+  }, [onChange, parentSessionId, children, turns, error, refresh, enabled]);
   useEffect(() => {
     if (!enabled || !parentSessionId) return;
     let disposed = false;
@@ -333,9 +404,7 @@ function SubagentCatalogCache({
     };
   }, [parentSessionId, enabled, active, revision]);
   return (
-    <SubagentCatalogContext.Provider
-      value={{ parentSessionId, children, turns, error, refresh, enabled }}
-    >
+    <>
       {enabled &&
         children
           ?.filter((entry) => entry.mode === 'continuable' || entry.mode === 'one-shot')
@@ -350,8 +419,7 @@ function SubagentCatalogCache({
               revision={revision}
             />
           ))}
-      {content}
-    </SubagentCatalogContext.Provider>
+    </>
   );
 }
 

@@ -191,7 +191,7 @@ function fileResult(source, clipping) {
 }
 
 // Select display fields rather than copying opaque request, provider or tool metadata.
-function publicEvent(event) {
+function publicEvent(event, parentInputs = []) {
   if (!record(event) || !integer(event.seq) || !record(event.data)) return;
   const source = event.data, clipping = { truncated: false };
   let data;
@@ -220,6 +220,11 @@ function publicEvent(event) {
       callId: bounded(source.callId, 256, clipping), name: bounded(source.name, 256, clipping),
       arguments: bounded(source.arguments, MAX_ARGUMENT_CHARS, clipping),
     };
+    // Attribute display receipts to native human-input admission, never the
+    // compatibility journal's second-resolution timestamps or model prose.
+    const time = new Date(event.time).getTime();
+    const input = parentInputs.findLast(item => item.time <= time);
+    if (input && input.time < time) data.parentUserMessageId = input.id;
   } else if (event.type === 'turn/start' || event.type === 'turn/end') {
     if (!integer(source.turn)) return;
     data = {};
@@ -265,10 +270,31 @@ export async function readSubagentConversation(parent, params, driver) {
   if (afterSeq >= history.events.length) throw invalid('afterSeq is ahead of the subagent history');
   let index = Math.max(afterSeq + 1, history.inheritedEventCount);
   let throughSeq = index - 1, scanned = 0, bytes = 0;
+  let parentInputs = [], attributionUnavailable = false;
+  if (!path.length && history.events.slice(index, index + MAX_SCANNED_EVENTS).some(event => event.type === 'tool/call' && ['write', 'edit'].includes(event.data?.name))) {
+    let owner;
+    try { owner = await driver.nativeHistory(nativeRoot); }
+    catch { /* Optional turn statistics must not hide the child's readable history. */ }
+    assertCurrent();
+    attributionUnavailable = owner?.meta?.id !== nativeRoot || !Array.isArray(owner.events);
+    if (!attributionUnavailable) {
+      const seen = new Set();
+      for (const event of owner.events) {
+        const inputs = event.type === 'agent/inbox/spliced' ? event.data?.inserted : event.type === 'user/message' ? [event.data] : [];
+        for (const message of inputs ?? []) {
+          const id = message.source?.rpcId, time = new Date(event.time).getTime();
+          if (message.source?.kind !== 'user' || typeof id !== 'string' || !id || id.length > 256 || !Number.isFinite(time) || seen.has(id)) continue;
+          seen.add(id);
+          parentInputs.push({ id, time });
+        }
+      }
+      parentInputs.sort((left, right) => left.time - right.time);
+    }
+  }
   const events = [];
   while (index < history.events.length && scanned < MAX_SCANNED_EVENTS && events.length < MAX_BATCH_EVENTS) {
     const source = history.events[index];
-    const projected = publicEvent(source);
+    const projected = publicEvent(source, parentInputs);
     const size = projected ? Buffer.byteLength(JSON.stringify(projected)) : 0;
     if (events.length && bytes + size > MAX_BATCH_BYTES - 1024) break;
     if (projected) { events.push(projected); bytes += size; }
@@ -279,6 +305,7 @@ export async function readSubagentConversation(parent, params, driver) {
   return {
     sessionId: parent.id, childSessionId,
     ...(params.ancestorSessionIds === undefined ? {} : { ancestorSessionIds: path }),
+    ...(attributionUnavailable ? { attributionUnavailable: true } : {}),
     throughSeq, hasMore: index < history.events.length, events,
   };
 }

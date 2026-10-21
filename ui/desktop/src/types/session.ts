@@ -3,7 +3,7 @@ import type { Message } from './message';
 
 export type ExtensionData = Record<string, unknown>;
 
-export type GooseMode = 'auto' | 'approve' | 'smart_approve' | 'chat';
+export type GooseMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
 export type ModelConfig = {
   context_limit?: number | null;

@@ -12,7 +12,7 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { listSubagentCatalog, readSubagentConversation } from '../subagent-conversations.mjs';
 import { createConversationDriver } from '../conversation-driver.mjs';
 
-test('native child stays unattended through six live switches and cold cross-turn reuse', { timeout: 45000 }, async t => {
+test('native child keeps its captured permission through six root switches and cold reuse', { timeout: 45000 }, async t => {
   const root=await mkdtemp(join(tmpdir(),'codebuddy-delegation-'));
   const project=join(root,'project'); await mkdir(project);
   const nativeId=randomUUID(),productId=randomUUID();
@@ -55,20 +55,20 @@ test('native child stays unattended through six live switches and cold cross-tur
   const store=await openStore(join(root,'host'));
   const session={id:productId,nativeSessionId:nativeId,cwd:project,mode:'smart_approve',type:'code_pro',workspaceBinding:'writable_project',updates:[]};
   await store.update(state=>state.sessions.push(session));
-  const host={store,settings:{extensions:async()=>[]},active:new Map(),safety:new SafetyPolicy(store)};
+  const host=Object.assign(Object.create(Compat.prototype),{store,settings:{extensions:async()=>[]},active:new Map(),safety:new SafetyPolicy(store)});
   const calls=[],events=[];
   const connection={async ask(){assert.fail('A delegated tool must never open a human approval RPC');}};
-  const callbacks={onEvent:event=>events.push(event),onPermission:async call=>{
+  const callbacks={onEvent:event=>events.push(event),onToolPolicy:async call=>{
     calls.push(call);
-    const accepted=await Compat.prototype.approveTool.call(host,session,call,connection,call.signal);
+    const accepted=await host.toolPolicy(session,call,call.signal);
     if(blockRead&&call.delegated&&call.name==='working_directory') {ready.resolve();await gate.promise;}
     return accepted;
-  }};
+  },onPermission:call=>host.approveTool(session,call,connection,call.signal)};
   await driver.prompt(nativeId,'NI_PARENT_INITIAL',callbacks);
   childId=(await driver.listSubagentChildren(nativeId))[0].id;
   assert.equal((await driver.listSubagentChildren(nativeId)).length,1);
-  const mode=async value=>store.update(state=>{state.sessions.find(s=>s.id===productId).mode=value;});
-  const matrix=[['approve','smart_approve'],['smart_approve','approve'],['approve','auto'],['auto','smart_approve'],['smart_approve','auto'],['auto','approve']];
+  const mode=async value=>driver.permissions(nativeId,{preset:value});
+  const matrix=[['read-only','workspace-write'],['workspace-write','read-only'],['read-only','danger-full-access'],['danger-full-access','workspace-write'],['workspace-write','danger-full-access'],['danger-full-access','read-only']];
   for(const [i,[from,to]] of matrix.entries()) {
     const id=`CASE${i}`,offset=events.length;
     ready=Promise.withResolvers();gate=Promise.withResolvers();blockRead=true;
@@ -80,12 +80,9 @@ test('native child stays unattended through six live switches and cold cross-tur
     assert.deepEqual((await driver.listSubagentChildren(nativeId)).map(c=>c.id),[childId]);
     const results=events.slice(offset).filter(e=>e.type==='tool_result'&&e.sessionId===childId);
     const write=results.find(e=>e.name==='write'),command=results.find(e=>e.name===(process.platform==='win32'?'pwsh':'bash'));
-    assert.equal(write?.isError,to==='approve',`${from} -> ${to}: native child file result`);
-    assert.equal(command?.isError,to!=='auto',`${from} -> ${to}: native child command result`);
-    if(to==='approve') {
-      await assert.rejects(access(join(project,`${id}.txt`)));
-      assert.match(JSON.stringify(write),/parent session policy/);
-    } else assert.equal(await readFile(join(project,`${id}.txt`),'utf8'),id);
+    assert.equal(write?.isError,false,`${from} -> ${to}: child retains its native workspace file permission`);
+    assert.equal(command?.isError,false,`${from} -> ${to}: permitted child command is not vetoed by the product root mode`);
+    assert.equal(await readFile(join(project,`${id}.txt`),'utf8'),id);
     assert.ok(results.some(e=>e.name==='send_message'&&!e.isError),'Native child reports back without human interaction');
   }
   assert.ok(calls.some(c=>c.sessionId===nativeId&&c.delegated===false),'A forked product id cannot turn its native root into a child');
@@ -93,11 +90,11 @@ test('native child stays unattended through six live switches and cold cross-tur
   assert.ok(events.some(e=>e.type==='tool_call'&&e.name==='send_message'&&e.internalControl===true));
   const reader=()=>createConversationDriver(driver,{readSession:id=>id===productId?structuredClone(session):undefined});
   const detail=await readSubagentConversation(session,{childSessionId:childId,ancestorSessionIds:[]},reader());
-  assert.ok(detail.events.some(e=>e.type==='tool/result'&&e.data.message.isError),'Denied native receipts remain in child details');
+  assert.ok(detail.events.some(e=>e.type==='tool/result'&&!e.data.message.isError),'Native execution receipts remain in child details');
   // Use the official teardown to flush native writers before a cold restore.
   await driver.close();driver=await createHarnessDriver({dataDir:join(root,'native'),cwd:project});
   await driver.createSession({sessionId:nativeId,cwd:project,provider,model:'fixture-model'});
-  await mode('smart_approve');
+  await mode('read-only');
   await driver.prompt(nativeId,'NI_PARENT_COLD',callbacks);
   assert.deepEqual((await driver.listSubagentChildren(nativeId)).map(c=>c.id),[childId]);
   assert.equal(await readFile(join(project,'COLD.txt'),'utf8'),'COLD');

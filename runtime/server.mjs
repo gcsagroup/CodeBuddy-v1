@@ -45,6 +45,7 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           "createSession",
           "warmMcpServers",
           "configureSession",
+          "permissions",
           "prompt",
           "cancel",
           "close",

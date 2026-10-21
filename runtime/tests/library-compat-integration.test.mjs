@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createCompatServer } from "../server.mjs";
+import { permissionDriver } from './fixtures/permission-driver.mjs';
 import { workspaceIdentity } from "../workspaces.mjs";
 import * as schemas from "../../ui/sdk/dist/generated/zod.gen.js";
 
@@ -145,6 +146,7 @@ async function fixture(
   });
   await new Promise((resolve) => model.listen(0, "127.0.0.1", resolve));
   const driver = {
+    permissions: permissionDriver(),
     created: [],
     prompts: [],
     async createSession(input) {

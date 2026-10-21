@@ -4467,7 +4467,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "工具操作不逐項請求批准；明確禁止、檔案沙箱限制及不可用工具仍然生效。"
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效；需要額外審批的操作無法發起審批。"
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "完全存取"
@@ -4479,16 +4479,16 @@
     "defaultMessage": "僅對話"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "已核實的唯讀查詢自動執行；寫入、命令和其他操作需批准，已明確授權的操作除外。"
+    "defaultMessage": "在唯讀沙箱內讀取檔案、執行命令。超出沙箱範圍的操作可能請求審批。"
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "請求批准"
+    "defaultMessage": "僅可檢視"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "自動執行唯讀查詢，以及透過檔案工具修改已確認專案中的檔案；命令、Git 寫入和其他操作需批准。"
+    "defaultMessage": "讀取檔案、執行命令，寫入限制在工作區與平台暫存目錄內。超出沙箱範圍的操作可能請求審批。"
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "智慧批准"
+    "defaultMessage": "工作區內修改"
   },
   "navigation.itemHome": {
     "defaultMessage": "新任務"
@@ -6366,7 +6366,7 @@
     "defaultMessage": "完全存取"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "本次選擇從下一次工具權限檢查生效。已執行中的操作維持原權限，待處理審批仍需明確選擇。"
+    "defaultMessage": "變更作用於目前 Agent。已執行的操作不回滾，既有子 Agent 保留建立時繼承的權限。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目錄：{path}。寫入檔案前需選擇專案。"
@@ -6378,10 +6378,10 @@
     "defaultMessage": "工作目錄：{path}。這不代表所有操作均已獲准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "本對話已啟用完全存取：工具操作不逐項請求批准；明確禁止、檔案沙箱限制及不可用工具仍然生效。"
+    "defaultMessage": "目前 Agent 不使用檔案與命令沙箱，明確的工具限制仍有效。"
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "請求批准"
+    "defaultMessage": "僅可檢視"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "只影響目前會話；既有工具權限規則仍然生效。"
@@ -6399,7 +6399,7 @@
     "defaultMessage": "正在切換權限…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "智慧批准"
+    "defaultMessage": "工作區內修改"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "尚未授權任何專案的寫入權限。"

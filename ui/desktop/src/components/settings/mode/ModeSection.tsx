@@ -6,7 +6,7 @@ import { defineMessages, useIntl } from '../../../i18n';
 
 const GOOSE_MODE_PREFERENCE = 'gooseMode' as const;
 const GOOSE_MAX_TURNS_PREFERENCE = 'gooseMaxTurns' as const;
-const DEFAULT_MODE = 'auto';
+const DEFAULT_MODE = 'workspace-write';
 const DEFAULT_MAX_TURNS = 1000;
 
 type PreferencesSnapshot = Awaited<ReturnType<typeof readPreferences>>;

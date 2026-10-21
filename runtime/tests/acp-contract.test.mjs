@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { createCompatServer } from "../server.mjs";
 import { Compat } from "../compat.mjs";
+import { permissionDriver } from './fixtures/permission-driver.mjs';
 import { workspaceIdentity } from "../workspaces.mjs";
 import { build } from "../../ui/node_modules/esbuild/lib/main.js";
 import { fileURLToPath } from "node:url";
@@ -101,6 +102,7 @@ async function connect(baseUrl) {
 
 function controlledDriver(prompt) {
   return {
+    permissions: permissionDriver(),
     created: [],
     cancelled: [],
     async createSession(input) {
@@ -598,27 +600,22 @@ test("session rename, archive, search and provider removal preserve readable res
   assert.equal((await reopened.request("session/list")).sessions.length, 0);
 });
 
-test('mode changes during a prompt apply to its next tool permission check', async t => {
-  const started = Promise.withResolvers(), resume = Promise.withResolvers();
-  const decisions = [];
-  let turns = 0;
-  const driver = controlledDriver(async (_id, _content, { onPermission, onEvent }) => {
-    if (++turns === 1) { started.resolve(); await resume.promise; }
-    decisions.push(await onPermission({ id: `mode-fixture-${turns}`, name: 'read_file', arguments: { path: 'synthetic-fixture.txt' } }));
-    onEvent({ type: 'text_delta', text: 'Synthetic permission check finished.' });
+test('native mode selection changes during a prompt without a second product approval decision', async t => {
+  const started = Promise.withResolvers(), resume = Promise.withResolvers(), decisions = [];
+  const driver = controlledDriver(async (_id, _content, { onToolPolicy }) => {
+    started.resolve(); await resume.promise;
+    decisions.push(await onToolPolicy({ id: 'native-read', name: 'read', arguments: {}, nativeCapability: true, readOnly: true }));
     return { stopReason: 'end_turn' };
   });
-  const { client, dataDir } = await setup(t, driver);
-  await configure(client);
+  const { client, dataDir } = await setup(t, driver); await configure(client);
   const sessionId = await newSession(client, dataDir);
-  await client.request('session/set_mode', { sessionId, modeId: 'auto' });
-  const first = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Synthetic first round' }] });
+  await client.request('session/set_mode', { sessionId, modeId: 'danger-full-access' });
+  const pending = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Hold the native turn while I change permissions' }] });
   await started.promise;
-  await client.request('session/set_mode', { sessionId, modeId: 'chat' });
-  resume.resolve();
-  await first;
-  await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Synthetic next round' }] });
-  assert.deepEqual(decisions, [false, false]);
+  await client.request('session/set_mode', { sessionId, modeId: 'read-only' });
+  resume.resolve(); await pending;
+  assert.deepEqual(decisions, [{ kind: 'allow' }], 'The native capability enforces its own sandbox; the product does not reinterpret readonly as chat-only');
+  assert.equal((await client.request('session/load', { sessionId, cwd: dataDir, mcpServers: [] })).modes.currentModeId, 'read-only');
   assert.equal(client.notifications.filter(message => message.method === 'session/request_permission').length, 0);
 });
 
@@ -634,108 +631,44 @@ async function confirmedPermissionSession(client, dataDir) {
   return response.sessionId;
 }
 
-test('three permission modes honor trusted capabilities, explicit denies and unknown tools', async t => {
-  let call, decided;
-  const driver = controlledDriver(async (_id, _content, { onPermission }) => {
-    decided = await onPermission(call);
+test('all three native presets preserve explicit tool restrictions through the DSH policy seam', async t => {
+  let call, decision;
+  const driver = controlledDriver(async (_id, _content, { onToolPolicy }) => {
+    decision = await onToolPolicy(call);
     return { stopReason: 'end_turn' };
   });
-  const { client, dataDir } = await setup(t, driver);
-  await configure(client);
+  const { client, dataDir } = await setup(t, driver); await configure(client);
   const sessionId = await confirmedPermissionSession(client, dataDir);
-  const cases = [
-    { mode: 'approve', name: 'write', delegated: true, confinedFileWrite: true, allowed: false },
-    { mode: 'smart_approve', name: 'write', delegated: true, confinedFileWrite: true, allowed: true },
-    { mode: 'smart_approve', name: 'pwsh', delegated: true, allowed: false },
-    { mode: 'auto', name: 'pwsh', delegated: true, allowed: true },
-    { mode: 'auto', name: 'write', delegated: true, permission: 'never_allow', allowed: false },
-    { mode: 'approve', name: 'write', delegated: true, permission: 'always_allow', allowed: true },
-    { mode: 'chat', name: 'read', delegated: true, readOnly: true, allowed: false },
-    { mode: 'approve', name: 'write', args: { delegated: true }, ask: true, allowed: false },
-    { mode: 'approve', name: 'send_message', delegationControl: true, allowed: true },
-    { mode: 'smart_approve', name: 'subagent', delegationControl: true, allowed: true },
-    { mode: 'smart_approve', name: 'send_message', args: { delegationControl: true }, ask: true, allowed: false },
-    { mode: 'approve', name: 'send_message', delegationControl: true, permission: 'never_allow', allowed: false },
-    { mode: 'chat', name: 'subagent', delegationControl: true, allowed: false },
-    { mode: 'smart_approve', name: 'read', readOnly: true, allowed: true },
-    { mode: 'smart_approve', name: 'write', ask: true, allowed: false },
-    { mode: 'smart_approve', name: 'pwsh', args: { command: 'Get-Content fixture.txt' }, ask: true, allowed: false },
-    { mode: 'smart_approve', name: 'read_file', args: { readOnly: true }, ask: true, allowed: false },
-    { mode: 'approve', name: 'read', readOnly: true, allowed: true },
-    { mode: 'approve', name: 'write', confinedFileWrite: true, ask: true, allowed: false },
-    { mode: 'smart_approve', name: 'write', confinedFileWrite: true, allowed: true },
-    { mode: 'auto', name: 'write', allowed: true },
-    { mode: 'smart_approve', name: 'read', readOnly: true, permission: 'never_allow', allowed: false },
-    { mode: 'auto', name: 'write', permission: 'never_allow', allowed: false },
-    { mode: 'smart_approve', name: 'write', permission: 'always_allow', allowed: true },
-    { mode: 'chat', name: 'read', readOnly: true, allowed: false },
-  ];
-  for (const [i, item] of cases.entries()) {
-    decided = undefined;
-    call = { id: `policy-${i}`, name: item.name, arguments: item.args ?? {}, delegated: item.delegated === true, readOnly: item.readOnly === true, confinedFileWrite: item.confinedFileWrite === true, delegationControl: item.delegationControl === true };
-    await client.request(ext('tools/permissions/set'), { toolPermissions: [{ toolName: item.name, permission: item.permission ?? 'ask_before' }] });
-    await client.request('session/set_mode', { sessionId, modeId: item.mode });
-    const before = client.notifications.filter(message => message.method === 'session/request_permission').length;
-    const prompt = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: `Controlled policy case ${i}` }] });
-    if (item.ask) {
-      const deadline = Date.now() + 3000;
-      let request;
-      while (!(request = client.notifications.find(message => message.method === 'session/request_permission' && message.params.toolCall.toolCallId === call.id)) && Date.now() < deadline) await delay(5);
-      assert.ok(request, `Missing approval for ${item.mode} ${item.name}`);
-      assert.equal(decided, undefined, 'The tool remains undispatched while approval is pending');
-      client.reply(request.id, { outcome: { outcome: 'selected', optionId: item.allowed ? 'allow_once' : 'reject_once' } });
+  for (const mode of ['read-only', 'workspace-write', 'danger-full-access']) {
+    await client.request('session/set_mode', { sessionId, modeId: mode });
+    for (const [permission, expected] of [['never_allow', 'deny'], ['ask_before', 'ask'], ['always_allow', 'allow']]) {
+      call = { id: mode + permission, name: 'write', arguments: {}, nativeCapability: true, sandboxMode: mode };
+      await client.request(ext('tools/permissions/set'), { toolPermissions: [{ toolName: 'write', permission }] });
+      await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Controlled tool policy observation' }] });
+      assert.equal(decision.kind, expected);
     }
-    await prompt;
-    assert.equal(decided, item.allowed, `${item.mode} ${item.name}`);
-    assert.equal(client.notifications.filter(message => message.method === 'session/request_permission').length - before, item.ask ? 1 : 0);
   }
+  assert.equal(client.notifications.filter(message => message.method === 'session/request_permission').length, 0, 'Policy proposals alone never synthesize approval requests; DSH owns the ask');
 });
 
-test('all six live transitions among manual smart and full access enforce the next tool boundary', async t => {
-  let current, reached, proceed;
-  const decisions = [];
-  const driver = controlledDriver(async (_id, _content, { onPermission }) => {
-    for (const phase of [1, 2]) {
-      decisions.push(await onPermission({ id: `${current.id}-${phase}`, name: 'write', arguments: {}, confinedFileWrite: true }));
-      if (phase === 1) { reached.resolve(); await proceed.promise; }
-    }
-    return { stopReason: 'end_turn' };
-  });
-  const { client, dataDir } = await setup(t, driver);
-  await configure(client);
+test('all six native mode transitions round-trip the execution owner selection', async t => {
+  const { client, dataDir } = await setup(t); await configure(client);
   const sessionId = await confirmedPermissionSession(client, dataDir);
-  async function answer(id) {
-    const deadline = Date.now() + 3000;
-    let request;
-    while (!(request = client.notifications.find(message => message.method === 'session/request_permission' && message.params.toolCall.toolCallId === id)) && Date.now() < deadline) await delay(5);
-    assert.ok(request, `Expected manual approval for ${id}`);
-    client.reply(request.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
-  }
-  for (const from of ['approve', 'smart_approve', 'auto']) {
-    for (const to of ['approve', 'smart_approve', 'auto']) {
+  for (const from of ['read-only', 'workspace-write', 'danger-full-access']) {
+    for (const to of ['read-only', 'workspace-write', 'danger-full-access']) {
       if (from === to) continue;
-      current = { id: `${from}-to-${to}`, from, to };
-      reached = Promise.withResolvers();
-      proceed = Promise.withResolvers();
       await client.request('session/set_mode', { sessionId, modeId: from });
-      const before = client.notifications.filter(message => message.method === 'session/request_permission').length;
-      const response = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: `Controlled transition ${current.id}` }] });
-      if (from === 'approve') await answer(`${current.id}-1`);
-      await reached.promise;
       await client.request('session/set_mode', { sessionId, modeId: to });
-      proceed.resolve();
-      if (to === 'approve') await answer(`${current.id}-2`);
-      await response;
-      assert.equal(client.notifications.filter(message => message.method === 'session/request_permission').length - before, Number(from === 'approve') + Number(to === 'approve'), current.id);
+      const response = await client.request('session/load', { sessionId, cwd: dataDir, mcpServers: [] });
+      assert.equal(response.modes.currentModeId, to);
     }
   }
-  assert.deepEqual(decisions, Array(12).fill(true));
 });
 
 test('internal delegation receipts stay out of main chat live and on replay', async t => {
-  const driver=controlledDriver(async(_id,_content,{onEvent,onPermission})=>{
+  const driver=controlledDriver(async(_id,_content,{onEvent,onToolPolicy})=>{
     for(const [i,name] of ['subagent','send_message','list_agents','interrupt_agent'].entries()) {
-      assert.equal(await onPermission({id:`internal-${i}`,name,arguments:{},delegationControl:true}),true);
+      assert.equal((await onToolPolicy({id:`internal-${i}`,name,arguments:{},delegationControl:true})).kind,'allow');
       await onEvent({type:'tool_call',id:`internal-${i}`,name,arguments:{},internalControl:true});
       // Validation failures may lack receipt metadata; the call identity still hides the result.
       await onEvent({type:'tool_result',id:`internal-${i}`,result:[{type:'text',text:'Internal receipt'}],isError:false});
@@ -756,8 +689,8 @@ test('internal delegation receipts stay out of main chat live and on replay', as
     assert.ok(transcript.some(u=>u.sessionUpdate==='agent_message_chunk'&&u.content.text.includes('User-facing summary')));
   };
   check();client.notifications.length=0;
-  driver.callTool=async(_id,name,args,{onPermission,onEvent})=>{
-    assert.equal(await onPermission({id:'internal-direct',name,arguments:args,readOnly:true}),true);
+  driver.callTool=async(_id,name,args,{onToolPolicy,onEvent})=>{
+    assert.equal((await onToolPolicy({id:'internal-direct',name,arguments:args,readOnly:true})).kind,'allow');
     await onEvent({type:'tool_call',id:'internal-direct',name,arguments:args,internalControl:true});
     const result={content:[{type:'text',text:'Direct internal receipt'}],isError:false};
     await onEvent({type:'tool_result',id:'internal-direct',...result,result:result.content});
@@ -772,10 +705,10 @@ test('internal delegation receipts stay out of main chat live and on replay', as
 test('mode switching neither approves a pending question nor bypasses a later hard deny', async t => {
   const decisions = [];
   let turn = 0;
-  const driver = controlledDriver(async (_id, _content, { onPermission }) => {
+  const driver = controlledDriver(async (_id, _content, { onPermission, onToolPolicy }) => {
     const current = ++turn;
     decisions.push(await onPermission({ id: `pending-${current}`, name: 'write', arguments: {} }));
-    if (current === 1) decisions.push(await onPermission({ id: 'after-switch', name: 'write', arguments: {} }));
+    if (current === 1) decisions.push((await onToolPolicy({ id: 'after-switch', name: 'write', arguments: {}, nativeCapability: true })).kind === 'allow');
     return { stopReason: 'end_turn' };
   });
   const { client, dataDir } = await setup(t, driver);
@@ -791,17 +724,18 @@ test('mode switching neither approves a pending question nor bypasses a later ha
     assert.ok(question);
     return { response, question };
   }
-  const first = await pendingTurn('smart_approve');
-  await client.request('session/set_mode', { sessionId, modeId: 'auto' });
+  const first = await pendingTurn('workspace-write');
+  await client.request('session/set_mode', { sessionId, modeId: 'danger-full-access' });
   assert.deepEqual(decisions, [], 'Changing mode must not answer an outstanding question');
   client.reply(first.question.id, { outcome: { outcome: 'selected', optionId: 'reject_once' } });
   await first.response;
   assert.deepEqual(decisions, [false, true], 'The subsequent tool uses the new full-access mode');
-  const second = await pendingTurn('approve');
-  await client.request('session/set_mode', { sessionId, modeId: 'chat' });
+  const second = await pendingTurn('workspace-write');
+  await client.request('session/set_mode', { sessionId, modeId: 'read-only' });
+  await client.request(ext('tools/permissions/set'), { toolPermissions: [{ toolName: 'write', permission: 'never_allow' }] });
   client.reply(second.question.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
   await second.response;
-  assert.deepEqual(decisions, [false, true, false], 'A stale approval cannot bypass a newly selected chat-only mode');
+  assert.deepEqual(decisions, [false, true, false], 'A stale approval cannot bypass an explicit tool prohibition');
 });
 
 test("tool permission waits for the original ACP outcome and preserves post-tool message ordering", async (t) => {
@@ -1059,7 +993,7 @@ test("legacy saved transcripts replay in stored order without rewriting ids or t
     },
   };
   const notifications = [];
-  await new Compat(store, {}).request(
+  await new Compat(store, { permissions: permissionDriver() }).request(
     "session/load",
     { sessionId, cwd: process.cwd(), mcpServers: [] },
     { notify: (method, params) => notifications.push({ method, params }) },
@@ -1185,7 +1119,7 @@ test("legacy cross-turn assistant collisions replay as separate messages with st
         throw new Error("Replay must not mutate persisted history");
       },
     },
-    {},
+    { permissions: permissionDriver() },
   );
   const replay = async () => {
     const notifications = [];

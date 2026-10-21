@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Автоматически выполнять действия в пределах текущих разрешений. Ограниченные действия или действия за этими пределами могут требовать подтверждения."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Автономный"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "Только чат"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Запрашивать подтверждение действий, ещё не разрешённых правилами доступа или политиками только для чтения."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Вручную"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Автоматически разрешает запросы чтения и изменения файловыми инструментами в подтверждённом проекте. Команды, запись Git и другие действия требуют одобрения."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Умный"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "Новый чат"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Изменения действуют со следующей проверки разрешений инструмента. Запущенные действия не меняются; ожидающие запросы по-прежнему требуют решения."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Корневая папка: {path}. Перед записью файлов выберите проект."
@@ -6372,10 +6372,10 @@
     "defaultMessage": "Рабочая папка: {path}. Это не даёт разрешения на все действия."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Автоодобрение файлов проекта (Умный)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "Запись не разрешена ни для одного проекта."

@@ -19,6 +19,7 @@ import { useConfig } from './ConfigContext';
 import { getInitialWorkingDir, runWithOrdinaryWorkingDir } from '../utils/workingDir';
 import { createSession } from '../sessions';
 import LoadingGoose from './LoadingGoose';
+import { PermissionPicker, useInitialPermissionPreset } from './SessionPermissionSummary';
 import { UserInput } from '../types/message';
 import {
   createNextChatExtensionDraft,
@@ -54,6 +55,7 @@ export default function Hub({
 }) {
   const intl = useIntl();
   const { extensionsList } = useConfig();
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
   const [workingDir, setWorkingDir] = useState(getInitialWorkingDir());
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [nextChatExtensionDraft, setNextChatExtensionDraft] =
@@ -100,7 +102,10 @@ export default function Hub({
           : { allExtensions: extensionsList };
 
       const launch = await runWithOrdinaryWorkingDir(workingDir, (selectedWorkingDir) =>
-        createSession(selectedWorkingDir, sessionOptions)
+        createSession(selectedWorkingDir, {
+          ...sessionOptions,
+          ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
+        })
       );
       if (!launch) {
         setIsCreatingSession(false);
@@ -141,6 +146,15 @@ export default function Hub({
 
         <ChatInputCard>
           <ChatInput
+            modelToolbarSlot={
+              <PermissionPicker
+                inline
+                draft
+                mode={initialPermissionPreset}
+                onModeChange={setInitialPermissionPreset}
+                workingDirectory={workingDir}
+              />
+            }
             sessionId={null}
             handleSubmit={handleSubmit}
             chatState={isCreatingSession ? ChatState.LoadingConversation : ChatState.Idle}

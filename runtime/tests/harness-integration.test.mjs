@@ -132,6 +132,7 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     requiresAuth: false, models: ['bridge-model', 'bridge-model-two'], supportsStreaming: true, headers: {},
   });
   await client.request(ext('defaults/save'), { providerId: configured.providerId, modelId: 'bridge-model' });
+  await client.request(ext('tools/permissions/set'), { toolPermissions: [{ toolName: 'write', permission: 'ask_before' }] });
   const newSession = async () => (await client.request('session/new', { cwd: root, mcpServers: [] })).sessionId;
   const prompt = (sessionId, text) => client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   const updates = sessionId => client.notifications.filter(message => message.method === 'session/update' && message.params.sessionId === sessionId).map(message => message.params.update);
@@ -143,6 +144,26 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     return client.waitFor(message => message.method === 'session/request_permission' && message.params.sessionId === sessionId && message.params.toolCall.title === 'write');
   };
   let retainedSession;
+
+  await t.test('ACP selection, load and another chat consume the native permission preset', async () => {
+    const first = await newSession(), second = await newSession();
+    await client.request('session/set_mode', { sessionId: first, modeId: 'read-only' });
+    const loaded = await client.request('session/load', { sessionId: first, cwd: root, mcpServers: [] });
+    assert.equal(loaded.modes.currentModeId, 'read-only');
+    assert.deepEqual(loaded.modes.availableModes.map(mode => mode.id), ['read-only', 'workspace-write', 'danger-full-access']);
+    assert.equal((await client.request('session/load', { sessionId: second, cwd: root, mcpServers: [] })).modes.currentModeId, 'workspace-write');
+    assert.ok(updates(first).some(update => update.sessionUpdate === 'current_mode_update' && update.currentModeId === 'read-only'));
+    await assert.rejects(client.request('session/set_mode', { sessionId: first, modeId: 'approve' }), /Unknown native/);
+  });
+
+  await t.test('the new-chat permission draft is committed natively before the first prompt', async () => {
+    for (const preset of ['read-only', 'workspace-write', 'danger-full-access']) {
+      const created = await client.request('session/new', { cwd: root, mcpServers: [], _meta: { initialPermissionPreset: preset } });
+      assert.equal(created.modes.currentModeId, preset);
+      assert.equal((await client.request('session/load', { sessionId: created.sessionId, cwd: root, mcpServers: [] })).modes.currentModeId, preset);
+    }
+    await assert.rejects(client.request('session/new', { cwd: root, mcpServers: [], _meta: { initialPermissionPreset: 'auto' } }), /Unknown native/);
+  });
 
   await t.test('existing ACP content array reaches Harness; approval gates a real file tool', async () => {
     retainedSession = await newSession();
@@ -219,6 +240,7 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
 
   await t.test('restart replays identical message ids and continues the persisted Harness conversation', async () => {
     const before = updates(retainedSession).filter(update => update.sessionUpdate === 'agent_message_chunk');
+    await client.request('session/set_mode', { sessionId: retainedSession, modeId: 'read-only' });
     client.close();
     await app.close();
     app = await createCompatServer({ dataDir, secret });
@@ -226,7 +248,8 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
     const defaults = await client.request(ext('defaults/read'));
     assert.equal(defaults.providerId, configured.providerId);
-    await client.request('session/load', { sessionId: retainedSession, cwd: root, mcpServers: [] });
+    const loaded = await client.request('session/load', { sessionId: retainedSession, cwd: root, mcpServers: [] });
+    assert.equal(loaded.modes.currentModeId, 'read-only');
     const replay = updates(retainedSession).filter(update => update.sessionUpdate === 'agent_message_chunk');
     assert.deepEqual(replay, before);
     assert.equal((await prompt(retainedSession, 'bridge_fixture_chat after_restart')).stopReason, 'end_turn');

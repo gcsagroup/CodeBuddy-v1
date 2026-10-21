@@ -41,7 +41,7 @@ test('direct goal tools preserve the official model-turn boundary and never laun
       ['get_goal', {}],
     ]) {
       results.push(await driver.callTool(sessionId, name, args, {
-        onPermission: tool => { approvals.push(tool.name); return true; },
+        onToolStart: tool => { approvals.push(tool.name); },
         onEvent: event => events.push(event),
       }));
     }

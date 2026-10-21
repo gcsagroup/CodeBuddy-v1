@@ -70,7 +70,7 @@ describe('ACP sessions', () => {
     );
     expect(session.extension_data.readonlyHistory).toBe(true);
   });
-  it.each(['auto', 'approve', 'smart_approve', 'chat', 'future-mode', undefined])(
+  it.each(['read-only', 'workspace-write', 'danger-full-access', 'future-mode', undefined])(
     'preserves authoritative mode %s through both new and load responses',
     async (currentModeId) => {
       const response = {

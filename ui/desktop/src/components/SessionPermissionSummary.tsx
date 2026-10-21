@@ -1,19 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import {
-  Check,
-  ChevronDown,
-  Hand,
-  LoaderCircle,
-  MessageCircle,
-  ShieldAlert,
-  ShieldCheck,
-} from 'lucide-react';
+import { Check, ChevronDown, LoaderCircle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import type { Session } from '../types/session';
 import { acpSetSessionMode } from '../acp/sessions';
 import { all_goose_modes } from './settings/mode/ModeSelectionItem';
 import { parseSessionMode } from '../utils/sessionMode';
+import { readPreferences } from '../acp/preferences';
 
 const i18n = defineMessages({
   projectContainer: {
@@ -28,7 +21,7 @@ const i18n = defineMessages({
   busy: {
     id: 'sessionPermissions.busy',
     defaultMessage:
-      'Changes apply at the next tool permission check. Running actions are unchanged; pending requests still need a decision.',
+      'Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions.',
   },
   error: {
     id: 'sessionPermissions.saveError',
@@ -42,11 +35,11 @@ const i18n = defineMessages({
   autoLabel: { id: 'sessionPermissions.autoLabel', defaultMessage: 'Full access' },
   manualLabel: {
     id: 'sessionPermissions.manualLabel',
-    defaultMessage: 'Request approval',
+    defaultMessage: 'Read only',
   },
   smartLabel: {
     id: 'sessionPermissions.smartLabel',
-    defaultMessage: 'Smart approval',
+    defaultMessage: 'Workspace write',
   },
   currentMode: {
     id: 'sessionPermissions.currentMode',
@@ -54,8 +47,8 @@ const i18n = defineMessages({
   },
   unknown: { id: 'sessionPermissions.unknown', defaultMessage: 'Not synchronized' },
   auto: { id: 'modeSelectionItem.autonomousLabel', defaultMessage: 'Full access' },
-  approve: { id: 'modeSelectionItem.manualLabel', defaultMessage: 'Request approval' },
-  smart_approve: { id: 'modeSelectionItem.smartLabel', defaultMessage: 'Smart approval' },
+  approve: { id: 'modeSelectionItem.manualLabel', defaultMessage: 'Read only' },
+  smart_approve: { id: 'modeSelectionItem.smartLabel', defaultMessage: 'Workspace write' },
   chat: { id: 'modeSelectionItem.chatOnlyLabel', defaultMessage: 'Chat only' },
   container: {
     id: 'sessionPermissions.container',
@@ -72,7 +65,7 @@ const i18n = defineMessages({
   fullAccess: {
     id: 'sessionPermissions.fullAccess',
     defaultMessage:
-      'Full access is enabled for this conversation. Tool actions do not require per-action approval; explicit denies, file sandbox limits and unavailable tools still apply.',
+      'The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply.',
   },
   unknownScope: {
     id: 'sessionPermissions.unknownScope',
@@ -91,32 +84,93 @@ export function SessionPermissionSummary({
   onSavingChange?: (saving: boolean) => void;
   inline?: boolean;
 }) {
+  return (
+    <PermissionPicker
+      mode={session.goose_mode}
+      id={session.id}
+      workingDirectory={session.working_dir}
+      onModeChange={(mode) => acpSetSessionMode(session.id, mode)}
+      busy={busy}
+      inline={inline}
+      onSavingChange={onSavingChange}
+    />
+  );
+}
+
+type PermissionPreset = NonNullable<Session['goose_mode']>;
+
+// Before a session exists this is only a user draft. It becomes execution
+// authority after session/new returns the preset committed by DSH.
+export function useInitialPermissionPreset() {
+  const [preset, setPreset] = useState<PermissionPreset>();
+  const selected = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    void readPreferences(['gooseMode'])
+      .then((snapshot) => {
+        if (cancelled || selected.current) return;
+        const value = snapshot.values.find((entry) => entry.key === 'gooseMode')?.value;
+        setPreset(value == null ? 'workspace-write' : parseSessionMode(value));
+      })
+      .catch(() => {
+        /* Keep unknown; the user may still choose explicitly. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return [
+    preset,
+    (value: PermissionPreset) => {
+      selected.current = true;
+      setPreset(value);
+    },
+  ] as const;
+}
+
+export function PermissionPicker({
+  mode,
+  id = 'new-session',
+  workingDirectory,
+  onModeChange,
+  busy = false,
+  inline = false,
+  onSavingChange,
+  draft = false,
+}: {
+  mode?: PermissionPreset;
+  id?: string;
+  workingDirectory?: string;
+  onModeChange: (mode: PermissionPreset) => void | Promise<void>;
+  busy?: boolean;
+  inline?: boolean;
+  onSavingChange?: (saving: boolean) => void;
+  draft?: boolean;
+}) {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const savingRef = useRef(false);
   const labels = {
-    auto: i18n.autoLabel,
-    approve: i18n.manualLabel,
-    smart_approve: i18n.smartLabel,
-    chat: i18n.chat,
+    'danger-full-access': i18n.autoLabel,
+    'read-only': i18n.manualLabel,
+    'workspace-write': i18n.smartLabel,
   };
   const icons = {
-    auto: ShieldAlert,
-    approve: Hand,
-    smart_approve: ShieldCheck,
-    chat: MessageCircle,
+    'danger-full-access': ShieldAlert,
+    'read-only': Shield,
+    'workspace-write': ShieldCheck,
   };
-  const ModeIcon = session.goose_mode ? icons[session.goose_mode] : ShieldCheck;
-  const changeMode = async (mode: NonNullable<Session['goose_mode']>) => {
-    if (savingRef.current || !session.goose_mode || mode === session.goose_mode) return;
+  const ModeIcon = mode ? icons[mode] : ShieldCheck;
+  const changeMode = async (nextMode: PermissionPreset) => {
+    if (savingRef.current || (!draft && !mode) || nextMode === mode) return;
     savingRef.current = true;
     setSaving(true);
     onSavingChange?.(true);
     setError(false);
     try {
-      await acpSetSessionMode(session.id, mode);
+      await onModeChange(nextMode);
       setOpen(false);
     } catch {
       setError(true);
@@ -126,22 +180,14 @@ export function SessionPermissionSummary({
       onSavingChange?.(false);
     }
   };
-  const binding = session.extension_data.workspaceBinding;
-  const path = session.working_dir;
-  const scope =
-    binding === 'project_container'
-      ? i18n.projectContainer
-      : session.goose_mode === 'auto'
-        ? i18n.fullAccess
-        : binding === 'unbound'
-          ? i18n.unbound
-          : binding === 'writable_project' && path
-            ? null
-            : binding === 'root_container' && path
-              ? i18n.container
-              : session.session_type !== 'code_pro' && path
-                ? i18n.directory
-                : i18n.unknownScope;
+  const path = workingDirectory;
+  const scope = !mode
+    ? i18n.unknownScope
+    : mode === 'danger-full-access'
+      ? i18n.fullAccess
+      : path
+        ? i18n.directory
+        : i18n.unknownScope;
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -149,7 +195,7 @@ export function SessionPermissionSummary({
         <Popover.Trigger asChild>
           <button
             type="button"
-            className={`flex min-h-7 items-center gap-1.5 rounded-md px-1 text-xs hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${session.goose_mode === 'auto' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
+            className={`flex min-h-7 items-center gap-1.5 rounded-md px-1 text-xs hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${mode === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
             aria-label={intl.formatMessage(i18n.title)}
           >
             {saving ? (
@@ -158,13 +204,7 @@ export function SessionPermissionSummary({
               <ModeIcon className="size-3.5" aria-hidden="true" />
             )}
             <span className="truncate">
-              {intl.formatMessage(
-                saving
-                  ? i18n.pending
-                  : session.goose_mode
-                    ? labels[session.goose_mode]
-                    : i18n.unknown
-              )}
+              {intl.formatMessage(saving ? i18n.pending : mode ? labels[mode] : i18n.unknown)}
             </span>
             <ChevronDown className="size-3.5" aria-hidden="true" />
           </button>
@@ -183,36 +223,36 @@ export function SessionPermissionSummary({
           collisionPadding={12}
           className="z-[100] w-[min(18rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
         >
-          <fieldset disabled={saving || !session.goose_mode} aria-busy={saving}>
+          <fieldset disabled={saving || (!draft && !mode)} aria-busy={saving}>
             <legend className="px-2 pb-1.5 pt-1 text-[9.6px] text-text-secondary">
               {intl.formatMessage(i18n.title)}
             </legend>
-            {(['approve', 'smart_approve', 'auto', 'chat'] as const).map((key) => {
+            {(['read-only', 'workspace-write', 'danger-full-access'] as const).map((key) => {
               const option = all_goose_modes.find((mode) => mode.key === key)!;
               const Icon = icons[key];
               return (
                 <label
                   key={key}
-                  className={`relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${saving || !session.goose_mode ? 'cursor-not-allowed opacity-60' : ''} ${session.goose_mode === key ? 'bg-background-secondary' : ''} ${key === 'chat' ? 'mt-1 border-t border-border-secondary' : ''}`}
+                  className={`relative flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${saving || (!draft && !mode) ? 'cursor-not-allowed opacity-60' : ''} ${mode === key ? 'bg-background-secondary' : ''}`}
                 >
                   <input
                     type="radio"
                     className="sr-only"
-                    name={`session-mode-${session.id}`}
+                    name={`session-mode-${id}`}
                     value={key}
-                    checked={session.goose_mode === key}
+                    checked={mode === key}
                     onChange={(event) => {
                       const mode = parseSessionMode(event.target.value);
                       if (mode) void changeMode(mode);
                     }}
                   />
                   <Icon
-                    className={`mt-0.5 size-3.5 shrink-0 ${key === 'auto' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
+                    className={`mt-0.5 size-3.5 shrink-0 ${key === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
                     aria-hidden="true"
                   />
                   <span className="min-w-0 flex-1">
                     <span
-                      className={`block text-[11.2px] leading-4 ${key === 'auto' ? 'text-orange-700 dark:text-orange-400' : ''}`}
+                      className={`block text-[11.2px] leading-4 ${key === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : ''}`}
                     >
                       {intl.formatMessage(labels[key])}
                     </span>
@@ -220,7 +260,7 @@ export function SessionPermissionSummary({
                       {intl.formatMessage(option.descriptionDescriptor)}
                     </span>
                   </span>
-                  {session.goose_mode === key && (
+                  {mode === key && (
                     <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                   )}
                 </label>
@@ -230,7 +270,7 @@ export function SessionPermissionSummary({
           <p className="px-2 pt-1.5 text-[9.6px] leading-[15px] text-text-secondary">
             {intl.formatMessage(busy ? i18n.busy : i18n.onlySession)}
           </p>
-          {scope && (session.goose_mode !== 'auto' || binding === 'project_container') && (
+          {scope && (
             <p className="px-2 pt-1 text-[9.6px] leading-[15px] break-words text-text-secondary">
               {intl.formatMessage(scope, { path })}
             </p>

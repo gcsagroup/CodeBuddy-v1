@@ -147,4 +147,22 @@ describe('CodeProHub real composer setup', () => {
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(navigate).toHaveBeenCalledOnce();
   });
+
+  it('lets the user choose permissions before the first send and passes only that new-chat draft', async () => {
+    const user = userEvent.setup();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    await user.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    await user.click(screen.getByRole('radio', { name: /Full access/ }));
+    const input = screen.getByTestId('chat-input');
+    await user.type(input, '帮我开一个计时员');
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(startCodeProSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          initialPermissionPreset: 'danger-full-access',
+          initialMessage: { msg: '帮我开一个计时员', images: [] },
+        })
+      )
+    );
+  });
 });

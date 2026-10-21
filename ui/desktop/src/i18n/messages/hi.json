@@ -4464,7 +4464,7 @@
     "defaultMessage": "शीर्ष पी"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "मौजूदा अनुमतियों के दायरे में अपने आप चलाएँ। प्रतिबंधित या दायरे से बाहर की कार्रवाइयों के लिए पुष्टि ज़रूरी हो सकती है।"
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "स्वायत्त"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "केवल चैट करें"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "अनुमति नियमों या केवल पढ़ने की नीतियों से पहले से स्वीकृत न होने वाली कार्रवाइयों से पहले पूछें।"
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "मैनुअल"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "केवल पढ़ने वाली क्वेरी और पुष्टि किए गए प्रोजेक्ट में फ़ाइल टूल से बदलाव अपने आप करें। कमांड, Git लेखन और अन्य कार्रवाइयों से पहले मंज़ूरी लें।"
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "होशियार"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "नई चैट"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "बदलाव अगली टूल अनुमति जाँच से लागू होंगे। चल रही कार्रवाइयाँ नहीं बदलेंगी; लंबित अनुरोधों पर निर्णय अभी भी आवश्यक है।"
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "मूल फ़ोल्डर: {path}। फ़ाइलें लिखने से पहले प्रोजेक्ट चुनें।"
@@ -6372,10 +6372,10 @@
     "defaultMessage": "कार्य डायरेक्टरी: {path}। इससे हर कार्रवाई की अनुमति नहीं मिलती।"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "प्रोजेक्ट फ़ाइलों की स्वचालित मंज़ूरी (स्मार्ट)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "किसी प्रोजेक्ट में लिखने की अनुमति नहीं दी गई है।"

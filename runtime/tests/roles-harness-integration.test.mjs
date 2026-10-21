@@ -131,7 +131,7 @@ test('ACP uses the selected main model and three native generic children despite
   // Child execution is unattended. Project writes require the parent's smart
   // policy; answering root approval RPCs cannot grant a child's denied write.
   // Manual-mode denials are covered by native-delegation.test.mjs.
-  await client.request('session/set_mode', { sessionId: session.sessionId, modeId: 'smart_approve' });
+  await client.request('session/set_mode', { sessionId: session.sessionId, modeId: 'workspace-write' });
   await client.request('session/set_config_option', { sessionId: session.sessionId, configId: 'model', value: 'selected-main' });
   const result = await client.request('session/prompt', { sessionId: session.sessionId, prompt: [{ type: 'text', text: 'official_role_fixture: develop and verify a multi-module project with independent workers' }], _meta: { 'codeagentpro/source-message-id': randomUUID() } }).catch(error => {
     throw new Error(`${error.message}; actual model counts=${JSON.stringify(model.count)}; fixture failures=${JSON.stringify(model.failures.map(failure => failure.message))}`, { cause: error });

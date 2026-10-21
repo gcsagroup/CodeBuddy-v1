@@ -55,9 +55,9 @@ async function fixture(t) {
     await store.update(s => s.sessions.push({ id, type, title: 'Fixture session', cwd: directory, providerId: provider.id, modelId: 'fixture-model', createdAt: now, updatedAt: now, updates: [], usageUpdates: [], messageCount: 0, extensions: [] }));
     await setup(id); return id;
   }
-  async function turn(id, text, created, { requestId = randomUUID(), onPermission = () => true } = {}) {
+  async function turn(id, text, created, { requestId = randomUUID(), onPermission = () => true, onToolStart } = {}) {
     const events = [];
-    await driver.prompt(id, text, { requestId, onEvent: e => events.push(e), onPermission });
+    await driver.prompt(id, text, { requestId, onEvent: e => events.push(e), onPermission, onToolStart });
     const assistantId = randomUUID();
     await store.update(s => {
       const session = s.sessions.find(s => s.id === id);
@@ -97,7 +97,10 @@ test('official fork powers in-place edits, preserves old native facts, maps host
   assert.equal(listed.filter(s => (s.id ?? s.sessionId) === id).length, 1);
   assert.equal(f.store.read().sessions.find(s => s.id === id).nativeSessionId, session.nativeSessionId);
   const childApprovals = [];
-  const delegated = await f.turn(id, 'USER_CHILD_ROOT', 40, { onPermission: call => { childApprovals.push(call); return true; } });
+  // This test observes identity mapping, not the sandbox/approval contract of
+  // this arbitrary host capability (covered by the permission integration).
+  await f.driver.permissions(id, { preset: 'danger-full-access' });
+  const delegated = await f.turn(id, 'USER_CHILD_ROOT', 40, { onToolStart: call => { childApprovals.push(call); } });
   const start = delegated.events.find(e => e.type === 'subagent_start');
   assert.equal(start.sessionId, id); assert.notEqual(start.childSessionId, id); assert.notEqual(start.childSessionId, session.nativeSessionId);
   assert.equal(f.hostCalls.at(-1).sessionId, start.childSessionId);

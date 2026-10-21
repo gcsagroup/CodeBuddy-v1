@@ -356,23 +356,23 @@ describe('acpChatSessionStore', () => {
   it('applies mode updates after cancellation only to the addressed session', () => {
     const first = sessionId('mode-first');
     const second = sessionId('mode-second');
-    acpChatSessionActions.finishSessionLoad(first, { ...session(first), goose_mode: 'auto' });
-    acpChatSessionActions.finishSessionLoad(second, { ...session(second), goose_mode: 'chat' });
+    acpChatSessionActions.finishSessionLoad(first, { ...session(first), goose_mode: 'danger-full-access' });
+    acpChatSessionActions.finishSessionLoad(second, { ...session(second), goose_mode: 'read-only' });
     acpChatSessionActions.startPromptAttempt(first, 'mode-attempt', 'user-1');
     acpChatSessionActions.startPromptCancellation(first, 'mode-attempt');
     acpChatSessionActions.clearPromptCancellation(first, 'mode-attempt');
     acpChatSessionActions.applyAcpSessionNotification({
       sessionId: first,
-      update: { sessionUpdate: 'current_mode_update', currentModeId: 'approve' },
+      update: { sessionUpdate: 'current_mode_update', currentModeId: 'workspace-write' },
     });
-    expect(acpChatSessionStore.getSnapshot(first)?.session?.goose_mode).toBe('approve');
-    expect(acpChatSessionStore.getSnapshot(second)?.session?.goose_mode).toBe('chat');
+    expect(acpChatSessionStore.getSnapshot(first)?.session?.goose_mode).toBe('workspace-write');
+    expect(acpChatSessionStore.getSnapshot(second)?.session?.goose_mode).toBe('read-only');
     acpChatSessionActions.applyAcpSessionNotification({
       sessionId: first,
       update: { sessionUpdate: 'current_mode_update', currentModeId: 'future-mode' },
     });
     expect(acpChatSessionStore.getSnapshot(first)?.session?.goose_mode).toBeUndefined();
-    expect(acpChatSessionStore.getSnapshot(second)?.session?.goose_mode).toBe('chat');
+    expect(acpChatSessionStore.getSnapshot(second)?.session?.goose_mode).toBe('read-only');
   });
 
   const sessionIds = new Set<string>();

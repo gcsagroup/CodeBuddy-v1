@@ -88,8 +88,10 @@ test('one session approval covers four native MCP queries, later turns and only 
     if (!held) { held = true; firstQuestion.resolve(); await firstReply.promise; return { outcome: { outcome: 'selected', optionId: 'allow_always' } }; }
     return { outcome: { outcome: 'selected', optionId: choice } };
   } };
-  const callbacks = s => ({ onPermission: call => {
+  const callbacks = s => ({ onToolPolicy: call => {
     permissions.push(call);
+    return host.toolPolicy(s, call, call.signal);
+  }, onPermission: call => {
     return host.approveTool(s, call, connection, call.signal);
   } });
   const a = await session();
@@ -207,17 +209,18 @@ test('uncertain safety checks escalate to the parent user and never silently aut
     assert.ok(params.toolCall.content?.length, 'The approval includes the uncertainty reason');
     return { outcome: { outcome: 'selected', optionId: choice } };
   } };
-  for (const mode of ['approve', 'smart_approve', 'auto']) {
-    await store.update(state => { state.sessions[0].mode = mode; });
+  for (const mode of ['read-only', 'workspace-write', 'danger-full-access']) {
+    call.sandboxMode = mode;
+    assert.equal((await host.toolPolicy(session, call)).kind, 'ask');
     const before = asked;
     assert.equal(await host.approveTool(session, call, connection), false);
-    assert.equal(asked, before + 1, 'Uncertainty asks a user even in full access');
+    assert.equal(asked, before + 1, 'An answerer presents an approval only when the native pipeline calls it');
   }
   choice = 'allow_once';
   assert.equal(await host.approveTool(session, call, connection), true, 'The original owner accepts an explicit one-time answer');
   const beforeChild = asked;
-  assert.equal(await host.approveTool(session, { ...call, delegated: true }, connection), false);
-  assert.equal(asked, beforeChild, 'A child returns its restriction without opening a user question');
+  assert.equal((await host.toolPolicy(session, { ...call, delegated: true })).kind, 'ask');
+  assert.equal(asked, beforeChild, 'A policy proposal does not open a user question; native child approval:never owns the rejection');
   await store.update(state => { state.toolPermissions = { pwsh: 'never_allow' }; });
   assert.equal(await host.approveTool(session, call, connection), false);
   assert.equal(asked, beforeChild, 'A hard deny is final and cannot be overridden by a human answer');
@@ -267,7 +270,6 @@ test('automatic approval rechecks capability and binding after asynchronous safe
     settings: { extensions: async () => [{ configKey: 'developer', enabled, extension: { name: 'developer', type: 'builtin' } }] },
     safety: { async inspect() { inspecting.resolve(); await gate.promise; return { requiresApproval: false }; } },
   });
-  const connection = { async ask() { assert.fail('A disabled or stale automatic grant must not open a permission question'); } };
   for (const [mode, delegated, invalidate] of [
     ['auto', false, 'tool'], ['auto', true, 'tool'],
     ['smart_approve', false, 'tool'], ['approve', false, 'tool'],
@@ -278,14 +280,14 @@ test('automatic approval rechecks capability and binding after asynchronous safe
     const call = { name: 'read', arguments: {}, readOnly: true, delegated,
       ...(invalidate === 'binding' ? { sessionApproval: { owner: {}, tool: {}, isCurrent: () => bound } } : {}),
     };
-    const pending = host.approveTool(session, call, connection);
+    const pending = host.toolPolicy(session, call);
     await inspecting.promise;
     if (invalidate === 'tool') enabled = false; else bound = false;
     gate.resolve();
-    assert.equal(await pending, false, mode + ': ' + invalidate + ' changed during safety classification');
+    assert.equal((await pending).kind, 'deny', mode + ': ' + invalidate + ' changed during safety classification');
   }
   enabled = true; bound = true; gate = Promise.withResolvers(); inspecting = Promise.withResolvers();
-  const pending = host.approveTool(session, { name: 'read', arguments: {}, readOnly: true }, connection);
+  const pending = host.toolPolicy(session, { name: 'read', arguments: {}, readOnly: true });
   await inspecting.promise; gate.resolve();
-  assert.equal(await pending, true, 'An unchanged enabled read retains its ordinary approval behavior');
+  assert.equal((await pending).kind, 'allow', 'An unchanged enabled read retains its ordinary native policy');
 });

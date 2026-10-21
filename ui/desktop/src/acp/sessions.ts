@@ -336,6 +336,7 @@ export interface AcpNewSessionResult {
 }
 
 export interface AcpRecipeOptions {
+  initialPermissionPreset?: Session['goose_mode'];
   recipeId?: string;
   recipeDeeplink?: string;
   workspaceMode?: 'code' | 'codepro';
@@ -352,6 +353,7 @@ export async function acpNewSession(
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
+  if (recipe?.initialPermissionPreset) meta.initialPermissionPreset = recipe.initialPermissionPreset;
   if (gooseExtensions.length > 0) {
     meta.enabledExtensions = gooseExtensions;
   }

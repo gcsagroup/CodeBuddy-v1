@@ -375,10 +375,12 @@ test("enabled detection with unavailable classification escalates auto mode to o
       return { outcome: { outcome: "selected", optionId: "allow_once" } };
     },
   };
+  const call = { name: 'pwsh', arguments: { command: 'Write-Output fixture' } };
+  assert.equal((await f.compat.toolPolicy(f.session, call)).kind, 'ask');
   assert.equal(
     await f.compat.approveTool(
       f.session,
-      { name: "pwsh", arguments: { command: "Write-Output fixture" } },
+      call,
       connection,
       new AbortController().signal,
     ),

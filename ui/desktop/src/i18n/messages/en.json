@@ -4209,7 +4209,7 @@
     "defaultMessage": "Test"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run tools without per-action approval. Explicit denies, file sandbox limits and unavailable tools still apply."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Full access"
@@ -4221,16 +4221,16 @@
     "defaultMessage": "Chat only"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Allow verified read-only queries. Ask before writes, commands and other actions unless explicitly allowed."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Request approval"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Allow read-only queries and native file changes in a confirmed project under its file sandbox. Ask before commands, Git writes and other actions."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Smart approval"
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -6489,7 +6489,7 @@
     "defaultMessage": "Full access"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply at the next tool permission check. Running actions are unchanged; pending requests still need a decision."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Root folder: {path}. Select a project before writing files."
@@ -6501,10 +6501,10 @@
     "defaultMessage": "Working directory: {path}. This does not grant permission for every action."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this conversation. Tool actions do not require per-action approval; explicit denies, file sandbox limits and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Request approval"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6522,7 +6522,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Smart approval"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "No project is authorized for writing."

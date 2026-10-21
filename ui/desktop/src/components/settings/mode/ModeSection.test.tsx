@@ -21,7 +21,7 @@ vi.mock('../../ConfigContext', () => ({
 }));
 
 vi.mock('./ModeSelectionItem', () => ({
-  all_goose_modes: [{ key: 'auto' }, { key: 'approve' }],
+  all_goose_modes: [{ key: 'read-only' }, { key: 'workspace-write' }, { key: 'danger-full-access' }],
   ModeSelectionItem: ({
     mode,
     currentMode,
@@ -62,7 +62,7 @@ describe('ModeSection max turns preferences', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.useConfig.mockReturnValue({
-      config: { GOOSE_MODE: 'auto' },
+      config: { GOOSE_MODE: 'danger-full-access' },
       read: mocks.genericRead,
       upsert: mocks.genericUpsert,
       remove: mocks.genericRemove,
@@ -89,7 +89,7 @@ describe('ModeSection max turns preferences', () => {
     mocks.readPreferences.mockResolvedValue({ revision: 4, values: [] });
     mocks.savePreferences.mockResolvedValue({
       revision: 5,
-      values: [{ key: 'gooseMode', isMutable: true, value: 'approve' }],
+      values: [{ key: 'gooseMode', isMutable: true, value: 'read-only' }],
     });
     render(<ModeSection />);
 
@@ -100,11 +100,11 @@ describe('ModeSection max turns preferences', () => {
     expect(mocks.readPreferences).toHaveBeenCalledWith(['gooseMaxTurns']);
     expect(mocks.genericRead).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'mode-approve' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'mode-approve' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'mode-read-only' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'mode-read-only' }));
     await waitFor(() =>
       expect(mocks.savePreferences).toHaveBeenCalledWith([
-        { key: 'gooseMode', isMutable: true, value: 'approve' },
+        { key: 'gooseMode', isMutable: true, value: 'read-only' },
       ])
     );
     expect(mocks.genericUpsert).not.toHaveBeenCalled();
@@ -117,12 +117,12 @@ describe('ModeSection max turns preferences', () => {
     });
     mocks.savePreferences.mockResolvedValue({
       revision: 1,
-      values: [{ key: 'gooseMode', value: 'approve', isMutable: true }],
+      values: [{ key: 'gooseMode', value: 'read-only', isMutable: true }],
     });
     render(<ModeSection showLimits={false} />);
-    const manual = screen.getByRole('button', { name: 'mode-approve' });
+    const manual = screen.getByRole('button', { name: 'mode-read-only' });
     await waitFor(() => expect(manual).toBeEnabled());
-    expect(screen.getByRole('button', { name: 'mode-auto' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'mode-workspace-write' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -130,14 +130,14 @@ describe('ModeSection max turns preferences', () => {
     fireEvent.click(manual);
     await waitFor(() => expect(manual).toHaveAttribute('aria-pressed', 'true'));
     expect(mocks.savePreferences).toHaveBeenCalledWith([
-      { key: 'gooseMode', value: 'approve', isMutable: true },
+      { key: 'gooseMode', value: 'read-only', isMutable: true },
     ]);
   });
 
   it.each([
-    ['empty list', [], 'auto', true],
-    ['valid value', [{ key: 'gooseMode', value: 'approve', isMutable: true }], 'approve', true],
-    ['managed value', [{ key: 'gooseMode', value: 'approve', isMutable: false }], 'approve', false],
+    ['empty list', [], 'workspace-write', true],
+    ['valid value', [{ key: 'gooseMode', value: 'read-only', isMutable: true }], 'read-only', true],
+    ['managed value', [{ key: 'gooseMode', value: 'read-only', isMutable: false }], 'read-only', false],
     ['unknown value', [{ key: 'gooseMode', value: 'future-mode', isMutable: true }], null, false],
     ['managed null', [{ key: 'gooseMode', value: null, isMutable: false }], null, false],
   ] as const)(
@@ -147,11 +147,11 @@ describe('ModeSection max turns preferences', () => {
       render(<ModeSection showLimits={false} />);
       if (selected === null) {
         expect(await screen.findByRole('alert')).toHaveTextContent('Not synchronized');
-        expect(screen.getByRole('button', { name: 'mode-auto' })).toHaveAttribute(
+        expect(screen.getByRole('button', { name: 'mode-danger-full-access' })).toHaveAttribute(
           'aria-pressed',
           'false'
         );
-        expect(screen.getByRole('button', { name: 'mode-approve' })).toHaveAttribute(
+        expect(screen.getByRole('button', { name: 'mode-read-only' })).toHaveAttribute(
           'aria-pressed',
           'false'
         );
@@ -163,7 +163,7 @@ describe('ModeSection max turns preferences', () => {
           )
         );
       }
-      const manual = screen.getByRole('button', { name: 'mode-approve' });
+      const manual = screen.getByRole('button', { name: 'mode-read-only' });
       await waitFor(() =>
         editable ? expect(manual).toBeEnabled() : expect(manual).toBeDisabled()
       );
@@ -175,19 +175,19 @@ describe('ModeSection max turns preferences', () => {
     mocks.readPreferences.mockImplementation(async (keys: string[]) => ({
       revision: 3,
       values: keys.includes('gooseMode')
-        ? [{ key: 'gooseMode', isMutable: true, value: 'approve' }]
+        ? [{ key: 'gooseMode', isMutable: true, value: 'read-only' }]
         : [{ key: 'gooseMaxTurns', isMutable: true, value: 1000 }],
     }));
 
     render(<ModeSection />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'mode-approve' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'mode-read-only' })).toHaveAttribute(
         'aria-pressed',
         'true'
       )
     );
-    expect(screen.getByRole('button', { name: 'mode-auto' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'mode-danger-full-access' })).toHaveAttribute(
       'aria-pressed',
       'false'
     );

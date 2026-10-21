@@ -16,6 +16,7 @@ import { CodeProRollbackError } from '../../codepro/failureSemantics';
 import { createSession } from '../../sessions';
 import type { MessageDescriptor } from 'react-intl';
 import { recordCommonTaskSessionStarted } from '../../acp/capabilityUsage';
+import { PermissionPicker, useInitialPermissionPreset } from '../SessionPermissionSummary';
 
 type CodeProSetupMessageKey =
   | 'workspaceInspectionFailed'
@@ -131,6 +132,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const navigate = useNavigate();
   const setView = useNavigation();
   const { extensionsList } = useConfig();
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
   // Keep an explicit folder choice separate from the host process directory and prior chats.
   // When absent, the host allocates a fresh workspace for this conversation.
   const [workingDir, setWorkingDir] = useState(launchIntent?.workingDir ?? '');
@@ -271,6 +273,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
             workspaceMode: 'codepro',
             workspaceBinding: 'root_container',
             rootContainerPath: candidate.normalizedPath,
+            ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
             ...(pending.intent.recipeDeeplink
               ? { recipeDeeplink: pending.intent.recipeDeeplink }
               : {}),
@@ -298,6 +301,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           allExtensions: extensionsList,
           recipeDeeplink: pending.intent.recipeDeeplink,
           recipeId: pending.intent.recipeId,
+          ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
         });
         if (pending.intent.recipeId) {
           void recordCommonTaskSessionStarted(pending.intent.recipeId, session.id);
@@ -320,7 +324,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         setIsCreating(false);
       }
     },
-    [extensionsList, isCreating, openSession]
+    [extensionsList, initialPermissionPreset, isCreating, openSession]
   );
 
   useEffect(() => {
@@ -394,6 +398,15 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
               }}
             >
               <ChatInput
+                modelToolbarSlot={
+                  <PermissionPicker
+                    inline
+                    draft
+                    mode={initialPermissionPreset}
+                    onModeChange={setInitialPermissionPreset}
+                    workingDirectory={workingDir || rootContainer || ''}
+                  />
+                }
                 sessionId={null}
                 handleSubmit={handleSubmit}
                 chatState={ChatState.Idle}

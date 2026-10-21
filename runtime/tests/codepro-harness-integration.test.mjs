@@ -147,5 +147,5 @@ test('official Harness goal and todo write two modules, pause, restart and finis
   assert.equal(results.filter((event) => event.payload.kind === 'write').length, 3);
   const independentlyVerified = spawnSync(process.execPath, ['--test', path.join(cwd, 'project.test.mjs')], { cwd, encoding: 'utf8', windowsHide: true });
   assert.equal(independentlyVerified.status, 0, independentlyVerified.stdout + independentlyVerified.stderr);
-  assert.ok(client.notifications.some((msg) => msg.method === 'session/request_permission' && msg.params.toolCall.title === (process.platform === 'win32' ? 'pwsh' : 'bash')));
+  assert.equal(client.notifications.some((msg) => msg.method === 'session/request_permission' && msg.params.toolCall.title === (process.platform === 'win32' ? 'pwsh' : 'bash')), false, 'Native workspace commands do not need the former blanket CodeBuddy approval');
 });

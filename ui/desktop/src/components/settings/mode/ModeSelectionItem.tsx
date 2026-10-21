@@ -16,25 +16,25 @@ const i18n = defineMessages({
   autonomousDescription: {
     id: 'modeSelectionItem.autonomousDescription',
     defaultMessage:
-      'Run tools without per-action approval. Explicit denies, file sandbox limits and unavailable tools still apply.',
+      'Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask.',
   },
   manualLabel: {
     id: 'modeSelectionItem.manualLabel',
-    defaultMessage: 'Request approval',
+    defaultMessage: 'Read only',
   },
   manualDescription: {
     id: 'modeSelectionItem.manualDescription',
     defaultMessage:
-      'Allow verified read-only queries. Ask before writes, commands and other actions unless explicitly allowed.',
+      'Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval.',
   },
   smartLabel: {
     id: 'modeSelectionItem.smartLabel',
-    defaultMessage: 'Smart approval',
+    defaultMessage: 'Workspace write',
   },
   smartDescription: {
     id: 'modeSelectionItem.smartDescription',
     defaultMessage:
-      'Allow read-only queries and native file changes in a confirmed project under its file sandbox. Ask before commands, Git writes and other actions.',
+      'Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval.',
   },
   chatOnlyLabel: {
     id: 'modeSelectionItem.chatOnlyLabel',
@@ -54,24 +54,19 @@ export interface GooseMode {
 
 export const all_goose_modes: GooseMode[] = [
   {
-    key: 'auto',
-    labelDescriptor: i18n.autonomousLabel,
-    descriptionDescriptor: i18n.autonomousDescription,
-  },
-  {
-    key: 'approve',
+    key: 'read-only',
     labelDescriptor: i18n.manualLabel,
     descriptionDescriptor: i18n.manualDescription,
   },
   {
-    key: 'smart_approve',
+    key: 'workspace-write',
     labelDescriptor: i18n.smartLabel,
     descriptionDescriptor: i18n.smartDescription,
   },
   {
-    key: 'chat',
-    labelDescriptor: i18n.chatOnlyLabel,
-    descriptionDescriptor: i18n.chatOnlyDescription,
+    key: 'danger-full-access',
+    labelDescriptor: i18n.autonomousLabel,
+    descriptionDescriptor: i18n.autonomousDescription,
   },
 ];
 
@@ -129,7 +124,7 @@ export const ModeSelectionItem = forwardRef<HTMLDivElement, ModeSelectionItemPro
           </div>
 
           <div className="relative flex items-center gap-2">
-            {!isApproveModeConfigure && (mode.key == 'approve' || mode.key == 'smart_approve') && (
+            {!isApproveModeConfigure && mode.key !== 'danger-full-access' && (
               <button
                 type="button"
                 aria-label={intl.formatMessage(i18n.permissionRules)}

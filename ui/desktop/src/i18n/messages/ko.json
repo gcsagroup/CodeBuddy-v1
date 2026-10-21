@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "현재 권한 범위 내에서 자동으로 실행합니다. 제한된 작업이나 범위 밖의 작업에는 확인이 필요할 수 있습니다."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "자율"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "채팅 전용"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "권한 규칙이나 읽기 전용 정책으로 허용되지 않은 작업 전에 확인을 요청합니다."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "수동"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "읽기 전용 조회와 확인된 프로젝트 내 파일 도구 변경을 자동 허용합니다. 명령, Git 쓰기 및 기타 작업은 승인이 필요합니다."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "스마트"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "새 채팅"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "변경 사항은 다음 도구 권한 확인부터 적용됩니다. 실행 중인 작업은 변경되지 않으며, 대기 중인 요청은 계속 결정이 필요합니다."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "루트 폴더: {path}. 파일을 쓰기 전에 프로젝트를 선택하세요."
@@ -6372,10 +6372,10 @@
     "defaultMessage": "작업 디렉터리: {path}. 모든 작업이 허용되는 것은 아닙니다."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "프로젝트 파일 자동 승인 (스마트)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "쓰기가 허용된 프로젝트가 없습니다."

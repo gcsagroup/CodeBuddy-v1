@@ -53,7 +53,7 @@ test('official immutable directory fork preserves facts and history while native
   assert.equal((await f.driver.history('product')).meta.cwd, f.dirB);
   await f.create('product', f.dirB);
   const approvals = [];
-  assert.equal((await f.driver.callTool('product', 'write', { file_path: 'after.txt', content: 'B file' }, { onPermission: call => { approvals.push(call); return true; } })).isError, false);
+  assert.equal((await f.driver.callTool('product', 'write', { file_path: 'after.txt', content: 'B file' }, { onToolStart: call => { approvals.push(call); } })).isError, false);
   assert.equal(approvals[0].sessionId, 'product'); assert.equal(await readFile(path.join(f.dirB, 'after.txt'), 'utf8'), 'B file');
   await assert.rejects(access(path.join(f.dirA, 'after.txt')));
   const forbidden = await f.driver.callTool('product', 'write', { file_path: path.join(f.dirA, 'outside-denied.txt'), content: 'old workspace access' }, { onPermission: () => true });
@@ -91,6 +91,7 @@ test('directory fork rejects an active native prompt and approval still applies 
   await assert.rejects(f.driver.forkWorkingDirectory('product', f.dirB), /active session operation/);
   controller.abort(); assert.equal((await running).stopReason, 'cancelled');
   await f.publish(f.dirB); await f.create('product', f.dirB);
+  await f.driver.permissions('product', { preset: 'read-only' });
   const result = await f.driver.callTool('product', 'write', { file_path: 'denied.txt', content: 'denied' }); assert.equal(result.isError, true); await assert.rejects(access(path.join(f.dirB, 'denied.txt')));
 });
 

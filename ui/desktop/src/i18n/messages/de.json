@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Automatisch innerhalb der aktuellen Berechtigungen ausführen. Eingeschränkte Aktionen oder Aktionen außerhalb dieses Umfangs können eine Bestätigung erfordern."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Autonom"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "Nur Chat"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Vor Aktionen nachfragen, die nicht bereits durch Berechtigungsregeln oder Richtlinien für Lesezugriffe erlaubt sind."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Manuell"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Schreibgeschützte Abfragen und Änderungen mit Dateiwerkzeugen im bestätigten Projekt sind automatisch erlaubt. Befehle, Git-Schreibzugriffe und andere Aktionen erfordern eine Genehmigung."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Intelligent"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "Neuer Chat"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Änderungen gelten ab der nächsten Werkzeug-Berechtigungsprüfung. Laufende Aktionen bleiben unverändert; offene Anfragen müssen weiterhin beantwortet werden."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Stammordner: {path}. Vor dem Schreiben von Dateien ein Projekt auswählen."
@@ -6372,10 +6372,10 @@
     "defaultMessage": "Arbeitsverzeichnis: {path}. Dies erlaubt nicht automatisch jede Aktion."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Projektdateien automatisch genehmigen (Intelligent)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "Für kein Projekt ist Schreibzugriff autorisiert."

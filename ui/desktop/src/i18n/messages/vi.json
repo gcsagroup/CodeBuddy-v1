@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Tự động thực hiện trong phạm vi quyền hiện tại. Thao tác bị hạn chế hoặc ngoài phạm vi có thể cần xác nhận."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Tự động"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "Chỉ trò chuyện"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Hỏi trước những thao tác chưa được quy tắc cấp quyền hoặc chính sách chỉ đọc cho phép."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Thủ công"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Cho phép truy vấn chỉ đọc và thay đổi bằng công cụ tệp trong dự án đã xác nhận. Lệnh, thao tác ghi Git và các hành động khác cần phê duyệt."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Thông minh"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "Trò chuyện mới"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Thay đổi có hiệu lực từ lần kiểm tra quyền công cụ tiếp theo. Thao tác đang chạy không thay đổi; yêu cầu đang chờ vẫn cần quyết định."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Thư mục gốc: {path}. Chọn dự án trước khi ghi tệp."
@@ -6372,10 +6372,10 @@
     "defaultMessage": "Thư mục làm việc: {path}. Điều này không cấp quyền cho mọi thao tác."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Tự động phê duyệt tệp dự án (Thông minh)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "Chưa có dự án nào được cấp quyền ghi."

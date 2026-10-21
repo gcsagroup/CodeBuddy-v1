@@ -2,10 +2,9 @@ import type { GooseMode } from '../types/session';
 
 export function parseSessionMode(value: unknown): GooseMode | undefined {
   switch (value) {
-    case 'auto':
-    case 'approve':
-    case 'smart_approve':
-    case 'chat':
+    case 'read-only':
+    case 'workspace-write':
+    case 'danger-full-access':
       return value;
     default:
       return undefined;

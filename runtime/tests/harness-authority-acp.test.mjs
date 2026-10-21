@@ -4,6 +4,7 @@ import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Compat } from '../compat.mjs';
+import { permissionDriver } from './fixtures/permission-driver.mjs';
 import { openStore } from '../store.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { driverProvider } from '../providers.mjs';
@@ -20,8 +21,13 @@ async function fixture(t) {
   const notices = [], sessions = [], scripts = [];
   let initialize = async input => { sessions.push(input); };
   const driver = {
+    permissions: permissionDriver(),
     createSession: input => initialize(input), listTools: async () => [], cancel: async () => {}, close: async () => {},
-    prompt: async (id, content, callbacks) => scripts.shift()(callbacks),
+    prompt: async (id, content, callbacks) => scripts.shift()({ ...callbacks, onPermission: async call => {
+      const accepted = await callbacks.onPermission(call);
+      if (accepted) await callbacks.onToolStart?.(call);
+      return accepted;
+    } }),
   };
   const compat = new Compat(store, driver);
   await compat.initialize();

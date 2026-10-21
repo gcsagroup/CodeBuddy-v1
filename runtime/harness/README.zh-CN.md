@@ -14,7 +14,7 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每个主会�
 
 ## 适配接口
 
-`createHarnessDriver({dataDir,cwd,instructionsHome})` 必须指定隔离数据根。调用 `createSession({sessionId,cwd,provider,model,options})`、`prompt(sessionId,content,{onEvent,onPermission,signal})`，退出调用 `close()`。provider 支持 baseUrl（API 根）、apiKey、protocol、headers、compat、contextWindow、maxTokens、inputModalities、reasoningEfforts。模型及 MCP 凭据仅在驱动内存；磁盘 Host providers 为空，不发现旧版或环境密钥。
+`createHarnessDriver({dataDir,cwd,instructionsHome})` 必须指定隔离数据根。调用 `createSession({sessionId,cwd,provider,model,options})`、`prompt(sessionId,content,{onEvent,onToolPolicy,onPermission,onToolStart,signal})`，退出调用 `close()`。provider 支持 baseUrl（API 根）、apiKey、protocol、headers、compat、contextWindow、maxTokens、inputModalities、reasoningEfforts。模型及 MCP 凭据仅在驱动内存；磁盘 Host providers 为空，不发现旧版或环境密钥。
 
 `configureSession(sessionId,options)` 在空闲时生效；应用保存并在重启后重新传入。参数：
 
@@ -25,11 +25,15 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每个主会�
 - mcpServers 使用官方 stdio／streamable-http 配置；工具名为 mcp__server__tool。独立服务并行连接，保留各项 ready／error 状态及配置顺序；失败连接释放，其他能力仍可用，重配重试。`extensionStatus(sessionId)` 返回状态；`testExtension(server)` 临时连接、发现、释放，失败直接报错。连接、工具发现、同步调用及每次 Tasks 请求默认 300 秒，显式 `toolCallTimeoutMs` 优先。扩展设置的 `timeout` 以秒计，测试和正式会话共用转换；保存后由既有会话重配置机制应用。版本协商可能有多个请求，因此该值不是全部服务的总启动期限。
 - 首次连接／重连从协议能力与工具定义探测异步：2025 Tasks 同时要求服务端 `tasks.requests.tools.call` 和工具 `execution.taskSupport` 为 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 扩展，由服务端决定是否返回任务。未声明支持的工具走同步，不猜工具名、不执行探测业务动作。`mcp-tasks.mjs` 在适配层轮询并将最终 MCP 回执交回 Harness，已受理的调用不重放；300 秒限制单次请求，不限制异步任务总时长，用户仍可取消。取消回执不证明远端已停止。当前不支持 Tasks 内的交互输入或进程重启后的自动恢复。SDK 2.2.0 尚无 Tasks 运行时，新版扩展使用锁定版本的内部 codec 兼容适配，升级依赖时须重新验证并优先移除该适配。设计参考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。
 - toolFilter:{allow?,deny?} 只过滤继承工具；同 scope 的 MCP／宿主注册工具须由应用统一审批入口执行精确 allowlist。
-- 通用原生 `subagent` 接收 `{description,prompt,cwd?}`，默认继承主 Agent 实际请求使用的 provider、model 和 reasoning effort；不注册 `subagent_<role>` 或开放子模型选择。创建、并发、深度和结果回传由 Harness 管理，子 Agent 的读写和命令仍经原审批入口。
+- 通用原生 `subagent` 接收 `{description,prompt,cwd?}`，默认继承主 Agent 实际请求使用的 provider、model 和 reasoning effort；不注册 `subagent_<role>` 或开放子模型选择。创建、并发、深度和结果回传由 Harness 管理；子 Agent 在创建时捕获原生沙箱权限并固定 `approval:never`，后续主会话切换权限不更新既有子 Agent。
 
 onEvent 支持 Promise 并串行等待；前工具回执处理完才进入下一个审批或宿主 execute。事件带 sessionId，子 Agent 内容须独立投影。tool_result.structuredContent／error 来自官方回执；shell 前台结果含 exitCode、aborted、timedOut，background 句柄不等于验证完成。流式 attemptId 与持久 messageId 不同。
 
-每个工具要求 onPermission 明确返回 true，子 Agent 经官方实时归属继承审批。文件另受工作区策略限制；原生 shell 不宣称内核沙箱。取消停止活跃子 Agent 和所属 jobs，返回实际 jobs 状态；running／stopping 仍待确认。Jobs 为进程内任务，重启后基于持久会话核对、续作，不复活原 OS 进程。
+权限使用官方 `permission-presets`、`sandbox-local`、沙箱 shell 和 `user-approval`。`permissions(id,{cwd,initialPreset?,preset?})` 读取原生状态或通过官方 setter 切换；初始化仅在无原生权限事实时生效，不覆盖恢复或 fork 历史。新建聊天可通过 ACP `session/new._meta.initialPermissionPreset` 提交用户草稿，返回值以 DSH 已提交的预设为准。旧产品模式不能静默转换成完全权限；没有原生事实的旧聊天先按只读初始化。
+
+`onToolPolicy` 只把工具启用、明确规则、现有会话授权和安全扫描结果交给原生工具 gate；文件和命令仍由原生沙箱约束。`onPermission` 仅回答 DSH `approval/request`；子级和完全权限的 `approval:never` 不弹用户审批。没有模型 turn 的直接界面工具调用保留显式确认，不能伪造模型审批审计。`onToolStart` 观察实际工具分派，不能用审批次数推断执行次数。Windows 沙箱属于上游的部分约束实现，其已知兼容限制不由 CodeBuddy 绕过。
+
+取消停止活跃子 Agent 和所属 jobs，返回实际 jobs 状态；running／stopping 仍待确认。Jobs 为进程内任务，重启后基于持久会话核对、续作，不复活原 OS 进程。
 
 另有 listTools、callTool（空闲维护窗口）、steer（活跃 inbox）、history、listSessions、rename、fork、follow、upload。
 

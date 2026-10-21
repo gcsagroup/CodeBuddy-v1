@@ -56,16 +56,16 @@ test('delegated working directory does not widen the inherited file sandbox outs
   await store.update(state => state.sessions.push(session));
   // The fixture starts with an already-confirmed root. Exercise the real
   // permission owner and native child routing without an unrelated UI setup.
-  const host = { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) };
+  const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) });
   const questions = [], calls = [], events = [];
   const connection = { async ask(_method, params) {
     questions.push(params.toolCall.title);
     return { outcome: { outcome: 'selected', optionId: params.toolCall.title === 'subagent' ? 'allow_once' : 'reject_once' } };
   } };
-  await driver.prompt(id, 'SCOPE_FIXTURE_PARENT', { onEvent: event => events.push(event), onPermission: call => {
+  await driver.prompt(id, 'SCOPE_FIXTURE_PARENT', { onEvent: event => events.push(event), onToolPolicy: call => {
     calls.push(call);
-    return Compat.prototype.approveTool.call(host, session, call, connection, call.signal);
-  } });
+    return host.toolPolicy(session, call, call.signal);
+  }, onPermission: call => host.approveTool(session, call, connection, call.signal) });
   assert.ok(calls.some(call => call.name === 'write' && call.sessionId !== id), 'Exercise an actual native child write proposal');
   assert.ok(calls.some(call => call.name === 'subagent' && call.delegationControl === true));
   assert.deepEqual(questions, [], 'Internal delegation needs no duplicate confirmation, and the file operation still reaches its inherited native fence');

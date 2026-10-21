@@ -14,8 +14,7 @@ test('native web session grants are origin-scoped and keep the upstream network 
   t.after(() => driver.close());
   const store = await openStore(join(root, 'backend'));
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
-  const host = { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) };
-  host.approveTool = Compat.prototype.approveTool.bind(host);
+  const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) });
   const questions = [], calls = [];
   let answer = 'allow_always';
   const connection = { async ask(_method, params) {
@@ -29,9 +28,10 @@ test('native web session grants are origin-scoped and keep the upstream network 
     return s;
   }
   const s = await session();
-  const invoke = (s, name, args = {}) => driver.callTool(s.id, name, args, { onPermission: call => {
-    calls.push(call); return host.approveTool(s, call, connection, call.signal);
-  } });
+  const invoke = (s, name, args = {}) => driver.callTool(s.id, name, args, {
+    onToolPolicy: call => { calls.push(call); return host.toolPolicy(s, call, call.signal); },
+    onPermission: call => host.approveTool(s, call, connection, call.signal),
+  });
 
   const deps = await invoke(s, 'load_workspace_dependencies');
   assert.equal(deps.isError, false);
@@ -62,16 +62,17 @@ test('native web session grants are origin-scoped and keep the upstream network 
   const granted = calls.find(c => c.sessionApproval?.targetOrigin === 'http://127.0.0.1:9');
   assert.equal(await host.approveTool(s, { ...granted, delegated: true }, connection), true);
   const ungranted = { ...granted, sessionApproval: { ...granted.sessionApproval, tool: Object.freeze({}) }, delegated: true };
-  assert.equal(await host.approveTool(s, ungranted, connection), false, 'A child cannot open an approval for a missing grant');
+  assert.equal((await host.toolPolicy(s, ungranted)).kind, 'ask', 'The native child policy will reject a required approval before reaching an answerer');
 
   await store.update(state => { state.toolPermissions = { web_fetch: 'never_allow' }; });
   assert.equal(await host.approveTool(s, granted, connection), false, 'An explicit prohibition overrides the remembered grant');
   await store.update(state => { state.toolPermissions = {}; });
   answer = 'reject_once';
-  const shell = await invoke(s, 'pwsh', { command: 'Write-Output must-not-run' });
-  assert.equal(shell.isError, true);
-  assert.equal(questions.at(-1).toolCall.title, 'pwsh');
-  assert.equal(questions.at(-1).options.some(o => o.optionId === 'allow_always'), false, 'A network grant never authorizes PowerShell');
+  const beforeShell = questions.length;
+  const shell = await invoke(s, 'pwsh', { command: 'Write-Output native-workspace-command', description: 'Print isolated native command marker' });
+  assert.equal(shell.isError, false, JSON.stringify(shell));
+  assert.equal(shell.value.exitCode, 0);
+  assert.equal(questions.length, beforeShell, 'The native sandbox authorizes its own command independently of the network grant');
 
   const replaced = await session({ tools: ['web_fetch','load_workspace_dependencies'].map(name => ({ name, inputSchema: { type: 'object', properties: { url: { type: 'string' } } }, execute() { throw Error('must not run'); } })) });
   await invoke(replaced, 'web_fetch', { url: 'http://127.0.0.1:9/a' });

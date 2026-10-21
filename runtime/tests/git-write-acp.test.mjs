@@ -186,7 +186,7 @@ test(
         enabledExtensions: [{ type: "builtin", name: "git" }],
       },
     });
-    await client.request("session/set_mode", { sessionId, modeId: "approve" });
+    await client.request("session/set_mode", { sessionId, modeId: "workspace-write" });
     const setupModelRequests = modelRequests.filter(request => request.body).length;
     const toolList = await client.request(ext("tools/list"), {
       sessionId,

@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "現在の権限の範囲内で自動実行します。制限のある操作や範囲外の操作には確認が必要な場合があります。"
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "自律"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "チャットのみ"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "権限ルールや読み取り専用ポリシーで許可されていない操作の前に確認します。"
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "手動"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "読み取り専用の照会と、確認済みプロジェクト内でのファイルツールによる変更を自動承認します。コマンド、Git の書き込み、その他の操作は承認が必要です。"
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "スマート"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "新規チャット"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "変更は次のツール権限チェックから適用されます。実行中の操作は変わらず、保留中の承認には引き続き判断が必要です。"
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "ルートフォルダー：{path}。ファイルを書き込む前にプロジェクトを選択してください。"
@@ -6372,10 +6372,10 @@
     "defaultMessage": "作業ディレクトリ：{path}。すべての操作が許可されるわけではありません。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "プロジェクトファイルを自動承認（スマート）"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "書き込みが許可されたプロジェクトはありません。"

@@ -45,6 +45,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   await store.update(state => {
     state.providers = [{ id: 'fixture', displayName: 'Fixture', engine: 'openai_compatible', apiUrl: `http://127.0.0.1:${model.address().port}`, models: ['fixture'], requiresAuth: false }];
     state.defaults = { providerId: 'fixture', modelId: 'fixture' };
+    state.toolPermissions = { developer__write: 'ask_before' };
   });
   const native = await createHarnessDriver({ dataDir: path.join(root, 'native'), cwd: root });
   const driver = createConversationDriver(native, store), compat = new Compat(store, driver);
@@ -102,7 +103,7 @@ test('a first user turn waits for native tool maintenance, then streams through 
   await writeFile(path.join(f.root, 'poll.txt'), 'isolated sidebar-equivalent read');
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const polling = f.driver.callTool(id, 'read', { file_path: 'poll.txt' }, {
-    onPermission: async () => { entered.resolve(); await release.promise; return true; },
+    onToolStart: async () => { entered.resolve(); await release.promise; },
   });
   await entered.promise;
   const updates = [];

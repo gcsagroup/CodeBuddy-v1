@@ -4464,7 +4464,7 @@
     "defaultMessage": "Top P"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Executar automaticamente dentro das permissões atuais. Ações restritas ou fora desse escopo podem exigir confirmação."
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Autônomo"
@@ -4476,16 +4476,16 @@
     "defaultMessage": "Apenas conversa"
   },
   "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Perguntar antes de ações que ainda não sejam permitidas pelas regras de permissão ou políticas de somente leitura."
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Manual"
+    "defaultMessage": "Read only"
   },
   "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Permite consultas somente leitura e alterações por ferramentas de arquivos no projeto confirmado. Pede aprovação para comandos, escritas Git e outras ações."
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
   "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Inteligente"
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "Nova conversa"
@@ -6360,7 +6360,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "As alterações entram em vigor na próxima verificação de permissões das ferramentas. As ações em curso não mudam; os pedidos pendentes ainda exigem uma decisão."
+    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Pasta raiz: {path}. Selecione um projeto antes de gravar arquivos."
@@ -6372,10 +6372,10 @@
     "defaultMessage": "Diretório de trabalho: {path}. Isso não autoriza todas as ações."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "Full access is enabled for this session: local files and network actions do not require per-action approval. Explicit denies and unavailable tools still apply."
+    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
   },
   "sessionPermissions.manualLabel": {
-    "defaultMessage": "Ask for approval (Manual)"
+    "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
     "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
@@ -6393,7 +6393,7 @@
     "defaultMessage": "Changing permissions…"
   },
   "sessionPermissions.smartLabel": {
-    "defaultMessage": "Aprovação automática de arquivos do projeto (Inteligente)"
+    "defaultMessage": "Workspace write"
   },
   "sessionPermissions.unbound": {
     "defaultMessage": "Nenhum projeto está autorizado para gravação."

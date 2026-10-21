@@ -15,6 +15,8 @@ export function createConversationDriver(driver, store) {
     ...options,
     ...(options.onEvent ? { onEvent: event => options.onEvent(project(event, actual, product)) } : {}),
     ...(options.onPermission ? { onPermission: call => options.onPermission(project(call, actual, product)) } : {}),
+    ...(options.onToolPolicy ? { onToolPolicy: call => options.onToolPolicy(project(call, actual, product)) } : {}),
+    ...(options.onToolStart ? { onToolStart: call => options.onToolStart(project(call, actual, product)) } : {}),
   });
   const capabilities = (options, actual, product) => options ? {
     ...options,
@@ -59,6 +61,7 @@ export function createConversationDriver(driver, store) {
       return lock(id, async () => ({ ...await driver.createSession({ ...input, sessionId: actual, options: capabilities(input.options, actual, id) }), sessionId: id }));
     },
     configureSession(id, options) { const actual = nativeId(id); return lock(id, () => driver.configureSession(actual, capabilities(options, actual, id))); },
+    permissions(id, options) { return driver.permissions(nativeId(id), options); },
     prompt,
     callTool(id, name, args, options) { const actual = nativeId(id); return lock(id, () => driver.callTool(actual, name, args, callbacks(options, actual, id)), 'tool'); },
     compact(id, options) { const actual = nativeId(id); return lock(id, () => driver.compact(actual, callbacks(options, actual, id))); },

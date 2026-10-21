@@ -17,6 +17,7 @@ import { normalizeWorkspaceIdentity } from './workspaceIdentity';
 import { CodeProRollbackError } from './failureSemantics';
 
 interface StartCodeProSessionInput {
+  initialPermissionPreset?: Session['goose_mode'];
   candidate: CodeProWorkspaceInspection;
   initialMessage: UserInput;
   allExtensions: FixedExtensionEntry[];
@@ -118,6 +119,7 @@ export async function startCodeProSession(
     const session = await dependencies.createSession(confirmation.workingDir, {
       allExtensions: input.allExtensions,
       workspaceMode: 'codepro',
+      ...(input.initialPermissionPreset ? { initialPermissionPreset: input.initialPermissionPreset } : {}),
       projectId: project.projectId,
       ...(lease ? { workspaceLeaseId: lease.leaseId } : {}),
       ...(input.recipeDeeplink ? { recipeDeeplink: input.recipeDeeplink } : {}),

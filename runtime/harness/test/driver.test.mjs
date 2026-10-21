@@ -76,16 +76,17 @@ test('real Harness streams, uses HTTP adapter, and persists session history', as
   assert.ok((await driver.listSessions()).some(item => item.id === created.sessionId || item.sessionId === created.sessionId));
 });
 
-test('official file tool is denied without approval and executes after explicit approval', async () => {
+test('official tool pipeline owns requested approval and its dispatch result', async () => {
   const denied = await session();
   const deniedEvents = [];
-  await driver.prompt(denied.sessionId, 'fixture_write denied', { onEvent: event => deniedEvents.push(event) });
+  await driver.prompt(denied.sessionId, 'fixture_write denied', { onToolPolicy: () => ({ kind: 'ask' }), onEvent: event => deniedEvents.push(event) });
   await assert.rejects(access(join(root, 'denied.txt')));
   assert.ok(deniedEvents.some(event => event.type === 'tool_result' && event.isError));
   const allowed = await session();
   const approvals = [];
   const events = [];
   await driver.prompt(allowed.sessionId, 'fixture_write allowed', {
+    onToolPolicy: () => ({ kind: 'ask' }),
     onEvent: event => events.push(event),
     onPermission: async call => { approvals.push(call); return true; },
   });
@@ -130,6 +131,7 @@ test('cancellation while approval is pending never starts the file tool', async 
   const created = await session();
   const abort = new AbortController();
   const result = await driver.prompt(created.sessionId, 'fixture_write denied', {
+    onToolPolicy: () => ({ kind: 'ask' }),
     signal: abort.signal,
     onPermission: async () => { abort.abort(); return new Promise(() => {}); },
   });

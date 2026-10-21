@@ -107,7 +107,7 @@ test('read-only approval capabilities bind to actual native and host definitions
   const created = await session();
   async function capability(id, name, args = {}, field = 'readOnly') {
     let observed;
-    await driver.callTool(id, name, args, { onPermission: async call => { observed = call[field]; return false; } });
+    await driver.callTool(id, name, args, { onToolPolicy: async call => { observed = call[field]; return { kind: 'deny', reason: 'Capability observation only; do not dispatch.' }; } });
     return observed;
   }
   assert.equal(await capability(created.sessionId, 'read', { file_path: join(root, 'source.txt') }), true);
@@ -119,7 +119,7 @@ test('read-only approval capabilities bind to actual native and host definitions
   assert.equal(await capability(created.sessionId, 'web_fetch', { url: 'http://127.0.0.1:1/not-requested' }), false, 'An arbitrary outbound URL is not a local read-only grant');
   await assert.rejects(access(join(root, 'not-written.txt')));
   const automaticWrite = await driver.callTool(created.sessionId, 'write', { file_path: join(root, 'smart-allowed.txt'), content: 'actual confined write' }, {
-    onPermission: async call => call.confinedFileWrite === true,
+    onToolPolicy: async call => ({ kind: call.nativeCapability ? 'allow' : 'deny' }),
   });
   assert.equal(automaticWrite.isError, false);
   assert.equal(await readFile(join(root, 'smart-allowed.txt'), 'utf8'), 'actual confined write');
@@ -127,16 +127,16 @@ test('read-only approval capabilities bind to actual native and host definitions
   // there is still writable by the native policy. Use a non-temp target.
   const outside = join(process.cwd(), '.preview-data', `smart-denied-${randomUUID()}.txt`);
   const deniedWrite = await driver.callTool(created.sessionId, 'write', { file_path: outside, content: 'must not exist' }, {
-    onPermission: async call => call.confinedFileWrite === true,
+    onToolPolicy: async call => ({ kind: call.nativeCapability ? 'allow' : 'deny' }),
   });
   assert.equal(deniedWrite.isError, true);
   assert.match(JSON.stringify(deniedWrite), /sandbox.*denied|FS_SANDBOX_DENIED/i);
   await assert.rejects(access(outside));
   let escalationGrant;
   await driver.callTool(created.sessionId, 'write', { file_path: outside, content: 'no', sandbox_permissions: 'danger-full-access', justification: 'controlled escalation check' }, {
-    onPermission: async call => { escalationGrant = call.confinedFileWrite; return false; },
+    onToolPolicy: async call => { escalationGrant = call.nativeCapability; return { kind: 'deny' }; },
   });
-  assert.equal(escalationGrant, false, 'A wider-mode retry cannot reuse the confined write grant');
+  assert.equal(escalationGrant, true, 'The native definition retains identity; escalation is decided by its native capability, not an automatic write grant');
   assert.equal(await capability(created.sessionId, 'working_directory'), true);
   assert.equal(await capability(created.sessionId, 'working_directory', { cd: root }), false);
   assert.equal(await capability(created.sessionId, 'search_mcp_tools', { query: 'read' }), true);
@@ -356,10 +356,10 @@ test('official filesystem skill is discoverable and callable through permission 
   assert.match(JSON.stringify(requests.at(-1).messages), /UPDATED_SKILL_BODY/);
 });
 
-test('subagent file execution inherits root approval and parent waits for its actual result', async () => {
+test('subagent file execution uses native permissions and parent waits for its actual result', async () => {
   const created = await session();
   const approvals = [];
-  await driver.prompt(created.sessionId, 'fixture_delegate', { onPermission: async call => { approvals.push(call); return true; } });
+  await driver.prompt(created.sessionId, 'fixture_delegate', { onToolStart: async call => { approvals.push(call); }, onPermission: () => assert.fail('Permitted native file work needs no additional approval') });
   assert.equal(await readFile(join(root, 'child.txt'), 'utf8'), 'actual child write');
   assert.ok(approvals.some(call => call.name === 'subagent' && call.sessionId === created.sessionId && call.delegationControl === true));
   assert.ok(approvals.some(call => call.name === 'write' && call.sessionId !== created.sessionId));
@@ -386,7 +386,7 @@ test('native three sibling catalogs and conversations stay read-only at capacity
   const refused = Promise.withResolvers();
   const running = driver.prompt(created.sessionId, 'fixture_catalog_parallel_root', {
     signal: AbortSignal.timeout(10000),
-    onPermission: async call => { approvals.push(call); return true; },
+    onToolStart: async call => { approvals.push(call); },
     onEvent: event => {
       events.push(event);
       if (event.type === 'tool_result' && event.name === 'subagent' && event.isError) refused.resolve(event);
@@ -515,11 +515,12 @@ test('owned child receives configured host tools, MCP and instructions before it
     tools: [{ name: 'child_contract', description: 'Host task contract', inputSchema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'] }, execute(args, exec) { calls.push({ args, exec }); return { accepted: true }; } }],
     mcpServers: [{ serverName: 'child_memory', transport: 'streamable-http', url: mcpUrl, reconnect: { enabled: false } }],
   });
+  await driver.permissions(created.sessionId, { preset: 'danger-full-access' });
   let rootApproval;
   await driver.callTool(created.sessionId, 'mcp__child_memory__remember', { text: 'identity-only' }, {
-    onPermission: call => { rootApproval = call.sessionApproval; return false; },
+    onToolPolicy: call => { rootApproval = call.sessionApproval; return { kind: 'deny', reason: 'Observe identity without calling MCP' }; },
   });
-  await driver.prompt(created.sessionId, 'fixture_capability_parent', { onPermission: async (call) => { approvals.push({ ...call, approvalCurrent: call.sessionApproval?.isCurrent() }); return true; } });
+  await driver.prompt(created.sessionId, 'fixture_capability_parent', { onToolStart: async (call) => { approvals.push({ ...call, approvalCurrent: call.sessionApproval?.isCurrent() }); } });
   const request = requests.find(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_capability_child')));
   assert.ok(request.tools.some(tool => tool.function.name === 'child_contract'));
   assert.ok(request.tools.some(tool => tool.function.name === 'search_mcp_tools'));
@@ -548,7 +549,7 @@ test('cancelling a parent also quiesces its active child', { timeout: 10000 }, a
 test('steering enters the official inbox before the next model step', async () => {
   const created = await session();
   let steered = false;
-  await driver.prompt(created.sessionId, 'fixture_limit', { onPermission: async () => {
+  await driver.prompt(created.sessionId, 'fixture_limit', { onToolStart: async () => {
     if (!steered) { steered = true; await driver.steer(created.sessionId, 'fixture_followup STEERING_SCOPE_17'); }
     return true;
   } });

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { build } from '../../ui/node_modules/esbuild/lib/main.js';
 import { createCompatServer } from '../server.mjs';
+import { permissionDriver } from './fixtures/permission-driver.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { CodeProRuns } from '../codepro.mjs';
 import { zCodeProRunSnapshotResponse_unstable, zCodeProRunControlResponse_unstable, zCodeProRunNotification_unstable, zCreateSourceResponse_unstable } from '../../ui/sdk/src/generated/zod.gen.ts';
@@ -49,6 +50,7 @@ async function connect(url) {
 function controlledDriver() {
   const sessions = new Map(); const native = new Map(); const scripts = []; const prompts = []; const calls = [];
   return {
+    permissions: permissionDriver(),
     scripts, prompts, calls,
     async createSession(input) { sessions.set(input.sessionId, input); return { sessionId: input.sessionId }; },
     async configureSession(sessionId, patch) { sessions.set(sessionId, { ...sessions.get(sessionId), ...patch }); },
@@ -70,6 +72,7 @@ function controlledDriver() {
         await options.onEvent({ type: 'tool_call', id, name, arguments: args, sessionId });
         const approved = await options.onPermission({ id, name, arguments: args, signal: options.signal, sessionId });
         assert.equal(approved, true, 'Fixture permissions must traverse the ACP approval handler');
+        await options.onToolStart?.({ id, name, arguments: args, signal: options.signal, sessionId });
         calls.push({ sessionId, name, arguments: args });
         const result = await execute();
         await options.onEvent({ type: 'tool_result', id, sessionId, result: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }], isError: false, ...(structuredContent ? { structuredContent: typeof structuredContent === 'function' ? structuredContent(result) : structuredContent } : {}) });

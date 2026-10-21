@@ -65,9 +65,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
   const approvalOwners = new WeakMap();
+  const initialPermissions = new Map();
+  const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
+    // Supply creation intent before the official preset service pins defaults.
+    // Restored and forked native facts always win over product metadata.
+    host.on('session/created', session => {
+      const preset = initialPermissions.get(session.id);
+      const state = host.sessionProjections.stateOf(session, 'permissions');
+      if (preset && state?.preset === null && state.sandbox === null && state.approval === null && !state.seeded)
+        host.permissionPresets.set(session, preset);
+    });
     host.provide('agentDefaultModel', {
       currentSelection: () => ({ ...selection }),
       saveSelection: async next => { selection = { ...next }; },
@@ -106,11 +116,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const webFetchDefinition = ctx.tools.get('web_fetch');
   const webService = ctx.web[symbols.original];
   const webApprovals = new WeakMap();
-  const confinedWriteDefinitions = new WeakSet();
-  for (const name of ['write', 'edit']) {
-    const definition = ctx.tools.get(name);
-    if (definition) confinedWriteDefinitions.add(definition);
-  }
+  const nativeDefinitions = new WeakSet(ctx.tools.schemas().filter(tool =>
+    !['web_fetch', 'read_mcp_resource', 'list_mcp_resources'].includes(tool.name))
+    .map(tool => ctx.tools.get(tool.name)).filter(Boolean));
   const directoryQuery = ctx.tools.get('working_directory');
   // Native control remains confined to direct ownership by SubagentService.
   // These definitions never grant the child's file or command permissions.
@@ -126,14 +134,6 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     return Boolean(definition && (readOnlyDefinitions.has(definition) ||
       (definition === directoryQuery && exec.arguments.cd === undefined)));
   }
-  function isConfinedFileWrite(exec) {
-    const definition = ctx.tools.get(exec.name, exec.agent);
-    return Boolean(definition && confinedWriteDefinitions.has(definition) &&
-      exec.arguments.sandbox_permissions === undefined &&
-      ctx.fs.sandboxMode !== undefined &&
-      ctx.sandboxPolicy.resolve({ session: exec.agent.session }).mode === 'workspace-write');
-  }
-
   function webSessionApproval(exec, rootAgent) {
     if (!rootAgent || !webFetchDefinition || ctx.web[symbols.original] !== webService ||
       ctx.tools.get(exec.name, exec.agent) !== webFetchDefinition) return undefined;
@@ -280,44 +280,77 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     sessionScopes.delete(agent.id);
     extensionStates.delete(agent.id);
   });
+  function permissionCall(exec, active) {
+    const definition = ctx.tools.get(exec.name, exec.agent);
+    const rootAgent = ctx.agents.get(active.sessionId);
+    const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
+    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent);
+    let sessionApproval;
+    if (binding && rootAgent) {
+      let owner = approvalOwners.get(rootAgent);
+      if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
+      sessionApproval = {
+        owner, tool: binding.identity, extensionSource: binding.extensionSource,
+        ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
+        isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent &&
+          (mcpBinding ? mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding : binding.isCurrent()),
+      };
+    }
+    return {
+      ...(sessionApproval ? { sessionApproval } : {}),
+      delegated: exec.agent.id !== active.sessionId,
+      id: exec.callId, name: exec.name, arguments: exec.arguments, readOnly: isReadOnlyCall(exec),
+      nativeCapability: Boolean(definition && nativeDefinitions.has(definition)),
+      delegationControl: Boolean(definition && delegationDefinitions.has(definition)),
+      sandboxMode: ctx.sandboxPolicy.resolve({ session: exec.agent.session }).mode,
+      sessionId: exec.agent.id, signal: exec.signal,
+    };
+  }
+  ctx.on('approval/request', async (request, next) => {
+    const active = directCalls.get(request.callId) ?? runFor(request.agent);
+    if (!active?.onPermission) return next();
+    const call = approvalCalls.get(request.callId) ?? {
+      id: request.callId, name: request.toolName, arguments: {}, sessionId: request.agent.id,
+    };
+    if (request.signal) await abortable(active.events, request.signal);
+    else await active.events;
+    const accepted = await active.onPermission({ ...call, reason: request.reason, signal: request.signal });
+    return accepted === true ? 'allowed-once' : 'rejected';
+  });
   ctx.on('tools/pre-execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
     if (active?.cancelRequested || exec.signal.aborted) return { kind: 'cancel' };
-    if (!active?.onPermission) return { kind: 'deny', reason: 'CodeBuddy tool approval is required.' };
+    if (!active) return { kind: 'deny', reason: 'No active tool invocation context.' };
     try {
       await abortable(active.events, exec.signal);
-      const definition = ctx.tools.get(exec.name, exec.agent);
-      const rootAgent = ctx.agents.get(active.sessionId);
-      const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
-      const binding = mcpBinding ?? webSessionApproval(exec, rootAgent);
-      let sessionApproval;
-      if (binding && rootAgent) {
-        let owner = approvalOwners.get(rootAgent);
-        if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
-        sessionApproval = {
-          owner, tool: binding.identity, extensionSource: binding.extensionSource,
-          ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
-          isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent &&
-            (mcpBinding ? mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding : binding.isCurrent()),
-        };
-      }
-      const accepted = await abortable(active.onPermission({
-        ...(sessionApproval ? { sessionApproval } : {}),
-        delegated: exec.agent.id !== active.sessionId,
-        id: exec.callId, name: exec.name, arguments: exec.arguments, readOnly: isReadOnlyCall(exec),
-        confinedFileWrite: isConfinedFileWrite(exec), delegationControl: Boolean(definition && delegationDefinitions.has(definition)),
-        sessionId: exec.agent?.id, signal: exec.signal,
-      }), exec.signal);
+      const call = permissionCall(exec, active);
+      approvalCalls.set(exec.callId, call);
+      let gate = active.onToolPolicy
+        ? await abortable(active.onToolPolicy(call), exec.signal)
+        : { kind: call.nativeCapability || call.readOnly || call.delegationControl || call.sandboxMode === 'danger-full-access' ? 'allow' : 'ask' };
+      if (!['allow', 'ask', 'deny', 'cancel'].includes(gate?.kind) ||
+        (gate.kind === 'deny' && (typeof gate.reason !== 'string' || !gate.reason)))
+        return { kind: 'deny', reason: 'The tool policy returned an invalid decision.' };
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
-      return accepted === true ? next() : { kind: 'deny', reason: exec.agent.id !== active.sessionId
-        ? 'This operation is not authorized under the parent session policy. Report the limitation to the delegating agent; do not retry or bypass this denial.'
-        : 'Tool execution was declined.' };
+      // Direct UI requests have no model turn. Their existing explicit user
+      // confirmation is separate from Agent approval, whose audit requires a turn.
+      if (directCalls.has(exec.callId) && gate.kind === 'ask') {
+        const accepted = await active.onPermission?.(call);
+        gate = { kind: accepted === true ? 'allow' : 'deny', reason: 'Direct tool approval was declined.' };
+      }
+      return gate.kind === 'allow' ? next() : gate;
     } catch (error) {
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
       return { kind: 'deny', reason: 'Tool approval did not complete.' };
     }
   });
+  ctx.on('tools/execute', async (exec, next) => {
+    const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
+    await active?.onToolStart?.(approvalCalls.get(exec.callId) ?? permissionCall(exec, active));
+    return next();
+  });
   ctx.on('tools/result', (exec, result) => {
+    approvalCalls.delete(exec.callId);
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
     const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata };
     const direct = directCalls.get(exec.callId);
@@ -384,7 +417,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,
       hasText: event.data.message.content.some(block => block.type === 'text' && block.text.trim().length > 0),
     });
-    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
+    if (event.type === 'turn/start' || event.type === 'turn/end' || event.type === 'todo/write' || event.type === 'goal/change' || ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.type) || event.type.startsWith('llm/retry') || event.type.startsWith('compaction/') || event.type.startsWith('subagent/')) emit(run, { type: 'harness_event', event, sessionId: session.id });
     if (['request/context', 'user/message', 'assistant/message', 'tool/result', 'compaction/end'].includes(event.type))
       emit(run, contextUsage(session));
     if (event.type === 'turn/end' && runs.get(session.id) === run) {
@@ -517,7 +550,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const previous = sessionSettings.get(sessionId) ?? {};
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
-    const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, ...settings } = { ...previous, ...options };
+    const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, initialPermissionPreset: _initialPreset, ...settings } = { ...previous, ...options };
     for (const field of ['maxTurns', 'maxTokens']) if (settings[field] !== undefined && (!Number.isSafeInteger(settings[field]) || settings[field] < 1)) throw new TypeError(`${field} must be a positive integer`);
     if (settings.temperature !== undefined && (!Number.isFinite(settings.temperature) || settings.temperature < 0 || settings.temperature > 2)) throw new TypeError('temperature must be between 0 and 2');
     if (settings.autoCompactThreshold !== undefined && (!Number.isFinite(settings.autoCompactThreshold) || settings.autoCompactThreshold <= 0 || settings.autoCompactThreshold >= 1)) throw new TypeError('autoCompactThreshold must be between 0 and 1');
@@ -650,6 +683,29 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     version: HARNESS_VERSION,
     referenceSourceCommit: HARNESS_REFERENCE_COMMIT,
     dataDir: root,
+    async permissions(sessionId, { cwd: workingDirectory, initialPreset, preset } = {}) {
+      if (preset !== undefined) ctx.permissionPresets.resolve(preset);
+      if (!ctx.agents.get(sessionId) && workingDirectory) {
+        const work = creation.then(async () => {
+          if (initialPreset !== undefined) {
+            ctx.permissionPresets.resolve(initialPreset);
+            initialPermissions.set(sessionId, initialPreset);
+          }
+          try { await ctx.sessionController.create({ sessionId, cwd: resolve(workingDirectory) }); }
+          finally { initialPermissions.delete(sessionId); }
+        });
+        creation = work.catch(() => {});
+        await work;
+      }
+      const agent = await resolveAgent(sessionId);
+      if (preset !== undefined) ctx.permissionPresets.set(agent.session, preset);
+      await ctx.sessions.flush(agent.session);
+      return {
+        preset: ctx.permissionPresets.current(agent.session),
+        sandboxMode: ctx.sandboxPolicy.resolve({ session: agent.session }).mode,
+        approvalPolicy: ctx.approval.effectivePolicy(agent.session),
+      };
+    },
     invalidateMcpServers(configKeys) { return mcpPresets.invalidate(configKeys); },
     async warmMcpServers(servers) {
       if (servers.some(server => server.transport !== 'streamable-http')) throw new TypeError('Startup preparation accepts remote MCP connections only');
@@ -661,6 +717,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const work = creation.then(async () => {
         selection = await configureProvider(provider, model);
         let sessionCwd = resolve(workingDirectory), created;
+        if (options?.initialPermissionPreset !== undefined) {
+          ctx.permissionPresets.resolve(options.initialPermissionPreset);
+          initialPermissions.set(sessionId, options.initialPermissionPreset);
+        }
         try { created = await ctx.sessionController.create({ sessionId, cwd: sessionCwd }); }
         catch (error) {
           const recorded = error.details?.existingCwd;
@@ -671,6 +731,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           sessionCwd = recorded;
           created = await ctx.sessionController.create({ sessionId, cwd: sessionCwd });
         }
+        finally { initialPermissions.delete(sessionId); }
         await ctx.sessionController.selectModel({ sessionId: created.sessionId, ...selection });
         contextSources.set(created.sessionId, provider.contextSource ?? (provider.contextWindow ? 'configured' : 'fallback'));
         if (options || !sessionScopes.has(created.sessionId)) await configureSession(created.sessionId, options);
@@ -679,14 +740,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onUserQuestions, signal, requestId = randomUUID(), resumeGoal } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, signal, requestId = randomUUID(), resumeGoal } = {}) {
       if (runs.has(sessionId)) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
       signal?.throwIfAborted();
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId };
+      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId };
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -744,13 +805,13 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         return metadata ? { ...tool, ...(metadata._meta ? { _meta: metadata._meta } : {}), ...(metadata.outputSchema ? { outputSchema: metadata.outputSchema } : {}), ...(metadata.mcpApp ? { mcpApp: metadata.mcpApp } : {}) } : tool;
       });
     },
-    async callTool(sessionId, name, args, { onPermission, onEvent, signal = new AbortController().signal } = {}) {
+    async callTool(sessionId, name, args, { onPermission, onToolPolicy, onToolStart, onEvent, signal = new AbortController().signal } = {}) {
       const agent = await resolveAgent(sessionId);
       if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Direct tool calls require an idle session');
       const callId = randomUUID();
       const completion = Promise.withResolvers();
       completion.promise.catch(() => {});
-      const run = { ...completion, onPermission, onEvent, events: Promise.resolve(), sessionId };
+      const run = { ...completion, onPermission, onToolPolicy, onToolStart, onEvent, events: Promise.resolve(), sessionId };
       directCalls.set(callId, run);
       try {
         return await agent.runMaintenance(async maintenanceSignal => {

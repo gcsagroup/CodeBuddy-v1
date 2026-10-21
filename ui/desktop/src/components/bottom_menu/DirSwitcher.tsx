@@ -10,6 +10,7 @@ import {
 } from '../ui/dropdown-menu';
 import { toast } from 'react-toastify';
 import { defineMessages, useIntl } from '../../i18n';
+import { DropdownChevron } from '../ui/DropdownChevron';
 
 const i18n = defineMessages({
   failedToUpdateWorkingDir: {
@@ -196,7 +197,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
       <DropdownMenuTrigger asChild>
         <button
           ref={triggerRef}
-          className={`z-[100] ${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} text-text-primary/70 text-xs flex items-center transition-colors pl-1 [&>svg]:size-4 ${className}`}
+          className={`z-[100] ${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} min-w-0 text-text-primary/70 text-xs flex items-center gap-1 transition-colors px-1 min-h-7 ${className}`}
           onPointerDown={(event) => {
             // Radix opens on pointer-down; wait for click to finish before showing a menu item
             // under the pointer, or the same gesture can select a recent directory.
@@ -205,9 +206,10 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
           onClick={handleDirectoryClick}
           disabled={isDirectoryChooserOpen}
           title={workingDir || intl.formatMessage(i18n.chooseFolder)}
+          aria-label={workingDir || intl.formatMessage(i18n.chooseFolder)}
         >
-          <FolderDot className="mr-1" size={16} />
-          <div className="max-w-[200px] truncate">
+          <FolderDot className="size-4 shrink-0" aria-hidden="true" />
+          <div className="max-w-[200px] truncate group-data-[compact=true]/composer-toolbar:hidden">
             {workingDir
               ? workingDir
                   .replace(/[\\/]+$/, '')
@@ -215,6 +217,10 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
                   .pop() || workingDir
               : intl.formatMessage(i18n.chooseFolder)}
           </div>
+          <DropdownChevron
+            open={isMenuOpen}
+            className="size-3 group-data-[compact=true]/composer-toolbar:hidden"
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

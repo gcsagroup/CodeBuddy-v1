@@ -215,7 +215,7 @@ describe('ChatInput queue delivery', () => {
     expect(screen.getByRole('button', { name: 'Approval mode' })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Send$/ })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Stop$/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Model selector' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Model selector' })).toBeVisible();
   });
 
   it('restores unsent messages paused after the conversation is remounted', async () => {

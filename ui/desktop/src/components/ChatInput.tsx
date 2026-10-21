@@ -233,11 +233,8 @@ export function chatInputActionVisibility(isLoading: boolean, hasSubmittableCont
   };
 }
 
-export function shouldShowWorkingDirectorySwitcher(
-  isBottomBarNarrow: boolean,
-  canChangeWorkingDirectory: boolean
-): boolean {
-  return !isBottomBarNarrow && canChangeWorkingDirectory;
+export function shouldShowWorkingDirectorySwitcher(canChangeWorkingDirectory: boolean): boolean {
+  return canChangeWorkingDirectory;
 }
 
 export default function ChatInput({
@@ -1693,30 +1690,32 @@ export default function ChatInput({
         </div>
       )}
 
-      {/* Narrow composers reserve room for approval, attachment and send/stop. */}
-      <div ref={bottomBarRef} className="flex flex-row items-center gap-2 px-3 py-2 relative">
+      {/* Compact mode keeps the three picker icons and their original triggers. */}
+      <div
+        ref={bottomBarRef}
+        data-compact={isBottomBarNarrow}
+        className="group/composer-toolbar flex flex-row items-center gap-2 px-3 py-2 relative"
+      >
         {/* Left: model selector */}
-        {!isBottomBarNarrow && (
-          <Tooltip>
-            <div className="min-w-0 max-w-48">
-              <ModelsBottomBar
-                sessionId={sessionId}
-                dropdownRef={dropdownRef}
-                setView={setView}
-                sessionModel={effectiveModel}
-                sessionProvider={effectiveProvider}
-                latestInference={latestInference}
-                onModelChanged={setModelOverride}
-                sessionLoaded={sessionLoaded}
-              />
-            </div>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <div className="min-w-0 max-w-48">
+            <ModelsBottomBar
+              sessionId={sessionId}
+              dropdownRef={dropdownRef}
+              setView={setView}
+              sessionModel={effectiveModel}
+              sessionProvider={effectiveProvider}
+              latestInference={latestInference}
+              onModelChanged={setModelOverride}
+              sessionLoaded={sessionLoaded}
+            />
+          </div>
+        </Tooltip>
 
         <div className="shrink-0">{modelToolbarSlot}</div>
 
         {/* Left: working directory (leaf folder name only) */}
-        {shouldShowWorkingDirectorySwitcher(isBottomBarNarrow, Boolean(onWorkingDirChange)) && (
+        {shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
           <DirSwitcher
             className=""
             sessionId={sessionId ?? undefined}

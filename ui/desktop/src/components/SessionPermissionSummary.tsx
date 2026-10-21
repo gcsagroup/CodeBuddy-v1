@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ChevronDown, LoaderCircle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Check, LoaderCircle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import type { Session } from '../types/session';
 import { acpSetSessionMode } from '../acp/sessions';
 import { all_goose_modes } from './settings/mode/ModeSelectionItem';
 import { parseSessionMode } from '../utils/sessionMode';
 import { readPreferences } from '../acp/preferences';
+import { DropdownChevron } from './ui/DropdownChevron';
 
 const i18n = defineMessages({
   projectContainer: {
@@ -195,7 +196,7 @@ export function PermissionPicker({
         <Popover.Trigger asChild>
           <button
             type="button"
-            className={`flex min-h-7 items-center gap-1.5 rounded-md px-1 text-xs hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${mode === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
+            className={`flex min-h-7 items-center gap-1.5 rounded-md px-1 text-xs hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${mode === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
             aria-label={intl.formatMessage(i18n.title)}
           >
             {saving ? (
@@ -203,10 +204,13 @@ export function PermissionPicker({
             ) : (
               <ModeIcon className="size-3.5" aria-hidden="true" />
             )}
-            <span className="truncate">
+            <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
               {intl.formatMessage(saving ? i18n.pending : mode ? labels[mode] : i18n.unknown)}
             </span>
-            <ChevronDown className="size-3.5" aria-hidden="true" />
+            <DropdownChevron
+              open={open}
+              className="size-3.5 group-data-[compact=true]/composer-toolbar:hidden"
+            />
           </button>
         </Popover.Trigger>
         {!open && error && (

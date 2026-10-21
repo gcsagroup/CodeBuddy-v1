@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Bot, Check, ChevronDown, LoaderCircle, Settings } from 'lucide-react';
+import { Bot, Check, LoaderCircle, Settings } from 'lucide-react';
+import { DropdownChevron } from '../../../ui/DropdownChevron';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { ModelThinkingMenu } from '../../../ThinkingEffortPicker';
@@ -254,14 +255,17 @@ export default function ModelsBottomBar({
             ) : (
               <Bot className="size-4 shrink-0" aria-hidden="true" />
             )}
-            <span className="truncate">
+            <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
               {loadingSession
                 ? intl.formatMessage(i18n.loading)
                 : currentModel
                   ? getModelDisplayName(currentModel)
                   : intl.formatMessage(i18n.select)}
             </span>
-            <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+            <DropdownChevron
+              open={open}
+              className="size-3 shrink-0 group-data-[compact=true]/composer-toolbar:hidden"
+            />
           </button>
         </Popover.Trigger>
         <Popover.Portal>

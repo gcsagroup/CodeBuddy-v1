@@ -28,9 +28,8 @@ describe('ChatInput submission lifecycle', () => {
 
 describe('ChatInput stop control', () => {
   it('shows the project chooser only when the current view can change the project directory', () => {
-    expect(shouldShowWorkingDirectorySwitcher(false, true)).toBe(true);
-    expect(shouldShowWorkingDirectorySwitcher(false, false)).toBe(false);
-    expect(shouldShowWorkingDirectorySwitcher(true, true)).toBe(false);
+    expect(shouldShowWorkingDirectorySwitcher(true)).toBe(true);
+    expect(shouldShowWorkingDirectorySwitcher(false)).toBe(false);
   });
 
   it('keeps emergency stop visible while a running task has a sendable draft', () => {

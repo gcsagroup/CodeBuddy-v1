@@ -8576,17 +8576,11 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
-  },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
@@ -8608,5 +8602,23 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "Sedang berjalan · {count}"
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "Tamat · {count}"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "Status tidak diketahui · {count}"
+  },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "Tiada subejen sedang berjalan"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "mula bekerja"
+  },
+  "subagentLifecycle.end": {
+    "defaultMessage": "telah tamat"
   }
 }

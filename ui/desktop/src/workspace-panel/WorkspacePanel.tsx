@@ -37,7 +37,12 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
 import { WorkspaceSubagent } from './WorkspaceSubagent';
-import { WorkspaceSubagents, subagentsMessages } from './WorkspaceSubagents';
+import {
+  WorkspaceSubagents,
+  SubagentCatalogProvider,
+  subagentsMessages,
+} from './WorkspaceSubagents';
+import { ChatState } from '../types/chatState';
 import { WorkspaceChanges, changeMessages } from './WorkspaceChanges';
 import { OPEN_CONVERSATION_CHANGE, type ConversationChangeTarget } from './conversationChangePanel';
 import { OPEN_WORKSPACE_FILE, type WorkspaceFileTarget } from './workspaceFilePanel';
@@ -103,12 +108,24 @@ export function WorkspacePanel(props: Props) {
     [id, snapshot?.session?.working_dir, isContainer]
   );
   return (
-    <WorkspacePanelContent
+    <SubagentCatalogProvider
       key={scopeKey(scope)}
-      {...props}
-      scope={scope}
-      messages={snapshot?.messages ?? EMPTY_MESSAGES}
-    />
+      parentSessionId={id}
+      enabled={
+        !!snapshot?.session && !!scope.root && snapshot.chatState !== ChatState.LoadingConversation
+      }
+      active={
+        props.expanded ||
+        (!!snapshot &&
+          ![ChatState.Idle, ChatState.LoadingConversation].includes(snapshot.chatState))
+      }
+    >
+      <WorkspacePanelContent
+        {...props}
+        scope={scope}
+        messages={snapshot?.messages ?? EMPTY_MESSAGES}
+      />
+    </SubagentCatalogProvider>
   );
 }
 

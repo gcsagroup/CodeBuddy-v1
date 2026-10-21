@@ -7277,6 +7277,12 @@
   "subRecipeModal.subtitle": {
     "defaultMessage": "Configure a subrecipe that can be called as a tool during recipe execution"
   },
+  "subagentLifecycle.end": {
+    "defaultMessage": "ended"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "started working"
+  },
   "subagentTemplates.boundary": {
     "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
   },
@@ -8579,23 +8585,26 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "Ended · {count}"
   },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
   },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
-  },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
   },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "No subagents running"
+  },
   "workspaceSubagents.refresh": {
     "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "Running · {count}"
   },
   "workspaceSubagents.stale": {
     "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
@@ -8605,6 +8614,9 @@
   },
   "workspaceSubagents.unknown": {
     "defaultMessage": "Conversation unavailable"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "Status unknown · {count}"
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"

@@ -1,6 +1,7 @@
 import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
 import type { RequestPermissionRequest, SessionNotification } from '@agentclientprotocol/sdk';
 import type { Message } from '../types/message';
+import { parseSubagentLifecycle } from '../types/subagentLifecycle';
 import {
   applyElicitationRequest as applyElicitationRequestToState,
   applyElicitationStatus as applyElicitationStatusToState,
@@ -16,6 +17,7 @@ import {
   getGooseActiveRunId,
   getGooseMessageMeta,
   isRecord,
+  messagesChange,
 } from './adapter/shared';
 import { applyToolCall, applyToolCallUpdate } from './adapter/tools';
 import type { AcpElicitationRequest } from './elicitationRequests';
@@ -134,6 +136,27 @@ function applyAcpSessionUpdate(
   notification: SessionNotification
 ): AcpChatStateChange[] {
   const update = notification.update;
+  const goose = isRecord(update._meta?.goose) ? update._meta.goose : undefined;
+  const lifecycle = parseSubagentLifecycle(goose?.subagentLifecycle);
+  if (lifecycle) {
+    if (lifecycle.session_id !== notification.sessionId) return [];
+    if (!state.messages.some((message) => message.id === lifecycle.event_id))
+      state.messages.push({
+        id: lifecycle.event_id,
+        role: 'assistant',
+        created: lifecycle.created_at,
+        content: [
+          {
+            type: 'systemNotification',
+            notificationType: 'inlineMessage',
+            msg: '',
+            data: lifecycle,
+          },
+        ],
+        metadata: { userVisible: true, agentVisible: false },
+      });
+    return messagesChange(state);
+  }
   switch (update.sessionUpdate) {
     case 'user_message_chunk':
       return applyContentChunk(state, 'user', update);

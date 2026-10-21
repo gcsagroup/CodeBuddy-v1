@@ -8576,17 +8576,11 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
-  },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
@@ -8608,5 +8602,23 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "चल रहे · {count}"
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "समाप्त · {count}"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "स्थिति अज्ञात · {count}"
+  },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "कोई उप-एजेंट नहीं चल रहा है"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "ने काम शुरू किया"
+  },
+  "subagentLifecycle.end": {
+    "defaultMessage": "समाप्त हुआ"
   }
 }

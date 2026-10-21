@@ -52,7 +52,7 @@ import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
 import { ConversationEditing } from "./conversation-editing.mjs";
-import { listSubagentCatalog, readSubagentConversation } from "./subagent-conversations.mjs";
+import { listSubagentCatalog, readSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
@@ -2293,6 +2293,17 @@ export class Compat {
                 data: { ...event, id: event.childSessionId ?? event.id },
               },
             });
+          if (["subagent_start", "subagent_end"].includes(event.type)) {
+            try {
+              const catalog = await listSubagentCatalog(s, {}, this.driver);
+              const child = catalog.children.find(entry => entry.id === (event.childSessionId ?? event.id));
+              const update = subagentLifecycleUpdate(s.id, event, child);
+              if (update) await notify(update);
+            } catch {
+              // Display lookup cannot change the native activation's outcome.
+              console.warn('Subagent lifecycle display could not read its native catalog.');
+            }
+          }
           const dispatchKey = JSON.stringify([
             event.sessionId ?? s.id,
             event.id,

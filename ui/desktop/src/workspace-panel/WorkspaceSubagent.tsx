@@ -5,6 +5,7 @@ import type { Message } from '../types/message';
 import ProgressiveMessageList from '../components/ProgressiveMessageList';
 import { SubagentAvatar } from '../components/SubagentAvatar';
 import { openSubagentCatalog } from './subagentPanel';
+import { usePreloadedSubagentConversation } from './WorkspaceSubagents';
 import {
   createSubagentConversationProjection,
   readSubagentConversation,
@@ -48,9 +49,26 @@ export function WorkspaceSubagent({
   const [status, setStatus] = useState<string>();
   const [error, setError] = useState('');
   const [truncated, setTruncated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const preloaded = usePreloadedSubagentConversation(
+    parentSessionId,
+    childSessionId,
+    ancestorSessionIds
+  );
+  const managed = preloaded !== undefined;
+  const displayed = managed
+    ? {
+        messages: preloaded.snapshot?.messages ?? [],
+        status: preloaded.snapshot?.turn?.status,
+        error: preloaded.snapshot?.error ?? '',
+        truncated: preloaded.snapshot?.truncated ?? false,
+        loading: preloaded.snapshot === null,
+      }
+    : { messages, status, error, truncated, loading };
   const scroller = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   useEffect(() => {
+    if (managed) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     let afterSeq = -1;
@@ -59,6 +77,7 @@ export function WorkspaceSubagent({
     setStatus(undefined);
     setError('');
     setTruncated(false);
+    setLoading(true);
     const read = async () => {
       try {
         const page = ancestorSessionIds
@@ -76,6 +95,7 @@ export function WorkspaceSubagent({
         if (page.events.some((event) => event.truncated)) setTruncated(true);
         setStatus(projection.status);
         setError('');
+        if (!page.hasMore) setLoading(false);
         // Only the visible tab mounts this reader. Poll committed records; never
         // follow/resume/cancel a child or acquire its execution scope.
         timer = setTimeout(
@@ -90,6 +110,7 @@ export function WorkspaceSubagent({
         if (!disposed) {
           setError(String(e));
           setStatus(undefined);
+          setLoading(false);
           timer = setTimeout(() => void read(), 5000);
         }
       }
@@ -99,12 +120,12 @@ export function WorkspaceSubagent({
       disposed = true;
       clearTimeout(timer);
     };
-  }, [parentSessionId, childSessionId, ancestorSessionIds, revision]);
+  }, [parentSessionId, childSessionId, ancestorSessionIds, revision, managed]);
   const scrollToTail = useCallback(() => {
     if (following.current && scroller.current)
       scroller.current.scrollTop = scroller.current.scrollHeight;
   }, []);
-  useEffect(scrollToTail, [messages, scrollToTail]);
+  useEffect(scrollToTail, [displayed.messages, scrollToTail]);
   return (
     <section
       aria-label={intl.formatMessage(m.title)}
@@ -123,24 +144,30 @@ export function WorkspaceSubagent({
         <span className="min-w-0 flex-1 truncate" title={title}>
           {title}
         </span>
-        <span role="status">{intl.formatMessage(m.status, { state: status ?? 'unknown' })}</span>
+        {!displayed.loading && (
+          <span role="status">
+            {intl.formatMessage(m.status, { state: displayed.status ?? 'unknown' })}
+          </span>
+        )}
         <span className="text-text-secondary">{intl.formatMessage(m.readonly)}</span>
         <button
           type="button"
           className="wb-icon"
           aria-label={intl.formatMessage(m.refresh)}
-          onClick={() => refresh((value) => value + 1)}
+          onClick={() => (managed ? preloaded.refresh() : refresh((value) => value + 1))}
         >
           <RefreshCw size={14} />
         </button>
       </header>
-      {error && (
+      {displayed.error && (
         <p role="alert" className="p-3 text-xs text-red-600">
-          {messages.length > 0 && <span className="mb-1 block">{intl.formatMessage(m.stale)}</span>}
-          {error}
+          {displayed.messages.length > 0 && (
+            <span className="mb-1 block">{intl.formatMessage(m.stale)}</span>
+          )}
+          {displayed.error}
         </p>
       )}
-      {truncated && (
+      {displayed.truncated && (
         <p className="px-3 py-1 text-xs text-text-secondary">{intl.formatMessage(m.truncated)}</p>
       )}
       <div
@@ -151,20 +178,28 @@ export function WorkspaceSubagent({
           following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
         }}
       >
-        {messages.length ? (
+        {displayed.loading ? (
+          <p role="status" className="py-4 text-sm text-text-secondary">
+            {intl.formatMessage({
+              id: 'workspaceSubagents.loading',
+              defaultMessage: 'Loading subagents…',
+            })}
+          </p>
+        ) : displayed.messages.length ? (
           <ProgressiveMessageList
-            messages={messages}
+            messages={displayed.messages}
             chat={{ sessionId: childSessionId }}
             sessionType="code_pro"
             readOnly
             isUserMessage={(message) => message.role === 'user'}
             foldTurns={false}
+            showLoadingThreshold={Number.MAX_SAFE_INTEGER}
             isStreamingMessage={false}
             onRenderingComplete={scrollToTail}
           />
-        ) : (
+        ) : !displayed.error ? (
           <p className="py-4 text-sm text-text-secondary">{intl.formatMessage(m.empty)}</p>
-        )}
+        ) : null}
       </div>
     </section>
   );

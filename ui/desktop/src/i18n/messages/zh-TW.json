@@ -8330,17 +8330,11 @@
   "workspaceSubagents.empty": {
     "defaultMessage": "此目錄中暫無子智慧體。"
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "{name} 的下級智慧體"
-  },
   "workspaceSubagents.external": {
     "defaultMessage": "外部智慧體"
   },
   "workspaceSubagents.unknown": {
     "defaultMessage": "暫無可讀取的對話"
-  },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "點擊智慧體查看對話，展開箭頭查看它的下級智慧體。"
   },
   "workspaceSubagents.stale": {
     "defaultMessage": "目錄重新整理失敗，下方保留的是上次讀取的項目。"
@@ -8608,5 +8602,23 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "在右側查看"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "執行中 · {count}"
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "已結束 · {count}"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "狀態未知 · {count}"
+  },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "沒有執行中的子智慧體"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "開始工作"
+  },
+  "subagentLifecycle.end": {
+    "defaultMessage": "已結束"
   }
 }

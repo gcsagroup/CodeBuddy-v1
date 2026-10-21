@@ -285,6 +285,48 @@ describe('conversation change evidence ledger', () => {
     expect(collectConversationChanges([user('no-owner'), response('orphan')])).toEqual([]);
   });
 
+  it('uses exact native history fragments without inventing whole-file positions', () => {
+    const messages = [
+      user('child'),
+      request('edit', '/fixture/app.py', 'edit'),
+      response('edit', {
+        path: '/fixture/app.py',
+        diffs: [{ oldText: 'old\n', newText: 'new\nextra\n' }],
+      }),
+    ];
+    const [turn] = collectConversationChanges(messages);
+    expect(turn.files[0]).toMatchObject({
+      added: 2,
+      removed: 1,
+      changes: [{ diff: '@@\n-old\n+new\n+extra' }],
+    });
+  });
+
+  it('uses a complete invocation only with an explicit native create receipt', () => {
+    const call = request('create');
+    const content = call.content[0];
+    if (content.type !== 'toolRequest' || content.toolCall.status !== 'success')
+      throw new Error('fixture');
+    (content.toolCall.value as { arguments: Record<string, unknown> }).arguments.content =
+      'first\nsecond\n';
+    const saved = response('create', { path: '/fixture/app.py', operation: 'create', diffs: [] });
+    const messages = [user('child'), call, saved];
+    const [turn] = collectConversationChanges(messages);
+    expect(turn.files[0]).toMatchObject({ added: 2, removed: 0 });
+    (content.toolCall.value as { arguments: Record<string, unknown> }).arguments.content =
+      'first\nsecond\nthird\n';
+    expect(collectConversationChanges(messages)[0].files[0]).toMatchObject({
+      added: 3,
+      removed: 0,
+    });
+    const [unknown] = collectConversationChanges([
+      user('child'),
+      call,
+      response('create', { path: '/fixture/app.py', operation: 'update', diffs: [] }),
+    ]);
+    expect(unknown.files[0]).toMatchObject({ changes: [], hasUnavailableDiff: true });
+  });
+
   it('keeps missing-source fragments separate and gives id-less real user turns a deterministic local identity', () => {
     const [unassigned, identified] = collectConversationChanges([
       ...operation('prefix'),

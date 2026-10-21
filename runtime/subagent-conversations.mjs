@@ -6,10 +6,28 @@ const MAX_BATCH_BYTES = 256 * 1024;
 const MAX_CONTENT_BYTES = 64 * 1024;
 const MAX_CONTENT_BLOCKS = 64;
 const MAX_TEXT_CHARS = 8192;
+const MAX_ARGUMENT_CHARS = 64 * 1024;
 const MAX_ANCESTORS = 32;
 const CATALOG_MODES = new Set(['one-shot', 'continuable', 'external', 'unknown']);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
+
+/** Display a published native activation boundary, never infer one from prose. */
+export function subagentLifecycleUpdate(parentSessionId, event, entry) {
+  const childId = event.childSessionId ?? event.id;
+  if (!['subagent_start', 'subagent_end'].includes(event.type) ||
+      typeof event.runId !== 'string' || !event.runId || entry?.id !== childId ||
+      !['one-shot', 'continuable'].includes(entry.mode)) return;
+  const phase = event.type === 'subagent_start' ? 'start' : 'end';
+  const eventId = `subagent-lifecycle:${JSON.stringify([parentSessionId, event.runId, phase])}`;
+  const created = Date.now() / 1000;
+  return { sessionUpdate: 'session_info_update', _meta: { goose: {
+    messageId: eventId, created,
+    subagentLifecycle: { schema_version: 1, type: 'subagent_lifecycle', event_id: eventId,
+      session_id: parentSessionId, child_session_id: childId, activation_id: event.runId,
+      phase, label: (entry.label?.trim() || childId).slice(0, 1000), created_at: created },
+  } } };
+}
 
 function sessionId(value, name) {
   const id = requireString(value, name);
@@ -148,6 +166,30 @@ function errorDetails(source, clipping) {
   return Object.keys(result).length ? result : undefined;
 }
 
+// File tools persist their display receipts in meta, separately from model text.
+// Only these public fields cross the bridge; opaque tool/provider metadata stays private.
+function fileResult(source, clipping) {
+  if (!record(source) || typeof source.path !== 'string') return;
+  const result = { path: bounded(source.path, 4096, clipping) };
+  if (['create', 'update'].includes(source.operation)) result.operation = source.operation;
+  if (Array.isArray(source.diffs)) {
+    const diffs = [];
+    let bytes = 0;
+    for (const entry of source.diffs) {
+      if (!record(entry) || typeof entry.oldText !== 'string' || typeof entry.newText !== 'string') return;
+      const diff = { oldText: entry.oldText, newText: entry.newText };
+      bytes += Buffer.byteLength(JSON.stringify(diff));
+      if (bytes > MAX_CONTENT_BYTES || diffs.length >= MAX_CONTENT_BLOCKS) {
+        clipping.truncated = true;
+        return { ...result, diffUnavailable: true };
+      }
+      diffs.push(diff);
+    }
+    result.diffs = diffs;
+  }
+  return result;
+}
+
 // Select display fields rather than copying opaque request, provider or tool metadata.
 function publicEvent(event) {
   if (!record(event) || !integer(event.seq) || !record(event.data)) return;
@@ -163,6 +205,10 @@ function publicEvent(event) {
     const message = publicMessage(source.message, tool ? 'tool' : 'assistant', clipping);
     if (!message) return;
     data = { message };
+    if (tool) {
+      const result = fileResult(source.meta, clipping);
+      if (result) data.fileResult = result;
+    }
     if (!tool && source.interrupted === true) data.interrupted = true;
     if (tool && message.isError === true) {
       const error = errorDetails(source.error, clipping);
@@ -172,7 +218,7 @@ function publicEvent(event) {
     if (typeof source.callId !== 'string' || typeof source.name !== 'string' || typeof source.arguments !== 'string') return;
     data = {
       callId: bounded(source.callId, 256, clipping), name: bounded(source.name, 256, clipping),
-      arguments: bounded(source.arguments, MAX_TEXT_CHARS, clipping),
+      arguments: bounded(source.arguments, MAX_ARGUMENT_CHARS, clipping),
     };
   } else if (event.type === 'turn/start' || event.type === 'turn/end') {
     if (!integer(source.turn)) return;

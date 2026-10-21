@@ -29,7 +29,10 @@ export function fileChangeReceipt(
     'name' in call &&
     ['write', 'edit'].includes(String(call.name))
   ) {
-    return nativeFileChange(raw as Record<string, unknown>);
+    return nativeFileChange(
+      raw as Record<string, unknown>,
+      'arguments' in call ? call.arguments : undefined
+    );
   }
   if (
     !audit ||
@@ -56,21 +59,67 @@ export function fileChangeReceipt(
   return entry as unknown as FileChangeReceipt;
 }
 
-const nativeChanges = new WeakMap<object, FileChangeReceipt | undefined>();
-function nativeFileChange(raw: Record<string, unknown>): FileChangeReceipt | undefined {
-  if (nativeChanges.has(raw)) return nativeChanges.get(raw);
-  nativeChanges.set(raw, undefined);
+const nativeChanges = new WeakMap<object, { after: unknown; change?: FileChangeReceipt }>();
+function nativeFileChange(
+  raw: Record<string, unknown>,
+  args?: unknown
+): FileChangeReceipt | undefined {
   // A missing basis on an update can mean an existing large file. Only an
   // explicit create receipt permits treating the previous file as empty.
-  const before = raw.before === null && raw.operation === 'create' ? '' : raw.before;
+  const input = args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
+  const created = raw.operation === 'create';
+  const before = created && (raw.before === null || raw.before === undefined) ? '' : raw.before;
+  const after = typeof raw.after === 'string' ? raw.after : created ? input.content : undefined;
+  // A cold create receipt can arrive before the complete invocation. Its cached
+  // diff must follow that invocation's content when the request is filled in.
+  const cached = nativeChanges.get(raw);
+  if (cached && cached.after === after) return cached.change;
+  nativeChanges.set(raw, { after });
+  // Cold history stores exact replacement fragments, not whole-file snapshots.
+  // Keep their diff positions unspecified rather than inventing source line numbers.
+  if (typeof raw.path === 'string' && Array.isArray(raw.diffs) && raw.diffs.length > 0) {
+    const lines: string[] = [];
+    let added = 0,
+      removed = 0;
+    for (const diff of raw.diffs) {
+      if (
+        !diff ||
+        typeof diff.oldText !== 'string' ||
+        typeof diff.newText !== 'string' ||
+        diff.oldText.length + diff.newText.length > 1_000_000
+      )
+        return;
+      const patch = structuredPatch(raw.path, raw.path, diff.oldText, diff.newText, '', '', {
+        context: 3,
+        timeout: 40,
+        maxEditLength: 20_000,
+      });
+      if (!patch) return;
+      for (const hunk of patch.hunks) {
+        lines.push('@@', ...hunk.lines);
+        added += hunk.lines.filter((line) => line.startsWith('+')).length;
+        removed += hunk.lines.filter((line) => line.startsWith('-')).length;
+      }
+    }
+    const change = {
+      path: raw.path,
+      added,
+      removed,
+      diff: lines.slice(0, 400).join('\n'),
+      diff_truncated: lines.length > 400,
+    };
+    nativeChanges.set(raw, { after, change });
+    return change;
+  }
   if (
     typeof raw.path !== 'string' ||
     typeof before !== 'string' ||
-    typeof raw.after !== 'string' ||
-    before.length + raw.after.length > 1_000_000
+    typeof after !== 'string' ||
+    raw.diffUnavailable === true ||
+    before.length + after.length > 1_000_000
   )
     return;
-  const patch = structuredPatch(raw.path, raw.path, before, raw.after, '', '', {
+  const patch = structuredPatch(raw.path, raw.path, before, after, '', '', {
     context: 3,
     timeout: 40,
     maxEditLength: 20_000,
@@ -93,7 +142,7 @@ function nativeFileChange(raw: Record<string, unknown>): FileChangeReceipt | und
     diff: lines.slice(0, 400).join('\n'),
     diff_truncated: lines.length > 400,
   };
-  nativeChanges.set(raw, change);
+  nativeChanges.set(raw, { after, change });
   return change;
 }
 
@@ -113,12 +162,20 @@ export function FileChangeCount({
 export function FileChangeDiff({ change }: { change: FileChangeReceipt }) {
   let oldLine: number | undefined;
   let newLine: number | undefined;
+  let fragment = false;
   const lines = change.diff.split('\n').map((text) => {
     // Unified diff headers carry real file positions, including separate hunks.
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(text);
     if (hunk) {
+      fragment = false;
       oldLine = Number(hunk[1]);
       newLine = Number(hunk[2]);
+      return { text, kind: 'meta', number: undefined };
+    }
+    if (text === '@@') {
+      fragment = true;
+      oldLine = undefined;
+      newLine = undefined;
       return { text, kind: 'meta', number: undefined };
     }
     if (oldLine !== undefined && newLine !== undefined) {
@@ -129,7 +186,16 @@ export function FileChangeDiff({ change }: { change: FileChangeReceipt }) {
         return { text, kind: 'context', number: newLine++ };
       }
     }
-    return { text, kind: 'meta', number: undefined };
+    return {
+      text,
+      kind:
+        fragment && text.startsWith('+')
+          ? 'added'
+          : fragment && text.startsWith('-')
+            ? 'removed'
+            : 'meta',
+      number: undefined,
+    };
   });
   return (
     <pre className="overflow-auto whitespace-pre font-mono text-xs leading-5 text-text-primary">

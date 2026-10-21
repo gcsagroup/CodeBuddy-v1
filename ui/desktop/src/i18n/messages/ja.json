@@ -8576,17 +8576,11 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
-  },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
@@ -8608,5 +8602,23 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "実行中 · {count}"
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "終了 · {count}"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "状態不明 · {count}"
+  },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "実行中のサブエージェントはありません"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "が作業を開始しました"
+  },
+  "subagentLifecycle.end": {
+    "defaultMessage": "が終了しました"
   }
 }

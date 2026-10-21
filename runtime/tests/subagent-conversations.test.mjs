@@ -1,13 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Compat } from '../compat.mjs';
-import { readSubagentConversation } from '../subagent-conversations.mjs';
+import { readSubagentConversation, subagentLifecycleUpdate } from '../subagent-conversations.mjs';
 import { createConversationDriver } from '../conversation-driver.mjs';
 
 const method = '_goose/unstable/subagent/conversation/get';
 const event = (seq, type, data) => ({ seq, time: 1792060000000 + seq, type, data });
 const user = (id, text, kind = 'user') => ({ id, role: 'user', source: { kind }, content: [{ type: 'text', text }] });
 const assistant = (id, text) => ({ id, role: 'assistant', source: { kind: 'model', provider: 'private', replayState: { token: 'PRIVATE_REPLAY' } }, content: [{ type: 'text', text }] });
+
+test('lifecycle captions address native activations, without creating a model-visible message or completion verdict', () => {
+  const entry = { id: 'child', label: 'Code review', mode: 'continuable' };
+  const start = subagentLifecycleUpdate('parent', { type: 'subagent_start', childSessionId: 'child', runId: 'first' }, entry);
+  const end = subagentLifecycleUpdate('parent', { type: 'subagent_end', childSessionId: 'child', runId: 'first', stopReason: 'error' }, entry);
+  assert.equal(start.sessionUpdate, 'session_info_update');
+  assert.equal(end._meta.goose.subagentLifecycle.phase, 'end');
+  assert.equal(end._meta.goose.subagentLifecycle.label, 'Code review');
+  assert.notEqual(start._meta.goose.messageId, end._meta.goose.messageId);
+  assert.equal(subagentLifecycleUpdate('parent', { type: 'subagent_end', childSessionId: 'foreign', runId: 'first' }, entry), undefined);
+  const reused = subagentLifecycleUpdate('parent', { type: 'subagent_start', childSessionId: 'child', runId: 'second' }, entry);
+  assert.notEqual(start._meta.goose.messageId, reused._meta.goose.messageId);
+  assert.equal(start._meta.goose.subagentLifecycle.child_session_id, reused._meta.goose.subagentLifecycle.child_session_id);
+  assert.equal(start.content, undefined);
+});
 
 function fixture(events = [], inheritedEventCount = 0) {
   const state = { sessions: [{ id: 'parent-product', nativeSessionId: 'parent-native', type: 'code_pro', updates: [] }] };
@@ -80,6 +95,24 @@ test('only public child-owned messages and actual terminal facts cross the bridg
   assert.deepEqual(result.events.at(-1).data, { reason: { kind: 'aborted' }, turn: 1 });
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_/);
   assert.equal(JSON.stringify(f.history), before, 'Projection must not mutate the native history');
+});
+
+test('preserves native file display receipts without exposing opaque metadata or clipping executable arguments', async () => {
+  const args = JSON.stringify({ file_path: 'review.py', content: 'x'.repeat(20_000) });
+  const f = fixture([
+    event(0, 'tool/call', { turn: 1, step: 1, callId: 'write', name: 'write', arguments: args }),
+    event(1, 'tool/result', { turn: 1, step: 1, message: { id: 'receipt', role: 'tool', toolCallId: 'write', isError: false,
+      content: [{ type: 'text', text: 'Saved' }] }, meta: { path: 'review.py', operation: 'create',
+      diffs: [{ path: 'review.py', oldText: 'old\n', newText: 'new\n', token: 'PRIVATE_DIFF' }], token: 'PRIVATE_META' } }),
+  ]);
+  const result = await f.request();
+  assert.equal(result.events[0].data.arguments, args);
+  assert.deepEqual(result.events[1].data.fileResult, { path: 'review.py', operation: 'create', diffs: [{ oldText: 'old\n', newText: 'new\n' }] });
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_/);
+  f.history.events[1].data.meta.diffs[0].newText = 'x'.repeat(100_000);
+  const clipped = await f.request();
+  assert.deepEqual(clipped.events[1].data.fileResult, { path: 'review.py', operation: 'create', diffUnavailable: true });
+  assert.equal(clipped.events[1].truncated, true);
 });
 
 test('cursor batches are bounded, repeatable and advance over nonpublic events without replaying them', async () => {

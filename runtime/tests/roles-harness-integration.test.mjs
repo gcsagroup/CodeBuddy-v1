@@ -153,6 +153,20 @@ test('ACP uses the selected main model and three native generic children despite
   const lifecycle = events.filter(event => event.eventType === 'harness_event' && event.payload.event.type.startsWith('subagent/'));
   assert.equal(lifecycle.filter(event => event.payload.event.type === 'subagent/start').length, 3);
   assert.equal(lifecycle.filter(event => event.payload.event.type === 'subagent/end').length, 3);
+  const captions = client.notifications.filter(message => message.method === 'session/update')
+    .map(message => message.params.update._meta?.goose?.subagentLifecycle).filter(Boolean);
+  assert.equal(captions.filter(caption => caption.phase === 'start').length, 3);
+  assert.equal(captions.filter(caption => caption.phase === 'end').length, 3);
+  assert.equal(new Set(captions.map(caption => caption.event_id)).size, 6);
+  assert.ok(captions.every(caption => caption.session_id === session.sessionId));
+  for (const caption of captions) assert.ok(lifecycle.some(event =>
+    event.payload.event.data.id === caption.child_session_id && event.payload.event.data.runId === caption.activation_id));
+  const beforeReplay = client.notifications.length;
+  await client.request('session/load', { sessionId: session.sessionId, cwd, mcpServers: [] });
+  const replayedCaptions = client.notifications.slice(beforeReplay).filter(message => message.method === 'session/update')
+    .map(message => message.params.update._meta?.goose?.subagentLifecycle).filter(Boolean);
+  assert.deepEqual(replayedCaptions.map(caption => caption.event_id), captions.map(caption => caption.event_id));
+  assert.deepEqual(model.count, { main: 10, a: 2, b: 2, c: 1 }, 'Replaying display receipts must not resume any Agent');
   assert.equal(events.filter(event => event.eventType === 'tool_result' && event.payload.kind === 'command' && event.payload.exitCode === 0).length, 1);
   assert.match(await readFile(path.join(cwd, 'math.mjs'), 'utf8'), /three=3/);
   assert.match(await readFile(path.join(cwd, 'invoice.mjs'), 'utf8'), /math.mjs/);

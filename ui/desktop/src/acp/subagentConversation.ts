@@ -54,6 +54,22 @@ const record = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
+export function subagentTurnEvent(event: SubagentConversationEvent) {
+  if (event.type === 'turn/start') return { status: 'running' as const };
+  if (event.type !== 'turn/end') return;
+  const kind = record(event.data.reason).kind;
+  const status =
+    kind === 'completed'
+      ? ('completed' as const)
+      : kind === 'aborted' || kind === 'interrupted'
+        ? ('interrupted' as const)
+        : kind === 'error'
+          ? ('failed' as const)
+          : undefined;
+  const time = new Date(event.time ?? NaN).getTime();
+  return { status, endedAt: Number.isFinite(time) ? time : undefined };
+}
+
 // A display projection only: it never registers, loads or activates an Agent.
 export function createSubagentConversationProjection(sessionId: string) {
   const adapter = createAcpSessionNotificationAdapter();
@@ -77,18 +93,8 @@ export function createSubagentConversationProjection(sessionId: string) {
         }
         const id = typeof message.id === 'string' ? message.id : `child:${event.seq}`;
         const meta = { goose: { messageId: id, created } };
-        if (event.type === 'turn/start') status = 'running';
-        if (event.type === 'turn/end') {
-          const kind = record(data.reason).kind;
-          status =
-            kind === 'completed'
-              ? 'completed'
-              : kind === 'aborted' || kind === 'interrupted'
-                ? 'interrupted'
-                : kind === 'error'
-                  ? 'failed'
-                  : undefined;
-        }
+        const turn = subagentTurnEvent(event);
+        if (turn) status = turn.status;
         if (event.type === 'user/message' || event.type === 'assistant/message') {
           for (const item of Array.isArray(message.content) ? message.content : []) {
             const block = record(item);
@@ -150,6 +156,7 @@ export function createSubagentConversationProjection(sessionId: string) {
             toolCallId: message.toolCallId,
             status: message.isError ? 'failed' : 'completed',
             content,
+            ...(data.fileResult ? { rawOutput: data.fileResult } : {}),
             _meta: meta,
           });
         }

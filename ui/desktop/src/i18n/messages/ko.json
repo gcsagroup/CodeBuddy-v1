@@ -8576,17 +8576,11 @@
   "workspaceSubagent.truncated": {
     "defaultMessage": "Some long records are shortened."
   },
-  "workspaceSubagents.children": {
-    "defaultMessage": "Children of {name}"
-  },
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
-  },
-  "workspaceSubagents.hint": {
-    "defaultMessage": "Select an agent to read its conversation. Expand an arrow to browse its children."
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
@@ -8608,5 +8602,23 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "실행 중 · {count}"
+  },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "종료 · {count}"
+  },
+  "workspaceSubagents.unknownState": {
+    "defaultMessage": "상태 알 수 없음 · {count}"
+  },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "실행 중인 하위 에이전트가 없습니다"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "작업을 시작했습니다"
+  },
+  "subagentLifecycle.end": {
+    "defaultMessage": "종료되었습니다"
   }
 }

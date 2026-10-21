@@ -8,6 +8,7 @@ import ProgressiveMessageList from './ProgressiveMessageList';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
 import type { AdapterState } from '../acp/adapter/shared';
+import { createAcpSessionNotificationAdapter } from '../acp/sessionNotificationAdapter';
 import {
   cancelAcpPermissionRequestsForSession,
   requestAcpPermission,
@@ -165,6 +166,59 @@ const sourceUserMessage: Message = {
   content: [{ type: 'text', text: 'Analyze this project' }],
   metadata: { userVisible: true, agentVisible: true },
 };
+
+it('keeps native lifecycle captions at the same disclosure level as ordinary work records', async () => {
+  const adapter = createAcpSessionNotificationAdapter([sourceUserMessage]);
+  for (const phase of ['start', 'end'] as const)
+    adapter.apply({
+      sessionId: 'terminal-session',
+      update: {
+        sessionUpdate: 'session_info_update',
+        _meta: {
+          goose: {
+            subagentLifecycle: {
+              type: 'subagent_lifecycle',
+              schema_version: 1,
+              event_id: `child:${phase}`,
+              session_id: 'terminal-session',
+              child_session_id: 'native-child',
+              activation_id: 'activation',
+              phase,
+              label: 'Code review',
+              created_at: 2,
+            },
+          },
+        },
+      },
+    });
+  const messages = adapter.getMessages();
+  const props = {
+    chat: { sessionId: 'terminal-session' },
+    sessionType: 'code_pro' as const,
+    isUserMessage: (message: Message) => message.role === 'user',
+  };
+  const view = render(
+    <ProgressiveMessageList {...props} messages={messages} isStreamingMessage />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('button', { name: 'Code review started working' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Code review ended' })).toBeVisible();
+  view.rerender(
+    <ProgressiveMessageList {...props} messages={[...messages, terminalMessage('not_available')]} />
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Code review ended' })).toBeNull()
+  );
+  fireEvent.click(
+    within(view.container.querySelector('.codepro-turn-history') as HTMLElement).getByRole(
+      'button',
+      { expanded: false }
+    )
+  );
+  expect(screen.getByRole('button', { name: 'Code review started working' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Code review ended' })).toBeVisible();
+  expect(view.container.querySelectorAll('[data-subagent-avatar="native-child"]')).toHaveLength(2);
+});
 
 describe('work / answer presentation boundary', () => {
   it.each([

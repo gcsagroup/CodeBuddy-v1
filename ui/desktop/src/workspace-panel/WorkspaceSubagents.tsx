@@ -1,23 +1,39 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, RefreshCw } from 'lucide-react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { readSubagentCatalog, type SubagentCatalogEntry } from '../acp/subagentCatalog';
 import { openSubagentConversation } from './subagentPanel';
 import { SubagentAvatar } from '../components/SubagentAvatar';
+import {
+  createSubagentConversationProjection,
+  readSubagentConversation,
+  subagentTurnEvent,
+} from '../acp/subagentConversation';
+import { AppEvents } from '../constants/events';
+import type { Message } from '../types/message';
 
 export const subagentsMessages = defineMessages({
   title: { id: 'workspaceSubagents.title', defaultMessage: 'Subagents' },
   refresh: { id: 'workspaceSubagents.refresh', defaultMessage: 'Refresh subagents' },
   loading: { id: 'workspaceSubagents.loading', defaultMessage: 'Loading subagents…' },
   empty: { id: 'workspaceSubagents.empty', defaultMessage: 'No subagents in this directory.' },
-  children: { id: 'workspaceSubagents.children', defaultMessage: 'Children of {name}' },
   external: { id: 'workspaceSubagents.external', defaultMessage: 'External agent' },
   unknown: { id: 'workspaceSubagents.unknown', defaultMessage: 'Conversation unavailable' },
-  hint: {
-    id: 'workspaceSubagents.hint',
-    defaultMessage:
-      'Select an agent to read its conversation. Expand an arrow to browse its children.',
+  running: { id: 'workspaceSubagents.running', defaultMessage: 'Running · {count}' },
+  ended: { id: 'workspaceSubagents.ended', defaultMessage: 'Ended · {count}' },
+  unknownState: {
+    id: 'workspaceSubagents.unknownState',
+    defaultMessage: 'Status unknown · {count}',
   },
+  noRunning: { id: 'workspaceSubagents.noRunning', defaultMessage: 'No subagents running' },
   stale: {
     id: 'workspaceSubagents.stale',
     defaultMessage:
@@ -27,38 +43,161 @@ export const subagentsMessages = defineMessages({
 
 const ROOT_PATH: string[] = [];
 
+type SubagentTurn = ReturnType<typeof subagentTurnEvent>;
+interface SubagentObservationSnapshot {
+  turn: SubagentTurn;
+  messages: Message[];
+  truncated: boolean;
+  error?: string;
+}
+// null is a pending display read; a settled snapshot may have no native turn fact.
+type SubagentObservationValue = SubagentObservationSnapshot | null;
+
+function SubagentObservation({
+  parentSessionId,
+  childSessionId,
+  ancestors,
+  onChange,
+  active,
+  revision,
+}: {
+  parentSessionId: string;
+  childSessionId: string;
+  ancestors: string[];
+  onChange: (id: string, turn: SubagentObservationValue) => void;
+  active: boolean;
+  revision: number;
+}) {
+  const activeRef = useRef(active);
+  const wake = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    activeRef.current = active;
+    wake.current?.();
+  }, [active]);
+  useEffect(() => {
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let afterSeq = -1;
+    let latest: ReturnType<typeof subagentTurnEvent>;
+    let messages: Message[] = [];
+    let truncated = false;
+    let reading = false;
+    const projection = createSubagentConversationProjection(childSessionId);
+    onChange(childSessionId, null);
+    const read = async (required = false) => {
+      if (disposed || reading) return;
+      if (!required && !activeRef.current && latest?.status && latest.status !== 'running') {
+        timer = setTimeout(() => void read(), 5000);
+        return;
+      }
+      reading = true;
+      let hasMore = false;
+      try {
+        const page = await readSubagentConversation(
+          parentSessionId,
+          childSessionId,
+          afterSeq,
+          ancestors
+        );
+        if (disposed) return;
+        afterSeq = page.throughSeq;
+        if (page.events.length) messages = projection.append(page.events);
+        truncated ||= page.events.some((event) => event.truncated);
+        for (const event of page.events) latest = subagentTurnEvent(event) ?? latest;
+        hasMore = page.hasMore;
+        // Publish only the tail of a complete native read, not an old start in
+        // the first page. These are display facts, never execution control.
+        if (!hasMore) onChange(childSessionId, { turn: latest, messages, truncated });
+      } catch (error) {
+        if (!disposed)
+          onChange(childSessionId, { turn: undefined, messages, truncated, error: String(error) });
+      } finally {
+        reading = false;
+        if (!disposed)
+          timer = setTimeout(
+            () => void read(hasMore),
+            hasMore ? 0 : latest?.status === 'running' ? 1500 : 5000
+          );
+      }
+    };
+    wake.current = () => {
+      clearTimeout(timer);
+      void read(true);
+    };
+    void read(true);
+    return () => {
+      disposed = true;
+      wake.current = undefined;
+      clearTimeout(timer);
+    };
+  }, [parentSessionId, childSessionId, ancestors, onChange, revision]);
+  return null;
+}
+
+function SubagentActivity({ turn }: { turn: SubagentTurn }) {
+  const intl = useIntl();
+  const label = intl.formatMessage(
+    {
+      id: 'workspaceSubagent.status',
+      defaultMessage:
+        '{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}',
+    },
+    { state: turn?.status ?? 'unknown' }
+  );
+  if (turn?.status === 'running')
+    return (
+      <LoaderCircle
+        className="size-3.5 shrink-0 animate-spin text-text-secondary"
+        role="status"
+        aria-label={label}
+      />
+    );
+  if (!turn?.endedAt) return null;
+  const elapsed = Math.max(0, Date.now() - turn.endedAt);
+  const unit =
+    elapsed < 60_000
+      ? 'second'
+      : elapsed < 3_600_000
+        ? 'minute'
+        : elapsed < 86_400_000
+          ? 'hour'
+          : 'day';
+  const divisor =
+    unit === 'second'
+      ? 1000
+      : unit === 'minute'
+        ? 60_000
+        : unit === 'hour'
+          ? 3_600_000
+          : 86_400_000;
+  return (
+    <time
+      className="shrink-0 pr-1 text-[11px] text-text-secondary"
+      dateTime={new Date(turn.endedAt).toISOString()}
+      title={`${label} · ${intl.formatDate(turn.endedAt, { dateStyle: 'medium', timeStyle: 'short' })}`}
+    >
+      {intl.formatRelativeTime(-Math.floor(elapsed / divisor), unit, { numeric: 'always' })}
+    </time>
+  );
+}
+
 function CatalogRow({
   parentSessionId,
   ancestors,
   entry,
-  revision,
+  turn,
 }: {
   parentSessionId: string;
   ancestors: string[];
   entry: SubagentCatalogEntry;
-  revision: number;
+  turn: SubagentTurn;
 }) {
   const intl = useIntl();
-  const [expanded, setExpanded] = useState(false);
-  const path = useMemo(() => [...ancestors, entry.id], [ancestors, entry.id]);
   const local = entry.mode === 'one-shot' || entry.mode === 'continuable';
   const title = entry.label?.trim() || entry.id;
   return (
     <li>
       <div className="flex min-w-0 items-center gap-1 px-2 py-1">
-        {local && ancestors.length < 32 ? (
-          <button
-            type="button"
-            className="wb-icon shrink-0"
-            aria-label={intl.formatMessage(subagentsMessages.children, { name: title })}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            <ChevronRight size={14} className={expanded ? 'rotate-90' : ''} />
-          </button>
-        ) : (
-          <span className="w-7 shrink-0" />
-        )}
         {local ? (
           <button
             type="button"
@@ -92,50 +231,99 @@ function CatalogRow({
             </div>
           </div>
         )}
-        <time
-          className="shrink-0 pr-1 text-[11px] text-text-secondary"
-          dateTime={new Date(entry.createdAt).toISOString()}
-          title={intl.formatDate(entry.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
-        >
-          {intl.formatDate(entry.createdAt, { month: 'numeric', day: 'numeric' })}
-        </time>
+        {local && <SubagentActivity turn={turn} />}
       </div>
-      {expanded && local && (
-        <div className="ml-5 border-l border-border-subtle">
-          <CatalogBranch parentSessionId={parentSessionId} ancestors={path} revision={revision} />
-        </div>
-      )}
     </li>
   );
 }
 
-function CatalogBranch({
-  parentSessionId,
-  ancestors,
-  revision,
-}: {
+interface SubagentCatalogSnapshot {
   parentSessionId: string;
-  ancestors: string[];
-  revision: number;
-}) {
-  const intl = useIntl();
+  children?: SubagentCatalogEntry[];
+  turns: Record<string, SubagentObservationValue>;
+  error: string;
+  refresh: () => void;
+  enabled: boolean;
+}
+
+const SubagentCatalogContext = createContext<SubagentCatalogSnapshot | undefined>(undefined);
+
+export function usePreloadedSubagentConversation(
+  parentSessionId: string,
+  childSessionId: string,
+  ancestors?: readonly string[]
+) {
+  const cache = useContext(SubagentCatalogContext);
+  if (!cache?.enabled || cache.parentSessionId !== parentSessionId || ancestors?.length) return;
+  if (!cache.children && cache.error)
+    return {
+      snapshot: { turn: undefined, messages: [], truncated: false, error: cache.error },
+      refresh: cache.refresh,
+    };
+  if (
+    cache.children &&
+    !cache.children.some(
+      (entry) => entry.id === childSessionId && ['one-shot', 'continuable'].includes(entry.mode)
+    )
+  )
+    return;
+  return { snapshot: cache.turns[childSessionId] ?? null, refresh: cache.refresh };
+}
+
+interface SubagentCatalogProviderProps {
+  parentSessionId: string;
+  enabled?: boolean;
+  active?: boolean;
+  children: ReactNode;
+}
+
+export function SubagentCatalogProvider(props: SubagentCatalogProviderProps) {
+  return <SubagentCatalogCache key={props.parentSessionId} {...props} />;
+}
+
+// One readonly display cache per mounted main conversation. It starts after the
+// main session is available and survives opening/closing the sidebar.
+function SubagentCatalogCache({
+  parentSessionId,
+  enabled = true,
+  active = true,
+  children: content,
+}: SubagentCatalogProviderProps) {
+  const [revision, setRevision] = useState(0);
   const [children, setChildren] = useState<SubagentCatalogEntry[]>();
+  const [turns, setTurns] = useState<Record<string, SubagentObservationValue>>({});
+  const onTurn = useCallback((id: string, turn: SubagentObservationValue) => {
+    setTurns((previous) => ({ ...previous, [id]: turn }));
+  }, []);
   const [error, setError] = useState('');
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId !== parentSessionId)
+        return;
+      setChildren(undefined);
+      setTurns({});
+      setError('');
+      refresh();
+    };
+    window.addEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+    return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
+  }, [parentSessionId, refresh]);
+  useEffect(() => {
+    if (!enabled || !parentSessionId) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
     const read = async () => {
       try {
-        const page = await readSubagentCatalog(parentSessionId, ancestors);
+        const page = await readSubagentCatalog(parentSessionId, ROOT_PATH);
         if (disposed) return;
         setChildren(page.children);
         setError('');
-        // Only this visible directory and expanded branches are mounted.
-        // Catalog discovery does not activate agents or infer their task state.
+        // Discovery and cold inspection never activate agents.
       } catch (e) {
         if (!disposed) setError(String(e));
       } finally {
-        if (!disposed) timer = setTimeout(() => void read(), 5000);
+        if (!disposed && active) timer = setTimeout(() => void read(), 5000);
       }
     };
     void read();
@@ -143,7 +331,36 @@ function CatalogBranch({
       disposed = true;
       clearTimeout(timer);
     };
-  }, [parentSessionId, ancestors, revision]);
+  }, [parentSessionId, enabled, active, revision]);
+  return (
+    <SubagentCatalogContext.Provider
+      value={{ parentSessionId, children, turns, error, refresh, enabled }}
+    >
+      {enabled &&
+        children
+          ?.filter((entry) => entry.mode === 'continuable' || entry.mode === 'one-shot')
+          .map((entry) => (
+            <SubagentObservation
+              key={entry.id}
+              parentSessionId={parentSessionId}
+              childSessionId={entry.id}
+              ancestors={ROOT_PATH}
+              onChange={onTurn}
+              active={active}
+              revision={revision}
+            />
+          ))}
+      {content}
+    </SubagentCatalogContext.Provider>
+  );
+}
+
+function CatalogBranch({ children, turns, error, parentSessionId }: SubagentCatalogSnapshot) {
+  const intl = useIntl();
+  const pending = (entry: SubagentCatalogEntry) =>
+    (entry.mode === 'continuable' || entry.mode === 'one-shot') &&
+    (!Object.prototype.hasOwnProperty.call(turns, entry.id) || turns[entry.id] === null);
+  const hasPendingTurns = children?.some(pending) ?? false;
   return (
     <>
       {error && (
@@ -152,7 +369,7 @@ function CatalogBranch({
           <p>{error}</p>
         </div>
       )}
-      {!children && !error && (
+      {((!children && !error) || hasPendingTurns) && (
         <p role="status" className="p-3 text-xs text-text-secondary">
           {intl.formatMessage(subagentsMessages.loading)}
         </p>
@@ -162,26 +379,62 @@ function CatalogBranch({
           {intl.formatMessage(subagentsMessages.empty)}
         </p>
       )}
-      {!!children?.length && (
-        <ul>
-          {children.map((entry) => (
-            <CatalogRow
-              key={entry.id}
-              parentSessionId={parentSessionId}
-              ancestors={ancestors}
-              entry={entry}
-              revision={revision}
-            />
-          ))}
-        </ul>
-      )}
+      {!!children?.length &&
+        (['running', 'ended', 'unknownState'] as const).map((group) => {
+          const entries = children.filter((entry) => {
+            if (pending(entry)) return false;
+            const status = turns[entry.id]?.turn?.status;
+            return group === 'running'
+              ? status === 'running'
+              : group === 'ended'
+                ? !!status && status !== 'running'
+                : !status;
+          });
+          if (!entries.length && (group !== 'running' || hasPendingTurns)) return null;
+          return (
+            <section
+              key={group}
+              aria-label={intl.formatMessage(subagentsMessages[group], { count: entries.length })}
+            >
+              <h3 className="px-3 pb-2 pt-5 text-xs font-normal text-text-secondary">
+                {intl.formatMessage(subagentsMessages[group], { count: entries.length })}
+              </h3>
+              {group === 'running' && !entries.length && (
+                <p className="px-3 pb-2 text-xs text-text-secondary">
+                  {intl.formatMessage(subagentsMessages.noRunning)}
+                </p>
+              )}
+              <ul>
+                {entries.map((entry) => (
+                  <CatalogRow
+                    key={entry.id}
+                    parentSessionId={parentSessionId}
+                    ancestors={ROOT_PATH}
+                    entry={entry}
+                    turn={turns[entry.id]?.turn}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
     </>
   );
 }
 
 export function WorkspaceSubagents({ parentSessionId }: { parentSessionId: string }) {
+  const snapshot = useContext(SubagentCatalogContext);
+  if (!snapshot || snapshot.parentSessionId !== parentSessionId)
+    return (
+      <SubagentCatalogProvider key={parentSessionId} parentSessionId={parentSessionId}>
+        <WorkspaceSubagents parentSessionId={parentSessionId} />
+      </SubagentCatalogProvider>
+    );
+  return <SubagentCatalogView snapshot={snapshot} />;
+}
+
+function SubagentCatalogView({ snapshot }: { snapshot: SubagentCatalogSnapshot }) {
   const intl = useIntl();
-  const [revision, refresh] = useState(0);
   return (
     <section
       aria-label={intl.formatMessage(subagentsMessages.title)}
@@ -193,21 +446,13 @@ export function WorkspaceSubagents({ parentSessionId }: { parentSessionId: strin
           type="button"
           className="wb-icon"
           aria-label={intl.formatMessage(subagentsMessages.refresh)}
-          onClick={() => refresh((value) => value + 1)}
+          onClick={snapshot.refresh}
         >
           <RefreshCw size={14} />
         </button>
       </header>
       <div className="min-h-0 flex-1 overflow-auto">
-        <p className="px-3 py-2 text-xs leading-5 text-text-secondary">
-          {intl.formatMessage(subagentsMessages.hint)}
-        </p>
-        <CatalogBranch
-          key={parentSessionId}
-          parentSessionId={parentSessionId}
-          ancestors={ROOT_PATH}
-          revision={revision}
-        />
+        <CatalogBranch {...snapshot} />
       </div>
     </section>
   );

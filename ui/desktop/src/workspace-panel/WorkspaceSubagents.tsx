@@ -152,6 +152,16 @@ function SubagentObservation({
 
 function SubagentActivity({ turn }: { turn: SubagentTurn }) {
   const intl = useIntl();
+  const [now, setNow] = useState(Date.now);
+  const endedAt = turn?.endedAt;
+  useEffect(() => {
+    if (!endedAt) return;
+    // Relative labels must keep ticking without republishing unchanged history
+    // to the main conversation. This clock belongs only to the visible row.
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, [endedAt]);
   const label = intl.formatMessage(
     {
       id: 'workspaceSubagent.status',
@@ -169,7 +179,7 @@ function SubagentActivity({ turn }: { turn: SubagentTurn }) {
       />
     );
   if (!turn?.endedAt) return null;
-  const elapsed = Math.max(0, Date.now() - turn.endedAt);
+  const elapsed = Math.max(0, now - turn.endedAt);
   const unit =
     elapsed < 60_000
       ? 'second'
@@ -373,7 +383,21 @@ function SubagentCatalogCache({
   const [children, setChildren] = useState<SubagentCatalogEntry[]>();
   const [turns, setTurns] = useState<Record<string, SubagentObservationValue>>({});
   const onTurn = useCallback((id: string, turn: SubagentObservationValue) => {
-    setTurns((previous) => ({ ...previous, [id]: turn }));
+    setTurns((previous) => {
+      const current = previous[id];
+      if (
+        current === turn ||
+        (current &&
+          turn &&
+          current.messages === turn.messages &&
+          current.turn?.status === turn.turn?.status &&
+          current.turn?.endedAt === turn.turn?.endedAt &&
+          current.truncated === turn.truncated &&
+          current.error === turn.error)
+      )
+        return previous;
+      return { ...previous, [id]: turn };
+    });
   }, []);
   const [error, setError] = useState('');
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
@@ -388,7 +412,20 @@ function SubagentCatalogCache({
       try {
         const page = await readSubagentCatalog(parentSessionId, ROOT_PATH);
         if (disposed) return;
-        setChildren(page.children);
+        setChildren((previous) =>
+          previous?.length === page.children.length &&
+          previous.every((entry, index) => {
+            const next = page.children[index];
+            return (
+              entry.id === next.id &&
+              entry.createdAt === next.createdAt &&
+              entry.mode === next.mode &&
+              entry.label === next.label
+            );
+          })
+            ? previous
+            : page.children
+        );
         setError('');
         // Discovery and cold inspection never activate agents.
       } catch (e) {

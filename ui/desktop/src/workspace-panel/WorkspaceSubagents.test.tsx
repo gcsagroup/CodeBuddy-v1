@@ -64,6 +64,60 @@ it('switches readonly cache ownership without remounting the main chat subtree',
   await settle();
 });
 
+it('keeps unchanged readonly polls out of chat consumers while relative times and catalog changes update', async () => {
+  vi.setSystemTime(new Date('2026-10-21T11:00:00Z'));
+  let label = 'Review files';
+  vi.mocked(readSubagentCatalog).mockImplementation(async () => ({
+    ...root,
+    children: [{ ...root.children[0], label }],
+  }));
+  const endedAt = Date.now() - 50_000;
+  vi.mocked(readSubagentConversation).mockImplementation(async (_parent, child, afterSeq) => ({
+    sessionId: parent,
+    childSessionId: child,
+    hasMore: false,
+    throughSeq: 1,
+    events:
+      afterSeq === -1
+        ? [{ seq: 1, type: 'turn/end', time: endedAt, data: { reason: { kind: 'completed' } } }]
+        : [],
+  }));
+  const messages: Message[] = [];
+  const observed = vi.fn();
+  function ChatConsumer() {
+    observed(
+      usePreloadedSubagentConversation(parent, 'review', []),
+      useConversationChangeMessages(parent, messages)
+    );
+    return null;
+  }
+  render(
+    <SubagentCatalogProvider parentSessionId={parent}>
+      <ChatConsumer />
+      <WorkspaceSubagents parentSessionId={parent} />
+    </SubagentCatalogProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  await settle();
+  const renders = observed.mock.calls.length;
+  expect(screen.getByText('50 seconds ago')).toBeVisible();
+  for (let count = 0; count < 2; count += 1)
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+  expect(readSubagentConversation).toHaveBeenCalledTimes(3);
+  expect(readSubagentConversation).toHaveBeenLastCalledWith(parent, 'review', 1, []);
+  expect(observed).toHaveBeenCalledTimes(renders);
+  expect(screen.getByText('1 minute ago')).toBeVisible();
+
+  label = 'Renamed review';
+  await act(async () => {
+    vi.advanceTimersByTime(5000);
+  });
+  expect(screen.getByRole('button', { name: 'Renamed review' })).toBeVisible();
+  expect(observed.mock.calls.length).toBeGreaterThan(renders);
+});
+
 it('shares preloaded child edit evidence with the main card without leaking into another chat', async () => {
   vi.mocked(readSubagentCatalog).mockResolvedValue(root);
   vi.mocked(readSubagentConversation).mockResolvedValue({

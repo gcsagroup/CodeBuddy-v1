@@ -1,4 +1,4 @@
-import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import MarkdownContent from './MarkdownContent';
 import AnimatedIcons from './AnimatedIcons';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -34,7 +34,7 @@ function storedPreference(storageKey?: string): boolean | null {
   return null;
 }
 
-export default function ThinkingContent({
+const ThinkingContent = memo(function ThinkingContent({
   content,
   isExpanded,
   isStreaming = false,
@@ -151,13 +151,15 @@ export default function ThinkingContent({
           onScroll={updateReadingPosition}
           className="codepro-operation-details codepro-thinking-details mt-2 w-full min-w-0 max-h-72 overflow-y-auto overscroll-x-contain overscroll-y-auto border-l-2 border-border-primary pl-4 pr-2 text-sm leading-relaxed text-text-secondary [scrollbar-width:thin]"
         >
+          {/* Source chunks already stream; per-word animation nodes make long thoughts costly. */}
           <MarkdownContent
             content={content}
-            animateIncoming={isStreaming}
             className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
           />
         </div>
       </CollapsibleContent>
     </Collapsible>
   );
-}
+});
+
+export default ThinkingContent;

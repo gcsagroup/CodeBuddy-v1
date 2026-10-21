@@ -12,6 +12,28 @@ vi.mock('../i18n', () => ({
 describe('ThinkingContent', () => {
   beforeEach(() => localStorage.clear());
 
+  it('keeps long live thoughts complete and formatted without per-word animation nodes', () => {
+    const content = Array.from(
+      { length: 90 },
+      (_, index) => `检查第 ${index + 1} 项：**保留格式**，继续核查已经收到的结果。`
+    ).join('\n\n');
+    const view = render(<ThinkingContent content={content} isExpanded isStreaming />);
+    const viewport = view.container.querySelector('.codepro-thinking-details')!;
+    const first = viewport.querySelector('p');
+    expect(viewport.querySelectorAll('p')).toHaveLength(90);
+    expect(viewport.querySelectorAll('strong')).toHaveLength(90);
+    expect(viewport.querySelectorAll('.codepro-incoming-word')).toHaveLength(0);
+
+    view.rerender(
+      <ThinkingContent content={`${content}\n\n新片段已经到达。`} isExpanded isStreaming />
+    );
+    expect(viewport.querySelector('p')).toBe(first);
+    expect(viewport).toHaveTextContent('检查第 1 项：保留格式');
+    expect(viewport).toHaveTextContent('检查第 90 项：保留格式');
+    expect(viewport).toHaveTextContent('新片段已经到达。');
+    expect(viewport.querySelectorAll('.codepro-incoming-word')).toHaveLength(0);
+  });
+
   it('follows updates at the bottom but keeps the reading position when scrolled up', () => {
     const view = render(<ThinkingContent content="First" isExpanded isStreaming />);
     const viewport = screen

@@ -6,7 +6,7 @@ import { ScrollFollowingContext } from './ui/scroll-follow-context';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 
 const TICK_MS = 40;
-const MAX_CHARS_PER_TICK = 8; // 200 characters/second, including Chinese characters.
+const MAX_CHARS_PER_TICK = 9.6; // Average 240 characters/second; 20% above the prior cap.
 const TEXT_FADE_MS = 160;
 const CARD_INTERVAL_MS = 100;
 const THOUGHT_COLLAPSE_MS = 280;
@@ -79,6 +79,7 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
     shown: new Map(units.map((unit) => [unit.key, unit.text?.length ?? 1])),
     nextAt: 0,
     lastTick: 0,
+    characterCredit: 0,
     thoughtBoundaries: new Set<string>(),
   });
   const [, repaint] = useState(0);
@@ -127,6 +128,7 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
       }
     }
     if (newTurn || bypass || history) state.nextAt = 0;
+    if (newTurn) state.characterCredit = 0;
     if (!bypass && !history) {
       const next = units.findIndex(
         (unit) => (state.shown.get(unit.key) ?? 0) < (unit.text?.length ?? 1)
@@ -162,8 +164,13 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
           if (shown >= length) continue;
           pending = true;
           if (unit.text !== undefined) {
+            // Keep the existing paint cadence. Carry fractional characters so
+            // the speed increase stays at 20%, rather than rounding up to 25%.
+            const allowance = MAX_CHARS_PER_TICK + state.characterCredit;
+            const limit = Math.floor(allowance);
+            state.characterCredit = allowance - limit;
             const count = Math.min(
-              MAX_CHARS_PER_TICK,
+              limit,
               Math.max(1, Math.ceil((length - shown) / 12))
             );
             for (let n = 0; n < count && shown < length; n += 1) {

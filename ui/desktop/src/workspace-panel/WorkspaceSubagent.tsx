@@ -178,28 +178,30 @@ export function WorkspaceSubagent({
           following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
         }}
       >
-        {displayed.loading ? (
-          <p role="status" className="py-4 text-sm text-text-secondary">
-            {intl.formatMessage({
-              id: 'workspaceSubagents.loading',
-              defaultMessage: 'Loading subagents…',
-            })}
-          </p>
-        ) : displayed.messages.length ? (
-          <ProgressiveMessageList
-            messages={displayed.messages}
-            chat={{ sessionId: childSessionId }}
-            sessionType="code_pro"
-            readOnly
-            isUserMessage={(message) => message.role === 'user'}
-            foldTurns={false}
-            showLoadingThreshold={Number.MAX_SAFE_INTEGER}
-            isStreamingMessage={false}
-            onRenderingComplete={scrollToTail}
-          />
-        ) : !displayed.error ? (
-          <p className="py-4 text-sm text-text-secondary">{intl.formatMessage(m.empty)}</p>
-        ) : null}
+        <div className="mx-auto w-full max-w-[52rem]">
+          {displayed.loading ? (
+            <p role="status" className="py-4 text-sm text-text-secondary">
+              {intl.formatMessage({
+                id: 'workspaceSubagents.loading',
+                defaultMessage: 'Loading subagents…',
+              })}
+            </p>
+          ) : displayed.messages.length ? (
+            <ProgressiveMessageList
+              messages={displayed.messages}
+              chat={{ sessionId: childSessionId }}
+              sessionType="code_pro"
+              readOnly
+              isUserMessage={(message) => message.role === 'user'}
+              foldTurns={false}
+              showLoadingThreshold={Number.MAX_SAFE_INTEGER}
+              isStreamingMessage={false}
+              onRenderingComplete={scrollToTail}
+            />
+          ) : !displayed.error ? (
+            <p className="py-4 text-sm text-text-secondary">{intl.formatMessage(m.empty)}</p>
+          ) : null}
+        </div>
       </div>
     </section>
   );

@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Diese Anfrage ist abgelaufen. Die Erweiterung muss erneut nachfragen."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Noch unbeantwortet. Sie können noch antworten."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Frage"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Frage beantworten"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Überspringen"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Wird gesendet…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Warten auf Ihre Antwort"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Warten auf Ihre Antwort ({timeRemaining} verbleibend)"

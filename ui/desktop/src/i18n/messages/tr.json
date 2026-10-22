@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Bu isteğin süresi doldu. Uzantının tekrar sorması gerekecek."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Henüz yanıtlanmadı. Hâlâ yanıt verebilirsiniz."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Soru"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Soruyu yanıtla"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Atla"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Gönderiliyor…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Yanıtınız bekleniyor"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Yanıtınızı bekliyorum ({timeRemaining} kaldı)"

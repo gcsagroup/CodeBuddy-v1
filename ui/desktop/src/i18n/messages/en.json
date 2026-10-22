@@ -2237,8 +2237,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "This request has expired. The extension will need to ask again."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Not answered yet. You can still reply."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Question"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Answer question"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Skip"
@@ -2254,6 +2260,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Submitting…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Waiting for your reply"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Waiting for your response ({timeRemaining} remaining)"

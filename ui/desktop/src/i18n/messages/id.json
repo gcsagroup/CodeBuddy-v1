@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Permintaan ini telah kedaluwarsa. Ekstensi perlu menanyakan lagi."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Belum dijawab. Anda masih dapat menjawab."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Pertanyaan"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Jawab pertanyaan"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Lewati"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Mengirim…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Menunggu jawaban Anda"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Menunggu respons Anda ({timeRemaining} tersisa)"

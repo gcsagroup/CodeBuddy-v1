@@ -69,6 +69,8 @@ export function createConversationDriver(driver, store) {
     compact(id, options) { const actual = nativeId(id); return lock(id, () => driver.compact(actual, callbacks(options, actual, id))); },
     contextUsage(id) { const actual = nativeId(id); return driver.contextUsage(actual).then(value => project(value, actual, id)); },
     steer(id, content, options) { return driver.steer(nativeId(id), content, options); },
+    questions(id) { return driver.questions?.(nativeId(id)) ?? { active: [], settled: [] }; },
+    answerQuestion(id, callId, answer) { return driver.answerQuestion(nativeId(id), callId, answer); },
     getGoal(id) { return driver.getGoal?.(nativeId(id)); },
     controlGoal(id, options) { return driver.controlGoal(nativeId(id), options); },
     cancel(id) { return driver.cancel(nativeId(id)); },

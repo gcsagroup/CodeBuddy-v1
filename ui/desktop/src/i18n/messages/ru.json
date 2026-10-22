@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Срок действия запроса истек. Расширению нужно будет запросить его снова."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Ответ пока не получен. Вы ещё можете ответить."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Вопрос"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Ответить на вопрос"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Пропустить"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Отправка…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Ожидание вашего ответа"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Ожидание вашего ответа (осталось {timeRemaining})"

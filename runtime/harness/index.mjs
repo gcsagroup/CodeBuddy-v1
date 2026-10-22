@@ -267,8 +267,30 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('user-questions/request', async (request, next) => {
     const active = runFor(request.agent);
     if (!active?.onUserQuestions) return next();
-    return active.onUserQuestions(request);
+    let remainingMs;
+    if (request.wait?.timed) {
+      const wait = ctx.userQuestions.attachWait(request.agent, request.wait.callId, request.signal);
+      try { remainingMs = (await wait.next()).value?.remainingMs; }
+      finally { await wait.return(); }
+    }
+    // Read and release the native wait: Host keeps the timer; the desktop only
+    // displays its remaining duration and never settles a second deadline.
+    return active.onUserQuestions({ ...request, ...(request.wait ? { wait: { ...request.wait, remainingMs } } : {}) });
   });
+  function userQuestions(session) {
+    const snapshot = ctx.sessionProjections.stateOf(session, 'userQuestions')?.questions ?? { active: [], settled: [] };
+    const run = runs.get(session.id);
+    const boundary = session.log.findLast(event => event.type === 'turn/start' || event.type === 'turn/end');
+    // Product reply window: only questions of the still-running native turn.
+    // Native history is retained; finishing/stopping never manufactures answers.
+    const calls = run && !run.cancelRequested && boundary?.type === 'turn/start'
+      ? new Set(session.log.slice(boundary.seq + 1).flatMap(event => event.type === 'tool/call' ? [event.data.callId]
+        : event.type === 'tool/ptc-dispatch' ? [event.data.subCallId] : [])) : new Set();
+    return { nativeSessionId: session.id, ...structuredClone({
+      active: snapshot.active.filter(q => calls.has(q.callId)),
+      settled: snapshot.settled.filter(q => calls.has(q.callId)),
+    }) };
+  }
   function contextUsage(session) {
     const snapshot = ctx.sessionProjections.snapshot(session, ['tokenUsage', 'contextPressure']);
     const meter = ctx.tokenMeter.measure(session);
@@ -479,6 +501,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Keep turn/start/end so even an immediately cancelled run can settle.
     if (event.type === 'turn/start' && run.cancelRequested)
       agent.cancel({ kind: 'user' }, { keepInbox: true });
+    if (session.id === run.sessionId && ['tool/result', 'tool/ptc-dispatch', 'user/message', 'turn/end'].includes(event.type))
+      emit(run, { type: 'user_questions', sessionId: session.id, snapshot: userQuestions(session) });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -916,6 +940,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       }
     },
     configureSession,
+    async questions(sessionId) {
+      const agent = ctx.agents.get(sessionId);
+      return agent ? userQuestions(agent.session) : { nativeSessionId: sessionId, active: [], settled: [] };
+    },
+    async answerQuestion(sessionId, callId, answer) {
+      const run = runs.get(sessionId);
+      if (!run || run.cancelRequested) throw new Error('当前轮次已停止或结束，无需再回答。');
+      const agent = ctx.agents.get(sessionId);
+      if (!agent || !userQuestions(agent.session).active.some(q => q.callId === callId && q.state === 'continued')) return false;
+      return ctx.userQuestions.answer(agent, callId, answer);
+    },
     extensionStatus(sessionId) {
       const agent = ctx.agents.get(sessionId);
       return (extensionStates.get(sessionId) ?? []).map(state => {

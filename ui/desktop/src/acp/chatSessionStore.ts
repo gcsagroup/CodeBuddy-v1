@@ -808,13 +808,15 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const applyElicitationRequest: AcpChatSessionActions['applyElicitationRequest'] = (request) => {
     const entry = getOrCreateEntry(request.sessionId);
-    if (entry.sealedIdleBoundaryActive) {
+    if (entry.sealedIdleBoundaryActive && !request.continued) {
       return snapshotFromEntry(entry);
     }
     const changes = entry.adapter.applyElicitationRequest(request);
     applyChatStateChanges(entry, changes);
-    entry.pendingUserInputRequestIds.add(acpElicitationUserInputRequestId(request.id));
-    entry.chatState = ChatState.WaitingForUserInput;
+    if (!request.continued) {
+      entry.pendingUserInputRequestIds.add(acpElicitationUserInputRequestId(request.id));
+      entry.chatState = ChatState.WaitingForUserInput;
+    }
     return notify(request.sessionId, entry);
   };
 

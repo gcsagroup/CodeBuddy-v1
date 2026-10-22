@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Questa richiesta è scaduta. L'estensione dovrà chiedere di nuovo."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Nessuna risposta ancora. Puoi ancora rispondere."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Domanda"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Rispondi alla domanda"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Salta"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Invio…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "In attesa della tua risposta"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "In attesa della tua risposta ({timeRemaining} rimanenti)"

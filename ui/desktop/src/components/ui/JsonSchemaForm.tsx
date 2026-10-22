@@ -235,10 +235,10 @@ export default function JsonSchemaForm({
           ? 'border-border-secondary bg-background-secondary'
           : 'border-border-primary bg-background-primary',
         disabled && 'cursor-not-allowed opacity-50',
-        compact && 'rounded-lg border-transparent px-3 py-2'
+        compact && 'rounded-lg border-transparent px-2.5 py-1.5'
       )}
     >
-      <span className="flex items-start gap-3">
+      <span className={cn('flex items-start gap-3', compact && 'gap-2')}>
         <span
           aria-hidden="true"
           className={cn(
@@ -254,7 +254,12 @@ export default function JsonSchemaForm({
         <span className="min-w-0">
           <span className="block text-sm font-medium text-text-primary">{option.label}</span>
           {option.description && (
-            <span className="mt-0.5 block text-xs leading-5 text-text-secondary">
+            <span
+              className={cn(
+                'mt-0.5 block text-xs leading-5 text-text-secondary',
+                compact && 'leading-4'
+              )}
+            >
               {option.description}
             </span>
           )}
@@ -267,7 +272,11 @@ export default function JsonSchemaForm({
     if (options.length && prop.type === 'array') {
       const selected = Array.isArray(value) ? (value as string[]) : [];
       return (
-        <div className="flex flex-col gap-2" role="group" aria-labelledby={`${key}-title`}>
+        <div
+          className={cn('flex flex-col gap-2', compact && 'gap-1')}
+          role="group"
+          aria-labelledby={`${key}-title`}
+        >
           {options.map((option, index) =>
             renderChoice(
               option,
@@ -286,7 +295,11 @@ export default function JsonSchemaForm({
     }
     if (options.length) {
       return (
-        <div className="flex flex-col gap-2" role="radiogroup" aria-labelledby={`${key}-title`}>
+        <div
+          className={cn('flex flex-col gap-2', compact && 'gap-1')}
+          role="radiogroup"
+          aria-labelledby={`${key}-title`}
+        >
           {options.map((option, index) =>
             renderChoice(
               option,
@@ -348,9 +361,12 @@ export default function JsonSchemaForm({
   };
 
   return (
-    <form onSubmit={handleAdvance} className={cn('flex flex-col gap-4', compact && 'gap-3')}>
+    <form onSubmit={handleAdvance} className={cn('flex flex-col gap-4', compact && 'gap-2')}>
       <div
-        className={cn('flex flex-col gap-3', compact && 'max-h-[min(22vh,12rem)] overflow-y-auto')}
+        className={cn(
+          'flex flex-col gap-3',
+          compact && 'max-h-[min(22vh,12rem)] gap-2 overflow-y-auto'
+        )}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -399,15 +415,27 @@ export default function JsonSchemaForm({
         )}
       </div>
 
-      <div className="mt-1 flex items-center justify-end gap-2 border-t border-border-primary pt-3">
+      <div
+        className={cn(
+          'mt-1 flex items-center justify-end gap-2 border-t border-border-primary pt-3',
+          compact && 'mt-0 pt-2'
+        )}
+      >
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={disabled}>
+          <Button
+            type="button"
+            size={compact ? 'sm' : 'default'}
+            variant="outline"
+            onClick={onCancel}
+            disabled={disabled}
+          >
             {cancelLabel ?? intl.formatMessage(i18n.cancel)}
           </Button>
         )}
         {step > 0 && (
           <Button
             type="button"
+            size={compact ? 'sm' : 'default'}
             variant="outline"
             onClick={() => {
               setError(undefined);
@@ -419,7 +447,7 @@ export default function JsonSchemaForm({
             {intl.formatMessage(i18n.back)}
           </Button>
         )}
-        <Button type="submit" disabled={disabled}>
+        <Button type="submit" size={compact ? 'sm' : 'default'} disabled={disabled}>
           {isLastStep
             ? (submitLabel ?? intl.formatMessage(i18n.submit))
             : intl.formatMessage(i18n.next)}

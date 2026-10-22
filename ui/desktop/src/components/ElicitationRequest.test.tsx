@@ -37,6 +37,31 @@ function renderElicitationRequest(onSubmit: SubmitElicitationResponse) {
 }
 
 describe('ElicitationRequest', () => {
+  it('keeps the native timed form answerable after the wait and shows the late-answer phase', async () => {
+    const onSubmit = vi.fn<SubmitElicitationResponse>().mockResolvedValue(true);
+    const content = {
+      ...actionRequiredContent,
+      data: {
+        ...actionRequiredContent.data,
+        nativeQuestion: true,
+        continued: true,
+        expiresAt: Date.now() - 1000,
+      },
+    };
+    render(
+      <ElicitationRequest
+        standalone
+        isCancelledMessage={false}
+        isClicked={false}
+        actionRequiredContent={content}
+        onSubmit={onSubmit}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText('Not answered yet. You can still reply.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(onSubmit).toHaveBeenCalledWith('elicitation-1', {});
+  });
   it('keeps the original deadline when remounted and never submits an answer on timeout', async () => {
     vi.useFakeTimers();
     try {

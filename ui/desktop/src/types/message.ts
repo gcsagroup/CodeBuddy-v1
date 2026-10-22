@@ -152,6 +152,8 @@ export type ActionRequiredData =
       requested_schema: unknown;
       expiresAt?: number;
       isExpired?: boolean;
+      nativeQuestion?: boolean;
+      continued?: boolean;
     }
   | {
       action?: string;

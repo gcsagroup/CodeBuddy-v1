@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "यह अनुरोध समाप्त हो गया है. एक्सटेंशन को फिर से पूछना होगा."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "अभी तक उत्तर नहीं मिला। आप अभी भी उत्तर दे सकते हैं।"
+  },
   "elicitationRequest.question": {
     "defaultMessage": "प्रश्न"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "प्रश्न का उत्तर दें"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "छोड़ें"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "भेजा जा रहा है…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "आपके उत्तर की प्रतीक्षा है"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "आपकी प्रतिक्रिया की प्रतीक्षा में ({timeRemaining} शेष)"

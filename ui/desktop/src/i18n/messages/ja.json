@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "このリクエストは期限切れです。拡張機能が再度確認する必要があります。"
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "まだ回答されていません。引き続き回答できます。"
+  },
   "elicitationRequest.question": {
     "defaultMessage": "質問"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "質問に回答"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "スキップ"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "送信中…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "回答を待っています"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "あなたの応答を待っています（残り{timeRemaining}）"

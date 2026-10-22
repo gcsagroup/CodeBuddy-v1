@@ -6,12 +6,16 @@ import { toolNotificationEvent } from './adapter/toolNotifications';
 import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
 import { isTerminalActivityEventStatus, parseActivityEvent } from '../types/activityEvent';
 import { isTurnTerminalRecord } from '../types/turnTerminal';
+import { applyNativeQuestionSnapshot } from './elicitationRequests';
 import {
   expireAcpPermissionRequestForTool,
   expireAcpPermissionRequestsForTurn,
 } from './permissionRequests';
 
-export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
+export function handleAcpSessionNotification(
+  notification: SessionNotification,
+  signal?: globalThis.AbortSignal
+): Promise<void> {
   const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
     ?.session?.name;
   const updatedName =
@@ -20,6 +24,12 @@ export function handleAcpSessionNotification(notification: SessionNotification):
       : undefined;
   acpChatSessionActions.applyAcpSessionNotification(notification);
   const update = notification.update;
+  if (update.sessionUpdate === 'session_info_update' && update._meta?.['codebuddy/questions'])
+    applyNativeQuestionSnapshot(
+      notification.sessionId,
+      update._meta['codebuddy/questions'],
+      signal
+    );
   if (
     (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') &&
     (update.status === 'completed' || update.status === 'failed')

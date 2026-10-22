@@ -52,6 +52,8 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           "listTools",
           "callTool",
           "steer",
+          "questions",
+          "answerQuestion",
           "getGoal",
           "controlGoal",
           "compact",
@@ -178,11 +180,11 @@ export async function createCompatServer({ dataDir, secret, driver }) {
               error ? reject(error) : resolve(result);
             };
             const abort = () => done(Error("Cancelled"));
-            // Forms are user input, not permission to execute a tool.
-            // Keep the form live until submit/cancel or connection teardown;
-            // otherwise its visible submit button answers an expired request.
+            // Human decisions do not expire into consent or rejection. Native
+            // question waits cancel their own signal; approval waits for the
+            // user, an explicit stop, or connection teardown.
             const timer =
-              ["_goose/unstable/session/recipe/request-params", "elicitation/create"].includes(method)
+              ["session/request_permission", "_goose/unstable/session/recipe/request-params", "elicitation/create"].includes(method)
                 ? undefined
                 : setTimeout(
                     () => done(Error("Permission request timed out")),

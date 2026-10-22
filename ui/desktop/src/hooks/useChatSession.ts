@@ -21,9 +21,8 @@ import type {
   UseChatSessionResult,
 } from './useChatSessionTypes';
 import {
-  cancelAcpElicitationRequest,
   getPendingAcpElicitationRequests,
-  resolveAcpElicitationRequest,
+  submitAcpElicitationResponse,
 } from '../acp/elicitationRequests';
 import { acpChatSessionController } from '../acp/chatSessionController';
 import {
@@ -347,10 +346,12 @@ export function useChatSession({
         return false;
       }
 
-      const didResolve =
-        action === 'cancel'
-          ? cancelAcpElicitationRequest(sessionId, elicitationId)
-          : resolveAcpElicitationRequest(sessionId, elicitationId, userData);
+      const didResolve = await submitAcpElicitationResponse(
+        sessionId,
+        elicitationId,
+        userData,
+        action
+      );
       if (!didResolve) {
         console.error('No pending ACP elicitation request found', { sessionId, elicitationId });
         return false;

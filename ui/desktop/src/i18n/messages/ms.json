@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Permintaan ini telah luput. Sambungan perlu bertanya semula."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Belum dijawab. Anda masih boleh menjawab."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Soalan"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Jawab soalan"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Langkau"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Menghantar…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Menunggu jawapan anda"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Menunggu respons anda ({timeRemaining} lagi)"

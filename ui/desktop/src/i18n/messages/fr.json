@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Cette demande a expiré. L'extension devra la formuler à nouveau."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Pas encore de réponse. Vous pouvez encore répondre."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Question"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Répondre à la question"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Passer"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Envoi…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "En attente de votre réponse"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "En attente de votre réponse ({timeRemaining} restant)"

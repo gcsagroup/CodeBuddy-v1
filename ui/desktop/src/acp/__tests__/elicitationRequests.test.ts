@@ -6,8 +6,13 @@ import {
   cancelAcpElicitationRequestsForSession,
   requestAcpElicitation,
   resolveAcpElicitationRequest,
+  applyNativeQuestionSnapshot,
+  getPendingAcpElicitationRequests,
+  submitAcpElicitationResponse,
 } from '../elicitationRequests';
 import { acpChatSessionActions } from '../chatSessionStore';
+const { extMethod } = vi.hoisted(() => ({ extMethod: vi.fn() }));
+vi.mock('../acpConnection', () => ({ getAcpClient: async () => ({ extMethod }) }));
 
 vi.mock('../chatSessionStore', () => ({
   acpElicitationUserInputRequestId: (elicitationId: string) => `elicitation:${elicitationId}`,
@@ -183,6 +188,116 @@ describe('ACP elicitation requests', () => {
         _meta: { codepro: { reason: 'expired' } },
       });
       expect(resolveAcpElicitationRequest('session-1', appliedRequest.id, {})).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the native timeout only for display and accepts a later answer while the turn remains open', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = {
+        ...formRequest('session-1'),
+        _meta: {
+          'codebuddy/question': {
+            callId: 'call-1',
+            nativeSessionId: 'native-1',
+            state: 'open',
+            remainingMs: 1000,
+          },
+        },
+      };
+      const response = requestAcpElicitation(request);
+      const initial = getPendingAcpElicitationRequests('session-1')[0];
+      await vi.advanceTimersByTimeAsync(600_000);
+      await expectStillPending(response);
+      expect(acpChatSessionActions.setElicitationStatus).not.toHaveBeenCalledWith(
+        'session-1',
+        initial.id,
+        'expired'
+      );
+      applyNativeQuestionSnapshot('session-1', {
+        active: [{ callId: 'call-1', state: 'continued', request }],
+        settled: [],
+      });
+      await expect(response).resolves.toEqual({ action: 'cancel' });
+      expect(getPendingAcpElicitationRequests('session-1')[0]).toMatchObject({
+        continued: true,
+        id: initial.id,
+      });
+      expect(getPendingAcpElicitationRequests('session-1')[0].expiresAt).toBeUndefined();
+      extMethod.mockResolvedValueOnce({ accepted: true });
+      expect(
+        await submitAcpElicitationResponse('session-1', initial.id, { project: 'goose' }, 'accept')
+      ).toBe(true);
+      expect(extMethod).toHaveBeenCalledWith('_goose/unstable/session/questions/answer', {
+        sessionId: 'session-1',
+        nativeSessionId: 'native-1',
+        callId: 'call-1',
+        response: { action: 'accept', content: { project: 'goose' } },
+      });
+      expect(getPendingAcpElicitationRequests('session-1')).toEqual([]);
+      applyNativeQuestionSnapshot('session-1', {
+        active: [{ callId: 'call-1', state: 'continued', request }],
+        settled: [],
+      });
+      expect(getPendingAcpElicitationRequests('session-1')).toEqual([]);
+      expect(
+        await submitAcpElicitationResponse('session-1', initial.id, { project: 'again' }, 'accept')
+      ).toBe(false);
+      expect(extMethod).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes old late-answer cards on native turn end and disconnect without submitting an answer', async () => {
+    const request = {
+      ...formRequest('session-1'),
+      _meta: {
+        'codebuddy/question': {
+          callId: 'call-1',
+          nativeSessionId: 'native-1',
+          state: 'continued',
+        },
+      },
+    };
+    const snapshot = { active: [{ callId: 'call-1', state: 'continued', request }], settled: [] };
+    applyNativeQuestionSnapshot('session-2', snapshot);
+    expect(getPendingAcpElicitationRequests('session-2')).toEqual([]);
+    applyNativeQuestionSnapshot('session-1', snapshot);
+    const id = getPendingAcpElicitationRequests('session-1')[0].id;
+    applyNativeQuestionSnapshot('session-1', { active: [], settled: [] });
+    expect(await submitAcpElicitationResponse('session-1', id, {}, 'accept')).toBe(false);
+    const connection = new AbortController();
+    applyNativeQuestionSnapshot('session-1', snapshot, connection.signal);
+    connection.abort();
+    expect(getPendingAcpElicitationRequests('session-1')).toEqual([]);
+    expect(extMethod).not.toHaveBeenCalled();
+  });
+
+  it('a critical native question has no local deadline and is cancelled by connection loss', async () => {
+    vi.useFakeTimers();
+    try {
+      const connection = new AbortController();
+      const response = requestAcpElicitation(
+        {
+          ...formRequest('session-1'),
+          _meta: {
+            'codebuddy/question': {
+              callId: 'required',
+              nativeSessionId: 'native-1',
+              state: 'open',
+            },
+          },
+        },
+        connection.signal
+      );
+      expect(getPendingAcpElicitationRequests('session-1')[0].expiresAt).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(86_400_000);
+      await expectStillPending(response);
+      connection.abort();
+      await expect(response).resolves.toEqual({ action: 'cancel' });
     } finally {
       vi.useRealTimers();
     }

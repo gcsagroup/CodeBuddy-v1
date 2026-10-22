@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "Yêu cầu này đã hết hạn. Tiện ích mở rộng sẽ cần hỏi lại."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Chưa có câu trả lời. Bạn vẫn có thể trả lời."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "Câu hỏi"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Trả lời câu hỏi"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Bỏ qua"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Đang gửi…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Đang chờ câu trả lời của bạn"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Đang chờ phản hồi của bạn (còn {timeRemaining})"

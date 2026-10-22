@@ -64,6 +64,9 @@ export function elicitationContent(
       message: request.request.message,
       requested_schema: { ...schema, properties },
       expiresAt: request.expiresAt,
+      ...(request.nativeQuestion
+        ? { nativeQuestion: true, continued: request.continued === true }
+        : {}),
     },
   };
 }
@@ -73,6 +76,16 @@ export function applyElicitationRequest(
   request: AcpElicitationRequest
 ): AcpChatStateChange[] {
   if (hasExistingElicitation(state, request.id)) {
+    state.messages = state.messages.map((message) => ({
+      ...message,
+      content: message.content.map((content) =>
+        content.type === 'actionRequired' &&
+        content.data.actionType === 'elicitation' &&
+        content.data.id === request.id
+          ? elicitationContent(request)
+          : content
+      ),
+    }));
     return messagesChange(state);
   }
 

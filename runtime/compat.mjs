@@ -1,4 +1,5 @@
 import { closeMediaStreams } from './comfyui-live.mjs';
+import { questionForm, questionAnswer, questionNotification } from './user-questions.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -1444,6 +1445,8 @@ export class Compat {
           },
         });
       }
+      if (!s.readonlyHistory && this.driver.questions)
+        connection.notify('session/update', questionNotification(s.id, await this.driver.questions(s.id)));
       return {
         modes: s.readonlyHistory ? { ...modes, currentModeId: 'read-only' } : await this.permissionModes(s),
         configOptions: this.options(s),
@@ -1456,6 +1459,20 @@ export class Compat {
       };
     }
     if (method === "session/prompt") return this.prompt(p, connection);
+    if (method === prefix + 'session/questions/answer') {
+      const s = this.assertSessionAvailable(p.sessionId);
+      if (s.readonlyHistory || s.archivedAt) throw invalid('此会话不可继续回答。');
+      if (p.nativeSessionId !== (this.driver.nativeSessionId?.(s.id) ?? s.id)) throw invalid('会话已改变，请刷新后回答。');
+      const snapshot = await this.driver.questions(s.id);
+      const question = snapshot.active.find(q => q.callId === p.callId && q.state === 'continued');
+      if (!question) throw invalid('这个问题已结束，无需再回答。');
+      const answer = questionAnswer(question.questions, p.response);
+      const active = this.active.get(s.id);
+      if (!active) throw invalid('本轮已结束，无需再回答。');
+      active.controller.signal.throwIfAborted();
+      if (!await this.driver.answerQuestion(s.id, p.callId, answer)) throw invalid('本轮已结束，无需再回答。');
+      return { accepted: true };
+    }
     if (method === "session/cancel") {
       this.session(p.sessionId);
       const active = this.active.get(p.sessionId);
@@ -2244,41 +2261,15 @@ export class Compat {
       const callbacks = {
         signal: controller.signal,
         requestId: userId,
-        onUserQuestions: async ({ questions, signal }) => {
-          const properties = Object.fromEntries(questions.map((q, i) => [`answer_${i}`, {
-            type: q.multiSelect && q.options?.length ? 'array' : 'string', title: q.question,
-            ...(q.detail ? { description: q.detail } : {}),
-            ...(q.options?.length ? {
-              ...(q.multiSelect ? { items: { type: 'string', enum: q.options.map(o => o.label) } } : {}),
-            } : {}),
-          }]));
-          const questionFields = Object.fromEntries(questions.flatMap((q, i) => {
-            if (!q.options?.length) return [];
-            const customKey = q.multiSelect ? `answer_${i}_custom` : undefined;
-            if (customKey) properties[customKey] = { type: 'string', title: q.question };
-            return [[`answer_${i}`, { options: q.options, ...(customKey ? { customKey } : {}) }]];
-          }));
-          const reply = await connection.ask('elicitation/create', {
-            sessionId: s.id, mode: 'form', message: '',
-            requestedSchema: { type: 'object', properties },
-            // ACP strips unknown property fields. Optional presentation hints
-            // belong in request metadata; the form schema stays interoperable.
-            _meta: { 'codepro/questionFields': questionFields },
-          }, signal ?? controller.signal);
+        onUserQuestions: async ({ questions, signal, wait }) => {
+          const reply = await connection.ask('elicitation/create', questionForm(s.id, questions,
+            wait ? { callId: wait.callId, nativeSessionId: this.driver.nativeSessionId?.(s.id) ?? s.id,
+              state: 'open', remainingMs: wait.remainingMs } : undefined), signal ?? controller.signal);
           (signal ?? controller.signal).throwIfAborted();
-          if (reply?._meta?.codepro?.reason === 'expired') throw new Error('等待回答已超时，未收到用户答复。需要时请重新提问，不要把超时当成同意。');
-          if (reply?.action === 'cancel' || reply?.action === 'decline') return { answers: questions.map(q => ({ id: q.id, selected: [] })) };
-          if (reply?.action !== 'accept') throw new Error('未收到有效的用户答复。');
-          return { answers: questions.map((q, i) => {
-            const answer = reply.content?.[`answer_${i}`];
-            const values = answer === undefined || answer === '' ? [] : q.multiSelect && Array.isArray(answer) ? answer : [answer];
-            if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) throw new Error('用户答复格式无效。');
-            const selected = values.filter(value => (q.options ?? []).some(o => o.label === value));
-            const customAnswer = reply.content?.[`answer_${i}_custom`];
-            if (customAnswer !== undefined && typeof customAnswer !== 'string') throw new Error('用户答复格式无效。');
-            const custom = [...values.filter(value => !(q.options ?? []).some(o => o.label === value)), ...(q.multiSelect && customAnswer ? [customAnswer] : [])].join('\n');
-            return { id: q.id, selected, ...(custom ? { custom } : {}) };
-          }) };
+          // Older clients may still expire locally. Never turn that into skip
+          // or consent; the native timed wait owns its eventual pending result.
+          if (reply?._meta?.codepro?.reason === 'expired') throw new Error('等待回答已超时，未收到用户答复。');
+          return questionAnswer(questions, reply);
         },
         ...(["paused", "blocked"].includes(nativeGoal?.phase)
           ? { resumeGoal: { goalId: nativeGoal.id, revision: nativeGoal.revision } }
@@ -2305,6 +2296,12 @@ export class Compat {
           }
         },
         onEvent: async (event) => {
+          if (event.type === 'user_questions' && event.sessionId === s.id) {
+            for (const observer of new Set([connection, ...this.connections]))
+              if (observer === connection || observer.sessionIds?.has(s.id))
+                observer.notify('session/update', questionNotification(s.id, event.snapshot));
+            return;
+          }
           if (event.sessionId === s.id && event.type === 'harness_event' &&
             ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.event.type)) {
             const current = await this.permissionModes(s);

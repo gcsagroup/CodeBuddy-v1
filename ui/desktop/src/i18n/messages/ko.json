@@ -2201,8 +2201,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "이 요청은 만료되었습니다. 익스텐션에서 다시 질문해야 합니다."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "아직 답변이 없습니다. 계속 답변할 수 있습니다."
+  },
   "elicitationRequest.question": {
     "defaultMessage": "질문"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "질문에 답하기"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "건너뛰기"
@@ -2218,6 +2224,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "제출 중…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "답변을 기다리는 중"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "답변을 기다리는 중입니다. ({timeRemaining} 남음)"

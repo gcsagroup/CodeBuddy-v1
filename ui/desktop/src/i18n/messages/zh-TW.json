@@ -2204,8 +2204,14 @@
   "elicitationRequest.expired": {
     "defaultMessage": "此要求已過期。擴充功能需要重新詢問。"
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "尚未收到回答，本輪結束前仍可補答。"
+  },
   "elicitationRequest.question": {
     "defaultMessage": "問題"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "補答問題"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "略過"
@@ -2221,6 +2227,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "正在提交…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "正在等待你的回答"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "正在等待您的回應（剩餘 {timeRemaining}）"

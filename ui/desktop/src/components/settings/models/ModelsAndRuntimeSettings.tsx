@@ -17,7 +17,7 @@ import ImageGenerationSettings from './ImageGenerationSettings';
 const i18n = defineMessages({
   auxiliaryVision: {
     id: 'modelsAndRuntime.auxiliaryVision',
-    defaultMessage: 'Auxiliary vision settings',
+    defaultMessage: 'Backup image model settings',
   },
   codeBuddyModel: {
     id: 'modelsAndRuntime.codeBuddyModel',

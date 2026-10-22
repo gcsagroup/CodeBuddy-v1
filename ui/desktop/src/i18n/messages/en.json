@@ -993,10 +993,16 @@
     "defaultMessage": "Use another provider…"
   },
   "codeProModels.visionAgent": {
-    "defaultMessage": "Vision assistant agent"
+    "defaultMessage": "Backup image model"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider."
+    "defaultMessage": "The current model reads images directly when image support is confirmed. Otherwise this backup model describes them for the current model. Images and the related question are sent to the selected connection; this can add time and cost."
+  },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
@@ -1005,7 +1011,19 @@
     "defaultMessage": "Not configured (disabled)"
   },
   "codeProModels.visionModelLabel": {
-    "defaultMessage": "Vision model"
+    "defaultMessage": "Image model"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -4320,43 +4338,43 @@
     "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "Detect automatically"
+    "defaultMessage": "Follow service information (default)"
   },
   "modelImageCapability.capability": {
-    "defaultMessage": "Image support"
+    "defaultMessage": "Image input capability"
   },
   "modelImageCapability.choose": {
     "defaultMessage": "Select…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "Image support is detected from provider metadata for both the main and auxiliary vision models. Use a manual override only when metadata is missing or incorrect."
+    "defaultMessage": "This corrects whether a model accepts image input; it does not select the backup image model or enable vision. Follow service information by default. Override it only after verifying the actual model connection."
   },
   "modelImageCapability.error": {
     "defaultMessage": "Could not load or save image capability. Your selection is kept; retry when the connection is available."
   },
   "modelImageCapability.model": {
-    "defaultMessage": "Image capability model"
+    "defaultMessage": "Model"
   },
   "modelImageCapability.provider": {
-    "defaultMessage": "Image capability provider"
+    "defaultMessage": "Model connection"
   },
   "modelImageCapability.retry": {
     "defaultMessage": "Retry loading models"
   },
   "modelImageCapability.save": {
-    "defaultMessage": "Save image capability"
+    "defaultMessage": "Save capability correction"
   },
   "modelImageCapability.saved": {
     "defaultMessage": "Saved. Applies to the next request."
   },
   "modelImageCapability.supported": {
-    "defaultMessage": "Supports images"
+    "defaultMessage": "Manually confirmed: accepts images"
   },
   "modelImageCapability.title": {
-    "defaultMessage": "Image input capability"
+    "defaultMessage": "Model image capability correction"
   },
   "modelImageCapability.unsupported": {
-    "defaultMessage": "Text only"
+    "defaultMessage": "Manually confirmed: text only"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Configure providers"
@@ -4536,7 +4554,7 @@
     "defaultMessage": "Top P"
   },
   "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
+    "defaultMessage": "Backup image model settings"
   },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy model"

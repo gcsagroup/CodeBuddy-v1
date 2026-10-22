@@ -34,7 +34,7 @@ test('ACP vision settings reach official image model while frozen renderer and r
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-vision-acp-')), requests = [], errors = [], slowStarted = Promise.withResolvers();
   const server = createServer(async (req, res) => {
     try {
-      if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision', 'slow'].map(id => ({ id })) })); return; }
+      if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision', 'slow'].map(id => ({ id, input_modalities: id === 'main' ? ['text'] : ['text', 'image'] })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk; const request = JSON.parse(raw);
       if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       requests.push(request); res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -57,6 +57,11 @@ test('ACP vision settings reach official image model while frozen renderer and r
   const png = await sharp({ create: { width: 1, height: 1, channels: 3, background: '#0000ff' } }).png().toBuffer();
   const image = { type: 'image', data: png.toString('base64'), mimeType: 'image/png' }, prompt = [{ type: 'text', text: 'Describe this image.' }, image];
   assert.equal((await client.request('session/prompt', { sessionId, prompt })).stopReason, 'end_turn');
+  const imageStages = client.notifications.filter(item => item.method === '_goose/unstable/session/update' && item.params.update?.sessionUpdate === 'status_message')
+    .map(item => item.params.update.status).filter(status => /识别图片|图片识别完成/.test(status.message));
+  assert.equal(imageStages.length, 2);
+  assert.match(imageStages[0].message, /正在识别图片/);
+  assert.match(imageStages[1].message, /图片识别完成/);
   assert.deepEqual(requests.map(request => request.model), ['vision', 'main']);
   assert.equal(requests[0].tools?.length ?? 0, 0); assert.match(JSON.stringify(requests[0].messages), /image_url/);
   assert.doesNotMatch(JSON.stringify(requests[1].messages), /image_url/); assert.match(JSON.stringify(requests[1].messages), /Untrusted auxiliary image observation/);
@@ -83,7 +88,7 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-tool-vision-acp-')), requests = [], calls = [];
   const image = { type: 'image', mimeType: 'image/png', data: (await sharp({ create: { width: 20, height: 20, channels: 3, background: 'blue' } }).png().toBuffer()).toString('base64') };
   const server = createServer(async (req, res) => {
-    if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision'].map(id => ({ id })) })); return; }
+    if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision'].map(id => ({ id, input_modalities: id === 'vision' ? ['text', 'image'] : ['text'] })) })); return; }
     if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const c of req) raw += c; const m = JSON.parse(raw);
     if (req.url === '/mcp') {

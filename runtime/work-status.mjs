@@ -42,7 +42,10 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     const clearedRetry = retryStarted && retryMessages.delete(event.sessionId);
     if (native?.type === 'turn/end') retryMessages.delete(event.sessionId);
     if (event.type === 'subagent_end') retryMessages.delete(event.childSessionId);
-    if (native?.type === 'llm/retry') {
+    if (event.type === 'image_observation' && event.sessionId === sessionId) {
+      phase = children.size ? 'children' : 'model';
+      message = event.phase === 'start' ? `正在识别图片（${event.modelId}）` : '图片识别完成，正在等待主模型回答';
+    } else if (native?.type === 'llm/retry') {
       const data = native.data;
       const count = Number.isSafeInteger(data.retry) && data.retry > 0
         ? Number.isSafeInteger(data.maxRetries) && data.maxRetries >= data.retry
@@ -90,7 +93,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     previous = key;
     return [{ sessionUpdate: 'status_message', status: { type, message, data: {
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
-      run_id: runId, phase, child_count: children.size,
+      run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,
       ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),
     } } }];
   };

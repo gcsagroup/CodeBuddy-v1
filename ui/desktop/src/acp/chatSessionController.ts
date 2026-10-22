@@ -3,7 +3,7 @@ import type { GooseExtension } from '@aaif/goose-sdk';
 import { AppEvents } from '../constants/events';
 import { ChatState } from '../types/chatState';
 import type { Session } from '../types/session';
-import { errorMessage } from '../utils/conversionUtils';
+import { acpErrorData, errorMessage } from '../utils/conversionUtils';
 import { showExtensionLoadResults } from '../utils/extensionErrorUtils';
 import {
   createUserMessage,
@@ -475,9 +475,15 @@ async function submitMessage(
       return;
     }
 
+    const errorData = acpErrorData(error);
+    const visionError =
+      typeof errorData === 'object' &&
+      errorData !== null &&
+      'kind' in errorData &&
+      errorData.kind === 'vision_error';
     const submitError =
       acpChatSessionStore.getSnapshot(sessionId)?.promptError ??
-      'Submit error: ' + errorMessage(error);
+      (visionError ? errorMessage(error) : 'Submit error: ' + errorMessage(error));
     if (
       acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, submitError)
     ) {

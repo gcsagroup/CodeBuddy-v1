@@ -615,6 +615,22 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(acpPromptSession).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the Chinese image error without exposing an English transport prefix', async () => {
+    const message = '所选备用模型尚未确认支持图片，请选择支持图片的模型。';
+    vi.mocked(acpPromptSession).mockRejectedValueOnce(
+      Object.assign(new Error(message), {
+        data: { kind: 'vision_error', reason: 'image_not_supported' },
+      })
+    );
+    const onFinish = vi.fn();
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish,
+    });
+    expect(onFinish).toHaveBeenCalledWith(message);
+    expect(acpChatSessionActions.failSessionLoad).not.toHaveBeenCalled();
+  });
+
   it('preserves the active prompt while ACP reconnect replays the durable run', async () => {
     vi.mocked(isAcpRecovering).mockReturnValue(true);
     vi.mocked(acpPromptSession).mockRejectedValueOnce(new Error('ACP connection closed'));

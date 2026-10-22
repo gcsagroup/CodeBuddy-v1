@@ -117,6 +117,23 @@ test('unsupported targeted cancellation never calls a global interrupt', async t
   const failure = await old.execute({ operation: 'status', job_id: id });
   assert.equal(failure.status, 'failed'); assert.match(failure.error, /GPU OOM/);
 });
+test('visual inspection refuses an output moved outside the workspace without invalidating the completed job', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate); f.state('completed');
+  const completed = await f.tool.execute({ operation: 'status', job_id: id });
+  const receiptPath = path.join(f.root, 'image-jobs', Buffer.from('test-session').toString('hex'), `${id}.json`);
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  receipt.images[0].path = path.join(f.root, 'outside.png');
+  await writeFile(receipt.images[0].path, f.png);
+  await writeFile(receiptPath, JSON.stringify(receipt));
+  const result = await f.tool.execute({ operation: 'status', job_id: id });
+  assert.equal(result.status, 'completed');
+  assert.ok(result.content.every(block => block.type === 'text'));
+  assert.match(JSON.stringify(result.content), /inspection is unavailable/);
+  assert.deepEqual(await readFile(completed.images[0].path), f.png);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
 test('official Harness discovers and calls the image tool without adding it to the global native filter', async t => {
   const f = await fixture(t);
   const driver = await createHarnessDriver({ dataDir: path.join(f.root, 'harness'), cwd: f.cwd });

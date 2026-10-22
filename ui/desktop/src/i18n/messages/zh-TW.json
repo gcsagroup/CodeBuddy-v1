@@ -987,10 +987,10 @@
     "defaultMessage": "使用其他廠商…"
   },
   "codeProModels.visionAgent": {
-    "defaultMessage": "視覺輔助 Agent"
+    "defaultMessage": "備用識圖模型"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "圖片優先交給主 Agent。僅在明確設定視覺廠商和模型後，才使用視覺輔助；圖片會傳送至所選廠商。"
+    "defaultMessage": "主模型確認支援圖片時直接識別，否則由備用模型看圖後將說明交給主模型。圖片與相關問題會傳送至所選連線，可能增加耗時和費用。"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "選擇模型"
@@ -999,7 +999,7 @@
     "defaultMessage": "未設定（未啟用）"
   },
   "codeProModels.visionModelLabel": {
-    "defaultMessage": "視覺模型"
+    "defaultMessage": "識圖模型"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "已取消"
@@ -4203,43 +4203,43 @@
     "defaultMessage": "供應商名稱查詢"
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "自動識別"
+    "defaultMessage": "跟隨服務資訊（預設）"
   },
   "modelImageCapability.capability": {
-    "defaultMessage": "圖像支援"
+    "defaultMessage": "圖片輸入能力"
   },
   "modelImageCapability.choose": {
     "defaultMessage": "請選擇…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "主模型與輔助識圖模型會根據服務中繼資料自動識別圖像能力。僅在資料缺失或不準確時手動覆寫。"
+    "defaultMessage": "這裡僅校正模型能否接收圖片，不會選擇或啟用備用識圖模型。預設跟隨服務資訊，僅在實際核實連線能力後手動指定。"
   },
   "modelImageCapability.error": {
     "defaultMessage": "讀取或儲存識圖能力失敗。已保留目前選擇，請在連線恢復後重試。"
   },
   "modelImageCapability.model": {
-    "defaultMessage": "識圖能力模型"
+    "defaultMessage": "模型"
   },
   "modelImageCapability.provider": {
-    "defaultMessage": "識圖能力廠商"
+    "defaultMessage": "模型連線"
   },
   "modelImageCapability.retry": {
     "defaultMessage": "重新載入模型"
   },
   "modelImageCapability.save": {
-    "defaultMessage": "儲存識圖能力"
+    "defaultMessage": "儲存能力校正"
   },
   "modelImageCapability.saved": {
     "defaultMessage": "已儲存，下次請求生效。"
   },
   "modelImageCapability.supported": {
-    "defaultMessage": "支援圖像"
+    "defaultMessage": "手動確認：支援圖片"
   },
   "modelImageCapability.title": {
-    "defaultMessage": "圖像輸入能力"
+    "defaultMessage": "模型圖片能力校正（進階）"
   },
   "modelImageCapability.unsupported": {
-    "defaultMessage": "僅文字"
+    "defaultMessage": "手動確認：僅文字"
   },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy 模型"
@@ -8427,7 +8427,7 @@
     "defaultMessage": "重試"
   },
   "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "輔助視覺設定"
+    "defaultMessage": "備用識圖模型設定"
   },
   "codeProModels.saveVision": {
     "defaultMessage": "儲存視覺設定"
@@ -8695,5 +8695,23 @@
   },
   "toolAction.desktopPet": {
     "defaultMessage": "建立桌面寵物"
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "正在確認圖片能力…"
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "僅列出已確認支援圖片的模型。若服務缺少能力資訊，請先在「模型圖片能力校正」中核實。"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "此連線暫無已確認支援圖片的模型。"
+  },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "暫時無法確認圖片能力，請重試後再儲存。"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "請選擇已確認支援圖片的備用模型。"
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "目前選擇無法使用：{model}"
   }
 }

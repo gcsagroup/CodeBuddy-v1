@@ -16,6 +16,8 @@ import {
 import { defineMessages, useIntl } from '../../i18n';
 import { providerActivationDisabledReason, type ProviderDetails } from '../../types/providers';
 import type { ProviderInventoryModelDto } from '@aaif/goose-sdk';
+import { resolveModelCapability, type ModelCapabilityState } from '../../acp/modelCapabilities';
+import { acpErrorData, errorMessage } from '../../utils/conversionUtils';
 import { Button } from '../ui/button';
 import {
   Dialog,
@@ -180,16 +182,16 @@ const i18n = defineMessages({
   },
   visionAgent: {
     id: 'codeProModels.visionAgent',
-    defaultMessage: 'Vision assistant agent',
+    defaultMessage: 'Backup image model',
   },
   visionAgentDescription: {
     id: 'codeProModels.visionAgentDescription',
     defaultMessage:
-      'Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider.',
+      'The current model reads images directly when image support is confirmed. Otherwise this backup model describes them for the current model. Images and the related question are sent to the selected connection; this can add time and cost.',
   },
   visionModelLabel: {
     id: 'codeProModels.visionModelLabel',
-    defaultMessage: 'Vision model',
+    defaultMessage: 'Image model',
   },
   visionDefaultProvider: {
     id: 'codeProModels.visionDefaultProvider',
@@ -198,6 +200,28 @@ const i18n = defineMessages({
   visionDefaultModel: {
     id: 'codeProModels.visionDefaultModel',
     defaultMessage: 'Select model',
+  },
+  visionChecking: { id: 'codeProModels.visionChecking', defaultMessage: 'Checking image support…' },
+  visionSupportedOnly: {
+    id: 'codeProModels.visionSupportedOnly',
+    defaultMessage:
+      'Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction.',
+  },
+  visionNoModels: {
+    id: 'codeProModels.visionNoModels',
+    defaultMessage: 'No models with confirmed image input are available on this connection.',
+  },
+  visionCapabilityError: {
+    id: 'codeProModels.visionCapabilityError',
+    defaultMessage: 'Could not verify image support. Retry before saving.',
+  },
+  visionUnsupported: {
+    id: 'codeProModels.visionUnsupported',
+    defaultMessage: 'Select a backup model with confirmed image support.',
+  },
+  visionUnavailableSelection: {
+    id: 'codeProModels.visionUnavailableSelection',
+    defaultMessage: 'Current selection unavailable: {model}',
   },
 });
 
@@ -285,6 +309,50 @@ export function CodeProModelModal({
   >({});
   const [modelLoadAttempt, setModelLoadAttempt] = useState(0);
   const modelRequestGeneration = useRef(0);
+  const [visionCapabilities, setVisionCapabilities] = useState<{
+    providerId?: string;
+    status: 'loading' | 'ready' | 'unavailable';
+    models: Record<string, ModelCapabilityState>;
+  }>({ status: 'loading', models: {} });
+  const visionInventory = modelsByProvider[visionRoute.providerId ?? ''];
+  useEffect(() => {
+    let current = true;
+    const providerId = visionRoute.providerId;
+    setVisionCapabilities({ providerId, status: 'loading', models: {} });
+    if (!providerId || !visionInventory) return;
+    void Promise.allSettled(
+      visionInventory.map(async (model) => ({
+        id: model.id,
+        capability: await resolveModelCapability(providerId, model.id),
+      }))
+    ).then((results) => {
+      if (!current) return;
+      const models = Object.fromEntries(
+        results.flatMap((result) =>
+          result.status === 'fulfilled'
+            ? [[result.value.id, result.value.capability.imageInput]]
+            : []
+        )
+      );
+      setVisionCapabilities({
+        providerId,
+        models,
+        status:
+          results.some((result) => result.status === 'rejected') &&
+          !Object.values(models).includes('supported')
+            ? 'unavailable'
+            : 'ready',
+      });
+    });
+    return () => {
+      current = false;
+    };
+  }, [visionRoute.providerId, visionInventory, modelLoadAttempt]);
+  const visionCapabilitiesCurrent = visionCapabilities.providerId === visionRoute.providerId;
+  const visionModels = visionCapabilitiesCurrent
+    ? (visionInventory ?? []).filter((model) => visionCapabilities.models[model.id] === 'supported')
+    : [];
+  const visionChecking = !visionCapabilitiesCurrent || visionCapabilities.status === 'loading';
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const currentDefaultProvider = currentDefault?.provider;
@@ -485,6 +553,11 @@ export function CodeProModelModal({
         provider: providerLabel,
       });
     }
+    if (visionChecking) return intl.formatMessage(i18n.visionChecking);
+    if (visionCapabilities.status === 'unavailable')
+      return intl.formatMessage(i18n.visionCapabilityError);
+    if (!visionModels.some((model) => model.id === visionRoute.modelId))
+      return intl.formatMessage(i18n.visionUnsupported);
     return '';
   };
 
@@ -532,8 +605,16 @@ export function CodeProModelModal({
           visionRoute: { ...visionRoute },
         });
         onClose();
-      } catch {
-        setOperationError(intl.formatMessage(i18n.saveError));
+      } catch (error) {
+        const data = acpErrorData(error);
+        setOperationError(
+          typeof data === 'object' &&
+            data !== null &&
+            'kind' in data &&
+            data.kind === 'vision_error'
+            ? errorMessage(error)
+            : intl.formatMessage(i18n.saveError)
+        );
       } finally {
         setSaving(false);
       }
@@ -822,7 +903,7 @@ export function CodeProModelModal({
                   <select
                     aria-label={intl.formatMessage(i18n.visionModelLabel)}
                     value={visionRoute.providerId ? (visionRoute.modelId ?? '') : ''}
-                    disabled={!visionRoute.providerId}
+                    disabled={!visionRoute.providerId || visionChecking}
                     onChange={(event) => {
                       if (!visionRoute.providerId) return;
                       setVisionRoute({
@@ -835,21 +916,39 @@ export function CodeProModelModal({
                   >
                     <option value="">
                       {visionRoute.providerId
-                        ? intl.formatMessage(i18n.selectModel)
+                        ? intl.formatMessage(
+                            visionChecking ? i18n.visionChecking : i18n.selectModel
+                          )
                         : intl.formatMessage(i18n.visionDefaultModel)}
                     </option>
                     {visionRoute.providerId &&
                       visionRoute.modelId &&
-                      !(modelsByProvider[visionRoute.providerId] ?? []).some(
-                        (model) => model.id === visionRoute.modelId
-                      ) && <option value={visionRoute.modelId}>{visionRoute.modelId}</option>}
+                      !visionModels.some((model) => model.id === visionRoute.modelId) && (
+                        <option value={visionRoute.modelId} disabled>
+                          {intl.formatMessage(i18n.visionUnavailableSelection, {
+                            model: visionRoute.modelId,
+                          })}
+                        </option>
+                      )}
                     {visionRoute.providerId &&
-                      (modelsByProvider[visionRoute.providerId] ?? []).map((model) => (
+                      visionModels.map((model) => (
                         <option key={model.id} value={model.id}>
                           {model.name || model.id}
                         </option>
                       ))}
                   </select>
+                  <p className="text-xs text-text-secondary sm:col-span-2">
+                    {intl.formatMessage(i18n.visionSupportedOnly)}
+                  </p>
+                  {visionRoute.providerId && !visionChecking && visionModels.length === 0 && (
+                    <p role="status" className="text-xs text-text-secondary sm:col-span-2">
+                      {intl.formatMessage(
+                        visionCapabilities.status === 'unavailable'
+                          ? i18n.visionCapabilityError
+                          : i18n.visionNoModels
+                      )}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-text-secondary">

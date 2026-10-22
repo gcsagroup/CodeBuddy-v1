@@ -79,11 +79,13 @@ const prefix = "_goose/unstable/";
 function toolResultUpdate(event, metadata) {
   const blocks = Array.isArray(event.mcpResult?.content)
     ? event.mcpResult.content
-    : Array.isArray(event.result)
-      ? event.result
-      : Array.isArray(event.result?.content)
-        ? event.result.content
-        : [];
+    : Array.isArray(event.presentationContent)
+      ? event.presentationContent
+      : Array.isArray(event.result)
+        ? event.result
+        : Array.isArray(event.result?.content)
+          ? event.result.content
+          : [];
   const content = blocks
     .filter((item) => ["text", "image", "audio", "resource", "resource_link"].includes(item?.type))
     .map((item) => ({
@@ -764,12 +766,13 @@ export class Compat {
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
       mcpServers,
-      mcpImageFallback: async (content, { signal, toolName }) => {
+      mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
         const state = this.store.read(["modelRouting", "providers"]);
         return this.vision.prepareToolContent({
           sessionId: s.id, cwd: s.cwd, signal,
           routing: state.modelRouting, providers: state.providers,
           content, toolName,
+          onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
         });
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
@@ -1168,7 +1171,7 @@ export class Compat {
       }));
     }
   }
-  async prepareModelContent(s, content, signal) {
+  async prepareModelContent(s, content, signal, onProgress) {
     const state = this.store.read(["modelRouting", "providers"]);
     const main = this.routing.get(s.id)?.main;
     return this.vision.preparePrompt({
@@ -1181,6 +1184,7 @@ export class Compat {
         : { providerId: s.providerId, modelId: s.modelId },
       providers: state.providers,
       signal,
+      onProgress,
     });
   }
   async request(method, p = {}, connection) {
@@ -1802,7 +1806,7 @@ export class Compat {
         return result.mcpResult
           ? { ...result.mcpResult, isError: Boolean(result.isError) }
           : {
-              content: result.content,
+              content: result.presentationContent ?? result.content,
               structuredContent: result.value ?? result.structuredContent,
               isError: Boolean(result.isError),
             };
@@ -2165,6 +2169,15 @@ export class Compat {
     }));
     let promptError;
     let result;
+    const projectWorkStatus = workStatusUpdates({
+      sessionId: s.id, sourceMessageId: userId,
+      runId: () => promptEntry.run?.runId ?? promptScope, signal: controller.signal,
+    });
+    promptEntry.visionProgress = progress => {
+      if (controller.signal.aborted || this.active.get(s.id) !== promptEntry) return;
+      for (const update of projectWorkStatus({ type: 'image_observation', sessionId: s.id, ...progress }))
+        connection.notify('_goose/unstable/session/update', { sessionId: s.id, update });
+    };
     try {
       writer = await this.journal?.begin({
         sessionId: s.id,
@@ -2190,6 +2203,7 @@ export class Compat {
         s,
         content,
         controller.signal,
+        promptEntry.visionProgress,
       );
       if (s.type === "code_pro" && !manualCompact) {
         let run = this.runs.latest(s.id);
@@ -2226,10 +2240,6 @@ export class Compat {
       const nativeGoal = p._meta?.resumeRunId ? await this.driver.getGoal?.(s.id) : null;
       const projectContext = contextUpdates({ sessionId: s.id, runId: active.run?.runId, signal: controller.signal });
       const internalToolCalls = new Set();
-      const projectWorkStatus = workStatusUpdates({
-        sessionId: s.id, sourceMessageId: userId,
-        runId: active.run?.runId ?? promptScope, signal: controller.signal,
-      });
       const callbacks = {
         signal: controller.signal,
         requestId: userId,

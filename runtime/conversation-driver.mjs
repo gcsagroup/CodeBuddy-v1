@@ -20,7 +20,9 @@ export function createConversationDriver(driver, store) {
   });
   const capabilities = (options, actual, product) => options ? {
     ...options,
-    ...(options.tools ? { tools: options.tools.map(tool => ({ ...tool, execute: (args, exec) => tool.execute(args, project(exec, actual, product)) })) } : {}),
+    // Project the invocation, not the definition: trusted tool identity must
+    // survive the conversation/native-session boundary for scoped approvals.
+    projectToolContext: context => project(context, actual, product),
   } : options;
   async function lock(id, operation, kind = 'exclusive') {
     if (busy.has(id) || waitingPrompts.has(id)) throw new Error('Wait for the active conversation operation to finish');

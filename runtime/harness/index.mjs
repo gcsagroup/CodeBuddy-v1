@@ -16,6 +16,7 @@ import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
+import { imageToolApprovalScope } from '../comfyui-tool.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
@@ -61,11 +62,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const sessionScopes = new Map();
   const directCalls = new Map();
   const toolReceipts = new Map();
+  const hostImageReceipts = new WeakMap();
   const configurationQueues = new Map();
   const extensionStates = new Map();
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
   const approvalOwners = new WeakMap();
+  const imageApprovals = new WeakMap();
+  const imageDefinitions = new WeakMap();
   const initialPermissions = new Map();
   const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
@@ -193,6 +197,22 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       isCurrent: () => ctx.web[symbols.original] === webService &&
         ctx.tools.get(exec.name, exec.agent) === webFetchDefinition &&
         webApprovals.get(rootAgent)?.get(url.origin) === binding,
+    };
+  }
+
+  const sameImageScope = (a, b) => a && b && a.key === b.key &&
+    a.fetchImpl === b.fetchImpl && a.statfsImpl === b.statfsImpl;
+  async function imageSessionApproval(exec, rootAgent) {
+    const definition = ctx.tools.get(exec.name, exec.agent);
+    const image = definition && imageDefinitions.get(definition);
+    const binding = rootAgent && imageApprovals.get(rootAgent);
+    if (!image || !binding || !sameImageScope(image.scope, binding.scope) ||
+      imageToolApprovalScope(image.tool) !== image.scope || !(await image.scope.accepts(exec.arguments))) return undefined;
+    exec.signal.throwIfAborted();
+    return {
+      identity: binding.identity, extensionSource: 'builtin',
+      isCurrent: () => imageApprovals.get(rootAgent) === binding &&
+        ctx.tools.get(exec.name, exec.agent) === definition && imageToolApprovalScope(image.tool) === image.scope,
     };
   }
 
@@ -326,11 +346,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     sessionScopes.delete(agent.id);
     extensionStates.delete(agent.id);
   });
-  function permissionCall(exec, active) {
+  async function permissionCall(exec, active) {
     const definition = ctx.tools.get(exec.name, exec.agent);
     const rootAgent = ctx.agents.get(active.sessionId);
     const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
-    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent);
+    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await imageSessionApproval(exec, rootAgent);
     let sessionApproval;
     if (binding && rootAgent) {
       let owner = approvalOwners.get(rootAgent);
@@ -369,7 +389,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (!active) return { kind: 'deny', reason: 'No active tool invocation context.' };
     try {
       await abortable(active.events, exec.signal);
-      const call = permissionCall(exec, active);
+      const call = await permissionCall(exec, active);
       approvalCalls.set(`${exec.agent.id}\0${exec.callId}`, call);
       let gate = active.onToolPolicy
         ? await abortable(active.onToolPolicy(call), exec.signal)
@@ -392,13 +412,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   });
   ctx.on('tools/execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
-    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? permissionCall(exec, active));
+    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? await permissionCall(exec, active));
     return next();
   });
   ctx.on('tools/result', (exec, result) => {
     approvalCalls.delete(`${exec.agent.id}\0${exec.callId}`);
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
-    const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata };
+    const presentationContent = !result.isError ? hostImageReceipts.get(exec) : undefined;
+    hostImageReceipts.delete(exec);
+    const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata,
+      ...(presentationContent ? { presentationContent } : {}),
+    };
     const direct = directCalls.get(exec.callId);
     if (direct) direct.receipt = receipt;
     else if (runFor(exec.agent)) toolReceipts.set(`${exec.agent.id}\0${exec.callId}`, receipt);
@@ -609,12 +633,20 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     for (const tool of settings.tools ?? []) {
       if (!tool.name || typeof tool.execute !== 'function') throw new TypeError('Host tools require name and execute');
     }
+    if (settings.projectToolContext !== undefined && typeof settings.projectToolContext !== 'function')
+      throw new TypeError('Host tool context projection must be a function');
+    const imageScope = (settings.tools ?? []).map(imageToolApprovalScope).find(Boolean);
+    const previousImage = imageApprovals.get(agent);
+    const imageBinding = imageScope
+      ? sameImageScope(imageScope, previousImage?.scope) ? previousImage : { scope: imageScope, identity: Object.freeze({}) }
+      : undefined;
     const subagentModels = {};
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
     }
     await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !names.has(server.serverName)).map(server => server.serverName));
+    imageApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
@@ -645,7 +677,35 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
               if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
               const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
               await active?.events;
-              const value = await tool.execute(args, { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId });
+              const context = { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId };
+              const value = await tool.execute(args, settings.projectToolContext ? settings.projectToolContext(context) : context);
+              if (Array.isArray(value?.content) && value.content.some(block => block.type === 'image' && typeof block.data === 'string')) {
+                // Display keeps original bytes; native persistence and model
+                // projection use durable references or a backup observation.
+                hostImageReceipts.set(exec, value.content);
+                try {
+                  const content = await ctx.get('codebuddyMcpVision').project(value.content, exec);
+                  const images = content.filter(block => block.type === 'image' && typeof block.data === 'string');
+                  if (images.length) {
+                    const route = exec.agent.session.requestHeader()?.config ?? exec.agent.options;
+                    const info = await ctx.llm.resolveModelInfo(route.provider, route.model, exec.signal);
+                    if (!info.inputModalities?.includes('image')) throw new Error('The model has no confirmed image input');
+                    const refs = await ctx.get('attachments').saveImages(images.map(block => ({ data: Buffer.from(block.data, 'base64'), mediaType: block.mimeType })));
+                    let index = 0;
+                    exec.signal.throwIfAborted();
+                    return { ...value, content: content.map(block => images.includes(block) ? { type: 'image', attachment: refs[index++] } : block) };
+                  }
+                  exec.signal.throwIfAborted();
+                  return { ...value, content };
+                } catch (error) {
+                  if (exec.signal.aborted) throw error;
+                  // The tool action succeeded. Inspection cannot turn it into a
+                  // retryable action failure or replace its original receipt.
+                  return { ...value, content: value.content.flatMap(block => block.type === 'image'
+                    ? [{ type: 'text', text: 'Image inspection is unavailable for this result. The tool action and saved output remain valid. Do not repeat the action just to retry inspection or claim visual details you did not observe.' }]
+                    : [block]) };
+                }
+              }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
             },
           });
@@ -654,6 +714,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
             readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
           }
+          const imageScope = imageToolApprovalScope(tool);
+          if (imageScope) imageDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: imageScope });
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
@@ -707,6 +769,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     catch (error) { await fiber.dispose(); throw error; }
     sessionScopes.set(sessionId, fiber);
     sessionSettings.set(sessionId, settings);
+    if (imageBinding) imageApprovals.set(agent, imageBinding);
     const orderedConnections = mcpServers.map(server => connections.find(connection => connection.serverName === server.serverName));
     extensionStates.set(sessionId, orderedConnections);
     return { configured: true, extensions: orderedConnections };
@@ -886,7 +949,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           const result = await ctx.tools.execute({ callId, name, arguments: args, agent, signal: AbortSignal.any([signal, maintenanceSignal]) });
           emit(run, { type: 'tool_result', id: callId, result: result.content, isError: result.isError, sessionId, name, arguments: args, structuredContent: result.value, error: result.error, ...run.receipt });
           await run.events;
-          return { ...result, ...(run.receipt?.mcpResult ? { mcpResult: run.receipt.mcpResult } : {}) };
+          return { ...result, ...(run.receipt?.mcpResult ? { mcpResult: run.receipt.mcpResult } : {}),
+            ...(run.receipt?.presentationContent ? { presentationContent: run.receipt.presentationContent } : {}),
+          };
         });
       } finally { directCalls.delete(callId); }
     },

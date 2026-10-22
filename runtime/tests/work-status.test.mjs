@@ -44,6 +44,23 @@ test('cancelled requests cannot publish late activity or execution conclusions',
   assert.deepEqual(project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'late' }), []);
 });
 
+test('image observation stages share the existing activity channel and retain child and cancellation facts', () => {
+  let runId = 'preparation'; const controller = new AbortController();
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: () => runId, signal: controller.signal });
+  const start = project({ type: 'image_observation', sessionId: 'parent', phase: 'start', modelId: 'vision' });
+  assert.match(start[0].status.message, /正在识别图片/);
+  assert.equal(start[0].status.data.run_id, 'preparation');
+  runId = 'native-run';
+  project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });
+  const end = project({ type: 'image_observation', sessionId: 'parent', phase: 'end', modelId: 'vision' });
+  assert.equal(end[0].status.data.child_count, 1);
+  assert.equal(end[0].status.data.run_id, 'native-run');
+  const model = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' });
+  assert.equal(model[0].status.message, '');
+  controller.abort();
+  assert.deepEqual(project({ type: 'image_observation', sessionId: 'parent', phase: 'end', modelId: 'vision' }), []);
+});
+
 test('only native failure and retry facts announce reconnection, and final failures remain notices', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const slow = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent', elapsedMs: 900000 });

@@ -8695,5 +8695,23 @@
   },
   "toolAction.desktopPet": {
     "defaultMessage": "Create a desktop pet"
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Current selection unavailable: {model}"
   }
 }

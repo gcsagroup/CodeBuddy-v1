@@ -7,18 +7,63 @@ import {
   messagesChange,
 } from './shared';
 
-export type ElicitationStatus = 'submitted' | 'cancelled';
+export type ElicitationStatus = 'submitted' | 'cancelled' | 'expired';
 
 export function elicitationContent(
   request: AcpElicitationRequest
 ): ActionRequired & { type: 'actionRequired' } {
+  const schema = request.request.requestedSchema;
+  const hints = request.request._meta?.['codepro/questionFields'];
+  const properties: Record<
+    string,
+    NonNullable<typeof schema.properties>[string] & {
+      _meta?: Record<string, unknown>;
+    }
+  > = { ...schema.properties };
+  if (hints && typeof hints === 'object' && !Array.isArray(hints)) {
+    for (const [key, hint] of Object.entries(hints)) {
+      if (
+        !properties[key] ||
+        !hint ||
+        typeof hint !== 'object' ||
+        !('options' in hint) ||
+        !Array.isArray(hint.options)
+      )
+        continue;
+      const options = hint.options.filter(
+        (option: unknown): option is { label: string; description?: string } =>
+          option !== null &&
+          typeof option === 'object' &&
+          'label' in option &&
+          typeof option.label === 'string' &&
+          (!('description' in option) ||
+            option.description === undefined ||
+            typeof option.description === 'string')
+      );
+      const customKey =
+        'customKey' in hint &&
+        typeof hint.customKey === 'string' &&
+        schema.properties?.[hint.customKey]?.type === 'string'
+          ? hint.customKey
+          : undefined;
+      properties[key] = {
+        ...properties[key],
+        _meta: {
+          'codepro.dev/options': options,
+          'codepro.dev/allowCustom': properties[key].type === 'string' || Boolean(customKey),
+          ...(customKey ? { 'codepro.dev/customAnswerKey': customKey } : {}),
+        },
+      };
+    }
+  }
   return {
     type: 'actionRequired',
     data: {
       actionType: 'elicitation',
       id: request.id,
       message: request.request.message,
-      requested_schema: request.request.requestedSchema,
+      requested_schema: { ...schema, properties },
+      expiresAt: request.expiresAt,
     },
   };
 }
@@ -50,6 +95,7 @@ export function applyElicitationStatus(
   const statusData = {
     isSubmitted: status === 'submitted',
     isCancelled: status === 'cancelled',
+    isExpired: status === 'expired',
   };
   let changed = false;
 

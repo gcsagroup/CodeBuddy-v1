@@ -3500,6 +3500,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "キャンセル"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "自由回答（任意）"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "このフィールドは必須です"
   },

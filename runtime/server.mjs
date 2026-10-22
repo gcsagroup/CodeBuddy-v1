@@ -178,11 +178,11 @@ export async function createCompatServer({ dataDir, secret, driver }) {
               error ? reject(error) : resolve(result);
             };
             const abort = () => done(Error("Cancelled"));
-            // Filling a recipe is user input, not permission to execute a tool.
+            // Forms are user input, not permission to execute a tool.
             // Keep the form live until submit/cancel or connection teardown;
             // otherwise its visible submit button answers an expired request.
             const timer =
-              method === "_goose/unstable/session/recipe/request-params"
+              ["_goose/unstable/session/recipe/request-params", "elicitation/create"].includes(method)
                 ? undefined
                 : setTimeout(
                     () => done(Error("Permission request timed out")),

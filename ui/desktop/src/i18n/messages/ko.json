@@ -3500,6 +3500,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "취소"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "직접 입력 (선택 사항)"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "이 필드는 필수입니다"
   },

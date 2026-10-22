@@ -2246,19 +2246,38 @@ export class Compat {
         requestId: userId,
         onUserQuestions: async ({ questions, signal }) => {
           const properties = Object.fromEntries(questions.map((q, i) => [`answer_${i}`, {
-            type: 'string', title: q.question,
-            description: [q.detail, q.options?.map(o => `${o.label}${o.description ? `: ${o.description}` : ''}`).join('; ')].filter(Boolean).join('\n'),
+            type: q.multiSelect && q.options?.length ? 'array' : 'string', title: q.question,
+            ...(q.detail ? { description: q.detail } : {}),
+            ...(q.options?.length ? {
+              ...(q.multiSelect ? { items: { type: 'string', enum: q.options.map(o => o.label) } } : {}),
+            } : {}),
           }]));
+          const questionFields = Object.fromEntries(questions.flatMap((q, i) => {
+            if (!q.options?.length) return [];
+            const customKey = q.multiSelect ? `answer_${i}_custom` : undefined;
+            if (customKey) properties[customKey] = { type: 'string', title: q.question };
+            return [[`answer_${i}`, { options: q.options, ...(customKey ? { customKey } : {}) }]];
+          }));
           const reply = await connection.ask('elicitation/create', {
-            sessionId: s.id, mode: 'form', message: questions.map(q => q.question).join('\n'),
-            requestedSchema: { type: 'object', properties, required: Object.keys(properties) },
+            sessionId: s.id, mode: 'form', message: '',
+            requestedSchema: { type: 'object', properties },
+            // ACP strips unknown property fields. Optional presentation hints
+            // belong in request metadata; the form schema stays interoperable.
+            _meta: { 'codepro/questionFields': questionFields },
           }, signal ?? controller.signal);
-          if (reply?.action !== 'accept') throw new Error('User question was cancelled or expired without an answer');
+          (signal ?? controller.signal).throwIfAborted();
+          if (reply?._meta?.codepro?.reason === 'expired') throw new Error('等待回答已超时，未收到用户答复。需要时请重新提问，不要把超时当成同意。');
+          if (reply?.action === 'cancel' || reply?.action === 'decline') return { answers: questions.map(q => ({ id: q.id, selected: [] })) };
+          if (reply?.action !== 'accept') throw new Error('未收到有效的用户答复。');
           return { answers: questions.map((q, i) => {
             const answer = reply.content?.[`answer_${i}`];
-            if (typeof answer !== 'string') throw new Error('Missing user question answer');
-            const selected = (q.options ?? []).some(o => o.label === answer) ? [answer] : [];
-            return { id: q.id, selected, ...(selected.length ? {} : { custom: answer }) };
+            const values = answer === undefined || answer === '' ? [] : q.multiSelect && Array.isArray(answer) ? answer : [answer];
+            if (!Array.isArray(values) || values.some(value => typeof value !== 'string')) throw new Error('用户答复格式无效。');
+            const selected = values.filter(value => (q.options ?? []).some(o => o.label === value));
+            const customAnswer = reply.content?.[`answer_${i}_custom`];
+            if (customAnswer !== undefined && typeof customAnswer !== 'string') throw new Error('用户答复格式无效。');
+            const custom = [...values.filter(value => !(q.options ?? []).some(o => o.label === value)), ...(q.multiSelect && customAnswer ? [customAnswer] : [])].join('\n');
+            return { id: q.id, selected, ...(custom ? { custom } : {}) };
           }) };
         },
         ...(["paused", "blocked"].includes(nativeGoal?.phase)

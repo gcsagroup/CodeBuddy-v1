@@ -3500,6 +3500,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "İptal"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Kendi yanıtınız (isteğe bağlı)"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "Bu alan zorunludur"
   },

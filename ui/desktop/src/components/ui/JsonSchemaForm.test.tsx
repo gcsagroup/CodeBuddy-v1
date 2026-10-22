@@ -3,8 +3,66 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import JsonSchemaForm from './JsonSchemaForm';
+import type { JsonSchema } from './JsonSchemaForm';
+import { elicitationContent } from '../../acp/adapter/elicitations';
+import { zCreateElicitationRequest } from '@agentclientprotocol/sdk/dist/schema/zod.gen';
 
 describe('JsonSchemaForm', () => {
+  it('keeps choice suggestions and custom answers together without relaxing ordinary enums', async () => {
+    const user = userEvent.setup(),
+      onSubmit = vi.fn();
+    const request = zCreateElicitationRequest.parse({
+      sessionId: 'question-test',
+      mode: 'form',
+      message: '',
+      requestedSchema: {
+        type: 'object',
+        properties: {
+          answer: {
+            type: 'array',
+            title: 'Choose',
+            items: { type: 'string', enum: ['Mint', 'Cream'] },
+          },
+          answer_custom: { type: 'string' },
+        },
+      },
+      _meta: {
+        'codepro/questionFields': {
+          answer: {
+            options: [{ label: 'Mint', description: 'Cool' }, { label: 'Cream' }],
+            customKey: 'answer_custom',
+          },
+        },
+      },
+    });
+    if (request.mode !== 'form' || !('sessionId' in request)) throw Error('Expected session form');
+    const content = elicitationContent({
+      id: 'question',
+      sessionId: request.sessionId,
+      request,
+      expiresAt: Date.now() + 300_000,
+    });
+    if (content.data.actionType !== 'elicitation') throw Error('Expected question content');
+    const { rerender } = render(
+      <JsonSchemaForm
+        compact
+        onSubmit={onSubmit}
+        schema={content.data.requested_schema as JsonSchema}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Mint/ }));
+    await user.type(screen.getByRole('textbox', { name: 'Your own answer (optional)' }), 'Blue');
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(onSubmit).toHaveBeenCalledWith({ answer: ['Mint'], answer_custom: 'Blue' });
+    rerender(
+      <JsonSchemaForm
+        onSubmit={onSubmit}
+        schema={{ properties: { answer: { type: 'string', enum: ['Mint', 'Cream'] } } }}
+      />
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
   it('walks through single choice, multi choice, and text while retaining answers', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();

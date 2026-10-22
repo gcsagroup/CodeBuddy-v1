@@ -37,6 +37,36 @@ function renderElicitationRequest(onSubmit: SubmitElicitationResponse) {
 }
 
 describe('ElicitationRequest', () => {
+  it('keeps the original deadline when remounted and never submits an answer on timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const onSubmit = vi.fn<SubmitElicitationResponse>();
+      const content = {
+        ...actionRequiredContent,
+        data: { ...actionRequiredContent.data, expiresAt: Date.now() + 300_000 },
+      };
+      const element = (
+        <ElicitationRequest
+          standalone
+          isCancelledMessage={false}
+          isClicked={false}
+          actionRequiredContent={content}
+          onSubmit={onSubmit}
+        />
+      );
+      const first = render(element, { wrapper: IntlTestWrapper });
+      await act(() => vi.advanceTimersByTimeAsync(290_000));
+      first.unmount();
+      render(element, { wrapper: IntlTestWrapper });
+      expect(screen.getByText(/0:10 remaining/)).toBeInTheDocument();
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      expect(screen.getByText(/This request has expired/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('shows submitted state when the response is accepted', async () => {
     const onSubmit = vi.fn<SubmitElicitationResponse>().mockResolvedValue(true);
 

@@ -3500,6 +3500,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "Hủy"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Câu trả lời của bạn (không bắt buộc)"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "Trường này là bắt buộc"
   },

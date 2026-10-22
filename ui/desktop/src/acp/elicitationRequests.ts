@@ -17,6 +17,7 @@ export interface AcpElicitationRequest {
   id: string;
   sessionId: string;
   request: SessionScopedFormElicitationRequest;
+  expiresAt: number;
 }
 
 interface PendingElicitationRequest {
@@ -46,6 +47,7 @@ export async function requestAcpElicitation(
     id: `acp_elicitation_${uuidv7()}`,
     sessionId: request.sessionId,
     request,
+    expiresAt: Date.now() + ACP_ELICITATION_TIMEOUT_SECONDS * 1000,
   };
   const key = elicitationRequestKey(elicitationRequest.sessionId, elicitationRequest.id);
 
@@ -60,13 +62,13 @@ export async function requestAcpElicitation(
       acpChatSessionActions.setElicitationStatus(
         elicitationRequest.sessionId,
         elicitationRequest.id,
-        'cancelled'
+        'expired'
       );
       acpChatSessionActions.resolveUserInputRequest(
         elicitationRequest.sessionId,
         acpElicitationUserInputRequestId(elicitationRequest.id)
       );
-      pending.resolve(cancelledElicitationResponse());
+      pending.resolve({ action: 'cancel', _meta: { codepro: { reason: 'expired' } } });
     }, ACP_ELICITATION_TIMEOUT_SECONDS * 1000);
 
     pendingRequests.set(key, { request: elicitationRequest, resolve, timeoutId });
@@ -120,6 +122,10 @@ export function cancelAcpElicitationRequestsForSession(sessionId: string): void 
       pendingRequests.delete(key);
       clearTimeout(pending.timeoutId);
       acpChatSessionActions.setElicitationStatus(sessionId, pending.request.id, 'cancelled');
+      acpChatSessionActions.resolveUserInputRequest(
+        sessionId,
+        acpElicitationUserInputRequestId(pending.request.id)
+      );
       pending.resolve(cancelledElicitationResponse());
     }
   }

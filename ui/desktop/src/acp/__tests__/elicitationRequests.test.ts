@@ -172,13 +172,16 @@ describe('ACP elicitation requests', () => {
       expect(acpChatSessionActions.setElicitationStatus).toHaveBeenCalledWith(
         'session-1',
         appliedRequest.id,
-        'cancelled'
+        'expired'
       );
       expect(acpChatSessionActions.resolveUserInputRequest).toHaveBeenCalledWith(
         'session-1',
         `elicitation:${appliedRequest.id}`
       );
-      await expect(response).resolves.toEqual({ action: 'cancel' });
+      await expect(response).resolves.toEqual({
+        action: 'cancel',
+        _meta: { codepro: { reason: 'expired' } },
+      });
       expect(resolveAcpElicitationRequest('session-1', appliedRequest.id, {})).toBe(false);
     } finally {
       vi.useRealTimers();

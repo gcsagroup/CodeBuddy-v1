@@ -3503,6 +3503,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "取消"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "也可以填写自己的答案"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "此字段为必填项"
   },

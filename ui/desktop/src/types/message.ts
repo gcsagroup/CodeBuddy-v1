@@ -150,6 +150,8 @@ export type ActionRequiredData =
       id: string;
       message: string;
       requested_schema: unknown;
+      expiresAt?: number;
+      isExpired?: boolean;
     }
   | {
       action?: string;

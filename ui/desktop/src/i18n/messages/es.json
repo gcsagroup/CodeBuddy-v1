@@ -3500,6 +3500,9 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "Cancelar"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Tu propia respuesta (opcional)"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "Este campo es obligatorio"
   },

@@ -95,6 +95,8 @@ CodeBuddy 适配层把模板、职责、已配置模型转换成 DSH 公开 `Sub
 
 本批补充（用户已要求）：侧栏完成绿色未读点与宠物完成勾选共同消费 Electron 提醒快照，由真实可见且聚焦的会话确认已读，不维护两份完成未读裁决。宠物暂停按钮委托现有会话 controller.stop，继续跟进打开对应会话；不引入第二套暂停或恢复状态。官方 Harness `userQuestions` 与 `ask_user_question` 通过 ACP `elicitation/create` 接到现有表单，待回答事实仍来自实际输入请求，宠物仅展示摘要。媒体工具沿用 ComfyUI 服务端队列和历史回执，图像与视频使用独立任务收据目录，不改变 Harness 完成语义。
 
+2026-10-22 提问卡片补充：ACP 待回答注册表保存本次请求的截止时间并负责五分钟超时结算，卡片仅显示剩余时间，切换会话或重新挂载不重置计时；传输层不再叠加同长度的权限超时。停止与断连仍撤销实际请求。用户跳过映射为官方空答案项；超时单独标记并返回未收到答复，均不授予权限。适配层保留单选、多选和自填答案，选项是建议而非限制自由回答的枚举；不改变官方工具的触发、执行或恢复语义。
+
 繁體：側欄未讀點與寵物勾選共用提醒快照；暫停委託現有 controller，提問由官方 Harness 經 ACP 表單傳遞。English: sidebar unread dots and pet checks share the notification snapshot; pause delegates to the existing controller, and official Harness questions use the existing ACP form channel.
 
 桌面宠物复用现有 ACP 会话快照、输入请求、错误及 `turnTerminal` 结构化记录，仅选择展示动作和提醒优先级，不解析对话文字、改变任务终态或驱动 Agent。Harness 的执行、审批与完成所有权保持。Electron `petMain` 持有宠物选择、显示、尺寸、位置、素材校验缓存及本次运行的提醒已读状态；提醒已读不修改会话。悬浮窗口属于辅助窗口，不成为会话事件的宿主。

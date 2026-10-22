@@ -114,6 +114,7 @@ function permissionRequest(sessionId: string, toolCallId = 'tool-1'): RequestPer
 function elicitationRequest(sessionId: string): {
   id: string;
   sessionId: string;
+  expiresAt: number;
   request: CreateElicitationRequest & {
     mode: 'form';
     sessionId: string;
@@ -122,6 +123,7 @@ function elicitationRequest(sessionId: string): {
   return {
     id: 'acp_elicitation_1',
     sessionId,
+    expiresAt: Date.now() + 300_000,
     request: {
       mode: 'form',
       sessionId,
@@ -356,8 +358,14 @@ describe('acpChatSessionStore', () => {
   it('applies mode updates after cancellation only to the addressed session', () => {
     const first = sessionId('mode-first');
     const second = sessionId('mode-second');
-    acpChatSessionActions.finishSessionLoad(first, { ...session(first), goose_mode: 'danger-full-access' });
-    acpChatSessionActions.finishSessionLoad(second, { ...session(second), goose_mode: 'read-only' });
+    acpChatSessionActions.finishSessionLoad(first, {
+      ...session(first),
+      goose_mode: 'danger-full-access',
+    });
+    acpChatSessionActions.finishSessionLoad(second, {
+      ...session(second),
+      goose_mode: 'read-only',
+    });
     acpChatSessionActions.startPromptAttempt(first, 'mode-attempt', 'user-1');
     acpChatSessionActions.startPromptCancellation(first, 'mode-attempt');
     acpChatSessionActions.clearPromptCancellation(first, 'mode-attempt');

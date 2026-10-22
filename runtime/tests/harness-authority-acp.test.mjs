@@ -9,6 +9,12 @@ import { openStore } from '../store.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { driverProvider } from '../providers.mjs';
 import { isDeepStrictEqual } from 'node:util';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
+// Exercise the desktop's real wire validator, which rejects unsupported form schemas.
+const desktopRequire = createRequire(new URL('../../ui/desktop/package.json', import.meta.url));
+const { zCreateElicitationRequest } = await import(pathToFileURL(desktopRequire.resolve('@agentclientprotocol/sdk/dist/schema/zod.gen.js')));
 
 async function fixture(t) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-')));
@@ -40,8 +46,45 @@ async function fixture(t) {
   const created = await request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
   const sessionId = created.sessionId;
   const prompt = text => request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
-  return { compat, store, notices, sessions, scripts, sessionId, prompt, request, setInitializer(fn) { initialize = fn; } };
+  return { compat, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
 }
+
+test('native questions preserve suggestions, custom answers, skip, timeout and cancellation at the ACP boundary', async t => {
+  const f = await fixture(t), asked = [];
+  const questions = [
+    { id: 'one', question: 'Which color?', options: [{ label: 'Mint', description: 'Cool' }, { label: 'Cream' }] },
+    { id: 'many', question: 'Which checks?', multiSelect: true, options: [{ label: 'Stop' }, { label: 'Resume' }] },
+    { id: 'note', question: 'Anything else?' },
+  ];
+  let reply = { action: 'accept', content: { answer_0: 'Mint', answer_1: ['Stop'], answer_1_custom: 'Other check', answer_2: 'My note' } };
+  f.connection.ask = async (method, params) => { assert.equal(method, 'elicitation/create'); asked.push(zCreateElicitationRequest.parse(params)); return reply; };
+  const run = async check => {
+    f.scripts.push(async callbacks => { await check(callbacks); return { stopReason: 'end_turn' }; });
+    await f.prompt('Question fixture');
+  };
+  await run(async callbacks => {
+    assert.deepEqual(await callbacks.onUserQuestions({ questions }), { answers: [
+      { id: 'one', selected: ['Mint'] }, { id: 'many', selected: ['Stop'], custom: 'Other check' }, { id: 'note', selected: [], custom: 'My note' },
+    ] });
+  });
+  const schema = asked[0].requestedSchema;
+  assert.equal(schema.properties.answer_1.type, 'array');
+  assert.deepEqual(asked[0]._meta['codepro/questionFields'].answer_0.options, questions[0].options);
+  assert.deepEqual(schema.properties.answer_1.items.enum, ['Stop', 'Resume']);
+  assert.equal(schema.properties.answer_1_custom.type, 'string');
+  assert.equal(schema.properties.answer_0.enum, undefined, 'Custom text is allowed, not an enum violation');
+  reply = { action: 'cancel' };
+  await run(async callbacks => assert.deepEqual(await callbacks.onUserQuestions({ questions }), { answers: questions.map(q => ({ id: q.id, selected: [] })) }));
+  reply = { action: 'cancel', _meta: { codepro: { reason: 'expired' } } };
+  await run(async callbacks => assert.rejects(callbacks.onUserQuestions({ questions }), /等待回答已超时/));
+  reply = { action: 'accept', content: { answer_0: { invalid: true } } };
+  await run(async callbacks => assert.rejects(callbacks.onUserQuestions({ questions }), /答复格式无效/));
+  reply = { action: 'accept', content: { answer_0: 'Mint' } };
+  await run(async callbacks => {
+    const controller = new AbortController(); controller.abort();
+    await assert.rejects(callbacks.onUserQuestions({ questions, signal: controller.signal }), /abort/i);
+  });
+});
 
 test('saved connection cards read locally without waiting for model metadata; the model picker filters live capabilities', { timeout: 3000 }, async t => {
   const f = await fixture(t);

@@ -35,6 +35,7 @@ const i18n = defineMessages({
     id: 'jsonSchemaForm.selectPlaceholder',
     defaultMessage: 'Select...',
   },
+  customAnswer: { id: 'jsonSchemaForm.customAnswer', defaultMessage: 'Your own answer (optional)' },
 });
 
 interface JsonSchemaChoice {
@@ -57,7 +58,12 @@ interface JsonSchemaProperty {
   maxLength?: number;
   minItems?: number;
   maxItems?: number;
-  _meta?: { 'codepro.dev/optionDescriptions'?: Record<string, string> };
+  _meta?: {
+    'codepro.dev/optionDescriptions'?: Record<string, string>;
+    'codepro.dev/allowCustom'?: boolean;
+    'codepro.dev/options'?: { label: string; description?: string }[];
+    'codepro.dev/customAnswerKey'?: string;
+  };
 }
 
 export interface JsonSchema {
@@ -85,6 +91,8 @@ interface ChoiceOption {
 }
 
 function choicesFor(prop: JsonSchemaProperty): ChoiceOption[] {
+  const suggestions = prop._meta?.['codepro.dev/options'];
+  if (suggestions) return suggestions.map((option) => ({ value: option.label, ...option }));
   const descriptions = prop._meta?.['codepro.dev/optionDescriptions'] ?? {};
   const titled = prop.oneOf ?? prop.items?.anyOf;
   if (titled) {
@@ -115,10 +123,18 @@ export default function JsonSchemaForm({
   compact = false,
 }: JsonSchemaFormProps) {
   const intl = useIntl();
-  const fields = useMemo(() => Object.entries(schema.properties ?? {}), [schema.properties]);
+  const fields = useMemo(() => {
+    const entries = Object.entries(schema.properties ?? {});
+    const customKeys = new Set(
+      entries.map(([, prop]) => prop._meta?.['codepro.dev/customAnswerKey'])
+    );
+    return entries.filter(([key]) => !customKeys.has(key));
+  }, [schema.properties]);
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
-    Object.fromEntries(fields.map(([key, prop]) => [key, initialValue(prop)]))
+    Object.fromEntries(
+      Object.entries(schema.properties ?? {}).map(([key, prop]) => [key, initialValue(prop)])
+    )
   );
   const [error, setError] = useState<string>();
 
@@ -175,6 +191,16 @@ export default function JsonSchemaForm({
   const value = formData[key];
   const required = schema.required?.includes(key) ?? false;
   const options = choicesFor(prop);
+  const allowsCustom = options.length > 0 && prop._meta?.['codepro.dev/allowCustom'] === true;
+  const customKey = prop._meta?.['codepro.dev/customAnswerKey'];
+  const values = Array.isArray(value) ? value : [value];
+  const customValue = customKey
+    ? String(formData[customKey] ?? '')
+    : values
+        .filter(
+          (item) => typeof item === 'string' && !options.some((option) => option.value === item)
+        )
+        .join('\n');
   const isLastStep = step === fields.length - 1;
 
   const handleAdvance = (event: React.FormEvent) => {
@@ -323,32 +349,55 @@ export default function JsonSchemaForm({
 
   return (
     <form onSubmit={handleAdvance} className={cn('flex flex-col gap-4', compact && 'gap-3')}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3
-            id={`${key}-title`}
-            className={cn('text-base font-semibold text-text-primary', compact && 'text-sm')}
-          >
-            {prop.title || key}
-            {required && !compact && <span className="ml-1 text-red-500">*</span>}
-          </h3>
-          {prop.description && (
-            <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
+      <div
+        className={cn('flex flex-col gap-3', compact && 'max-h-[min(22vh,12rem)] overflow-y-auto')}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3
+              id={`${key}-title`}
+              className={cn('text-base font-semibold text-text-primary', compact && 'text-sm')}
+            >
+              {prop.title || key}
+              {required && !compact && <span className="ml-1 text-red-500">*</span>}
+            </h3>
+            {prop.description && (
+              <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
+            )}
+          </div>
+          {(!compact || fields.length > 1) && (
+            <span className="shrink-0 text-sm tabular-nums text-text-secondary">
+              {step + 1} / {fields.length}
+            </span>
           )}
         </div>
-        {(!compact || fields.length > 1) && (
-          <span className="shrink-0 text-sm tabular-nums text-text-secondary">
-            {step + 1} / {fields.length}
-          </span>
+
+        {renderField()}
+        {allowsCustom && (
+          <Input
+            aria-label={intl.formatMessage(i18n.customAnswer)}
+            placeholder={intl.formatMessage(i18n.customAnswer)}
+            value={customValue}
+            disabled={disabled}
+            onChange={(event) =>
+              updateValue(
+                customKey ?? key,
+                !customKey && prop.type === 'array'
+                  ? [
+                      ...values.filter((item) => options.some((option) => option.value === item)),
+                      ...(event.target.value ? [event.target.value] : []),
+                    ]
+                  : event.target.value
+              )
+            }
+          />
+        )}
+        {error && (
+          <p role="alert" className="text-xs text-red-500">
+            {error}
+          </p>
         )}
       </div>
-
-      {renderField()}
-      {error && (
-        <p role="alert" className="text-xs text-red-500">
-          {error}
-        </p>
-      )}
 
       <div className="mt-1 flex items-center justify-end gap-2 border-t border-border-primary pt-3">
         {onCancel && (

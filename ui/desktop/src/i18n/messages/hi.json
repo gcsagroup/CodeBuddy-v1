@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "समाप्त हुआ"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "भेजे जाने की प्रतीक्षा में"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "पुष्टि की प्रतीक्षा में"
   }
 }

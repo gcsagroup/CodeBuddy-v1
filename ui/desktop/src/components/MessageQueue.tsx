@@ -107,6 +107,7 @@ export interface QueuedMessage {
   timestamp: number;
   images: ImageData[];
   delivery?: 'pending' | 'submitting';
+  presentation?: { afterMessageId: string };
 }
 
 interface MessageQueueProps {

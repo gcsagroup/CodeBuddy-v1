@@ -104,6 +104,27 @@ test('model thinking changes preserve session authorization and the active turn,
   assert.equal(f.sessions.at(-1).options.thinkingEffort,'off');
 });
 
+test('interruption presentation metadata persists in the transcript without entering native execution', async t => {
+  const f = await fixture(t);
+  const nativeInputs = [];
+  const prompt = f.compat.driver.prompt;
+  f.compat.driver.prompt = (...args) => { nativeInputs.push(args[1]); return prompt(...args); };
+  f.scripts.push(async ({ onEvent }) => {
+    await onEvent({ type: 'text_delta', text: 'Stopped.' });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  const presentation = { afterMessageId: 'prior-output' };
+  await f.request('session/prompt', { sessionId: f.sessionId,
+    prompt: [{ type: 'text', text: 'Stop' }],
+    _meta: { 'codeagentpro/source-message-id': 'queued-stop', 'codebuddy/message-presentation': presentation },
+  });
+  const echo = f.notices.find(notice => notice.params.update?.sessionUpdate === 'user_message_chunk')?.params.update;
+  assert.deepEqual(echo._meta.goose.presentation, presentation);
+  assert.deepEqual(nativeInputs, [[{ type: 'text', text: 'Stop' }]]);
+  const stored = (await openStore(f.store.directory)).readSession(f.sessionId);
+  assert.deepEqual(stored.updates.find(update => update.messageId === 'queued-stop')._meta.goose.presentation, presentation);
+});
+
 test('new conversation is durable before any model or MCP startup; first message acknowledges before readiness', async t => {
   const f = await fixture(t);
   assert.equal(f.sessions.length, 0, 'new-chat navigation must not await remote services');

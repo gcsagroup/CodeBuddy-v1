@@ -35,6 +35,7 @@ import RecipeActivities from './recipes/RecipeActivities';
 import {
   getTextAndImageContent,
   getToolRequests,
+  insertPresentedUserMessage,
   type Message,
   type UserInput,
 } from '../types/message';
@@ -186,6 +187,25 @@ export default function BaseChat({
       ),
     [messages, pendingElicitationRequests]
   );
+  const pendingSession = useRef(sessionId);
+  pendingSession.current = sessionId;
+  const [pendingMessage, setPendingMessage] = useState<{
+    sessionId: string;
+    message: Message;
+  }>();
+  const onPendingMessageChange = useCallback(
+    (sourceSessionId: string, message: Message | undefined) => {
+      if (sourceSessionId !== pendingSession.current) return;
+      setPendingMessage(message ? { sessionId: sourceSessionId, message } : undefined);
+    },
+    []
+  );
+  const presentedHistory = useMemo(() => {
+    const history = elicitationPresentation.history;
+    const pending = pendingMessage?.sessionId === sessionId ? pendingMessage.message : undefined;
+    if (!pending || history.some((item) => item.id === pending.id)) return history;
+    return insertPresentedUserMessage(history, pending);
+  }, [elicitationPresentation.history, pendingMessage, sessionId]);
   const [workspaceReconfirmationPending, setWorkspaceReconfirmationPending] = useState(false);
   const [workspaceReconfirmationError, setWorkspaceReconfirmationError] = useState<string | null>(
     null
@@ -728,7 +748,7 @@ export default function BaseChat({
                   <SearchView onVisibilityChange={setSearchActive}>
                     <ProgressiveMessageList
                       searchActive={searchActive}
-                      messages={elicitationPresentation.history}
+                      messages={presentedHistory}
                       sessionType={session?.session_type}
                       workspaceRoot={session?.working_dir}
                       chat={{ sessionId }}
@@ -895,6 +915,7 @@ export default function BaseChat({
                 handleSubmit={chatInputSubmit}
                 chatState={chatState}
                 onStop={stopStreaming}
+                onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
                 pauseQueueOnStop={pauseQueueOnStop}
                 queueProcessingBlocked={queueProcessingBlocked || acpRecovering || modeSaving}

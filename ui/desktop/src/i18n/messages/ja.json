@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "が終了しました"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "送信待ち"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "確認待ち"
   }
 }

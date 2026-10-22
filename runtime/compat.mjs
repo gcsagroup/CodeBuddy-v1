@@ -2152,11 +2152,16 @@ export class Compat {
       connection.notify("session/update", { sessionId: s.id, update });
     };
     const userId = p._meta?.["codeagentpro/source-message-id"] ?? randomUUID();
+    // Persist only a display anchor. Native admission, cancellation and input
+    // ordering remain owned by Harness and do not consume this metadata.
+    const afterMessageId = p._meta?.['codebuddy/message-presentation']?.afterMessageId;
+    const presentation = typeof afterMessageId === 'string' && afterMessageId.length > 0 &&
+      afterMessageId.length <= 2048 && afterMessageId !== userId ? { afterMessageId } : undefined;
     const users = p.prompt.map((content) => ({
       sessionUpdate: "user_message_chunk",
       content,
       messageId: userId,
-      _meta: { goose: { messageId: userId, created } },
+      _meta: { goose: { messageId: userId, created, ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
     let result;

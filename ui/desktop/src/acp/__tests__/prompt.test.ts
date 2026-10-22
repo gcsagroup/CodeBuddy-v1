@@ -52,6 +52,26 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('sends a display anchor only as metadata, never as model prompt content', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    const presentation = { afterMessageId: 'last-output' };
+    await acpPromptSession('parent', {
+      id: 'queued-stop',
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Stop' }],
+      metadata: { userVisible: true, agentVisible: true, presentation },
+    });
+    expect(prompt).toHaveBeenCalledWith({
+      sessionId: 'parent',
+      prompt: [{ type: 'text', text: 'Stop' }],
+      _meta: {
+        'codeagentpro/source-message-id': 'queued-stop',
+        'codebuddy/message-presentation': presentation,
+      },
+    });
+  });
   it('sends an image-only user message without inventing a text instruction', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);

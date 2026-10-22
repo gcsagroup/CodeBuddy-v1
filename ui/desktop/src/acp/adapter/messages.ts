@@ -2,7 +2,7 @@ import type {
   ContentBlock as AcpContentBlock,
   SessionNotification,
 } from '@agentclientprotocol/sdk';
-import type { ContentBlock, Message } from '../../types/message';
+import { insertPresentedUserMessage, type ContentBlock, type Message } from '../../types/message';
 import {
   type AcpChatStateChange,
   type AdapterState,
@@ -57,7 +57,7 @@ export function applyContentChunk(
 
     return messagesChangeWithLocalSteerConfirmation(state, existing, gooseMeta.steer);
   } else {
-    state.messages.push({
+    const message: Message = {
       ...(messageId ? { id: messageId } : {}),
       role,
       created: gooseMeta.created ?? Math.floor(Date.now() / 1000),
@@ -65,8 +65,13 @@ export function applyContentChunk(
       metadata: {
         ...DEFAULT_VISIBLE_MESSAGE_METADATA,
         ...(gooseMeta.steer ? { steer: true } : {}),
+        ...(role === 'user' && gooseMeta.presentation
+          ? { presentation: gooseMeta.presentation }
+          : {}),
       },
-    });
+    };
+    if (role === 'user') state.messages = insertPresentedUserMessage(state.messages, message);
+    else state.messages.push(message);
   }
 
   return messagesChange(state);

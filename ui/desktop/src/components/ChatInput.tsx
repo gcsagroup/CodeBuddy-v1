@@ -1,5 +1,5 @@
 import { AppEvents } from '../constants/events';
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
@@ -23,7 +23,7 @@ import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
-import type { Message } from '../types/message';
+import { createUserMessage, type Message } from '../types/message';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
 import { getNavigationShortcutText } from '../utils/keyboardShortcuts';
@@ -192,6 +192,7 @@ interface ChatInputProps {
   chatState: ChatState;
   onStop?: () => void;
   onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>;
+  onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
   pauseQueueOnStop?: boolean;
   queueProcessingBlocked?: boolean;
   queueBlockedReason?: string;
@@ -243,6 +244,7 @@ export default function ChatInput({
   handleSubmit,
   chatState = ChatState.Idle,
   onStop,
+  onPendingMessageChange,
   pauseQueueOnStop = false,
   queueProcessingBlocked = false,
   queueBlockedReason,
@@ -380,6 +382,32 @@ export default function ChatInput({
     setSendNowInFlightMessageIds(new Set());
   }, [sessionId]);
 
+  useLayoutEffect(() => {
+    if (
+      !sessionId ||
+      queueStorageRef.current?.sessionId !== sessionId ||
+      queuedMessages !== queuedMessagesRef.current
+    )
+      return;
+    const pending = queuedMessages.find((item) => item.presentation);
+    onPendingMessageChange?.(
+      sessionId,
+      pending
+        ? {
+            ...createUserMessage(pending.content, pending.images),
+            id: pending.id,
+            created: pending.timestamp / 1000,
+            metadata: {
+              userVisible: true,
+              agentVisible: false,
+              pendingDelivery: pending.delivery === 'submitting' ? 'unconfirmed' : 'pending',
+              presentation: pending.presentation,
+            },
+          }
+        : undefined
+    );
+  }, [queuedMessages, sessionId, onPendingMessageChange]);
+
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       const storage = queueStorageRef.current;
@@ -415,6 +443,26 @@ export default function ChatInput({
     setSendAfterStopMessageId(null);
     cancellationRequestedForQueueRef.current = false;
   }, []);
+
+  useEffect(() => {
+    if (
+      queuedMessages !== queuedMessagesRef.current ||
+      queueStorageRef.current?.sessionId !== sessionId ||
+      !queuedMessages.some((item) => item.presentation)
+    )
+      return;
+    const confirmed = new Set(
+      messages.filter((item) => item.role === 'user').map((item) => item.id)
+    );
+    const delivered = queuedMessages.filter((item) => item.presentation && confirmed.has(item.id));
+    if (!delivered.length) return;
+    // Recover an acknowledgement lost during reload; never replay this request.
+    queuePausedRef.current = true;
+    for (const item of delivered) clearPendingSendAfterStop(item.id);
+    setQueuedMessages((items) =>
+      items.filter((item) => !item.presentation || !confirmed.has(item.id))
+    );
+  }, [messages, queuedMessages, sessionId, setQueuedMessages, clearPendingSendAfterStop]);
 
   const { alerts, addAlert, clearAlerts } = useAlerts();
   const dropdownRef: React.RefObject<HTMLDivElement> = useRef<HTMLDivElement>(
@@ -508,7 +556,13 @@ export default function ChatInput({
       };
       try {
         await handleSubmit(
-          { msg: message.content, images: message.images },
+          {
+            msg: message.content,
+            images: message.images,
+            ...(message.presentation
+              ? { messageId: message.id, presentation: message.presentation }
+              : {}),
+          },
           {
             onAccepted: () => {
               if (accepted) return;
@@ -1465,7 +1519,25 @@ export default function ChatInput({
     setSendAfterStopMessageId(messageId);
     cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
     pauseRemainingQueue();
-    setQueuedMessages((prev) => moveQueuedMessageToFront(prev, messageId));
+    let anchor: string | undefined;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].id) {
+        anchor = messages[index].id!;
+        break;
+      }
+    }
+    setQueuedMessages((prev) =>
+      moveQueuedMessageToFront(prev, messageId).map(({ presentation, ...item }) => ({
+        ...item,
+        ...(item.id === messageId && onPendingMessageChange && anchor
+          ? { presentation: presentation ?? { afterMessageId: anchor } }
+          : {}),
+      }))
+    );
+    if (queueStorageFailedRef.current) {
+      clearPendingSendAfterStop(messageId);
+      return;
+    }
     if ((isLoading || queueProcessingBlocked) && onStop) onStop();
   };
 

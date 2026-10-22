@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "sona erdi"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "Gönderilmeyi bekliyor"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "Onay bekleniyor"
   }
 }

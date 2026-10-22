@@ -33,6 +33,19 @@ describe('queued message snapshots', () => {
     expect(new QueuedMessageStorage(localStorage, 'a').read()).toEqual([]);
   });
 
+  it('restores an interruption display anchor and drops malformed optional layout data without losing input', () => {
+    const store = new QueuedMessageStorage(localStorage, 'a');
+    store.read();
+    store.write([{ ...message, presentation: { afterMessageId: 'last-output' } }]);
+    expect(new QueuedMessageStorage(localStorage, 'a').read()[0].presentation).toEqual({
+      afterMessageId: 'last-output',
+    });
+    const snapshot = JSON.parse(localStorage.getItem(store.key)!);
+    snapshot.messages[0].presentation = { afterMessageId: 123 };
+    localStorage.setItem(store.key, JSON.stringify(snapshot));
+    expect(new QueuedMessageStorage(localStorage, 'a').read()).toEqual([message]);
+  });
+
   it('rejects stale writers without overwriting the newer queue', () => {
     const first = new QueuedMessageStorage(localStorage, 'a');
     const stale = new QueuedMessageStorage(localStorage, 'a');

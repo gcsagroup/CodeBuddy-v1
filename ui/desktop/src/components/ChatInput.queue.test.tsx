@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { ChatState } from '../types/chatState';
 import type { MessageSubmissionLifecycle } from '../hooks/useChatSessionTypes';
-import type { UserInput } from '../types/message';
+import type { Message, UserInput } from '../types/message';
 import ChatInput from './ChatInput';
 import { MessageQueue } from './MessageQueue';
 import { QueuedMessageStorage } from '../utils/queuedMessageStorage';
@@ -48,7 +48,11 @@ function setup(
   handleSubmit: (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => Promise<void> | void,
   onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>,
   canSubmitQueuedMessageWhileLoading = false,
-  pauseQueueOnStop = false
+  pauseQueueOnStop = false,
+  pendingProps: {
+    messages?: Message[];
+    onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
+  } = {}
 ) {
   const onStop = vi.fn();
   const props = {
@@ -59,6 +63,7 @@ function setup(
     canSubmitQueuedMessageWhileLoading,
     pauseQueueOnStop,
     setView: vi.fn(),
+    ...pendingProps,
   };
   const view = render(<ChatInput {...props} chatState={ChatState.Thinking} />, {
     wrapper: IntlTestWrapper,
@@ -67,6 +72,7 @@ function setup(
   let currentState = ChatState.Thinking;
   let queueProcessingBlocked = false;
   let currentSessionId = props.sessionId;
+  let currentMessages = pendingProps.messages ?? [];
   const rerender = () => {
     view.rerender(
       <ChatInput
@@ -74,6 +80,7 @@ function setup(
         sessionId={currentSessionId}
         chatState={currentState}
         queueProcessingBlocked={queueProcessingBlocked}
+        messages={currentMessages}
       />
     );
     expandQueueIfPresent();
@@ -91,6 +98,10 @@ function setup(
     },
     changeSession: (sessionId: string) => {
       currentSessionId = sessionId;
+      rerender();
+    },
+    changeMessages: (messages: Message[]) => {
+      currentMessages = messages;
       rerender();
     },
   };
@@ -530,6 +541,90 @@ describe('ChatInput queue delivery', () => {
     act(() => lifecycle.onAccepted());
     await act(async () => pending.resolve());
     expect(screen.queryByText('queued priority request')).toBeNull();
+  });
+
+  it('publishes a pending interruption before release and submits that same identity only once', async () => {
+    const observed = vi.fn();
+    const pending = deferred<void>();
+    let accepted!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+      accepted = lifecycle!;
+      return pending.promise;
+    });
+    const anchor: Message = {
+      id: 'last-output',
+      role: 'assistant',
+      created: 1,
+      content: [{ type: 'text', text: 'Working' }],
+      metadata: { userVisible: true, agentVisible: true },
+    };
+    const view = setup(submit, undefined, false, false, {
+      messages: [anchor],
+      onPendingMessageChange: observed,
+    });
+    await queue('Please stop and reconsider');
+    view.changeBlocked(true);
+    await userEvent.click(sendNow());
+    const staged = observed.mock.calls.slice(-1)[0][1] as Message;
+    expect(staged.metadata).toMatchObject({
+      agentVisible: false,
+      pendingDelivery: 'pending',
+      presentation: { afterMessageId: anchor.id },
+    });
+    expect(view.onStop).toHaveBeenCalledOnce();
+    view.changeState(ChatState.Idle);
+    expect(submit).not.toHaveBeenCalled();
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0]).toMatchObject({
+      messageId: staged.id,
+      presentation: staged.metadata.presentation,
+    });
+    act(() => accepted.onAccepted());
+    await act(async () => pending.resolve());
+    expect(observed).toHaveBeenLastCalledWith('queue-test', undefined);
+  });
+
+  it('keeps an unaccepted pending interruption across reload, isolates chats and reconciles a lost acknowledgement', async () => {
+    const observed = vi.fn();
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onRejectedBeforeAcceptance()
+    );
+    const anchor: Message = {
+      id: 'last-output',
+      role: 'assistant',
+      created: 1,
+      content: [{ type: 'text', text: 'Working' }],
+      metadata: { userVisible: true, agentVisible: true },
+    };
+    const props = { messages: [anchor], onPendingMessageChange: observed };
+    const view = setup(submit, undefined, false, false, props);
+    await queue('Keep this until admitted');
+    await userEvent.click(sendNow());
+    const staged = observed.mock.calls.slice(-1)[0][1] as Message;
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(observed.mock.calls.slice(-1)[0][1]?.metadata.pendingDelivery).toBe('pending')
+    );
+    view.unmount();
+    const restored = setup(submit, undefined, false, false, props);
+    expect(observed.mock.calls.slice(-1)[0][1]?.id).toBe(staged.id);
+    restored.changeState(ChatState.Idle);
+    expect(submit).toHaveBeenCalledOnce();
+    restored.changeSession('another-chat');
+    expect(observed).toHaveBeenLastCalledWith('another-chat', undefined);
+    expect(
+      observed.mock.calls.some(([owner, message]) => owner === 'another-chat' && message)
+    ).toBe(false);
+    restored.changeSession('queue-test');
+    restored.changeMessages([
+      anchor,
+      { ...staged, metadata: { userVisible: true, agentVisible: true } },
+    ]);
+    await waitFor(() => expect(observed).toHaveBeenLastCalledWith('queue-test', undefined));
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
+    expect(submit).toHaveBeenCalledOnce();
   });
 
   it('drains accepted ordinary messages in order without losing the next item', async () => {

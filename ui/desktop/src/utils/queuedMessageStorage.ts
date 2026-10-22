@@ -1,4 +1,4 @@
-import type { ImageData } from '../types/message';
+import type { ImageData, MessageMetadata } from '../types/message';
 
 export interface StoredQueuedMessage {
   id: string;
@@ -6,6 +6,7 @@ export interface StoredQueuedMessage {
   timestamp: number;
   images: ImageData[];
   delivery?: 'pending' | 'submitting';
+  presentation?: MessageMetadata['presentation'];
 }
 
 interface QueueSnapshot {
@@ -48,7 +49,7 @@ export class QueuedMessageStorage {
 
   constructor(
     private storage: QueueStorage,
-    private sessionId: string
+    readonly sessionId: string
   ) {
     this.key = `codepro-queue:v1:${encodeURIComponent(sessionId)}`;
   }
@@ -73,7 +74,14 @@ export class QueuedMessageStorage {
     }
     this.previous = raw;
     this.loaded = true;
-    return parsed.messages;
+    return parsed.messages.map(({ presentation, ...message }) =>
+      typeof presentation?.afterMessageId === 'string' &&
+      presentation.afterMessageId.length > 0 &&
+      presentation.afterMessageId.length <= 2048 &&
+      presentation.afterMessageId !== message.id
+        ? { ...message, presentation: { afterMessageId: presentation.afterMessageId } }
+        : message
+    );
   }
 
   write(messages: StoredQueuedMessage[]): void {

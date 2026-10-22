@@ -43,6 +43,9 @@ export async function acpPromptSession(
   const client = await getAcpClient();
   const meta = {
     ...(message.id ? { [CODEPRO_SOURCE_MESSAGE_ID_META_KEY]: message.id } : {}),
+    ...(message.metadata.presentation
+      ? { 'codebuddy/message-presentation': message.metadata.presentation }
+      : {}),
     ...(turnRetry ? { [CODEPRO_TURN_RETRY_META_KEY]: turnRetry } : {}),
     ...(checkpointContext ? { [CODEPRO_CHECKPOINT_CONTEXT_META_KEY]: checkpointContext } : {}),
   };

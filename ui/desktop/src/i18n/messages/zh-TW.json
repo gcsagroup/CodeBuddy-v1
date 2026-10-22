@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "已結束"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "待傳送"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "待確認"
   }
 }

@@ -214,6 +214,9 @@ export type MessageUsage = {
 
 export type MessageMetadata = {
   agentVisible: boolean;
+  // Presentation only: a queued request is not yet admitted to the model.
+  pendingDelivery?: 'pending' | 'unconfirmed';
+  presentation?: { afterMessageId: string };
   inference?: InferenceMetadata | null;
   steer?: boolean;
   usage?: MessageUsage | null;
@@ -294,6 +297,16 @@ export interface ImageData {
 export interface UserInput {
   msg: string;
   images: ImageData[];
+  messageId?: string;
+  presentation?: MessageMetadata['presentation'];
+}
+
+export function insertPresentedUserMessage(messages: Message[], message: Message): Message[] {
+  const anchor = message.metadata.presentation?.afterMessageId;
+  const index = anchor ? messages.findIndex((item) => item.id === anchor) : -1;
+  return index < 0
+    ? [...messages, message]
+    : [...messages.slice(0, index + 1), message, ...messages.slice(index + 1)];
 }
 
 export function createUserMessage(text: string, images?: ImageData[]): Message {

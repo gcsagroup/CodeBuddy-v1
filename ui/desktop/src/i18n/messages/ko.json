@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "종료되었습니다"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "전송 대기 중"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "확인 대기 중"
   }
 }

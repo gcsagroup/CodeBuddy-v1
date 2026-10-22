@@ -15,6 +15,27 @@ describe('UserMessage', () => {
     metadata: { agentVisible: true, userVisible: true },
   };
 
+  it('marks unadmitted input without offering edit-and-resend, then clears the mark on acknowledgement', () => {
+    const view = render(
+      <UserMessage
+        message={{
+          ...message,
+          metadata: {
+            userVisible: true,
+            agentVisible: false,
+            pendingDelivery: 'pending',
+          },
+        }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Waiting to send');
+    expect(screen.queryByRole('button', { name: /Edit message/ })).toBeNull();
+    view.rerender(<UserMessage message={message} />);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('button', { name: /Edit message/ })).toBeVisible();
+  });
+
   it('keeps read-only conversation messages copyable without editing actions', async () => {
     const user = userEvent.setup();
     const onMessageUpdate = vi.fn();

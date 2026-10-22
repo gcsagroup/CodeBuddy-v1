@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "завершил работу"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "Ожидает отправки"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "Ожидает подтверждения"
   }
 }

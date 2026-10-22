@@ -9,6 +9,7 @@ import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTermin
 
 import {
   createUserMessage,
+  insertPresentedUserMessage,
   type Message,
   type NotificationEvent,
   type UserInput,
@@ -226,7 +227,11 @@ export function useChatSession({
       }
 
       const newMessage = hasNewMessage
-        ? createUserMessage(userMessage, images)
+        ? {
+            ...createUserMessage(userMessage, images),
+            ...(input.messageId ? { id: input.messageId } : {}),
+            metadata: { userVisible: true, agentVisible: true, presentation: input.presentation },
+          }
         : currentMessages[currentMessages.length - 1];
 
       let accepted = false;
@@ -244,7 +249,7 @@ export function useChatSession({
               ? []
               : alreadyPresent
                 ? latestMessages
-                : [...latestMessages, newMessage]
+                : insertPresentedUserMessage(latestMessages, newMessage)
           );
         }
         lifecycle?.onAccepted();

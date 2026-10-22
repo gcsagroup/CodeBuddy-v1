@@ -25,6 +25,7 @@ export interface GooseMessageMeta {
   messageId?: string;
   created?: number;
   steer?: boolean;
+  presentation?: Message['metadata']['presentation'];
 }
 
 export interface ToolIdentity {
@@ -63,6 +64,13 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
     created: typeof goose.created === 'number' ? goose.created : undefined,
     messageId: typeof goose.messageId === 'string' ? goose.messageId : undefined,
     steer: goose.steer === true ? true : undefined,
+    presentation:
+      isRecord(goose.presentation) &&
+      typeof goose.presentation.afterMessageId === 'string' &&
+      goose.presentation.afterMessageId.length > 0 &&
+      goose.presentation.afterMessageId.length <= 2048
+        ? { afterMessageId: goose.presentation.afterMessageId }
+        : undefined,
   };
 }
 

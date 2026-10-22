@@ -8605,5 +8605,11 @@
   },
   "subagentLifecycle.end": {
     "defaultMessage": "telah berakhir"
+  },
+  "userMessage.pending": {
+    "defaultMessage": "Menunggu dikirim"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "Menunggu konfirmasi"
   }
 }

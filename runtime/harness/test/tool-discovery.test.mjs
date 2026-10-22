@@ -91,7 +91,7 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  const count=calls.length;
  const approvals=[];
  await driver.prompt(b.sessionId,'discover verification marker',{onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
- assert.ok(approvals.includes('search_mcp_tools'));
+ assert.ok(!approvals.includes('search_mcp_tools'),'loading tool schemas is read-only discovery, not an execution approval');
  assert.ok(approvals.includes('mcp__catalog__tool_137'));
  assert.equal(calls.length,count,'loading a tool must not bypass its execution permission');
  await driver.close();driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});

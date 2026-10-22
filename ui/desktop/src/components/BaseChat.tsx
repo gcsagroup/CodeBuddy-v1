@@ -484,26 +484,44 @@ export default function BaseChat({
 
   // Track if this is the initial render for session resuming
   const initialRenderRef = useRef(true);
-  const [historyReady, setHistoryReady] = useState(false);
-  const loadingHistory = chatState === ChatState.LoadingConversation;
+  const [readyHistorySessionId, setReadyHistorySessionId] = useState<string>();
+  const historyFrames = useRef<{ first?: number; second?: number }>({});
+  const loadingHistory = chatState === ChatState.LoadingConversation || !!workspaceReconfirmation;
   const hasHistory = messages.length > 0;
 
   useLayoutEffect(() => {
-    setHistoryReady(false);
-    if (loadingHistory || !hasHistory) return;
-    // Backend replay completion precedes the first painted history frame.
-    // Keep presentation feedback through that frame without changing run state.
-    let secondFrame: number | undefined;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => setHistoryReady(true));
-    });
+    if (loadingHistory) setReadyHistorySessionId(undefined);
+    else if (!hasHistory) setReadyHistorySessionId(sessionId);
     return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame !== undefined) cancelAnimationFrame(secondFrame);
+      if (historyFrames.current.first !== undefined)
+        cancelAnimationFrame(historyFrames.current.first);
+      if (historyFrames.current.second !== undefined)
+        cancelAnimationFrame(historyFrames.current.second);
+      historyFrames.current = {};
     };
   }, [sessionId, loadingHistory, hasHistory]);
 
-  const showHistoryLoading = loadingHistory || (hasHistory && !historyReady);
+  const handleHistoryRendered = useCallback(
+    (renderedSessionId: string) => {
+      if (
+        loadingHistory ||
+        renderedSessionId !== sessionId ||
+        readyHistorySessionId === sessionId ||
+        historyFrames.current.first !== undefined
+      )
+        return;
+      // Replay completion is not a paint acknowledgement. Start this boundary only
+      // after the message list has committed the target conversation's DOM.
+      historyFrames.current.first = requestAnimationFrame(() => {
+        historyFrames.current.second = requestAnimationFrame(() => {
+          historyFrames.current = {};
+          setReadyHistorySessionId(sessionId);
+        });
+      });
+    },
+    [sessionId, loadingHistory, readyHistorySessionId]
+  );
+  const showHistoryLoading = loadingHistory || (hasHistory && readyHistorySessionId !== sessionId);
 
   // Auto-scroll when messages are loaded (for session resuming)
   const handleRenderingComplete = React.useCallback(() => {
@@ -611,33 +629,6 @@ export default function BaseChat({
       ? resolvedInitialMessage.msg
       : recipePrompt;
 
-  if (workspaceReconfirmation) {
-    return (
-      <div className="h-full flex flex-col min-h-0">
-        <MainPanelLayout
-          backgroundColor={'bg-background-primary'}
-          removeTopPadding={true}
-          {...customMainLayoutProps}
-        >
-          {renderHeader && renderHeader()}
-          <div className="flex flex-col flex-1 min-h-0 relative">
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="w-full max-w-2xl">
-                <CodeProWorkspaceReconfirmation
-                  request={workspaceReconfirmation}
-                  confirming={workspaceReconfirmationPending}
-                  error={workspaceReconfirmationError}
-                  onConfirm={handleWorkspaceReconfirmation}
-                  onCancel={() => setView('chat')}
-                />
-              </div>
-            </div>
-          </div>
-        </MainPanelLayout>
-      </div>
-    );
-  }
-
   if (sessionLoadError) {
     return (
       <div className="h-full flex flex-col min-h-0">
@@ -692,6 +683,18 @@ export default function BaseChat({
               {displayTitle}
             </h1>
           </header>
+        )}
+
+        {workspaceReconfirmation && (
+          <div className="mx-auto w-full max-w-2xl px-6">
+            <CodeProWorkspaceReconfirmation
+              request={workspaceReconfirmation}
+              confirming={workspaceReconfirmationPending}
+              error={workspaceReconfirmationError}
+              onConfirm={handleWorkspaceReconfirmation}
+              onCancel={() => setView('chat')}
+            />
+          </div>
         )}
 
         {/* Chat container with sticky recipe header */}
@@ -768,6 +771,7 @@ export default function BaseChat({
                       activeToolCallIds={activeToolCallIds}
                       thinkingActivity={thinkingActivity}
                       onRenderingComplete={handleRenderingComplete}
+                      onHistoryRendered={handleHistoryRendered}
                       onMessageUpdate={readonlyHistory ? undefined : onMessageUpdate}
                       submitElicitationResponse={
                         readonlyHistory ? undefined : submitElicitationResponse
@@ -901,7 +905,7 @@ export default function BaseChat({
                       inline
                       key={sessionId}
                       session={session}
-                      busy={chatState !== ChatState.Idle || acpRecovering}
+                      busy={loadingHistory || chatState !== ChatState.Idle || acpRecovering}
                       onSavingChange={(saving) =>
                         setSavingModeSessionId((current) =>
                           saving ? sessionId : current === sessionId ? undefined : current
@@ -913,17 +917,19 @@ export default function BaseChat({
                 inputRef={chatInputRef}
                 sessionId={sessionId}
                 handleSubmit={chatInputSubmit}
-                chatState={chatState}
+                chatState={loadingHistory ? ChatState.LoadingConversation : chatState}
                 onStop={stopStreaming}
                 onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
                 pauseQueueOnStop={pauseQueueOnStop}
-                queueProcessingBlocked={queueProcessingBlocked || acpRecovering || modeSaving}
+                queueProcessingBlocked={
+                  queueProcessingBlocked || acpRecovering || modeSaving || !!workspaceReconfirmation
+                }
                 queueBlockedReason={
                   modeSaving ? intl.formatMessage(i18n.changingPermissions) : undefined
                 }
                 canSubmitQueuedMessageWhileLoading={
-                  canSubmitQueuedMessageWhileLoading && !acpRecovering
+                  canSubmitQueuedMessageWhileLoading && !acpRecovering && !loadingHistory
                 }
                 commandHistory={commandHistory}
                 initialValue={initialPrompt}

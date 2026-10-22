@@ -210,10 +210,68 @@ it('shows archived content without composing, editing, retrying or auto-submitti
   await waitFor(() => expect(fixture.submit).not.toHaveBeenCalled());
 });
 
-it('keeps loading feedback until restored history has had a paint opportunity', () => {
+it('keeps the same loading shell through workspace revalidation and history rendering', async () => {
+  fixture.readonly = false;
+  fixture.loading = true;
+  fixture.autoRender = false;
+  let finishInspection!: (value: never[]) => void;
+  const inspect = vi.fn(
+    () =>
+      new Promise<never[]>((resolve) => {
+        finishInspection = resolve;
+      })
+  );
+  Object.assign(window.electron, { inspectCodeProWorkspace: inspect });
+  const view = show({ startAgent: false });
+  const header = screen.getByRole('heading', { name: 'Saved history' });
+  const composer = screen.getByRole('textbox', { name: 'Compose message' });
+  const tree = () => (
+    <MemoryRouter>
+      <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+    </MemoryRouter>
+  );
+  fixture.loading = false;
+  fixture.workspace = { sessionId: 'imported', workingDir: 'D:/fixture' };
+  view.rerender(tree());
+  await waitFor(() => expect(inspect).toHaveBeenCalledOnce());
+  expect(screen.getByRole('heading', { name: 'Saved history' })).toBe(header);
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toBe(composer);
+  expect(composer).toBeDisabled();
+  expect(screen.getByTestId('conversation-loading')).toBeVisible();
+  expect(fixture.reconfirm).not.toHaveBeenCalled();
+  // Native workspace renewal completes before replay's DOM is ready.
+  fixture.workspace = undefined;
+  await act(async () => finishInspection([]));
+  view.rerender(tree());
+  expect(screen.getByTestId('conversation-loading')).toBeVisible();
+  act(() => fixture.historyRendered?.());
+  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toBe(composer);
+  expect(composer).not.toBeDisabled();
+  expect(fixture.submit).not.toHaveBeenCalled();
+});
+
+it('keeps workspace revalidation errors and retry controls visible without enabling input', async () => {
+  fixture.readonly = false;
+  fixture.workspace = { sessionId: 'imported', workingDir: 'D:/fixture' };
+  const inspect = vi.fn().mockRejectedValue(new Error('Local inspection unavailable'));
+  Object.assign(window.electron, { inspectCodeProWorkspace: inspect });
+  show({ startAgent: false });
+  expect(await screen.findByRole('alert')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'Compose message' })).toBeDisabled();
+  expect(screen.getByTestId('conversation-loading')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await waitFor(() => expect(inspect).toHaveBeenCalledTimes(2));
+  expect(fixture.reconfirm).not.toHaveBeenCalled();
+  expect(fixture.submit).not.toHaveBeenCalled();
+});
+
+it('keeps loading feedback through delayed rendering instead of releasing it after two arbitrary frames', () => {
   vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
   try {
     fixture.loading = true;
+    fixture.autoRender = false;
     const view = show();
     expect(screen.getByTestId('conversation-loading')).toBeVisible();
     expect(screen.getByTestId('conversation-loading').closest('.absolute')).toBeNull();
@@ -230,11 +288,74 @@ it('keeps loading feedback until restored history has had a paint opportunity', 
     act(() => vi.advanceTimersToNextFrame());
     expect(screen.getByTestId('conversation-loading')).toBeVisible();
     act(() => vi.advanceTimersToNextFrame());
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    act(() => fixture.historyRendered?.());
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    act(() => vi.advanceTimersToNextFrame());
     expect(screen.queryByTestId('conversation-loading')).toBeNull();
     expect(view.container.querySelector('.chat-history-enter')).toBeNull();
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('ignores a previous chat rendering callback when switching to an uncached chat', () => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+  try {
+    fixture.readonly = false;
+    fixture.autoRender = false;
+    const view = show();
+    const oldRendered = fixture.historyRendered;
+    fixture.loading = true;
+    const tree = () => (
+      <MemoryRouter>
+        <BaseChat sessionId="another-chat" isActiveSession suppressEmptyState setChat={vi.fn()} />
+      </MemoryRouter>
+    );
+    view.rerender(tree());
+    act(() => oldRendered?.());
+    act(() => vi.advanceTimersToNextFrame());
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Compose message' })).toBeVisible();
+    fixture.loading = false;
+    view.rerender(tree());
+    act(() => vi.advanceTimersToNextFrame());
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.getByTestId('conversation-loading')).toBeVisible();
+    act(() => fixture.historyRendered?.());
+    act(() => vi.advanceTimersToNextFrame());
+    act(() => vi.advanceTimersToNextFrame());
+    expect(screen.queryByTestId('conversation-loading')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('does not flash history loading when sending the first message in an already loaded empty chat', () => {
+  fixture.readonly = false;
+  fixture.history = [];
+  fixture.autoRender = false;
+  const view = show();
+  expect(screen.queryByTestId('conversation-loading')).toBeNull();
+  fixture.history = [
+    {
+      id: 'first-input',
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Hello' }],
+      metadata: { userVisible: true, agentVisible: true },
+    },
+  ];
+  view.rerender(
+    <MemoryRouter>
+      <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+    </MemoryRouter>
+  );
+  expect(screen.queryByTestId('conversation-loading')).toBeNull();
+  expect(screen.getByTestId('history-order')).toHaveTextContent('first-input');
 });
 
 it('retains normal conversation controls outside imported history', () => {

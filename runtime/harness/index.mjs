@@ -308,8 +308,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // selects another model. Rehydrate only a matching current connection;
     // never substitute the template's new model into that descriptor.
     if (!providers.has(agent.options.provider) && inherited.restoreSubagentProvider) {
+      const context = agent.session.requestContext();
+      const recorded = context?.provider === agent.options.provider && context.model === agent.options.model
+        ? { contextWindow: context.contextWindow, reasoningEffort: agent.options.reasoningEffort } : undefined;
       const provider = await inherited.restoreSubagentProvider(agent.options.model,
-        candidate => nativeProviderRoute(candidate, agent.options.model) === agent.options.provider);
+        candidate => nativeProviderRoute(candidate, agent.options.model) === agent.options.provider, recorded);
       if (!provider || nativeProviderRoute(provider, agent.options.model) !== agent.options.provider)
         throw new Error('The original subagent model connection is unavailable; its model was not changed.');
       await configureProvider(provider, agent.options.model);

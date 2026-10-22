@@ -38,6 +38,7 @@ import { ScheduleService } from "./schedules.mjs";
 import { workspaceIdentity } from "./workspaces.mjs";
 import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
+import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
@@ -773,7 +774,7 @@ export class Compat {
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
-      restoreSubagentProvider: async (model, matches) => {
+      restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
           try {
             const candidate = await driverProvider(provider, model);
@@ -790,6 +791,20 @@ export class Compat {
             // candidate is accepted only when its complete connection identity matches.
             const legacy = await driverProvider(provider, model, { legacyThinking: true });
             if (matches(legacy)) return legacy;
+            // Native history can identify an older fallback profile. Rebuild
+            // candidates only; the complete original route must still match.
+            if (recorded?.contextWindow === DEFAULT_CONTEXT_WINDOW && candidate.contextWindow >= recorded.contextWindow) {
+              for (const base of [candidate, legacy]) {
+                const fallback = { ...base, contextWindow: recorded.contextWindow, contextSource: 'fallback' };
+                if (matches(fallback)) return fallback;
+                try {
+                  const pinned = applyModelThinking(fallback, recorded.reasoningEffort === 'off' ? 'none' : recorded.reasoningEffort).provider;
+                  if (matches(pinned)) return pinned;
+                  const selected = withCapabilities(pinned);
+                  if (matches(selected)) return selected;
+                } catch { /* Incompatible historical capability is not a replacement connection. */ }
+              }
+            }
             const historical = withCapabilities(applyModelThinking(legacy, this.store.read(['preferences']).preferences.gooseThinkingEffort).provider);
             if (matches(historical)) return historical;
           }

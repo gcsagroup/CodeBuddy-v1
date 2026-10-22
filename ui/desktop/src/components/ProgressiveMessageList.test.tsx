@@ -1286,6 +1286,42 @@ describe('CodePro ordinary tool message presentation', () => {
 });
 
 describe('ProgressiveMessageList TurnTerminal retry actions', () => {
+  it.each(['cancelled', 'interrupted'] as const)(
+    'keeps a plain %s receipt in history without a separate host chat row',
+    (status) => {
+      const terminal = terminalMessage('not_available');
+      terminal.content = terminal.content.map((content) =>
+        content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
+          ? { ...content, data: { ...content.data, status } }
+          : content
+      );
+      const trace = [sourceUserMessage, terminal];
+      const original = JSON.stringify(trace);
+      const view = render(
+        <ProgressiveMessageList
+          messages={trace}
+          chat={{ sessionId: 'terminal-session' }}
+          isUserMessage={(item) => item.role === 'user'}
+        />,
+        { wrapper: IntlTestWrapper }
+      );
+      expect(screen.queryByText('Stopped')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Stopped at your request/)).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('message-container')).toHaveLength(1);
+      expect(JSON.stringify(trace)).toBe(original);
+
+      terminal.content.push({ type: 'text', text: '已记下当前进度。' });
+      view.rerender(
+        <ProgressiveMessageList
+          messages={[sourceUserMessage, { ...terminal }]}
+          chat={{ sessionId: 'terminal-session' }}
+          isUserMessage={(item) => item.role === 'user'}
+        />
+      );
+      expect(screen.getByText('已记下当前进度。')).toBeVisible();
+    }
+  );
+
   it('shows Retry and replays the source request for an interrupted replay contract', () => {
     const onMessageUpdate = vi.fn();
     render(

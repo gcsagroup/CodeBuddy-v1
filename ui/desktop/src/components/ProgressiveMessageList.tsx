@@ -840,10 +840,20 @@ function ProgressiveMessageListContent({
         }
         if (message.content.length === 0) return null;
         const terminal = getTurnTerminalRecord(message);
+        const plainStopReceipt =
+          terminal &&
+          (terminal.status === 'cancelled' || terminal.status === 'interrupted') &&
+          terminal.checkpoint_id === null &&
+          terminal.retry_strategy === 'not_available' &&
+          terminal.report?.outcome !== 'waiting_for_user' &&
+          !terminal.report_parse_failed;
+        // Keep terminal facts for folding and recovery without adding a host-only
+        // chat row. Actual reply text and actionable recovery still render.
         if (
           terminal &&
-          codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
-          !hasMissingFinalReply(terminal) &&
+          (plainStopReceipt ||
+            (codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
+              !hasMissingFinalReply(terminal))) &&
           message.content.every((content) => content.type === 'systemNotification')
         )
           return null;

@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "자동 압축 기준"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "지금 압축"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "임계값 저장 실패: {error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "알았어요!"

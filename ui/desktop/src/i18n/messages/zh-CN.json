@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "自动压缩阈值"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "自动压缩阈值不可用"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "立即压缩"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "编辑自动压缩阈值"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "保存阈值失败：{error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "保存自动压缩阈值"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "知道了！"

@@ -27,7 +27,7 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
     if (!triggerRef.current || !popoverRef.current) return;
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
-    const popoverWidth = 275;
+    const popoverWidth = popoverRef.current.offsetWidth;
 
     // Get the actual rendered height of the popover
     const popoverHeight = popoverRef.current.offsetHeight || 120;
@@ -135,7 +135,7 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
     }
   }, [isHovered, isOpen, startHideTimer, wasAutoShown]);
 
-  // Handle click outside - but not when editing threshold
+  // Let action buttons finish their click before dismissing the popover.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Check if we're clicking on an input or button inside the popover
@@ -244,7 +244,10 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
       {isOpen && (
         <div
           ref={popoverRef}
-          className="fixed w-[275px] p-0 rounded-lg overflow-hidden bg-app border z-50 shadow-lg pointer-events-auto text-left"
+          className={cn(
+            'fixed p-0 rounded-lg overflow-hidden bg-app border z-50 shadow-lg pointer-events-auto text-left',
+            alerts.every((alert) => alert.progress) ? 'w-max min-w-24 max-w-48' : 'w-[275px]'
+          )}
           style={{
             top: `${popoverPosition.top}px`,
             left: `${popoverPosition.left}px`,

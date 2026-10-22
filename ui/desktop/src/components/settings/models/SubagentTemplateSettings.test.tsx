@@ -28,19 +28,19 @@ beforeEach(() => {
 
 it('defaults to inheritance and saves independent template and generic model choices through existing config ACP', async () => {
   render(<SubagentTemplateSettings providers={providers} />);
-  const explorer = await screen.findByLabelText(
-    'explorer · Workspace exploration Model connection'
-  );
+  const explorer = await screen.findByLabelText('explorer · Workspace exploration Model');
   expect(explorer).toHaveValue('');
-  fireEvent.change(explorer, { target: { value: 'one' } });
+  expect(screen.getAllByRole('combobox')).toHaveLength(3);
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(explorer.querySelector('optgroup option')).toHaveTextContent('model-one')
+  );
+  fireEvent.change(explorer, { target: { value: JSON.stringify(['one', 'model-one']) } });
   const save = screen.getByText('Save subagent models');
+  fireEvent.change(screen.getByLabelText('Other chat-local responsibilities Model'), {
+    target: { value: JSON.stringify(['two', '']) },
+  });
   expect(save).toBeDisabled();
-  fireEvent.change(screen.getByLabelText('explorer · Workspace exploration Model'), {
-    target: { value: 'model-one' },
-  });
-  fireEvent.change(screen.getByLabelText('Other chat-local responsibilities Model connection'), {
-    target: { value: 'two' },
-  });
   fireEvent.change(screen.getByLabelText('Other chat-local responsibilities Model'), {
     target: { value: 'custom-model' },
   });
@@ -70,10 +70,8 @@ it('failed loading cannot overwrite saved settings; failed save keeps the user s
   await screen.findByRole('alert');
   expect(screen.getByText('Save subagent models')).toBeDisabled();
   fireEvent.click(screen.getByText('Retry'));
-  const explorer = await screen.findByLabelText(
-    'explorer · Workspace exploration Model connection'
-  );
-  fireEvent.change(explorer, { target: { value: 'one' } });
+  const explorer = await screen.findByLabelText('explorer · Workspace exploration Model');
+  fireEvent.change(explorer, { target: { value: JSON.stringify(['one', '']) } });
   fireEvent.change(screen.getByLabelText('explorer · Workspace exploration Model'), {
     target: { value: 'kept-model' },
   });
@@ -84,7 +82,7 @@ it('failed loading cannot overwrite saved settings; failed save keeps the user s
   expect(screen.queryByText('Saved. Applies to new subagents.')).not.toBeInTheDocument();
 });
 
-it('a late model inventory response cannot replace the currently selected connection', async () => {
+it('a late model inventory response cannot replace a newer provider list or a saved model', async () => {
   let finishFirst!: (value: Awaited<ReturnType<typeof acpListProviderModels>>) => void;
   vi.mocked(acpListProviderModels).mockImplementation((id) =>
     id === 'one'
@@ -95,18 +93,52 @@ it('a late model inventory response cannot replace the currently selected connec
           ReturnType<typeof acpListProviderModels>
         >)
   );
-  render(<SubagentTemplateSettings providers={providers} />);
-  const explorer = await screen.findByLabelText(
-    'explorer · Workspace exploration Model connection'
-  );
-  fireEvent.change(explorer, { target: { value: 'one' } });
-  fireEvent.change(explorer, { target: { value: 'two' } });
+  vi.mocked(acpReadConfig).mockResolvedValue({
+    version: 1,
+    models: {
+      explorer: { providerId: 'two', modelId: 'second-model' },
+      browser: null,
+      generic: null,
+    },
+  });
+  const view = render(<SubagentTemplateSettings providers={providers} />);
+  const explorer = await screen.findByLabelText('explorer · Workspace exploration Model');
+  view.rerender(<SubagentTemplateSettings providers={[providers[1]]} />);
   await waitFor(() =>
-    expect(document.querySelector('datalist option[value="second-model"]')).not.toBeNull()
+    expect(explorer.querySelector('optgroup option')).toHaveTextContent('second-model')
   );
   await act(async () =>
     finishFirst([{ id: 'stale-model' }] as Awaited<ReturnType<typeof acpListProviderModels>>)
   );
-  expect(explorer).toHaveValue('two');
-  expect(document.querySelector('datalist option[value="stale-model"]')).toBeNull();
+  expect(explorer).toHaveValue(JSON.stringify(['two', 'second-model']));
+  expect(screen.queryByText(/stale-model/)).not.toBeInTheDocument();
+  expect(acpUpsertConfig).not.toHaveBeenCalled();
+});
+
+it('keeps saved and manually entered models selectable when discovery fails', async () => {
+  vi.mocked(acpReadConfig).mockResolvedValue({
+    version: 1,
+    models: {
+      explorer: { providerId: 'one', modelId: 'saved-model' },
+      browser: null,
+      generic: null,
+    },
+  });
+  vi.mocked(acpListProviderModels).mockRejectedValue(new Error('offline'));
+  render(<SubagentTemplateSettings providers={providers} />);
+  const explorer = await screen.findByLabelText('explorer · Workspace exploration Model');
+  await screen.findByText(/Could not load the model list/);
+  expect(explorer).toHaveValue(JSON.stringify(['one', 'saved-model']));
+  fireEvent.click(screen.getByText('Save subagent models'));
+  await waitFor(() =>
+    expect(acpUpsertConfig).toHaveBeenCalledWith(
+      'subagentTemplates',
+      expect.objectContaining({
+        models: expect.objectContaining({
+          explorer: { providerId: 'one', modelId: 'saved-model' },
+        }),
+      })
+    )
+  );
+  expect(acpListProviderModels).toHaveBeenCalledTimes(2);
 });

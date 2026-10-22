@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { acpReadConfig, acpUpsertConfig } from '../../../acp/config';
 import { acpListProviderModels } from '../../../acp/providers';
 import { defineMessages, useIntl } from '../../../i18n';
@@ -11,6 +11,9 @@ const roles = ['explorer', 'browser', 'generic'] as const;
 type Role = (typeof roles)[number];
 type ModelChoice = { providerId: string; modelId: string } | null;
 type Settings = { version: 1; models: Record<Role, ModelChoice> };
+type ModelInventory = Record<string, { models: string[]; failed: boolean }>;
+const choiceKey = (choice: ModelChoice) =>
+  choice ? JSON.stringify([choice.providerId, choice.modelId]) : '';
 const defaults = (): Settings => ({
   version: 1,
   models: { explorer: null, browser: null, generic: null },
@@ -55,93 +58,102 @@ const messages = defineMessages({
   save: { id: 'subagentTemplates.save', defaultMessage: 'Save subagent models' },
   saved: { id: 'subagentTemplates.saved', defaultMessage: 'Saved. Applies to new subagents.' },
   retry: { id: 'subagentTemplates.retry', defaultMessage: 'Retry' },
+  custom: {
+    id: 'recipeModelSelector.enterModelNotListed',
+    defaultMessage: 'Enter a model not listed...',
+  },
+  back: { id: 'recipeModelSelector.backToModelList', defaultMessage: 'Back to model list' },
 });
 
 function ModelPicker({
   role,
   choice,
   providers,
+  inventory,
+  retry,
   disabled,
   onChange,
 }: {
   role: Role;
   choice: ModelChoice;
   providers: ProviderDetails[];
+  inventory: ModelInventory;
+  retry: () => void;
   disabled: boolean;
   onChange: (value: ModelChoice) => void;
 }) {
   const intl = useIntl();
-  const id = useId();
-  const [models, setModels] = useState<string[]>([]);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const [custom, setCustom] = useState(false);
   const providerId = choice?.providerId;
-  useEffect(() => {
-    let cancelled = false;
-    setModels([]);
-    setFailed(false);
-    if (providerId)
-      void acpListProviderModels(providerId)
-        .then((inventory) => {
-          if (!cancelled) setModels(inventory.map((model) => model.id));
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true);
-        });
-    return () => {
-      cancelled = true;
-    };
-  }, [providerId, attempt]);
+  const selectedProvider = providers.find((provider) => provider.name === providerId);
   const className =
     'h-10 min-w-0 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary';
   const label = intl.formatMessage(messages[role]);
   return (
     <fieldset className="space-y-2" disabled={disabled}>
       <legend className="text-sm font-medium text-text-primary">{label}</legend>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <select
-          className={className}
-          aria-label={`${label} ${intl.formatMessage(messages.provider)}`}
-          value={providerId ?? ''}
-          onChange={(event) =>
-            onChange(event.target.value ? { providerId: event.target.value, modelId: '' } : null)
-          }
-        >
-          <option value="">{intl.formatMessage(messages.inherit)}</option>
-          {providerId && !providers.some((provider) => provider.name === providerId) && (
-            <option value={providerId}>
-              {intl.formatMessage(messages.unavailable)}: {providerId}
-            </option>
-          )}
-          {providers.map((provider) => (
-            <option key={provider.name} value={provider.name}>
-              {provider.metadata.display_name || provider.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className={className}
-          aria-label={`${label} ${intl.formatMessage(messages.model)}`}
-          list={id}
-          value={choice?.modelId ?? ''}
-          placeholder={intl.formatMessage(choice ? messages.model : messages.inherit)}
-          disabled={disabled || !choice}
-          onChange={(event) => choice && onChange({ ...choice, modelId: event.target.value })}
-        />
-        <datalist id={id}>
-          {models.map((model) => (
-            <option key={model} value={model} />
-          ))}
-        </datalist>
-      </div>
-      {failed && (
-        <p className="text-sm text-text-secondary">
-          {intl.formatMessage(messages.modelError)}{' '}
+      {custom && choice ? (
+        <div className="space-y-1">
+          <input
+            className={`${className} w-full`}
+            aria-label={`${label} ${intl.formatMessage(messages.model)}`}
+            placeholder={`${selectedProvider?.metadata.display_name || providerId} · ${intl.formatMessage(messages.model)}`}
+            value={choice.modelId}
+            onChange={(event) => onChange({ ...choice, modelId: event.target.value })}
+          />
           <button
             type="button"
-            className="underline"
-            onClick={() => setAttempt((value) => value + 1)}
+            className="text-xs text-text-secondary underline"
+            onClick={() => setCustom(false)}
           >
+            {intl.formatMessage(messages.back)}
+          </button>
+        </div>
+      ) : (
+        <select
+          className={`${className} w-full`}
+          aria-label={`${label} ${intl.formatMessage(messages.model)}`}
+          value={choiceKey(choice)}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (!value) {
+              onChange(null);
+              return;
+            }
+            const [providerId, modelId] = JSON.parse(value) as [string, string];
+            onChange({ providerId, modelId });
+            setCustom(modelId === '');
+          }}
+        >
+          <option value="">{intl.formatMessage(messages.inherit)}</option>
+          {choice &&
+            (!selectedProvider || !inventory[choice.providerId]?.models.includes(choice.modelId)) &&
+            choice.modelId && (
+              <option value={choiceKey(choice)}>
+                {choice.modelId} ·{' '}
+                {selectedProvider?.metadata.display_name ||
+                  `${intl.formatMessage(messages.unavailable)}: ${choice.providerId}`}
+              </option>
+            )}
+          {providers.map((provider) => (
+            <optgroup key={provider.name} label={provider.metadata.display_name || provider.name}>
+              {(inventory[provider.name]?.models ?? []).map((modelId) => (
+                <option key={modelId} value={choiceKey({ providerId: provider.name, modelId })}>
+                  {modelId} · {provider.metadata.display_name || provider.name}
+                </option>
+              ))}
+              <option value={choiceKey({ providerId: provider.name, modelId: '' })}>
+                {intl.formatMessage(messages.custom)} ·{' '}
+                {provider.metadata.display_name || provider.name}
+              </option>
+            </optgroup>
+          ))}
+        </select>
+      )}
+      {providerId && inventory[providerId]?.failed && (
+        <p className="text-sm text-text-secondary">
+          {intl.formatMessage(messages.modelError)}{' '}
+          <button type="button" className="underline" onClick={retry}>
             {intl.formatMessage(messages.retry)}
           </button>
         </p>
@@ -157,6 +169,37 @@ export default function SubagentTemplateSettings({ providers }: { providers: Pro
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<'saved' | 'error' | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [inventory, setInventory] = useState<ModelInventory>({});
+  const [modelAttempt, setModelAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    // All three roles share this discovery result; model loading never edits
+    // the saved choice, including when a connection disappears or fails.
+    void Promise.all(
+      providers.map(async (provider) => {
+        try {
+          const models = await acpListProviderModels(provider.name);
+          return [
+            provider.name,
+            { models: [...new Set(models.map((model) => model.id))], failed: false },
+          ] as const;
+        } catch {
+          return [
+            provider.name,
+            {
+              models: provider.metadata.known_models?.map((model) => model.name) ?? [],
+              failed: true,
+            },
+          ] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setInventory(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [providers, modelAttempt]);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -221,6 +264,8 @@ export default function SubagentTemplateSettings({ providers }: { providers: Pro
               role={role}
               choice={settings.models[role]}
               providers={providers}
+              inventory={inventory}
+              retry={() => setModelAttempt((value) => value + 1)}
               disabled={loading || saving}
               onChange={(choice) => {
                 setSettings(

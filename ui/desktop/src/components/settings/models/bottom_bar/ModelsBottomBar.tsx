@@ -105,6 +105,14 @@ export default function ModelsBottomBar({
     void entry.promise.then(
       (value) => {
         entry.value = value;
+        // Missing advisory metadata is not a durable model capability. Let the
+        // next detail opening retry; keep complete reads and in-flight deduping.
+        if (
+          value.contextSource === 'fallback' &&
+          !value.thinking.options.length &&
+          displayReads.current.get(key) === entry
+        )
+          displayReads.current.delete(key);
       },
       () => {
         if (displayReads.current.get(key) === entry) displayReads.current.delete(key);

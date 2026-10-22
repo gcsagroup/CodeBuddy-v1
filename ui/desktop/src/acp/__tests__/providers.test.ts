@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { zListProvidersResponse_unstable } from '@aaif/goose-sdk';
 import { getAcpClient } from '../acpConnection';
-import { acpListProviderDetails, acpSetSessionProviderModel } from '../providers';
+import {
+  acpListProviderDetails,
+  acpReadModelDisplaySettings,
+  acpSetSessionProviderModel,
+} from '../providers';
 
 vi.mock('../acpConnection', () => ({
   getAcpClient: vi.fn(),
@@ -20,6 +24,87 @@ function selectConfigOption(id: string, currentValue: string) {
 describe('ACP providers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  for (const recover of [true, false])
+    it(`bounds retries when a metadata refresh removes thinking details (recovery ${recover})`, async () => {
+      const model = 'reasoning-model';
+      const fields = (ready: boolean) => ({
+        fields: [
+          {
+            key: `thinkingEffort:${model}`,
+            value: JSON.stringify(
+              ready
+                ? { options: ['none', 'low', 'high'], value: 'high', toggle: false }
+                : { options: [], value: null, toggle: false }
+            ),
+          },
+          {
+            key: `contextWindow:${model}`,
+            value: JSON.stringify({
+              contextWindow: ready ? 1048576 : 262144,
+              contextSource: ready ? 'service' : 'fallback',
+            }),
+          },
+        ],
+      });
+      const canonical = vi.fn().mockResolvedValue({
+        modelInfo: {
+          provider: 'p',
+          model,
+          contextLimit: 1048576,
+          reasoning: true,
+          currency: 'USD',
+        },
+      });
+      const config = vi
+        .fn()
+        .mockResolvedValueOnce(fields(false))
+        .mockResolvedValue(fields(recover));
+      vi.mocked(getAcpClient).mockResolvedValue({
+        goose: {
+          providersCanonicalModelInfo_unstable: canonical,
+          providersConfigRead_unstable: config,
+        },
+      } as unknown as Awaited<ReturnType<typeof getAcpClient>>);
+      const result = await acpReadModelDisplaySettings('p', model);
+      expect(canonical).toHaveBeenCalledTimes(2);
+      expect(config).toHaveBeenCalledTimes(2);
+      expect(result.thinking.options).toEqual(recover ? ['off', 'low', 'high'] : []);
+      expect(result.contextWindow).toBe(recover ? 1048576 : 262144);
+    });
+
+  it('keeps an explicitly non-reasoning model unchanged without extra reads', async () => {
+    const canonical = vi.fn().mockResolvedValue({
+      modelInfo: {
+        provider: 'p',
+        model: 'plain',
+        contextLimit: 32768,
+        reasoning: false,
+        currency: 'USD',
+      },
+    });
+    const config = vi.fn().mockResolvedValue({
+      fields: [
+        {
+          key: 'thinkingEffort:plain',
+          value: JSON.stringify({ options: [], value: null, toggle: false }),
+        },
+        {
+          key: 'contextWindow:plain',
+          value: JSON.stringify({ contextWindow: 32768, contextSource: 'service' }),
+        },
+      ],
+    });
+    vi.mocked(getAcpClient).mockResolvedValue({
+      goose: {
+        providersCanonicalModelInfo_unstable: canonical,
+        providersConfigRead_unstable: config,
+      },
+    } as unknown as Awaited<ReturnType<typeof getAcpClient>>);
+    expect((await acpReadModelDisplaySettings('p', 'plain')).thinking.options).toEqual([]);
+    expect(canonical).toHaveBeenCalledTimes(1);
+    expect(config).toHaveBeenCalledTimes(1);
   });
 
   it('sets provider, model, and thinking effort in one server transaction', async () => {

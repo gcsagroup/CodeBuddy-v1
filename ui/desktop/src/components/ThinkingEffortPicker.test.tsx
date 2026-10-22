@@ -24,6 +24,26 @@ function deferred<T>() {
 }
 
 describe('ThinkingEffortPicker', () => {
+  it('keeps an unresolved thinking capability visible without inventing selectable levels', () => {
+    render(
+      <ModelThinkingMenu
+        provider="p"
+        model="m"
+        showLabel
+        showContextWindow
+        initialSettings={{
+          thinking: { options: [], value: null, toggle: false },
+          contextWindow: 262144,
+          contextSource: 'fallback',
+        }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Thinking effort');
+    expect(screen.getByRole('status')).toHaveTextContent('Not provided');
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Current budget; model capacity unconfirmed')).toBeVisible();
+  });
   it('renders preloaded details immediately and publishes the saved snapshot', async () => {
     const initialSettings: ModelDisplaySettings = {
       thinking: { options: ['off', 'medium'], value: 'medium', toggle: true },

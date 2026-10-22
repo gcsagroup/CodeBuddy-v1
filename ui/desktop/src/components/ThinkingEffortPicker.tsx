@@ -223,16 +223,21 @@ export function ModelThinkingMenu({
   }, [provider, model, identity, initialSettings, readSettings]);
   const details = loaded?.identity === identity ? loaded.details : null;
   const settings = details?.thinking;
+  const unresolved = settings?.options.length === 0 && details?.contextSource === 'fallback';
   if (!provider || !model) return null;
   return (
     <>
-      {!settings && showLabel && (
+      {(!settings || unresolved) && showLabel && (
         <div
           role="status"
           className="flex min-h-9 items-center justify-between gap-3 px-2 text-sm text-text-secondary"
         >
           <span>{intl.formatMessage(i18n.title)}</span>
-          <span>{intl.formatMessage(readFailed ? i18n.readFailed : i18n.loading)}</span>
+          <span>
+            {intl.formatMessage(
+              unresolved ? i18n.unavailable : readFailed ? i18n.readFailed : i18n.loading
+            )}
+          </span>
         </div>
       )}
       {details && settings && (

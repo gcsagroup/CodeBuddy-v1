@@ -1460,6 +1460,7 @@ export class Compat {
       this.session(p.sessionId);
       const active = this.active.get(p.sessionId);
       if (active) {
+        active.userRequestedStop = true; // Presentation only; native cancellation still owns settlement.
         active.controller.abort();
         if (active.driverStarted) await this.driver.cancel(p.sessionId);
       }
@@ -2535,6 +2536,7 @@ export class Compat {
                 : context.state === "failed"
                   ? "failed"
                 : "interrupted",
+            ...(!completed && active.userRequestedStop ? { user_requested_stop: true } : {}),
             visible_text_available: updates.some(
               (u) => u.sessionUpdate === "agent_message_chunk",
             ),

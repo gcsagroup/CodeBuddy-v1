@@ -100,6 +100,8 @@ interface TurnTerminalRecordBase {
   visible_text_available: boolean;
   // Native committed response, independent of earlier progress text in this turn.
   last_response_text_available?: boolean;
+  // Display intent from the host's cancel request, not an execution state.
+  user_requested_stop?: boolean;
   tool_action_count: number;
   copy_artifact_ref: string | null;
   finished_at: string;
@@ -278,6 +280,7 @@ export function parseTurnTerminalRecord(value: unknown): TurnTerminalRecord | un
   const parsed = { ...record } as unknown as TurnTerminalRecord;
   if (typeof record.last_response_text_available !== 'boolean')
     delete parsed.last_response_text_available;
+  if (typeof record.user_requested_stop !== 'boolean') delete parsed.user_requested_stop;
   delete parsed.report_parse_failed;
   if (record.report !== undefined) {
     if (isTurnTerminalReport(record.report)) {

@@ -756,6 +756,7 @@ export default function BaseChat({
                       workspaceRoot={session?.working_dir}
                       chat={{ sessionId }}
                       activeRunId={activeRunId}
+                      cancelling={cancelling}
                       toolCallNotifications={toolCallNotifications}
                       append={
                         readonlyHistory

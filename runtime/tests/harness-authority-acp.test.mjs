@@ -180,6 +180,35 @@ test('final native response observation stays separate from progress, child mess
   }
 });
 
+test('only explicit cancel adds a stop display marker after native settlement; steer preserves execution', async t => {
+  const f = await fixture(t);
+  f.compat.driver.steer = async () => {};
+  for (const action of ['stop', 'steer', 'native']) {
+    const entered = Promise.withResolvers(), release = Promise.withResolvers();
+    f.scripts.push(async () => {
+      entered.resolve(); await release.promise;
+      return action === 'steer'
+        ? { stopReason: 'end_turn', reason: { kind: 'completed' } }
+        : { stopReason: 'cancelled', reason: { kind: 'aborted' } };
+    });
+    const firstNotice = f.notices.length;
+    const pending = f.prompt('Continue the existing task.');
+    await entered.promise;
+    if (action === 'stop') await f.request('session/cancel', { sessionId: f.sessionId });
+    if (action === 'steer') await f.request('_goose/unstable/session/steer', {
+      sessionId: f.sessionId, expectedRunId: f.compat.runs.latest(f.sessionId).runId,
+      prompt: [{ type: 'text', text: 'Keep the answer brief.' }],
+    });
+    assert.equal(f.notices.slice(firstNotice).some(n => n.params.update?.status?.data?.terminal_message_id), false);
+    release.resolve(); await pending;
+    const terminal = f.notices.slice(firstNotice).map(n => n.params.update?.status?.data).find(d => d?.terminal_message_id);
+    assert.equal(terminal.status, action === 'steer' ? 'completed' : 'interrupted', 'stop display must not change native recovery state');
+    assert.equal(terminal.user_requested_stop, action === 'stop' ? true : undefined);
+    const saved = f.store.read(['sessions']).sessions.find(s => s.id === f.sessionId).usageUpdates;
+    assert.equal(saved.at(-1).status.data.user_requested_stop, terminal.user_requested_stop);
+  }
+});
+
 test('transport failure preserves actual failure and does not become a successful Harness answer', async t => {
   const f = await fixture(t);
   f.scripts.push(async () => { throw Object.assign(Error('Isolated connection failure'), { code: 'TRANSPORT' }); });

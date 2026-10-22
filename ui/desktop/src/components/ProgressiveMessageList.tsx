@@ -119,6 +119,7 @@ const i18n = defineMessages({
     id: 'progressiveMessageList.modelChanged',
     defaultMessage: 'Model changed: {previousModel} → {currentModel}',
   },
+  stopped: { id: 'gooseMessage.turnStopped', defaultMessage: 'Stopped' },
   loadEarlierMessages: {
     id: 'progressiveMessageList.loadEarlierMessages',
     defaultMessage: 'Load earlier messages ({remaining} remaining)',
@@ -131,6 +132,7 @@ interface ProgressiveMessageListProps {
   readOnly?: boolean;
   chat: Pick<ChatType, 'sessionId'>;
   activeRunId?: string | null;
+  cancelling?: boolean;
   toolCallNotifications?: Map<string, NotificationEvent[]>; // Make optional
   append?: (value: string) => void; // Make optional
   isUserMessage: (message: Message) => boolean;
@@ -367,6 +369,7 @@ function ProgressiveMessageListContent({
   readOnly = false,
   chat,
   activeRunId,
+  cancelling,
   toolCallNotifications = new Map(),
   append = () => {},
   isUserMessage,
@@ -840,6 +843,9 @@ function ProgressiveMessageListContent({
         }
         if (message.content.length === 0) return null;
         const terminal = getTurnTerminalRecord(message);
+        const receiptOnly = message.content.every((content) => content.type === 'systemNotification');
+        // The local cancellation anchor is not a native stop confirmation.
+        if (cancelling && terminal?.status === 'cancelled' && receiptOnly) return null;
         const plainStopReceipt =
           terminal &&
           (terminal.status === 'cancelled' || terminal.status === 'interrupted') &&
@@ -847,6 +853,17 @@ function ProgressiveMessageListContent({
           terminal.retry_strategy === 'not_available' &&
           terminal.report?.outcome !== 'waiting_for_user' &&
           !terminal.report_parse_failed;
+        if (
+          plainStopReceipt &&
+          (terminal.status === 'cancelled' || terminal.user_requested_stop === true) &&
+          receiptOnly
+        ) {
+          return (
+            <div key={message.id} role="status" className="mt-2 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.stopped)}
+            </div>
+          );
+        }
         // Keep terminal facts for folding and recovery without adding a host-only
         // chat row. Actual reply text and actionable recovery still render.
         if (
@@ -1187,6 +1204,7 @@ function ProgressiveMessageListContent({
     return history;
   }, [
     messages,
+    cancelling,
     sourceMessages,
     sharedToolResponses,
     sharedToolChains,
@@ -1246,6 +1264,7 @@ function ProgressiveMessageListContent({
         readOnly={readOnly}
         chat={chat}
         activeRunId={activeRunId}
+        cancelling={cancelling && turn[turn.length - 1] === messages[messages.length - 1]}
         foldTurns={false}
         toolCallNotifications={toolCallNotifications}
         append={append}

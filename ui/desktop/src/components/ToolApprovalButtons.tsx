@@ -1,12 +1,5 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Button } from './ui/button';
-import { ChevronDown } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
 import { formatToolAction } from './toolActionPresentation';
 import type { Permission } from '../types/permissions';
 import type {
@@ -224,7 +217,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
           <Button
             type="button"
             size="sm"
-            className="rounded-full"
+            className="rounded-full border-border-primary bg-background-primary text-text-primary"
             variant="outline"
             onClick={() => handleAction('deny_once')}
           >
@@ -235,7 +228,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
           <Button
             type="button"
             size="sm"
-            className="rounded-full"
+            className="rounded-full border-border-primary bg-background-primary text-text-primary"
             variant="outline"
             onClick={() => handleAction('always_deny')}
           >
@@ -244,40 +237,28 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
             })}
           </Button>
         )}
-        {(canAllowOnce || canAllowScope) && (
-          <div className="flex items-center">
-            <Button
-              type="button"
-              size="sm"
-              className={
-                canAllowOnce && canAllowScope ? 'rounded-l-full rounded-r-none' : 'rounded-full'
-              }
-              onClick={() => handleAction(canAllowOnce ? 'allow_once' : 'always_allow')}
-              title={canAllowOnce ? undefined : scopeHint}
-            >
-              {canAllowOnce ? intl.formatMessage(i18n.allowOnce) : scopeLabel}
-            </Button>
-            {canAllowOnce && canAllowScope && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="rounded-l-none rounded-r-full px-2 has-[>svg]:px-2"
-                    aria-label={scopeLabel}
-                    title={scopeHint}
-                  >
-                    <ChevronDown aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" data-tool-approval-actions="">
-                  <DropdownMenuItem onSelect={() => handleAction('always_allow')} title={scopeHint}>
-                    {scopeLabel}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+        {canAllowOnce && (
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full border-border-primary bg-background-primary text-text-primary"
+            variant="outline"
+            onClick={() => handleAction('allow_once')}
+          >
+            {intl.formatMessage(i18n.allowOnce)}
+          </Button>
+        )}
+        {canAllowScope && (
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full border-border-primary bg-background-primary text-text-primary"
+            variant="outline"
+            onClick={() => handleAction('always_allow')}
+            title={scopeHint}
+          >
+            {scopeLabel}
+          </Button>
         )}
       </div>
       {approvalError && (

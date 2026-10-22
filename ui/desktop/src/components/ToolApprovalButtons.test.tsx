@@ -263,50 +263,48 @@ describe('ToolApprovalButtons', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Allow for this task' }));
-    expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Allow for this task' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
+      'session-task-approved',
+      'tool-call-task-approved',
+      'always_allow'
+    );
 
     expect(screen.getByText('Computer Focus - Allowed for this task')).toBeInTheDocument();
     expect(screen.queryByText('Computer Focus - Always allowed')).not.toBeInTheDocument();
   });
 
-  it('does not grant permission when the scope menu is opened or dismissed', async () => {
+  it('shows each approval directly and keeps allow once separate from session approval', async () => {
     renderWithIntl(
       <ToolApprovalButtons
         data={{
-          id: 'scope-menu-dismiss',
+          id: 'direct-approval-choices',
           toolName: 'fixture_tool',
-          sessionId: 'scope-menu-session',
+          sessionId: 'direct-approval-session',
           authorizationScope: 'session',
           availableActions: ['allow_once', 'always_allow', 'deny_once'],
         }}
       />
     );
 
-    const trigger = screen.getByRole('button', { name: 'Allow this tool for this session' });
-    await userEvent.click(trigger);
-    expect(
-      screen.getByRole('menuitem', { name: 'Allow this tool for this session' })
-    ).toBeVisible();
-    await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Deny Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow this tool for this session' })).toBeVisible();
     expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
 
     resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
     await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
     expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
-      'scope-menu-session',
-      'scope-menu-dismiss',
+      'direct-approval-session',
+      'direct-approval-choices',
       'allow_once'
     );
   });
 
-  it('removes an open scope menu when its permission request expires', async () => {
+  it('removes all approval choices when their permission request expires', () => {
     renderWithIntl(
       <ToolApprovalButtons
         data={{
-          id: 'scope-menu-expiry',
+          id: 'scope-choices-expiry',
           toolName: 'fixture_tool',
           sessionId: 'scope-expiry-session',
           authorizationScope: 'session',
@@ -314,13 +312,12 @@ describe('ToolApprovalButtons', () => {
         }}
       />
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Allow this tool for this session' }));
+    expect(screen.getByRole('button', { name: 'Allow this tool for this session' })).toBeVisible();
     act(() => {
       permissionRegistry.pending = false;
       permissionRegistry.listeners.forEach((listener) => listener());
     });
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Allow Once' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByText('This approval request is no longer active.')).toBeVisible();
     expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
   });

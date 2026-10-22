@@ -22,6 +22,7 @@ import { installModelResponseValidation } from './model-response-validation.mjs'
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
+import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
 
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
@@ -292,6 +293,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     console.warn('[Harness model transport]', JSON.stringify(event));
   }), 'CodeBuddy model transport observation');
   ctx.effect(() => installModelResponseValidation(ctx), 'CodeBuddy model response validation');
+  const noticeAdmission = installSubagentNoticeAdmission(ctx, agent => runs.get(agent.id));
+  ctx.effect(() => () => noticeAdmission.dispose(), 'CodeBuddy native subagent notice admission');
   ctx.on('agent/created', async ({ agent }) => {
     if (agent.session.header.origin !== 'subagent') return;
     const parent = ctx.agents.get(agent.session.header.parentSession);
@@ -786,17 +789,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId };
+      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId, requestId };
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
       try {
         const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : content;
         const promptAgent = ctx.agents.get(sessionId);
+        if (promptAgent?.inbox.nextTurn.some(message => message.source?.kind === 'subagent-settled'))
+          await noticeAdmission.reconcile(promptAgent, signal);
         const parked = promptAgent?.inbox.nextTurn ?? [];
         // A stopped parent's notices must not open a model request before its
         // new human instruction. Native steer joins that instruction with the
-        // next queued notice; other pending human inputs retain their FIFO.
+        // parked notices through native step admission; mixed human queues retain FIFO.
         const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
         await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
         if (resumeGoal) await driver.controlGoal(sessionId, { action: 'resume', ...resumeGoal });

@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -120,5 +120,44 @@ describe('manual model onboarding', () => {
     view.rerender(guard());
     expect(await screen.findByText('chat')).toBeInTheDocument();
     expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps an admitted chat and its draft mounted when settings closes, including after connection changes', async () => {
+    let mounts = 0;
+    function Chat() {
+      const [draft, setDraft] = useState('');
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return (
+        <input
+          aria-label="draft"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      );
+    }
+    const chat = <Chat />;
+    const view = (requireModel: boolean) => (
+      <IntlTestWrapper>
+        <OnboardingGuard onConfigure={configure} requireModel={requireModel}>
+          {chat}
+        </OnboardingGuard>
+      </IntlTestWrapper>
+    );
+    vi.mocked(list).mockResolvedValue([connection]);
+    const rendered = render(view(true));
+    const draft = await screen.findByRole('textbox', { name: 'draft' });
+    fireEvent.change(draft, { target: { value: 'unfinished message' } });
+    for (const providers of [[connection], []]) {
+      rendered.rerender(view(false));
+      vi.mocked(list).mockResolvedValue(providers);
+      rendered.rerender(view(true));
+      await act(async () => {});
+      expect(screen.getByRole('textbox', { name: 'draft' })).toBe(draft);
+      expect(draft).toHaveValue('unfinished message');
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    }
+    expect(mounts).toBe(1);
   });
 });

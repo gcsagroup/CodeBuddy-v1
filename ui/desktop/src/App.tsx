@@ -674,9 +674,14 @@ export function AppInner() {
       const newView = args[0] as View;
       const section = args[1] as string | undefined;
 
-      if (section && newView === 'settings') {
+      if (newView === 'settings') {
+        const backgroundLocation = isSettingsRoute ? settingsBackgroundLocation : location;
         navigate(
-          `${resolveCodeProEntryPath('/settings', codeProUnifiedMode)}?section=${encodeURIComponent(section)}`
+          `${resolveCodeProEntryPath('/settings', codeProUnifiedMode)}${section ? `?section=${encodeURIComponent(section)}` : ''}`,
+          {
+            ...(backgroundLocation ? { state: { backgroundLocation } } : {}),
+            ...(isSettingsRoute ? { replace: true } : {}),
+          }
         );
       } else {
         navigate(resolveCodeProEntryPath(`/${newView}`, codeProUnifiedMode));
@@ -685,7 +690,7 @@ export function AppInner() {
 
     window.electron.on('set-view', handleSetView);
     return () => window.electron.off('set-view', handleSetView);
-  }, [codeProUnifiedMode, navigate]);
+  }, [codeProUnifiedMode, navigate, isSettingsRoute, settingsBackgroundLocation, location]);
 
   useEffect(() => {
     const handleNewChat = (_event: IpcRendererEvent, ..._args: unknown[]) => {

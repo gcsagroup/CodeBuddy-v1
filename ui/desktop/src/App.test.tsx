@@ -13,7 +13,14 @@ import { reconnectAcpAfterSystemResume } from './acp/acpConnection';
 import { acpReadDefaults } from './acp/providers';
 import { createSession } from './sessions';
 
-vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+);
 
 // Set up globals for jsdom
 Object.defineProperty(window, 'location', {
@@ -503,7 +510,29 @@ describe('App Component - Brand New State', () => {
 
     setViewHandler?.({} as any, 'settings', 'models');
 
-    expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings?section=models');
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings?section=models', {
+      state: { backgroundLocation: expect.objectContaining({ pathname: '/codepro' }) },
+    });
+  });
+
+  it('retains the original chat background when the main process changes an open settings section', async () => {
+    const backgroundLocation = {
+      pathname: '/codepro/pair',
+      search: '?resumeSessionId=chat-1',
+      state: null,
+      key: 'chat-1',
+      hash: '',
+    };
+    mockLocationPath = '/codepro/settings';
+    mockLocationState = { backgroundLocation };
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(([channel]) => channel === 'set-view')?.[1];
+    handler({}, 'settings', 'models');
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/settings?section=models', {
+      state: { backgroundLocation },
+      replace: true,
+    });
   });
 
   it.each(['/codepro', '/codepro/settings', '/pair'])(

@@ -147,6 +147,7 @@ interface ProgressiveMessageListProps {
   thinkingActivity?: { messageId?: string; receivedAt: number };
   onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
   onRenderingComplete?: () => void; // Callback when all messages are rendered
+  onHistoryRendered?: (sessionId: string) => void;
   submitElicitationResponse?: (
     elicitationId: string,
     userData: Record<string, unknown>
@@ -327,6 +328,14 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
   );
   const chains = useMemo(() => identifyConsecutiveToolCalls(props.messages), [props.messages]);
   const presentation = useOrderedToolPresentation(visibleMessages, !!props.isStreamingMessage);
+  const historyMessageCount = props.messages.length;
+  const historySessionId = props.chat.sessionId;
+  const onHistoryRendered = props.onHistoryRendered;
+  useLayoutEffect(() => {
+    if (historyMessageCount > 0 && !presentation.pending) {
+      onHistoryRendered?.(historySessionId);
+    }
+  }, [historyMessageCount, historySessionId, onHistoryRendered, presentation.pending]);
   return (
     <>
       {startIndex > 0 && (
@@ -580,23 +589,6 @@ function ProgressiveMessageListContent({
       foldTurns && !renderMessage ? collectConversationChanges(changeSource, workspaceRoot) : [],
     [foldTurns, renderMessage, changeSource, workspaceRoot]
   );
-  const fileReferenceExclusions = useMemo(() => {
-    const byTurn = new Map(
-      conversationChanges.map((turn) => [turn.id, turn.files.map((file) => file.path)])
-    );
-    const byMessage = new Map<string, string[]>();
-    let paths: string[] = [];
-    for (const message of sourceMessages) {
-      if (
-        message.role === 'user' &&
-        message.metadata.userVisible &&
-        !getToolResponses(message).length
-      )
-        paths = byTurn.get(message.id ?? '') ?? [];
-      if (message.id) byMessage.set(message.id, paths);
-    }
-    return byMessage;
-  }, [sourceMessages, conversationChanges]);
   const representedActivityToolIds = useMemo(() => {
     const ids = new Set<string>();
     for (const message of messages) {
@@ -1159,9 +1151,6 @@ function ProgressiveMessageListContent({
                   sessionId={chat.sessionId}
                   message={message}
                   messages={sourceMessages}
-                  fileReferenceExclusions={
-                    message.id ? fileReferenceExclusions.get(message.id) : undefined
-                  }
                   toolResponses={sharedToolResponses}
                   toolChains={sharedToolChains}
                   suppressProviderThinking={suppressProviderThinking}
@@ -1189,7 +1178,6 @@ function ProgressiveMessageListContent({
   }, [
     messages,
     sourceMessages,
-    fileReferenceExclusions,
     sharedToolResponses,
     sharedToolChains,
     presentationPending,
@@ -1473,7 +1461,7 @@ function ProgressiveMessageListContent({
                 )}
               </ToolCallExpandable>
               {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
-              {foldable && hasTerminalBoundary && (
+              {hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}
                   sourceChanges={conversationChanges}

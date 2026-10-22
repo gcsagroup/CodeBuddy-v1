@@ -7346,6 +7346,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.question": {
+    "defaultMessage": "詢問使用者"
+  },
   "toolAction.code": {
     "defaultMessage": "執行程式碼"
   },
@@ -8611,5 +8614,86 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "待確認"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "查看開啟的視窗"
+  },
+  "toolAction.window": {
+    "defaultMessage": "讀取視窗內容"
+  },
+  "toolAction.control": {
+    "defaultMessage": "操作介面控制項"
+  },
+  "toolAction.value": {
+    "defaultMessage": "填寫輸入欄位"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "尋找可用工具"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "尋找檔案"
+  },
+  "toolAction.searchContents": {
+    "defaultMessage": "搜尋檔案內容"
+  },
+  "toolAction.readImage": {
+    "defaultMessage": "查看圖片"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "建立子智慧體"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "傳送訊息給子智慧體"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "查看子智慧體進度"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "載入任務指南"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "查看工作目錄"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "尋找可用的文件工具"
+  },
+  "toolAction.fetch": {
+    "defaultMessage": "讀取網頁內容"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "讀取網站中的多個頁面"
+  },
+  "toolAction.siteMap": {
+    "defaultMessage": "尋找網站頁面"
+  },
+  "toolAction.research": {
+    "defaultMessage": "進行聯網調研"
+  },
+  "toolAction.time": {
+    "defaultMessage": "查看目前時間"
+  },
+  "toolAction.location": {
+    "defaultMessage": "尋找地點"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "查詢天氣"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "繪製圖示"
+  },
+  "toolAction.chart": {
+    "defaultMessage": "產生圖表"
+  },
+  "toolAction.map": {
+    "defaultMessage": "產生地圖"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "產生圖片"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "產生影片"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "建立桌面寵物"
   }
 }

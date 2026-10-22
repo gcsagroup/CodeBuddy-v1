@@ -1,8 +1,9 @@
 import type { ActionRequired } from '../types/message';
 import { AlertTriangle } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
-import { snakeToTitleCase } from '../utils';
+import { formatToolAction } from './toolActionPresentation';
 import ToolApprovalButtons from './ToolApprovalButtons';
+import { ToolActivityIcon } from './ToolActivityIcon';
 import ProjectMemoryApprovalSummary, {
   filterProjectMemoryApprovalActions,
   parseProjectMemoryApproval,
@@ -68,12 +69,6 @@ const i18n = defineMessages({
   },
 });
 
-function formatToolName(fullName: string): string {
-  const delimiterIndex = fullName.lastIndexOf('__');
-  const shortName = delimiterIndex === -1 ? fullName : fullName.substring(delimiterIndex + 2);
-  return snakeToTitleCase(shortName);
-}
-
 type ToolConfirmationData = Extract<ActionRequired['data'], { actionType: 'toolConfirmation' }>;
 
 interface ForcePushSummary {
@@ -124,7 +119,7 @@ export function ToolApprovalTarget({
   const target = approvalTarget(toolName, argumentsValue);
   if (!target) return null;
   return (
-    <section className="mt-3 rounded-xl border border-border-primary bg-background-secondary p-3">
+    <section className="mt-3">
       <h3 className="text-xs font-medium text-text-secondary">
         {intl.formatMessage(target.kind === 'command' ? i18n.command : i18n.path)}
       </h3>
@@ -207,7 +202,7 @@ export default function ToolConfirmation({
     availableActions,
     arguments: toolArguments,
   } = data;
-  const displayName = formatToolName(toolName);
+  const displayName = formatToolAction(intl, toolName, toolArguments ?? {}, undefined, 'name');
   const forcePush = forcePushSummary(toolName, permissionClass, extensionSource, toolArguments);
   const memoryApproval = parseProjectMemoryApproval(toolName, extensionSource, toolArguments);
   const filteredActions = filterProjectMemoryApprovalActions(memoryApproval, availableActions);
@@ -218,16 +213,20 @@ export default function ToolConfirmation({
   ] as const;
 
   return (
-    <div className="goose-message-content bg-background-primary border border-border-primary rounded-2xl overflow-hidden">
-      <div className="bg-background-secondary px-4 py-2 text-text-primary">
+    <div className="goose-message-content bg-background-primary border border-border-primary rounded-2xl p-4">
+      <div className="flex items-center gap-2 text-sm text-text-secondary">
+        <ToolActivityIcon name={toolName} status="warning" />
+        {displayName}
+      </div>
+      <p className="mt-3 text-sm font-medium text-text-primary">
         {prompt
           ? intl.formatMessage(i18n.allowToolCallWithName, { toolName: displayName })
           : intl.formatMessage(i18n.gooseWouldLikeToCallWithName, { toolName: displayName })}
-      </div>
-      <div className="px-4 pt-3">
-        <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+      </p>
+      <div className="pt-3">
+        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
           {facts.map(([label, value, isRisk]) => (
-            <div key={label.id} className="rounded-lg border border-border-primary px-3 py-2">
+            <div key={label.id}>
               <dt className="flex items-center gap-1 text-text-secondary">
                 {isRisk && (
                   <AlertTriangle

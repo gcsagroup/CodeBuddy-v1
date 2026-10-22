@@ -7346,6 +7346,9 @@
   "toasts.copyError": {
     "defaultMessage": "复制错误信息"
   },
+  "toolAction.question": {
+    "defaultMessage": "询问用户"
+  },
   "toolAction.code": {
     "defaultMessage": "执行代码"
   },
@@ -8611,5 +8614,86 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "待确认"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "查看打开的窗口"
+  },
+  "toolAction.window": {
+    "defaultMessage": "读取窗口内容"
+  },
+  "toolAction.control": {
+    "defaultMessage": "操作界面控件"
+  },
+  "toolAction.value": {
+    "defaultMessage": "填写输入框"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "查找可用工具"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "查找文件"
+  },
+  "toolAction.searchContents": {
+    "defaultMessage": "搜索文件内容"
+  },
+  "toolAction.readImage": {
+    "defaultMessage": "查看图片"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "创建子智能体"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "向子智能体发送消息"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "查看子智能体进展"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "加载任务指南"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "查看工作目录"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "查找可用的文档工具"
+  },
+  "toolAction.fetch": {
+    "defaultMessage": "读取网页内容"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "读取网站中的多个页面"
+  },
+  "toolAction.siteMap": {
+    "defaultMessage": "查找网站页面"
+  },
+  "toolAction.research": {
+    "defaultMessage": "开展联网调研"
+  },
+  "toolAction.time": {
+    "defaultMessage": "查看当前时间"
+  },
+  "toolAction.location": {
+    "defaultMessage": "查找地点"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "查询天气"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "绘制图示"
+  },
+  "toolAction.chart": {
+    "defaultMessage": "生成图表"
+  },
+  "toolAction.map": {
+    "defaultMessage": "生成地图"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "生成图片"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "生成视频"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "创建桌面宠物"
   }
 }

@@ -59,13 +59,13 @@ describe('ToolApprovalButtons', () => {
       'approval-should-not-pin-history',
       'allow_once'
     );
-    expect(screen.getByText('read - Allowed once')).toBeVisible();
+    expect(screen.getByText('Read file - Allowed once')).toBeVisible();
     rerender(view(false));
     expect(screen.getByRole('button', { name: 'Completed operations' })).toHaveAttribute(
       'aria-expanded',
       'false'
     );
-    expect(screen.queryByText('read - Allowed once')).not.toBeInTheDocument();
+    expect(screen.queryByText('Read file - Allowed once')).not.toBeInTheDocument();
   });
 
   it('retains live details intentionally opened outside the approval actions', async () => {
@@ -106,7 +106,7 @@ describe('ToolApprovalButtons', () => {
       'tool-call-approved',
       'allow_once'
     );
-    expect(screen.getByText('developer__shell - Allowed once')).toBeInTheDocument();
+    expect(screen.getByText('Run command - Allowed once')).toBeInTheDocument();
   });
 
   it('shows a stale request error when ACP has no pending request', async () => {
@@ -186,7 +186,7 @@ describe('ToolApprovalButtons', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
-    expect(screen.getByText('developer__shell - Allowed once')).toBeInTheDocument();
+    expect(screen.getByText('Run command - Allowed once')).toBeInTheDocument();
 
     rerender(
       <ToolApprovalButtons
@@ -199,7 +199,7 @@ describe('ToolApprovalButtons', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Allow Once' })).toBeInTheDocument();
-    expect(screen.queryByText('developer__shell - Allowed once')).not.toBeInTheDocument();
+    expect(screen.queryByText('Run command - Allowed once')).not.toBeInTheDocument();
   });
 
   it('renders only ACP actions with scope-specific labels', () => {
@@ -263,9 +263,66 @@ describe('ToolApprovalButtons', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Allow for this task' }));
+    expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Allow for this task' }));
 
-    expect(screen.getByText('computer_focus - Allowed for this task')).toBeInTheDocument();
-    expect(screen.queryByText('computer_focus - Always allowed')).not.toBeInTheDocument();
+    expect(screen.getByText('Computer Focus - Allowed for this task')).toBeInTheDocument();
+    expect(screen.queryByText('Computer Focus - Always allowed')).not.toBeInTheDocument();
+  });
+
+  it('does not grant permission when the scope menu is opened or dismissed', async () => {
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'scope-menu-dismiss',
+          toolName: 'fixture_tool',
+          sessionId: 'scope-menu-session',
+          authorizationScope: 'session',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        }}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Allow this tool for this session' });
+    await userEvent.click(trigger);
+    expect(
+      screen.getByRole('menuitem', { name: 'Allow this tool for this session' })
+    ).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
+
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Allow Once' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
+      'scope-menu-session',
+      'scope-menu-dismiss',
+      'allow_once'
+    );
+  });
+
+  it('removes an open scope menu when its permission request expires', async () => {
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'scope-menu-expiry',
+          toolName: 'fixture_tool',
+          sessionId: 'scope-expiry-session',
+          authorizationScope: 'session',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        }}
+      />
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Allow this tool for this session' }));
+    act(() => {
+      permissionRegistry.pending = false;
+      permissionRegistry.listeners.forEach((listener) => listener());
+    });
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow Once' })).not.toBeInTheDocument();
+    expect(screen.getByText('This approval request is no longer active.')).toBeVisible();
+    expect(resolveAcpPermissionRequestMock).not.toHaveBeenCalled();
   });
 
   it('hides unsafe allow actions for forbidden and global high-risk tools', () => {

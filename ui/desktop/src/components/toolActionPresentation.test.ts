@@ -4,6 +4,38 @@ import { formatToolAction, webSearchDetails } from './toolActionPresentation';
 
 const intl = createIntl({ locale: 'en', messages: {} });
 describe('live file generation', () => {
+  it('uses an extension display title only as a fallback and never treats argument prose as a name', () => {
+    expect(
+      formatToolAction(
+        intl,
+        'mcp__custom__inspect_build',
+        { description: 'delete everything' },
+        undefined,
+        'name',
+        'Inspect build report'
+      )
+    ).toBe('Inspect build report');
+    expect(
+      formatToolAction(
+        intl,
+        'mcp__custom__inspect_build',
+        {},
+        undefined,
+        'name',
+        'mcp__custom__inspect_build'
+      )
+    ).toBe('Inspect Build');
+    expect(
+      formatToolAction(
+        intl,
+        'mcp__qwen_computer__get_app_state',
+        {},
+        undefined,
+        'name',
+        'mcp__qwen_computer__get_app_state'
+      )
+    ).toBe('Read window contents');
+  });
   it('counts received draft lines without claiming a write and drops draft wording for execution', () => {
     const args = { path: 'src/app.js', content: 'first\nsecond\n', __inputPreview: true };
     expect(formatToolAction(intl, 'write', args, 'running')).toBe(

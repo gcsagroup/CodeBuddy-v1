@@ -7340,6 +7340,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.question": {
+    "defaultMessage": "Hacer una pregunta"
+  },
   "toolAction.code": {
     "defaultMessage": "Ejecutar código"
   },
@@ -8611,5 +8614,86 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Pendiente de confirmación"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "List open windows"
+  },
+  "toolAction.window": {
+    "defaultMessage": "Read window contents"
+  },
+  "toolAction.control": {
+    "defaultMessage": "Interact with a window control"
+  },
+  "toolAction.value": {
+    "defaultMessage": "Fill in a field"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "Find available tools"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "Find files"
+  },
+  "toolAction.searchContents": {
+    "defaultMessage": "Search file contents"
+  },
+  "toolAction.readImage": {
+    "defaultMessage": "View an image"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "Create a subagent"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "Send a message to a subagent"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "Check subagent progress"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "Load task instructions"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "Check the working folder"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "Locate available document tools"
+  },
+  "toolAction.fetch": {
+    "defaultMessage": "Read webpage contents"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "Read pages across a website"
+  },
+  "toolAction.siteMap": {
+    "defaultMessage": "Find pages on a website"
+  },
+  "toolAction.research": {
+    "defaultMessage": "Research a topic online"
+  },
+  "toolAction.time": {
+    "defaultMessage": "Check the current time"
+  },
+  "toolAction.location": {
+    "defaultMessage": "Find a location"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "Check the weather"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "Draw a diagram"
+  },
+  "toolAction.chart": {
+    "defaultMessage": "Create a chart"
+  },
+  "toolAction.map": {
+    "defaultMessage": "Create a map"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "Generate an image"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "Generate a video"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "Create a desktop pet"
   }
 }

@@ -1,3 +1,4 @@
+import chineseCatalog from '../i18n/messages/zh-CN.json';
 import computerUnknown from './fixtures/computer-unknown.json';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
@@ -22,7 +23,56 @@ vi.mock('../acp/permissionRequests', async (original) => ({
 }));
 beforeEach(() => vi.mocked(isAcpPermissionRequestPending).mockReturnValue(true));
 
+const chineseMessages = Object.fromEntries(
+  Object.entries(chineseCatalog).map(([id, entry]) => [id, entry.defaultMessage])
+);
+
 describe('tool response completion evidence', () => {
+  it.each([
+    { live: true, locale: 'en', messages: {}, label: 'Interact with a window control' },
+    { live: false, locale: 'en', messages: {}, label: 'Interact with a window control' },
+    { live: false, locale: 'zh-CN', messages: chineseMessages, label: '操作界面控件' },
+  ])(
+    'keeps computer action names readable in live and completed rows (locale=$locale, live=$live)',
+    ({ live, locale, messages, label }) => {
+      const name = 'mcp__qwen_computer__perform_secondary_action';
+      const request: ToolRequestMessageContent = {
+        type: 'toolRequest',
+        id: 'computer-friendly-name',
+        metadata: { title: name },
+        toolCall: {
+          status: 'success',
+          value: {
+            name,
+            arguments: { app: 'window:2216:15206628', element_index: 89, action: 'Invoke' },
+          },
+        },
+      };
+      render(
+        <IntlProvider locale={locale} messages={messages}>
+          <ToolCallWithResponse
+            compact
+            isCancelledMessage={false}
+            isPendingApproval={false}
+            toolRequest={request}
+            isStreamingMessage={live}
+            toolResponse={
+              live
+                ? undefined
+                : {
+                    type: 'toolResponse',
+                    id: request.id,
+                    toolResult: { status: 'success', value: { content: [], isError: false } },
+                  }
+            }
+          />
+        </IntlProvider>
+      );
+      expect(screen.getByText(new RegExp(label))).toBeVisible();
+      expect(screen.queryByText(/mcp__|secondary_action|window:2216/)).not.toBeInTheDocument();
+    }
+  );
+
   it('keeps generic compact tool receipts out of diagnostic drawers', () => {
     render(<IntlProvider locale="en" messages={{}}>
       <ToolCallWithResponse compact isCancelledMessage={false} isPendingApproval={false}

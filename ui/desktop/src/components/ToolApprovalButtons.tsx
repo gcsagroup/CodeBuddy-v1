@@ -1,5 +1,13 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Button } from './ui/button';
+import { ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { formatToolAction } from './toolActionPresentation';
 import type { Permission } from '../types/permissions';
 import type {
   ToolAuthorizationScope,
@@ -135,6 +143,11 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
       permissionClass !== 'external_write' &&
       permissionClass !== 'high_risk' &&
       permissionClass !== 'legacy');
+  const canAllowOnce = allowActionsVisible && actions.has('allow_once');
+  const canAllowScope = allowActionsVisible && scopedLongTermAllow && actions.has('always_allow');
+  const scopeLabel = intl.formatMessage(i18n.allowByScope, { scope: authorizationScope });
+  const scopeHint =
+    authorizationScope === 'session' ? intl.formatMessage(i18n.sessionAllowHint) : undefined;
 
   const setResolvedDecision = (action: Permission) => {
     setApprovalState({ key: stateKey, decision: action, isClicked: true });
@@ -185,7 +198,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     };
     return (
       <p className="text-sm text-muted-foreground mt-2">
-        {toolName} - {statusMessages[decision]}
+        {formatToolAction(intl, toolName, {}, undefined, 'name')} - {statusMessages[decision]}
       </p>
     );
   }
@@ -203,37 +216,14 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
   return (
     <>
       <div
-        className="flex flex-wrap items-center gap-2 mt-2"
+        className="flex flex-wrap items-center justify-end gap-2 mt-4"
         data-testid="tool-approval-actions"
         data-tool-approval-actions=""
       >
-        {allowActionsVisible && actions.has('allow_once') && (
-          <Button
-            className="rounded-full"
-            variant="secondary"
-            onClick={() => handleAction('allow_once')}
-          >
-            {intl.formatMessage(i18n.allowOnce)}
-          </Button>
-        )}
-        {allowActionsVisible && scopedLongTermAllow && actions.has('always_allow') && (
-          <Button
-            className="rounded-full"
-            variant="secondary"
-            onClick={() => handleAction('always_allow')}
-            title={
-              authorizationScope === 'session'
-                ? intl.formatMessage(i18n.sessionAllowHint)
-                : undefined
-            }
-          >
-            {intl.formatMessage(i18n.allowByScope, {
-              scope: authorizationScope,
-            })}
-          </Button>
-        )}
         {actions.has('deny_once') && (
           <Button
+            type="button"
+            size="sm"
             className="rounded-full"
             variant="outline"
             onClick={() => handleAction('deny_once')}
@@ -243,6 +233,8 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
         )}
         {actions.has('always_deny') && (
           <Button
+            type="button"
+            size="sm"
             className="rounded-full"
             variant="outline"
             onClick={() => handleAction('always_deny')}
@@ -251,6 +243,41 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
               scope: authorizationScope,
             })}
           </Button>
+        )}
+        {(canAllowOnce || canAllowScope) && (
+          <div className="flex items-center">
+            <Button
+              type="button"
+              size="sm"
+              className={
+                canAllowOnce && canAllowScope ? 'rounded-l-full rounded-r-none' : 'rounded-full'
+              }
+              onClick={() => handleAction(canAllowOnce ? 'allow_once' : 'always_allow')}
+              title={canAllowOnce ? undefined : scopeHint}
+            >
+              {canAllowOnce ? intl.formatMessage(i18n.allowOnce) : scopeLabel}
+            </Button>
+            {canAllowOnce && canAllowScope && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="rounded-l-none rounded-r-full px-2 has-[>svg]:px-2"
+                    aria-label={scopeLabel}
+                    title={scopeHint}
+                  >
+                    <ChevronDown aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" data-tool-approval-actions="">
+                  <DropdownMenuItem onSelect={() => handleAction('always_allow')} title={scopeHint}>
+                    {scopeLabel}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         )}
       </div>
       {approvalError && (

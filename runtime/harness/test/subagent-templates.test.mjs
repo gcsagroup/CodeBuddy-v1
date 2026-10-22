@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -9,14 +9,31 @@ import { createHarnessDriver } from '../index.mjs';
 
 test('native templates preserve chat-local histories, roles and resolved models across turns and cold restart', { timeout: 45000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'codebuddy-template-contract-'));
+  const script = join(root, 'mcp-fixture.mjs');
+  await writeFile(script, `import {createInterface} from 'node:readline'; createInterface({input:process.stdin}).on('line',line=>{const m=JSON.parse(line);if(!('id'in m))return;const result=m.method==='initialize'?{protocolVersion:'2025-03-26',capabilities:{tools:{}},serverInfo:{name:'fixture',version:'1'}}:m.method==='tools/list'?{tools:['allowed','blocked'].map(name=>({name,description:name,inputSchema:{type:'object',properties:{}}}))}:{content:[{type:'text',text:'fixture'}]};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n');});`);
   const requests = [], plans = new Map();
+  const isChild = request => request.messages.some(message => message.role === 'user' && (JSON.stringify(message.content).includes('Your parent agent id is') || (typeof message.content === 'string' && message.content.startsWith('CHILD_'))));
   const server = createServer(async (req, res) => {
+    if (req.method !== 'POST') { res.writeHead(405).end(); return; }
     let raw = ''; for await (const part of req) raw += part;
-    const body = JSON.parse(raw); requests.push({ ...body, url: req.url });
-    const child = body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    const body = JSON.parse(raw);
+    if (req.url === '/mcp') {
+      if (!('id' in body)) { res.writeHead(202).end(); return; }
+      const result = body.method === 'initialize'
+        ? { protocolVersion: '2025-03-26', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'remote', version: '1' } }
+        : body.method === 'tools/list' ? { tools: [{ name: 'blocked', description: 'Remote fixture', inputSchema: { type: 'object', properties: {} } }] }
+        : body.method === 'resources/list' ? { resources: [] } : {};
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+      return;
+    }
+    requests.push({ ...body, url: req.url });
+    const child = isChild(body);
     const index = body.messages.findLastIndex(message => message.role === 'user' && /ROOT_ACTION_\d+/.test(JSON.stringify(message.content)));
     const action = index < 0 ? undefined : JSON.stringify(body.messages[index].content).match(/ROOT_ACTION_\d+/)[0];
-    const tool = !child && action && !body.messages.slice(index + 1).some(message => message.role === 'tool') ? plans.get(action) : undefined;
+    const childIndex = body.messages.findLastIndex(message => message.role === 'user' && ['CHILD_SAVED_INITIAL', 'CHILD_SAVED_COLD'].some(marker => JSON.stringify(message.content).includes(marker)));
+    const tool = child && childIndex >= 0 && !body.messages.slice(childIndex + 1).some(message => message.role === 'tool')
+      ? { name: 'search_mcp_tools', args: { names: ['grep', 'write', 'mcp__local__allowed', 'mcp__local__blocked', 'fixture_host_tool'] } }
+      : !child && action && !body.messages.slice(index + 1).some(message => message.role === 'tool') ? plans.get(action) : undefined;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (tool) {
@@ -30,7 +47,14 @@ test('native templates preserve chat-local histories, roles and resolved models 
   const models = Object.fromEntries(['explorer', 'browser', 'generic'].map(role => [role, { provider, model: `fixture-${role}` }]));
   let currentProvider = provider;
   const restoreSubagentProvider = async (_model, matches) => matches(currentProvider) ? currentProvider : undefined;
-  const options = { subagentModels: models, restoreSubagentProvider };
+  const custom = { id: 'saved-review', name: '保存的审查员', description: '在需要独立代码审查时使用', prompt: 'SAVED_RESPONSIBILITY {{literal}}: 只审查本次给定任务，并报告证据。', model: null, tools: 'read-only' };
+  const options = { subagentModels: models, subagentTemplates: [custom], restoreSubagentProvider,
+    tools: ['fixture_host_tool', 'fixture_allowed_tool'].map(name => ({ name, description: 'Fixture host capability', inputSchema: { type: 'object', properties: {} }, execute: async () => ({ content: [{ type: 'text', text: 'fixture' }] }) })),
+    mcpServers: [
+      { serverName: 'local', transport: 'stdio', command: process.execPath, args: [script], cwd: root, reconnect: { enabled: false } },
+      { serverName: 'remote', transport: 'streamable-http', url: `http://127.0.0.1:${server.address().port}/mcp`, reconnect: { enabled: false } },
+    ],
+  };
   let driver;
   t.after(async () => { await driver?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   driver = await createHarnessDriver({ dataDir: join(root, 'native'), cwd: root });
@@ -53,12 +77,26 @@ test('native templates preserve chat-local histories, roles and resolved models 
     assert.equal(receipt.internalControl, true, "Template receipts must keep the internal-control identity");
     return receipt.structuredContent.subagentId;
   };
-  const byTask = marker => requests.filter(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes(marker)) && request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is')));
+  const byTask = marker => requests.filter(request => isChild(request) && request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes(marker)));
+  const saved = await spawn(main.sessionId, 'subagent', { description: 'Saved review', template: custom.id, prompt: 'CHILD_SAVED_INITIAL' });
+  const savedRequest = byTask('CHILD_SAVED_INITIAL').at(-1);
+  assert.ok(savedRequest, 'The native child must receive the delegated task');
+  assert.equal(savedRequest.model, 'fixture-main', 'Custom inheritance must not use the generic role model override');
+  assert.equal((await driver.listSubagentChildren(main.sessionId)).find(row => row.id === saved).label, custom.name);
+  assert.match(JSON.stringify(savedRequest.messages.filter(message => message.role === 'system')), /SAVED_RESPONSIBILITY/);
+  assert.deepEqual(savedRequest.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'search_mcp_tools'].sort(), 'Discovery only exposes the native-filtered child tool catalog');
+  assert.ok(savedRequest.messages.some(message => message.role === 'tool' && message.content.includes('"missingNames":["write","mcp__local__allowed","mcp__local__blocked","fixture_host_tool"]')), 'Read-only discovery cannot load native writes, MCP or host tools');
+  const rootSchema = (await driver.listTools(main.sessionId)).find(tool => tool.name === 'subagent');
+  assert.ok(JSON.stringify(rootSchema).includes(custom.description));
+  assert.ok(!JSON.stringify(rootSchema).includes('SAVED_RESPONSIBILITY'), 'Parent sees when to delegate, not the full child persona');
+  for (const args of [{ template: 'missing-template' }, { template: custom.id, role: 'Override saved role' }]) {
+    assert.equal((await action(main.sessionId, 'subagent', { description: 'Invalid template', prompt: 'NO_CHILD_CREATED', ...args })).isError, true);
+  }
   const explorer = await spawn(main.sessionId, 'subagent_explorer', { description: 'Read August', prompt: 'CHILD_AUGUST_ONLY' }, ' ROOT_PRIVATE_CANARY');
   assert.equal(byTask('CHILD_AUGUST_ONLY').at(-1).model, 'fixture-explorer');
   assert.ok(byTask('CHILD_AUGUST_ONLY').every(request => !JSON.stringify(request).includes('ROOT_PRIVATE_CANARY')));
   await action(main.sessionId, 'send_message', { agent_id: explorer, message: 'CHILD_JULY_ONLY' });
-  assert.equal((await driver.listSubagentChildren(main.sessionId)).length, 1);
+  assert.equal((await driver.listSubagentChildren(main.sessionId)).length, 2);
   assert.ok(byTask('CHILD_JULY_ONLY').at(-1).messages.some(message => JSON.stringify(message.content).includes('CHILD_AUGUST_ONLY')));
   assert.ok(byTask('CHILD_JULY_ONLY').at(-1).tools.every(tool => !['write', 'edit', 'pwsh', 'bash'].includes(tool.function.name)));
   await assert.rejects(driver.callTool(explorer, 'write', { file_path: join(root, 'must-not-exist'), content: 'no' }), /owned by subagent routing/);
@@ -81,8 +119,15 @@ test('native templates preserve chat-local histories, roles and resolved models 
   assert.ok(!JSON.stringify(byTask('CHILD_OTHER_CHAT_ONLY')).includes('CHILD_AUGUST_ONLY'));
   assert.equal((await action(other.sessionId, 'send_message', { agent_id: explorer, message: 'FOREIGN_MUST_NOT_ARRIVE' })).isError, true);
   assert.equal(byTask('FOREIGN_MUST_NOT_ARRIVE').length, 0);
-  const updated = { ...options, subagentModels: { ...models, explorer: { provider, model: 'fixture-explorer-updated' } } };
+  const updated = { ...options, subagentTemplates: [{ ...custom, name: '改名后的审查员', prompt: 'UPDATED_RESPONSIBILITY', model: { provider, model: 'fixture-custom' }, tools: 'none' }], subagentModels: { ...models, explorer: { provider, model: 'fixture-explorer-updated' } } };
   await driver.configureSession(main.sessionId, updated);
+  await action(main.sessionId, 'send_message', { agent_id: saved, message: 'CHILD_SAVED_AFTER_EDIT' });
+  assert.equal(byTask('CHILD_SAVED_AFTER_EDIT').at(-1).model, 'fixture-main');
+  assert.match(JSON.stringify(byTask('CHILD_SAVED_AFTER_EDIT').at(-1).messages), /SAVED_RESPONSIBILITY/);
+  assert.ok(!JSON.stringify(byTask('CHILD_SAVED_AFTER_EDIT').at(-1).messages).includes('UPDATED_RESPONSIBILITY'));
+  await spawn(main.sessionId, 'subagent', { description: 'Changed template', template: custom.id, prompt: 'CHILD_UPDATED_TEMPLATE' });
+  assert.equal(byTask('CHILD_UPDATED_TEMPLATE').at(-1).model, 'fixture-custom');
+  assert.deepEqual(byTask('CHILD_UPDATED_TEMPLATE').at(-1).tools?.map(tool => tool.function.name) ?? [], []);
   await action(main.sessionId, 'send_message', { agent_id: explorer, message: 'CHILD_OLD_MODEL_ONLY' });
   assert.equal(byTask('CHILD_OLD_MODEL_ONLY').at(-1).model, 'fixture-explorer');
   const updatedExplorer = await spawn(main.sessionId, 'subagent_explorer', { description: 'New independent exploration', prompt: 'CHILD_NEW_MODEL_ONLY' });
@@ -91,8 +136,13 @@ test('native templates preserve chat-local histories, roles and resolved models 
   await driver.close();
   currentProvider = { ...provider, outputTokenCapacity: 8192 };
   driver = await createHarnessDriver({ dataDir: join(root, 'native'), cwd: root });
-  await driver.createSession({ sessionId: main.sessionId, provider, model: 'fixture-main', options: updated });
+  await driver.createSession({ sessionId: main.sessionId, provider, model: 'fixture-main', options: { ...updated, subagentTemplates: [] } });
   const before = (await driver.listSubagentChildren(main.sessionId)).map(row => row.id);
+  await action(main.sessionId, 'send_message', { agent_id: saved, message: 'CHILD_SAVED_COLD' });
+  const coldSaved = byTask('CHILD_SAVED_COLD').at(-1);
+  assert.equal(coldSaved.model, 'fixture-main');
+  assert.match(JSON.stringify(coldSaved.messages), /SAVED_RESPONSIBILITY/);
+  assert.deepEqual(coldSaved.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'search_mcp_tools'].sort(), 'Deleting a template does not change a cold child tool restriction');
   await action(main.sessionId, 'send_message', { agent_id: explorer, message: 'CHILD_COLD_CONTINUE_ONLY' });
   assert.equal(byTask('CHILD_COLD_CONTINUE_ONLY').at(-1).model, 'fixture-explorer');
   assert.ok(JSON.stringify(byTask('CHILD_COLD_CONTINUE_ONLY').at(-1)).includes('CHILD_JULY_ONLY'));
@@ -111,4 +161,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
   const restricted = await driver.createSession({ provider, model: 'fixture-main', options: { toolFilter: { allow: ['read', 'subagent'], deny: ['subagent'] } } });
   const visible = (await driver.listTools(restricted.sessionId)).map(tool => tool.name);
   assert.ok(!visible.includes('subagent') && !visible.includes('subagent_explorer') && !visible.includes('subagent_browser'), 'Scoped adapters must not bypass explicit tool restrictions');
+  const limited = await driver.createSession({ provider, model: 'fixture-main', options: { ...options, toolFilter: { deny: ['read'] } } });
+  await spawn(limited.sessionId, 'subagent', { description: 'Restricted template', template: custom.id, prompt: 'CHILD_PARENT_RESTRICTED' });
+  assert.ok(byTask('CHILD_PARENT_RESTRICTED').at(-1).tools.every(tool => tool.function.name !== 'read'), 'A template allow list cannot restore a parent-disabled tool');
 });

@@ -14,6 +14,8 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
+  allowedTools: Schema.union([Schema.const(null), Schema.array(String)]).default(null),
+  deniedTools: Schema.array(String).default([]),
 })));
 export const name = 'codebuddy-mcp-client', inject = ['tools'];
 const scopes = new WeakMap(), receipts = new Map();
@@ -71,6 +73,7 @@ export function takeMcpResultMetadata(exec, result) {
 }
 
 export async function apply(ctx, config) {
+  const allowedTools = config.allowedTools ?? null, deniedTools = config.deniedTools ?? [];
   const owner = scopeOf(ctx) ?? ctx.root;
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
@@ -91,6 +94,7 @@ export async function apply(ctx, config) {
       const definitions = new Map(), metadata = new Map(), approvals = new Map();
       for (const tool of response.tools) {
         const name = publicName(config.serverName, tool.name), mcpApp = appMetadata(config.serverName, tool);
+        if ((allowedTools !== null && !allowedTools.includes(name)) || deniedTools.includes(name)) continue;
         if (definitions.has(name)) throw Error(`Duplicate MCP tool: ${tool.name}`);
         const definition = createMcpToolDefinition(ctx, {
           name, rawName: tool.name, description: tool.description ?? '', inputSchema: tool.inputSchema,
@@ -215,7 +219,9 @@ export async function apply(ctx, config) {
   }
   ctx.effect(() => dispose, 'codebuddy-mcp.connection');
   ctx.on('internal/plugin', fiber => fiber === ctx.fiber && fiber.uid === null ? dispose() : undefined, { global: true });
-  ctx.inject(['mcpResources'], inner => { inner.mcpResources.register(config.serverName, { async request(request, exec) {
+  const resourcesAllowed = ['list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']
+    .some(name => (allowedTools === null || allowedTools.includes(name)) && !deniedTools.includes(name));
+  if (resourcesAllowed) ctx.inject(['mcpResources'], inner => { inner.mcpResources.register(config.serverName, { async request(request, exec) {
     const current = generation;
     if (!live(current)) throw Error(`MCP server ${config.serverName} is disconnected`);
     const options = { signal: exec.signal, timeout };

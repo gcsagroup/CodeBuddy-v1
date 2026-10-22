@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../harness/index.mjs';
 
-async function fixture(t, { childCount = 1 } = {}) {
+async function fixture(t, { childCount = 1, customTemplate = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'codebuddy-retest-cancel-'));
   const requests = [], failures = [], childResponses = [];
   const childStarted = Promise.withResolvers();
@@ -38,7 +38,7 @@ async function fixture(t, { childCount = 1 } = {}) {
       if (!child && !fresh && !serviced) {
         const calls = reuse
           ? [{ name: 'send_message', arguments: { agent_id: childId, message: 'CHILD_RESUME_RETEST' } }]
-          : Array.from({ length: childCount }, (_, i) => ({ name: 'subagent', arguments: { description: 'Independent waiting fixture ' + i, prompt: 'CHILD_WAIT_RETEST ' + i } }));
+          : Array.from({ length: childCount }, (_, i) => ({ name: 'subagent', arguments: { description: 'Independent waiting fixture ' + i, prompt: 'CHILD_WAIT_RETEST ' + i, ...(customTemplate ? { template: 'waiting-reviewer' } : {}) } }));
         emit({ role: 'assistant', tool_calls: calls.map((call, i) => ({ index: i, id: randomUUID(), type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) });
         emit({}, 'tool_calls');
       } else {
@@ -53,7 +53,9 @@ async function fixture(t, { childCount = 1 } = {}) {
   const sessionId = randomUUID();
   async function open() {
     driver = await createHarnessDriver({ dataDir: join(directory, 'native'), cwd: directory });
-    await driver.createSession({ sessionId, cwd: directory, provider, model: 'fixture-model', options: { tools: [] } });
+    await driver.createSession({ sessionId, cwd: directory, provider, model: 'fixture-model', options: { tools: [],
+      ...(customTemplate ? { subagentTemplates: [{ id: 'waiting-reviewer', name: 'Waiting reviewer', description: 'Review current work', prompt: 'CUSTOM_CANCEL_RESPONSIBILITY', model: null, tools: 'none' }] } : {}),
+    } });
   }
   await open();
   t.after(async () => {
@@ -121,8 +123,8 @@ test(`native notice admission survives a persisted prefix at ${cut}`, { timeout:
   assert.deepEqual(f.failures, []);
 });
 
-for (const restart of [false, true]) test(`cancelled child notices survive ${restart ? 'cold restart' : 'live recovery'} without waking the stopped parent or replaying the old child task`, { timeout: 30_000 }, async t => {
-  const f = await fixture(t, { childCount: 3 });
+for (const [restart, customTemplate] of [[false, false], [true, false], [true, true]]) test(`cancelled ${customTemplate ? 'custom ' : ''}child notices survive ${restart ? 'cold restart' : 'live recovery'} without waking the stopped parent or replaying the old child task`, { timeout: 30_000 }, async t => {
+  const f = await fixture(t, { childCount: 3, customTemplate });
   const events = [];
   const controller = new AbortController();
   const pending = f.driver.prompt(f.sessionId, 'PARENT_DELEGATE_RETEST', { signal: controller.signal, onPermission: () => true, onEvent: event => events.push(event) });
@@ -167,6 +169,7 @@ for (const restart of [false, true]) test(`cancelled child notices survive ${res
   assert.deepEqual((await f.driver.listSubagentChildren(f.sessionId)).map(child => child.id), ids);
   const resumed = f.requests.find(request => request.resume);
   assert.ok(resumed && JSON.stringify(resumed.body.messages).includes('CHILD_WAIT_RETEST'), 'The same child continues with its existing history');
+  if (customTemplate) assert.match(JSON.stringify(resumed.body.messages), /CUSTOM_CANCEL_RESPONSIBILITY/);
   assert.deepEqual(f.failures, []);
 });
 

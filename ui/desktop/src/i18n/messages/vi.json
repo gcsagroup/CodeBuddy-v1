@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Dùng mẫu mặc định hoặc lưu vai trò tùy chỉnh. Tác tử phụ chỉ được tạo khi cần."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Thay đổi áp dụng cho tác tử phụ mới. Tác tử hiện có giữ nguyên chỉ dẫn, công cụ, mô hình và lịch sử. Các cuộc trò chuyện chia sẻ mẫu, không chia sẻ lịch sử."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Lưu cài đặt tác tử phụ"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Mô hình và kết nối"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Dung lượng ngữ cảnh"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Điều chỉnh giới hạn ngữ cảnh khi thiếu thông tin từ dịch vụ."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Tạo hình ảnh và video"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Cấu hình dịch vụ tạo hình ảnh và video."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Tác nhân con"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Tạo tác nhân tái sử dụng với tên, mô hình và chỉ dẫn."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Hiểu hình ảnh"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Ưu tiên mô hình chính, dùng mô hình dự phòng khi cần."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "Về menu"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Thêm tác tử phụ"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Xóa mẫu này? Các tác nhân con hiện có và lịch sử sẽ được giữ lại."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Tác tử phụ tùy chỉnh"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Tác nhân con mặc định"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Nhập tên không trùng lặp và chỉ dẫn."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "Tên"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Chỉ dẫn"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Mô tả vai trò, cách làm việc và kết quả mong đợi."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Xóa mẫu"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "Tác tử phụ mới"
   }
 }

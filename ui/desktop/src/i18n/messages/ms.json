@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Gunakan templat lalai atau simpan peranan tersuai. Subagen dicipta hanya apabila diperlukan."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Perubahan digunakan pada subagen baharu. Subagen sedia ada mengekalkan arahan, alat, model dan sejarah. Sembang berkongsi templat, bukan sejarah perbualan."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Simpan tetapan subagen"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Model dan sambungan"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Kapasiti konteks"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Laraskan had konteks model jika maklumat perkhidmatan tiada."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Penjanaan imej dan video"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Konfigurasikan perkhidmatan untuk menjana imej dan video."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Subejen"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Cipta ejen boleh guna semula dengan nama, model dan arahan."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Pemahaman imej"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Gunakan model utama dahulu, dengan model sandaran jika perlu."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "Kembali ke menu"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Tambah subagen"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Alih keluar templat ini? Subejen sedia ada dan sejarahnya akan dikekalkan."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Subagen tersuai"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Subejen lalai"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Masukkan nama unik dan arahan."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "Nama"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Arahan"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Terangkan peranan, pendekatan dan hasil yang dijangka."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Alih keluar templat"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "Subagen baharu"
   }
 }

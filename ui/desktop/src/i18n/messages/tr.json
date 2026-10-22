@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Varsayılan şablonları kullanın veya özel bir rol kaydedin. Alt ajanlar yalnızca gerektiğinde oluşturulur."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Değişiklikler yeni alt ajanlara uygulanır. Mevcut ajanların talimatları, araçları, modeli ve geçmişi korunur. Sohbetler şablonları paylaşır, geçmişi paylaşmaz."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Alt ajan ayarlarını kaydet"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Modeller ve bağlantılar"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Bağlam kapasitesi"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Hizmet bilgisi yoksa modelin bağlam sınırlarını ayarlayın."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Görsel ve video oluşturma"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Görsel ve video oluşturma hizmetini yapılandırın."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Alt ajanlar"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Ad, model ve talimatla yeniden kullanılabilir ajanlar oluşturun."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Görsel anlama"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Önce ana modeli, gerektiğinde yedek modeli kullanın."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "Menüye dön"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Alt ajan ekle"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Bu şablon kaldırılsın mı? Mevcut alt ajanlar ve geçmişleri korunacak."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Özel alt ajanlar"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Varsayılan alt ajanlar"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Benzersiz bir ad ve talimat girin."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "Ad"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Talimat"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Rolünü, yaklaşımını ve beklenen çıktıyı açıklayın."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Şablonu kaldır"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "Yeni alt ajan"
   }
 }

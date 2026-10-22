@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "既定のテンプレートを使うか、独自の役割を保存できます。サブエージェントは必要なときだけ作成されます。"
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "変更は新しいサブエージェントに適用されます。既存の指示、ツール、モデル、履歴は保持されます。チャット間で共有するのはテンプレートのみです。"
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "サブエージェント設定を保存"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "モデルと接続"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "コンテキスト容量"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "サービス情報がない場合にコンテキスト上限を調整します。"
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "画像・動画生成"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "画像や動画を生成するサービスを設定します。"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "サブエージェント"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "名前、モデル、プロンプトで再利用可能なエージェントを作成します。"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "画像理解"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "まずメインモデルを使い、必要な場合は予備モデルを使います。"
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "メニューに戻る"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "サブエージェントを追加"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "このテンプレートを削除しますか？既存のサブエージェントと履歴は保持されます。"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "カスタムサブエージェント"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "既定のサブエージェント"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "重複しない名前とプロンプトを入力してください。"
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "名前"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "プロンプト"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "役割、進め方、期待する出力を記入してください。"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "テンプレートを削除"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "新しいサブエージェント"
   }
 }

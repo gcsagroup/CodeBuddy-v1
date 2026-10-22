@@ -162,19 +162,45 @@ export default function SettingsView({
 }) {
   const initialPage = resolveSettingsPage(viewOptions.section) ?? 'models';
   const [activePage, setActivePage] = useState<SettingsPageId>(initialPage);
+  const [visitedEditors, setVisitedEditors] = useState<SettingsPageId[]>([initialPage]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [subagentDirty, setSubagentDirty] = useState(false);
   const hasTrackedInitialPage = useRef(false);
   const intl = useIntl();
 
+  const confirmDiscard = () =>
+    !subagentDirty ||
+    window.confirm(
+      intl.formatMessage({
+        id: 'promptsSettings.confirmUnsavedBack',
+        defaultMessage: 'You have unsaved changes. Are you sure you want to go back?',
+      })
+    );
+  const leaveSettings = (view: View, options?: ViewOptions) => {
+    if (confirmDiscard()) setView(view, options);
+  };
+
   const filteredNavigationItems = useMemo(
-    () => settingsNavigationItems.filter((item) => matchesSettingsQuery(item, searchQuery)),
-    [searchQuery]
+    () =>
+      settingsNavigationItems.filter((item) =>
+        matchesSettingsQuery(
+          { ...item, keywords: [...item.keywords, intl.formatMessage(pageMessages[item.id])] },
+          searchQuery
+        )
+      ),
+    [searchQuery, intl]
   );
 
   const handlePageChange = (page: SettingsPageId) => {
     setActivePage(page);
     trackSettingsTabViewed(page);
   };
+
+  useEffect(() => {
+    if (activePage === 'models' || activePage === 'chat') {
+      setVisitedEditors((pages) => (pages.includes(activePage) ? pages : [...pages, activePage]));
+    }
+  }, [activePage]);
 
   useEffect(() => {
     const targetPage = resolveSettingsPage(viewOptions.section);
@@ -195,9 +221,8 @@ export default function SettingsView({
       case 'pets':
         return <PetSettings />;
       case 'models':
-        return <ModelsAndRuntimeSettings setView={setView} />;
       case 'chat':
-        return <ChatSettingsSection />;
+        return null;
       case 'sharing':
         return <ExternalBackendSection />;
       case 'input':
@@ -220,7 +245,12 @@ export default function SettingsView({
   })();
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && confirmDiscard()) onClose();
+      }}
+    >
       <DialogContent
         data-testid="settings-dialog"
         aria-describedby={undefined}
@@ -302,6 +332,20 @@ export default function SettingsView({
                   {intl.formatMessage(pageMessages[activePage])}
                 </h2>
                 {activeContent}
+                <div hidden={activePage !== 'models'}>
+                  {(activePage === 'models' || visitedEditors.includes('models')) && (
+                    <ModelsAndRuntimeSettings
+                      setView={leaveSettings}
+                      onDirtyChange={setSubagentDirty}
+                      active={activePage === 'models'}
+                    />
+                  )}
+                </div>
+                <div hidden={activePage !== 'chat'}>
+                  {(activePage === 'chat' || visitedEditors.includes('chat')) && (
+                    <ChatSettingsSection />
+                  )}
+                </div>
               </div>
             </ScrollArea>
           </main>

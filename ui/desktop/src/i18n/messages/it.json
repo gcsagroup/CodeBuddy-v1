@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Usa i modelli predefiniti o salva un ruolo personalizzato. I sottoagenti vengono creati solo quando servono."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Le modifiche valgono per i nuovi sottoagenti. Quelli esistenti mantengono istruzioni, strumenti, modello e cronologia. Le chat condividono i modelli, non le conversazioni."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Salva impostazioni sottoagenti"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Modelli e connessioni"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Capacità del contesto"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Regola i limiti del contesto se mancano le informazioni del servizio."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Generazione di immagini e video"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Configura il servizio per generare immagini e video."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Sottoagenti"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Crea agenti riutilizzabili con nome, modello e istruzioni."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Comprensione delle immagini"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Usa prima il modello principale e quello di riserva se necessario."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "Torna al menu"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Aggiungi sottoagente"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Rimuovere questo modello? I sottoagenti esistenti e la loro cronologia verranno conservati."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Sottoagenti personalizzati"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Sottoagenti predefiniti"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Inserisci un nome univoco e le istruzioni."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "Nome"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Istruzioni"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Descrivi ruolo, metodo e risultato atteso."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Rimuovi modello"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "Nuovo sottoagente"
   }
 }

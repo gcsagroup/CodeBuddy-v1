@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "기본 템플릿을 사용하거나 사용자 지정 역할을 저장하세요. 하위 에이전트는 필요할 때만 생성됩니다."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "변경 사항은 새 하위 에이전트에 적용됩니다. 기존 지침, 도구, 모델, 기록은 유지됩니다. 채팅 간에는 템플릿만 공유하고 대화 기록은 공유하지 않습니다."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "하위 에이전트 설정 저장"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "모델 및 연결"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "컨텍스트 용량"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "서비스 정보가 없을 때 모델의 컨텍스트 한도를 조정합니다."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "이미지 및 동영상 생성"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "이미지와 동영상을 생성할 서비스를 설정합니다."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "하위 에이전트"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "이름, 모델, 프롬프트로 재사용 가능한 에이전트를 만듭니다."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "이미지 이해"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "기본 모델을 먼저 사용하고 필요하면 보조 모델을 사용합니다."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "메뉴로 돌아가기"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "하위 에이전트 추가"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "이 템플릿을 삭제할까요? 기존 하위 에이전트와 기록은 유지됩니다."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "사용자 지정 하위 에이전트"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "기본 하위 에이전트"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "중복되지 않는 이름과 프롬프트를 입력하세요."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "이름"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "프롬프트"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "역할, 작업 방식, 기대하는 결과를 설명하세요."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "템플릿 제거"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "새 하위 에이전트"
   }
 }

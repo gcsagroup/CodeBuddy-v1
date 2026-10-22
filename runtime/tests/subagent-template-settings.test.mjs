@@ -34,3 +34,37 @@ test('template config ACP validates atomically, persists selections and resolves
   assert.match(unavailable.subagentModels.explorer.error, /unavailable/);
   assert.equal(unavailable.subagentModels.explorer.model, undefined, 'A missing connection must not silently select another model');
 });
+
+test('custom template edits validate atomically without storing execution state or granting permissions', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-custom-templates-'));
+  const store = await openStore(root);
+  await store.update(state => { state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', requiresAuth: false }]; });
+  const compat = new Compat(store, { close: async () => {}, listTools: async () => [] });
+  await compat.initialize(); t.after(() => compat.close());
+  const request = (method, params) => compat.request('_goose/unstable/' + method, params, { sessionIds: new Set() });
+  const template = { id: 'reviewer', name: '代码审查', description: '需要独立审查时使用', prompt: '只审查并列出证据，示例 {{file}}。', model: null, tools: 'read-only' };
+  const config = { version: 1, models: { explorer: null, browser: null, generic: null }, custom: [template] };
+  const save = value => request('config/upsert', { key: 'subagentTemplates', value, isSecret: false });
+  await save(config);
+  assert.deepEqual((await openStore(root)).read(['config']).config.subagentTemplates.value, config);
+  const session = { id: 'fixture-session', cwd: root, type: 'code_pro' };
+  assert.deepEqual((await compat.sessionOptions(session)).subagentTemplates, [template]);
+  for (const custom of [
+    [template, template], [{ ...template, name: 'explorer' }], [{ ...template, prompt: '' }],
+    [{ ...template, model: { providerId: 'missing', modelId: 'one' } }],
+    [{ ...template, tools: ['mcp_*'] }], [{ ...template, tools: 'read' }],
+    [{ ...template, permissions: 'full-access' }], [{ ...template, sessionId: 'another-chat' }],
+    [{ ...template, prompt: 'x'.repeat(8001) }],
+  ]) {
+    await assert.rejects(save({ ...config, custom }));
+    assert.deepEqual(store.read(['config']).config.subagentTemplates.value, config);
+  }
+  await save({ ...config, custom: [{ ...template, tools: 'none', model: { providerId: 'fixture', modelId: 'one' } }] });
+  const selected = (await compat.sessionOptions(session)).subagentTemplates[0];
+  assert.equal(selected.model.model, 'one');
+  assert.equal(selected.tools, 'none', 'No tools is distinct from inheritance');
+  await store.update(state => { state.providers = []; });
+  assert.match((await compat.sessionOptions(session)).subagentTemplates[0].model.error, /unavailable/);
+  await save({ ...config, custom: [] });
+  assert.deepEqual((await compat.sessionOptions(session)).subagentTemplates, []);
+});

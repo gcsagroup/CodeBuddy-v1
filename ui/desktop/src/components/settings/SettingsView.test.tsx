@@ -5,12 +5,25 @@ import SettingsView from './SettingsView';
 vi.mock('../../i18n', () => ({
   defineMessages: <T,>(messages: T) => messages,
   useIntl: () => ({
-    formatMessage: (message: { defaultMessage: string }) => message.defaultMessage,
+    formatMessage: (message: { id: string; defaultMessage: string }) =>
+      message.id === 'settingsCenter.pagePets' ? '虚拟宠物' : message.defaultMessage,
   }),
 }));
 
 vi.mock('./models/ModelsAndRuntimeSettings', () => ({
-  default: () => <div data-testid="models-and-runtime">model-connections</div>,
+  default: ({
+    onDirtyChange,
+    setView,
+  }: {
+    onDirtyChange?: (dirty: boolean) => void;
+    setView: (view: string) => void;
+  }) => (
+    <div data-testid="models-and-runtime">
+      model-connections
+      <input aria-label="Subagent draft" onChange={() => onDirtyChange?.(true)} />
+      <button onClick={() => setView('ConfigureProviders')}>Configure providers</button>
+    </div>
+  ),
 }));
 
 vi.mock('./chat/ChatSettingsSection', () => ({ default: () => <div>behavior-settings</div> }));
@@ -24,6 +37,39 @@ vi.mock('./auth/AuthSettingsSection', () => ({ default: () => <div>auth-settings
 vi.mock('./memory/MemorySettingsSection', () => ({ default: () => <div>memory-settings</div> }));
 
 describe('SettingsView', () => {
+  it('protects subagent drafts when a model dialog navigates outside settings', () => {
+    const setView = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<SettingsView onClose={vi.fn()} setView={setView} viewOptions={{}} />);
+    fireEvent.change(screen.getByLabelText('Subagent draft'), { target: { value: 'Keep this' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Configure providers' }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(setView).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Subagent draft')).toHaveValue('Keep this');
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Configure providers' }));
+    expect(setView).toHaveBeenCalledWith('ConfigureProviders', undefined);
+    confirm.mockRestore();
+  });
+  it('preserves the model editor across categories and confirms before closing an unsaved subagent', () => {
+    const onClose = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<SettingsView onClose={onClose} setView={vi.fn()} viewOptions={{}} />);
+    fireEvent.change(screen.getByLabelText('Subagent draft'), {
+      target: { value: 'Keep my draft' },
+    });
+    fireEvent.click(screen.getByTestId('settings-nav-chat'));
+    expect(screen.getByLabelText('Subagent draft')).not.toBeVisible();
+    fireEvent.click(screen.getByTestId('settings-nav-models'));
+    expect(screen.getByLabelText('Subagent draft')).toHaveValue('Keep my draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    confirm.mockRestore();
+  });
   it('opens as a centered dialog and closes from its close button', () => {
     const onClose = vi.fn();
     render(<SettingsView onClose={onClose} setView={vi.fn()} viewOptions={{}} />);
@@ -61,6 +107,18 @@ describe('SettingsView', () => {
 
     fireEvent.click(screen.getByTestId('settings-nav-models'));
     expect(screen.getByTestId('models-and-runtime')).toBeInTheDocument();
+  });
+
+  it('finds a settings page by the translated name displayed in navigation', () => {
+    render(<SettingsView onClose={vi.fn()} setView={vi.fn()} viewOptions={{}} />);
+    const displayedName = screen.getByTestId('settings-nav-pets').textContent;
+    expect(displayedName).toBe('虚拟宠物');
+
+    fireEvent.change(screen.getByTestId('settings-search'), {
+      target: { value: displayedName },
+    });
+    expect(screen.getByTestId('settings-nav-pets')).toBeVisible();
+    expect(screen.queryByTestId('settings-nav-models')).not.toBeInTheDocument();
   });
 
   it('maps legacy deep links into the new information architecture', () => {

@@ -47,6 +47,12 @@ runtime Provider 适配层消费 Ollama 公开能力，区分聊天与决策、�
 
 ## 2026-10-18 已批准：默认子 Agent 模板与聊天内职责复用
 
+2026-10-22 已批准补充：`config.subagentTemplates.custom` 保存自定义模板的稳定标识、名称、适用场景、职责说明、可选模型和工具档位；旧的 `version: 1` 模型设置保持可读，不迁移执行记录。简化后的界面只编辑名称、模型和提示词，模型默认继承，适用场景摘要随提示词更新。配置兼容继承、仅阅读与检索、不使用工具三档，界面编辑会保留已有工具限制；后两档复用默认 explorer 的原生允许列表或空允许列表，不代表授权。工具发现沿用现有只读接线，仅返回原生限制后的子级目录；无工具档位也不安装工具发现。
+
+子级装配时通过原生 sessionQuery 与 foldSubagentDescriptor 读取 DSH 已持久化的 toolFilter。宿主工具和会话本地 stdio MCP 在重新注册及目录刷新前消费同一限制，避免作用域内重新注册绕过原生继承过滤。共享远端 MCP 仍由原生作用域过滤，不改写共享目录。此消费规则不增加批准、执行或恢复状态，也不改变普通主聊天的工具配置。
+
+主 Agent 根据模板目录选择通用 `subagent` 工具的精确 `template` 标识，不能同时用 `role` 覆盖该职责。模板职责经公开 persona 参数交给 DSH，本次任务单独经 prompt 传入；模型和工具允许列表仍经公开 agentOptions、toolFilter 传入。DSH 原生描述符持有创建时的实际配置，编辑或删除模板不改变已有实例和冷恢复记录。模板不得存储权限预设、批准结果、子会话标识、历史或凭据；原生停止、恢复、非交互审批和父级限制优先，不修改 alpha2 核心。
+
 全局 `config.subagentTemplates` 仅保存 explorer、browser 和通用职责的默认模型选择（未指定则由 DSH 在创建时继承父 Agent 的实际模型）。设置入口经已有 ACP config API 校验并保存，不存储子会话 id、历史或凭据，也不恢复旧五角色路由。explorer/browser 是两个按需实例化的默认模板，不预启动、不占用并发名额；其他职责经通用 `subagent.role` 声明，仅在当前主聊天中创建和继续。
 
 CodeBuddy 适配层把模板、职责、已配置模型转换成 DSH 公开 `SubagentService.startActivation` 的 persona、toolFilter 与 agentOptions；默认 explorer 收窄原生文件/命令工具，browser 使用当前已启用的浏览器/网页能力。宿主现有权限检查和能力停用边界保持优先。原生描述符持有实际 persona、模型、直系归属和历史，后续使用原生 send_message 继续，冷恢复不重新按新设置改写旧实例。主模型负责按语义选择职责与是否复用；不通过名称、关键词或月份作第二次宿主业务裁决。

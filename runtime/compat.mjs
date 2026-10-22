@@ -25,7 +25,7 @@ import {
 } from "./settings.mjs";
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
-import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels } from './subagent-templates.mjs';
+import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -777,6 +777,8 @@ export class Compat {
         });
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
+        (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
+      subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
       restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
@@ -1948,7 +1950,9 @@ export class Compat {
         const provider = this.provider(p.providerId);
         return {
           providerId: p.providerId,
-          models: await discover(provider, provider, { timeoutMs: 2000 }),
+          // Explicit picker loading uses the normal provider request budget;
+          // the shorter advisory metadata probe must not truncate a valid list.
+          models: await discover(provider, provider),
         };
       }
       case "providers/custom/discover-models":

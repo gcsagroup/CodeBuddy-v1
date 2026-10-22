@@ -4574,14 +4574,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Models and connections"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Context capacity"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Adjust model context limits when service information is unavailable."
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Image and video generation"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Configure the service used to generate images and videos."
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "In development"
@@ -4591,6 +4606,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Subagents"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Create reusable agents with a name, model and prompt."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Image understanding"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Use the main model first, with a backup when needed."
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
@@ -6953,6 +6980,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "Back to menu"
+  },
   "settingsView.title": {
     "defaultMessage": "Settings"
   },
@@ -7298,14 +7328,26 @@
   "subagentLifecycle.start": {
     "defaultMessage": "started working"
   },
+  "subagentTemplates.add": {
+    "defaultMessage": "Add subagent"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Changes apply to new subagents. Existing subagents keep their instructions, tools, model and history. Templates are shared across chats; conversation history is not."
   },
   "subagentTemplates.browser": {
     "defaultMessage": "browser · Web and browser research"
   },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Remove this template? Existing subagents and their history will remain."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Custom subagents"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Default subagents"
+  },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Use the default templates or save a custom responsibility. Subagents are created only when needed."
   },
   "subagentTemplates.error": {
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
@@ -7319,6 +7361,9 @@
   "subagentTemplates.inherit": {
     "defaultMessage": "Inherit the main agent model"
   },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Enter a unique name and a prompt."
+  },
   "subagentTemplates.loading": {
     "defaultMessage": "Loading settings…"
   },
@@ -7328,14 +7373,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "Name"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Prompt"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Describe its role, approach and expected output."
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Remove template"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Save subagent settings"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -7345,6 +7402,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "Saved connection unavailable"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "New subagent"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."

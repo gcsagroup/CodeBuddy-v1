@@ -8394,7 +8394,7 @@
     "defaultMessage": "子 Agent 模板与模型"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "按需使用两个默认模板；其他职责在当前聊天中创建并跨轮复用。"
+    "defaultMessage": "按需使用默认模板，也可以保存自定义职责。子 Agent 只在需要时创建。"
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · 项目探索"
@@ -8406,7 +8406,7 @@
     "defaultMessage": "其他聊天内职责"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "模型设置对新建子 Agent 生效，已有子 Agent 保留原模型和历史。不同聊天共用模板，不共享聊天上下文。"
+    "defaultMessage": "设置用于之后新建的子 Agent，已有实例保留原职责、工具、模型和历史。不同聊天共用模板，不共享聊天上下文。"
   },
   "subagentTemplates.provider": {
     "defaultMessage": "模型连接"
@@ -8430,7 +8430,7 @@
     "defaultMessage": "模型列表读取失败，可填写模型 ID 或重试。"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "保存子 Agent 模型"
+    "defaultMessage": "保存子 Agent 设置"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "已保存，对新建子 Agent 生效。"
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "当前选择不可用：{model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "模型与连接"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "上下文容量"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "服务信息缺失时，校正模型的上下文上限。"
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "图片与视频生成"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "配置生成图片和视频所用的服务。"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "子 Agent"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "设置名字、模型和提示词，创建可重复使用的子 Agent。"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "图像理解"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "优先使用主模型，必要时使用备用识图模型。"
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "返回菜单"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "添加子 Agent"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "移除此模板？已有子 Agent 及其历史会保留。"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "自定义子 Agent"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "默认子 Agent"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "请填写不重复的名称和提示词。"
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "名称"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "提示词"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "说明它负责什么、如何工作，以及输出要求。"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "移除模板"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "新子 Agent"
   }
 }

@@ -47,6 +47,8 @@ function abortable(promise, signal) {
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
 export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
+  // The alpha2 return contract above must load before the subagent module.
+  const { foldSubagentDescriptor } = await import('@deepseek-ai/dsh-subagent');
   const root = resolve(dataDir);
   await mkdir(root, { recursive: true });
   const configPath = join(root, 'codebuddy-host.json');
@@ -644,6 +646,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
     const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, initialPermissionPreset: _initialPreset, ...settings } = { ...previous, ...options };
+    let childFilter;
+    if (agent.session.header.origin === 'subagent') {
+      const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
+      try { childFilter = foldSubagentDescriptor(observation.events.slice(observation.inheritedEventCount))?.toolFilter; }
+      finally { observation[Symbol.dispose](); }
+    }
+    // Native restrictions mask inherited capabilities, while scope-local
+    // registrations are intentionally exempt. Reinstalled host/stdio tools
+    // must therefore consume the same recorded filter before registration.
+    const filters = childFilter ? [settings.toolFilter, childFilter].filter(Boolean) : [];
+    const allowLists = filters.flatMap(filter => filter.allow === undefined ? [] : [filter.allow]);
+    const registrationFilter = filters.length ? {
+      ...(allowLists.length ? { allow: allowLists.reduce((kept, list) => kept.filter(name => list.includes(name))) } : {}),
+      deny: [...new Set(filters.flatMap(filter => filter.deny ?? []))],
+    } : undefined;
     for (const field of ['maxTurns', 'maxTokens']) if (settings[field] !== undefined && (!Number.isSafeInteger(settings[field]) || settings[field] < 1)) throw new TypeError(`${field} must be a positive integer`);
     if (settings.temperature !== undefined && (!Number.isFinite(settings.temperature) || settings.temperature < 0 || settings.temperature > 2)) throw new TypeError('temperature must be between 0 and 2');
     if (settings.autoCompactThreshold !== undefined && (!Number.isFinite(settings.autoCompactThreshold) || settings.autoCompactThreshold <= 0 || settings.autoCompactThreshold >= 1)) throw new TypeError('autoCompactThreshold must be between 0 and 1');
@@ -669,6 +686,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
     }
+    const subagentTemplates = await Promise.all((settings.subagentTemplates ?? []).map(async template => ({
+      ...template,
+      model: !template.model || template.model.error ? template.model : await configureProvider(template.model.provider, template.model.model),
+    })));
     await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !names.has(server.serverName)).map(server => server.serverName));
     imageApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
@@ -690,6 +711,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           scoped.systemPrompt.section({ name: 'codebuddy:session-instructions', order: 100, text: settings.systemPrompt, interpolate: false });
         }
         for (const tool of settings.tools ?? []) {
+          if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
           scoped.tools.register({
             name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
             output: {
@@ -754,7 +776,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           mcpPresets.acquire(remoteServers).then(value => (shared = value)),
           Promise.all(mcpServers.filter(server => server.transport !== 'streamable-http').map(async server => {
           const started = performance.now();
-          const connection = scoped.plugin(mcpPlugin, { ...server, failOnStartupError: true });
+          const connection = scoped.plugin(mcpPlugin, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true });
           try {
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
@@ -778,10 +800,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
         connections.push(...statuses);
         if (agent.session.header.origin !== 'subagent') {
-          for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
+          for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, custom: subagentTemplates, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
         }
         if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
-        const discovery = installToolDiscovery(scoped, agent);
+        const discovery = childFilter?.allow?.length === 0 ? undefined : installToolDiscovery(scoped, agent);
         if (discovery) {
           readOnlyDefinitions.add(discovery);
           // Loading tool schemas is internal plumbing, not a project operation.

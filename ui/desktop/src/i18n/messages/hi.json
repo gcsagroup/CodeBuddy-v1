@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "डिफ़ॉल्ट टेम्पलेट इस्तेमाल करें या अपनी भूमिका सहेजें। उप-एजेंट केवल ज़रूरत पड़ने पर बनाए जाते हैं।"
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "बदलाव नए उप-एजेंट पर लागू होंगे। मौजूदा एजेंट के निर्देश, टूल, मॉडल और इतिहास सुरक्षित रहेंगे। चैट में टेम्पलेट साझा होते हैं, बातचीत का इतिहास नहीं।"
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "उप-एजेंट सेटिंग सहेजें"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "मॉडल और कनेक्शन"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "संदर्भ क्षमता"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "सेवा की जानकारी न होने पर मॉडल की संदर्भ सीमा समायोजित करें।"
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "छवि और वीडियो निर्माण"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "छवि और वीडियो बनाने की सेवा कॉन्फ़िगर करें।"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "उप-एजेंट"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "नाम, मॉडल और निर्देश के साथ पुनः उपयोग योग्य एजेंट बनाएं।"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "छवि की समझ"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "पहले मुख्य मॉडल का उपयोग करें, ज़रूरत पर बैकअप मॉडल लें।"
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "मेन्यू पर लौटें"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "उप-एजेंट जोड़ें"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "यह टेम्पलेट हटाएं? मौजूदा उप-एजेंट और उनका इतिहास बना रहेगा।"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "कस्टम उप-एजेंट"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "डिफ़ॉल्ट उप-एजेंट"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "एक अद्वितीय नाम और निर्देश दर्ज करें।"
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "नाम"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "निर्देश"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "इसकी भूमिका, काम करने का तरीका और अपेक्षित परिणाम बताएं।"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "टेम्पलेट हटाएँ"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "नया उप-एजेंट"
   }
 }

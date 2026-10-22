@@ -8262,7 +8262,7 @@
     "defaultMessage": "Subagent templates and models"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Используйте стандартные шаблоны или сохраните свою роль. Субагенты создаются только при необходимости."
   },
   "subagentTemplates.explorer": {
     "defaultMessage": "explorer · Workspace exploration"
@@ -8274,7 +8274,7 @@
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Изменения применяются к новым субагентам. Существующие сохраняют инструкции, инструменты, модель и историю. Между чатами общие только шаблоны, не история."
   },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
@@ -8298,7 +8298,7 @@
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Сохранить настройки субагентов"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -8725,5 +8725,65 @@
   },
   "codeProModels.visionUnavailableSelection": {
     "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Модели и подключения"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Объём контекста"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Настройте лимиты контекста, если сервис не предоставляет данные."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Генерация изображений и видео"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Настройте сервис для генерации изображений и видео."
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Субагенты"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Создавайте многоразовых агентов с именем, моделью и инструкциями."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Понимание изображений"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Сначала используйте основную модель, при необходимости — резервную."
+  },
+  "settingsMenu.back": {
+    "defaultMessage": "Вернуться в меню"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Добавить субагента"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Удалить этот шаблон? Существующие субагенты и их история сохранятся."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Пользовательские субагенты"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Стандартные субагенты"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Введите уникальное имя и инструкции."
+  },
+  "subagentTemplates.name": {
+    "defaultMessage": "Имя"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Инструкции"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Опишите роль, подход и ожидаемый результат."
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Удалить шаблон"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "Новый субагент"
   }
 }

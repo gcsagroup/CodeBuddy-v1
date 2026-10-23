@@ -8291,39 +8291,6 @@
   "subagentLimits.error": {
     "defaultMessage": "No se pudieron cargar o guardar los límites. La configuración guardada no cambió."
   },
-  "codeProModels.customVision": {
-    "defaultMessage": "Usar un modelo de imagen personalizado"
-  },
-  "codeProModels.visionDefault": {
-    "defaultMessage": "Predeterminado: {model}"
-  },
-  "codeProModels.visionDefaultUnavailable": {
-    "defaultMessage": "El modelo Flash predeterminado no está configurado. Elige un modelo de imagen personalizado."
-  },
-  "codeProModels.visionUnsupportedSelection": {
-    "defaultMessage": "No admite imágenes: {model}"
-  },
-  "subagentLimits.title": {
-    "defaultMessage": "Límites de ejecución"
-  },
-  "subagentLimits.depth": {
-    "defaultMessage": "Profundidad máxima de recursión"
-  },
-  "subagentLimits.parallel": {
-    "defaultMessage": "Máximo de subagentes en paralelo"
-  },
-  "subagentLimits.hint": {
-    "defaultMessage": "La profundidad 0 impide delegar; 1 permite subagentes directos. El límite paralelo cuenta los descendientes activos de un agente principal. Los cambios se aplican al preparar la siguiente tarea; no cancelan subagentes existentes."
-  },
-  "subagentLimits.save": {
-    "defaultMessage": "Guardar límites"
-  },
-  "subagentLimits.saved": {
-    "defaultMessage": "Guardado. Se aplica al preparar la siguiente tarea."
-  },
-  "subagentLimits.error": {
-    "defaultMessage": "No se pudieron cargar o guardar los límites. La configuración guardada no cambió."
-  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },

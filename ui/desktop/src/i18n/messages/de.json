@@ -8291,39 +8291,6 @@
   "subagentLimits.error": {
     "defaultMessage": "Grenzen konnten nicht geladen oder gespeichert werden. Die gespeicherte Konfiguration bleibt erhalten."
   },
-  "codeProModels.customVision": {
-    "defaultMessage": "Eigenes Bildmodell verwenden"
-  },
-  "codeProModels.visionDefault": {
-    "defaultMessage": "Standard: {model}"
-  },
-  "codeProModels.visionDefaultUnavailable": {
-    "defaultMessage": "Das Standardmodell Flash ist nicht konfiguriert. Wähle ein eigenes Bildmodell."
-  },
-  "codeProModels.visionUnsupportedSelection": {
-    "defaultMessage": "Keine Bildunterstützung: {model}"
-  },
-  "subagentLimits.title": {
-    "defaultMessage": "Laufzeitgrenzen"
-  },
-  "subagentLimits.depth": {
-    "defaultMessage": "Maximale Rekursionstiefe"
-  },
-  "subagentLimits.parallel": {
-    "defaultMessage": "Maximale parallele Unteragenten"
-  },
-  "subagentLimits.hint": {
-    "defaultMessage": "Tiefe 0 verhindert Delegation; 1 erlaubt direkte Unteragenten. Das Parallelitätslimit zählt aktive Nachfolger eines Hauptagenten. Änderungen gelten ab der Vorbereitung der nächsten Aufgabe; laufende Unteragenten werden nicht abgebrochen."
-  },
-  "subagentLimits.save": {
-    "defaultMessage": "Grenzen speichern"
-  },
-  "subagentLimits.saved": {
-    "defaultMessage": "Gespeichert. Gilt ab der Vorbereitung der nächsten Aufgabe."
-  },
-  "subagentLimits.error": {
-    "defaultMessage": "Grenzen konnten nicht geladen oder gespeichert werden. Die gespeicherte Konfiguration bleibt erhalten."
-  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },

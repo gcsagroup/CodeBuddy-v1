@@ -8291,39 +8291,6 @@
   "subagentLimits.error": {
     "defaultMessage": "सीमाएँ लोड या सहेजी नहीं जा सकीं। सहेजा गया कॉन्फ़िगरेशन नहीं बदला।"
   },
-  "codeProModels.customVision": {
-    "defaultMessage": "कस्टम इमेज मॉडल चुनें"
-  },
-  "codeProModels.visionDefault": {
-    "defaultMessage": "डिफ़ॉल्ट: {model}"
-  },
-  "codeProModels.visionDefaultUnavailable": {
-    "defaultMessage": "डिफ़ॉल्ट Flash मॉडल कॉन्फ़िगर नहीं है। कस्टम इमेज मॉडल चुनें।"
-  },
-  "codeProModels.visionUnsupportedSelection": {
-    "defaultMessage": "इमेज इनपुट समर्थित नहीं: {model}"
-  },
-  "subagentLimits.title": {
-    "defaultMessage": "रनटाइम सीमाएँ"
-  },
-  "subagentLimits.depth": {
-    "defaultMessage": "अधिकतम पुनरावर्तन गहराई"
-  },
-  "subagentLimits.parallel": {
-    "defaultMessage": "अधिकतम समानांतर सब-एजेंट"
-  },
-  "subagentLimits.hint": {
-    "defaultMessage": "गहराई 0 पर कार्य सौंपना बंद रहता है; 1 पर सीधे सब-एजेंट बन सकते हैं। समानांतर सीमा एक मुख्य एजेंट के सक्रिय वंशज गिनती है। बदलाव अगला कार्य तैयार करते समय लागू होंगे; मौजूदा सब-एजेंट रद्द नहीं होंगे।"
-  },
-  "subagentLimits.save": {
-    "defaultMessage": "सीमाएँ सहेजें"
-  },
-  "subagentLimits.saved": {
-    "defaultMessage": "सहेजा गया। अगला कार्य तैयार करते समय लागू होगा।"
-  },
-  "subagentLimits.error": {
-    "defaultMessage": "सीमाएँ लोड या सहेजी नहीं जा सकीं। सहेजा गया कॉन्फ़िगरेशन नहीं बदला।"
-  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },

@@ -8291,39 +8291,6 @@
   "subagentLimits.error": {
     "defaultMessage": "Impossible de charger ou d’enregistrer les limites. La configuration enregistrée reste inchangée."
   },
-  "codeProModels.customVision": {
-    "defaultMessage": "Utiliser un modèle d’image personnalisé"
-  },
-  "codeProModels.visionDefault": {
-    "defaultMessage": "Par défaut : {model}"
-  },
-  "codeProModels.visionDefaultUnavailable": {
-    "defaultMessage": "Le modèle Flash par défaut n’est pas configuré. Choisissez un modèle d’image personnalisé."
-  },
-  "codeProModels.visionUnsupportedSelection": {
-    "defaultMessage": "Images non prises en charge : {model}"
-  },
-  "subagentLimits.title": {
-    "defaultMessage": "Limites d’exécution"
-  },
-  "subagentLimits.depth": {
-    "defaultMessage": "Profondeur maximale de récursion"
-  },
-  "subagentLimits.parallel": {
-    "defaultMessage": "Nombre maximal de sous-agents en parallèle"
-  },
-  "subagentLimits.hint": {
-    "defaultMessage": "La profondeur 0 empêche la délégation ; 1 autorise les sous-agents directs. La limite parallèle compte les descendants actifs d’un agent principal. Les changements s’appliquent à la préparation de la prochaine tâche, sans annuler les sous-agents existants."
-  },
-  "subagentLimits.save": {
-    "defaultMessage": "Enregistrer les limites"
-  },
-  "subagentLimits.saved": {
-    "defaultMessage": "Enregistré. S’applique à la préparation de la prochaine tâche."
-  },
-  "subagentLimits.error": {
-    "defaultMessage": "Impossible de charger ou d’enregistrer les limites. La configuration enregistrée reste inchangée."
-  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },

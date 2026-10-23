@@ -8400,7 +8400,7 @@
     "defaultMessage": "explorer · 项目探索"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · 网页与浏览器研究"
+    "defaultMessage": "搜索资料"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "其他聊天内职责"

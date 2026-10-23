@@ -7335,7 +7335,7 @@
     "defaultMessage": "Changes apply to new subagents. Existing subagents keep their instructions, tools, model and history. Templates are shared across chats; conversation history is not."
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Search sources"
   },
   "subagentTemplates.confirmRemove": {
     "defaultMessage": "Remove this template? Existing subagents and their history will remain."

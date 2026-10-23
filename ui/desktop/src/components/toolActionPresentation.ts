@@ -45,6 +45,7 @@ const messages = defineMessages({
   searchContents: { id: 'toolAction.searchContents', defaultMessage: 'Search file contents' },
   readImage: { id: 'toolAction.readImage', defaultMessage: 'View an image' },
   createAgent: { id: 'toolAction.createAgent', defaultMessage: 'Create a subagent' },
+  sourceResearch: { id: 'subagentTemplates.browser', defaultMessage: 'Search sources' },
   messageAgent: { id: 'toolAction.messageAgent', defaultMessage: 'Send a message to a subagent' },
   listAgents: { id: 'toolAction.listAgents', defaultMessage: 'Check subagent progress' },
   skill: { id: 'toolAction.skill', defaultMessage: 'Load task instructions' },
@@ -107,6 +108,11 @@ const messages = defineMessages({
     defaultMessage: 'Completed {count, plural, one {# operation} other {# operations}}',
   },
 });
+
+// Localize the reserved built-in label without changing persisted child identity.
+export function formatSubagentLabel(intl: IntlShape, label: string): string {
+  return label === 'browser' ? intl.formatMessage(messages.sourceResearch) : label;
+}
 
 // Presentation only: these operations manage requirements/evidence, not user artifacts.
 // Unknown operations retain ordinary tool status instead of being silently grouped here.
@@ -194,6 +200,9 @@ export function formatToolAction(
     if (typeof path === 'string') target = path.split(/[\\/]/).filter(Boolean).pop() ?? '';
   };
   switch (name) {
+    case 'subagent_browser':
+      action = 'sourceResearch';
+      break;
     case 'task_contract':
       action =
         args.operation === 'inspect'

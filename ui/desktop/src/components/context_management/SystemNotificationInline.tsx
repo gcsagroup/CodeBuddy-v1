@@ -4,6 +4,7 @@ import { parseSubagentLifecycle } from '../../types/subagentLifecycle';
 import { SubagentAvatar } from '../SubagentAvatar';
 import { openSubagentConversation } from '../../workspace-panel/subagentPanel';
 import { defineMessages, useIntl } from '../../i18n';
+import { formatSubagentLabel } from '../toolActionPresentation';
 
 const m = defineMessages({
   start: { id: 'subagentLifecycle.start', defaultMessage: 'started working' },
@@ -28,13 +29,13 @@ export const SystemNotificationInline: React.FC<SystemNotificationInlineProps> =
           openSubagentConversation({
             parentSessionId: lifecycle.session_id,
             childSessionId: lifecycle.child_session_id,
-            title: lifecycle.label,
+            title: formatSubagentLabel(intl, lifecycle.label),
           })
         }
       >
         <SubagentAvatar sessionId={lifecycle.child_session_id} small />
         <span className="min-w-0 break-words">
-          {lifecycle.label} {intl.formatMessage(m[lifecycle.phase])}
+          {formatSubagentLabel(intl, lifecycle.label)} {intl.formatMessage(m[lifecycle.phase])}
         </span>
       </button>
     );

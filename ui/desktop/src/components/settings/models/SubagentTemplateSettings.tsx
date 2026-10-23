@@ -43,7 +43,7 @@ const messages = defineMessages({
   },
   browser: {
     id: 'subagentTemplates.browser',
-    defaultMessage: 'browser · Web and browser research',
+    defaultMessage: 'Search sources',
   },
   generic: { id: 'subagentTemplates.generic', defaultMessage: 'Other chat-local responsibilities' },
   boundary: {

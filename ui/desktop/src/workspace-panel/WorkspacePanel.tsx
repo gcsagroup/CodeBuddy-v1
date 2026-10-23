@@ -33,6 +33,7 @@ import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
 import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
+import { formatSubagentLabel } from '../components/toolActionPresentation';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
@@ -858,7 +859,13 @@ export function WorkspacePanelContent({
                 role="tab"
                 aria-selected={t.id === state.active}
                 className="wb-tab-label"
-                title={t.kind === 'file' ? t.document.path : t.title}
+                title={
+                  t.kind === 'file'
+                    ? t.document.path
+                    : t.kind === 'subagent'
+                      ? formatSubagentLabel(intl, t.title)
+                      : t.title
+                }
                 onClick={() => activate(t.id)}
               >
                 {t.kind === 'change' ? (
@@ -872,12 +879,14 @@ export function WorkspacePanelContent({
                 ) : (
                   <Globe size={13} />
                 )}
-                <span className="truncate">{t.title}</span>
+                <span className="truncate">
+                  {t.kind === 'subagent' ? formatSubagentLabel(intl, t.title) : t.title}
+                </span>
                 {t.kind === 'file' && t.draft !== t.document.content ? ' ●' : ''}
               </button>
               <button
                 className="wb-tab-close"
-                aria-label={`${intl.formatMessage(m.close)} ${t.title}`}
+                aria-label={`${intl.formatMessage(m.close)} ${t.kind === 'subagent' ? formatSubagentLabel(intl, t.title) : t.title}`}
                 onClick={() => void close(t)}
               >
                 <X size={12} />
@@ -1191,7 +1200,7 @@ export function WorkspacePanelContent({
               key={selected.id}
               parentSessionId={selected.parentSessionId}
               childSessionId={selected.childSessionId}
-              title={selected.title}
+              title={formatSubagentLabel(intl, selected.title)}
               ancestorSessionIds={selected.ancestorSessionIds}
             />
           ) : selected?.kind === 'terminal' ? (

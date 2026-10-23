@@ -230,10 +230,13 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
       throw invalid('Playwright socket directory must be private and owned by the current user');
     env.PWTEST_SOCKETS_DIR = sockets;
   }
-  if (extension.name === 'playwright_user') {
-    // The official extension discovers installed profiles. Do not redirect these
-    // lookup roots to the isolated tool home; no profile is copied or read here.
-    const profileKeys = new Set(['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'XDG_CONFIG_HOME']);
+  if (extension.name === 'playwright_user' || (entry.artifact === 'playwright' && process.platform === 'win32')) {
+    // Installed Windows browsers need the real OS lookup roots even with an
+    // isolated user-data directory. Redirecting them can make Edge fail before
+    // startup. Playwright's --isolated owns browser profile isolation instead.
+    // Extension mode also needs XDG_CONFIG_HOME to discover installed profiles.
+    const profileKeys = new Set(['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA']);
+    if (extension.name === 'playwright_user') profileKeys.add('XDG_CONFIG_HOME');
     for (const key of Object.keys(env)) if (profileKeys.has(key.toUpperCase())) delete env[key];
   }
   return {

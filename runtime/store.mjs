@@ -46,8 +46,13 @@ export async function openStore(dataDir, { replaceFile = rename, onTiming } = {}
         Object.fromEntries(sessionFields.map(key => [key, session[key]]))) };
       return snapshot(selected, keys);
     },
-    // Select before cloning: one active chat must not copy every saved transcript.
-    readSession: (id) => snapshot(state.sessions.find(session => session.id === id), ['sessions']),
+    // Identity checks select their fields before cloning, while history readers
+    // keep the complete detached snapshot and the same committed-state boundary.
+    readSession: (id, { fields } = {}) => {
+      const session = state.sessions.find(session => session.id === id);
+      return snapshot(session === undefined || fields === undefined ? session
+        : Object.fromEntries(fields.map(key => [key, session[key]])), ['sessions']);
+    },
     update(fn, keys) {
       const queuedAt = Date.now(), queued = performance.now();
       // A scoped draft never exposes unchanged history to its writer. All

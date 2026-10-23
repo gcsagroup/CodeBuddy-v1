@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 export function createConversationDriver(driver, store) {
   const busy = new Map();
   const waitingPrompts = new Set();
-  const nativeId = id => (store.readSession ? store.readSession(id) : store.read(['sessions']).sessions.find(s => s.id === id))?.nativeSessionId ?? id;
+  const nativeId = id => (store.readSession ? store.readSession(id, { fields: ['nativeSessionId'] }) : store.read(['sessions']).sessions.find(s => s.id === id))?.nativeSessionId ?? id;
   const project = (value, actual, product) => {
     if (!value || typeof value !== 'object') return value;
     const mapped = { ...value };

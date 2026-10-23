@@ -8,18 +8,31 @@ import { openStore } from '../store.mjs';
 test('single-session snapshots stay detached and observe only committed changes and deletion', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-session-snapshot-'));
   const store = await openStore(root);
-  await store.update(s => { s.sessions = [{ id: 'current', updates: [{ text: 'saved' }] }, { id: 'other', updates: [{ text: 'unrelated' }] }]; });
+  await store.update(s => { s.sessions = [{ id: 'current', nativeSessionId: 'native-old', binding: { cwd: 'saved' }, updates: [{ text: 'saved' }] }, { id: 'other', updates: [{ text: 'unrelated' }] }]; });
   const snapshot = store.readSession('current');
   snapshot.updates[0].text = 'outside mutation';
   assert.equal(store.readSession('current').updates[0].text, 'saved');
+  const fields = { fields: ['id', 'nativeSessionId', 'binding'] };
+  const projected = store.readSession('current', fields);
+  assert.deepEqual(Object.keys(projected), fields.fields, 'Identity checks must exclude transcript payloads');
+  projected.binding.cwd = 'outside mutation';
+  assert.equal(store.readSession('current', fields).binding.cwd, 'saved');
+  assert.deepEqual(store.readSession('current', { fields: [] }), {});
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
-  const write = store.update(async s => { s.sessions[0].updates[0].text = 'committed'; entered.resolve(); await release.promise; });
+  const write = store.update(async s => {
+    s.sessions[0].updates[0].text = 'committed'; s.sessions[0].nativeSessionId = 'native-new';
+    entered.resolve(); await release.promise;
+  });
   await entered.promise;
   assert.equal(store.readSession('current').updates[0].text, 'saved');
+  assert.equal(store.readSession('current', fields).nativeSessionId, 'native-old');
   release.resolve(); await write;
   assert.equal(store.readSession('current').updates[0].text, 'committed');
+  assert.equal(store.readSession('current', fields).nativeSessionId, 'native-new');
   await store.update(s => { s.sessions = s.sessions.filter(row => row.id !== 'current'); });
   assert.equal(store.readSession('current'), undefined);
+  assert.equal(store.readSession('current', fields), undefined);
+  assert.equal(store.readSession('current', { fields: [] }), undefined);
   assert.equal(store.readSession('other').updates[0].text, 'unrelated');
 });
 

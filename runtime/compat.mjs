@@ -582,9 +582,9 @@ export class Compat {
     this.workspaces.disconnect(connection).catch(() => {});
     this.library?.disconnect?.(connection);
   }
-  session(id) {
+  session(id, options) {
     const s = this.store.readSession
-      ? this.store.readSession(id)
+      ? this.store.readSession(id, options)
       : this.store.read(["sessions"]).sessions.find((s) => s.id === id);
     if (!s) throw invalid("Session not found");
     return s;
@@ -1573,9 +1573,9 @@ export class Compat {
     if (!method.startsWith(prefix)) throw unsupported(method);
     const name = method.slice(prefix.length);
     if (name === "subagent/conversation/get")
-      return readSubagentConversation(this.session(p.sessionId), p, this.driver);
+      return readSubagentConversation(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (name === "subagent/catalog/list")
-      return listSubagentCatalog(this.session(p.sessionId), p, this.driver);
+      return listSubagentCatalog(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
     if (this.schedules?.handles(method))

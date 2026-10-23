@@ -31,7 +31,7 @@ test.afterAll(async () => {
 
 for (const [locale, labels] of Object.entries({
   'zh-CN': [
-    '正在处理你的请求',
+    '等待模型服务返回',
     '正在思考',
     '正在撰写回复',
     '正在整理工具结果',
@@ -39,7 +39,7 @@ for (const [locale, labels] of Object.entries({
     '正在停止当前操作',
   ],
   'zh-TW': [
-    '正在處理你的請求',
+    '等待模型服務回應',
     '正在思考',
     '正在撰寫回覆',
     '正在整理工具結果',
@@ -47,7 +47,7 @@ for (const [locale, labels] of Object.entries({
     '正在停止目前操作',
   ],
   en: [
-    'Working on your request',
+    'Waiting for the model service',
     'Thinking',
     'Writing a response',
     'Reviewing the tool results',
@@ -76,6 +76,9 @@ for (const [locale, labels] of Object.entries({
       await page.getByRole('button', { name: 'reconnect', exact: true }).click();
       await expect(status).toHaveText('连接发生错误；正在重新连接（1/5）');
       await page.getByRole('button', { name: 'waiting', exact: true }).click();
+      await page.clock.install();
+      await page.clock.fastForward(206000);
+      await expect(page.getByTestId('wait-hint')).toBeVisible();
       await page.screenshot({ path: test.info().outputPath('work-status.png') });
     } finally {
       await page.close();

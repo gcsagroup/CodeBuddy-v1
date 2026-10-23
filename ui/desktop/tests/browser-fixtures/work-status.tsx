@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IntlProvider } from 'react-intl';
 import { useWorkStatus } from '../../src/components/codepro/useWorkStatus';
+import LoadingGoose from '../../src/components/LoadingGoose';
+import '../../src/styles/main.css';
 import { ChatState } from '../../src/types/chatState';
 import { loadMessages } from '../../src/i18n';
 
@@ -46,9 +48,14 @@ function Fixture() {
   return (
     <main style={{ fontFamily: 'system-ui', padding: 40 }}>
       <h1>CodeBuddy · 进度文案验收</h1>
-      <p role="status" style={{ padding: 20, background: '#f6f7f9', borderRadius: 12 }}>
-        {status.message}
-      </p>
+      <div style={{ maxWidth: 720, padding: 20, background: '#f6f7f9', borderRadius: 12 }}>
+        <LoadingGoose
+          chatState={ChatState.Streaming}
+          message={status.message}
+          announcement={status.announcement}
+          hint={status.hint}
+        />
+      </div>
       <nav>
         {modes.map((value) => (
           <button

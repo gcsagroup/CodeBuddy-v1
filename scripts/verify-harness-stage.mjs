@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 
 const stage = path.resolve(process.argv[2]);
+await assert.rejects(access(path.join(stage, 'runtime/distribution-credentials.json')), { code: 'ENOENT' });
 // A signed .app must remain immutable during post-sign verification.
 const evidence = await mkdtemp(path.join(process.argv[3] ? path.resolve(process.argv[3]) : path.dirname(stage), 'service-check-'));
 const { createCompatServer } = await import(pathToFileURL(path.join(stage, 'runtime/server.mjs')));

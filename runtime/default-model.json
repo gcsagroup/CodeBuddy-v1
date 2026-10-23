@@ -3,38 +3,5 @@
   "baseUrl": "http://192.168.9.101:8001",
   "modelId": "gemma-4-26B-A4B-it-uncensored-FP8-W8A16",
   "contextWindow": 65536,
-  "imageInput": true,
-  "additionalProviders": [
-    {
-      "providerId": "custom_codebuddy_ollama",
-      "displayName": "ollama",
-      "engine": "openai_compatible",
-      "baseUrl": "https://ollama.com",
-      "requiresAuth": true,
-      "models": [
-        "kimi-k2.6",
-        "kimi-k3",
-        "minimax-m3.1-flash",
-        "gemma4:31b",
-        "gpt-oss:120b",
-        "nemotron-3-super",
-        "deepseek-v4.1-flash:1017",
-        "glm-5.3",
-        "minimax-m2.7",
-        "beam",
-        "muse-spark-open",
-        "glm-5.3-flash",
-        "kimi-k2.7-code",
-        "nemotron-3-nano:30b",
-        "minimax-m3",
-        "nemotron-3-ultra",
-        "deepseek-v4-pro:0813",
-        "deepseek-v4.1-flash",
-        "gpt-oss:20b",
-        "mistral-large-3:675b",
-        "mistral-large-4",
-        "glm-5.2"
-      ]
-    }
-  ]
+  "imageInput": true
 }

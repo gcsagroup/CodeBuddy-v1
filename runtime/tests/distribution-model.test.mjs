@@ -11,7 +11,7 @@ import { RuntimeSettings } from '../settings.mjs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { revealSecret } from '../secrets.mjs';
+const metadataModel = { ...defaultModel, additionalProviders: [{ providerId: 'custom_example', displayName: 'Example Cloud', engine: 'openai_compatible', baseUrl: 'https://example.com', requiresAuth: true, models: ['example-model'] }] };
 
 test('preview CLI seeds the same main and vision defaults as the installed desktop', { timeout: 30_000 }, async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'codebuddy-cli-default-model-'));
@@ -36,12 +36,8 @@ test('preview CLI seeds the same main and vision defaults as the installed deskt
   assert.equal(state.providers[0].apiUrl, defaultModel.baseUrl);
   assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'auto', ...state.defaults });
   assert.equal(state.modelCapabilities.overrides[0].imageInput, 'force_supported');
-  assert.equal(state.providers[1].apiUrl, 'https://ollama.com');
-  const bundled = await readFile(new URL('../distribution-credentials.json', import.meta.url), 'utf8').catch(error => {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  });
-  assert.equal(Boolean(state.providers[1].secret), Boolean(bundled));
+  assert.equal(state.providers.length, 1);
+  assert.equal(state.providers[0].secret, null);
 });
 
 async function fixture(t) {
@@ -54,6 +50,8 @@ test('fresh installed profile exposes the LAN model to the existing provider pip
   const dir = await fixture(t);
   const store = await openStore(dir, { defaultModel });
   const { defaults, providers } = store.read();
+  assert.equal(providers.length, 1);
+  assert.equal(providers[0].secret, null);
   assert.deepEqual(defaults, { providerId: defaultModel.providerId, modelId: defaultModel.modelId });
   assert.equal(providers[0].apiUrl, 'http://192.168.9.101:8001');
   assert.equal(providers[0].contextWindows[defaults.modelId], 65536);
@@ -86,68 +84,32 @@ test('restart preserves custom models and deliberate removal of the bundled prov
   assert.deepEqual((await openStore(dir, { defaultModel })).read().providers, []);
 });
 
-test('metadata-only distributions offer the Ollama cloud catalogue without credentials', async t => {
-  const store = await openStore(await fixture(t), { defaultModel, distributionCredentialsFile: null });
-  const { providers, defaults } = store.read();
-  assert.equal(providers.length, 2);
-  const cloud = providers.find(provider => provider.id === 'custom_codebuddy_ollama');
-  assert.equal(cloud.displayName, 'ollama');
-  assert.equal(cloud.engine, 'openai_compatible');
-  assert.equal(cloud.apiUrl, 'https://ollama.com');
-  assert.equal(cloud.requiresAuth, true);
-  assert.ok(cloud.models.includes('kimi-k3'));
-  assert.ok(cloud.models.includes('gemma4:31b'));
-  assert.deepEqual(cloud.models, defaultModel.additionalProviders[0].models);
-  assert.equal(providerStatus(cloud).isConfigured, false);
-  assert.equal(cloud.secret, null);
-  assert.equal(cloud.headersProtected, null);
-  assert.equal(defaults.providerId, 'custom_codebuddy_lan');
-  await store.update(state => {
-    state.providers[1].secret = { kind: 'fixture-only', value: 'local-encrypted-fixture' };
-    state.defaults = { providerId: cloud.id, modelId: 'kimi-k3' };
-  });
-  assert.deepEqual((await openStore(store.directory, { defaultModel })).read(), store.read());
-});
-
-test('approved shared cloud credentials are usable on first launch and protected in user state', async t => {
+test('legacy distribution credentials are ignored and never imported into new profiles', async t => {
   const dir = await fixture(t);
   const credentialFile = path.join(dir, 'distribution.json');
-  const key = 'isolated-shared-cloud-fixture';
-  const payload = { version: 1, providers: [{ providerId: 'custom_codebuddy_ollama', baseUrl: 'https://ollama.com', apiKey: key }] };
-  await writeFile(credentialFile, JSON.stringify(payload));
-  const store = await openStore(path.join(dir, 'profile'), { defaultModel, distributionCredentialsFile: credentialFile });
+  const key = 'isolated-legacy-key-fixture';
+  await writeFile(credentialFile, JSON.stringify({ version: 1, providers: [{ providerId: 'custom_example', baseUrl: 'https://example.com', apiKey: key }] }));
+  const store = await openStore(path.join(dir, 'profile'), { defaultModel: metadataModel, distributionCredentialsFile: credentialFile });
   const cloud = store.read().providers[1];
-  assert.equal(providerStatus(cloud).isConfigured, true);
-  assert.equal(await revealSecret(cloud.secret), key);
-  assert.equal(cloud.apiKey, undefined);
-  assert.equal(store.read().defaults.providerId, 'custom_codebuddy_lan');
+  assert.equal(cloud.secret, null);
+  assert.equal(providerStatus(cloud).isConfigured, false);
   await store.update(() => {});
   assert.equal((await readFile(path.join(store.directory, 'state.json'), 'utf8')).includes(key), false);
-  const original = store.read();
-  await writeFile(credentialFile, '{broken');
-  assert.deepEqual((await openStore(store.directory, { defaultModel, distributionCredentialsFile: credentialFile })).read(), original);
-  await store.update(state => { state.providers = []; });
-  assert.deepEqual((await openStore(store.directory, { defaultModel, distributionCredentialsFile: credentialFile })).read().providers, []);
 });
 
-test('shared credentials reject mismatched endpoints, duplicate providers and invalid payloads without leaking keys', async t => {
+test('upgrades preserve user-owned cloud configuration and credentials', async t => {
   const dir = await fixture(t);
-  const credentialFile = path.join(dir, 'distribution.json');
-  const entry = { providerId: 'custom_codebuddy_ollama', baseUrl: 'https://ollama.com', apiKey: 'must-not-appear-in-errors' };
-  for (const payload of [null, {}, { version: 1, providers: [entry, entry] },
-    ...[{ baseUrl: 'https://other.example' }, { providerId: 'custom_unknown' }, { apiKey: '' }].map(override => ({ version: 1, providers: [{ ...entry, ...override }] })),
-  ]) {
-    await writeFile(credentialFile, JSON.stringify(payload));
-    await assert.rejects(openStore(path.join(dir, 'profile'), { defaultModel, distributionCredentialsFile: credentialFile }), error => {
-      assert.equal(error.message.includes(entry.apiKey), false);
-      return /distribution credential/i.test(error.message);
-    });
-  }
+  const store = await openStore(dir, { defaultModel });
+  await store.update(state => {
+    state.providers.push({ id: 'custom_codebuddy_ollama', models: ['user-model'], secret: { kind: 'fixture-only', value: 'protected-user-credential' } });
+    state.defaults = { providerId: 'custom_codebuddy_ollama', modelId: 'user-model' };
+  });
+  assert.deepEqual((await openStore(dir, { defaultModel })).read(), store.read());
 });
 
 test('distribution cloud presets reject duplicate providers, invalid endpoints and embedded secrets', async t => {
   const dir = await fixture(t);
-  const preset = defaultModel.additionalProviders[0];
+  const preset = metadataModel.additionalProviders[0];
   for (const override of [
     { providerId: defaultModel.providerId }, { baseUrl: 'file:///tmp/cloud' },
     { baseUrl: 'https://user:password@ollama.com' }, { baseUrl: 'https://ollama.com?token=fixture' },
@@ -186,6 +148,6 @@ test('desktop server startup persists the preset without calling the model', asy
     assert.equal(status.status, 200);
     const state = JSON.parse(await readFile(path.join(dir, 'state.json'), 'utf8'));
     assert.equal(state.defaults.modelId, defaultModel.modelId);
-    assert.equal(state.providers.length, 2);
+    assert.equal(state.providers.length, 1);
   } finally { await server.close(); }
 });

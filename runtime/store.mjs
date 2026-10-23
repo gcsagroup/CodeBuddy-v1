@@ -2,11 +2,8 @@ import { mkdir, readFile, writeFile, rename, unlink } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { protectSecret } from './secrets.mjs';
 
-export async function openStore(dataDir, { replaceFile = rename, defaultModel,
-  distributionCredentialsFile = new URL('./distribution-credentials.json', import.meta.url),
-} = {}) {
+export async function openStore(dataDir, { replaceFile = rename, defaultModel } = {}) {
   await mkdir(dataDir, { recursive: true });
   const file = path.join(dataDir, "state.json");
   let state;
@@ -58,39 +55,13 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel,
         const endpoint = new URL(preset.baseUrl);
         if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash)
           throw Error('Invalid distribution provider endpoint');
-        // Public presets contain metadata only; an explicitly supplied local
-        // distribution credential payload is imported below on first launch.
+        // Distribution presets contain metadata only; credentials are user-owned.
         state.providers.push({
           id: preset.providerId, engine: preset.engine, displayName: preset.displayName,
           apiUrl: preset.baseUrl, basePath: null, requiresAuth: preset.requiresAuth,
           models: [...preset.models], supportsStreaming: true, preservesThinking: true,
           catalogProviderId: null, secret: null, headersProtected: null,
         });
-      }
-      if (distributionCredentialsFile) {
-        let credentials;
-        try {
-          const text = await readFile(distributionCredentialsFile, 'utf8');
-          try { credentials = JSON.parse(text); }
-          catch { throw Error('Invalid distribution credential payload'); }
-        } catch (error) { if (error.code !== 'ENOENT') throw error; }
-        if (credentials !== undefined) {
-          if (credentials?.version !== 1 || !Array.isArray(credentials.providers))
-            throw Error('Invalid distribution credential payload');
-          const seen = new Set();
-          for (const entry of credentials.providers) {
-            const provider = state.providers.find(item => item.id === entry?.providerId);
-            if (!provider || !provider.requiresAuth || seen.has(provider.id) ||
-                provider.apiUrl !== entry.baseUrl || !provider.apiUrl.startsWith('https://') ||
-                typeof entry.apiKey !== 'string' || !entry.apiKey.trim())
-              throw Error('Distribution credential does not match a secure preset');
-            seen.add(provider.id);
-          }
-          for (const entry of credentials.providers) {
-            const provider = state.providers.find(item => item.id === entry.providerId);
-            provider.secret = await protectSecret(entry.apiKey);
-          }
-        }
       }
       state.defaults = { providerId: defaultModel.providerId, modelId: defaultModel.modelId };
       state.modelRouting = {

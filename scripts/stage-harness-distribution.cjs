@@ -17,6 +17,20 @@ function assertOfficeTarget(manifest, platform = process.platform, arch = proces
     throw new Error(`Office payload ${manifest.platform}/${manifest.arch} does not match ${platform}/${arch}`);
 }
 
+async function copyRuntimeSources(runtime, destination) {
+  await fs.mkdir(destination, { recursive: true });
+  for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
+    // Legacy local distribution keys must never be shipped, even if left on disk.
+    if (entry.name === 'distribution-credentials.json') continue;
+    if (entry.isFile() && /\.(mjs|cjs|json)$/.test(entry.name) || entry.name === 'assets') {
+      await fs.cp(path.join(runtime, entry.name), path.join(destination, entry.name), {
+        recursive: true, dereference: true,
+        filter: file => !['.bin', '.cache', '.DS_Store'].includes(path.basename(file)),
+      });
+    }
+  }
+}
+
 async function stageHarness(repoRoot, destination, options = {}) {
   const target = distributionTarget();
   if (Number(process.versions.node.split('.')[0]) < 24)
@@ -49,11 +63,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await copy(path.join(runtime, 'py'), path.join(destination, 'runtime/py'));
   await copy(path.join(runtime, 'office'), path.join(destination, 'runtime/office'));
   await copy(nodeLicense, path.join(destination, 'node/LICENSE'));
-  for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
-    if (entry.isFile() && /\.(mjs|cjs|json)$/.test(entry.name) || entry.name === 'assets') {
-      await copy(path.join(runtime, entry.name), path.join(destination, 'runtime', entry.name));
-    }
-  }
+  await copyRuntimeSources(runtime, path.join(destination, 'runtime'));
   const harness = path.join(runtime, 'harness');
   const harnessEntries = await fs.readdir(harness, { withFileTypes: true });
   for (const entry of harnessEntries) {
@@ -142,7 +152,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await fs.writeFile(path.join(destination, 'manifest.json'), JSON.stringify({ schemaVersion: 1, engine: 'deepseek-harness', nodeVersion: process.versions.node, createdAt: new Date().toISOString(), sourceDigest, runtimeDependencies: [...roots].sort(), adapterDependencies, files }, null, 2));
   return { destination, sourceDigest, files: files.length };
 }
-module.exports = { stageHarness, distributionTarget, assertOfficeTarget };
+module.exports = { stageHarness, distributionTarget, assertOfficeTarget, copyRuntimeSources };
 if (require.main === module) {
   stageHarness(path.resolve(__dirname, '..'), path.resolve(process.argv[2])).then(result => console.log(JSON.stringify(result))).catch(error => { console.error(error); process.exitCode = 1; });
 }

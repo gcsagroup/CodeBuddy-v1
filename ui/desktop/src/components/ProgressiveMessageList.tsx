@@ -167,9 +167,12 @@ export default function ProgressiveMessageList(props: ProgressiveMessageListProp
 
 function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) => void }) {
   const target = useRef<HTMLDivElement>(null);
+  const following = useContext(ScrollFollowingContext);
   useEffect(() => {
     const element = target.current;
-    if (!element || typeof IntersectionObserver === 'undefined') return;
+    // Initial layout and tail following can expose the sentinel before the
+    // viewport reaches the bottom. Only a reader leaving the tail loads history.
+    if (following || !element || typeof IntersectionObserver === 'undefined') return;
     let requested = false;
     const observer = new IntersectionObserver((entries) => {
       if (!requested && entries.some((entry) => entry.isIntersecting)) {
@@ -179,7 +182,7 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [onLoad]);
+  }, [onLoad, following]);
   return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
 }
 
@@ -266,7 +269,9 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           )
         )
           return [];
-        return content.length ? [{ ...message, content }] : [];
+        return content.length
+          ? [content.length === message.content.length ? message : { ...message, content }]
+          : [];
       });
       return presented.filter(
         (message) =>
@@ -843,7 +848,9 @@ function ProgressiveMessageListContent({
         }
         if (message.content.length === 0) return null;
         const terminal = getTurnTerminalRecord(message);
-        const receiptOnly = message.content.every((content) => content.type === 'systemNotification');
+        const receiptOnly = message.content.every(
+          (content) => content.type === 'systemNotification'
+        );
         // The local cancellation anchor is not a native stop confirmation.
         if (cancelling && terminal?.status === 'cancelled' && receiptOnly) return null;
         const plainStopReceipt =

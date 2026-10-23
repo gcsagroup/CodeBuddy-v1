@@ -5,6 +5,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
 import { remarkStreamReveal } from './remarkStreamReveal';
 import { rehypeIncomingText } from './rehypeIncomingText';
+import { StreamingMarkdownBlocks } from './streamingMarkdown';
 import './ui/stream-prose.css';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
@@ -157,6 +158,7 @@ const CodeBlock = memo(function CodeBlock({
 }) {
   const intl = useIntl();
   const [copied, setCopied] = useState(false);
+  const streaming = React.useContext(StreamingCodeContext);
   const timeoutRef = useRef<number | null>(null);
 
   const handleCopy = async () => {
@@ -185,12 +187,24 @@ const CodeBlock = memo(function CodeBlock({
   // Memoize the SyntaxHighlighter component to prevent re-rendering
   // Only re-render if language or children change
   const memoizedSyntaxHighlighter = useMemo(() => {
-    // For very large code blocks, consider truncating or lazy loading
-    const isLargeCodeBlock = children.length > 10000; // 10KB threshold
-
-    if (isLargeCodeBlock) {
-      console.log(`Large code block detected (${children.length} chars), consider optimization`);
-    }
+    // Keep all source and copy behavior available. Re-highlighting thousands of
+    // changing tokens blocks input; large live fences settle into the same
+    // syntax renderer once this message finishes.
+    if (streaming && children.length > 10000)
+      return (
+        <pre
+          style={{
+            margin: 0,
+            padding: '1em',
+            background: '#282c34',
+            color: '#e6e6e6',
+            fontSize: 'var(--conversation-code-size, 14px)',
+            lineHeight: 1.6,
+          }}
+        >
+          <code>{children}</code>
+        </pre>
+      );
 
     return (
       <SyntaxHighlighter
@@ -221,7 +235,7 @@ const CodeBlock = memo(function CodeBlock({
         {children}
       </SyntaxHighlighter>
     );
-  }, [language, children]);
+  }, [language, children, streaming]);
 
   return (
     <div className="relative group w-full">
@@ -378,40 +392,52 @@ const MarkdownContent = memo(function MarkdownContent({
     [sessionId, previewLabel]
   );
 
-  const renderMarkdown = (markdown: string, key: string) => (
-    <ReactMarkdown
-      key={key}
-      urlTransform={(url) => (sessionId && workspaceLinkPath(url) ? url : customUrlTransform(url))}
-      remarkPlugins={[
-        [remarkGfm, { singleTilde: false }],
-        [remarkMath, { singleDollarTextMath: false }],
-        ...(revealAt !== undefined && canRevealTree
-          ? [
-              [remarkStreamReveal, { at: revealAt, source: content }] as [
-                typeof remarkStreamReveal,
-                { at: number; source: string },
-              ],
-            ]
-          : []),
-        // Clip before break conversion, which creates nodes without source offsets.
-        remarkBreaks,
-      ]}
-      rehypePlugins={[
-        ...(splitIncoming ? [rehypeIncomingText] : []),
-        [
-          rehypeKatex,
-          {
-            throwOnError: false,
-            errorColor: '#cc0000',
-            strict: false,
-          },
-        ],
-      ]}
-      components={components}
-    >
-      {markdown}
-    </ReactMarkdown>
+  const urlTransform = useCallback(
+    (url: string) => (sessionId && workspaceLinkPath(url) ? url : customUrlTransform(url)),
+    [sessionId]
   );
+  const renderMarkdown = (markdown: string, key: string) =>
+    revealAt === undefined && splitIncoming ? (
+      <StreamingMarkdown
+        key={key}
+        content={markdown}
+        components={components}
+        urlTransform={urlTransform}
+      />
+    ) : (
+      <ReactMarkdown
+        key={key}
+        urlTransform={urlTransform}
+        remarkPlugins={[
+          [remarkGfm, { singleTilde: false }],
+          [remarkMath, { singleDollarTextMath: false }],
+          ...(revealAt !== undefined && canRevealTree
+            ? [
+                [remarkStreamReveal, { at: revealAt, source: content }] as [
+                  typeof remarkStreamReveal,
+                  { at: number; source: string },
+                ],
+              ]
+            : []),
+          // Clip before break conversion, which creates nodes without source offsets.
+          remarkBreaks,
+        ]}
+        rehypePlugins={[
+          ...(splitIncoming ? [rehypeIncomingText] : []),
+          [
+            rehypeKatex,
+            {
+              throwOnError: false,
+              errorColor: '#cc0000',
+              strict: false,
+            },
+          ],
+        ]}
+        components={components}
+      >
+        {markdown}
+      </ReactMarkdown>
+    );
 
   return (
     <>
@@ -476,5 +502,58 @@ const MarkdownContent = memo(function MarkdownContent({
     </>
   );
 });
+
+const StreamingCodeContext = React.createContext(false);
+const StreamingBlock = memo(function StreamingBlock({
+  content,
+  components,
+  urlTransform,
+}: {
+  content: string;
+  components: Components;
+  urlTransform: (url: string) => string;
+}) {
+  return (
+    <ReactMarkdown
+      components={components}
+      urlTransform={urlTransform}
+      remarkPlugins={[
+        [remarkGfm, { singleTilde: false }],
+        [remarkMath, { singleDollarTextMath: false }],
+        remarkBreaks,
+      ]}
+      rehypePlugins={[
+        rehypeIncomingText,
+        [rehypeKatex, { throwOnError: false, errorColor: '#cc0000', strict: false }],
+      ]}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+});
+
+function StreamingMarkdown(props: {
+  content: string;
+  components: Components;
+  urlTransform: (url: string) => string;
+}) {
+  const parser = useRef<StreamingMarkdownBlocks | null>(null);
+  parser.current ??= new StreamingMarkdownBlocks();
+  const blocks = parser.current.update(props.content);
+  return (
+    <StreamingCodeContext.Provider value={true}>
+      {blocks.map((block, index) => (
+        <React.Fragment key={block.key}>
+          {index > 0 ? '\n' : null}
+          <StreamingBlock
+            content={block.content}
+            components={props.components}
+            urlTransform={props.urlTransform}
+          />
+        </React.Fragment>
+      ))}
+    </StreamingCodeContext.Provider>
+  );
+}
 
 export default MarkdownContent;

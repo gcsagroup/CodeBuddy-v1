@@ -962,7 +962,7 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
   for (const change of changes) {
     switch (change.type) {
       case 'messages':
-        entry.messages = cloneMessages(change.messages);
+        entry.messages = clonePublishedMessages(change.messages);
         retainPendingLocalSteerMessageIds(entry);
         break;
       case 'tokenState':
@@ -1343,7 +1343,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
       : entry.chatState;
   return {
     session: entry.session,
-    messages: cloneMessages(entry.messages),
+    messages: clonePublishedMessages(entry.messages),
     tokenState: { ...entry.tokenState },
     notifications: [...entry.notifications],
     progressMessage: entry.progressMessage,
@@ -1383,30 +1383,49 @@ function cloneMessages(messages: Message[]): Message[] {
   return messages.map(cloneMessage);
 }
 
+const publishedMessageCopies = new WeakMap<Message, Message>();
+function clonePublishedMessages(messages: Message[]): Message[] {
+  return messages.map((message) => {
+    let copy = publishedMessageCopies.get(message);
+    if (!copy) {
+      copy = cloneMessage(message);
+      publishedMessageCopies.set(message, copy);
+    }
+    return copy;
+  });
+}
+
 function terminalizeCodeProActivities(
   entry: StoreEntry,
   sessionId: string,
   status: 'stopped' | 'interrupted'
 ): void {
   const finishedAt = new Date().toISOString();
-  for (const message of entry.messages) {
-    for (const content of message.content) {
+  entry.messages = entry.messages.map((message) => {
+    let changed = false;
+    const content = message.content.map((content) => {
       if (content.type !== 'systemNotification' || content.notificationType !== 'codeProActivity') {
-        continue;
+        return content;
       }
       const event = parseActivityEvent(content.data);
       if (!event || event.session_id !== sessionId || isTerminalActivityEventStatus(event.status)) {
-        continue;
+        return content;
       }
-      content.data = {
+      changed = true;
+      const data = {
         ...event,
         status,
         finished_at: event.finished_at ?? finishedAt,
       };
       const statusText = status === 'stopped' ? '已停止' : '已中断';
-      if (!content.msg.includes(`状态：${statusText}`)) {
-        content.msg = `${content.msg}\n状态：${statusText}`;
-      }
-    }
-  }
+      return {
+        ...content,
+        data,
+        msg: content.msg.includes(`状态：${statusText}`)
+          ? content.msg
+          : `${content.msg}\n状态：${statusText}`,
+      };
+    });
+    return changed ? { ...message, content } : message;
+  });
 }

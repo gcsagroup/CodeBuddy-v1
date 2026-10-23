@@ -5,6 +5,7 @@ import type { ActivityEvent } from '../types/activityEvent';
 import type { Message } from '../types/message';
 import { isTurnTerminalRecord } from '../types/turnTerminal';
 import ProgressiveMessageList from './ProgressiveMessageList';
+import { ScrollFollowingContext } from './ui/scroll-follow-context';
 import { CodeProPlanDock } from './codepro/CodeProPlanDock';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
 import type { AdapterState } from '../acp/adapter/shared';
@@ -1447,22 +1448,27 @@ describe('ProgressiveMessageList retention window', () => {
     );
     const messages = Array.from({ length: 100 }, (_, index) => message(index));
 
-    render(
-      <ProgressiveMessageList
-        messages={messages}
-        chat={{ sessionId: 'long-session' }}
-        isUserMessage={() => false}
-        batchSize={100}
-        showLoadingThreshold={0}
-        renderMessage={(item) => <div data-testid="rendered-message">{item.id}</div>}
-      />,
-      { wrapper: IntlTestWrapper }
+    const list = (following: boolean) => (
+      <ScrollFollowingContext.Provider value={following}>
+        <ProgressiveMessageList
+          messages={messages}
+          chat={{ sessionId: 'long-session' }}
+          isUserMessage={() => false}
+          batchSize={100}
+          showLoadingThreshold={0}
+          renderMessage={(item) => <div data-testid="rendered-message">{item.id}</div>}
+        />
+      </ScrollFollowingContext.Provider>
     );
+    const { rerender } = render(list(true), { wrapper: IntlTestWrapper });
 
     expect(screen.getAllByTestId('rendered-message')).toHaveLength(40);
     expect(screen.queryByText('message-59')).not.toBeInTheDocument();
     expect(screen.getByText('message-60')).toBeInTheDocument();
     expect(screen.getByText('message-99')).toBeInTheDocument();
+    expect(intersections).toHaveLength(0);
+    rerender(list(false));
+    expect(intersections.length).toBeGreaterThan(0);
 
     expect(
       screen.queryByRole('button', { name: /load earlier messages/i })

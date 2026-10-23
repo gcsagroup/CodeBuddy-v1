@@ -48,6 +48,94 @@ afterEach(() => {
 });
 
 describe('top-to-bottom streaming presentation', () => {
+  it.each(['permission', 'cancelled', 'interrupted', 'hidden'])(
+    'does not delay %s behind buffered prose',
+    (kind) => {
+      const { result, rerender, unmount } = renderHook(
+        ({ messages }) => useOrderedToolPresentation(messages, true),
+        { initialProps: { messages: [user] } }
+      );
+      const messages = [user, assistant([{ type: 'text', text: prose.repeat(20) }, command])];
+      rerender({ messages });
+      act(() => vi.advanceTimersByTime(48));
+      expect(result.current.pending).toBe(true);
+      if (kind === 'hidden') {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        act(() => document.dispatchEvent(new Event('visibilitychange')));
+      } else {
+        messages.push({
+          ...assistant(
+            kind === 'permission'
+              ? [
+                  {
+                    type: 'actionRequired',
+                    data: {
+                      actionType: 'toolConfirmation',
+                      id: 'approval',
+                      toolName: 'test',
+                      arguments: {},
+                    },
+                  },
+                ]
+              : [
+                  {
+                    type: 'systemNotification',
+                    notificationType: 'turnTerminal',
+                    msg: 'Stopped',
+                    data: {
+                      schema_version: 1,
+                      session_id: 'session',
+                      run_id: 'run',
+                      terminal_message_id: 'terminal',
+                      source_user_message_id: 'user',
+                      status: kind,
+                      checkpoint_id: null,
+                      retry_strategy: 'not_available',
+                      visible_text_available: true,
+                      tool_action_count: 0,
+                      copy_artifact_ref: null,
+                      finished_at: new Date().toISOString(),
+                    },
+                  },
+                ]
+          ),
+          id: 'urgent',
+        });
+        rerender({ messages: [...messages] });
+      }
+      expect(result.current.pending).toBe(false);
+      expect(result.current.messages).toEqual(messages);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
+  it('catches up with a received burst without waiting for transport completion or reordering tools', () => {
+    const { result, rerender, unmount } = renderHook(
+      ({ messages }) => useOrderedToolPresentation(messages, true),
+      {
+        initialProps: { messages: [user] },
+      }
+    );
+    const text = '完整文字🙂。'.repeat(2000);
+    rerender({
+      messages: [
+        user,
+        assistant([{ type: 'text', text }, command, { type: 'text', text: '后续结果' }]),
+      ],
+    });
+    act(() => vi.advanceTimersByTime(96));
+    expect(result.current.pending).toBe(true);
+    expect(result.current.messages.flatMap(getToolRequests)).toHaveLength(0);
+    act(() => vi.advanceTimersByTime(900));
+    expect(result.current.pending).toBe(false);
+    expect(result.current.messages[result.current.messages.length - 1]?.content).toEqual([
+      { type: 'text', text },
+      command,
+      { type: 'text', text: '后续结果' },
+    ]);
+    unmount();
+  });
   it('does not expose a later command or prose before the preceding text has finished presenting', () => {
     const snapshots: Message[][] = [];
     const { result, rerender, unmount } = renderHook(
@@ -221,7 +309,6 @@ describe('top-to-bottom streaming presentation', () => {
       messages: [...history, currentUser, assistant(content())],
       active: false,
     });
-    expect(result.current.pending).toBe(true);
     for (let frame = 0; frame < 600 && result.current.pending; frame += 1)
       act(() => vi.advanceTimersByTime(48));
     expect(result.current.pending).toBe(false);

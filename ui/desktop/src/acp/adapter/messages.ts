@@ -106,7 +106,7 @@ export function applyThoughtChunk(
     });
   }
 
-  return messagesChange(state);
+  return messagesChange(state, existing);
 }
 
 function messageContentFromAcpContentBlock(
@@ -186,7 +186,7 @@ function messagesChangeWithLocalSteerConfirmation(
   message: Message,
   isSteerChunk: boolean | undefined
 ): AcpChatStateChange[] {
-  const changes = messagesChange(state);
+  const changes = messagesChange(state, message);
   if (isSteerChunk && message.metadata.steer && message.role === 'user' && message.id) {
     changes.push({ type: 'localSteerConfirmed', messageId: message.id });
   }

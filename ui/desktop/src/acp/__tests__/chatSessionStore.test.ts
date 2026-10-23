@@ -31,6 +31,34 @@ function message(id: string, text: string): Message {
   };
 }
 
+it('publishes appended text without mutating earlier snapshots or replacing unchanged history', () => {
+  const id = 'stream-snapshot-isolation';
+  try {
+    acpChatSessionActions.setMessages(id, [message('user', 'question')]);
+    const delta = (text: string) =>
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          messageId: 'answer',
+          content: { type: 'text', text },
+        },
+      });
+    const first = delta('first');
+    const second = delta(' second');
+    expect(first.messages[1].content).toEqual([{ type: 'text', text: 'first' }]);
+    expect(second.messages[1].content).toEqual([{ type: 'text', text: 'first second' }]);
+    expect(second.messages[0]).toBe(first.messages[0]);
+    expect(second.messages[1]).not.toBe(first.messages[1]);
+    acpChatSessionActions.setMessages(id, [message('replacement', 'restored')]);
+    const restored = delta('new');
+    expect(restored.messages[0].id).toBe('replacement');
+    expect(restored.messages[1].content).toEqual([{ type: 'text', text: 'new' }]);
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
 function runningActivityMessage(sessionId: string): Message {
   return {
     id: 'activity-1',
@@ -681,11 +709,16 @@ describe('acpChatSessionStore', () => {
     acpChatSessionActions.setMessages(currentSessionId, [runningActivityMessage(currentSessionId)]);
     acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1', 'user-1');
 
+    const beforeCancellation = acpChatSessionStore.getSnapshot(currentSessionId);
     const cancellationSnapshot = acpChatSessionActions.startPromptCancellation(
       currentSessionId,
       'attempt-1'
     );
     const activity = cancellationSnapshot?.messages[0].content[0];
+
+    expect(beforeCancellation?.messages[0].content[0]).toMatchObject({
+      data: { status: 'running' },
+    });
 
     expect(activity).toMatchObject({
       type: 'systemNotification',

@@ -38,8 +38,22 @@ export const DEFAULT_VISIBLE_MESSAGE_METADATA: Message['metadata'] = {
   agentVisible: true,
 };
 
-export function messagesChange(state: AdapterState): AcpChatStateChange[] {
-  return [{ type: 'messages', messages: state.messages.map(cloneMessage) }];
+const publishedMessages = new WeakMap<AdapterState, Message[]>();
+
+// The adapter still owns mutable input. Publish isolated snapshots, retaining
+// unchanged messages for a known single-message text/thought update.
+export function messagesChange(state: AdapterState, changed?: Message): AcpChatStateChange[] {
+  const previous = publishedMessages.get(state);
+  const index = changed ? state.messages.indexOf(changed) : -1;
+  let messages: Message[];
+  if (previous && previous.length === state.messages.length && index >= 0 && changed) {
+    messages = previous.slice();
+    messages[index] = cloneMessage(changed);
+  } else {
+    messages = state.messages.map(cloneMessage);
+  }
+  publishedMessages.set(state, messages);
+  return [{ type: 'messages', messages }];
 }
 
 export function cloneMessage(message: Message): Message {

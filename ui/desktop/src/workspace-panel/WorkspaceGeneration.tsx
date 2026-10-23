@@ -13,8 +13,17 @@ export interface MediaJob {
   created_at: string;
   status: string;
   observation_error?: boolean;
+  workflow?: { id: string; label: string };
+  queue_position?: number;
   error?: string | null;
-  live: { connected?: boolean; node?: string; step?: number; total?: number; preview?: string };
+  live: {
+    stage?: string;
+    connected?: boolean;
+    node?: string;
+    step?: number;
+    total?: number;
+    preview?: string;
+  };
   images?: { path: string }[];
   videos?: { path: string }[];
 }
@@ -40,6 +49,8 @@ export function useMediaJobs(sessionId: string) {
   const [jobs, setJobs] = useState<MediaJob[]>([]);
   const [disconnected, setDisconnected] = useState(false);
   useEffect(() => {
+    setJobs([]);
+    setDisconnected(false);
     if (!sessionId) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -64,6 +75,8 @@ export function useMediaJobs(sessionId: string) {
   return { jobs, disconnected };
 }
 const stages: Record<string, [string, string, string]> = {
+  prepare: ['Preparing generation', '准备生成', '準備生成'],
+  reference: ['Loading reference images', '加载参考图片', '載入參考圖片'],
   encode: ['Preparing prompt and conditioning', '准备提示词和画面条件', '準備提示詞與畫面條件'],
   model: ['Loading model', '加载模型', '載入模型'],
   clip: ['Loading text encoder', '加载文本编码器', '載入文字編碼器'],
@@ -86,6 +99,13 @@ const statuses: Record<string, [string, string, string]> = {
 function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
   const [media, setMedia] = useState<PanelMedia>();
   const [error, setError] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const active = !['completed', 'failed', 'cancelled'].includes(job.status);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
   const file = (job.videos ?? job.images)?.[0]?.path;
   useEffect(() => {
     if (job.status !== 'completed' || !file) return;
@@ -115,7 +135,7 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
       ? live.preview
       : undefined;
   const status = statuses[job.status];
-  const stage = live.node ? stages[live.node] : undefined;
+  const stage = stages[live.stage ?? live.node ?? ''];
   return (
     <article className="rounded-xl border border-border-subtle p-4" data-job-id={job.job_id}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -129,6 +149,15 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
           {status ? mediaText(...status) : job.status}
         </span>
       </div>
+      {job.workflow && <p className="mb-2 text-xs text-text-muted">{job.workflow.label}</p>}
+      {active && (
+        <p className="mb-3 text-xs text-text-muted">
+          {mediaText('Elapsed', '已等待', '已等待')}{' '}
+          {Math.max(0, Math.floor((now - Date.parse(job.created_at)) / 1000))} s
+          {typeof job.queue_position === 'number' &&
+            ` · ${mediaText('Queue position', '队列位置', '佇列位置')} ${job.queue_position}`}
+        </p>
+      )}
       {job.status === 'completed' ? (
         media ? (
           <WorkspaceMedia media={media} title={file ?? job.job_id} />

@@ -26,7 +26,7 @@ async function fixture(t) {
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.endsWith('/upload/image')) return Response.json({ name: 'reference.png' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
-    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true }, outputs: { save: { images: [{ filename: 'clip.mp4', type: 'output' }] } } } }
+    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true }, outputs: { '92': { images: [{ filename: 'clip.mp4', type: 'output' }] } } } }
       : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'out of memory' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[0, id]] : [], queue_pending: state === 'queued' ? [[0, id]] : [] });
     if (url.includes('/view?')) return new Response(bytes);
@@ -36,20 +36,19 @@ async function fixture(t) {
   return { root, cwd, options, calls, bytes, state: s => { state = s; }, tool: comfyuiVideoTool(options) };
 }
 
-test('T2V and I2V connect actual conditioning to the sampler, use installed native nodes and valid frame grid', () => {
+test('approved video templates preserve original conditioning and frame-grid calculation', () => {
   const text = comfyVideoWorkflow(input, [], id);
-  assert.equal(text.encode.inputs.length, 124);
-  assert.equal(text.encode.inputs.first_frame, undefined);
+  assert.equal(text['140:133'].inputs.value, 5);
+  assert.deepEqual(text['140:131'].inputs.length, ['140:132', 1]);
+  assert.equal(text['140:131'].inputs.first_frame, undefined);
   const image = comfyVideoWorkflow({ ...input, mode: 'image_to_video', image_path: 'rabbit.png' }, ['uploaded.png'], id);
-  assert.deepEqual(image.encode.inputs.first_frame, ['reference', 0]);
-  assert.equal(image.reference.inputs.image, 'uploaded.png');
-  assert.deepEqual(image.guider.inputs.conditioning, ['encode', 0]);
-  assert.deepEqual(image.sample.inputs.latent_image, ['encode', 1]);
-  assert.deepEqual(image.video.inputs.audio, ['audio', 0]);
+  assert.deepEqual(image['105:104'].inputs.first_frame, ['114', 0]);
+  assert.equal(image['114'].inputs.image, 'uploaded.png');
   assert.throws(() => comfyVideoWorkflow({ ...input, mode: 'image_to_video' }, [], id), /image_path/);
   assert.throws(() => comfyVideoWorkflow({ ...input, duration_seconds: 100 }, [], id), /integer/);
   assert.throws(() => comfyVideoWorkflow({ ...input, width: 1344, height: 1344 }, [], id), /resolution/);
 });
+
 test('receipt survives recreation, downloads MP4 only on completion, and cannot be queried by another session', async t => {
   const f = await fixture(t);
   assert.equal((await f.tool.execute(input)).status, 'queued');
@@ -118,15 +117,19 @@ test('live catalog is session-scoped and publishes completion once without resub
   assert.equal(JSON.parse(f.calls.find(call => call.url.endsWith('/prompt')).body).extra_data.preview_method, 'auto');
   assert.deepEqual(await comfyuiVideoTool({ ...f.options, sessionId: 'other' }).jobs(), []);
   f.state('running');
+  await f.tool.execute({ operation: 'status', job_id: id });
   const active = await f.tool.jobs();
   assert.equal(active[0].status, 'running');
   assert.equal(active[0].videos.length, 0);
+  await f.tool.execute({ operation: 'status', job_id: id });
   f.state('completed');
   const [catalog, receipt] = await Promise.all([f.tool.jobs(), f.tool.execute({ operation: 'status', job_id: id })]);
-  assert.equal(catalog[0].status, 'completed');
+  assert.ok(['running', 'completed'].includes(catalog[0].status));
+  const completed = await f.tool.jobs();
+  assert.equal(completed[0].status, 'completed');
   assert.equal(receipt.status, 'completed');
   assert.equal(receipt.live, undefined); // Preview bytes never enter the model transcript.
-  assert.ok((await readFile(catalog[0].videos[0].path)).equals(f.bytes));
+  assert.ok((await readFile(completed[0].videos[0].path)).equals(f.bytes));
   assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
   assert.equal(f.calls.filter(call => call.url.includes('/view?')).length, 1);
 });

@@ -23,7 +23,7 @@ async function fixture(t) {
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.includes('/upload/image')) return Response.json({ name: 'reference.png', subfolder: 'input', type: 'input' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
-    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { save: { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
+    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { '461': { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
       : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'GPU OOM' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[1, id]] : [], queue_pending: state === 'queued' ? [[1, id]] : [] });
     if (url.includes('/view?')) return new Response(png);
@@ -76,10 +76,11 @@ test('reference editing uploads actual workspace bytes and builds transparent po
   const upload = f.calls.find(x => x.url.endsWith('/upload/image')).body;
   assert.deepEqual(Buffer.from(await upload.get('image').arrayBuffer()), f.png);
   const graph = JSON.parse(f.calls.find(x => x.url.endsWith('/prompt')).body).prompt;
-  assert.deepEqual(graph.encode.inputs['images.image_1'], ['reference0', 0]);
-  assert.match(graph.encode.inputs.prompt, /watercolor mountain/);
-  assert.match(graph.encode.inputs.prompt, /alpha channel/);
-  assert.equal(graph.latent.inputs.width, 1536);
+  assert.deepEqual(graph['459:474'].inputs['images.image_1'], ['470', 0]);
+  assert.match(graph['459:474'].inputs.prompt, /watercolor mountain/);
+  assert.match(graph['459:474'].inputs.prompt, /alpha channel/);
+  assert.equal(graph['13'].inputs.aspect_ratio, '3:2 (Photo)');
+  assert.equal(graph['459:468'].inputs.switch, true);
 });
 test('invalid inputs, outside reference and bad server image never publish an image', async t => {
   const f = await fixture(t);
@@ -127,4 +128,24 @@ test('official Harness discovers and calls the image tool without adding it to t
     const result = await driver.callTool(sessionId, f.tool.name, generate, { onPermission: () => true });
     assert.equal(result.isError, false, JSON.stringify(result)); assert.match(JSON.stringify(result), /queued/);
   } finally { await driver.close(); }
+});
+
+
+test('preview catalog returns durable receipts while a service observation is still pending', { timeout: 3000 }, async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  let observed = false;
+  const slow = comfyuiTool({ ...f.options, fetchImpl: async (url, options) => {
+    if (url.includes('/history/')) { observed = true; await barrier; }
+    return f.options.fetchImpl(url, options);
+  } });
+  try {
+    const snapshot = await slow.jobs();
+    assert.equal(snapshot[0].status, 'queued');
+    assert.equal(snapshot[0].workflow.id, 'qwen_image');
+    assert.equal(observed, true);
+  } finally { release(); }
+  await slow.execute({ operation: 'status', job_id: id });
 });

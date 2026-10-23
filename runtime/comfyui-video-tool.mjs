@@ -1,53 +1,26 @@
+import { fallbackProperties } from './comfyui-fallback.mjs';
+import { approvedWorkflow, VIDEO_WORKFLOWS } from './comfyui-workflows.mjs';
 import { comfyuiMediaTool } from './comfyui-tool.mjs';
 
 export const VIDEO_TOOL_NAME = 'generate_video';
-const node = (class_type, inputs) => ({ class_type, inputs });
-function number(value, fallback, min, max, multiple = 1) {
-  const n = value ?? fallback;
-  if (!Number.isSafeInteger(n) || n < min || n > max || n % multiple)
-    throw new Error(`Expected an integer ${min}..${max}, multiple of ${multiple}`);
-  return n;
-}
 function references(input) {
-  if (!['text_to_video', 'image_to_video'].includes(input.mode)) throw new Error('Choose text_to_video or image_to_video');
   if (input.mode === 'text_to_video') {
-    if (input.image_path) throw new Error('image_path requires image_to_video mode');
+    if (input.image_path || input.reference_images?.length) throw new Error('Reference images require image_to_video or reference_to_video mode');
     return [];
   }
-  if (typeof input.image_path !== 'string' || !input.image_path.trim()) throw new Error('image_to_video requires a workspace PNG image_path');
-  return [input.image_path];
+  if (input.mode === 'image_to_video') {
+    if (input.reference_images?.length || typeof input.image_path !== 'string' || !input.image_path.trim()) throw new Error('image_to_video requires one workspace image_path');
+    return [input.image_path];
+  }
+  if (input.mode === 'reference_to_video') {
+    if (input.image_path || !Array.isArray(input.reference_images) || !input.reference_images.length || input.reference_images.length > 2) throw new Error('reference_to_video requires 1–2 reference_images');
+    return input.reference_images;
+  }
+  throw new Error('Choose text_to_video, image_to_video or reference_to_video');
 }
-
-// Native H3 graph, independently assembled against the official node schemas.
-// No API-credit nodes, third-party extensions or optional LoRA downloads.
 export function comfyVideoWorkflow(input, uploaded, id) {
   references(input);
-  const width = number(input.width, 640, 256, 1344, 32);
-  const height = number(input.height, 640, 256, 1344, 32);
-  if (width * height > 1344 * 768) throw new Error('Video resolution exceeds 1344×768 pixels');
-  const seconds = number(input.duration_seconds, 5, 5, 15);
-  const length = Math.ceil((seconds * 24 - 5) / 17) * 17 + 5;
-  const graph = {
-    model: node('UNETLoader', { unet_name: 'minimax_h3_fl2va_pruned_int8_convrot.safetensors', weight_dtype: 'default' }),
-    clip: node('CLIPLoader', { clip_name: 'qwen3vl_32b_minimax_h3_int8_convrot.safetensors', type: 'minimax', device: 'default' }),
-    vae: node('VAELoader', { vae_name: 'minimax_h3_video_vae_fp16.safetensors' }),
-    audio_vae: node('VAELoader', { vae_name: 'minimax_h3_audio_vae_fp32.safetensors' }),
-    encode: node('MiniMaxH3ImageToVideo', { clip: ['clip', 0], vae: ['vae', 0], prompt: input.prompt, width, height, length }),
-    noise: node('RandomNoise', { noise_seed: number(input.seed, Math.floor(Math.random() * 2 ** 48), 0, Number.MAX_SAFE_INTEGER) }),
-    guider: node('BasicGuider', { model: ['model', 0], conditioning: ['encode', 0] }),
-    sampler: node('KSamplerSelect', { sampler_name: 'res_multistep' }),
-    schedule: node('BasicScheduler', { model: ['model', 0], scheduler: 'simple', steps: 20, denoise: 1 }),
-    sample: node('SamplerCustomAdvanced', { noise: ['noise', 0], guider: ['guider', 0], sampler: ['sampler', 0], sigmas: ['schedule', 0], latent_image: ['encode', 1] }),
-    decode: node('VAEDecodeTiled', { samples: ['sample', 0], vae: ['vae', 0], tile_size: 512, overlap: 64, temporal_size: 64, temporal_overlap: 8 }),
-    audio: node('VAEDecodeAudio', { samples: ['sample', 0], vae: ['audio_vae', 0] }),
-    video: node('CreateVideo', { images: ['decode', 0], audio: ['audio', 0], fps: 24 }),
-    save: node('SaveVideo', { video: ['video', 0], filename_prefix: `CodeBuddy/${id}`, format: 'mp4', 'format.codec': 'h264' }),
-  };
-  if (uploaded.length) {
-    graph.reference = node('LoadImage', { image: uploaded[0] });
-    graph.encode.inputs.first_frame = ['reference', 0];
-  }
-  return graph;
+  return approvedWorkflow(input, uploaded, id, 'video');
 }
 
 // Inspect bounded ISO-BMFF boxes before publishing a downloaded MP4 as completed.
@@ -95,15 +68,18 @@ export function inspectMp4(bytes) {
 export function comfyuiVideoTool(options) {
   return comfyuiMediaTool(options, {
     name: VIDEO_TOOL_NAME,
-    description: 'Generate video / 生视频、文生视频、图生视频 with the configured ComfyUI MiniMax H3 service. Submit once, then poll status with the SAME job_id (wait_seconds=30) until completed. Returns a real local MP4 with audio and a playable preview_url. Include the returned markdown link plus local path in your reply; never embed MP4 as an image. image_to_video takes one workspace PNG as its first frame; match width/height to its aspect ratio. 5–15 seconds, 24 fps, duration rounded to the model frame grid. Never claim success before completed. Do not write shell generation scripts.',
+    description: 'Generate video / 生视频、文生视频、图生视频 with the configured ComfyUI service. Bundled presets use MiniMax H3. Submit once, then poll status with the SAME job_id (wait_seconds=30) until completed. Returns a real local MP4 and a playable preview_url; audio depends on the selected workflow. Include the returned markdown link plus local path in your reply; never embed MP4 as an image. image_to_video takes one workspace PNG as its first frame; match width/height to its aspect ratio. Requested duration is 1–15 seconds; bundled presets use 24 fps with model frame-grid rounding. Never claim success before completed. reference_to_video accepts 1–2 original references. Prefer existing exported workflows. Use operation=inspect and node_types to check available dependencies and schemas. Only if creation_allowed=true may you submit fallback_workflow using installed nodes/models. Never use shell scripts or install/download dependencies. Omitted dimensions/duration preserve the selected template defaults.',
     inputSchema: { type: 'object', properties: {
-      operation: { type: 'string', enum: ['generate', 'status', 'cancel'] },
-      mode: { type: 'string', enum: ['text_to_video', 'image_to_video'] },
+      operation: { type: 'string', enum: ['inspect', 'generate', 'status', 'cancel'] },
+      mode: { type: 'string', enum: ['text_to_video', 'image_to_video', 'reference_to_video'] },
+      ...fallbackProperties,
+      workflow_id: { type: 'string', enum: VIDEO_WORKFLOWS, description: 'Approved exported template. minimax_text uses 0.6 MP; minimax_text_detail uses 0.9 MP. Preserve template defaults unless the user requests dimensions/duration.' },
+      reference_images: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' }, description: 'Workspace PNG reference images for reference_to_video.' },
       prompt: { type: 'string', minLength: 1, maxLength: 12000, description: 'Describe the scene, motion, camera and desired sound.' },
       image_path: { type: 'string', description: 'Workspace-local PNG first frame, required for image_to_video; omitted for text_to_video.' },
       width: { type: 'integer', minimum: 256, maximum: 1344, multipleOf: 32 },
       height: { type: 'integer', minimum: 256, maximum: 1344, multipleOf: 32 },
-      duration_seconds: { type: 'integer', minimum: 5, maximum: 15 },
+      duration_seconds: { type: 'integer', minimum: 1, maximum: 15 },
       seed: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
       request_id: { type: 'string', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$', description: 'Optional UUID idempotency key. Omit to generate automatically.' },
       job_id: { type: 'string' }, wait_seconds: { type: 'integer', minimum: 0, maximum: 30 },

@@ -40,11 +40,6 @@ const labels = defineMessages({
     defaultMessage:
       'The model service has not returned content yet. You can keep waiting or stop this request.',
   },
-  quietHint: {
-    id: 'workStatus.quietHint',
-    defaultMessage:
-      'No new progress has arrived for {seconds}s. You can keep waiting or stop this request.',
-  },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 
@@ -168,10 +163,8 @@ export function useWorkStatus(input: WorkStatusInput) {
     ...selection,
     elapsedSeconds,
     hint:
-      active && 'silence' in selection && (selection.silence ?? 0) >= 20
-        ? intl.formatMessage(source === 'responseWait' ? labels.waitingHint : labels.quietHint, {
-            seconds: selection.silence,
-          })
+      active && source === 'responseWait' && 'silence' in selection && (selection.silence ?? 0) >= 20
+        ? intl.formatMessage(labels.waitingHint)
         : undefined,
     announcement: title,
     message: elapsed ? `${title} ${elapsed}` : title,

@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "Perkhidmatan model belum mengembalikan kandungan. Anda boleh terus menunggu atau menghentikan permintaan ini."
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "Tiada kemajuan baharu diterima selama {seconds} saat. Anda boleh terus menunggu atau menghentikan permintaan ini."
   }
 }

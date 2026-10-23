@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "Il servizio del modello non ha ancora restituito contenuti. Puoi continuare ad attendere o interrompere questa richiesta."
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "Nessun nuovo avanzamento da {seconds} s. Puoi continuare ad attendere o interrompere questa richiesta."
   }
 }

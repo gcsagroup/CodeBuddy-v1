@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "Le service du modèle n’a pas encore renvoyé de contenu. Vous pouvez continuer à attendre ou arrêter cette requête."
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "Aucune nouvelle progression depuis {seconds} s. Vous pouvez continuer à attendre ou arrêter cette requête."
   }
 }

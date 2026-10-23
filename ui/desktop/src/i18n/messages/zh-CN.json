@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "模型服务还未返回内容，你可以继续等待，也可以停止本次请求。"
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "已 {seconds} 秒没有收到新的进展，你可以继续等待，也可以停止本次请求。"
   }
 }

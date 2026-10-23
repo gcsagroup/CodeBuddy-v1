@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "Model hizmeti henüz içerik döndürmedi. Beklemeye devam edebilir veya bu isteği durdurabilirsiniz."
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "{seconds} saniyedir yeni bir ilerleme alınmadı. Beklemeye devam edebilir veya bu isteği durdurabilirsiniz."
   }
 }

@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "モデルサービスからまだ内容が返されていません。このまま待つか、今回のリクエストを停止できます。"
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "{seconds}秒間、新しい進捗を受信していません。このまま待つか、今回のリクエストを停止できます。"
   }
 }

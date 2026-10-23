@@ -9145,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "Der Modelldienst hat noch keinen Inhalt zurückgegeben. Du kannst weiter warten oder diese Anfrage stoppen."
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "Seit {seconds} s ist kein neuer Fortschritt eingegangen. Du kannst weiter warten oder diese Anfrage stoppen."
   }
 }

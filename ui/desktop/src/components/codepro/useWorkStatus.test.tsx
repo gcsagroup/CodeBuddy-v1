@@ -43,7 +43,7 @@ describe('specific live execution feedback', () => {
     });
     expect(result.current.elapsedSeconds).toBe(5);
     act(() => vi.advanceTimersByTime(20_000));
-    expect(result.current.hint).toContain('No new progress');
+    expect(result.current.hint).toBeUndefined();
     rerender({ ...input, activity: { ...input.activity, receivedAt: Date.now() } });
     expect(result.current.hint).toBeUndefined();
     expect(result.current.elapsedSeconds).toBe(25);

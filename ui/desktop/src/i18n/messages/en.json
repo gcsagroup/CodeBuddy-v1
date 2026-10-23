@@ -8798,9 +8798,6 @@
   "workStatus.question": {
     "defaultMessage": "Your input is needed"
   },
-  "workStatus.quietHint": {
-    "defaultMessage": "No new progress has arrived for {seconds}s. You can keep waiting or stop this request."
-  },
   "workStatus.responseRead": {
     "defaultMessage": "Preparing a response"
   },

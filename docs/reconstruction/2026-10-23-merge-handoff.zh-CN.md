@@ -66,7 +66,7 @@ Windows 同批旧安装器完成真实安装/卸载且保留测试数据；最�
 
 1. `6491d44` — Windows/macOS 打包、原生助手与安装目录修正（45 个文件）。
 2. `11e8c28` — Harness 目标/浏览器、模型预设、聊天与宠物交互、功能文档及测试（250 个文件）。
-3. 包含本文的 `docs: add trilingual merge handoff and acceptance boundaries` 提交 — 三语交接及旧阶段记录状态说明（6 个文件）。
+3. `7ebdfcc` — `docs: add trilingual merge handoff and acceptance boundaries`，三语交接及旧阶段记录状态说明（6 个文件）。
 
 以上提交应整体合并。本文提交的哈希可在拉取后通过 `git log -1 --format=%H origin/main -- docs/reconstruction/2026-10-23-merge-handoff.zh-CN.md` 查询；交付消息也提供最终提交号。完整差异可用 `git diff d43fcbbd0ec85afcb073cb74b14e835752a26e20 <最终提交>` 查看。
 
@@ -80,5 +80,17 @@ Windows 同批旧安装器完成真实安装/卸载且保留测试数据；最�
 | 桌面目录：`node ../node_modules/typescript/bin/tsc --noEmit` | 退出 0。 |
 | 桌面目录：`node scripts/i18n-check.js`、`node scripts/i18n-validate-locale.js` | 均退出 0；2982 条消息，英文源检查及 15 个翻译语言校验。 |
 | 桌面目录：`node ../node_modules/vitest/vitest.mjs run --maxWorkers=1` | 306 个文件、2709 项测试全部通过，退出 0，耗时 857.94 秒。使用现有 `ui/node_modules`，未安装或重建依赖；组件测试不等于全部桌面产品 E2E。 |
-| `go test ./...` / `go vet ./...` | 当前 PATH 没有 Go，命令未启动；本次未完成 Go 重跑。未在 Windows 上运行 Swift 原生测试，也未修改 Rust 源码或运行 Rust 全套。 |
+| `go test -count=1 -json ./...` / `go vet ./...` | 后续已使用本机现有 Go 1.27.2 补测：31 项通过、0 失败、0 跳过；两条命令退出 0，vet 无诊断。详见下节。未在 Windows 上运行 Swift 原生测试，也未修改 Rust 源码或运行 Rust 全套。 |
 | Git 差异检查、提交候选扫描 | `git diff --cached --check` 退出 0；未发现本地共享 Key、安装包、大型二进制或原始 profile 混入候选。旧索引锁确认无 Git 进程占用后备份到本地证据目录。 |
+
+## Go 补充验收（2026-10-23）
+
+此前仅确认 Go 不在 PATH，因此 Go 测试未启动；进一步查找已找到本机现有工具链，并完成补测。本节替代此前“Go 未复测”的状态，作为上述三个提交之后的文档补充。
+
+- 源码：`D:\CodeBuddy-v1`，`main`，`7ebdfcc7f64ead94d603e0ebdf774df30b7ff1df`；测试开始时工作区干净。仓库内只有 `tools/qwen-computer-use/go.mod` 这一 Go 模块。
+- 工具链：`go version go1.27.2 windows/amd64`，可执行文件为 `C:\Users\jiangrui\AppData\Local\Kuade-development\Kuade-Hermes\.cache\toolchains\go1.27.2\go\bin\go.exe`。直接使用完整路径，未安装依赖、修改 PATH 或切换目标平台。
+- 工作目录：`D:\CodeBuddy-v1\tools\qwen-computer-use`。执行 `go test -count=1 -json ./...`，禁用测试结果缓存：31 项通过、0 失败、0 跳过，包报告耗时 7.295 秒，退出 0。随后 `go vet ./...` 退出 0，无诊断。
+- 覆盖窗口身份及坐标、Unicode 桥接、键盘别名、观察失效、动作回执、原生进程传输与取消等回归，包括本批新增的窗口移动观察测试。PowerShell 桥接使用测试替身；原生传输使用测试子进程，没有向真实桌面发送输入。
+- 未发现需要修复的 Go 问题，因此只更新三语验收文档，不修改产品源码、不重建工具二进制或安装包。本结果不替代真实鼠标键盘 E2E、macOS Swift 助手或其他 Go 版本验证；此前安装包和签名限制保持不变。
+
+本机原始证据保留在 `.preview-evidence/go-acceptance-20261023/`：`go-test.jsonl`、`go-test.stderr.log`、`go-vet.log` 和 `receipt.json`，不随 Git 提交。

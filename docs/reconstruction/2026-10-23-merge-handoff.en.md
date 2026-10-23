@@ -60,7 +60,7 @@ These packages came from the baseline plus this batch's source snapshots and pre
 
 1. `6491d44` — Windows/macOS packaging, native helpers and default installation directory (45 files).
 2. `11e8c28` — Harness goals/browser integration, model presets, chat/pet interaction, feature documentation and tests (250 files).
-3. The commit containing this document, `docs: add trilingual merge handoff and acceptance boundaries` — trilingual handoff and status notes for earlier development records (6 files).
+3. `7ebdfcc` — `docs: add trilingual merge handoff and acceptance boundaries`, the trilingual handoff and status notes for earlier development records (6 files).
 
 Merge all three together. After fetching, locate this document's commit with `git log -1 --format=%H origin/main -- docs/reconstruction/2026-10-23-merge-handoff.en.md`; the delivery message also provides its hash. Inspect the complete change with `git diff d43fcbbd0ec85afcb073cb74b14e835752a26e20 <final-commit>`.
 
@@ -74,5 +74,17 @@ Checks used existing Node 24.18.0, with repository-root cwd unless stated otherw
 | Desktop cwd: `node ../node_modules/typescript/bin/tsc --noEmit` | Exit 0. |
 | Desktop cwd: `node scripts/i18n-check.js` and `node scripts/i18n-validate-locale.js` | Exit 0; 2,982 messages, English source check and 15 translated locales. |
 | Desktop cwd: `node ../node_modules/vitest/vitest.mjs run --maxWorkers=1` | All 306 files and 2,709 tests passed; exit 0, 857.94 seconds. Uses existing `ui/node_modules`; dependencies were neither installed nor rebuilt. Component tests are not complete desktop product E2E. |
-| `go test ./...` / `go vet ./...` | Go was absent from the current PATH, so commands did not start and were not revalidated. Swift native tests were not run on Windows. No Rust source changed; no full Rust suite was run. |
+| `go test -count=1 -json ./...` / `go vet ./...` | Subsequently completed with existing Go 1.27.2: 31 passed, 0 failed, 0 skipped. Both commands exited 0; vet produced no diagnostics. See below. Swift native tests were not run on Windows. No Rust source changed; no full Rust suite was run. |
 | Git and candidate checks | `git diff --cached --check` exited 0. No local shared key, installer, large binary or raw profile was found in candidates. A stale index lock was backed up locally after verifying that no Git process was active. |
+
+## Go follow-up validation (2026-10-23)
+
+Previously, Go was absent from PATH and the commands never started. Further inspection located an existing local toolchain, and validation is now complete. This section supersedes the earlier unvalidated status and supplements the three commits above.
+
+- Source: `D:\CodeBuddy-v1`, `main`, `7ebdfcc7f64ead94d603e0ebdf774df30b7ff1df`; the working tree was clean at test start. The only Go module is `tools/qwen-computer-use/go.mod`.
+- Toolchain: `go version go1.27.2 windows/amd64`, executable `C:\Users\jiangrui\AppData\Local\Kuade-development\Kuade-Hermes\.cache\toolchains\go1.27.2\go\bin\go.exe`. Invoked by absolute path without dependency installation, PATH changes or platform overrides.
+- Cwd: `D:\CodeBuddy-v1\tools\qwen-computer-use`. `go test -count=1 -json ./...` disabled test-result caching: 31 passed, 0 failed, 0 skipped; package-reported duration 7.295 seconds; exit 0. Subsequent `go vet ./...` exited 0 with no diagnostics.
+- Coverage includes window identity and coordinates, Unicode bridging, keyboard aliases, observation invalidation, action receipts, native-process transport and cancellation, including this batch's new window-movement observation regression. PowerShell bridge tests use substitutes and native transport uses a test subprocess; no input was sent to the actual desktop.
+- No Go issue required a fix. Only the three handoff documents changed; product source, tool binaries and installers were not rebuilt or modified. This does not establish real mouse/keyboard E2E, macOS Swift-helper behavior or compatibility with other Go versions. Existing installer/signing limitations remain.
+
+Local evidence stays in `.preview-evidence/go-acceptance-20261023/`: `go-test.jsonl`, `go-test.stderr.log`, `go-vet.log`, and `receipt.json`. These files are excluded from Git.

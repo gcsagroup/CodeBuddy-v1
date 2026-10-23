@@ -60,7 +60,7 @@ Windows 舊同批安裝器完成安裝/卸載及資料保留；最後預設路�
 
 1. `6491d44` — Windows/macOS 打包、原生助手與預設安裝路徑（45 個檔案）。
 2. `11e8c28` — Harness 目標/瀏覽器、模型預設、聊天與寵物、功能文件及測試（250 個檔案）。
-3. 包含本文的 `docs: add trilingual merge handoff and acceptance boundaries` 提交 — 三語交接與舊階段紀錄狀態說明（6 個檔案）。
+3. `7ebdfcc` — `docs: add trilingual merge handoff and acceptance boundaries`，三語交接與舊階段紀錄狀態說明（6 個檔案）。
 
 請整批合併。拉取後可用 `git log -1 --format=%H origin/main -- docs/reconstruction/2026-10-23-merge-handoff.zh-TW.md` 取得本文提交；交付訊息也提供最終雜湊。完整差異：`git diff d43fcbbd0ec85afcb073cb74b14e835752a26e20 <最終提交>`。
 
@@ -74,5 +74,17 @@ Windows 舊同批安裝器完成安裝/卸載及資料保留；最後預設路�
 | 桌面目錄：`node ../node_modules/typescript/bin/tsc --noEmit` | 退出 0。 |
 | 桌面目錄：`node scripts/i18n-check.js`、`node scripts/i18n-validate-locale.js` | 退出 0；2982 條訊息，英文來源與 15 個翻譯語系。 |
 | 桌面目錄：`node ../node_modules/vitest/vitest.mjs run --maxWorkers=1` | 306 個檔案、2709 項全部通過，退出 0，857.94 秒；使用既有 `ui/node_modules`，沒有安裝或重建依賴。元件測試不等於全部桌面產品 E2E。 |
-| `go test ./...` / `go vet ./...` | 目前 PATH 沒有 Go，命令未啟動，本次未重跑；Windows 未執行 Swift 原生測試。沒有 Rust 原始碼改動，未跑 Rust 全套。 |
+| `go test -count=1 -json ./...` / `go vet ./...` | 後續以本機既有 Go 1.27.2 補測：31 項通過、0 失敗、0 跳過；兩條命令退出 0，vet 無診斷。詳見下節。Windows 未執行 Swift 原生測試，沒有 Rust 原始碼改動，未跑 Rust 全套。 |
 | Git 與候選檢查 | `git diff --cached --check` 退出 0；未發現共享 Key、安裝包、大型二進位或 profile 混入。確認無 Git 程序占用後，舊索引鎖備份至本機證據目錄。 |
+
+## Go 補充驗收（2026-10-23）
+
+先前僅確認 PATH 沒有 Go，測試未啟動；進一步尋找已找到本機既有工具鏈並完成補測。本節取代「Go 未複測」狀態，是上述三個提交之後的文件補充。
+
+- 來源：`D:\CodeBuddy-v1`，`main`，`7ebdfcc7f64ead94d603e0ebdf774df30b7ff1df`；開始時工作區乾淨。唯一 Go 模組為 `tools/qwen-computer-use/go.mod`。
+- 工具鏈：`go version go1.27.2 windows/amd64`，路徑 `C:\Users\jiangrui\AppData\Local\Kuade-development\Kuade-Hermes\.cache\toolchains\go1.27.2\go\bin\go.exe`。直接使用完整路徑，未安裝依賴、修改 PATH 或切換平台。
+- 於 `D:\CodeBuddy-v1\tools\qwen-computer-use` 執行 `go test -count=1 -json ./...`，停用結果快取：31 項通過、0 失敗、0 跳過，套件報告 7.295 秒，退出 0；接著 `go vet ./...` 退出 0，無診斷。
+- 涵蓋視窗身分與座標、Unicode 橋接、按鍵別名、觀察失效、動作回執、原生程序傳輸及取消，包含本批新增視窗移動觀察測試。PowerShell 橋接採測試替身，原生傳輸採測試子程序，未向真實桌面發送輸入。
+- 未發現需修正的 Go 問題，只更新三語文件，未改產品原始碼或重建二進位與安裝包。不替代真實滑鼠鍵盤 E2E、macOS Swift 助手或其他 Go 版本驗證；既有安裝與簽名限制保留。
+
+本機證據位於 `.preview-evidence/go-acceptance-20261023/`：`go-test.jsonl`、`go-test.stderr.log`、`go-vet.log`、`receipt.json`，不提交 Git。

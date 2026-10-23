@@ -8802,7 +8802,7 @@
     "defaultMessage": "Connection established; receiving model output"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "En attente du service du modèle"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"
@@ -9142,5 +9142,11 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Le service du modèle n’a pas encore renvoyé de contenu. Vous pouvez continuer à attendre ou arrêter cette requête."
+  },
+  "workStatus.quietHint": {
+    "defaultMessage": "Aucune nouvelle progression depuis {seconds} s. Vous pouvez continuer à attendre ou arrêter cette requête."
   }
 }

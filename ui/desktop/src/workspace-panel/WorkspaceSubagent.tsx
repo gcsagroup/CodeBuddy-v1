@@ -341,6 +341,7 @@ export function WorkspaceSubagent({
             chatState={ChatState.Streaming}
             message={workStatus.message}
             announcement={workStatus.announcement}
+            hint={workStatus.hint}
             assistantName="CodePro"
           />
         </div>

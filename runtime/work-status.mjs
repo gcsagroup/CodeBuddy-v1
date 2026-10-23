@@ -29,6 +29,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
   const observations = new Map();
   const retryMessages = new Map();
   let previous;
+  let lastToolInputAt = 0;
   return event => {
     if (signal?.aborted) return [];
     let phase, modelRequestPhase, toolInput, message = '', type = 'progress';
@@ -94,8 +95,12 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     // One worker's recovery cannot clear another worker's active backoff.
     if (type === 'progress' && retryMessages.size) message = [...retryMessages.values()].at(-1);
     const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}`;
-    if (key === previous) return [];
+    const now = Date.now();
+    // A real fragment can arrive without changing a complete field or size.
+    // Preserve that reception fact, bounded to 1 Hz; never synthesize a timer.
+    if (key === previous && (!toolInput || now - lastToolInputAt < 1000)) return [];
     previous = key;
+    if (toolInput) lastToolInputAt = now;
     return [{ sessionUpdate: 'status_message', status: { type, message, data: {
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,

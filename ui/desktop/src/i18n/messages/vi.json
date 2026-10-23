@@ -8802,7 +8802,7 @@
     "defaultMessage": "Connection established; receiving model output"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "Đang chờ dịch vụ mô hình"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"
@@ -9142,5 +9142,11 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
+  },
+  "workStatus.quietHint": {
+    "defaultMessage": "Chưa nhận được tiến triển mới trong {seconds} giây. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
   }
 }

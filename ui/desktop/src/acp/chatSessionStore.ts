@@ -762,12 +762,14 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
           Number.isInteger(activity.child_count) &&
           Number(activity.child_count) >= 0
         ) {
+          const toolInput = parseToolInputPreview(activity.tool_input);
           entry.promptActivity = {
             ...entry.promptActivity,
+            ...(toolInput ? { receivedAt: Date.now() } : {}),
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
-              toolInput: parseToolInputPreview(activity.tool_input),
+              toolInput,
               ...(typeof status.message === 'string' && status.message.trim()
                 ? {
                     detail: status.message,

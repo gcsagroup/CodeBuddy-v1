@@ -8802,7 +8802,7 @@
     "defaultMessage": "正在組織回覆"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "正在處理你的請求"
+    "defaultMessage": "等待模型服務回應"
   },
   "workStatus.text": {
     "defaultMessage": "正在撰寫回覆"
@@ -9142,5 +9142,11 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
+  },
+  "workStatus.quietHint": {
+    "defaultMessage": "已 {seconds} 秒沒有收到新的進展，你可以繼續等待，也可以停止本次請求。"
   }
 }

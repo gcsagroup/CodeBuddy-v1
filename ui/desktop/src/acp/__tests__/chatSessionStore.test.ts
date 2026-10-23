@@ -4,7 +4,7 @@ import type {
   SessionNotification,
 } from '@agentclientprotocol/sdk';
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types/message';
 import { ChatState } from '../../types/chatState';
 import {
@@ -33,6 +33,7 @@ function message(id: string, text: string): Message {
 
 it('accepts only current-turn file preparation metadata without adding a request or persisting it in history', () => {
   const id = 'tool-input-display';
+  const now = vi.spyOn(Date, 'now').mockReturnValue(100_000);
   try {
     acpChatSessionActions.startPromptAttempt(id, 'a', 'u');
     const update = (source: string, tool_input: unknown) =>
@@ -68,6 +69,10 @@ it('accepts only current-turn file preparation metadata without adding a request
     });
     expect(snapshot.messages).toHaveLength(0);
     expect(snapshot.activeToolCallIds).toEqual([]);
+    expect(snapshot.promptActivity?.receivedAt).toBe(100_000);
+    now.mockReturnValue(125_000);
+    update('u', { id: 'w', name: 'write', kilobytes: 4 });
+    expect(acpChatSessionStore.getSnapshot(id)?.promptActivity?.receivedAt).toBe(125_000);
     update('u', { id: null, name: 'write' });
     expect(
       acpChatSessionStore.getSnapshot(id)?.promptActivity?.execution?.toolInput
@@ -76,6 +81,7 @@ it('accepts only current-turn file preparation metadata without adding a request
     update('u', { id: 'late', name: 'write', kilobytes: 5 });
     expect(acpChatSessionStore.getSnapshot(id)?.promptActivity).toBeUndefined();
   } finally {
+    now.mockRestore();
     acpChatSessionActions.deleteSnapshot(id);
   }
 });

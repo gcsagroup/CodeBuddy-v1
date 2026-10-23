@@ -37,7 +37,13 @@ async function fixture(t, inputModalities = ['text', 'image']) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const fetchImpl = async (url, options) => {
     if (url.endsWith('/prompt')) { submissions.push(options.body); return Response.json({ prompt_id: jobId }); }
-    if (url.includes('/history/')) return Response.json({ [jobId]: { status: { completed: true }, outputs: { save: { images: [{ filename: 'result.png', type: 'output' }] } } } });
+    if (url.includes('/history/')) {
+      // ComfyUI keys history by the output node in the graph actually submitted.
+      const graph = JSON.parse(submissions.at(-1)).prompt;
+      const output = Object.keys(graph).filter(id => ['SaveImage', 'SaveImageAdvanced'].includes(graph[id].class_type));
+      assert.equal(output.length, 1);
+      return Response.json({ [jobId]: { status: { completed: true }, outputs: { [output[0]]: { images: [{ filename: 'result.png', type: 'output' }] } } } });
+    }
     if (url.includes('/view?')) return new Response(png);
     throw Error(`Unexpected fixture URL: ${url}`);
   };

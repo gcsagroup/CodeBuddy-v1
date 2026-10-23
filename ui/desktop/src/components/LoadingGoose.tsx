@@ -7,6 +7,7 @@ import type { CompactionLifecycle } from '../types/compactionLifecycle';
 
 interface LoadingGooseProps {
   message?: string;
+  hint?: string;
   announcement?: string;
   chatState?: ChatState;
   assistantName?: 'Code' | 'CodePro';
@@ -99,6 +100,7 @@ const STATE_MESSAGE_KEYS: Record<ChatState, keyof typeof i18n> = {
 
 const LoadingGoose = ({
   message,
+  hint,
   announcement,
   chatState = ChatState.Idle,
   assistantName = 'Code',
@@ -160,6 +162,14 @@ const LoadingGoose = ({
           )}
         </span>
       </div>
+      {hint && (
+        <p
+          data-testid="wait-hint"
+          className="pb-2 pl-6 text-xs leading-relaxed text-text-secondary"
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
 };

@@ -38,6 +38,24 @@ test('file input previews stay ephemeral, deduplicate size ticks and clear at na
   assert.equal(project({ type: 'assistant_end', sessionId: 'parent' })[0].status.data.tool_input, undefined);
 });
 
+test('unchanged preview metadata reports real incoming fragments at a bounded rate, never on its own', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100_000 });
+  const controller = new AbortController();
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run', signal: controller.signal });
+  const event = { type: 'tool_input', sessionId: 'parent', preview: { id: 'w', name: 'write', kilobytes: 3 } };
+  assert.equal(project(event).length, 1);
+  t.mock.timers.tick(999);
+  assert.deepEqual(project(event), []);
+  t.mock.timers.tick(1);
+  assert.equal(project(event).length, 1);
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(project({ type: 'unrelated' }), []);
+  assert.equal(project(event).length, 1);
+  controller.abort();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(project(event), []);
+});
+
 test('live child work has a specific wait target without exposing child receipts', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const waiting = project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

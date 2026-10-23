@@ -10,7 +10,7 @@ const labels = defineMessages({
   connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting' },
   responseWait: {
     id: 'workStatus.responseWait',
-    defaultMessage: 'Working on your request',
+    defaultMessage: 'Waiting for the model service',
   },
   responseRead: {
     id: 'workStatus.responseRead',
@@ -35,6 +35,16 @@ const labels = defineMessages({
   cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping the current operation' },
   check: { id: 'workStatus.check', defaultMessage: 'Checking execution results' },
   approval: { id: 'workStatus.approval', defaultMessage: 'Please approve: {action}' },
+  waitingHint: {
+    id: 'workStatus.waitingHint',
+    defaultMessage:
+      'The model service has not returned content yet. You can keep waiting or stop this request.',
+  },
+  quietHint: {
+    id: 'workStatus.quietHint',
+    defaultMessage:
+      'No new progress has arrived for {seconds}s. You can keep waiting or stop this request.',
+  },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 
@@ -65,8 +75,8 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
   const recent = activity?.receivedAt !== undefined && silence < 3;
   const execution = activity?.execution;
   if (execution?.toolInput && !action)
-    return { source: 'toolInput' as const, preview: execution.toolInput };
-  if (execution?.detail && !action) return { source: 'stage' as const, title: execution.detail };
+    return { source: 'toolInput' as const, preview: execution.toolInput, silence };
+  if (execution?.detail && !action) return { source: 'stage' as const, title: execution.detail, silence };
   const transportSource =
     execution?.phase === 'model' && execution.modelRequestPhase
       ? (
@@ -93,6 +103,7 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
               : (transportSource ?? (stage && activity ? 'stage' : 'first'));
   return {
     source,
+    silence,
     title: source === 'stage' ? stage : source === 'tool' ? action : undefined,
     childCount: execution?.childCount ?? 0,
     toolPending: Boolean(input.toolPending),
@@ -156,6 +167,12 @@ export function useWorkStatus(input: WorkStatusInput) {
   return {
     ...selection,
     elapsedSeconds,
+    hint:
+      active && 'silence' in selection && (selection.silence ?? 0) >= 20
+        ? intl.formatMessage(source === 'responseWait' ? labels.waitingHint : labels.quietHint, {
+            seconds: selection.silence,
+          })
+        : undefined,
     announcement: title,
     message: elapsed ? `${title} ${elapsed}` : title,
   };

@@ -875,6 +875,7 @@ export default function BaseChat({
                     chatState={chatState}
                     compactionLifecycle={compactionLifecycle}
                     message={workStatus.message}
+                    hint={workStatus.hint}
                     announcement={workStatus.announcement}
                     assistantName="CodePro"
                   />

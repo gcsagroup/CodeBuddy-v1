@@ -17,6 +17,7 @@ describe('specific live execution feedback', () => {
         promptAttemptId: 'attempt',
         sourceUserMessageId: 'u',
         startedAt: 100_000,
+        receivedAt: 100_000,
         execution: {
           phase: 'model' as const,
           childCount: 0,
@@ -41,6 +42,11 @@ describe('specific live execution feedback', () => {
       },
     });
     expect(result.current.elapsedSeconds).toBe(5);
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(result.current.hint).toContain('No new progress');
+    rerender({ ...input, activity: { ...input.activity, receivedAt: Date.now() } });
+    expect(result.current.hint).toBeUndefined();
+    expect(result.current.elapsedSeconds).toBe(25);
     rerender({ ...input, chatState: ChatState.WaitingForUserInput });
     expect(result.current.message).toBe('Your input is needed');
     rerender({ ...input, chatState: ChatState.Idle });
@@ -100,8 +106,9 @@ describe('specific live execution feedback', () => {
       initialProps: input,
       wrapper: IntlTestWrapper,
     });
-    act(() => vi.advanceTimersByTime(600000));
-    expect(result.current.message).toContain('Working on your request');
+    act(() => vi.advanceTimersByTime(206000));
+    expect(result.current.hint).toContain('has not returned content');
+    expect(result.current.message).toContain('Waiting for the model service');
     expect(result.current.message).not.toMatch(/reconnect|error|failed/i);
     rerender({
       ...input,
@@ -112,7 +119,7 @@ describe('specific live execution feedback', () => {
     });
     expect(result.current.message).toBe('连接发生错误；正在重新连接（1/5）');
     rerender(input);
-    expect(result.current.message).toContain('Working on your request');
+    expect(result.current.message).toContain('Waiting for the model service');
   });
   it('shows actual transport stages and keeps approval above transport waiting', () => {
     const input = {
@@ -134,7 +141,7 @@ describe('specific live execution feedback', () => {
       initialProps: input,
       wrapper: IntlTestWrapper,
     });
-    expect(result.current.message).toBe('Working on your request');
+    expect(result.current.message).toBe('Waiting for the model service');
     rerender({ ...input, chatState: ChatState.WaitingForUserInput });
     expect(result.current.message).toBe('Your input is needed');
   });

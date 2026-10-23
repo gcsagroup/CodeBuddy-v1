@@ -8798,11 +8798,14 @@
   "workStatus.question": {
     "defaultMessage": "Your input is needed"
   },
+  "workStatus.quietHint": {
+    "defaultMessage": "No new progress has arrived for {seconds}s. You can keep waiting or stop this request."
+  },
   "workStatus.responseRead": {
     "defaultMessage": "Preparing a response"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Working on your request"
+    "defaultMessage": "Waiting for the model service"
   },
   "workStatus.text": {
     "defaultMessage": "Writing a response"
@@ -8812,6 +8815,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Reviewing the tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "The model service has not returned content yet. You can keep waiting or stop this request."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"

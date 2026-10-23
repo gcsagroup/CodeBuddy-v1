@@ -11,23 +11,23 @@ it('shows live node progress and replaces the preview frame with a playable comp
     status: 'running',
     live: {
       connected: true,
-      node: 'sample',
+      node: '140:125',
+      stage: 'sample',
       step: 7,
       total: 20,
       preview: 'data:image/png;base64,aGVsbG8=',
     },
   };
-  window.electron.workspacePanel = vi
-    .fn()
-    .mockResolvedValue({
-      document: {
-        path: 'clip.mp4',
-        media: { kind: 'video', mimeType: 'video/mp4', url: 'codebuddy-media://preview/token' },
-      },
-    });
+  window.electron.workspacePanel = vi.fn().mockResolvedValue({
+    document: {
+      path: 'clip.mp4',
+      media: { kind: 'video', mimeType: 'video/mp4', url: 'codebuddy-media://preview/token' },
+    },
+  });
   const view = render(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected={false} />, {
     wrapper: IntlTestWrapper,
   });
+  expect(screen.getByText('Sampling')).toBeInTheDocument();
   expect(screen.getByRole('progressbar')).toHaveAttribute('value', '35');
   expect(screen.getByRole('img')).toHaveAttribute('alt', 'Live generation preview');
   view.rerender(

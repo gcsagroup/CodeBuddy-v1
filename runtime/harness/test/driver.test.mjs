@@ -9,6 +9,10 @@ import { createHarnessDriver, HARNESS_VERSION } from '../index.mjs';
 
 let driver, server, root, provider;
 const requests = [];
+const bareToolTexts = {
+  subagent: 'call:subagent{description:<|"|>代码审查专家<|"|>,prompt:<|"|>检查示例代码<|"|>,role:<|"|>代码审查专家<|"|>}<tool_call|>',
+  image: 'call:generate_image{job_id:<|"|>fixture-existing-job<|"|>,operation:<|"|>status<|"|>,wait_seconds:30}<tool_call|>',
+};
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'codebuddy-harness-test-'));
   server = createServer(async (req, res) => {
@@ -25,6 +29,15 @@ before(async () => {
     }
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const emit = (delta, finish_reason = null, usage) => res.write(`data: ${JSON.stringify({ id: 'fixture-completion', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
+    if (prompt.includes('fixture_literal_tool_protocol')) {
+      const text = bareToolTexts[prompt.includes('image') ? 'image' : 'subagent'];
+      emit({ role: 'assistant', content: text.slice(0, 9) });
+      emit({ content: text.slice(9, -6) });
+      emit({ content: text.slice(-6) });
+      emit({}, 'stop');
+      res.end('data: [DONE]\n\n');
+      return;
+    }
     if (prompt.includes('fixture_slow')) {
       emit({ role: 'assistant', content: 'started' });
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
@@ -32,11 +45,12 @@ before(async () => {
       return;
     }
     if (prompt.includes('fixture_write_stream') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
-      const file = join(root, prompt.includes('cancel') ? 'cancel-preview.txt' : 'preview.txt');
+      const latePath = prompt.includes('late_path');
+      const file = join(root, latePath ? 'late-path.txt' : prompt.includes('cancel') ? 'cancel-preview.txt' : 'preview.txt');
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'draft-write', type: 'function', function: { name: 'write', arguments: '{"content":"' + 'x'.repeat(1500) } }] });
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (!latePath) await new Promise(resolve => setTimeout(resolve, 300));
       emit({ tool_calls: [{ index: 0, function: { arguments: '\\nmore","file_path":' + JSON.stringify(file) } }] });
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (!latePath) await new Promise(resolve => setTimeout(resolve, 300));
       emit({ tool_calls: [{ index: 0, function: { arguments: '}' } }] });
       emit({}, 'tool_calls');
     } else if (prompt.includes('fixture_write') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
@@ -82,6 +96,20 @@ test('real Harness streams, uses HTTP adapter, and persists session history', as
   assert.ok(history.events.some(event => event.type === 'assistant/message'));
   assert.ok(history.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'completed'));
   assert.ok((await driver.listSessions()).some(item => item.id === created.sessionId || item.sessionId === created.sessionId));
+});
+
+for (const [kind, bareToolText] of Object.entries(bareToolTexts)) test(`${kind} protocol in provider text cannot dispatch, request approval or create a child`, async () => {
+  const created = await session();
+  const events = [], approvals = [];
+  await driver.prompt(created.sessionId, `fixture_literal_tool_protocol_${kind}`, {
+    onEvent: event => events.push(event),
+    onPermission: call => { approvals.push(call); return true; },
+  });
+  assert.equal(events.filter(event => event.type === 'text_delta').map(event => event.text).join(''), bareToolText);
+  assert.equal(events.filter(event => ['tool_call', 'tool_result', 'subagent_start'].includes(event.type)).length, 0);
+  assert.equal(approvals.length, 0);
+  const history = await driver.history(created.sessionId);
+  assert.equal(history.events.filter(event => event.type === 'tool/call').length, 0);
 });
 
 test('official tool pipeline owns requested approval and its dispatch result', async () => {
@@ -140,6 +168,22 @@ test('stopping during file parameter generation never dispatches or writes the d
   const history = await driver.history(created.sessionId);
   assert.equal(history.events.filter(e => e.type === 'tool/call').length, 0);
   assert.equal(history.events.at(-1).data.reason.kind, 'aborted');
+});
+
+test('a file path received in the last draft fragment remains visible before native dispatch', async t => {
+  const now = Date.now();
+  t.mock.method(Date, 'now', () => now);
+  const created = await session(), events = [];
+  await driver.prompt(created.sessionId, 'fixture_write_stream_late_path', {
+    onPermission: () => true,
+    onEvent: event => events.push(event),
+  });
+  const namedPreview = events.findIndex(event => event.type === 'tool_input' && event.preview.path === join(root, 'late-path.txt'));
+  const dispatch = events.findIndex(event => event.type === 'tool_call' && event.id === 'draft-write');
+  assert.ok(namedPreview >= 0, 'A received file path must not disappear behind the draft throttle');
+  assert.ok(namedPreview < dispatch, 'Draft metadata is published before execution');
+  assert.equal(events.filter(event => event.type === 'tool_call' && event.id === 'draft-write').length, 1);
+  assert.equal(await readFile(join(root, 'late-path.txt'), 'utf8'), 'x'.repeat(1500) + '\nmore');
 });
 
 test('adopting a live session and changing its model preserves prior history', async () => {

@@ -482,7 +482,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const run = runFor(agent);
     if (!run) return;
     if (frame.type === 'start') {
-      streamingMeters.set(agent.id, { attemptId: frame.attemptId, assembler: new BlockAssembler(), preview: createToolInputPreview(), previewSentAt: 0, baseline: contextUsage(agent.session), lastSent: 0 });
+      streamingMeters.set(agent.id, { attemptId: frame.attemptId, assembler: new BlockAssembler(), preview: createToolInputPreview(), publishedPreviews: new Map(), previewSentAt: 0, baseline: contextUsage(agent.session), lastSent: 0 });
       emit(run, { type: 'assistant_start', attemptId: frame.attemptId, turn: frame.turn, step: frame.step, sessionId: agent.id });
       return;
     }
@@ -496,11 +496,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (live?.attemptId === frame.attemptId) {
       live.assembler.push(chunk);
       live.preview.push(chunk);
-      if (chunk.type === 'tool-call-delta' && Date.now() - live.previewSentAt >= 250) {
-        live.previewSentAt = Date.now();
+      if (chunk.type === 'tool-call-delta') {
         const preview = live.preview.read(chunk.index);
-        if (preview && !isInternalControl(agent, preview.name))
-          emit(run, { type: 'tool_input', preview, attemptId: frame.attemptId, sessionId: agent.id });
+        if (preview && !isInternalControl(agent, preview.name)) {
+          const previous = live.publishedPreviews.get(chunk.index);
+          const metadataChanged = !previous || previous.id !== preview.id || previous.name !== preview.name || previous.path !== preview.path;
+          // A late complete path may be followed immediately by stream end.
+          // Throttle size updates, never the first received identity or path.
+          if (metadataChanged || Date.now() - live.previewSentAt >= 250) {
+            live.previewSentAt = Date.now();
+            live.publishedPreviews.set(chunk.index, preview);
+            emit(run, { type: 'tool_input', preview, attemptId: frame.attemptId, sessionId: agent.id });
+          }
+        }
       }
       if (Date.now() - live.lastSent >= 250 && ['text-delta', 'reasoning-delta', 'tool-call-delta', 'block-end'].includes(chunk.type)) {
         live.lastSent = Date.now();

@@ -8258,6 +8258,72 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Usar un modelo de imagen personalizado"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Predeterminado: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "El modelo Flash predeterminado no está configurado. Elige un modelo de imagen personalizado."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "No admite imágenes: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Límites de ejecución"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Profundidad máxima de recursión"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Máximo de subagentes en paralelo"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "La profundidad 0 impide delegar; 1 permite subagentes directos. El límite paralelo cuenta los descendientes activos de un agente principal. Los cambios se aplican al preparar la siguiente tarea; no cancelan subagentes existentes."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Guardar límites"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Guardado. Se aplica al preparar la siguiente tarea."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "No se pudieron cargar o guardar los límites. La configuración guardada no cambió."
+  },
+  "codeProModels.customVision": {
+    "defaultMessage": "Usar un modelo de imagen personalizado"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Predeterminado: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "El modelo Flash predeterminado no está configurado. Elige un modelo de imagen personalizado."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "No admite imágenes: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Límites de ejecución"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Profundidad máxima de recursión"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Máximo de subagentes en paralelo"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "La profundidad 0 impide delegar; 1 permite subagentes directos. El límite paralelo cuenta los descendientes activos de un agente principal. Los cambios se aplican al preparar la siguiente tarea; no cancelan subagentes existentes."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Guardar límites"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Guardado. Se aplica al preparar la siguiente tarea."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "No se pudieron cargar o guardar los límites. La configuración guardada no cambió."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8331,16 @@
     "defaultMessage": "Usa las plantillas predeterminadas o guarda una función personalizada. Los subagentes se crean solo cuando se necesitan."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Explorar proyecto"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Búsqueda en la web"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Leer archivos del proyecto, seguir el código y localizar implementaciones relevantes."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Buscar y leer fuentes web, comprobarlas y resumir los resultados."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8853,7 @@
     "defaultMessage": "Describe su función, enfoque y resultado esperado."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Eliminar plantilla"
+    "defaultMessage": "Eliminar subagente"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Nuevo subagente"

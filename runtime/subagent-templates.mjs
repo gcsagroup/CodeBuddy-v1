@@ -23,7 +23,10 @@ export function validateSubagentTemplates(value, providers, isSecret = false) {
     throw invalid('Invalid subagent template settings');
   const models = {};
   for (const role of roles) {
-    models[role] = modelChoice(value.models[role], providers, role);
+    // The former generic override is retired; unspecified children inherit the
+    // main model. Saved custom templates retain their explicit model choice.
+    const choice = modelChoice(value.models[role], role === 'generic' ? undefined : providers, role);
+    models[role] = role === 'generic' ? null : choice;
   }
   // Optional additive field keeps existing model-only settings readable.
   if (value.custom === undefined) return { version: 1, models };

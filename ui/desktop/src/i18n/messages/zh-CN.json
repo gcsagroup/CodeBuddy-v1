@@ -990,7 +990,19 @@
     "defaultMessage": "备用识图模型"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "主模型确认支持图片时直接识别，否则由备用模型看图后将说明交给主模型。图片和相关问题会发送至所选连接，可能增加耗时和费用。"
+    "defaultMessage": "主模型能看图时直接处理；否则将图片和问题交给辅助模型，可能增加耗时和费用。"
+  },
+  "codeProModels.customVision": {
+    "defaultMessage": "自定义辅助识图模型"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "默认：{model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "默认 Flash 模型尚未配置，请开启自定义选择识图模型。"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "此模型不支持图片：{model}"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "选择模型"
@@ -8390,6 +8402,27 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "本轮模型响应已结束，但没有返回最终正文。此前的输出和操作记录已保留。"
   },
+  "subagentLimits.title": {
+    "defaultMessage": "运行限制"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "最大递归深度"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "子智能体并行数量上限"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "深度 0 不允许委派，1 允许直接创建子 Agent。并行上限统计同一主 Agent 下所有正在运行的后代。修改从下一轮任务准备时生效，不取消已有子 Agent。"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "保存运行限制"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "已保存，下一轮任务准备时生效。"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "运行限制读取或保存失败，已保存的配置未改变。"
+  },
   "subagentTemplates.title": {
     "defaultMessage": "子 Agent 模板与模型"
   },
@@ -8397,10 +8430,16 @@
     "defaultMessage": "按需使用默认模板，也可以保存自定义职责。子 Agent 只在需要时创建。"
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · 项目探索"
+    "defaultMessage": "项目探索"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "搜索资料"
+    "defaultMessage": "网页资料搜索"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "阅读项目文件、追踪代码调用关系，定位相关实现。"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "搜索和阅读网页资料，核对来源并整理结论。"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "其他聊天内职责"
@@ -8712,7 +8751,7 @@
     "defaultMessage": "正在确认图片能力…"
   },
   "codeProModels.visionSupportedOnly": {
-    "defaultMessage": "仅列出已确认支持图片的模型。若服务缺少能力信息，请先在“模型图片能力校正”中核实。"
+    "defaultMessage": "仅列出已确认支持图片的模型。"
   },
   "codeProModels.visionNoModels": {
     "defaultMessage": "此连接暂无已确认支持图片的模型。"
@@ -8724,7 +8763,7 @@
     "defaultMessage": "请选择已确认支持图片的备用模型。"
   },
   "codeProModels.visionUnavailableSelection": {
-    "defaultMessage": "当前选择不可用：{model}"
+    "defaultMessage": "尚未确认此模型支持图片：{model}"
   },
   "modelsAndRuntime.connections": {
     "defaultMessage": "模型与连接"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "说明它负责什么、如何工作，以及输出要求。"
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "移除模板"
+    "defaultMessage": "删除子 Agent"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "新子 Agent"

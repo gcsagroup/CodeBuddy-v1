@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "カスタム画像モデルを使用"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "既定：{model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "既定のFlashモデルが未設定です。カスタム画像モデルを選んでください。"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "画像入力非対応：{model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "実行制限"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "再帰の最大深度"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "サブエージェントの最大並列数"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "深度0では委任できず、1では直接の子を作成できます。並列数は主エージェント配下で実行中のすべての子孫を数えます。変更は次のタスク準備時に適用され、既存のサブエージェントは停止しません。"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "制限を保存"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "保存しました。次のタスク準備時に適用されます。"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "制限の読み込みまたは保存に失敗しました。保存済みの設定は変更されていません。"
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "既定のテンプレートを使うか、独自の役割を保存できます。サブエージェントは必要なときだけ作成されます。"
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "プロジェクト調査"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Web資料検索"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "プロジェクト内のファイルを読み、コードの流れと関連する実装を調べます。"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Web上の資料を検索・閲覧し、内容を確認して要点をまとめます。"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "役割、進め方、期待する出力を記入してください。"
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "テンプレートを削除"
+    "defaultMessage": "サブエージェントを削除"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "新しいサブエージェント"

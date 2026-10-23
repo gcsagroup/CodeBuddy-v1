@@ -45,7 +45,7 @@ const messages = defineMessages({
   searchContents: { id: 'toolAction.searchContents', defaultMessage: 'Search file contents' },
   readImage: { id: 'toolAction.readImage', defaultMessage: 'View an image' },
   createAgent: { id: 'toolAction.createAgent', defaultMessage: 'Create a subagent' },
-  sourceResearch: { id: 'subagentTemplates.browser', defaultMessage: 'Search sources' },
+  sourceResearch: { id: 'subagentTemplates.browser', defaultMessage: 'Web research' },
   messageAgent: { id: 'toolAction.messageAgent', defaultMessage: 'Send a message to a subagent' },
   listAgents: { id: 'toolAction.listAgents', defaultMessage: 'Check subagent progress' },
   skill: { id: 'toolAction.skill', defaultMessage: 'Load task instructions' },

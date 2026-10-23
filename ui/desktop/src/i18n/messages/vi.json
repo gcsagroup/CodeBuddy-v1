@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Dùng mô hình nhận ảnh tùy chỉnh"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Mặc định: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Chưa cấu hình mô hình Flash mặc định. Hãy chọn mô hình nhận ảnh tùy chỉnh."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Không hỗ trợ ảnh đầu vào: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Giới hạn thực thi"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Độ sâu đệ quy tối đa"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Số tác nhân con song song tối đa"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Độ sâu 0 không cho ủy nhiệm; 1 cho phép tạo tác nhân con trực tiếp. Giới hạn song song đếm mọi hậu duệ đang hoạt động của một tác nhân chính. Thay đổi có hiệu lực khi chuẩn bị tác vụ tiếp theo, không hủy tác nhân con hiện có."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Lưu giới hạn"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Đã lưu. Có hiệu lực khi chuẩn bị tác vụ tiếp theo."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Không thể tải hoặc lưu giới hạn. Cấu hình đã lưu không thay đổi."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "Dùng mẫu mặc định hoặc lưu vai trò tùy chỉnh. Tác tử phụ chỉ được tạo khi cần."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Khám phá dự án"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Tìm tài liệu trên web"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Đọc tệp dự án, tìm hiểu luồng mã và xác định phần triển khai liên quan."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Tìm và đọc nguồn trên web, sau đó kiểm tra và tóm tắt kết quả."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "Mô tả vai trò, cách làm việc và kết quả mong đợi."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Xóa mẫu"
+    "defaultMessage": "Xóa tác nhân con"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Tác tử phụ mới"

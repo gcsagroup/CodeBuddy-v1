@@ -8258,6 +8258,72 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "कस्टम इमेज मॉडल चुनें"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "डिफ़ॉल्ट: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "डिफ़ॉल्ट Flash मॉडल कॉन्फ़िगर नहीं है। कस्टम इमेज मॉडल चुनें।"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "इमेज इनपुट समर्थित नहीं: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "रनटाइम सीमाएँ"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "अधिकतम पुनरावर्तन गहराई"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "अधिकतम समानांतर सब-एजेंट"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "गहराई 0 पर कार्य सौंपना बंद रहता है; 1 पर सीधे सब-एजेंट बन सकते हैं। समानांतर सीमा एक मुख्य एजेंट के सक्रिय वंशज गिनती है। बदलाव अगला कार्य तैयार करते समय लागू होंगे; मौजूदा सब-एजेंट रद्द नहीं होंगे।"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "सीमाएँ सहेजें"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "सहेजा गया। अगला कार्य तैयार करते समय लागू होगा।"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "सीमाएँ लोड या सहेजी नहीं जा सकीं। सहेजा गया कॉन्फ़िगरेशन नहीं बदला।"
+  },
+  "codeProModels.customVision": {
+    "defaultMessage": "कस्टम इमेज मॉडल चुनें"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "डिफ़ॉल्ट: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "डिफ़ॉल्ट Flash मॉडल कॉन्फ़िगर नहीं है। कस्टम इमेज मॉडल चुनें।"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "इमेज इनपुट समर्थित नहीं: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "रनटाइम सीमाएँ"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "अधिकतम पुनरावर्तन गहराई"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "अधिकतम समानांतर सब-एजेंट"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "गहराई 0 पर कार्य सौंपना बंद रहता है; 1 पर सीधे सब-एजेंट बन सकते हैं। समानांतर सीमा एक मुख्य एजेंट के सक्रिय वंशज गिनती है। बदलाव अगला कार्य तैयार करते समय लागू होंगे; मौजूदा सब-एजेंट रद्द नहीं होंगे।"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "सीमाएँ सहेजें"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "सहेजा गया। अगला कार्य तैयार करते समय लागू होगा।"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "सीमाएँ लोड या सहेजी नहीं जा सकीं। सहेजा गया कॉन्फ़िगरेशन नहीं बदला।"
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8331,16 @@
     "defaultMessage": "डिफ़ॉल्ट टेम्पलेट इस्तेमाल करें या अपनी भूमिका सहेजें। उप-एजेंट केवल ज़रूरत पड़ने पर बनाए जाते हैं।"
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "प्रोजेक्ट की पड़ताल"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "वेब स्रोतों की खोज"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "प्रोजेक्ट की फ़ाइलें पढ़ें, कोड के प्रवाह को समझें और संबंधित कार्यान्वयन खोजें।"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "वेब स्रोत खोजें और पढ़ें, फिर निष्कर्षों की जाँच करके सारांश बनाएँ।"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8853,7 @@
     "defaultMessage": "इसकी भूमिका, काम करने का तरीका और अपेक्षित परिणाम बताएं।"
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "टेम्पलेट हटाएँ"
+    "defaultMessage": "सब-एजेंट हटाएँ"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "नया उप-एजेंट"

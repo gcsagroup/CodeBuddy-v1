@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_SUBAGENT_LIMITS } from '../subagent-limits.mjs';
 
 // Explicit Host composition. No TUI/Web client, telemetry, credential discovery,
 // or second model/agent loop is installed by this embedding profile.
@@ -60,7 +61,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tool-goal', 'dsh-tool-goal'),
     entry('jobs', 'dsh-jobs-local'),
     entry('tool-jobs', 'dsh-tool-jobs', { completionDelivery: 'quiet' }),
-    entry('subagents', 'dsh-subagent', { maxActiveSubagents: 3, maxDepth: 1 }),
+    entry('subagents', 'dsh-subagent', { ...DEFAULT_SUBAGENT_LIMITS }),
     entry('subagent-spawn', 'dsh-subagent-spawn-in-process'),
     entry('subagent-fork', 'dsh-subagent-fork-in-process'),
     entry('tool-subagent', 'dsh-tool-subagent', { provider: 'spawn' }),

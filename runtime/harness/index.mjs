@@ -24,6 +24,7 @@ import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { validateSubagentLimits } from '../subagent-limits.mjs';
 
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
@@ -557,6 +558,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
 
   let creation = Promise.resolve();
   let providerConfiguration = Promise.resolve();
+  let limitsConfiguration = Promise.resolve();
+  function configureSubagentLimits(value) {
+    const limits = validateSubagentLimits(value);
+    const work = limitsConfiguration.then(async () => {
+      if (ctx.subagents.config.maxDepth.get() === limits.maxDepth &&
+          ctx.subagents.config.maxActiveSubagents.get() === limits.maxActiveSubagents) return;
+      const entry = [...ctx.loader.entries()].find(item => item.options.id === 'subagents');
+      // Both official fields are volatile: updating them does not replace the
+      // manager or interrupt children. DSH remains the admission authority.
+      await entry.update({ config: limits });
+      await ctx.loader.await();
+    });
+    limitsConfiguration = work.catch(() => {});
+    return work;
+  }
   function configureProvider(provider, model) {
     const work = providerConfiguration.then(() => configureProviderNow(provider, model));
     providerConfiguration = work.catch(() => {});
@@ -962,6 +978,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       }
     },
     configureSession,
+    configureSubagentLimits,
     async questions(sessionId) {
       const agent = ctx.agents.get(sessionId);
       return agent ? userQuestions(agent.session) : { nativeSessionId: sessionId, active: [], settled: [] };

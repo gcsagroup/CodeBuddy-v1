@@ -35,6 +35,38 @@ test('template config ACP validates atomically, persists selections and resolves
   assert.equal(unavailable.subagentModels.explorer.model, undefined, 'A missing connection must not silently select another model');
 });
 
+test('retired generic model choices no longer override new children and stale connections do not block settings', async t => {
+  const store = await openStore(await mkdtemp(join(tmpdir(), 'codebuddy-retired-generic-')));
+  const legacy = { version: 1, models: { generic: { providerId: 'removed', modelId: 'legacy-model' } } };
+  await store.update(state => { state.config.subagentTemplates = { value: legacy }; });
+  const compat = new Compat(store, { close: async () => {}, listTools: async () => [] });
+  await compat.initialize(); t.after(() => compat.close());
+  assert.deepEqual((await compat.sessionOptions({ id: 'fixture', cwd: store.directory })).subagentModels, {});
+  await compat.request('_goose/unstable/config/upsert', { key: 'subagentTemplates', value: legacy, isSecret: false }, { sessionIds: new Set() });
+  assert.equal(store.read(['config']).config.subagentTemplates.value.models.generic, null);
+});
+
+test('subagent limits persist without permissions or execution state and invalid edits are atomic', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'codebuddy-subagent-limits-'));
+  const store = await openStore(root);
+  const compat = new Compat(store, { close: async () => {} });
+  await compat.initialize(); t.after(() => compat.close());
+  const request = (method, params) => compat.request('_goose/unstable/' + method, params, { sessionIds: new Set() });
+  const read = () => request('config/read', { key: 'subagentLimits', isSecret: false });
+  const save = value => request('config/upsert', { key: 'subagentLimits', value, isSecret: false });
+  assert.deepEqual((await read()).value, { maxDepth: 1, maxActiveSubagents: 3 });
+  const value = { maxDepth: 0, maxActiveSubagents: 4 };
+  await save(value);
+  assert.deepEqual((await openStore(root)).read(['config']).config.subagentLimits.value, value);
+  for (const invalid of [null, {}, { ...value, maxDepth: -1 }, { ...value, maxDepth: .5 }, { ...value, maxActiveSubagents: 0 }, { ...value, maxActiveSubagents: Number.MAX_SAFE_INTEGER + 1 }, { ...value, permissions: 'full-access' }]) {
+    await assert.rejects(save(invalid));
+    assert.deepEqual((await read()).value, value);
+  }
+  await assert.rejects(request('config/upsert', { key: 'subagentLimits', value, isSecret: true }));
+  await request('config/remove', { key: 'subagentLimits', isSecret: false });
+  assert.deepEqual((await read()).value, { maxDepth: 1, maxActiveSubagents: 3 });
+});
+
 test('custom template edits validate atomically without storing execution state or granting permissions', async t => {
   const root = await mkdtemp(join(tmpdir(), 'codebuddy-custom-templates-'));
   const store = await openStore(root);

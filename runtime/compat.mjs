@@ -26,6 +26,7 @@ import {
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
+import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -1154,6 +1155,9 @@ export class Compat {
           "Session changed while its capabilities were being prepared; retry",
         );
       const preparedAt = performance.now();
+      await this.driver.configureSubagentLimits?.(validateSubagentLimits(
+        this.store.read(['config']).config[SUBAGENT_LIMITS_KEY]?.value ?? DEFAULT_SUBAGENT_LIMITS,
+      ));
       await this.driver.createSession({
         sessionId: s.id,
         cwd: s.cwd,
@@ -2046,6 +2050,7 @@ export class Compat {
       }
       case "config/read": {
         const c = this.store.read(["config"]).config[p.key];
+        if (p.key === SUBAGENT_LIMITS_KEY && !c) return { value: { ...DEFAULT_SUBAGENT_LIMITS } };
         return { value: c?.secret ? "********" : (c?.value ?? null) };
       }
       case "config/read-all": {
@@ -2062,6 +2067,7 @@ export class Compat {
         requireString(p.key, "key");
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
+        if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };

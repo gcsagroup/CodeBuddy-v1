@@ -19,6 +19,7 @@ import type { ProviderInventoryModelDto } from '@aaif/goose-sdk';
 import { resolveModelCapability, type ModelCapabilityState } from '../../acp/modelCapabilities';
 import { acpErrorData, errorMessage } from '../../utils/conversionUtils';
 import { Button } from '../ui/button';
+import { Switch } from '../ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -184,10 +185,22 @@ const i18n = defineMessages({
     id: 'codeProModels.visionAgent',
     defaultMessage: 'Backup image model',
   },
+  customVision: {
+    id: 'codeProModels.customVision',
+    defaultMessage: 'Use a custom image model',
+  },
+  visionDefault: {
+    id: 'codeProModels.visionDefault',
+    defaultMessage: 'Default: {model}',
+  },
+  visionDefaultUnavailable: {
+    id: 'codeProModels.visionDefaultUnavailable',
+    defaultMessage: 'The default Flash model is not configured. Choose a custom image model.',
+  },
   visionAgentDescription: {
     id: 'codeProModels.visionAgentDescription',
     defaultMessage:
-      'The current model reads images directly when image support is confirmed. Otherwise this backup model describes them for the current model. Images and the related question are sent to the selected connection; this can add time and cost.',
+      'The current model reads images when supported. Otherwise images and your question go to the selected auxiliary model, which may add time and cost.',
   },
   visionModelLabel: {
     id: 'codeProModels.visionModelLabel',
@@ -204,8 +217,7 @@ const i18n = defineMessages({
   visionChecking: { id: 'codeProModels.visionChecking', defaultMessage: 'Checking image support…' },
   visionSupportedOnly: {
     id: 'codeProModels.visionSupportedOnly',
-    defaultMessage:
-      'Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction.',
+    defaultMessage: 'Only models with confirmed image input are listed.',
   },
   visionNoModels: {
     id: 'codeProModels.visionNoModels',
@@ -221,7 +233,11 @@ const i18n = defineMessages({
   },
   visionUnavailableSelection: {
     id: 'codeProModels.visionUnavailableSelection',
-    defaultMessage: 'Current selection unavailable: {model}',
+    defaultMessage: 'Image support not confirmed: {model}',
+  },
+  visionUnsupportedSelection: {
+    id: 'codeProModels.visionUnsupportedSelection',
+    defaultMessage: 'Image input not supported: {model}',
   },
 });
 
@@ -237,6 +253,7 @@ const selectionsFromDefault = (
 });
 
 const CONFIGURE_PROVIDER_VALUE = '__configure_provider__';
+const DEFAULT_IMAGE_MODEL = 'deepseek-v4.1-flash';
 
 export function CodeProModelModal({
   onClose,
@@ -308,34 +325,80 @@ export function CodeProModelModal({
     Record<string, ProviderDiscoveryState>
   >({});
   const [modelLoadAttempt, setModelLoadAttempt] = useState(0);
+  const [customVisionDraft, setCustomVisionDraft] = useState<boolean>();
   const modelRequestGeneration = useRef(0);
+  const visionInventory = useMemo(
+    () =>
+      providers.flatMap((provider) =>
+        (modelsByProvider[provider.name] ?? []).map((model) => ({
+          ...model,
+          providerId: provider.name,
+          providerLabel: provider.metadata.display_name || provider.name,
+          key: JSON.stringify([provider.name, model.id]),
+        }))
+      ),
+    [providers, modelsByProvider]
+  );
+  const defaultVisionModel = useMemo(() => {
+    const candidates = visionInventory.filter((model) => model.id === DEFAULT_IMAGE_MODEL);
+    return (
+      candidates.find((model) => model.providerId === defaultSelection.provider) ??
+      (candidates.length === 1 ? candidates[0] : undefined)
+    );
+  }, [visionInventory, defaultSelection.provider]);
+  const selectedVisionKey =
+    visionRoute.providerId && visionRoute.modelId
+      ? JSON.stringify([visionRoute.providerId, visionRoute.modelId])
+      : '';
+  const customVisionEnabled =
+    customVisionDraft ??
+    (visionRoute.enabled &&
+      (defaultVisionModel
+        ? selectedVisionKey !== defaultVisionModel.key
+        : visionRoute.modelId !== DEFAULT_IMAGE_MODEL));
+  const effectiveVisionRoute: CodeProVisionRoute = customVisionEnabled
+    ? { ...visionRoute, enabled: true, mode: 'auto' }
+    : {
+        enabled: true,
+        mode: 'auto',
+        providerId: defaultVisionModel?.providerId,
+        modelId: defaultVisionModel?.id,
+      };
+  const requestedVisionModels = useMemo(
+    () =>
+      visionOnly && !customVisionEnabled
+        ? defaultVisionModel
+          ? [defaultVisionModel]
+          : []
+        : visionInventory,
+    [visionOnly, customVisionEnabled, defaultVisionModel, visionInventory]
+  );
   const [visionCapabilities, setVisionCapabilities] = useState<{
-    providerId?: string;
+    inventory?: typeof requestedVisionModels;
     status: 'loading' | 'ready' | 'unavailable';
     models: Record<string, ModelCapabilityState>;
   }>({ status: 'loading', models: {} });
-  const visionInventory = modelsByProvider[visionRoute.providerId ?? ''];
+  const checkVision = (advancedRoutingEnabled || visionOnly) && (visionRoute.enabled || visionOnly);
   useEffect(() => {
     let current = true;
-    const providerId = visionRoute.providerId;
-    setVisionCapabilities({ providerId, status: 'loading', models: {} });
-    if (!providerId || !visionInventory) return;
+    setVisionCapabilities({ inventory: requestedVisionModels, status: 'loading', models: {} });
+    if (!checkVision || !modelDiscoveryComplete) return;
     void Promise.allSettled(
-      visionInventory.map(async (model) => ({
-        id: model.id,
-        capability: await resolveModelCapability(providerId, model.id),
+      requestedVisionModels.map(async (model) => ({
+        key: model.key,
+        capability: await resolveModelCapability(model.providerId, model.id),
       }))
     ).then((results) => {
       if (!current) return;
       const models = Object.fromEntries(
         results.flatMap((result) =>
           result.status === 'fulfilled'
-            ? [[result.value.id, result.value.capability.imageInput]]
+            ? [[result.value.key, result.value.capability.imageInput]]
             : []
         )
       );
       setVisionCapabilities({
-        providerId,
+        inventory: requestedVisionModels,
         models,
         status:
           results.some((result) => result.status === 'rejected') &&
@@ -347,12 +410,15 @@ export function CodeProModelModal({
     return () => {
       current = false;
     };
-  }, [visionRoute.providerId, visionInventory, modelLoadAttempt]);
-  const visionCapabilitiesCurrent = visionCapabilities.providerId === visionRoute.providerId;
+  }, [checkVision, requestedVisionModels, modelLoadAttempt, modelDiscoveryComplete]);
+  const visionCapabilitiesCurrent = visionCapabilities.inventory === requestedVisionModels;
   const visionModels = visionCapabilitiesCurrent
-    ? (visionInventory ?? []).filter((model) => visionCapabilities.models[model.id] === 'supported')
+    ? visionInventory.filter((model) => visionCapabilities.models[model.key] === 'supported')
     : [];
-  const visionChecking = !visionCapabilitiesCurrent || visionCapabilities.status === 'loading';
+  const visionChecking =
+    !modelDiscoveryComplete ||
+    !visionCapabilitiesCurrent ||
+    visionCapabilities.status === 'loading';
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const currentDefaultProvider = currentDefault?.provider;
@@ -525,17 +591,19 @@ export function CodeProModelModal({
     return '';
   };
 
-  const invalidVisionSelectionMessage = () => {
-    if (!visionRoute.enabled || !visionRoute.providerId) return '';
+  const invalidVisionSelectionMessage = (selection = visionRoute) => {
+    if (!selection.enabled) return '';
     const role = intl.formatMessage(i18n.visionAgent);
-    if (!visionRoute.modelId) {
+    if (!selection.providerId || !selection.modelId) {
+      if (visionOnly && !customVisionEnabled)
+        return intl.formatMessage(i18n.visionDefaultUnavailable);
       return intl.formatMessage(i18n.missingSelection, { role });
     }
-    const provider = providers.find((candidate) => candidate.name === visionRoute.providerId);
+    const provider = providers.find((candidate) => candidate.name === selection.providerId);
     if (!provider) {
       return intl.formatMessage(i18n.providerRemoved, {
         role,
-        provider: visionRoute.providerId,
+        provider: selection.providerId,
       });
     }
     const providerLabel = provider.metadata.display_name || provider.name;
@@ -546,17 +614,21 @@ export function CodeProModelModal({
     if (discoveryState === 'unavailable') {
       return intl.formatMessage(i18n.providerModelsUnavailable, { role, provider: providerLabel });
     }
-    if (!modelsByProvider[provider.name]?.some((model) => model.id === visionRoute.modelId)) {
+    if (!modelsByProvider[provider.name]?.some((model) => model.id === selection.modelId)) {
       return intl.formatMessage(i18n.modelUnavailable, {
         role,
-        model: visionRoute.modelId,
+        model: selection.modelId,
         provider: providerLabel,
       });
     }
     if (visionChecking) return intl.formatMessage(i18n.visionChecking);
     if (visionCapabilities.status === 'unavailable')
       return intl.formatMessage(i18n.visionCapabilityError);
-    if (!visionModels.some((model) => model.id === visionRoute.modelId))
+    if (
+      !visionModels.some(
+        (model) => model.key === JSON.stringify([selection.providerId, selection.modelId])
+      )
+    )
       return intl.formatMessage(i18n.visionUnsupported);
     return '';
   };
@@ -590,7 +662,9 @@ export function CodeProModelModal({
   const save = async () => {
     if (!configurationLoaded || saving) return;
     const visionSelectionError =
-      advancedRoutingEnabled || visionOnly ? invalidVisionSelectionMessage() : '';
+      advancedRoutingEnabled || visionOnly
+        ? invalidVisionSelectionMessage(visionOnly ? effectiveVisionRoute : visionRoute)
+        : '';
     if (visionSelectionError) {
       setOperationError(visionSelectionError);
       return;
@@ -602,7 +676,7 @@ export function CodeProModelModal({
         const latest = await readCodeProModelRouting();
         await saveCodeProModelRouting({
           ...(latest ?? DISABLED_CODEPRO_MODEL_ROUTING),
-          visionRoute: { ...visionRoute },
+          visionRoute: { ...effectiveVisionRoute },
         });
         onClose();
       } catch (error) {
@@ -841,126 +915,269 @@ export function CodeProModelModal({
                 </section>
               );
             })}
-          {configurationLoaded && (
-            <section className="rounded-lg border border-border-primary bg-background-secondary p-3">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {intl.formatMessage(i18n.visionAgent)}
-                </h3>
-                <p className="text-xs text-text-secondary">
-                  {intl.formatMessage(i18n.visionAgentDescription)}
-                </p>
-              </div>
-              {advancedRoutingEnabled || visionOnly ? (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <select
-                    aria-label={intl.formatMessage(i18n.providerLabel, {
-                      role: intl.formatMessage(i18n.visionAgent),
+          {configurationLoaded &&
+            (visionOnly ? (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor="custom-image-model" className="text-sm text-text-primary">
+                    {intl.formatMessage(i18n.customVision)}
+                  </label>
+                  <Switch
+                    id="custom-image-model"
+                    variant="mono"
+                    checked={customVisionEnabled}
+                    disabled={saving}
+                    onCheckedChange={(checked) => {
+                      setCustomVisionDraft(checked);
+                      setOperationError('');
+                    }}
+                  />
+                </div>
+                {!customVisionEnabled && (
+                  <p className="text-sm text-text-secondary">
+                    {intl.formatMessage(i18n.visionDefault, {
+                      model: defaultVisionModel
+                        ? `${defaultVisionModel.name || defaultVisionModel.id} · ${defaultVisionModel.providerLabel}`
+                        : DEFAULT_IMAGE_MODEL,
                     })}
-                    value={visionRoute.providerId ?? ''}
-                    onChange={(event) => {
-                      if (event.target.value === CONFIGURE_PROVIDER_VALUE) {
-                        onConfigureProvider?.();
-                        return;
-                      }
-                      if (!event.target.value) {
-                        setVisionRoute({ enabled: false, mode: 'disabled' });
-                        return;
-                      }
-                      setVisionRoute({
-                        ...visionRoute,
-                        enabled: true,
-                        mode: 'auto',
-                        providerId: event.target.value,
-                        modelId: undefined,
-                      });
-                    }}
-                    className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary"
-                  >
-                    <option value="">{intl.formatMessage(i18n.visionDefaultProvider)}</option>
-                    {visionRoute.providerId &&
-                      !providers.some((provider) => provider.name === visionRoute.providerId) && (
-                        <option value={visionRoute.providerId}>
-                          {providers.find((provider) => provider.name === visionRoute.providerId)
-                            ? intl.formatMessage(i18n.unavailableProviderOption, {
-                                provider:
-                                  providers.find(
-                                    (provider) => provider.name === visionRoute.providerId
-                                  )?.metadata.display_name || visionRoute.providerId,
-                              })
-                            : visionRoute.providerId}
-                        </option>
-                      )}
-                    {providers.map((provider) => (
-                      <option key={provider.name} value={provider.name}>
-                        {provider.metadata.display_name || provider.name}
-                      </option>
-                    ))}
-                    <option value={CONFIGURE_PROVIDER_VALUE}>
-                      {intl.formatMessage(i18n.useAnotherProvider)}
-                    </option>
-                  </select>
-                  <select
-                    aria-label={intl.formatMessage(i18n.visionModelLabel)}
-                    value={visionRoute.providerId ? (visionRoute.modelId ?? '') : ''}
-                    disabled={!visionRoute.providerId || visionChecking}
-                    onChange={(event) => {
-                      if (!visionRoute.providerId) return;
-                      setVisionRoute({
-                        ...visionRoute,
-                        providerId: visionRoute.providerId,
-                        modelId: event.target.value || undefined,
-                      });
-                    }}
-                    className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary disabled:opacity-100"
-                  >
-                    <option value="">
-                      {visionRoute.providerId
-                        ? intl.formatMessage(
-                            visionChecking ? i18n.visionChecking : i18n.selectModel
-                          )
-                        : intl.formatMessage(i18n.visionDefaultModel)}
-                    </option>
-                    {visionRoute.providerId &&
-                      visionRoute.modelId &&
-                      !visionModels.some((model) => model.id === visionRoute.modelId) && (
-                        <option value={visionRoute.modelId} disabled>
-                          {intl.formatMessage(i18n.visionUnavailableSelection, {
-                            model: visionRoute.modelId,
-                          })}
-                        </option>
-                      )}
-                    {visionRoute.providerId &&
-                      visionModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name || model.id}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-text-secondary sm:col-span-2">
-                    {intl.formatMessage(i18n.visionSupportedOnly)}
                   </p>
-                  {visionRoute.providerId && !visionChecking && visionModels.length === 0 && (
-                    <p role="status" className="text-xs text-text-secondary sm:col-span-2">
+                )}
+                {visionChecking ? (
+                  <p role="status" className="text-sm text-text-secondary">
+                    {intl.formatMessage(i18n.visionChecking)}
+                  </p>
+                ) : customVisionEnabled ? (
+                  <fieldset
+                    className="space-y-3 rounded-2xl border border-border-primary px-4 pb-3 pt-2"
+                    disabled={saving}
+                  >
+                    <legend className="px-1 text-sm text-text-secondary">
+                      {intl.formatMessage(i18n.visionModelLabel)}
+                    </legend>
+                    {providers.map((provider) => {
+                      const models = visionModels.filter(
+                        (model) => model.providerId === provider.name
+                      );
+                      if (!models.length) return null;
+                      return (
+                        <div
+                          key={provider.name}
+                          role="group"
+                          aria-label={provider.metadata.display_name || provider.name}
+                          className="space-y-1"
+                        >
+                          <p className="text-xs font-semibold text-text-secondary">
+                            {provider.metadata.display_name || provider.name}
+                          </p>
+                          {models.map((model) => (
+                            <label
+                              key={model.key}
+                              className="flex cursor-pointer items-start gap-3 rounded-md px-1 py-2 hover:bg-background-secondary"
+                            >
+                              <input
+                                type="radio"
+                                name="auxiliary-image-model"
+                                aria-label={model.name || model.id}
+                                checked={selectedVisionKey === model.key}
+                                onChange={() => {
+                                  setVisionRoute({
+                                    enabled: true,
+                                    mode: 'auto',
+                                    providerId: model.providerId,
+                                    modelId: model.id,
+                                  });
+                                  setOperationError('');
+                                }}
+                                className="mt-1 shrink-0 accent-black dark:accent-white"
+                              />
+                              <span className="min-w-0 text-sm text-text-primary">
+                                <span className="block break-words">{model.name || model.id}</span>
+                                {model.name && model.name !== model.id && (
+                                  <span className="block break-words text-xs text-text-secondary">
+                                    {model.id}
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {visionModels.length === 0 && (
+                      <p role="status" className="text-sm text-text-secondary">
+                        {intl.formatMessage(
+                          visionCapabilities.status === 'unavailable'
+                            ? i18n.visionCapabilityError
+                            : i18n.visionNoModels
+                        )}
+                      </p>
+                    )}
+                  </fieldset>
+                ) : (
+                  !defaultVisionModel && (
+                    <p role="status" className="text-sm text-text-secondary">
+                      {intl.formatMessage(i18n.visionDefaultUnavailable)}
+                    </p>
+                  )
+                )}
+                {!visionChecking &&
+                  effectiveVisionRoute.providerId &&
+                  effectiveVisionRoute.modelId &&
+                  !visionModels.some(
+                    (model) =>
+                      model.key ===
+                      JSON.stringify([
+                        effectiveVisionRoute.providerId,
+                        effectiveVisionRoute.modelId,
+                      ])
+                  ) && (
+                    <p role="status" className="text-sm text-text-secondary">
                       {intl.formatMessage(
-                        visionCapabilities.status === 'unavailable'
-                          ? i18n.visionCapabilityError
-                          : i18n.visionNoModels
+                        visionCapabilities.models[
+                          JSON.stringify([
+                            effectiveVisionRoute.providerId,
+                            effectiveVisionRoute.modelId,
+                          ])
+                        ] === 'unsupported'
+                          ? i18n.visionUnsupportedSelection
+                          : i18n.visionUnavailableSelection,
+                        { model: effectiveVisionRoute.modelId }
                       )}
                     </p>
                   )}
+                {customVisionEnabled && onConfigureProvider && (
+                  <Button type="button" variant="outline" onClick={onConfigureProvider}>
+                    {intl.formatMessage(i18n.useAnotherProvider)}
+                  </Button>
+                )}
+              </section>
+            ) : (
+              <section className="rounded-lg border border-border-primary bg-background-secondary p-3">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    {intl.formatMessage(i18n.visionAgent)}
+                  </h3>
+                  <p className="text-xs text-text-secondary">
+                    {intl.formatMessage(i18n.visionAgentDescription)}
+                  </p>
                 </div>
-              ) : (
-                <p className="text-xs text-text-secondary">
-                  {visionRoute.providerId
-                    ? providers.find((provider) => provider.name === visionRoute.providerId)
-                        ?.metadata.display_name || visionRoute.providerId
-                    : intl.formatMessage(i18n.visionDefaultProvider)}{' '}
-                  / {visionRoute.modelId || intl.formatMessage(i18n.visionDefaultModel)}
-                </p>
-              )}
-            </section>
-          )}
+                {advancedRoutingEnabled || visionOnly ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <select
+                      aria-label={intl.formatMessage(i18n.providerLabel, {
+                        role: intl.formatMessage(i18n.visionAgent),
+                      })}
+                      value={visionRoute.providerId ?? ''}
+                      onChange={(event) => {
+                        if (event.target.value === CONFIGURE_PROVIDER_VALUE) {
+                          onConfigureProvider?.();
+                          return;
+                        }
+                        if (!event.target.value) {
+                          setVisionRoute({ enabled: false, mode: 'disabled' });
+                          return;
+                        }
+                        setVisionRoute({
+                          ...visionRoute,
+                          enabled: true,
+                          mode: 'auto',
+                          providerId: event.target.value,
+                          modelId: undefined,
+                        });
+                      }}
+                      className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary"
+                    >
+                      <option value="">{intl.formatMessage(i18n.visionDefaultProvider)}</option>
+                      {visionRoute.providerId &&
+                        !providers.some((provider) => provider.name === visionRoute.providerId) && (
+                          <option value={visionRoute.providerId}>
+                            {providers.find((provider) => provider.name === visionRoute.providerId)
+                              ? intl.formatMessage(i18n.unavailableProviderOption, {
+                                  provider:
+                                    providers.find(
+                                      (provider) => provider.name === visionRoute.providerId
+                                    )?.metadata.display_name || visionRoute.providerId,
+                                })
+                              : visionRoute.providerId}
+                          </option>
+                        )}
+                      {providers.map((provider) => (
+                        <option key={provider.name} value={provider.name}>
+                          {provider.metadata.display_name || provider.name}
+                        </option>
+                      ))}
+                      <option value={CONFIGURE_PROVIDER_VALUE}>
+                        {intl.formatMessage(i18n.useAnotherProvider)}
+                      </option>
+                    </select>
+                    <select
+                      aria-label={intl.formatMessage(i18n.visionModelLabel)}
+                      value={visionRoute.providerId ? (visionRoute.modelId ?? '') : ''}
+                      disabled={!visionRoute.providerId || visionChecking}
+                      onChange={(event) => {
+                        if (!visionRoute.providerId) return;
+                        setVisionRoute({
+                          ...visionRoute,
+                          providerId: visionRoute.providerId,
+                          modelId: event.target.value || undefined,
+                        });
+                      }}
+                      className="h-10 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary disabled:opacity-100"
+                    >
+                      <option value="">
+                        {visionRoute.providerId
+                          ? intl.formatMessage(
+                              visionChecking ? i18n.visionChecking : i18n.selectModel
+                            )
+                          : intl.formatMessage(i18n.visionDefaultModel)}
+                      </option>
+                      {visionRoute.providerId &&
+                        visionRoute.modelId &&
+                        !visionModels.some((model) => model.key === selectedVisionKey) && (
+                          <option value={visionRoute.modelId} disabled>
+                            {intl.formatMessage(
+                              visionChecking
+                                ? i18n.visionChecking
+                                : i18n.visionUnavailableSelection,
+                              {
+                                model: visionRoute.modelId,
+                              }
+                            )}
+                          </option>
+                        )}
+                      {visionRoute.providerId &&
+                        visionModels
+                          .filter((model) => model.providerId === visionRoute.providerId)
+                          .map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name || model.id}
+                            </option>
+                          ))}
+                    </select>
+                    <p className="text-xs text-text-secondary sm:col-span-2">
+                      {intl.formatMessage(i18n.visionSupportedOnly)}
+                    </p>
+                    {visionRoute.providerId && !visionChecking && visionModels.length === 0 && (
+                      <p role="status" className="text-xs text-text-secondary sm:col-span-2">
+                        {intl.formatMessage(
+                          visionCapabilities.status === 'unavailable'
+                            ? i18n.visionCapabilityError
+                            : i18n.visionNoModels
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary">
+                    {visionRoute.providerId
+                      ? providers.find((provider) => provider.name === visionRoute.providerId)
+                          ?.metadata.display_name || visionRoute.providerId
+                      : intl.formatMessage(i18n.visionDefaultProvider)}{' '}
+                    / {visionRoute.modelId || intl.formatMessage(i18n.visionDefaultModel)}
+                  </p>
+                )}
+              </section>
+            ))}
         </div>
 
         {duplicateWarning && (

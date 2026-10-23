@@ -90,6 +90,9 @@ const unfinishedCustomProvider = {
 describe('ModelsAndRuntimeSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(acpReadConfig).mockImplementation(async (key) =>
+      key === 'subagentLimits' ? { maxDepth: 1, maxActiveSubagents: 3 } : null
+    );
     vi.mocked(acpListProviderDetails).mockResolvedValue([
       vendorProvider,
       unfinishedCustomProvider,
@@ -164,21 +167,31 @@ describe('ModelsAndRuntimeSettings', () => {
     }
   );
 
-  it('keeps a subagent draft when navigating to the menu and another detail', async () => {
+  it('returns one level at a time and reenters the subagent list after returning to the menu', async () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
     expect(acpReadConfig).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Add subagent' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Review draft' } });
+    expect(screen.queryByRole('button', { name: 'Back to menu' })).not.toBeInTheDocument();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to List' }));
+    expect(screen.getByLabelText('Name')).toHaveValue('Review draft');
+    expect(acpUpsertConfig).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to List' }));
+    expect(screen.getByRole('button', { name: 'Add subagent' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
     expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
     await screen.findByTestId('custom-provider-grid');
     fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
-    expect(screen.getByLabelText('Name')).toHaveValue('Review draft');
-    expect(acpReadConfig).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Add subagent' })).toBeVisible();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(acpReadConfig).toHaveBeenCalledTimes(2);
     expect(acpUpsertConfig).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 
   it.each(['menu', 'category'])(

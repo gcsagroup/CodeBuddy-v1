@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Использовать свою модель для изображений"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "По умолчанию: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Модель Flash по умолчанию не настроена. Выберите свою модель для изображений."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Ввод изображений не поддерживается: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Ограничения выполнения"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Максимальная глубина рекурсии"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Максимум параллельных субагентов"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Глубина 0 запрещает делегирование; 1 разрешает прямых потомков. Лимит параллельности учитывает активных потомков одного главного агента. Изменения действуют при подготовке следующей задачи и не отменяют существующих субагентов."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Сохранить ограничения"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Сохранено. Применится при подготовке следующей задачи."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Не удалось загрузить или сохранить ограничения. Сохранённая конфигурация не изменилась."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "Используйте стандартные шаблоны или сохраните свою роль. Субагенты создаются только при необходимости."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Исследование проекта"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Поиск веб-источников"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Читать файлы проекта, прослеживать код и находить нужные реализации."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Искать и читать веб-источники, проверять и обобщать результаты."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "Опишите роль, подход и ожидаемый результат."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Удалить шаблон"
+    "defaultMessage": "Удалить субагента"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Новый субагент"

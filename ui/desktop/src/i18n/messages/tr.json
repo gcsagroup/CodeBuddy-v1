@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Özel görüntü modeli kullan"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Varsayılan: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Varsayılan Flash modeli yapılandırılmamış. Özel bir görüntü modeli seçin."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Görüntü girişi desteklenmiyor: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Çalışma sınırları"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "En fazla özyineleme derinliği"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "En fazla paralel alt ajan"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Derinlik 0 görev devrini engeller; 1 doğrudan alt ajanlara izin verir. Paralel sınır, bir ana ajanın etkin alt soyunu sayar. Değişiklikler sonraki görev hazırlanırken uygulanır; mevcut alt ajanlar iptal edilmez."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Sınırları kaydet"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Kaydedildi. Sonraki görev hazırlanırken uygulanır."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Sınırlar yüklenemedi veya kaydedilemedi. Kayıtlı yapılandırma değişmedi."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "Varsayılan şablonları kullanın veya özel bir rol kaydedin. Alt ajanlar yalnızca gerektiğinde oluşturulur."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Proje incelemesi"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Web kaynakları araması"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Proje dosyalarını okuyun, kod akışını izleyin ve ilgili uygulamaları bulun."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Web kaynaklarını arayın ve okuyun, ardından sonuçları doğrulayıp özetleyin."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "Rolünü, yaklaşımını ve beklenen çıktıyı açıklayın."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Şablonu kaldır"
+    "defaultMessage": "Alt ajanı sil"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Yeni alt ajan"

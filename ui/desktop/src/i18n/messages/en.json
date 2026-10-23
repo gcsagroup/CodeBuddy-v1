@@ -884,6 +884,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "Implements code and reports changes"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Use a custom image model"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "Default"
   },
@@ -996,7 +999,7 @@
     "defaultMessage": "Backup image model"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "The current model reads images directly when image support is confirmed. Otherwise this backup model describes them for the current model. Images and the related question are sent to the selected connection; this can add time and cost."
+    "defaultMessage": "The current model reads images when supported. Otherwise images and your question go to the selected auxiliary model, which may add time and cost."
   },
   "codeProModels.visionCapabilityError": {
     "defaultMessage": "Could not verify image support. Retry before saving."
@@ -1004,11 +1007,17 @@
   "codeProModels.visionChecking": {
     "defaultMessage": "Checking image support…"
   },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Default: {model}"
+  },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
   },
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "Not configured (disabled)"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "The default Flash model is not configured. Choose a custom image model."
   },
   "codeProModels.visionModelLabel": {
     "defaultMessage": "Image model"
@@ -1017,13 +1026,16 @@
     "defaultMessage": "No models with confirmed image input are available on this connection."
   },
   "codeProModels.visionSupportedOnly": {
-    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+    "defaultMessage": "Only models with confirmed image input are listed."
   },
   "codeProModels.visionUnavailableSelection": {
-    "defaultMessage": "Current selection unavailable: {model}"
+    "defaultMessage": "Image support not confirmed: {model}"
   },
   "codeProModels.visionUnsupported": {
     "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Image input not supported: {model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -7328,6 +7340,27 @@
   "subagentLifecycle.start": {
     "defaultMessage": "started working"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "Maximum recursion depth"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Could not load or save limits. Your saved configuration was not changed."
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Depth 0 prevents delegation; 1 allows direct children. The parallel limit counts active descendants of one main agent. Changes apply when the next task is prepared; existing children are not cancelled."
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Maximum parallel subagents"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Save limits"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Saved. Applies when the next task is prepared."
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Runtime limits"
+  },
   "subagentTemplates.add": {
     "defaultMessage": "Add subagent"
   },
@@ -7335,7 +7368,10 @@
     "defaultMessage": "Changes apply to new subagents. Existing subagents keep their instructions, tools, model and history. Templates are shared across chats; conversation history is not."
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "Search sources"
+    "defaultMessage": "Web research"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Search and read web sources, then check and summarize the findings."
   },
   "subagentTemplates.confirmRemove": {
     "defaultMessage": "Remove this template? Existing subagents and their history will remain."
@@ -7353,7 +7389,10 @@
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Project exploration"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Read project files, trace code paths, and find relevant implementations."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -7386,7 +7425,7 @@
     "defaultMessage": "Model connection"
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Remove template"
+    "defaultMessage": "Delete subagent"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"

@@ -19,10 +19,12 @@ const providers = [
 ] as ProviderDetails[];
 const save = () => screen.getByRole('button', { name: 'Save subagent settings' });
 const openExplorer = async () =>
-  fireEvent.click(await screen.findByRole('button', { name: 'explorer · Workspace exploration' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Project exploration' }));
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(acpReadConfig).mockResolvedValue(null);
+  vi.mocked(acpReadConfig).mockImplementation(async (key) =>
+    key === 'subagentLimits' ? { maxDepth: 1, maxActiveSubagents: 3 } : null
+  );
   vi.mocked(acpUpsertConfig).mockResolvedValue();
   vi.mocked(acpListProviderModels).mockResolvedValue([{ id: 'model-one' }] as Awaited<
     ReturnType<typeof acpListProviderModels>
@@ -47,7 +49,10 @@ it('lists saved models and saves only the selected default role', async () => {
     version: 1,
     models: { explorer: { providerId: 'one', modelId: 'model-one' }, browser: null, generic: null },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Other chat-local responsibilities' }));
+  expect(
+    screen.queryByRole('button', { name: 'Other chat-local responsibilities' })
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Web research' }));
   fireEvent.change(screen.getByLabelText('Model'), {
     target: { value: JSON.stringify(['two', '']) },
   });
@@ -59,8 +64,8 @@ it('lists saved models and saves only the selected default role', async () => {
     version: 1,
     models: {
       explorer: { providerId: 'one', modelId: 'model-one' },
-      browser: null,
-      generic: { providerId: 'two', modelId: 'custom-model' },
+      browser: { providerId: 'two', modelId: 'custom-model' },
+      generic: null,
     },
   });
 });
@@ -95,7 +100,7 @@ it('a late model inventory response cannot replace a newer provider list or save
           ReturnType<typeof acpListProviderModels>
         >)
   );
-  vi.mocked(acpReadConfig).mockResolvedValue({
+  vi.mocked(acpReadConfig).mockResolvedValueOnce({
     version: 1,
     models: { explorer: { providerId: 'two', modelId: 'second-model' } },
   });
@@ -116,7 +121,7 @@ it('a late model inventory response cannot replace a newer provider list or save
 });
 
 it('keeps saved models on discovery failure and cancel restores the saved selection', async () => {
-  vi.mocked(acpReadConfig).mockResolvedValue({
+  vi.mocked(acpReadConfig).mockResolvedValueOnce({
     version: 1,
     models: { explorer: { providerId: 'one', modelId: 'saved-model' } },
   });
@@ -195,7 +200,7 @@ it('keeps other templates and hidden restrictions unchanged; failed deletion pre
     model: null,
     tools: name === 'Reviewer' ? 'read-only' : 'none',
   }));
-  vi.mocked(acpReadConfig).mockResolvedValue({ version: 1, models: {}, custom });
+  vi.mocked(acpReadConfig).mockResolvedValueOnce({ version: 1, models: {}, custom });
   render(<SubagentTemplateSettings providers={providers} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Reviewer' }));
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'writer' } });
@@ -211,13 +216,12 @@ it('keeps other templates and hidden restrictions unchanged; failed deletion pre
     'subagentTemplates',
     expect.objectContaining({ custom: [{ ...custom[0], name: 'Updated reviewer' }, custom[1]] })
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Updated reviewer' }));
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
   vi.mocked(acpUpsertConfig).mockRejectedValueOnce(new Error('offline'));
-  fireEvent.click(screen.getByRole('button', { name: 'Remove template' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete subagent: Updated reviewer' }));
   await screen.findByRole('alert');
-  expect(screen.getByLabelText('Name')).toHaveValue('Updated reviewer');
-  fireEvent.click(screen.getByRole('button', { name: 'Remove template' }));
+  expect(screen.getByRole('button', { name: 'Updated reviewer' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete subagent: Updated reviewer' }));
   await screen.findByText('Saved. Applies to new subagents.');
   expect(acpUpsertConfig).toHaveBeenLastCalledWith(
     'subagentTemplates',
@@ -228,7 +232,7 @@ it('keeps other templates and hidden restrictions unchanged; failed deletion pre
 });
 
 it('does not overwrite unreadable custom settings', async () => {
-  vi.mocked(acpReadConfig).mockResolvedValue({
+  vi.mocked(acpReadConfig).mockResolvedValueOnce({
     version: 1,
     models: {},
     custom: [{ id: 'broken', prompt: 123 }],

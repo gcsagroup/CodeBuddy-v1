@@ -990,7 +990,19 @@
     "defaultMessage": "備用識圖模型"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "主模型確認支援圖片時直接識別，否則由備用模型看圖後將說明交給主模型。圖片與相關問題會傳送至所選連線，可能增加耗時和費用。"
+    "defaultMessage": "主模型能看圖時直接處理；否則將圖片與問題交給輔助模型，可能增加耗時與費用。"
+  },
+  "codeProModels.customVision": {
+    "defaultMessage": "自訂輔助識圖模型"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "預設：{model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "預設 Flash 模型尚未設定，請開啟自訂以選擇識圖模型。"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "此模型不支援圖片：{model}"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "選擇模型"
@@ -8390,6 +8402,27 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
   },
+  "subagentLimits.title": {
+    "defaultMessage": "執行限制"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "最大遞迴深度"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "子智慧體平行數量上限"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "深度 0 不允許委派，1 允許直接建立子 Agent。平行上限統計同一主 Agent 下所有執行中的後代。修改從下一輪任務準備時生效，不取消既有子 Agent。"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "儲存執行限制"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "已儲存，下一輪任務準備時生效。"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "執行限制讀取或儲存失敗，已儲存的設定未變更。"
+  },
   "subagentTemplates.title": {
     "defaultMessage": "子 Agent 範本與模型"
   },
@@ -8397,10 +8430,16 @@
     "defaultMessage": "按需使用預設範本，也可以儲存自訂職責。子 Agent 只在需要時建立。"
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · 專案探索"
+    "defaultMessage": "專案探索"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "搜尋資料"
+    "defaultMessage": "網頁資料搜尋"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "閱讀專案檔案、追蹤程式碼呼叫關係，定位相關實作。"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "搜尋和閱讀網頁資料，核對來源並整理結論。"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "其他聊天內職責"
@@ -8712,7 +8751,7 @@
     "defaultMessage": "正在確認圖片能力…"
   },
   "codeProModels.visionSupportedOnly": {
-    "defaultMessage": "僅列出已確認支援圖片的模型。若服務缺少能力資訊，請先在「模型圖片能力校正」中核實。"
+    "defaultMessage": "僅列出已確認支援圖片的模型。"
   },
   "codeProModels.visionNoModels": {
     "defaultMessage": "此連線暫無已確認支援圖片的模型。"
@@ -8724,7 +8763,7 @@
     "defaultMessage": "請選擇已確認支援圖片的備用模型。"
   },
   "codeProModels.visionUnavailableSelection": {
-    "defaultMessage": "目前選擇無法使用：{model}"
+    "defaultMessage": "尚未確認此模型支援圖片：{model}"
   },
   "modelsAndRuntime.connections": {
     "defaultMessage": "模型與連線"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "說明它負責什麼、如何工作，以及輸出要求。"
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "移除範本"
+    "defaultMessage": "刪除子 Agent"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "新子 Agent"

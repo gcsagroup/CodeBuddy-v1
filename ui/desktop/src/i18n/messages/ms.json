@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Gunakan model imej tersuai"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Lalai: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Model Flash lalai belum dikonfigurasi. Pilih model imej tersuai."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Input imej tidak disokong: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Had masa jalan"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Kedalaman rekursi maksimum"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Bilangan maksimum subagen selari"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Kedalaman 0 menghalang delegasi; 1 membenarkan subagen langsung. Had selari mengira semua keturunan aktif bagi satu agen utama. Perubahan berkuat kuasa ketika tugas seterusnya disediakan; subagen sedia ada tidak dibatalkan."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Simpan had"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Disimpan. Berkuat kuasa ketika tugas seterusnya disediakan."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Had tidak dapat dimuatkan atau disimpan. Konfigurasi tersimpan tidak berubah."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "Gunakan templat lalai atau simpan peranan tersuai. Subagen dicipta hanya apabila diperlukan."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Penerokaan projek"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Carian sumber web"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Baca fail projek, jejaki aliran kod dan cari pelaksanaan yang berkaitan."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Cari dan baca sumber web, kemudian semak dan ringkaskan hasilnya."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "Terangkan peranan, pendekatan dan hasil yang dijangka."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Alih keluar templat"
+    "defaultMessage": "Padam subagen"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Subagen baharu"

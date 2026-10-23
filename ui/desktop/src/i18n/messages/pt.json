@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Usar um modelo de imagem personalizado"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Padrão: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "O modelo Flash padrão não está configurado. Escolha um modelo de imagem personalizado."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Entrada de imagem não suportada: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Limites de execução"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Profundidade máxima de recursão"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Máximo de subagentes paralelos"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "A profundidade 0 impede a delegação; 1 permite subagentes diretos. O limite paralelo conta os descendentes ativos de um agente principal. As alterações valem ao preparar a próxima tarefa; subagentes existentes não são cancelados."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Salvar limites"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Salvo. Aplica-se ao preparar a próxima tarefa."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Não foi possível carregar ou salvar os limites. A configuração salva não mudou."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "Use os modelos padrão ou salve uma função personalizada. Os subagentes são criados apenas quando necessários."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Explorar projeto"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Pesquisa na Web"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Ler arquivos do projeto, acompanhar o código e encontrar implementações relevantes."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Pesquisar e ler fontes da Web, verificar e resumir os resultados."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "Descreva a função, a abordagem e o resultado esperado."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Remover modelo"
+    "defaultMessage": "Excluir subagente"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Novo subagente"

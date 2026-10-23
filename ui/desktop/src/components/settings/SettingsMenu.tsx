@@ -20,6 +20,7 @@ export default function SettingsMenu({
     content: ReactNode;
     dirty?: boolean;
     keepAlive?: boolean;
+    hideBack?: boolean;
   }[];
 }) {
   const intl = useIntl();
@@ -89,17 +90,19 @@ export default function SettingsMenu({
             >
               {item.title}
             </h3>
-            <button
-              type="button"
-              className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
-              onClick={() => {
-                setActive(null);
-                window.requestAnimationFrame(() => buttons.current.get(item.id)?.focus());
-              }}
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              {intl.formatMessage(messages.back)}
-            </button>
+            {!item.hideBack && (
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
+                onClick={() => {
+                  setActive(null);
+                  window.requestAnimationFrame(() => buttons.current.get(item.id)?.focus());
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                {intl.formatMessage(messages.back)}
+              </button>
+            )}
             {item.content}
           </section>
         ))}

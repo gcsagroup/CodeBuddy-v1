@@ -8258,6 +8258,72 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Gunakan model gambar khusus"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Default: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Model Flash default belum dikonfigurasi. Pilih model gambar khusus."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Input gambar tidak didukung: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Batas runtime"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Kedalaman rekursi maksimum"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Jumlah maksimum subagen paralel"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Kedalaman 0 mencegah delegasi; 1 mengizinkan subagen langsung. Batas paralel menghitung keturunan aktif dari satu agen utama. Perubahan berlaku saat tugas berikutnya disiapkan; subagen yang ada tidak dibatalkan."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Simpan batas"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Disimpan. Berlaku saat tugas berikutnya disiapkan."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Batas tidak dapat dimuat atau disimpan. Konfigurasi tersimpan tidak berubah."
+  },
+  "codeProModels.customVision": {
+    "defaultMessage": "Gunakan model gambar khusus"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Default: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "Model Flash default belum dikonfigurasi. Pilih model gambar khusus."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Input gambar tidak didukung: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Batas runtime"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "Kedalaman rekursi maksimum"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Jumlah maksimum subagen paralel"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Kedalaman 0 mencegah delegasi; 1 mengizinkan subagen langsung. Batas paralel menghitung keturunan aktif dari satu agen utama. Perubahan berlaku saat tugas berikutnya disiapkan; subagen yang ada tidak dibatalkan."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Simpan batas"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Disimpan. Berlaku saat tugas berikutnya disiapkan."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Batas tidak dapat dimuat atau disimpan. Konfigurasi tersimpan tidak berubah."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8331,16 @@
     "defaultMessage": "Gunakan templat bawaan atau simpan peran khusus. Subagen dibuat hanya saat diperlukan."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Jelajahi proyek"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Riset web"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Baca berkas proyek, telusuri alur kode, dan temukan implementasi terkait."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Cari dan baca sumber web, lalu periksa dan rangkum hasilnya."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8853,7 @@
     "defaultMessage": "Jelaskan peran, pendekatan, dan hasil yang diharapkan."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "Hapus templat"
+    "defaultMessage": "Hapus subagen"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Subagen baru"

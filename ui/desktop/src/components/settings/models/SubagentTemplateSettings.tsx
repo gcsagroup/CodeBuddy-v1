@@ -1,11 +1,12 @@
 import { useEffect, useId, useState } from 'react';
-import { ArrowLeft, Bot, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronRight, Trash2 } from 'lucide-react';
 import { acpReadConfig, acpUpsertConfig } from '../../../acp/config';
 import { acpListProviderModels } from '../../../acp/providers';
 import { defineMessages, useIntl } from '../../../i18n';
 import type { ProviderDetails } from '../../../types/providers';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
+import SubagentLimitsSettings from './SubagentLimitsSettings';
 
 const key = 'subagentTemplates';
 const roles = ['explorer', 'browser', 'generic'] as const;
@@ -39,11 +40,19 @@ const messages = defineMessages({
   },
   explorer: {
     id: 'subagentTemplates.explorer',
-    defaultMessage: 'explorer · Workspace exploration',
+    defaultMessage: 'Project exploration',
   },
   browser: {
     id: 'subagentTemplates.browser',
-    defaultMessage: 'Search sources',
+    defaultMessage: 'Web research',
+  },
+  explorerDescription: {
+    id: 'subagentTemplates.explorerDescription',
+    defaultMessage: 'Read project files, trace code paths, and find relevant implementations.',
+  },
+  browserDescription: {
+    id: 'subagentTemplates.browserDescription',
+    defaultMessage: 'Search and read web sources, then check and summarize the findings.',
   },
   generic: { id: 'subagentTemplates.generic', defaultMessage: 'Other chat-local responsibilities' },
   boundary: {
@@ -94,7 +103,7 @@ const messages = defineMessages({
     id: 'subagentTemplates.promptHint',
     defaultMessage: 'Describe its role, approach and expected output.',
   },
-  remove: { id: 'subagentTemplates.remove', defaultMessage: 'Remove template' },
+  remove: { id: 'subagentTemplates.remove', defaultMessage: 'Delete subagent' },
   unnamed: { id: 'subagentTemplates.unnamed', defaultMessage: 'New subagent' },
   invalid: {
     id: 'subagentTemplates.invalid',
@@ -143,10 +152,10 @@ function CustomTemplateEditor({
       className="min-w-0 space-y-3 rounded-lg border border-border-primary p-4"
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm">
-          <span>{intl.formatMessage(messages.name)}</span>
+        <label className="block space-y-1 text-sm">
+          <span className="block">{intl.formatMessage(messages.name)}</span>
           <input
-            className={fieldClass}
+            className={`${fieldClass} h-10`}
             maxLength={80}
             value={template.name}
             onChange={(event) => onChange({ ...template, name: event.target.value })}
@@ -201,19 +210,22 @@ function ModelPicker({
   onChange: (value: ModelChoice) => void;
 }) {
   const intl = useIntl();
+  const modelFieldId = useId();
   const [custom, setCustom] = useState(false);
   const providerId = choice?.providerId;
   const selectedProvider = providers.find((provider) => provider.name === providerId);
   const className =
     'h-10 min-w-0 rounded-md border border-border-primary bg-background-primary px-3 text-sm text-text-primary';
   return (
-    <fieldset className="space-y-2" disabled={disabled}>
-      <legend className="text-sm font-medium text-text-primary">
+    <div className="min-w-0 space-y-1">
+      <label htmlFor={modelFieldId} className="block text-sm text-text-primary">
         {label || intl.formatMessage(messages.model)}
-      </legend>
+      </label>
       {custom && choice ? (
         <div className="space-y-1">
           <input
+            id={modelFieldId}
+            disabled={disabled}
             className={`${className} w-full`}
             aria-label={[label, intl.formatMessage(messages.model)].filter(Boolean).join(' ')}
             placeholder={`${selectedProvider?.metadata.display_name || providerId} · ${intl.formatMessage(messages.model)}`}
@@ -222,6 +234,7 @@ function ModelPicker({
           />
           <button
             type="button"
+            disabled={disabled}
             className="text-xs text-text-secondary underline"
             onClick={() => setCustom(false)}
           >
@@ -230,6 +243,8 @@ function ModelPicker({
         </div>
       ) : (
         <select
+          id={modelFieldId}
+          disabled={disabled}
           className={`${className} w-full`}
           aria-label={[label, intl.formatMessage(messages.model)].filter(Boolean).join(' ')}
           value={choiceKey(choice)}
@@ -272,21 +287,23 @@ function ModelPicker({
       {providerId && inventory[providerId]?.failed && (
         <p className="text-sm text-text-secondary">
           {intl.formatMessage(messages.modelError)}{' '}
-          <button type="button" className="underline" onClick={retry}>
+          <button type="button" className="underline" disabled={disabled} onClick={retry}>
             {intl.formatMessage(messages.retry)}
           </button>
         </p>
       )}
-    </fieldset>
+    </div>
   );
 }
 
 export default function SubagentTemplateSettings({
   providers,
   onDirtyChange,
+  onEditingChange,
 }: {
   providers: ProviderDetails[];
   onDirtyChange?: (dirty: boolean) => void;
+  onEditingChange?: (editing: boolean) => void;
 }) {
   const intl = useIntl();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -297,6 +314,12 @@ export default function SubagentTemplateSettings({
   const [inventory, setInventory] = useState<ModelInventory>({});
   const [modelAttempt, setModelAttempt] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [limitsDirty, setLimitsDirty] = useState(false);
+  const editing = editor !== null;
+  useEffect(() => {
+    onEditingChange?.(editing);
+    return () => onEditingChange?.(false);
+  }, [editing, onEditingChange]);
   const original =
     editor?.kind === 'custom'
       ? settings?.custom?.find((item) => item.id === editor.template.id)
@@ -307,9 +330,9 @@ export default function SubagentTemplateSettings({
       : editor?.kind === 'builtin' &&
         choiceKey(editor.model) !== choiceKey(settings?.models[editor.role] ?? null);
   useEffect(() => {
-    onDirtyChange?.(Boolean(dirty));
+    onDirtyChange?.(Boolean(dirty || limitsDirty));
     return () => onDirtyChange?.(false);
-  }, [dirty, onDirtyChange]);
+  }, [dirty, limitsDirty, onDirtyChange]);
   useEffect(() => {
     let cancelled = false;
     // All templates share this discovery result; model loading never edits
@@ -444,23 +467,6 @@ export default function SubagentTemplateSettings({
     roles.every((role) => !next.models[role] || next.models[role]!.modelId.trim());
   const footer = (
     <div className="flex flex-wrap items-center gap-3 border-t border-border-primary pt-4">
-      {original && (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={saving}
-          onClick={() => {
-            if (window.confirm(intl.formatMessage(messages.confirmRemove))) {
-              void persist({
-                ...settings!,
-                custom: settings!.custom!.filter((item) => item.id !== original.id),
-              });
-            }
-          }}
-        >
-          {intl.formatMessage(messages.remove)}
-        </Button>
-      )}
       <div className="ml-auto flex gap-3">
         <Button
           variant="outline"
@@ -526,7 +532,15 @@ export default function SubagentTemplateSettings({
             : intl.formatMessage(messages.title)}
         </CardTitle>
         <CardDescription>
-          {intl.formatMessage(editor ? messages.boundary : messages.description)}
+          {intl.formatMessage(
+            editor?.kind === 'builtin'
+              ? editor.role === 'explorer'
+                ? messages.explorerDescription
+                : messages.browserDescription
+              : editor
+                ? messages.boundary
+                : messages.description
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -539,7 +553,7 @@ export default function SubagentTemplateSettings({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={(settings.custom?.length ?? 0) >= 16}
+                  disabled={saving || (settings.custom?.length ?? 0) >= 16}
                   onClick={() => {
                     setEditor({
                       kind: 'custom',
@@ -560,50 +574,81 @@ export default function SubagentTemplateSettings({
               </div>
               <div className="divide-y divide-border-subtle">
                 {settings.custom?.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    aria-label={template.name}
-                    className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-left hover:bg-background-muted/60"
-                    onClick={() => {
-                      setEditor({ kind: 'custom', template: { ...template } });
-                      setStatus(null);
-                    }}
-                  >
-                    <Bot className="h-4 w-4 shrink-0 text-text-secondary" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{template.name}</span>
-                      <span className="mt-1 block truncate text-xs text-text-secondary">
-                        {modelSummary(template.model)}
+                  <div key={template.id} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label={template.name}
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-3 text-left hover:bg-background-muted/60"
+                      onClick={() => {
+                        setEditor({ kind: 'custom', template: { ...template } });
+                        setStatus(null);
+                      }}
+                    >
+                      <Bot className="h-4 w-4 shrink-0 text-text-secondary" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{template.name}</span>
+                        <span className="mt-1 block truncate text-xs text-text-secondary">
+                          {modelSummary(template.model)}
+                        </span>
                       </span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-text-muted" />
-                  </button>
+                      <ChevronRight className="h-4 w-4 text-text-muted" />
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      shape="round"
+                      disabled={saving}
+                      aria-label={`${intl.formatMessage(messages.remove)}: ${template.name}`}
+                      title={`${intl.formatMessage(messages.remove)}: ${template.name}`}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `${template.name}\n${intl.formatMessage(messages.confirmRemove)}`
+                          )
+                        ) {
+                          void persist({
+                            ...settings,
+                            custom: settings.custom!.filter((item) => item.id !== template.id),
+                          });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </section>
             <section className="space-y-2 border-t border-border-subtle pt-4">
               <h3 className="text-sm font-medium">{intl.formatMessage(messages.defaults)}</h3>
-              {roles.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  aria-label={intl.formatMessage(messages[role])}
-                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-3 text-left hover:bg-background-muted/60"
-                  onClick={() => {
-                    setEditor({ kind: 'builtin', role, model: settings.models[role] });
-                    setStatus(null);
-                  }}
-                >
-                  <span className="min-w-0">
-                    <span className="block text-sm">{intl.formatMessage(messages[role])}</span>
-                    <span className="mt-1 block truncate text-xs text-text-secondary">
-                      {modelSummary(settings.models[role])}
+              {roles
+                .filter((role) => role !== 'generic')
+                .map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    disabled={saving}
+                    aria-label={intl.formatMessage(messages[role])}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-3 text-left hover:bg-background-muted/60"
+                    onClick={() => {
+                      setEditor({ kind: 'builtin', role, model: settings.models[role] });
+                      setStatus(null);
+                    }}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm">{intl.formatMessage(messages[role])}</span>
+                      <span className="mt-1 block truncate text-xs text-text-secondary">
+                        {intl.formatMessage(
+                          role === 'explorer'
+                            ? messages.explorerDescription
+                            : messages.browserDescription
+                        )}
+                      </span>
                     </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
-                </button>
-              ))}
+                    <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />
+                  </button>
+                ))}
             </section>
           </>
         )}
@@ -625,6 +670,11 @@ export default function SubagentTemplateSettings({
           <div className="space-y-4">
             {modelPicker}
             {footer}
+          </div>
+        )}
+        {settings && (
+          <div hidden={editor !== null}>
+            <SubagentLimitsSettings onDirtyChange={setLimitsDirty} />
           </div>
         )}
         {editor && !valid && (

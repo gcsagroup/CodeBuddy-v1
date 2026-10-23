@@ -8258,6 +8258,39 @@
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "사용자 지정 이미지 모델 사용"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "기본값: {model}"
+  },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "기본 Flash 모델이 설정되지 않았습니다. 사용자 지정 이미지 모델을 선택하세요."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "이미지 입력 미지원: {model}"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "실행 제한"
+  },
+  "subagentLimits.depth": {
+    "defaultMessage": "최대 재귀 깊이"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "최대 병렬 하위 에이전트 수"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "깊이 0은 위임을 막고 1은 직접 하위 에이전트를 허용합니다. 병렬 제한은 한 주 에이전트 아래 실행 중인 모든 후손을 계산합니다. 변경은 다음 작업 준비 시 적용되며 기존 하위 에이전트는 취소되지 않습니다."
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "제한 저장"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "저장했습니다. 다음 작업 준비 시 적용됩니다."
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "제한을 불러오거나 저장하지 못했습니다. 저장된 설정은 변경되지 않았습니다."
+  },
   "subagentTemplates.title": {
     "defaultMessage": "Subagent templates and models"
   },
@@ -8265,10 +8298,16 @@
     "defaultMessage": "기본 템플릿을 사용하거나 사용자 지정 역할을 저장하세요. 하위 에이전트는 필요할 때만 생성됩니다."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "프로젝트 탐색"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "웹 자료 검색"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "프로젝트 파일을 읽고 코드 흐름과 관련 구현을 살펴봅니다."
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "웹 자료를 검색하고 읽은 뒤 내용을 확인하고 요약합니다."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
@@ -8781,7 +8820,7 @@
     "defaultMessage": "역할, 작업 방식, 기대하는 결과를 설명하세요."
   },
   "subagentTemplates.remove": {
-    "defaultMessage": "템플릿 제거"
+    "defaultMessage": "하위 에이전트 삭제"
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "새 하위 에이전트"

@@ -91,6 +91,7 @@ export default function ModelsAndRuntimeSettings({
   const intl = useIntl();
   const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
   const [subagentDirty, setSubagentDirty] = useState(false);
+  const [subagentEditing, setSubagentEditing] = useState(false);
   const handleDirtyChange = useCallback(
     (dirty: boolean) => {
       setSubagentDirty(dirty);
@@ -193,6 +194,7 @@ export default function ModelsAndRuntimeSettings({
             id: 'subagents',
             keepAlive: true,
             dirty: subagentDirty,
+            hideBack: subagentEditing,
             title: intl.formatMessage(i18n.subagents),
             description: intl.formatMessage(i18n.subagentsDescription),
             icon: <Bot className="h-5 w-5" />,
@@ -200,6 +202,7 @@ export default function ModelsAndRuntimeSettings({
               <SubagentTemplateSettings
                 providers={customProviders}
                 onDirtyChange={handleDirtyChange}
+                onEditingChange={setSubagentEditing}
               />
             ),
           },

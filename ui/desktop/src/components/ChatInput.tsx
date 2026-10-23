@@ -1181,6 +1181,7 @@ export default function ChatInput({
 
   const performSubmit = useCallback(
     async (text?: string) => {
+      const submittedAtMs = Date.now();
       if (submitInFlightRef.current || sendNowInFlightMessageIdsRef.current.size > 0) return;
 
       const imageData = convertImagesToImageData();
@@ -1199,6 +1200,7 @@ export default function ChatInput({
           setPendingDraft((current) => (current === pending ? undefined : current));
         let accepted = false;
         const lifecycle: MessageSubmissionLifecycle = {
+          submittedAtMs,
           onAccepted: () => {
             if (accepted) return;
             accepted = true;

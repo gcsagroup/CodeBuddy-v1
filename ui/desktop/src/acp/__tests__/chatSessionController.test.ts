@@ -472,6 +472,55 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(acpChatSessionActions.startPromptAttempt).not.toHaveBeenCalled();
   });
 
+  it('measures the current first token once without logging content or depending on logger success', async () => {
+    const previous = window.electron;
+    const logInfo = vi.fn();
+    window.electron = { ...previous, logInfo };
+    let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
+    vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {
+      notifySnapshot = listener;
+      return () => undefined;
+    });
+    let finishPrompt: ((value: { stopReason: string }) => void) | undefined;
+    vi.mocked(acpPromptSession).mockReturnValue(new Promise((resolve) => {
+      finishPrompt = resolve;
+    }) as never);
+    const submittedAtMs = Date.now() - 500;
+    const onAccepted = vi.fn();
+    try {
+      const submission = acpChatSessionController.submitMessage(SESSION_ID,
+        { ...userMessage(), content: [{ type: 'text', text: 'PRIVATE-PROMPT' }] }, {
+          getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+          onFinish: vi.fn(), onAccepted, submittedAtMs,
+        });
+      const attemptId = vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls[0][1];
+      const pending = snapshotWithActivePrompt(attemptId);
+      const activity = {
+        promptAttemptId: attemptId, sourceUserMessageId: userMessage().id!,
+        startedAt: submittedAtMs, receivedAt: submittedAtMs + 1234,
+      };
+      notifySnapshot?.({ ...pending, promptActivity: { ...activity, kind: 'tool' } });
+      notifySnapshot?.({ ...pending, activePromptAttemptId: 'stale',
+        promptActivity: { ...activity, kind: 'thought' } });
+      notifySnapshot?.({ ...pending, promptActivity: { ...activity, kind: 'thought' } });
+      notifySnapshot?.({ ...pending, promptActivity: { ...activity, kind: 'text' } });
+      const records = logInfo.mock.calls.map(([line]) => JSON.parse(line));
+      expect(records[0]).toMatchObject({ stage: 'prompt_submitted',
+        submitted_at_ms: submittedAtMs, origin: 'composer' });
+      expect(records.filter(record => record.stage === 'ui_first_token_received')).toEqual([
+        expect.objectContaining({ elapsed_ms: 1234, kind: 'thought' }),
+      ]);
+      expect(JSON.stringify(records)).not.toContain('PRIVATE-PROMPT');
+      logInfo.mockImplementation(() => { throw new Error('logger unavailable'); });
+      notifySnapshot?.({ ...pending, activeRunId: 'run-1' });
+      expect(onAccepted).toHaveBeenCalledOnce();
+      finishPrompt?.({ stopReason: 'end_turn' });
+      await submission;
+    } finally {
+      window.electron = previous;
+    }
+  });
+
   it('acknowledges the matching user echo before run startup without accepting unrelated history', async () => {
     let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
     vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {

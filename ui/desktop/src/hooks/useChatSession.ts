@@ -255,6 +255,7 @@ export function useChatSession({
       };
 
       await acpChatSessionController.submitMessage(sessionId, newMessage, {
+        submittedAtMs: lifecycle?.submittedAtMs,
         getCurrentSnapshot,
         onFinish,
         onAccepted,

@@ -2103,6 +2103,7 @@ export class Compat {
     }
   }
   async prompt(p, connection) {
+    const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
     if (this.sessionMutations.has(s.id))
       throw invalid("Wait for the session change to finish");
@@ -2124,6 +2125,16 @@ export class Compat {
     const updates = [];
     const usageUpdates = [];
     const promptScope = randomUUID();
+    const trace = (stage, at = Date.now()) => {
+      try {
+        console.info('[Harness prompt timing]', JSON.stringify({
+          stage, at_ms: at, elapsed_ms: at - receivedAtMs, session_id: s.id,
+          prompt_scope: promptScope,
+          source_user_message_id: p._meta?.['codeagentpro/source-message-id'],
+        }));
+      } catch { /* Timing cannot decide whether a prompt is admitted or delivered. */ }
+    };
+    trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
       controller,
@@ -2166,7 +2177,9 @@ export class Compat {
     try {
       if (s.type === "code_pro") await this.workspaces.validateSession(s.id, s.cwd);
       validated = true;
+      trace('workspace_validated');
     } catch (error) {
+      trace('workspace_validation_failed');
       validationError = error;
     } finally {
       if (!validated || controller.signal.aborted) release();
@@ -2217,6 +2230,7 @@ export class Compat {
           .join(" ")
           .slice(0, 80),
       });
+      trace('journal_ready');
       // The frozen renderer needs this acknowledgement before remote services
       // become ready, so sending a message is visible immediately.
       replay.users = users;
@@ -2224,6 +2238,7 @@ export class Compat {
         connection.notify("session/update", { sessionId: s.id, update });
       controller.signal.throwIfAborted();
       await this.ensureSession(s);
+      trace('session_ready');
       controller.signal.throwIfAborted();
       const active = this.active.get(s.id);
       active.driverStarted = true;
@@ -2233,6 +2248,7 @@ export class Compat {
         controller.signal,
         promptEntry.visionProgress,
       );
+      trace('content_ready');
       if (s.type === "code_pro" && !manualCompact) {
         let run = this.runs.latest(s.id);
         if (
@@ -2262,6 +2278,7 @@ export class Compat {
         active.attemptId = attempt.attemptId;
         active.dispatched = new Map();
       }
+      trace('run_ready');
       active.writer = writer;
       active.notify = notify;
       active.driverStarted = true;
@@ -2517,8 +2534,13 @@ export class Compat {
         const compacted = await this.driver.compact(s.id, callbacks);
         if (!compacted) await notify({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "当前上下文没有可压缩的历史。" } });
         result = { stopReason: "end_turn" };
-      } else result = await this.driver.prompt(s.id, prepared.content, callbacks);
+      } else {
+        trace('native_prompt_dispatched');
+        result = await this.driver.prompt(s.id, prepared.content, callbacks);
+        trace('native_prompt_settled');
+      }
     } catch (error) {
+      trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
     } finally {
       try {

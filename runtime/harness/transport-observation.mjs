@@ -73,6 +73,7 @@ export function observeModelTransport(ctx, publish) {
     };
     const report = (phase, extra = {}) => publish({
       type: 'model_diagnostic', phase, requestId: scope.id,
+      at_ms: Date.now(),
       ...(typeof scope.sessionId === 'string' ? { sessionId: scope.sessionId } : {}),
       elapsedMs: Math.round(performance.now() - scope.started), requests: scope.requests,
       chunks: scope.chunks, transportCodes: [...scope.transportCodes],

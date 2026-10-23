@@ -32,9 +32,28 @@ struct NativeWindow {
     var selector: String { "window:\(pid):\(id)" }
 }
 
+// Quartz uses top-left desktop coordinates; AppKit mouse hit-testing uses
+// bottom-left coordinates relative to the primary display, even on other screens.
+func appKitHitPoint(_ quartzPoint: CGPoint, primaryDisplayTop: Double) -> CGPoint {
+    CGPoint(x: quartzPoint.x, y: primaryDisplayTop - quartzPoint.y)
+}
+
+func validateMouseHit(_ windowNumber: Int, target: NativeWindow) throws {
+    guard windowNumber > 0 else {
+        throw RuntimeFailure("The system could not identify a mouse target at this point; re-observe.")
+    }
+    guard windowNumber == Int(target.id) else {
+        throw RuntimeFailure("Another window receives mouse input at this point (window \(windowNumber)); re-observe.")
+    }
+}
+
 
 func confirmedForegroundPID(accessibilityPID: pid_t?, workspacePID: pid_t?) -> pid_t? {
-    guard let focused = accessibilityPID, focused > 0 else { return nil }
+    // AppKit is the independent OS foreground authority when system-wide AX
+    // returns cannotComplete, even though per-app AX and permission are valid.
+    guard let focused = accessibilityPID, focused > 0 else {
+        return workspacePID.flatMap { $0 > 0 ? $0 : nil }
+    }
     if let workspacePID, workspacePID > 0, workspacePID != focused { return nil }
     return focused
 }
@@ -179,10 +198,23 @@ func requestMissingPermission(check: () -> Bool, request: () -> Void) -> Bool {
     return check()
 }
 
+// Rendering an accessibility tree is optional app functionality, not a TCC grant.
+// Some Electron versions accept the setter without exposing a getter. Unsupported
+// setters fail harmlessly; preserve a known enabled state and trust only success.
+func enableTargetAccessibility(read: (String) -> Bool?, enable: (String) -> Bool) -> Bool {
+    var changed = false
+    for name in ["AXManualAccessibility", "AXEnhancedUserInterface"] {
+        guard read(name) != true else { continue }
+        if enable(name) { changed = true }
+    }
+    return changed
+}
+
 struct PermissionApplication {
     let name: String
     let identifier: String
     let path: String
+    let isApplicationBundle: Bool
 
     static func locate(executable: URL, bundleInfo: (URL) -> [String: Any]?) -> PermissionApplication {
         var directory = executable.deletingLastPathComponent()
@@ -191,15 +223,20 @@ struct PermissionApplication {
                 return PermissionApplication(
                     name: info["CFBundleDisplayName"] as? String ?? info["CFBundleName"] as? String ?? directory.deletingPathExtension().lastPathComponent,
                     identifier: info["CFBundleIdentifier"] as? String ?? "unknown",
-                    path: directory.path)
+                    path: directory.path, isApplicationBundle: true)
             }
             directory.deleteLastPathComponent()
         }
-        return PermissionApplication(name: executable.lastPathComponent, identifier: "standalone helper", path: executable.path)
+        return PermissionApplication(name: executable.lastPathComponent, identifier: "standalone helper", path: executable.path, isApplicationBundle: false)
     }
 
     func denied(_ permission: String) -> String {
-        "macOS denied \(permission) access for the current process. Current application: \(name) (\(identifier)); path: \(path). This result does not establish whether the Settings switch is off: an enabled entry can refer to an older code signature after an application update. Select this exact application in System Settings > Privacy & Security > \(permission), then quit and reopen it. If the switch is already on and a restart did not help, ask the user to remove this application's old entry with minus and add the current installed application with plus, then authorize and reopen it. For an application launched from an installer volume, quit it and launch the installed copy first. Do not repeatedly ask the user to toggle the same stale entry. Preserve other applications' permissions. No desktop input was dispatched."
+        // A containing bundle identifies our executable, not necessarily TCC's
+        // responsible process. Development launch chains may belong to Terminal.
+        let identity = isApplicationBundle
+            ? "Containing application: \(name) (\(identifier)); path: \(path). For normal installed launches, check this application; if launched from an installer volume, quit it and launch the installed copy first."
+            : "Standalone executable: \(path). This file is not an application bundle. In development, macOS can attribute permission to the launcher, such as Terminal, rather than this helper."
+        return "macOS denied \(permission) access for the current process. \(identity) The executable path alone does not establish the responsible application. Check the application identified by the macOS permission prompt or TCC diagnostic attribution in System Settings > Privacy & Security > \(permission). Authorize the actual responsible application and reopen it if macOS requests a restart. An enabled switch does not prove access for this process; verify the launch identity before changing entries. If the confirmed responsible application's grant still fails after restart, investigate its signing identity and an older code signature before suggesting removal of its entry. Do not repeatedly toggle permissions or add this helper solely because its path appears here. Preserve other applications' permissions. No desktop input was dispatched."
     }
 }
 

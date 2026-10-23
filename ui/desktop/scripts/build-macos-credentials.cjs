@@ -12,7 +12,8 @@ function buildMacCredentials(repo, arch, { test = false } = {}) {
   fs.mkdirSync(parent, { recursive: true });
   const output = fs.mkdtempSync(path.join(parent, `credentials-${arch}-`));
   const common = ['swiftc', '-parse-as-library', '-O', '-target',
-    `${arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos14.0`, path.join(source, 'CredentialStore.swift')];
+    `${arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos14.0`, path.join(source, 'CredentialStore.swift'),
+    path.join(source, 'CredentialVerification.swift')];
   function run(command, args) {
     const result = spawnSync(command, args, { cwd: repo, stdio: 'inherit', shell: false });
     if (result.error) throw result.error;

@@ -5,11 +5,12 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { parseArgs } = require('node:util');
 const { stageHarness } = require('../../../scripts/stage-harness-distribution.cjs');
-const { targetFor, bundlePaths, verifyMachO, preparePty, sha256 } = require('./macos-package.cjs');
+const { targetFor, bundlePaths, verifyMachO, preparePty, sha256, verifySourceSnapshot } = require('./macos-package.cjs');
 const { buildMacTools } = require('../../../scripts/prepare-harness-macos-tools.cjs');
 const { verifyMacArtifacts, macSigningOptionsForFile, ignoreNonMacCode } = require('../../../scripts/macos-tool-artifacts.cjs');
 const { signingPlan, inspectSignature } = require('./macos-signing.cjs');
 const { macArtifactFiles } = require('../../../runtime/builtin-artifacts.mjs');
+const { buildDmg } = require('./macos-dmg.cjs');
 
 function run(command, args, cwd, env = process.env, capture = false) {
   const result = spawnSync(command, args, {
@@ -46,10 +47,11 @@ async function main() {
   const { values } = parseArgs({ options: {
     arch: { type: 'string', default: process.arch },
     'node-license': { type: 'string' },
+    'source-manifest': { type: 'string' },
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Usage: node scripts/build-harness-macos.cjs --arch arm64|x64 --node-license /path/to/Node/LICENSE\nRun with existing native Node 24+ and prepared native Office/UI/Harness dependencies. No legacy Rust Agent is built.');
+    console.log('Usage: node scripts/build-harness-macos.cjs --arch arm64|x64 --node-license /path/to/Node/LICENSE [--source-manifest snapshot.json]\nRun with existing native Node 24+ and prepared native Office/UI/Harness dependencies. A synchronized checkout can provide a file-hash manifest to verify source identity before and after packaging. No legacy Rust Agent is built.');
     return;
   }
   targetFor(values.arch);
@@ -59,10 +61,14 @@ async function main() {
   const signing = signingPlan();
   const desktop = path.resolve(__dirname, '..');
   const repo = path.resolve(desktop, '../..');
-  const source = {
+  const checkout = {
     revision: run('git', ['rev-parse', 'HEAD'], repo, process.env, true),
     dirty: run('git', ['status', '--porcelain'], repo, process.env, true).length > 0,
   };
+  const sourceManifest = values['source-manifest'] && path.resolve(values['source-manifest']);
+  const source = sourceManifest
+    ? { ...verifySourceSnapshot(repo, sourceManifest), checkoutRevision: checkout.revision }
+    : checkout;
   verifyMachO(process.execPath, values.arch);
   const parent = path.join(repo, 'target');
   fs.mkdirSync(parent, { recursive: true });
@@ -71,7 +77,7 @@ async function main() {
   const env = { ...process.env, CODEBUDDY_HARNESS_RESOURCE_DIR: stage };
   run(process.execPath, [require.resolve('typescript/bin/tsc'), '--project', path.join(repo, 'ui/sdk/tsconfig.json')], desktop, env);
   run(process.execPath, [path.join(desktop, 'scripts/i18n-compile.js')], desktop, env);
-  const toolsDirectory = buildMacTools(repo, values.arch);
+  const toolsDirectory = buildMacTools(repo, values.arch, source);
   await stageHarness(repo, stage, { nodeLicense: path.resolve(values['node-license']), toolsDirectory });
   const stageManifest = fs.readFileSync(path.join(stage, 'manifest.json'), 'utf8');
   run(path.join(stage, 'node/node'), [path.join(repo, 'scripts/verify-harness-stage.mjs'), stage], repo, env);
@@ -100,13 +106,13 @@ async function main() {
   run(path.join(packaged, 'node/node'), [path.join(repo, 'scripts/verify-harness-stage.mjs'), packaged, build], repo, env);
   run('codesign', ['--verify', '--deep', '--strict', output.app], desktop, env);
   run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', output.app, output.zip], desktop, env);
-  const image = path.join(build, 'image');
-  fs.mkdirSync(image);
-  run('ditto', [output.app, path.join(image, path.basename(output.app))], desktop, env);
-  fs.symlinkSync('/Applications', path.join(image, 'Applications'));
-  run('hdiutil', ['create', '-ov', '-format', 'UDZO', '-volname', 'CodeBuddy', '-srcfolder', image, output.dmg], desktop, env);
-  run('hdiutil', ['verify', output.dmg], desktop, env);
+  buildDmg({ app: output.app, dmg: output.dmg, build,
+    run: (command, args) => run(command, args, desktop, env) });
   const artifacts = [output.zip, output.dmg].map(file => ({ file: path.basename(file), bytes: fs.statSync(file).size, sha256: sha256(file) }));
+  if (sourceManifest) {
+    const verified = verifySourceSnapshot(repo, sourceManifest);
+    if (verified.snapshotSha256 !== source.snapshotSha256) throw new Error('Source snapshot changed during build');
+  }
   fs.writeFileSync(path.join(output.directory, 'artifacts.json'), JSON.stringify({
     schemaVersion: 1, createdAt: new Date().toISOString(), version: require('../package.json').version,
     arch: values.arch, source, sourceDigest: JSON.parse(stageManifest).sourceDigest,

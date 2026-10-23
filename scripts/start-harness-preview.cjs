@@ -9,6 +9,7 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { defaultWorkspaceRoot, prepareDefaultWorkspace } = require('./default-workspace.cjs');
 const { createRotatingLog } = require('../runtime/rotating-log.cjs');
+const { locationFile, readDataRoot, assertNoMigration } = require('../runtime/storage-management.cjs');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -27,7 +28,8 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
   if (dataDirectory !== undefined && (typeof dataDirectory !== 'string' || !path.isAbsolute(dataDirectory))) {
     throw new Error('The preview data directory must be an absolute path');
   }
-  const requestedHome = dataDirectory ?? inherited.CODEBUDDY_HOME ?? path.join(os.homedir(), '.CodeBuddy');
+  if (dataDirectory === undefined && inherited.CODEBUDDY_HOME === undefined) assertNoMigration(locationFile(inherited));
+  const requestedHome = dataDirectory ?? inherited.CODEBUDDY_HOME ?? readDataRoot(locationFile(inherited), path.join(os.homedir(), '.CodeBuddy'));
   if (!path.isAbsolute(requestedHome) || path.resolve(requestedHome) === path.parse(path.resolve(requestedHome)).root) {
     throw new Error('The CodeBuddy data directory must be an absolute non-root path');
   }

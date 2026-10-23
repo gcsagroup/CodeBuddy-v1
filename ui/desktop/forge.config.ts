@@ -6,24 +6,37 @@ const { resolve, sep } = require('path');
 const distro = require('./codebuddy.distro.json');
 const desktopPackage = require('./package.json');
 const { stagePty, preparePty } = require('./scripts/macos-package.cjs');
-const { macSigningOptionsForFile, ignoreNonMacCode } = require('../../scripts/macos-tool-artifacts.cjs');
+const {
+  macSigningOptionsForFile,
+  ignoreNonMacCode,
+} = require('../../scripts/macos-tool-artifacts.cjs');
 const { signingPlan } = require('./scripts/macos-signing.cjs');
 
 const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 const harnessResourceDir = process.env.CODEBUDDY_HARNESS_RESOURCE_DIR;
 if (harnessResourceDir) {
-  const manifest = JSON.parse(fs.readFileSync(resolve(harnessResourceDir, 'manifest.json'), 'utf8'));
-  if (manifest.engine !== 'deepseek-harness' || manifest.schemaVersion !== 1) throw new Error('Invalid Harness distribution stage');
+  const manifest = JSON.parse(
+    fs.readFileSync(resolve(harnessResourceDir, 'manifest.json'), 'utf8')
+  );
+  if (manifest.engine !== 'deepseek-harness' || manifest.schemaVersion !== 1)
+    throw new Error('Invalid Harness distribution stage');
   for (const entry of manifest.files) {
     const file = resolve(harnessResourceDir, entry.path);
-    if (!file.startsWith(resolve(harnessResourceDir) + sep) ||
-        crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') !== entry.sha256) {
+    if (
+      !file.startsWith(resolve(harnessResourceDir) + sep) ||
+      crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex') !== entry.sha256
+    ) {
       throw new Error('Harness distribution stage identity mismatch');
     }
   }
 }
-if (process.argv.some(argument => ['package', 'make'].includes(argument)) && !harnessResourceDir) {
-  throw new Error('Packaging requires a verified Harness distribution stage; use scripts/build-harness-windows.cjs or scripts/build-harness-macos.cjs on the native host.');
+if (
+  process.argv.some((argument) => ['package', 'make'].includes(argument)) &&
+  !harnessResourceDir
+) {
+  throw new Error(
+    'Packaging requires a verified Harness distribution stage; use scripts/build-harness-windows.cjs or scripts/build-harness-macos.cjs on the native host.'
+  );
 }
 const electronArtifactName = `electron-v${desktopPackage.devDependencies.electron}-win32-x64.zip`;
 const electronArtifactSha256 = 'bbb798d1817bc173a187c1de30432247e48046f737fa13ade126fe3788303b81';
@@ -50,7 +63,12 @@ let cfg = {
         },
       }
     : {}),
-  extraResource: [...(harnessResourceDir ? [harnessResourceDir] : []), 'src/images', 'src/pets/assets', 'src/app-update.yml'],
+  extraResource: [
+    ...(harnessResourceDir ? [harnessResourceDir] : []),
+    'src/images',
+    'src/pets/assets',
+    'src/app-update.yml',
+  ],
   icon: 'src/images/icon',
   appBundleId: 'local.codebuddy.desktop',
   appCategoryType: 'public.app-category.developer-tools',
@@ -94,13 +112,15 @@ const macSigning = targetPlatform === 'darwin' ? signingPlan() : { kind: 'ad-hoc
 if (macSigning.identity) {
   cfg.osxSign = {
     identity: macSigning.identity,
+    continueOnError: false,
     type: macSigning.kind === 'development' ? 'development' : 'distribution',
     preAutoEntitlements: false,
     preEmbedProvisioningProfile: false,
     keychain: process.env.KEYCHAIN_PATH || undefined,
     // osx-sign 1.3.3 drops array-form ignore; its single predicate form survives validation.
     ignore: ignoreNonMacCode,
-    optionsForFile: (file) => macSigningOptionsForFile(file, resolve(__dirname, 'entitlements.plist')),
+    optionsForFile: (file) =>
+      macSigningOptionsForFile(file, resolve(__dirname, 'entitlements.plist')),
   };
 }
 if (macSigning.notarize) {
@@ -170,7 +190,8 @@ module.exports = {
         setupIcon: resolve(__dirname, 'src/images/icon.ico'),
         noMsi: true,
         ...(harnessResourceDir && process.env.CODEBUDDY_HARNESS_VENDOR_DIR
-          ? { vendorDirectory: process.env.CODEBUDDY_HARNESS_VENDOR_DIR } : {}),
+          ? { vendorDirectory: process.env.CODEBUDDY_HARNESS_VENDOR_DIR }
+          : {}),
       },
     },
     {

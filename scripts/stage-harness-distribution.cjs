@@ -50,14 +50,14 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await copy(path.join(runtime, 'office'), path.join(destination, 'runtime/office'));
   await copy(nodeLicense, path.join(destination, 'node/LICENSE'));
   for (const entry of await fs.readdir(runtime, { withFileTypes: true })) {
-    if (entry.isFile() && /\.(mjs|json)$/.test(entry.name) || entry.name === 'assets') {
+    if (entry.isFile() && /\.(mjs|cjs|json)$/.test(entry.name) || entry.name === 'assets') {
       await copy(path.join(runtime, entry.name), path.join(destination, 'runtime', entry.name));
     }
   }
   const harness = path.join(runtime, 'harness');
   const harnessEntries = await fs.readdir(harness, { withFileTypes: true });
   for (const entry of harnessEntries) {
-    if (entry.isFile() && /\.(mjs|json)$/.test(entry.name)) {
+    if ((entry.isFile() && /\.(mjs|json)$/.test(entry.name)) || entry.name === 'skills') {
       await copy(path.join(runtime, 'harness', entry.name), path.join(destination, 'runtime/harness', entry.name));
     }
   }
@@ -66,6 +66,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   const typescript = requireDesktop('typescript');
   await init;
   const roots = new Set();
+  roots.add('@playwright/mcp');
   for (const entry of harnessEntries.filter(entry => entry.isFile() && entry.name.endsWith('.mjs'))) {
     const source = await fs.readFile(path.join(harness, entry.name), 'utf8');
     for (const name of commonJsImports(source, typescript)) roots.add(name);

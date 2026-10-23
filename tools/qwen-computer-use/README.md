@@ -1,6 +1,12 @@
 # 獨立 Computer Use MCP
 
+Mac 觀察目標時會依應用程式公開的能力啟用 Electron/Chromium 輔助使用樹，僅作用於目標程序；已啟用和不支援的屬性保持不變。這不是系統授權，也不取代螢幕錄製、輔助使用或實際輸入後的結果核對。依據 [Electron 輔助使用介面](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md)。
+
+macOS 權限遭拒時，應核對系統提示或 TCC 記錄中的實際歸屬應用程式。開發啟動可能歸屬終端機，helper 路徑或包含它的應用程式目錄本身不證明授權歸屬；先確認啟動來源，再檢查螢幕錄製與輔助使用權限，依系統要求重新啟動。不要僅憑 helper 錯誤重複新增檔案或刪除舊授權。
+
 [简体中文](README.zh-CN.md) · [English](README.en.md)
+
+含截圖的觀察會同時回報視窗在螢幕上的位置，可比較拖曳前後的新觀察確認移動；點擊、捲動及拖曳輸入仍使用視窗相對座標。沒有截圖時不宣稱已觀察到視窗位置。
 
 此目錄包含 Qwen open-computer-use 0.2.3 Windows 版本的本地修正，MIT 授權。上游提交：24b7cae4d449a5a8ea58c583e5151096b26de03c。
 

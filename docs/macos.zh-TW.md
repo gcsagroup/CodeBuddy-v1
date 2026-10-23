@@ -65,7 +65,7 @@ corepack pnpm --dir ui/desktop run test:macos-install
 
 介面 smoke 不代表真實模型或完整使用流程通過。後續透過 RustDesk 驗收 Finder 啟動、中文專案、模型與工具呼叫、退出重啟及歷史持久化；電腦控制另驗 TCC、截圖、中文輸入、視窗切換及動作後置結果，記錄原始碼身份與產物雜湊。
 
-開發資料/日誌位於 `.preview-data`；安裝版沿用 `~/.CodeBuddy-Harness`，執行日誌位於 `logs/harness`。使用獨立測試 profile，保留既有使用者資料。
+開發版與安裝版預設資料目錄皆為 `~/.CodeBuddy`，可透過 `CODEBUDDY_HOME` 指定隔離目錄。開發日誌位於 `logs/preview`，安裝版服務日誌位於 `logs/harness`。舊 `.preview-data` 與 `~/.CodeBuddy-Harness` 不會自動匯入或覆寫；驗收使用獨立 profile。
 
 ## Mac 憑證保護（2026-10-16）
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-10-21T02:50:10.448476+00:00",
+  "copiedAt": "2026-10-22T01:34:42.968Z",
   "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
   "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
@@ -10,14 +10,14 @@
       "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "6e2cd0c832c9d83756c0cd27feb592c0e5e5760ba2bce7cb3c7d362dfc27a72a",
-      "bytes": 21821440,
+      "sha256": "c04d51c3d42b6fa75c5ef0523d9a69dbba568bc015c3275aa4322f5ff9d740f2",
+      "bytes": 21777920,
       "sourcePath": "target/debug/codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-10-20T11:32:42.015742+00:00",
-      "sourceBaselineRevision": "10a88b27b383b3435ea2185dc046ef322e177529",
-      "sourceBaselineIncludesUncommittedChanges": false,
+      "sourceModifiedAt": "2026-10-20T01:18:35.166Z",
+      "sourceBaselineRevision": "d43fcbbd0ec85afcb073cb74b14e835752a26e20",
+      "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
-      "buildLog": ".preview-data/subagent-repair-20261021/timing-desktop-20261021/tool-build.json",
+      "buildLog": ".preview-evidence/merge-20261022/tools-build.log",
       "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
@@ -36,7 +36,7 @@
           "commonqueries"
         ]
       ],
-      "sourceManifest": ".preview-data/subagent-repair-20261021/timing-desktop-20261021/tool-build.json"
+      "sourceManifest": ".preview-evidence/merge-20261022/tool-source-manifest.json"
     },
     {
       "name": "qwen-computer-use",

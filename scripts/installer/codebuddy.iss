@@ -19,7 +19,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-UsePreviousAppDir=yes
+UsePreviousAppDir=no
 DisableDirPage=no
 DisableWelcomePage=yes
 DisableProgramGroupPage=yes
@@ -32,8 +32,8 @@ SetupIconFile={#ProductIcon}
 UninstallDisplayIcon={app}\CodeBuddy.exe
 WizardSmallImageFile={#ProductImage}
 WizardImageFile=
-WizardStyle=modern light windows11 excludelightcontrols hidebevels
-WizardSizePercent=115,110
+WizardStyle=modern light
+WizardSizePercent=100,100
 Compression=lzma2/normal
 SolidCompression=yes
 CloseApplications=yes
@@ -41,6 +41,7 @@ RestartApplications=no
 Uninstallable=yes
 UninstallDisplayName=CodeBuddy
 SetupLogging=yes
+UninstallLogging=yes
 
 [Languages]
 Name: "zhCN"; MessagesFile: "{#ChineseMessages}"
@@ -52,10 +53,10 @@ WelcomeFontName=Microsoft YaHei UI
 
 [Messages]
 SetupWindowTitle=安装 CodeBuddy
-WizardSelectDir=安装 CodeBuddy
-SelectDirDesc=选择安装位置，开始使用。
-SelectDirLabel3=安装位置
-SelectDirBrowseLabel=仅为当前用户安装。你可以更换安装文件夹。
+WizardSelectDir=选择安装位置
+SelectDirDesc=将 CodeBuddy 安装到你的电脑。
+SelectDirLabel3=安装到此文件夹
+SelectDirBrowseLabel=仅为当前账户安装。聊天记录和项目会保留。
 DiskSpaceGBLabel=所需空间：[gb] GB
 DiskSpaceMBLabel=所需空间：[mb] MB
 ButtonInstall=安装
@@ -63,27 +64,29 @@ ButtonCancel=取消
 ButtonFinish=完成
 ButtonWizardBrowse=浏览…
 WizardInstalling=正在安装 CodeBuddy
-InstallingLabel=正在准备应用和运行所需文件，请稍候。
-FinishedHeadingLabel=CodeBuddy 已准备就绪
-FinishedLabel=安装完成。现在可以开始使用。
-FinishedLabelNoIcons=安装完成。现在可以开始使用。
+InstallingLabel=安装程序正在准备应用文件，请稍候。
+FinishedHeadingLabel=CodeBuddy 安装完成
+FinishedLabel=CodeBuddy 已安装到你的电脑。%n%n单击“完成”退出安装程序。
+FinishedLabelNoIcons=CodeBuddy 已安装到你的电脑。%n%n单击“完成”退出安装程序。
 ClickFinish=
 
 [Files]
-Source: "{#AppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
-Source: "..\..\runtime\tools\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ProductImage}"; DestDir: "{app}\resources"; DestName: "installer-logo.png"; Flags: ignoreversion; BeforeInstall: ShowInstallingFile
+Source: "{#AppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; BeforeInstall: ShowInstallingFile
+Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion; BeforeInstall: ShowInstallingFile
+Source: "..\..\runtime\tools\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs; BeforeInstall: ShowInstallingFile
 
 [Icons]
 ; Keep Inno's native shortcut metadata; publish the selected links on Finish.
-Name: "{app}\resources\CodeBuddy"; Filename: "{app}\CodeBuddy.exe"; WorkingDir: "{app}"; AppUserModelID: "local.codebuddy.desktop"
+Name: "{app}\resources\CodeBuddy"; Filename: "{app}\CodeBuddy.exe"; WorkingDir: "{app}"; IconFilename: "{app}\CodeBuddy.exe"; IconIndex: 0; AppUserModelID: "com.squirrel.CodeBuddyHarness.CodeBuddy"; BeforeInstall: RecordInstallDetail('正在创建应用快捷方式')
 
 [UninstallDelete]
 Type: files; Name: "{autodesktop}\CodeBuddy.lnk"
 Type: files; Name: "{autoprograms}\CodeBuddy.lnk"
+Type: files; Name: "{app}\resources\installed-files.txt"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueData: "URL:CodeBuddy Protocol"
+Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueData: "URL:CodeBuddy Protocol"; BeforeInstall: RecordInstallDetail('正在注册 CodeBuddy 链接协议')
 Root: HKCU; Subkey: "Software\Classes\codebuddy"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
 Root: HKCU; Subkey: "Software\Classes\codebuddy\DefaultIcon"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"",0"
 Root: HKCU; Subkey: "Software\Classes\codebuddy\shell\open\command"; ValueType: string; ValueData: """{app}\CodeBuddy.exe"" ""%1"""
@@ -92,6 +95,10 @@ Root: HKCU; Subkey: "Software\Classes\codebuddy\shell\open\command"; ValueType: 
 Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait postinstall skipifsilent
 
 [Code]
+#include "install-details.iss"
+#include "uninstall-details.iss"
+#include "data-directory.iss"
+
 var
   DesktopShortcut: TNewCheckBox;
   StartMenuShortcut: TNewCheckBox;
@@ -114,6 +121,13 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssInstall then
+    RecordInstallDetail('开始准备 CodeBuddy')
+  else if CurStep = ssPostInstall then
+  begin
+    InstalledFileIndex.SaveToFile(ExpandConstant('{app}\resources\installed-files.txt'));
+    RecordInstallDetail('已完成 · 应用已准备就绪');
+  end;
   { Silent installs and closing the finished page must apply the same defaults. }
   if (CurStep = ssDone) and not ShortcutsApplied then
     ApplyShortcutChoices;
@@ -125,61 +139,16 @@ begin
     WizardForm.RunList.Checked[0] := LaunchOnFinish.Checked;
 end;
 
+#include "installer-ui.iss"
+
 procedure InitializeWizard;
 begin
-  WizardForm.SelectDirBitmapImage.Visible := False;
-  WizardForm.SelectDirLabel.Left := 0;
-  WizardForm.SelectDirLabel.Top := ScaleY(16);
-  WizardForm.DirEdit.Left := 0;
-  WizardForm.DirEdit.Top := ScaleY(48);
-  WizardForm.DirEdit.Height := ScaleY(28);
-  WizardForm.DirEdit.Width := WizardForm.SelectDirPage.ClientWidth - ScaleX(96);
-  WizardForm.DirBrowseButton.Left := WizardForm.DirEdit.Width + ScaleX(12);
-  WizardForm.DirBrowseButton.Top := WizardForm.DirEdit.Top;
-  WizardForm.DirBrowseButton.Width := ScaleX(84);
-  WizardForm.DirBrowseButton.Height := WizardForm.DirEdit.Height;
-  WizardForm.SelectDirBrowseLabel.Top := ScaleY(92);
-  WizardForm.SelectDirBrowseLabel.Height := ScaleY(40);
-  WizardForm.DiskSpaceLabel.Top := ScaleY(144);
-  WizardForm.FilenameLabel.Visible := False;
-  ProgressText := TNewStaticText.Create(WizardForm);
-  ProgressText.Parent := WizardForm.InstallingPage;
-  ProgressText.Left := WizardForm.ProgressGauge.Left;
-  ProgressText.Top := WizardForm.ProgressGauge.Top + WizardForm.ProgressGauge.Height + ScaleY(12);
-  ProgressText.Width := WizardForm.InstallingPage.ClientWidth;
-  ProgressText.Caption := '正在安装 · 0%';
-  WizardForm.WizardBitmapImage2.Visible := False;
-  WizardForm.FinishedHeadingLabel.Left := ScaleX(32);
-  WizardForm.FinishedHeadingLabel.Top := ScaleY(32);
-  WizardForm.FinishedHeadingLabel.Width := WizardForm.FinishedPage.ClientWidth - ScaleX(64);
-  WizardForm.FinishedHeadingLabel.Height := ScaleY(64);
-  WizardForm.FinishedLabel.Left := ScaleX(32);
-  WizardForm.FinishedLabel.Top := ScaleY(104);
-  WizardForm.FinishedLabel.Width := WizardForm.FinishedHeadingLabel.Width;
-  WizardForm.FinishedLabel.Height := ScaleY(36);
-  DesktopShortcut := TNewCheckBox.Create(WizardForm);
-  DesktopShortcut.Parent := WizardForm.FinishedPage;
-  DesktopShortcut.SetBounds(ScaleX(32), ScaleY(152), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
-  DesktopShortcut.Font.Assign(WizardForm.RunList.Font);
-  DesktopShortcut.Caption := '创建桌面快捷方式';
-  DesktopShortcut.Checked := True;
-  StartMenuShortcut := TNewCheckBox.Create(WizardForm);
-  StartMenuShortcut.Parent := WizardForm.FinishedPage;
-  StartMenuShortcut.SetBounds(ScaleX(32), ScaleY(184), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
-  StartMenuShortcut.Font.Assign(WizardForm.RunList.Font);
-  StartMenuShortcut.Caption := '添加到开始菜单';
-  StartMenuShortcut.Checked := True;
-  LaunchOnFinish := TNewCheckBox.Create(WizardForm);
-  LaunchOnFinish.Parent := WizardForm.FinishedPage;
-  LaunchOnFinish.SetBounds(ScaleX(32), ScaleY(216), WizardForm.FinishedHeadingLabel.Width, ScaleY(32));
-  LaunchOnFinish.Font.Assign(WizardForm.RunList.Font);
-  LaunchOnFinish.Caption := '启动 CodeBuddy';
-  LaunchOnFinish.Checked := True;
-  LaunchOnFinish.OnClick := @LaunchOnFinishClick;
+  InitializeInstallerUI;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
+  AlignInstallerFooter(CurPageID);
   if CurPageID = wpFinished then
   begin
     { Keep Inno responsible for [Run], using ordinary checkboxes for display. }
@@ -214,6 +183,8 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
+  Result := ValidateDataDirectory;
+  if Result <> '' then Exit;
   { The same bound must apply to silent installation, which skips page clicks. }
   if Length(AddBackslash(ExpandConstant('{app}'))) + {#MaxRelativePath} > 259 then
     Result := '安装路径过长，请选择更短的位置，例如 D:\CodeBuddy。';
@@ -222,13 +193,14 @@ end;
 procedure CurInstallProgressChanged(CurProgress, MaxProgress: Integer);
 begin
   if MaxProgress > 0 then
-    ProgressText.Caption := '正在安装 · ' + IntToStr(Round(100.0 * CurProgress / MaxProgress)) + '%';
+    ProgressText.Caption := IntToStr(Round(100.0 * CurProgress / MaxProgress)) + '%';
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Command: String;
 begin
+  if CurUninstallStep = usPostUninstall then FinishUninstallDetails;
   { A later installation may have taken over this protocol; leave it intact. }
   if (CurUninstallStep = usUninstall) and
      RegQueryStringValue(HKCU, 'Software\Classes\codebuddy\shell\open\command', '', Command) and

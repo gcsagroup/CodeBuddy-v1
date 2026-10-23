@@ -41,6 +41,26 @@ function sha256(file) {
   return hash.digest('hex');
 }
 
+function verifySourceSnapshot(repo, manifestPath) {
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (!/^[a-f0-9]{40}$/.test(manifest.revision) || typeof manifest.dirty !== 'boolean' ||
+      !manifest.files || Array.isArray(manifest.files) || !Object.keys(manifest.files).length)
+    throw new Error('Invalid source snapshot manifest');
+  const root = fs.realpathSync(repo);
+  for (const [name, digest] of Object.entries(manifest.files)) {
+    if (!name || name.includes('\\') || name.split('/').some(part => !part || part === '.' || part === '..') ||
+        path.isAbsolute(name) || !/^[a-f0-9]{64}$/.test(digest))
+      throw new Error(`Invalid source snapshot entry: ${name}`);
+    const file = path.join(root, name);
+    const relative = path.relative(root, fs.realpathSync(file));
+    if (path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`) ||
+        !fs.statSync(file).isFile() || sha256(file) !== digest)
+      throw new Error(`Source snapshot mismatch: ${name}`);
+  }
+  return { revision: manifest.revision, dirty: manifest.dirty,
+    snapshotSha256: sha256(manifestPath), verifiedFiles: Object.keys(manifest.files).length };
+}
+
 function stageBackend(
   desktopRoot,
   backend,
@@ -233,4 +253,5 @@ module.exports = {
   bundlePaths,
   sha256,
   verifyArtifact,
+  verifySourceSnapshot,
 };

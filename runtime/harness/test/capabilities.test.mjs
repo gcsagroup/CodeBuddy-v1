@@ -53,12 +53,12 @@ before(async () => {
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
       res.on('close', () => clearTimeout(timer)); return;
     }
-    else if (prompt.includes('fixture_capacity_child')) { await capacityFixture.promise; emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
+    else if (prompt.includes('fixture_capacity_child')) { if (capacityFixture.ready && ++capacityFixture.started === 2) capacityFixture.ready.resolve(); await capacityFixture.promise; emit({ role: 'assistant', content: 'Capacity child completed' }); emit({}, 'stop'); }
     else if (prompt.includes('fixture_capacity_parent') && !since.some(message => message.role === 'tool')) {
       const count = prompt.includes('fixture_capacity_parent_five') ? 5 : 2;
       emit({ role: 'assistant', tool_calls: Array.from({ length: count }, (_, index) => ({ index, id: `capacity-${index}`, type: 'function', function: { name: 'subagent', arguments: JSON.stringify({ description: `Capacity fixture ${index}`, prompt: 'fixture_capacity_child' }) } })) }); emit({}, 'tool_calls');
     }
-    else if (prompt.includes('fixture_capacity_parent')) { capacityFixture.resolve(); emit({ role: 'assistant', content: 'Capacity admissions checked' }); emit({}, 'stop'); }
+    else if (prompt.includes('fixture_capacity_parent')) { if (!prompt.includes('fixture_capacity_parent_update')) capacityFixture.resolve(); emit({ role: 'assistant', content: 'Capacity admissions checked' }); emit({}, 'stop'); }
     else if (prompt.includes('fixture_background_cancel') && !since.some(message => message.role === 'tool')) call(process.platform === 'win32' ? 'pwsh' : 'bash', { description: 'Wait in cancellable fixture job', command: process.platform === 'win32' ? 'Start-Sleep -Seconds 30' : 'sleep 30', run_in_background: true });
     else if (prompt.includes('fixture_role_parent') && !since.some(message => message.role === 'tool')) call('subagent', { description: 'Inherited main model fixture', prompt: 'fixture_role_child' });
     else if (prompt.includes('fixture_role_child') && !since.some(message => message.role === 'tool')) call('search_mcp_tools', { names: ['subagent'] });
@@ -283,7 +283,8 @@ test('host image admission failures preserve action receipts without replay', as
     assert.equal(calls, 1);
     const sent = JSON.stringify(requests.at(-1).messages);
     assert.match(sent, /Action completed/);
-    assert.match(sent, /Image observation unavailable/);
+    assert.match(sent, /Image inspection is unavailable for this result/);
+    assert.match(sent, /Do not repeat the action just to retry inspection/);
     assert.doesNotMatch(sent, /invalid-image|attachmentId/);
   }
 });
@@ -549,6 +550,57 @@ test('native depth one rejects a child attempting to spawn a grandchild', async 
   assert.equal(events.filter(event => event.type === 'subagent_start').length, 1);
   assert.deepEqual(await driver.listSubagentChildren(child), []);
   assert.equal(requests.some(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_depth_grandchild'))), false);
+});
+
+test('explicit Host limits use native admission for parallel capacity and recursive depth', async () => {
+  try {
+    await driver.configureSubagentLimits({ maxDepth: 0, maxActiveSubagents: 1 });
+    const none = await session(), noChildren = [];
+    await driver.prompt(none.sessionId, 'fixture_depth_parent', { onPermission: () => true, onEvent: event => noChildren.push(event) });
+    assert.equal(noChildren.some(event => event.type === 'subagent_start'), false);
+    assert.match(JSON.stringify(noChildren.filter(event => event.type === 'tool_result')), /maxDepth 0/);
+    await driver.configureSubagentLimits({ maxDepth: 2, maxActiveSubagents: 4 });
+    const nested = await session(), descendants = [];
+    await driver.prompt(nested.sessionId, 'fixture_depth_parent', { onPermission: () => true, onEvent: event => descendants.push(event) });
+    assert.equal(descendants.filter(event => event.type === 'subagent_start').length, 2);
+    await driver.configureSubagentLimits({ maxDepth: 1, maxActiveSubagents: 1 });
+    capacityFixture = Promise.withResolvers();
+    const limited = await session(), results = [];
+    await driver.prompt(limited.sessionId, 'fixture_capacity_parent', { onPermission: () => true, onEvent: event => results.push(event) });
+    const spawns = results.filter(event => event.type === 'tool_result' && event.name === 'subagent');
+    assert.equal(spawns.filter(event => !event.isError).length, 1);
+    assert.equal(spawns.filter(event => event.isError).length, 1);
+    assert.match(JSON.stringify(spawns.find(event => event.isError).result), /active child limit: 1/);
+  } finally { await driver.configureSubagentLimits({ maxDepth: 1, maxActiveSubagents: 3 }); }
+});
+
+test('lowering native limits preserves active children and their completion', async () => {
+  const events = [];
+  capacityFixture = { ...Promise.withResolvers(), started: 0, ready: Promise.withResolvers() };
+  const created = await session();
+  const running = driver.prompt(created.sessionId, 'fixture_capacity_parent_update', {
+    onPermission: () => true,
+    onEvent: event => {
+      events.push(event);
+    },
+  });
+  try {
+    await capacityFixture.ready.promise;
+    const before = await driver.listSubagentChildren(created.sessionId);
+    assert.equal(before.length, 2);
+    await driver.configureSubagentLimits({ maxDepth: 0, maxActiveSubagents: 1 });
+    const after = await driver.listSubagentChildren(created.sessionId);
+    assert.deepEqual(after.map(child => child.id), before.map(child => child.id));
+    capacityFixture.resolve();
+    await running;
+    for (const child of before) {
+      const history = await driver.history(child.id);
+      assert.match(JSON.stringify(history.events), /Capacity child completed/, 'The original native child must finish after the configuration update');
+    }
+  } finally {
+    capacityFixture.resolve();
+    await driver.configureSubagentLimits({ maxDepth: 1, maxActiveSubagents: 3 });
+  }
 });
 
 test('owned child receives configured host tools, MCP and instructions before its first model step', async () => {

@@ -400,7 +400,7 @@ export default function ToolCallWithResponse({
         className={cn(
           'w-full text-sm font-sans overflow-hidden',
           showInlineApproval
-            ? 'rounded-lg border border-amber-500/50 bg-amber-50/5'
+            ? 'rounded-2xl border border-border-primary bg-background-primary p-2'
             : compact
               ? 'text-text-secondary'
               : 'rounded-lg border border-border-primary'
@@ -430,13 +430,13 @@ export default function ToolCallWithResponse({
           <GeneratedMedia sessionId={sessionId} toolName={toolCall.name} response={toolResponse} />
         )}
         {showInlineApproval && (
-          <div className="border-t border-amber-500/30">
+          <div className="px-2 pb-2">
             {confirmationContent.prompt && (
-              <div className="px-4 py-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-50/10">
+              <div className="py-2 text-sm font-medium text-text-primary">
                 {confirmationContent.prompt}
               </div>
             )}
-            <div className="px-4 pb-2">
+            <div>
               <ToolApprovalTarget
                 toolName={confirmationContent.toolName}
                 argumentsValue={confirmationContent.arguments}
@@ -727,39 +727,16 @@ function ToolCallView({
     change
       ? { ...toolCall.arguments, path: change.path, file_path: change.path }
       : (toolCall.arguments ?? {}),
-    loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined
+    loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined,
+    'detail',
+    compact ? displayTitle : undefined
   );
   const toolName = toolCall.name.split(/__|::/).pop();
   const compactTitle = isWebSearchTool(toolCall.name)
     ? actionTitle
     : compact && toolName === 'todo_write'
       ? intl.formatMessage(i18n.modelPlan)
-      : compact &&
-          [
-            'write',
-            'edit',
-            'read_document',
-            'read',
-            'tree',
-            'shell',
-            'pwsh',
-            'bash',
-            'task_contract',
-            'delegate',
-            'delegate_readonly',
-            'take_over',
-            'search',
-            'computer_observe',
-            'computer_observe_ui',
-            'computer_inspect_ui',
-            'computer_read_screen_text',
-            'computer_screenshot',
-            'screen_capture',
-          ].includes(toolName ?? '')
-        ? actionTitle
-        : compact && displayTitle?.trim()
-          ? displayTitle.trim()
-          : actionTitle;
+      : actionTitle;
   const subagentOutcome = (toolResponse?.toolResult as ToolResultWithMeta | undefined)?.value?._meta
     ?.terminal_outcome;
   const partialSubagent =

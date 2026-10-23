@@ -5,10 +5,16 @@ import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
 import type { Message } from '../types/message';
+import type { MediaJob } from './WorkspaceGeneration';
 import { AppEvents } from '../constants/events';
 import { getSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 vi.mock('../acp/goals', () => ({ getSessionGoal: vi.fn(), changeSessionGoal: vi.fn() }));
+const mediaState = vi.hoisted(() => ({ jobs: [] as MediaJob[] }));
+vi.mock('./WorkspaceGeneration', async (original) => ({
+  ...(await original<typeof import('./WorkspaceGeneration')>()),
+  useMediaJobs: () => ({ jobs: mediaState.jobs, disconnected: false }),
+}));
 
 it('opens a goal after expanding a collapsed panel rerenders its parent callback', async () => {
   let resolveGoal!: (goal: Awaited<ReturnType<typeof getSessionGoal>>) => void;
@@ -251,6 +257,7 @@ it('opens historical changes without a writable workspace and keeps file tabs se
   expect(invoke).not.toHaveBeenCalled();
 });
 beforeEach(() => {
+  mediaState.jobs = [];
   snapshotMock.binding = 'project_container';
   snapshotMock.readonlyHistory = false;
   snapshotMock.sessionId = 'container';
@@ -268,6 +275,38 @@ beforeEach(() => {
     if (r.action === 'browser-create') return { id: 'web-1' };
     return {};
   });
+});
+it('closes and reopens generation preview without losing jobs or reopening on progress polls', async () => {
+  const job = (id: string): MediaJob => ({
+    job_id: id,
+    kind: 'image',
+    status: 'running',
+    created_at: new Date().toISOString(),
+    live: { connected: true, step: 1, total: 10 },
+  });
+  mediaState.jobs = [job('close-a'), job('close-b')];
+  const { scope, rerender } = panel();
+  expect(await screen.findByRole('tab', { name: 'Generation' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Close Generation' }));
+  expect(screen.queryByRole('tab', { name: 'Generation' })).toBeNull();
+  const redraw = () =>
+    rerender(
+      <WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />
+    );
+  mediaState.jobs = mediaState.jobs.map((job) => ({ ...job, live: { ...job.live, step: 5 } }));
+  redraw();
+  expect(screen.queryByRole('tab', { name: 'Generation' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Generation' }));
+  expect(screen.getByRole('tab', { name: 'Generation' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getAllByRole('progressbar')).toHaveLength(2);
+  expect(mediaState.jobs.every((job) => job.status === 'running')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Generation' }));
+  mediaState.jobs = [...mediaState.jobs, job('close-c')];
+  redraw();
+  expect(screen.getByRole('tab', { name: 'Generation' })).toHaveAttribute('aria-selected', 'true');
 });
 function panel(id = globalThis.crypto.randomUUID()) {
   const scope = { sessionId: id, root: 'D:\\fixture' };

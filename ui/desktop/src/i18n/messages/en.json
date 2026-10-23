@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "Auto compact at"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "Compact now"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "Failed to save threshold: {error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "Got it!"
@@ -902,6 +887,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "Implements code and reports changes"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "Use a custom image model"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "Default"
   },
@@ -1011,10 +999,19 @@
     "defaultMessage": "Use another provider…"
   },
   "codeProModels.visionAgent": {
-    "defaultMessage": "Vision assistant agent"
+    "defaultMessage": "Backup image model"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider."
+    "defaultMessage": "The current model reads images when supported. Otherwise images and your question go to the selected auxiliary model, which may add time and cost."
+  },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "Default: {model}"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
@@ -1022,8 +1019,26 @@
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "Not configured (disabled)"
   },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "The default Flash model is not configured. Choose a custom image model."
+  },
   "codeProModels.visionModelLabel": {
-    "defaultMessage": "Vision model"
+    "defaultMessage": "Image model"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Image support not confirmed: {model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "Image input not supported: {model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -1733,9 +1748,6 @@
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
-  "conversationFiles.combinedFiles": {
-    "defaultMessage": "Files this turn ({count})"
-  },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
@@ -2435,11 +2447,17 @@
   "elicitationRequest.expired": {
     "defaultMessage": "This request has expired. The extension will need to ask again."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "Not answered yet. You can still reply."
+  },
   "elicitationRequest.planReview": {
     "defaultMessage": "Review plan"
   },
   "elicitationRequest.question": {
     "defaultMessage": "Question"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "Answer question"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "Skip"
@@ -2455,6 +2473,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "Submitting…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "Waiting for your reply"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Waiting for your response ({timeRemaining} remaining)"
@@ -3771,7 +3792,7 @@
     "defaultMessage": "Cancel"
   },
   "jsonSchemaForm.customAnswer": {
-    "defaultMessage": "Other answer"
+    "defaultMessage": "Your own answer (optional)"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4605,43 +4626,43 @@
     "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "Detect automatically"
+    "defaultMessage": "Follow service information (default)"
   },
   "modelImageCapability.capability": {
-    "defaultMessage": "Image support"
+    "defaultMessage": "Image input capability"
   },
   "modelImageCapability.choose": {
     "defaultMessage": "Select…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "Image support is detected from provider metadata for both the main and auxiliary vision models. Use a manual override only when metadata is missing or incorrect."
+    "defaultMessage": "This corrects whether a model accepts image input; it does not select the backup image model or enable vision. Follow service information by default. Override it only after verifying the actual model connection."
   },
   "modelImageCapability.error": {
     "defaultMessage": "Could not load or save image capability. Your selection is kept; retry when the connection is available."
   },
   "modelImageCapability.model": {
-    "defaultMessage": "Image capability model"
+    "defaultMessage": "Model"
   },
   "modelImageCapability.provider": {
-    "defaultMessage": "Image capability provider"
+    "defaultMessage": "Model connection"
   },
   "modelImageCapability.retry": {
     "defaultMessage": "Retry loading models"
   },
   "modelImageCapability.save": {
-    "defaultMessage": "Save image capability"
+    "defaultMessage": "Save capability correction"
   },
   "modelImageCapability.saved": {
     "defaultMessage": "Saved. Applies to the next request."
   },
   "modelImageCapability.supported": {
-    "defaultMessage": "Supports images"
+    "defaultMessage": "Manually confirmed: accepts images"
   },
   "modelImageCapability.title": {
-    "defaultMessage": "Image input capability"
+    "defaultMessage": "Model image capability correction"
   },
   "modelImageCapability.unsupported": {
-    "defaultMessage": "Text only"
+    "defaultMessage": "Manually confirmed: text only"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Configure providers"
@@ -4821,7 +4842,7 @@
     "defaultMessage": "Top P"
   },
   "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
+    "defaultMessage": "Backup image model settings"
   },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy model"
@@ -4829,14 +4850,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Models and connections"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Context capacity"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Adjust model context limits when service information is unavailable."
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Image and video generation"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Configure the service used to generate images and videos."
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "In development"
@@ -4846,6 +4882,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Subagents"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Create reusable agents with a name, model and prompt."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Image understanding"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Use the main model first, with a backup when needed."
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
@@ -7235,6 +7283,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "Back to menu"
+  },
   "settingsView.title": {
     "defaultMessage": "Settings"
   },
@@ -7580,26 +7631,68 @@
   "subagentLifecycle.start": {
     "defaultMessage": "started working"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "Maximum recursion depth"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "Could not load or save limits. Your saved configuration was not changed."
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "Depth 0 prevents delegation; 1 allows direct children. The parallel limit counts active descendants of one main agent. Changes apply when the next task is prepared; existing children are not cancelled."
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "Maximum parallel subagents"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "Save limits"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "Saved. Applies when the next task is prepared."
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "Runtime limits"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "Add subagent"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "Changes apply to new subagents. Existing subagents keep their instructions, tools, model and history. Templates are shared across chats; conversation history is not."
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Web research"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Search and read web sources, then check and summarize the findings."
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "Remove this template? Existing subagents and their history will remain."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "Custom subagents"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "Default subagents"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "Use the default templates or save a custom responsibility. Subagents are created only when needed."
   },
   "subagentTemplates.error": {
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "Project exploration"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "Read project files, trace code paths, and find relevant implementations."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.inherit": {
     "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "Enter a unique name and a prompt."
   },
   "subagentTemplates.loading": {
     "defaultMessage": "Loading settings…"
@@ -7610,14 +7703,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "Name"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "Prompt"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "Describe its role, approach and expected output."
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "Delete subagent"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "Save subagent settings"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -7627,6 +7732,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "Saved connection unavailable"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "New subagent"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7886,6 +7994,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.chart": {
+    "defaultMessage": "Create a chart"
+  },
   "toolAction.code": {
     "defaultMessage": "Execute code"
   },
@@ -7904,8 +8015,29 @@
   "toolAction.contractRevise": {
     "defaultMessage": "Update task requirements"
   },
+  "toolAction.control": {
+    "defaultMessage": "Interact with a window control"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "Read pages across a website"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "Create a subagent"
+  },
   "toolAction.delegate": {
     "defaultMessage": "Delegate work"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "Locate available document tools"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "Create a desktop pet"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "Draw a diagram"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "Find available tools"
   },
   "toolAction.drag": {
     "defaultMessage": "Drag in window"
@@ -7919,6 +8051,18 @@
   "toolAction.editSummary": {
     "defaultMessage": "{count,plural,one{Edited # file} other{Edited # files}}"
   },
+  "toolAction.fetch": {
+    "defaultMessage": "Read webpage contents"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "Find files"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "Generate an image"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "Generate a video"
+  },
   "toolAction.generating": {
     "defaultMessage": "Preparing operation parameters{target}"
   },
@@ -7926,10 +8070,22 @@
     "defaultMessage": "Generating {target} · {count} lines received — not saved yet"
   },
   "toolAction.generatingFileHeadline": {
-    "defaultMessage": "Generating file contents{target} — not saved yet"
+    "defaultMessage": "Generating file contents{target}"
   },
   "toolAction.keyboard": {
     "defaultMessage": "Use keyboard"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "Check subagent progress"
+  },
+  "toolAction.location": {
+    "defaultMessage": "Find a location"
+  },
+  "toolAction.map": {
+    "defaultMessage": "Create a map"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "Send a message to a subagent"
   },
   "toolAction.mouse": {
     "defaultMessage": "Click in window"
@@ -7946,14 +8102,23 @@
   "toolAction.otherSummary": {
     "defaultMessage": "{count,plural,one{Completed # operation} other{Completed # operations}}"
   },
+  "toolAction.question": {
+    "defaultMessage": "Ask a question"
+  },
   "toolAction.read": {
     "defaultMessage": "Read file"
   },
   "toolAction.readDone": {
     "defaultMessage": "Read file"
   },
+  "toolAction.readImage": {
+    "defaultMessage": "View an image"
+  },
   "toolAction.readSummary": {
     "defaultMessage": "{count,plural,one{Read # file} other{Read # files}}"
+  },
+  "toolAction.research": {
+    "defaultMessage": "Research a topic online"
   },
   "toolAction.result": {
     "defaultMessage": "Present result"
@@ -7970,6 +8135,9 @@
   "toolAction.search": {
     "defaultMessage": "Search"
   },
+  "toolAction.searchContents": {
+    "defaultMessage": "Search file contents"
+  },
   "toolAction.shell": {
     "defaultMessage": "Run command"
   },
@@ -7979,14 +8147,29 @@
   "toolAction.shellSummary": {
     "defaultMessage": "{count,plural,one{Ran # command} other{Ran # commands}}"
   },
+  "toolAction.siteMap": {
+    "defaultMessage": "Find pages on a website"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "Load task instructions"
+  },
   "toolAction.takeover": {
     "defaultMessage": "Take over unfinished delegated work"
+  },
+  "toolAction.time": {
+    "defaultMessage": "Check the current time"
   },
   "toolAction.tree": {
     "defaultMessage": "List files"
   },
   "toolAction.type": {
     "defaultMessage": "Enter text"
+  },
+  "toolAction.value": {
+    "defaultMessage": "Fill in a field"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "Check the weather"
   },
   "toolAction.webSearch": {
     "defaultMessage": "Search the web"
@@ -7996,6 +8179,15 @@
   },
   "toolAction.webSearchRunning": {
     "defaultMessage": "Searching the web"
+  },
+  "toolAction.window": {
+    "defaultMessage": "Read window contents"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "List open windows"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "Check the working folder"
   },
   "toolAction.write": {
     "defaultMessage": "Write file"
@@ -8570,6 +8762,12 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "Create a new session with the edited message"
   },
+  "userMessage.pending": {
+    "defaultMessage": "Waiting to send"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "Awaiting confirmation"
+  },
   "workStatus.approval": {
     "defaultMessage": "Please approve: {action}"
   },
@@ -8604,7 +8802,7 @@
     "defaultMessage": "Preparing a response"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Working on your request"
+    "defaultMessage": "Waiting for the model service"
   },
   "workStatus.text": {
     "defaultMessage": "Writing a response"
@@ -8614,6 +8812,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Reviewing the tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "The model service has not returned content yet. You can keep waiting or stop this request."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"

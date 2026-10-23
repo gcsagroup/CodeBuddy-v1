@@ -7,27 +7,68 @@ import {
   messagesChange,
 } from './shared';
 
-export type ElicitationStatus = 'submitted' | 'cancelled';
+export type ElicitationStatus = 'submitted' | 'cancelled' | 'expired';
 
 export function elicitationContent(
   request: AcpElicitationRequest
 ): ActionRequired & { type: 'actionRequired' } {
   const schema = request.request.requestedSchema;
   const fieldHints = request.request._meta?.['codepro.dev/questionFields'];
-  const properties = Object.fromEntries(
-    Object.entries(schema.properties ?? {}).map(([key, field]) => {
-      const hint =
-        fieldHints && typeof fieldHints === 'object' && !Array.isArray(fieldHints)
-          ? (fieldHints as Record<string, unknown>)[key]
+  const hints = request.request._meta?.['codepro/questionFields'];
+  const properties: Record<
+    string,
+    NonNullable<typeof schema.properties>[string] & {
+      _meta?: Record<string, unknown>;
+    }
+  > = { ...schema.properties };
+  if (hints && typeof hints === 'object' && !Array.isArray(hints)) {
+    for (const [key, hint] of Object.entries(hints)) {
+      if (
+        !properties[key] ||
+        !hint ||
+        typeof hint !== 'object' ||
+        !('options' in hint) ||
+        !Array.isArray(hint.options)
+      )
+        continue;
+      const options = hint.options.filter(
+        (option: unknown): option is { label: string; description?: string } =>
+          option !== null &&
+          typeof option === 'object' &&
+          'label' in option &&
+          typeof option.label === 'string' &&
+          (!('description' in option) ||
+            option.description === undefined ||
+            typeof option.description === 'string')
+      );
+      const customKey =
+        'customKey' in hint &&
+        typeof hint.customKey === 'string' &&
+        schema.properties?.[hint.customKey]?.type === 'string'
+          ? hint.customKey
           : undefined;
-      return [
-        key,
-        hint && typeof hint === 'object' && !Array.isArray(hint)
-          ? { ...field, _meta: hint }
-          : field,
-      ];
-    })
-  );
+      properties[key] = {
+        ...properties[key],
+        _meta: {
+          'codepro.dev/suggestedOptions': options.map(
+            (option: { label: string; description?: string }) => ({
+              const: option.label,
+              title: option.label,
+              description: option.description,
+            })
+          ),
+          ...(customKey ? { 'codepro.dev/feedbackField': customKey } : {}),
+        },
+      };
+    }
+  }
+  // Normalize old saved cards above; live producers use one canonical hint map.
+  if (fieldHints && typeof fieldHints === 'object' && !Array.isArray(fieldHints)) {
+    for (const [key, hint] of Object.entries(fieldHints)) {
+      if (!properties[key] || !hint || typeof hint !== 'object' || Array.isArray(hint)) continue;
+      properties[key] = { ...properties[key], _meta: { ...properties[key]._meta, ...hint } };
+    }
+  }
   return {
     type: 'actionRequired',
     data: {
@@ -35,6 +76,10 @@ export function elicitationContent(
       id: request.id,
       message: request.request.message,
       requested_schema: { ...schema, properties },
+      expiresAt: request.expiresAt,
+      ...(request.nativeQuestion
+        ? { nativeQuestion: true, continued: request.continued === true }
+        : {}),
     },
   };
 }
@@ -44,6 +89,16 @@ export function applyElicitationRequest(
   request: AcpElicitationRequest
 ): AcpChatStateChange[] {
   if (hasExistingElicitation(state, request.id)) {
+    state.messages = state.messages.map((message) => ({
+      ...message,
+      content: message.content.map((content) =>
+        content.type === 'actionRequired' &&
+        content.data.actionType === 'elicitation' &&
+        content.data.id === request.id
+          ? elicitationContent(request)
+          : content
+      ),
+    }));
     return messagesChange(state);
   }
 
@@ -66,6 +121,7 @@ export function applyElicitationStatus(
   const statusData = {
     isSubmitted: status === 'submitted',
     isCancelled: status === 'cancelled',
+    isExpired: status === 'expired',
   };
   let changed = false;
 

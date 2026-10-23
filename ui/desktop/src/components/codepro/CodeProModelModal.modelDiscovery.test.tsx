@@ -12,6 +12,16 @@ import {
 } from '../../acp/providers';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { CodeProModelModal } from './CodeProModelModal';
+import { resolveModelCapability } from '../../acp/modelCapabilities';
+
+vi.mock('../../acp/modelCapabilities', () => ({
+  resolveModelCapability: vi.fn(async (providerId: string, modelId: string) => ({
+    providerId,
+    modelId,
+    imageInput: modelId === 'glm-5.2' ? 'supported' : 'unsupported',
+    source: 'provider_metadata',
+  })),
+}));
 
 vi.mock('../../acp/codeproModelRouting', () => ({
   DISABLED_CODEPRO_MODEL_ROUTING: {
@@ -652,12 +662,16 @@ describe('CodeProModelModal model discovery', () => {
     );
     render(<CodeProModelModal onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
     const toggle = await screen.findByRole('checkbox', { name: 'Enable advanced model routing' });
-    expect(screen.queryByLabelText('Vision model')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Image model')).not.toBeInTheDocument();
     expect(acpListProviderModels).not.toHaveBeenCalled();
+    expect(resolveModelCapability).not.toHaveBeenCalled();
     fireEvent.click(toggle);
     await waitFor(() => expect(acpListProviderModels).toHaveBeenCalledWith('ollama_cloud'));
-    const select = await screen.findByLabelText('Vision assistant agent provider');
-    await waitFor(() => expect(screen.getByLabelText('Vision model')).toHaveTextContent('glm-5.2'));
+    const select = await screen.findByLabelText('Backup image model provider');
+    await waitFor(() => expect(screen.getByLabelText('Image model')).toHaveTextContent('glm-5.2'));
+    expect(
+      within(screen.getByLabelText('Image model')).queryByRole('option', { name: 'qwen3-coder' })
+    ).not.toBeInTheDocument();
     expect(within(select).getByRole('option', { name: 'second' })).toBeInTheDocument();
     fireEvent.change(select, { target: { value: 'second' } });
     await waitFor(() => expect(acpListProviderModels).toHaveBeenCalledWith('second'));

@@ -1,4 +1,5 @@
 import { closeMediaStreams } from './comfyui-live.mjs';
+import { questionForm, questionAnswer, questionNotification } from './user-questions.mjs';
 import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -25,7 +26,8 @@ import {
 } from "./settings.mjs";
 import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
-import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels } from './subagent-templates.mjs';
+import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
+import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -39,6 +41,7 @@ import { ScheduleService } from "./schedules.mjs";
 import { workspaceIdentity } from "./workspaces.mjs";
 import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
+import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
@@ -53,7 +56,7 @@ import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
 import { ConversationEditing } from "./conversation-editing.mjs";
-import { listSubagentCatalog, readSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
+import { listSubagentCatalog, readSubagentConversation, followSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
@@ -80,11 +83,13 @@ const prefix = "_goose/unstable/";
 function toolResultUpdate(event, metadata) {
   const blocks = Array.isArray(event.mcpResult?.content)
     ? event.mcpResult.content
-    : Array.isArray(event.result)
-      ? event.result
-      : Array.isArray(event.result?.content)
-        ? event.result.content
-        : [];
+    : Array.isArray(event.presentationContent)
+      ? event.presentationContent
+      : Array.isArray(event.result)
+        ? event.result
+        : Array.isArray(event.result?.content)
+          ? event.result.content
+          : [];
   const content = blocks
     .filter((item) => ["text", "image", "audio", "resource", "resource_link"].includes(item?.type))
     .map((item) => ({
@@ -223,6 +228,8 @@ export class Compat {
     this.thinking = new Map();
     this.sessionMutations = new Map();
     this.connections = new Set();
+    this.clientLocales = new Map();
+    this.subagentViews = new Map();
     this.workspaces = new WorkspaceService(store);
     this.memory = new ProjectMemory(driver);
     this.history = new HistoryService(store);
@@ -574,14 +581,16 @@ export class Compat {
     }
   }
   disconnect(connection) {
+    for (const controller of this.subagentViews.get(connection)?.values() ?? []) controller.abort();
+    this.subagentViews.delete(connection);
     this.transcription.disconnect(connection);
     this.connections.delete(connection);
     this.workspaces.disconnect(connection).catch(() => {});
     this.library?.disconnect?.(connection);
   }
-  session(id) {
+  session(id, options) {
     const s = this.store.readSession
-      ? this.store.readSession(id)
+      ? this.store.readSession(id, options)
       : this.store.read(["sessions"]).sessions.find((s) => s.id === id);
     if (!s) throw invalid("Session not found");
     return s;
@@ -647,7 +656,7 @@ export class Compat {
       throw invalid("Configure the current session model first");
     return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
   }
-  info(s, state = this.store.read()) {
+  info(s, state = this.store.read(['schedules', 'codeproRuns'])) {
     // Scheduled origin is a UI contract, independent of the native execution
     // mode. Older sessions can recover it from the persisted schedule history.
     const scheduled = s.scheduleId || state.schedules?.some((job) => job.sessions?.includes(s.id));
@@ -746,6 +755,7 @@ export class Compat {
     // allow list only accepts globally registered tools, not scoped additions.
     return {
       initialPermissionPreset: initialPermissionPreset(s, preferences),
+      conversationLocale: this.clientLocales.get(s.id),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
         basePrompt,
@@ -768,17 +778,20 @@ export class Compat {
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
       mcpServers,
-      mcpImageFallback: async (content, { signal, toolName }) => {
+      mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
         const state = this.store.read(["modelRouting", "providers"]);
         return this.vision.prepareToolContent({
           sessionId: s.id, cwd: s.cwd, signal,
           routing: state.modelRouting, providers: state.providers,
           content, toolName,
+          onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
         });
       },
       subagentModels: await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
-      restoreSubagentProvider: async (model, matches) => {
+      subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
+        (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
+      restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
           try {
             const candidate = await driverProvider(provider, model);
@@ -795,6 +808,20 @@ export class Compat {
             // candidate is accepted only when its complete connection identity matches.
             const legacy = await driverProvider(provider, model, { legacyThinking: true });
             if (matches(legacy)) return legacy;
+            // Native history can identify an older fallback profile. Rebuild
+            // candidates only; the complete original route must still match.
+            if (recorded?.contextWindow === DEFAULT_CONTEXT_WINDOW && candidate.contextWindow >= recorded.contextWindow) {
+              for (const base of [candidate, legacy]) {
+                const fallback = { ...base, contextWindow: recorded.contextWindow, contextSource: 'fallback' };
+                if (matches(fallback)) return fallback;
+                try {
+                  const pinned = applyModelThinking(fallback, recorded.reasoningEffort === 'off' ? 'none' : recorded.reasoningEffort).provider;
+                  if (matches(pinned)) return pinned;
+                  const selected = withCapabilities(pinned);
+                  if (matches(selected)) return selected;
+                } catch { /* Incompatible historical capability is not a replacement connection. */ }
+              }
+            }
             const historical = withCapabilities(applyModelThinking(legacy, this.store.read(['preferences']).preferences.gooseThinkingEffort).provider);
             if (matches(historical)) return historical;
           }
@@ -1160,6 +1187,9 @@ export class Compat {
           "Session changed while its capabilities were being prepared; retry",
         );
       const preparedAt = performance.now();
+      await this.driver.configureSubagentLimits?.(validateSubagentLimits(
+        this.store.read(['config']).config[SUBAGENT_LIMITS_KEY]?.value ?? DEFAULT_SUBAGENT_LIMITS,
+      ));
       await this.driver.createSession({
         sessionId: s.id,
         cwd: s.cwd,
@@ -1180,7 +1210,7 @@ export class Compat {
       }));
     }
   }
-  async prepareModelContent(s, content, signal) {
+  async prepareModelContent(s, content, signal, onProgress) {
     const state = this.store.read(["modelRouting", "providers"]);
     const main = this.routing.get(s.id)?.main;
     return this.vision.preparePrompt({
@@ -1193,6 +1223,7 @@ export class Compat {
         : { providerId: s.providerId, modelId: s.modelId },
       providers: state.providers,
       signal,
+      onProgress,
     });
   }
   async request(method, p = {}, connection) {
@@ -1357,9 +1388,13 @@ export class Compat {
         typeof p._meta?.query === "string"
           ? p._meta.query.trim().toLocaleLowerCase()
           : "";
-      // A history listing must use one consistent snapshot. Reading the full
-      // transcript store per row blocks model streams on large migrated profiles.
-      const state = this.store.read();
+      // Sidebar refresh needs metadata; only explicit full-text searches need
+      // transcript content. Both paths select one consistent committed snapshot.
+      const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], query ? undefined : {
+        sessionFields: ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
+          'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
+          'readonlyHistory', 'userSetName', 'archivedAt'],
+      });
       const sessions = state.sessions.filter(
           (s) =>
             (!p.cwd || s.cwd === p.cwd) &&
@@ -1452,6 +1487,8 @@ export class Compat {
           },
         });
       }
+      if (!s.readonlyHistory && this.driver.questions)
+        connection.notify('session/update', questionNotification(s.id, await this.driver.questions(s.id)));
       return {
         modes: s.readonlyHistory ? { ...modes, currentModeId: 'read-only' } : await this.permissionModes(s),
         configOptions: this.options(s),
@@ -1464,10 +1501,25 @@ export class Compat {
       };
     }
     if (method === "session/prompt") return this.prompt(p, connection);
+    if (method === prefix + 'session/questions/answer') {
+      const s = this.assertSessionAvailable(p.sessionId);
+      if (s.readonlyHistory || s.archivedAt) throw invalid('此会话不可继续回答。');
+      if (p.nativeSessionId !== (this.driver.nativeSessionId?.(s.id) ?? s.id)) throw invalid('会话已改变，请刷新后回答。');
+      const snapshot = await this.driver.questions(s.id);
+      const question = snapshot.active.find(q => q.callId === p.callId && q.state === 'continued');
+      if (!question) throw invalid('这个问题已结束，无需再回答。');
+      const answer = questionAnswer(question.questions, p.response);
+      const active = this.active.get(s.id);
+      if (!active) throw invalid('本轮已结束，无需再回答。');
+      active.controller.signal.throwIfAborted();
+      if (!await this.driver.answerQuestion(s.id, p.callId, answer)) throw invalid('本轮已结束，无需再回答。');
+      return { accepted: true };
+    }
     if (method === "session/cancel") {
       this.session(p.sessionId);
       const active = this.active.get(p.sessionId);
       if (active) {
+        active.userRequestedStop = true; // Presentation only; native cancellation still owns settlement.
         active.controller.abort();
         if (active.driverStarted) await this.driver.cancel(p.sessionId);
       }
@@ -1552,10 +1604,31 @@ export class Compat {
     }
     if (!method.startsWith(prefix)) throw unsupported(method);
     const name = method.slice(prefix.length);
+    if (name === 'subagent/conversation/follow' || name === 'subagent/conversation/unfollow') {
+      if (!connection?.notify) throw invalid('A live connection is required for subagent viewing');
+      const id = requireString(p.subscriptionId, 'subscriptionId');
+      if (id.length > 128) throw invalid('subscriptionId is too long');
+      let views = this.subagentViews.get(connection);
+      views?.get(id)?.abort();
+      views?.delete(id);
+      if (name.endsWith('/unfollow')) return {};
+      const parent = this.session(p.sessionId, { fields: ['id'] });
+      if (!views) this.subagentViews.set(connection, views = new Map());
+      if (views.size >= 16) throw invalid('Too many open subagent views');
+      const controller = new AbortController();
+      views.set(id, controller);
+      const publish = value => connection.notify('session/update', { sessionId: parent.id, update: {
+        sessionUpdate: 'session_info_update', _meta: { 'codebuddy/subagent-view': { subscriptionId: id, childSessionId: p.childSessionId, ...value } },
+      } });
+      void followSubagentConversation(parent, p, this.driver, controller.signal, publish)
+        .catch(error => { if (!controller.signal.aborted) publish({ type: 'error', message: String(error.message ?? error) }); })
+        .finally(() => { if (views.get(id) === controller) views.delete(id); });
+      return {};
+    }
     if (name === "subagent/conversation/get")
-      return readSubagentConversation(this.session(p.sessionId), p, this.driver);
+      return readSubagentConversation(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (name === "subagent/catalog/list")
-      return listSubagentCatalog(this.session(p.sessionId), p, this.driver);
+      return listSubagentCatalog(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
     if (this.schedules?.handles(method))
@@ -1844,7 +1917,7 @@ export class Compat {
         return result.mcpResult
           ? { ...result.mcpResult, isError: Boolean(result.isError) }
           : {
-              content: result.content,
+              content: result.presentationContent ?? result.content,
               structuredContent: result.value ?? result.structuredContent,
               isError: Boolean(result.isError),
             };
@@ -1968,7 +2041,9 @@ export class Compat {
         const provider = this.provider(p.providerId);
         return {
           providerId: p.providerId,
-          models: await discover(provider, provider, { timeoutMs: 2000 }),
+          // Explicit picker loading uses the normal provider request budget;
+          // the shorter advisory metadata probe must not truncate a valid list.
+          models: await discover(provider, provider),
         };
       }
       case "providers/custom/discover-models":
@@ -2062,6 +2137,7 @@ export class Compat {
       }
       case "config/read": {
         const c = this.store.read(["config"]).config[p.key];
+        if (p.key === SUBAGENT_LIMITS_KEY && !c) return { value: { ...DEFAULT_SUBAGENT_LIMITS } };
         return { value: c?.secret ? "********" : (c?.value ?? null) };
       }
       case "config/read-all": {
@@ -2078,6 +2154,7 @@ export class Compat {
         requireString(p.key, "key");
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
+        if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
         const entry = p.isSecret
           ? { secret: await protectSecret(String(p.value)) }
           : { value: p.value };
@@ -2113,6 +2190,7 @@ export class Compat {
     }
   }
   async prompt(p, connection) {
+    const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
     const planMode = p._meta?.['codebuddy/plan'];
     if (planMode !== undefined && typeof planMode !== 'boolean') throw invalid('Plan mode must be boolean');
@@ -2138,6 +2216,16 @@ export class Compat {
     const updates = [];
     const usageUpdates = [];
     const promptScope = randomUUID();
+    const trace = (stage, at = Date.now()) => {
+      try {
+        console.info('[Harness prompt timing]', JSON.stringify({
+          stage, at_ms: at, elapsed_ms: at - receivedAtMs, session_id: s.id,
+          prompt_scope: promptScope,
+          source_user_message_id: p._meta?.['codeagentpro/source-message-id'],
+        }));
+      } catch { /* Timing cannot decide whether a prompt is admitted or delivered. */ }
+    };
+    trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
       controller,
@@ -2180,7 +2268,9 @@ export class Compat {
     try {
       if (s.type === "code_pro") await this.workspaces.validateSession(s.id, s.cwd);
       validated = true;
+      trace('workspace_validated');
     } catch (error) {
+      trace('workspace_validation_failed');
       validationError = error;
     } finally {
       if (!validated || controller.signal.aborted) release();
@@ -2198,14 +2288,28 @@ export class Compat {
       connection.notify("session/update", { sessionId: s.id, update });
     };
     const userId = p._meta?.["codeagentpro/source-message-id"] ?? randomUUID();
+    // Persist only a display anchor. Native admission, cancellation and input
+    // ordering remain owned by Harness and do not consume this metadata.
+    const afterMessageId = p._meta?.['codebuddy/message-presentation']?.afterMessageId;
+    const presentation = typeof afterMessageId === 'string' && afterMessageId.length > 0 &&
+      afterMessageId.length <= 2048 && afterMessageId !== userId ? { afterMessageId } : undefined;
     const users = p.prompt.map((content) => ({
       sessionUpdate: "user_message_chunk",
       content,
       messageId: userId,
-      _meta: { goose: { messageId: userId, created } },
+      _meta: { goose: { messageId: userId, created, ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
     let result;
+    const projectWorkStatus = workStatusUpdates({
+      sessionId: s.id, sourceMessageId: userId,
+      runId: () => promptEntry.run?.runId ?? promptScope, signal: controller.signal,
+    });
+    promptEntry.visionProgress = progress => {
+      if (controller.signal.aborted || this.active.get(s.id) !== promptEntry) return;
+      for (const update of projectWorkStatus({ type: 'image_observation', sessionId: s.id, ...progress }))
+        connection.notify('_goose/unstable/session/update', { sessionId: s.id, update });
+    };
     try {
       writer = await this.journal?.begin({
         sessionId: s.id,
@@ -2217,13 +2321,24 @@ export class Compat {
           .join(" ")
           .slice(0, 80),
       });
+      trace('journal_ready');
       // The frozen renderer needs this acknowledgement before remote services
       // become ready, so sending a message is visible immediately.
       replay.users = users;
       for (const update of users)
         connection.notify("session/update", { sessionId: s.id, update });
       controller.signal.throwIfAborted();
+      const locale = p._meta?.['codebuddy/client-locale'];
+      if (typeof locale === 'string' && locale.length <= 64) {
+        let canonical;
+        try { [canonical] = Intl.getCanonicalLocales(locale); } catch { /* Ignore invalid presentation hints. */ }
+        if (canonical && this.clientLocales.get(s.id) !== canonical) {
+          this.clientLocales.set(s.id, canonical);
+          this.initialized.delete(s.id);
+        }
+      }
       await this.ensureSession(s);
+      trace('session_ready');
       controller.signal.throwIfAborted();
       const active = this.active.get(s.id);
       active.driverStarted = true;
@@ -2231,7 +2346,9 @@ export class Compat {
         s,
         content,
         controller.signal,
+        promptEntry.visionProgress,
       );
+      trace('content_ready');
       if (s.type === "code_pro" && !manualCompact) {
         let run = this.runs.latest(s.id);
         if (
@@ -2242,10 +2359,10 @@ export class Compat {
         )
           run = await this.runs.create({
             sessionId: s.id,
-            goal: p.prompt
-              .filter((c) => c.type === "text")
-              .map((c) => c.text)
-              .join("\n"),
+            // This is the turn's display/audit summary, not a replacement
+            // prompt. Image-only requests retain their original image blocks.
+            goal: (content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim() ||
+              '图片消息（未附文字）').slice(0, 32000),
             sourceMessageId: userId,
             executionOwner: "harness",
           });
@@ -2261,55 +2378,27 @@ export class Compat {
         active.attemptId = attempt.attemptId;
         active.dispatched = new Map();
       }
+      trace('run_ready');
       active.writer = writer;
       active.notify = notify;
       active.driverStarted = true;
       const nativeGoal = p._meta?.resumeRunId ? await this.driver.getGoal?.(s.id) : null;
       const projectContext = contextUpdates({ sessionId: s.id, runId: active.run?.runId, signal: controller.signal });
       const internalToolCalls = new Set();
-      const projectWorkStatus = workStatusUpdates({
-        sessionId: s.id, sourceMessageId: userId,
-        runId: active.run?.runId ?? promptScope, signal: controller.signal,
-      });
       const callbacks = {
         ...(planMode !== undefined ? { planMode } : {}),
         ...(goalRequest?.action === 'create' ? { createGoal: { objective: goalRequest.objective, ...(goalRequest.maxGoalRounds !== undefined ? { maxGoalRounds: goalRequest.maxGoalRounds } : {}) } } : {}),
         signal: controller.signal,
         requestId: userId,
-        onUserQuestions: async ({ questions, signal }) => {
-          const properties = Object.fromEntries(questions.map((q, i) => [`answer_${i}`, {
-            type: q.multiSelect ? 'array' : 'string', title: q.question,
-            ...(q.multiSelect ? { items: { type: 'string', enum: (q.options ?? []).map(o => o.label) } } : {}),
-            description: q.detail ?? '',
-            _meta: {
-              ...(q.options?.length ? { 'codepro.dev/suggestedOptions': q.options.map(o => ({ const: o.label, title: o.label, ...(o.description ? { description: o.description } : {}) })) } : {}),
-              ...(q.intent ? { 'codepro.dev/questionIntent': q.intent } : {}),
-              ...(q.options?.length ? { 'codepro.dev/feedbackField': `feedback_${i}` } : {}),
-            },
-          }]));
-          const required = Object.keys(properties);
-          for (const [i, q] of questions.entries()) {
-            if (q.options?.length)
-              properties[`feedback_${i}`] = { type: 'string', title: 'Feedback' };
-          }
-          const reply = await connection.ask('elicitation/create', {
-            sessionId: s.id, mode: 'form', message: questions.map(q => q.question).join('\n'),
-            // ACP supports extensions at the request boundary, not on individual properties.
-            _meta: { 'codepro.dev/questionFields': Object.fromEntries(Object.entries(properties).filter(([, field]) => field._meta).map(([key, field]) => [key, field._meta])) },
-            requestedSchema: { type: 'object', properties, required },
-          }, signal ?? controller.signal);
-          if (reply?.action !== 'accept') throw new Error('User question was cancelled or expired without an answer');
-          return { answers: questions.map((q, i) => {
-            const answer = reply.content?.[`answer_${i}`];
-            const feedback = q.options?.length ? reply.content?.[`feedback_${i}`] : undefined;
-            if (feedback !== undefined && typeof feedback !== 'string') throw new Error('Invalid question feedback');
-            const values = q.multiSelect ? answer : answer === '' ? [] : [answer];
-            if (!Array.isArray(values) || (!values.length && !feedback?.trim()) || values.some(v => typeof v !== 'string' || !v.trim()))
-              throw new Error('Missing user question answer');
-            const selected = values.filter(value => (q.options ?? []).some(o => o.label === value));
-            const custom = [...values.filter(value => !selected.includes(value)), ...(feedback?.trim() ? [feedback] : [])].join('\n');
-            return { id: q.id, selected, ...(custom ? { custom } : {}) };
-          }) };
+        onUserQuestions: async ({ questions, signal, wait }) => {
+          const reply = await connection.ask('elicitation/create', questionForm(s.id, questions,
+            wait ? { callId: wait.callId, nativeSessionId: this.driver.nativeSessionId?.(s.id) ?? s.id,
+              state: 'open', remainingMs: wait.remainingMs } : undefined), signal ?? controller.signal);
+          (signal ?? controller.signal).throwIfAborted();
+          // Older clients may still expire locally. Never turn that into skip
+          // or consent; the native timed wait owns its eventual pending result.
+          if (reply?._meta?.codepro?.reason === 'expired') throw new Error('等待回答已超时，未收到用户答复。');
+          return questionAnswer(questions, reply);
         },
         ...(goalRequest?.action === 'resume'
           ? { resumeGoal: { goalId: goalRequest.goalId, revision: goalRequest.revision } }
@@ -2338,6 +2427,12 @@ export class Compat {
           }
         },
         onEvent: async (event) => {
+          if (event.type === 'user_questions' && event.sessionId === s.id) {
+            for (const observer of new Set([connection, ...this.connections]))
+              if (observer === connection || observer.sessionIds?.has(s.id))
+                observer.notify('session/update', questionNotification(s.id, event.snapshot));
+            return;
+          }
           if (event.sessionId === s.id && event.type === 'harness_event' &&
             ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(event.event.type)) {
             const current = await this.permissionModes(s);
@@ -2543,8 +2638,13 @@ export class Compat {
         const compacted = await this.driver.compact(s.id, callbacks);
         if (!compacted) await notify({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "当前上下文没有可压缩的历史。" } });
         result = { stopReason: "end_turn" };
-      } else result = await this.driver.prompt(s.id, prepared.content, callbacks);
+      } else {
+        trace('native_prompt_dispatched');
+        result = await this.driver.prompt(s.id, prepared.content, callbacks);
+        trace('native_prompt_settled');
+      }
     } catch (error) {
+      trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
     } finally {
       try {
@@ -2588,6 +2688,7 @@ export class Compat {
                 : context.state === "failed"
                   ? "failed"
                 : "interrupted",
+            ...(!completed && active.userRequestedStop ? { user_requested_stop: true } : {}),
             visible_text_available: updates.some(
               (u) => u.sessionUpdate === "agent_message_chunk",
             ),
@@ -2701,6 +2802,8 @@ export class Compat {
     return { stopReason: result?.stopReason ?? "end_turn" };
   }
   async close() {
+    for (const views of this.subagentViews.values()) for (const controller of views.values()) controller.abort();
+    this.subagentViews.clear();
     closeMediaStreams(this.store.directory);
     this.closing = true;
     await this.transcription.close();

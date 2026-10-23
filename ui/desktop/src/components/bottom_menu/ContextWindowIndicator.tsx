@@ -17,7 +17,8 @@ const formatTokenCount = (count: number): string => {
 };
 
 const getProgressColor = (percentage: number): string => {
-  if (percentage <= 75) return 'text-text-primary/70';
+  if (percentage <= 75)
+    return 'text-text-primary/70 group-hover/context-usage:text-text-primary';
   if (percentage <= 90) return 'text-orange-500';
   return 'text-red-500';
 };

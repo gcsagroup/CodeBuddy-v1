@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { defineMessages, useIntl } from '../../i18n';
 import type { PromptActivity } from '../../acp/chatSessionStore';
 import { ChatState } from '../../types/chatState';
+import { formatToolInputPreview } from '../ToolInputPreview';
 
 const labels = defineMessages({
   first: { id: 'workStatus.first', defaultMessage: 'Working on your request' },
@@ -39,11 +40,6 @@ const labels = defineMessages({
     defaultMessage:
       'The model service has not returned content yet. You can keep waiting or stop this request.',
   },
-  quietHint: {
-    id: 'workStatus.quietHint',
-    defaultMessage:
-      'No new progress has arrived for {seconds}s. You can keep waiting or stop this request.',
-  },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 
@@ -73,7 +69,9 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
     : 0;
   const recent = activity?.receivedAt !== undefined && silence < 3;
   const execution = activity?.execution;
-  if (execution?.detail) return { source: 'stage' as const, title: execution.detail, silence };
+  if (execution?.toolInput && !action)
+    return { source: 'toolInput' as const, preview: execution.toolInput, silence };
+  if (execution?.detail && !action) return { source: 'stage' as const, title: execution.detail, silence };
   const transportSource =
     execution?.phase === 'model' && execution.modelRequestPhase
       ? (
@@ -123,13 +121,15 @@ export function useWorkStatus(input: WorkStatusInput) {
     source,
     source === 'tool'
       ? [input.actionId ?? input.action, Boolean(input.toolPending)]
-      : source === 'stage'
-        ? selection.title
-        : source === 'chat_state'
-          ? input.chatState
-          : source === 'children'
-            ? selection.childCount
-            : null,
+      : source === 'toolInput'
+        ? selection.preview.id
+        : source === 'stage'
+          ? selection.title
+          : source === 'chat_state'
+            ? input.chatState
+            : source === 'children'
+              ? selection.childCount
+              : null,
   ]);
   const [clock, setClock] = useState(() => ({ key: statusKey, startedAt: Date.now() }));
   let startedAt = clock.startedAt;
@@ -143,14 +143,16 @@ export function useWorkStatus(input: WorkStatusInput) {
     ? Math.max(0, Math.floor((Math.max(now, Date.now()) - startedAt) / 1000))
     : undefined;
   const title =
-    'title' in selection && selection.title
-      ? selection.title
-      : source === 'chat_state' || source === 'stage' || source === 'tool'
-        ? undefined
-        : intl.formatMessage(labels[source], {
-            count: 'childCount' in selection ? selection.childCount : 0,
-            action: 'action' in selection ? selection.action : '',
-          });
+    source === 'toolInput'
+      ? formatToolInputPreview(intl, selection.preview)
+      : 'title' in selection && selection.title
+        ? selection.title
+        : source === 'chat_state' || source === 'stage' || source === 'tool'
+          ? undefined
+          : intl.formatMessage(labels[source], {
+              count: 'childCount' in selection ? selection.childCount : 0,
+              action: 'action' in selection ? selection.action : '',
+            });
   const elapsed =
     elapsedSeconds !== undefined && elapsedSeconds >= 1
       ? intl.formatMessage(labels.elapsed, {
@@ -161,10 +163,8 @@ export function useWorkStatus(input: WorkStatusInput) {
     ...selection,
     elapsedSeconds,
     hint:
-      active && 'silence' in selection && (selection.silence ?? 0) >= 20
-        ? intl.formatMessage(source === 'responseWait' ? labels.waitingHint : labels.quietHint, {
-            seconds: selection.silence,
-          })
+      active && source === 'responseWait' && 'silence' in selection && (selection.silence ?? 0) >= 20
+        ? intl.formatMessage(labels.waitingHint)
         : undefined,
     announcement: title,
     message: elapsed ? `${title} ${elapsed}` : title,

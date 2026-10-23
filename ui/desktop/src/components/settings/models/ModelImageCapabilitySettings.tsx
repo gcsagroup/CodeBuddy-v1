@@ -12,20 +12,26 @@ import { Button } from '../../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
 
 const messages = defineMessages({
-  title: { id: 'modelImageCapability.title', defaultMessage: 'Image input capability' },
+  title: { id: 'modelImageCapability.title', defaultMessage: 'Model image capability correction' },
   description: {
     id: 'modelImageCapability.description',
     defaultMessage:
-      'Image support is detected from provider metadata for both the main and auxiliary vision models. Use a manual override only when metadata is missing or incorrect.',
+      'This corrects whether a model accepts image input; it does not select the backup image model or enable vision. Follow service information by default. Override it only after verifying the actual model connection.',
   },
-  provider: { id: 'modelImageCapability.provider', defaultMessage: 'Image capability provider' },
-  model: { id: 'modelImageCapability.model', defaultMessage: 'Image capability model' },
-  capability: { id: 'modelImageCapability.capability', defaultMessage: 'Image support' },
+  provider: { id: 'modelImageCapability.provider', defaultMessage: 'Model connection' },
+  model: { id: 'modelImageCapability.model', defaultMessage: 'Model' },
+  capability: { id: 'modelImageCapability.capability', defaultMessage: 'Image input capability' },
   choose: { id: 'modelImageCapability.choose', defaultMessage: 'Select…' },
-  auto: { id: 'modelImageCapability.auto', defaultMessage: 'Detect automatically' },
-  supported: { id: 'modelImageCapability.supported', defaultMessage: 'Supports images' },
-  unsupported: { id: 'modelImageCapability.unsupported', defaultMessage: 'Text only' },
-  save: { id: 'modelImageCapability.save', defaultMessage: 'Save image capability' },
+  auto: { id: 'modelImageCapability.auto', defaultMessage: 'Follow service information (default)' },
+  supported: {
+    id: 'modelImageCapability.supported',
+    defaultMessage: 'Manually confirmed: accepts images',
+  },
+  unsupported: {
+    id: 'modelImageCapability.unsupported',
+    defaultMessage: 'Manually confirmed: text only',
+  },
+  save: { id: 'modelImageCapability.save', defaultMessage: 'Save capability correction' },
   saved: {
     id: 'modelImageCapability.saved',
     defaultMessage: 'Saved. Applies to the next request.',
@@ -110,63 +116,72 @@ export default function ModelImageCapabilitySettings({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <select
-            aria-label={intl.formatMessage(messages.provider)}
-            className={selectClass}
-            value={providerId}
-            disabled={saving}
-            onChange={(event) => {
-              setProviderId(event.target.value);
-              setModelId('');
-              setModels([]);
-              setConfig(null);
-              setStatus(null);
-            }}
-          >
-            <option value="">{intl.formatMessage(messages.choose)}</option>
-            {providers.map((provider) => (
-              <option key={provider.name} value={provider.name}>
-                {provider.metadata.display_name || provider.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={intl.formatMessage(messages.model)}
-            className={selectClass}
-            value={modelId}
-            disabled={saving || loading || !config}
-            onChange={(event) => {
-              const id = event.target.value;
-              setModelId(id);
-              setOverride(
-                config?.overrides.find(
-                  (item) => item.providerId === providerId && item.modelId === id
-                )?.imageInput ?? 'auto'
-              );
-              setStatus(null);
-            }}
-          >
-            <option value="">{intl.formatMessage(messages.choose)}</option>
-            {models.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={intl.formatMessage(messages.capability)}
-            className={selectClass}
-            value={override}
-            disabled={saving || !modelId}
-            onChange={(event) => {
-              setOverride(event.target.value as ImageInputOverride);
-              setStatus(null);
-            }}
-          >
-            <option value="auto">{intl.formatMessage(messages.auto)}</option>
-            <option value="force_supported">{intl.formatMessage(messages.supported)}</option>
-            <option value="force_unsupported">{intl.formatMessage(messages.unsupported)}</option>
-          </select>
+          <label className="space-y-1 text-sm text-text-secondary">
+            <span className="block">{intl.formatMessage(messages.provider)}</span>
+            <select
+              aria-label={intl.formatMessage(messages.provider)}
+              className={`${selectClass} w-full`}
+              value={providerId}
+              disabled={saving}
+              onChange={(event) => {
+                setProviderId(event.target.value);
+                setModelId('');
+                setModels([]);
+                setConfig(null);
+                setStatus(null);
+              }}
+            >
+              <option value="">{intl.formatMessage(messages.choose)}</option>
+              {providers.map((provider) => (
+                <option key={provider.name} value={provider.name}>
+                  {provider.metadata.display_name || provider.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-sm text-text-secondary">
+            <span className="block">{intl.formatMessage(messages.model)}</span>
+            <select
+              aria-label={intl.formatMessage(messages.model)}
+              className={`${selectClass} w-full`}
+              value={modelId}
+              disabled={saving || loading || !config}
+              onChange={(event) => {
+                const id = event.target.value;
+                setModelId(id);
+                setOverride(
+                  config?.overrides.find(
+                    (item) => item.providerId === providerId && item.modelId === id
+                  )?.imageInput ?? 'auto'
+                );
+                setStatus(null);
+              }}
+            >
+              <option value="">{intl.formatMessage(messages.choose)}</option>
+              {models.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-sm text-text-secondary">
+            <span className="block">{intl.formatMessage(messages.capability)}</span>
+            <select
+              aria-label={intl.formatMessage(messages.capability)}
+              className={`${selectClass} w-full`}
+              value={override}
+              disabled={saving || !modelId}
+              onChange={(event) => {
+                setOverride(event.target.value as ImageInputOverride);
+                setStatus(null);
+              }}
+            >
+              <option value="auto">{intl.formatMessage(messages.auto)}</option>
+              <option value="force_supported">{intl.formatMessage(messages.supported)}</option>
+              <option value="force_unsupported">{intl.formatMessage(messages.unsupported)}</option>
+            </select>
+          </label>
         </div>
         <Button
           variant="outline"

@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "自動壓縮於"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "立即壓縮"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "無法儲存閾值：{error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "知道了！"
@@ -902,6 +887,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "實作程式碼並提供修改報告"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "自訂輔助識圖模型"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "未選擇時使用預設設定"
   },
@@ -1011,10 +999,19 @@
     "defaultMessage": "使用其他廠商…"
   },
   "codeProModels.visionAgent": {
-    "defaultMessage": "視覺輔助 Agent"
+    "defaultMessage": "備用識圖模型"
   },
   "codeProModels.visionAgentDescription": {
-    "defaultMessage": "圖片優先交給主 Agent。僅在明確設定視覺廠商和模型後，才使用視覺輔助；圖片會傳送至所選廠商。"
+    "defaultMessage": "主模型能看圖時直接處理；否則將圖片與問題交給輔助模型，可能增加耗時與費用。"
+  },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "暫時無法確認圖片能力，請重試後再儲存。"
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "正在確認圖片能力…"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "預設：{model}"
   },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "選擇模型"
@@ -1022,8 +1019,26 @@
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "未設定（未啟用）"
   },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "預設 Flash 模型尚未設定，請開啟自訂以選擇識圖模型。"
+  },
   "codeProModels.visionModelLabel": {
-    "defaultMessage": "視覺模型"
+    "defaultMessage": "識圖模型"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "此連線暫無已確認支援圖片的模型。"
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "僅列出已確認支援圖片的模型。"
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "尚未確認此模型支援圖片：{model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "請選擇已確認支援圖片的備用模型。"
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "此模型不支援圖片：{model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "已取消"
@@ -1733,9 +1748,6 @@
   "conversationFiles.changes": {
     "defaultMessage": "會話修改紀錄（增刪按每次操作累計，不是工作區淨差異）"
   },
-  "conversationFiles.combinedFiles": {
-    "defaultMessage": "本輪檔案 {count}"
-  },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "部分操作缺少歷史差異。"
   },
@@ -2435,11 +2447,17 @@
   "elicitationRequest.expired": {
     "defaultMessage": "此要求已過期。擴充功能需要重新詢問。"
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "尚未收到回答，本輪結束前仍可補答。"
+  },
   "elicitationRequest.planReview": {
     "defaultMessage": "計畫審閱"
   },
   "elicitationRequest.question": {
     "defaultMessage": "問題"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "補答問題"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "略過"
@@ -2455,6 +2473,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "正在提交…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "正在等待你的回答"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "正在等待您的回應（剩餘 {timeRemaining}）"
@@ -3771,7 +3792,7 @@
     "defaultMessage": "取消"
   },
   "jsonSchemaForm.customAnswer": {
-    "defaultMessage": "其他回答"
+    "defaultMessage": "也可以填寫自己的答案"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "或自行撰寫回覆"
@@ -4605,43 +4626,43 @@
     "defaultMessage": "NVIDIA 的高吞吐推理模型，面向持續執行的 Agent 工作流程。"
   },
   "modelImageCapability.auto": {
-    "defaultMessage": "自動識別"
+    "defaultMessage": "跟隨服務資訊（預設）"
   },
   "modelImageCapability.capability": {
-    "defaultMessage": "圖像支援"
+    "defaultMessage": "圖片輸入能力"
   },
   "modelImageCapability.choose": {
     "defaultMessage": "請選擇…"
   },
   "modelImageCapability.description": {
-    "defaultMessage": "主模型與輔助識圖模型會根據服務中繼資料自動識別圖像能力。僅在資料缺失或不準確時手動覆寫。"
+    "defaultMessage": "這裡僅校正模型能否接收圖片，不會選擇或啟用備用識圖模型。預設跟隨服務資訊，僅在實際核實連線能力後手動指定。"
   },
   "modelImageCapability.error": {
     "defaultMessage": "讀取或儲存識圖能力失敗。已保留目前選擇，請在連線恢復後重試。"
   },
   "modelImageCapability.model": {
-    "defaultMessage": "識圖能力模型"
+    "defaultMessage": "模型"
   },
   "modelImageCapability.provider": {
-    "defaultMessage": "識圖能力廠商"
+    "defaultMessage": "模型連線"
   },
   "modelImageCapability.retry": {
     "defaultMessage": "重新載入模型"
   },
   "modelImageCapability.save": {
-    "defaultMessage": "儲存識圖能力"
+    "defaultMessage": "儲存能力校正"
   },
   "modelImageCapability.saved": {
     "defaultMessage": "已儲存，下次請求生效。"
   },
   "modelImageCapability.supported": {
-    "defaultMessage": "支援圖像"
+    "defaultMessage": "手動確認：支援圖片"
   },
   "modelImageCapability.title": {
-    "defaultMessage": "圖像輸入能力"
+    "defaultMessage": "模型圖片能力校正（進階）"
   },
   "modelImageCapability.unsupported": {
-    "defaultMessage": "僅文字"
+    "defaultMessage": "手動確認：僅文字"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "設定供應商"
@@ -4821,7 +4842,7 @@
     "defaultMessage": "Top P"
   },
   "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "輔助視覺設定"
+    "defaultMessage": "備用識圖模型設定"
   },
   "modelsAndRuntime.codeBuddyModel": {
     "defaultMessage": "CodeBuddy 模型"
@@ -4829,14 +4850,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "CodeBuddy 自有模型仍在開發中。"
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "模型與連線"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "無法載入自訂連線。已儲存的設定沒有被變更。"
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "上下文容量"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "服務資訊缺失時，校正模型的上下文上限。"
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "自訂模型連線"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "連接本機、區域網路或自建端點。日常設定不顯示內建廠商目錄。"
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "圖片與影片生成"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "設定生成圖片和影片所用的服務。"
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "開發中"
@@ -4846,6 +4882,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "重試"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "子 Agent"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "設定名稱、模型和提示詞，建立可重複使用的子 Agent。"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "圖像理解"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "優先使用主模型，必要時使用備用識圖模型。"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "暫無已設定模型"
@@ -7235,6 +7283,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "搜尋設定"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "返回選單"
+  },
   "settingsView.title": {
     "defaultMessage": "設定"
   },
@@ -7580,26 +7631,68 @@
   "subagentLifecycle.start": {
     "defaultMessage": "開始工作"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "最大遞迴深度"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "執行限制讀取或儲存失敗，已儲存的設定未變更。"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "深度 0 不允許委派，1 允許直接建立子 Agent。平行上限統計同一主 Agent 下所有執行中的後代。修改從下一輪任務準備時生效，不取消既有子 Agent。"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "子智慧體平行數量上限"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "儲存執行限制"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "已儲存，下一輪任務準備時生效。"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "執行限制"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "新增子 Agent"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "模型設定對新建子 Agent 生效，既有子 Agent 保留原模型和歷史。不同聊天共用範本，不共用聊天內容。"
+    "defaultMessage": "設定用於之後新建的子 Agent，已有實例保留原職責、工具、模型和歷史。不同聊天共用範本，不共用聊天內容。"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · 網頁與瀏覽器研究"
+    "defaultMessage": "網頁資料搜尋"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "搜尋和閱讀網頁資料，核對來源並整理結論。"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "移除此範本？已有子 Agent 及其歷史會保留。"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "自訂子 Agent"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "預設子 Agent"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "按需使用兩個預設範本；其他職責在目前聊天中建立並跨輪重用。"
+    "defaultMessage": "按需使用預設範本，也可以儲存自訂職責。子 Agent 只在需要時建立。"
   },
   "subagentTemplates.error": {
     "defaultMessage": "讀取或儲存失敗，已儲存的設定未改變。"
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · 專案探索"
+    "defaultMessage": "專案探索"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "閱讀專案檔案、追蹤程式碼呼叫關係，定位相關實作。"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "其他聊天內職責"
   },
   "subagentTemplates.inherit": {
     "defaultMessage": "繼承主 Agent 模型"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "請填寫不重複的名稱和提示詞。"
   },
   "subagentTemplates.loading": {
     "defaultMessage": "正在讀取設定…"
@@ -7610,14 +7703,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "模型清單讀取失敗，可填寫模型 ID 或重試。"
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "名稱"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "提示詞"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "說明它負責什麼、如何工作，以及輸出要求。"
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "模型連線"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "刪除子 Agent"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "重試"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "儲存子 Agent 模型"
+    "defaultMessage": "儲存子 Agent 設定"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "已儲存，對新建子 Agent 生效。"
@@ -7627,6 +7732,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "儲存的連線無法使用"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "新子 Agent"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7886,6 +7994,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.chart": {
+    "defaultMessage": "產生圖表"
+  },
   "toolAction.code": {
     "defaultMessage": "執行程式碼"
   },
@@ -7904,8 +8015,29 @@
   "toolAction.contractRevise": {
     "defaultMessage": "更新任務要求"
   },
+  "toolAction.control": {
+    "defaultMessage": "操作介面控制項"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "讀取網站中的多個頁面"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "建立子智慧體"
+  },
   "toolAction.delegate": {
     "defaultMessage": "委派工作"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "尋找可用的文件工具"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "建立桌面寵物"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "繪製圖示"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "尋找可用工具"
   },
   "toolAction.drag": {
     "defaultMessage": "拖曳視窗內容"
@@ -7919,6 +8051,18 @@
   "toolAction.editSummary": {
     "defaultMessage": "已修改 {count} 個檔案"
   },
+  "toolAction.fetch": {
+    "defaultMessage": "讀取網頁內容"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "尋找檔案"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "產生圖片"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "產生影片"
+  },
   "toolAction.generating": {
     "defaultMessage": "正在準備操作參數：{target}"
   },
@@ -7926,10 +8070,22 @@
     "defaultMessage": "正在產生 {target} · 已接收 {count} 行 — 尚未儲存"
   },
   "toolAction.generatingFileHeadline": {
-    "defaultMessage": "正在生成檔案內容：{target}，尚未寫入"
+    "defaultMessage": "正在生成檔案內容{target}"
   },
   "toolAction.keyboard": {
     "defaultMessage": "使用鍵盤"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "查看子智慧體進度"
+  },
+  "toolAction.location": {
+    "defaultMessage": "尋找地點"
+  },
+  "toolAction.map": {
+    "defaultMessage": "產生地圖"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "傳送訊息給子智慧體"
   },
   "toolAction.mouse": {
     "defaultMessage": "點擊視窗"
@@ -7946,14 +8102,23 @@
   "toolAction.otherSummary": {
     "defaultMessage": "已完成 {count} 項操作"
   },
+  "toolAction.question": {
+    "defaultMessage": "詢問使用者"
+  },
   "toolAction.read": {
     "defaultMessage": "讀取檔案"
   },
   "toolAction.readDone": {
     "defaultMessage": "已查看文件"
   },
+  "toolAction.readImage": {
+    "defaultMessage": "查看圖片"
+  },
   "toolAction.readSummary": {
     "defaultMessage": "已讀取 {count} 個檔案"
+  },
+  "toolAction.research": {
+    "defaultMessage": "進行聯網調研"
   },
   "toolAction.result": {
     "defaultMessage": "輸出結果"
@@ -7970,6 +8135,9 @@
   "toolAction.search": {
     "defaultMessage": "搜尋"
   },
+  "toolAction.searchContents": {
+    "defaultMessage": "搜尋檔案內容"
+  },
   "toolAction.shell": {
     "defaultMessage": "執行命令"
   },
@@ -7979,14 +8147,29 @@
   "toolAction.shellSummary": {
     "defaultMessage": "已執行 {count} 條命令"
   },
+  "toolAction.siteMap": {
+    "defaultMessage": "尋找網站頁面"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "載入任務指南"
+  },
   "toolAction.takeover": {
     "defaultMessage": "接手尚未完成的委派工作"
+  },
+  "toolAction.time": {
+    "defaultMessage": "查看目前時間"
   },
   "toolAction.tree": {
     "defaultMessage": "列出檔案"
   },
   "toolAction.type": {
     "defaultMessage": "輸入文字"
+  },
+  "toolAction.value": {
+    "defaultMessage": "填寫輸入欄位"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "查詢天氣"
   },
   "toolAction.webSearch": {
     "defaultMessage": "搜尋網頁"
@@ -7996,6 +8179,15 @@
   },
   "toolAction.webSearchRunning": {
     "defaultMessage": "正在搜尋網頁"
+  },
+  "toolAction.window": {
+    "defaultMessage": "讀取視窗內容"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "查看開啟的視窗"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "查看工作目錄"
   },
   "toolAction.write": {
     "defaultMessage": "寫入檔案"
@@ -8570,6 +8762,12 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "以編輯後的訊息建立新的工作階段"
   },
+  "userMessage.pending": {
+    "defaultMessage": "待傳送"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "待確認"
+  },
   "workStatus.approval": {
     "defaultMessage": "請確認：{action}"
   },
@@ -8947,8 +9145,5 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
-  },
-  "workStatus.quietHint": {
-    "defaultMessage": "已 {seconds} 秒沒有收到新的進展，你可以繼續等待，也可以停止本次請求。"
   }
 }

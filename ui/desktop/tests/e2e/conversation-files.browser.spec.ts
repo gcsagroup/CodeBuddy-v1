@@ -46,7 +46,7 @@ test.afterAll(async () => {
 });
 
 for (const platform of ['windows', 'mac']) {
-  test(`one file card merges references and changes with expansion on ${platform}`, async () => {
+  test(`one file card shows only recorded changes with expansion on ${platform}`, async () => {
     const page = await browser.newPage({ viewport: { width: 1200, height: 760 } });
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -54,16 +54,20 @@ for (const platform of ['windows', 'mac']) {
       await page.goto(
         server.resolvedUrls!.local[0] + `tests/browser-fixtures/conversation-files.html?${platform}`
       );
-      await expect(page.getByRole('button', { name: '本轮文件 5', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: '本轮修改了 4 个文件', exact: true })
+      ).toBeVisible();
       await expect(page.getByRole('listitem')).toHaveCount(3);
       await expect(page.getByText('pelican_bike.html', { exact: true })).toHaveCount(1);
       await expect(page.getByText('相关文件', { exact: true })).toHaveCount(0);
       await page.getByRole('button', { name: '查看变更', exact: true }).click();
       await expect(page.locator('output')).toContainText('"turnId":"turn"');
-      await page.getByRole('button', { name: '再显示 2 个文件', exact: true }).click();
-      await expect(page.getByRole('listitem')).toHaveCount(5);
-      await page.getByRole('button', { name: 'README.md', exact: true }).click();
-      await expect(page.locator('output')).toContainText('"filePath":"README.md"');
+      await page.getByRole('button', { name: '再显示 1 个文件', exact: true }).click();
+      await expect(page.getByRole('listitem')).toHaveCount(4);
+      await expect(page.getByRole('button', { name: 'README.md', exact: true })).toHaveCount(0);
+      const changePath = `${platform === 'mac' ? '/Users/test/project' : 'D:/fixture'}/src/components/controls.tsx`;
+      await page.getByRole('button', { name: changePath, exact: true }).click();
+      await expect(page.locator('output')).toContainText(`"filePath":"${changePath}"`);
       await page.screenshot({ path: test.info().outputPath('file-card-wide.png'), fullPage: true });
       await page.setViewportSize({ width: 420, height: 760 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -73,7 +77,7 @@ for (const platform of ['windows', 'mac']) {
         path: test.info().outputPath('file-card-narrow.png'),
         fullPage: true,
       });
-      await page.getByRole('button', { name: '本轮文件 5', exact: true }).click();
+      await page.getByRole('button', { name: '本轮修改了 4 个文件', exact: true }).click();
       await expect(page.getByRole('listitem')).toHaveCount(0);
       expect(errors).toEqual([]);
     } finally {

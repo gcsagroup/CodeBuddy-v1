@@ -27,7 +27,7 @@ export function errorMessage(err: Error | unknown, default_value?: string) {
   }
 }
 
-function acpErrorData(err: unknown): unknown {
+export function acpErrorData(err: unknown): unknown {
   if (typeof err !== 'object' || err === null) {
     return undefined;
   }

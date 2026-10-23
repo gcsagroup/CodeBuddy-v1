@@ -78,6 +78,29 @@ for (const approved of [false, true]) {
   });
 }
 
+for (const kind of ['skipped', 'feedback', 'expired']) {
+  test(`native plan review cannot approve through ${kind}`, { timeout: 20000 }, async t => {
+    const f = await fixture(t, async ({ count, tool, text }) => {
+      if (count === 1) tool('exit_plan_mode', { plan: '# Review\nWait for explicit approval.' });
+      else text('The plan remains under review.');
+    });
+    let reviews = 0;
+    await f.driver.prompt(f.sessionId, 'Review this plan', {
+      planMode: true,
+      onPermission: () => true,
+      onUserQuestions: async ({ questions }) => {
+        reviews++;
+        if (kind === 'expired') throw new Error('The client answer expired without a response');
+        return { answers: [{ id: questions[0].id, selected: [],
+          ...(kind === 'feedback' ? { custom: questions[0].intent.approve } : {}) }] };
+      },
+    });
+    assert.equal(reviews, 1);
+    assert.equal((await f.driver.getPlanMode(f.sessionId)).active, true);
+    assert.equal(f.effects.length, 0);
+  });
+}
+
 test('official goal round driver continues the same session beyond first turn and returns final native goal', { timeout: 15000 }, async t => {
   const f = await fixture(t, async ({ body, count, tool, text }) => {
     if (count === 1) tool('create_goal', { objective: 'Complete the controlled two-round task', max_goal_rounds: 3 });

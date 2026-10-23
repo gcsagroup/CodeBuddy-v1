@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import type { IpcRendererEvent } from 'electron';
 import DesktopPet from './DesktopPet';
 import type { PetSnapshot } from './petTypes';
 
@@ -44,7 +45,7 @@ it('observes a global cursor beyond 500 pixels even when an idle task remains', 
     .mock.calls.find(([event]) => event === 'pet-cursor')?.[1];
   expect(callback).toBeDefined();
   act(() => {
-    callback?.({} as Electron.IpcRendererEvent, { x: -1600, y: -800, reducedMotion: false });
+    callback?.({} as IpcRendererEvent, { x: -1600, y: -800, reducedMotion: false });
   });
   expect(screen.getByRole('img', { name: 'look' })).toBeInTheDocument();
   act(() => {

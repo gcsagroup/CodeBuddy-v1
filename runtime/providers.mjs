@@ -316,7 +316,7 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
   return ids;
 }
 
-async function resolveContext(provider, model, authPending) {
+async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
   if (!model) return undefined;
   const key = listingKey(provider);
   let cached = cachedModels(provider);
@@ -383,6 +383,11 @@ async function resolveContext(provider, model, authPending) {
     })());
     await cached.details.get(model);
   }
+  // A model-list refresh replaces this cache while /api/show can still be in
+  // flight. Its completion belongs to the retired entry. Resolve against the
+  // current entry once, rather than publishing missing capabilities as a result.
+  if (retryAfterRefresh && cached && cachedModels(provider) !== cached)
+    return resolveContext(provider, model, authPending, false);
   return cachedModels(provider)?.contexts?.[model];
 }
 

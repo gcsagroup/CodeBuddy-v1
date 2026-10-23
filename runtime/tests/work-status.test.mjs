@@ -20,9 +20,40 @@ test('tool argument streaming is reported as preparation, never tool execution o
   const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'first_tool_arguments' });
   assert.equal(update.status.data.phase, 'model');
   assert.equal(update.status.data.model_request_phase, 'receiving');
-  assert.match(update.status.message, /尚未执行/);
+  assert.equal(update.status.message, '正在生成工具调用参数');
   assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end' })[0].status.message, '');
   assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'child', phase: 'first_tool_arguments' }), []);
+});
+
+test('file input previews stay ephemeral, deduplicate size ticks and clear at native dispatch or attempt end', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const event = { type: 'tool_input', sessionId: 'parent', preview: { id: 'w', name: 'write', kilobytes: 3 } };
+  const [update] = project(event);
+  assert.deepEqual(update.status.data.tool_input, event.preview);
+  assert.equal(update.status.data.phase, 'model');
+  assert.deepEqual(project(event), []);
+  assert.deepEqual(project({ ...event, sessionId: 'child' }), []);
+  assert.equal(project({ type: 'tool_call', sessionId: 'parent' })[0].status.data.tool_input, undefined);
+  project(event);
+  assert.equal(project({ type: 'assistant_end', sessionId: 'parent' })[0].status.data.tool_input, undefined);
+});
+
+test('unchanged preview metadata reports real incoming fragments at a bounded rate, never on its own', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100_000 });
+  const controller = new AbortController();
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run', signal: controller.signal });
+  const event = { type: 'tool_input', sessionId: 'parent', preview: { id: 'w', name: 'write', kilobytes: 3 } };
+  assert.equal(project(event).length, 1);
+  t.mock.timers.tick(999);
+  assert.deepEqual(project(event), []);
+  t.mock.timers.tick(1);
+  assert.equal(project(event).length, 1);
+  t.mock.timers.tick(25_000);
+  assert.deepEqual(project({ type: 'unrelated' }), []);
+  assert.equal(project(event).length, 1);
+  controller.abort();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(project(event), []);
 });
 
 test('live child work has a specific wait target without exposing child receipts', () => {
@@ -52,6 +83,23 @@ test('cancelled requests cannot publish late activity or execution conclusions',
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run', signal: controller.signal });
   controller.abort();
   assert.deepEqual(project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'late' }), []);
+});
+
+test('image observation stages share the existing activity channel and retain child and cancellation facts', () => {
+  let runId = 'preparation'; const controller = new AbortController();
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: () => runId, signal: controller.signal });
+  const start = project({ type: 'image_observation', sessionId: 'parent', phase: 'start', modelId: 'vision' });
+  assert.match(start[0].status.message, /正在识别图片/);
+  assert.equal(start[0].status.data.run_id, 'preparation');
+  runId = 'native-run';
+  project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });
+  const end = project({ type: 'image_observation', sessionId: 'parent', phase: 'end', modelId: 'vision' });
+  assert.equal(end[0].status.data.child_count, 1);
+  assert.equal(end[0].status.data.run_id, 'native-run');
+  const model = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' });
+  assert.equal(model[0].status.message, '');
+  controller.abort();
+  assert.deepEqual(project({ type: 'image_observation', sessionId: 'parent', phase: 'end', modelId: 'vision' }), []);
 });
 
 test('only native failure and retry facts announce reconnection, and final failures remain notices', () => {

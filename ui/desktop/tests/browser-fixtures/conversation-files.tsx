@@ -91,7 +91,7 @@ import('../../src/components/codepro/CodeProConversationFiles').then(
             messages={messages}
             sourceChanges={changes}
           />
-          <output>{event}</output>
+          <output style={{ overflowWrap: 'anywhere' }}>{event}</output>
         </main>
       );
     }

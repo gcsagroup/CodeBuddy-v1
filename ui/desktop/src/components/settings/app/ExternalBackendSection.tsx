@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Switch } from '../../ui/switch';
 import { Input } from '../../ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/card';
@@ -86,6 +86,10 @@ const i18n = defineMessages({
     id: 'externalBackendSection.noteLabel',
     defaultMessage: 'Note:',
   },
+  saveError: {
+    id: 'codeProModels.saveError',
+    defaultMessage: 'Failed to save. Try again later.',
+  },
 });
 
 export default function ExternalBackendSection() {
@@ -93,11 +97,14 @@ export default function ExternalBackendSection() {
   const [config, setConfig] = useState<ExternalBackendConfig>(defaultSettings.externalGoosed);
   const [isSaving, setIsSaving] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedConfig = useRef(config);
 
   useEffect(() => {
     const loadSettings = async () => {
       const externalGoosed = await window.electron.getSetting('externalGoosed');
       setConfig(externalGoosed);
+      savedConfig.current = externalGoosed;
     };
     loadSettings();
   }, []);
@@ -133,11 +140,16 @@ export default function ExternalBackendSection() {
   };
 
   const saveConfig = async (newConfig: ExternalBackendConfig): Promise<void> => {
+    setSaveError(null);
+    if (newConfig.enabled && !validateUrl(newConfig.url, newConfig.certFingerprint)) return;
     setIsSaving(true);
     try {
       await window.electron.setSetting('externalGoosed', newConfig);
+      savedConfig.current = newConfig;
+      setConfig(newConfig);
     } catch (error) {
       console.error('Failed to save external backend settings:', error);
+      setSaveError(intl.formatMessage(i18n.saveError));
     } finally {
       setIsSaving(false);
     }
@@ -194,12 +206,24 @@ export default function ExternalBackendSection() {
             <div className="flex items-center">
               <Switch
                 checked={config.enabled}
-                onCheckedChange={(checked) => saveConfig(updateField('enabled', checked))}
+                onCheckedChange={(checked) =>
+                  saveConfig(
+                    checked
+                      ? { ...config, enabled: true }
+                      : { ...savedConfig.current, enabled: false }
+                  )
+                }
                 disabled={isSaving}
                 variant="mono"
               />
             </div>
           </div>
+
+          {saveError && (
+            <p role="alert" className="text-xs text-red-500">
+              {saveError}
+            </p>
+          )}
 
           {config.enabled && (
             <>

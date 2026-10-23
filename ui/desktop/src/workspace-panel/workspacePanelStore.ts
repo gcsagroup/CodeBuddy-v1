@@ -31,6 +31,7 @@ export type WorkbenchTab =
 export interface WorkbenchState {
   tabs: WorkbenchTab[];
   active: string;
+  mediaHidden?: boolean;
 }
 const sessions = new Map<string, WorkbenchState>();
 export const scopeKey = (scope: PanelScope) => JSON.stringify([scope.sessionId, scope.root]);

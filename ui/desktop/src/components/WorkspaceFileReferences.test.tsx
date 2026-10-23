@@ -158,7 +158,7 @@ const turnMessages: Message[] = [
   },
 ];
 
-it('merges verified references with recorded edits into one card without counting references as edits', async () => {
+it('keeps the change card limited to recorded edits even when the answer references other files', async () => {
   inspect.mockImplementation(async (request) => {
     if (!('path' in request) || request.path === 'missing.txt') throw new Error('missing');
     return { file: { path: request.path, size: 20, openExternally: false } };
@@ -193,10 +193,12 @@ it('merges verified references with recorded edits into one card without countin
       />,
       { wrapper: IntlTestWrapper }
     );
-    await screen.findByRole('button', { name: 'Files this turn (2)' });
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    await screen.findByRole('button', { name: 'Modified 1 files this turn' });
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Related files' })).toBeNull();
     expect(screen.queryByText('missing.txt')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'guide.md' })).toBeNull();
+    expect(inspect).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'D:/fixture/PAGE.html' }));
     expect(opened).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -204,21 +206,14 @@ it('merges verified references with recorded edits into one card without countin
         detail: { sessionId: 'one', turnId: 'turn', filePath: 'D:/fixture/PAGE.html' },
       })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'guide.md' }));
-    expect(opened).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'codebuddy:open-workspace-file',
-        detail: { sessionId: 'one', filePath: 'guide.md' },
-      })
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Files this turn (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Modified 1 files this turn' }));
     expect(screen.queryByRole('listitem')).toBeNull();
   } finally {
     opened.mockRestore();
   }
 });
 
-it('retains a reference-only turn without manufacturing a change summary or change action', async () => {
+it('does not create a file card for a reference-only turn', () => {
   inspect.mockResolvedValue({ file: { path: 'guide.md', size: 30, openExternally: false } });
   render(
     <CodeProConversationFiles
@@ -229,7 +224,9 @@ it('retains a reference-only turn without manufacturing a change summary or chan
     />,
     { wrapper: IntlTestWrapper }
   );
-  await screen.findByRole('button', { name: 'Files this turn (1)' });
+  expect(screen.queryByRole('button', { name: /files this turn/i })).toBeNull();
+  expect(screen.queryByRole('listitem')).toBeNull();
+  expect(inspect).not.toHaveBeenCalled();
   expect(screen.queryByRole('button', { name: 'View changes' })).toBeNull();
   expect(screen.queryByText(/Modified/)).toBeNull();
 });

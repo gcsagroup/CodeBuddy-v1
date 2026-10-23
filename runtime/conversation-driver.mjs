@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 export function createConversationDriver(driver, store) {
   const busy = new Map();
   const waitingPrompts = new Set();
-  const nativeId = id => (store.readSession ? store.readSession(id) : store.read(['sessions']).sessions.find(s => s.id === id))?.nativeSessionId ?? id;
+  const nativeId = id => (store.readSession ? store.readSession(id, { fields: ['nativeSessionId'] }) : store.read(['sessions']).sessions.find(s => s.id === id))?.nativeSessionId ?? id;
   const project = (value, actual, product) => {
     if (!value || typeof value !== 'object') return value;
     const mapped = { ...value };
@@ -20,7 +20,9 @@ export function createConversationDriver(driver, store) {
   });
   const capabilities = (options, actual, product) => options ? {
     ...options,
-    ...(options.tools ? { tools: options.tools.map(tool => ({ ...tool, execute: (args, exec) => tool.execute(args, project(exec, actual, product)) })) } : {}),
+    // Project the invocation, not the definition: trusted tool identity must
+    // survive the conversation/native-session boundary for scoped approvals.
+    projectToolContext: context => project(context, actual, product),
   } : options;
   async function lock(id, operation, kind = 'exclusive') {
     if (busy.has(id) || waitingPrompts.has(id)) throw new Error('Wait for the active conversation operation to finish');
@@ -67,6 +69,8 @@ export function createConversationDriver(driver, store) {
     compact(id, options) { const actual = nativeId(id); return lock(id, () => driver.compact(actual, callbacks(options, actual, id))); },
     contextUsage(id) { const actual = nativeId(id); return driver.contextUsage(actual).then(value => project(value, actual, id)); },
     steer(id, content, options) { return driver.steer(nativeId(id), content, options); },
+    questions(id) { return driver.questions?.(nativeId(id)) ?? { active: [], settled: [] }; },
+    answerQuestion(id, callId, answer) { return driver.answerQuestion(nativeId(id), callId, answer); },
     getGoal(id) { return driver.getGoal?.(nativeId(id)); },
     controlGoal(id, options) { return driver.controlGoal(nativeId(id), options); },
     getPlanMode(id) { return driver.getPlanMode(nativeId(id)); },

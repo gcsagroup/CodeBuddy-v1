@@ -203,3 +203,38 @@ test('thinking metadata fetched for an old connection cannot validate a save to 
   await assert.rejects(pending, /connection changed/);
   assert.equal(store.read(['providers']).providers[0].thinkingEfforts, undefined);
 });
+
+test('model details survive a model-list refresh while the selected model lookup is pending', async t => {
+  const started = Promise.withResolvers(), finish = Promise.withResolvers();
+  t.after(() => finish.resolve());
+  const model = 'deepseek-v4.1-flash';
+  const provider = { id: 'read-refresh-race', engine: 'openai_compatible', apiUrl: 'https://ollama.com',
+    models: ['other-first-model', model], requiresAuth: false, headers: { 'x-fixture': 'read-refresh-race' } };
+  let reads = 0;
+  t.mock.method(globalThis, 'fetch', async (input, options) => {
+    const url = new URL(input);
+    assert.equal(url.origin, 'https://ollama.com');
+    if (url.pathname === '/api/tags') return Response.json({ models: provider.models.map(name => ({ name })) });
+    assert.equal(url.pathname, '/api/show');
+    const selected = JSON.parse(options.body).model;
+    if (selected !== model) return Response.json({ capabilities: ['completion'] });
+    if (++reads === 1) { started.resolve(); await finish.promise; }
+    return Response.json({ capabilities: ['completion', 'thinking'],
+      thinking: { values: [false, 'low', 'high', 'max'], default: 'high' },
+      model_info: { 'deepseek.context_length': 1048576 } });
+  });
+  const pending = resolvedModelInfo(provider, model);
+  await started.promise;
+  await discover(provider, provider);
+  finish.resolve();
+  assert.deepEqual(await pending, { provider: provider.id, model, contextLimit: 1048576,
+    contextSource: 'service', reasoning: true, currency: 'USD' });
+  const settings = new RuntimeSettings({ read: () => ({ providers: [provider], preferences: {} }) });
+  const { fields } = await settings.request('providers/config/read', { providerId: provider.id });
+  const read = kind => JSON.parse(fields.find(field => field.key === `${kind}:${model}`).value);
+  assert.deepEqual(read('thinkingEffort'), { options: ['none', 'low', 'high', 'max'], value: 'high', toggle: false });
+  assert.equal(read('contextWindow').contextSource, 'service');
+  assert.equal(read('contextWindow').contextWindow, 1048576);
+  await resolvedModelInfo(provider, model);
+  assert.equal(reads, 2, 'A superseded lookup retries once; warm reads keep the existing cache');
+});

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlaskConical, RefreshCw } from 'lucide-react';
+import { Bot, Image, ScanEye, SlidersHorizontal, Plug, RefreshCw } from 'lucide-react';
 import type { View } from '../../../utils/navigationUtils';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
@@ -13,11 +13,34 @@ import ModelsSection from './ModelsSection';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
+import SettingsMenu from '../SettingsMenu';
+import ExternalBackendSection from '../app/ExternalBackendSection';
 
 const i18n = defineMessages({
+  connections: { id: 'modelsAndRuntime.connections', defaultMessage: 'Models and connections' },
+  subagents: { id: 'modelsAndRuntime.subagents', defaultMessage: 'Subagents' },
+  subagentsDescription: {
+    id: 'modelsAndRuntime.subagentsDescription',
+    defaultMessage: 'Create reusable agents with a name, model and prompt.',
+  },
+  vision: { id: 'modelsAndRuntime.vision', defaultMessage: 'Image understanding' },
+  visionDescription: {
+    id: 'modelsAndRuntime.visionDescription',
+    defaultMessage: 'Use the main model first, with a backup when needed.',
+  },
+  generation: { id: 'modelsAndRuntime.generation', defaultMessage: 'Image and video generation' },
+  generationDescription: {
+    id: 'modelsAndRuntime.generationDescription',
+    defaultMessage: 'Configure the service used to generate images and videos.',
+  },
+  context: { id: 'modelsAndRuntime.context', defaultMessage: 'Context capacity' },
+  contextDescription: {
+    id: 'modelsAndRuntime.contextDescription',
+    defaultMessage: 'Adjust model context limits when service information is unavailable.',
+  },
   auxiliaryVision: {
     id: 'modelsAndRuntime.auxiliaryVision',
-    defaultMessage: 'Auxiliary vision settings',
+    defaultMessage: 'Backup image model settings',
   },
   codeBuddyModel: {
     id: 'modelsAndRuntime.codeBuddyModel',
@@ -57,15 +80,33 @@ const i18n = defineMessages({
 
 interface ModelsAndRuntimeSettingsProps {
   setView: (view: View) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  active?: boolean;
 }
 
-export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSettingsProps) {
+export default function ModelsAndRuntimeSettings({
+  setView,
+  onDirtyChange,
+  active = true,
+}: ModelsAndRuntimeSettingsProps) {
   const intl = useIntl();
   const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
+  const [subagentDirty, setSubagentDirty] = useState(false);
+  const [subagentEditing, setSubagentEditing] = useState(false);
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      setSubagentDirty(dirty);
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange]
+  );
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
   const [connectionsLoaded, setConnectionsLoaded] = useState(false);
+  useEffect(() => {
+    if (!active) setVisionSettingsOpen(false);
+  }, [active]);
 
   const loadCustomConnections = useCallback(async () => {
     setConnectionsLoading(true);
@@ -91,34 +132,9 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
       ),
     [providers]
   );
-  const configuredProviders = useMemo(
-    () => customProviders.filter((provider) => provider.is_configured),
-    [customProviders]
-  );
 
-  return (
+  const connections = (
     <div className="space-y-4 pb-8">
-      <Card className="rounded-lg border-dashed">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <div className="rounded-md bg-purple-500/10 p-2 text-purple-500">
-                <FlaskConical className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle>{intl.formatMessage(i18n.codeBuddyModel)}</CardTitle>
-                <CardDescription>
-                  {intl.formatMessage(i18n.codeBuddyModelDescription)}
-                </CardDescription>
-              </div>
-            </div>
-            <span className="rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-600">
-              {intl.formatMessage(i18n.inDevelopment)}
-            </span>
-          </div>
-        </CardHeader>
-      </Card>
-
       <ModelsSection setView={setView} showProviderConfiguration={false} />
 
       <Card className="rounded-lg">
@@ -155,11 +171,78 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
         </CardContent>
       </Card>
 
-      <SubagentTemplateSettings providers={configuredProviders} />
-      <Button variant="outline" onClick={() => setVisionSettingsOpen(true)}>
-        {intl.formatMessage(i18n.auxiliaryVision)}
-      </Button>
-      {visionSettingsOpen && (
+      <ExternalBackendSection />
+
+      <p className="text-xs text-text-muted">
+        {intl.formatMessage(i18n.codeBuddyModel)} · {intl.formatMessage(i18n.inDevelopment)}
+      </p>
+    </div>
+  );
+  return (
+    <>
+      <SettingsMenu
+        visible={active}
+        items={[
+          {
+            id: 'connections',
+            title: intl.formatMessage(i18n.connections),
+            description: intl.formatMessage(i18n.customConnectionsDescription),
+            icon: <Plug className="h-5 w-5" />,
+            content: connections,
+          },
+          {
+            id: 'subagents',
+            keepAlive: true,
+            dirty: subagentDirty,
+            hideBack: subagentEditing,
+            title: intl.formatMessage(i18n.subagents),
+            description: intl.formatMessage(i18n.subagentsDescription),
+            icon: <Bot className="h-5 w-5" />,
+            content: (
+              <SubagentTemplateSettings
+                providers={customProviders}
+                onDirtyChange={handleDirtyChange}
+                onEditingChange={setSubagentEditing}
+              />
+            ),
+          },
+          {
+            id: 'vision',
+            keepAlive: true,
+            title: intl.formatMessage(i18n.vision),
+            description: intl.formatMessage(i18n.visionDescription),
+            icon: <ScanEye className="h-5 w-5" />,
+            content: (
+              <div className="space-y-4">
+                <p className="text-sm text-text-secondary">
+                  {intl.formatMessage(i18n.visionDescription)}
+                </p>
+                <Button variant="outline" onClick={() => setVisionSettingsOpen(true)}>
+                  {intl.formatMessage(i18n.auxiliaryVision)}
+                </Button>
+                <ModelImageCapabilitySettings providers={customProviders} />
+              </div>
+            ),
+          },
+          {
+            id: 'generation',
+            keepAlive: true,
+            title: intl.formatMessage(i18n.generation),
+            description: intl.formatMessage(i18n.generationDescription),
+            icon: <Image className="h-5 w-5" />,
+            content: <ImageGenerationSettings />,
+          },
+          {
+            id: 'context',
+            keepAlive: true,
+            title: intl.formatMessage(i18n.context),
+            description: intl.formatMessage(i18n.contextDescription),
+            icon: <SlidersHorizontal className="h-5 w-5" />,
+            content: <ModelContextSettings providers={customProviders} />,
+          },
+        ]}
+      />
+      {active && visionSettingsOpen && (
         <CodeProModelModal
           visionOnly
           onClose={() => setVisionSettingsOpen(false)}
@@ -169,9 +252,6 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
           }}
         />
       )}
-      <ModelImageCapabilitySettings providers={configuredProviders} />
-      <ImageGenerationSettings />
-      <ModelContextSettings providers={configuredProviders} />
-    </div>
+    </>
   );
 }

@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHarnessDriver } from '../index.mjs';
 
 test('native retry owns recovery, exhaustion, cancellation and later turns for empty completions', { timeout: 15000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'harness-empty-recovery-'));
+  await writeFile(path.join(root, 'AGENTS.md'), 'Use concise replies and follow the current user request.');
   const counts = new Map();
   const childEnded = Promise.withResolvers();
   const server = createServer(async (req, res) => {

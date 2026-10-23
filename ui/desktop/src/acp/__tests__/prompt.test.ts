@@ -3,6 +3,7 @@ import type { Message } from '../../types/message';
 import { isTurnTerminalRecord } from '../../types/turnTerminal';
 import { getAcpClient } from '../acpConnection';
 import { acpPromptSession, messageToAcpPromptContent } from '../prompt';
+import { currentLocale } from '../../i18n';
 
 vi.mock('../acpConnection', () => ({
   getAcpClient: vi.fn(),
@@ -52,6 +53,27 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('sends a display anchor only as metadata, never as model prompt content', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    const presentation = { afterMessageId: 'last-output' };
+    await acpPromptSession('parent', {
+      id: 'queued-stop',
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Stop' }],
+      metadata: { userVisible: true, agentVisible: true, presentation },
+    });
+    expect(prompt).toHaveBeenCalledWith({
+      sessionId: 'parent',
+      prompt: [{ type: 'text', text: 'Stop' }],
+      _meta: {
+        'codebuddy/client-locale': currentLocale,
+        'codeagentpro/source-message-id': 'queued-stop',
+        'codebuddy/message-presentation': presentation,
+      },
+    });
+  });
   it('transports explicit plan and goal selections without rewriting message text', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
@@ -88,7 +110,10 @@ describe('acpPromptSession', () => {
     expect(prompt).toHaveBeenCalledWith({
       sessionId: 'image-session',
       prompt: [image],
-      _meta: { 'codeagentpro/source-message-id': 'image-source' },
+      _meta: {
+        'codeagentpro/source-message-id': 'image-source',
+        'codebuddy/client-locale': currentLocale,
+      },
     });
   });
 
@@ -148,6 +173,7 @@ describe('acpPromptSession', () => {
       prompt: [{ type: 'text', text: '继续执行' }],
       _meta: {
         'codeagentpro/source-message-id': 'retry-message',
+        'codebuddy/client-locale': currentLocale,
         'codeagentpro/turn-retry': {
           schemaVersion: 1,
           strategy: 'continue_checkpoint',
@@ -183,6 +209,7 @@ describe('acpPromptSession', () => {
       prompt: [{ type: 'text', text: 'Original request' }],
       _meta: {
         'codeagentpro/source-message-id': 'new-run-message',
+        'codebuddy/client-locale': currentLocale,
         'codeagentpro/turn-retry': {
           schemaVersion: 1,
           strategy: 'replay_user_request',

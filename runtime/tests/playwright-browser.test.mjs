@@ -7,6 +7,27 @@ import path from 'node:path';
 import { builtinMcp } from '../builtin-extensions.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 
+test('Windows standalone browser inherits OS lookup roots and retains isolated browser storage', { skip: process.platform !== 'win32' }, async () => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-browser-env-')));
+  const before = { ...process.env };
+  try {
+    const config = await builtinMcp({type:'builtin',name:'playwright'}, {cwd:root,dataDir:root});
+    assert.ok(config.args.includes('--isolated'));
+    assert.ok(!config.args.includes('--extension'));
+    const lookupRoots = new Set(['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA']);
+    for (const key of Object.keys(config.env)) assert.ok(!lookupRoots.has(key.toUpperCase()), key);
+    for (const key of ['TEMP', 'TMP', 'TMPDIR', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'CODEBUDDY_HOME']) {
+      const relative = path.relative(path.join(root, 'tool-runtime', 'playwright'), config.env[key]);
+      assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative), key);
+    }
+    assert.equal(config.args[config.args.indexOf('--output-dir') + 1], path.join(root, 'tool-runtime', 'playwright', 'cache'));
+    assert.deepEqual({ ...process.env }, before);
+  } finally {
+    assert.equal(path.dirname(root), await fs.realpath(os.tmpdir()));
+    await fs.rm(root, {recursive:true,force:true});
+  }
+});
+
 test('bundled Playwright MCP opens a real browser, clicks and verifies the result through Harness', { timeout: 90000 }, async () => {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-browser-mcp-')));
   const server = http.createServer((_req, res) => { res.setHeader('Content-Type','text/html; charset=utf-8'); res.end('<title>Browser acceptance</title><button onclick="this.textContent=\'已验证\'">验收按钮</button>'); });
@@ -35,6 +56,6 @@ test('bundled Playwright MCP opens a real browser, clicks and verifies the resul
     await driver?.close();
     server.closeAllConnections(); await new Promise(resolve=>server.close(resolve));
     assert.equal(path.dirname(root),await fs.realpath(os.tmpdir()));
-    await fs.rm(root,{recursive:true,force:true});
+    await fs.rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});
   }
 });

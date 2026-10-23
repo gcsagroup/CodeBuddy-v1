@@ -51,9 +51,12 @@ export default function OnboardingGuard({
   const pending = useRef<Promise<boolean> | null>(null);
   const [checkState, setCheckState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
+  const admitted = checkState === 'ready';
 
   useEffect(() => {
-    if (!requireModel) return;
+    // This is first-use onboarding, not a settings invalidation gate. Once the
+    // chat is mounted, connection errors belong to its model/send controls.
+    if (!requireModel || admitted) return;
     let cancelled = false;
     setCheckState('loading');
     // The runtime owns configured connections. Opening the app only reads them;
@@ -79,7 +82,7 @@ export default function OnboardingGuard({
     return () => {
       cancelled = true;
     };
-  }, [requireModel, attempt]);
+  }, [requireModel, attempt, admitted]);
 
   // Settings must remain reachable even if the connection inventory cannot load.
   if (!requireModel || checkState === 'ready') return <>{children}</>;

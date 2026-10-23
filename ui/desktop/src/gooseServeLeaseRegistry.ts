@@ -1,3 +1,4 @@
+/* global NodeJS */
 interface Logger { error: (...args: unknown[]) => void; }
 type GooseServeExitSignal = NodeJS.Signals | null;
 

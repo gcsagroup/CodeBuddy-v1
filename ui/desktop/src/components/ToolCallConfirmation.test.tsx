@@ -44,6 +44,34 @@ function renderPermissionRequest(request: RequestPermissionRequest) {
 }
 
 describe('ToolConfirmation', () => {
+  it('uses the same computer operation label in approval without changing its policy facts', () => {
+    render(
+      <ToolConfirmation
+        sessionId="friendly-computer"
+        isClicked={false}
+        actionRequiredContent={{
+          type: 'actionRequired',
+          data: {
+            actionType: 'toolConfirmation',
+            id: 'friendly-computer-approval',
+            toolName: 'mcp__qwen_computer__perform_secondary_action',
+            arguments: { action: 'Invoke' },
+            permissionClass: 'external_write',
+            extensionSource: 'external_stdio',
+            authorizationScope: 'task',
+            availableActions: ['allow_once', 'deny_once'],
+          },
+        }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(
+      screen.getByText('CodeBuddy would like to call Interact with a window control. Allow?')
+    ).toBeVisible();
+    expect(screen.getByText('Extension action (confirmation required)')).toBeVisible();
+    expect(screen.queryByText(/qwen_computer|secondary_action/)).not.toBeInTheDocument();
+  });
+
   it('discloses the actual workspace covered by a durable task-level file grant', () => {
     renderPermissionRequest({
       sessionId: 'session-task-grant',

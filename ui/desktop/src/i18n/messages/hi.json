@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "ऑटो कॉम्पैक्ट पर"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "अब संक्षिप्त करें"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "सीमा सहेजने में विफल: {error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "समझ गया!"
@@ -902,6 +887,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "Implements code and reports changes"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "कस्टम इमेज मॉडल चुनें"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "Uses the default configuration when not selected"
   },
@@ -1016,14 +1004,41 @@
   "codeProModels.visionAgentDescription": {
     "defaultMessage": "Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider."
   },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "डिफ़ॉल्ट: {model}"
+  },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
   },
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "Not configured (disabled)"
   },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "डिफ़ॉल्ट Flash मॉडल कॉन्फ़िगर नहीं है। कस्टम इमेज मॉडल चुनें।"
+  },
   "codeProModels.visionModelLabel": {
     "defaultMessage": "Vision model"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "इमेज इनपुट समर्थित नहीं: {model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -1733,9 +1748,6 @@
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
-  "conversationFiles.combinedFiles": {
-    "defaultMessage": "इस चरण की फ़ाइलें ({count})"
-  },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
@@ -2435,11 +2447,17 @@
   "elicitationRequest.expired": {
     "defaultMessage": "यह अनुरोध समाप्त हो गया है. एक्सटेंशन को फिर से पूछना होगा."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "अभी तक उत्तर नहीं मिला। आप अभी भी उत्तर दे सकते हैं।"
+  },
   "elicitationRequest.planReview": {
     "defaultMessage": "Review plan"
   },
   "elicitationRequest.question": {
     "defaultMessage": "प्रश्न"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "प्रश्न का उत्तर दें"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "छोड़ें"
@@ -2455,6 +2473,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "भेजा जा रहा है…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "आपके उत्तर की प्रतीक्षा है"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "आपकी प्रतिक्रिया की प्रतीक्षा में ({timeRemaining} शेष)"
@@ -3771,7 +3792,7 @@
     "defaultMessage": "रद्द करें"
   },
   "jsonSchemaForm.customAnswer": {
-    "defaultMessage": "Other answer"
+    "defaultMessage": "अपना उत्तर (वैकल्पिक)"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4829,14 +4850,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "मॉडल और कनेक्शन"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "संदर्भ क्षमता"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "सेवा की जानकारी न होने पर मॉडल की संदर्भ सीमा समायोजित करें।"
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "छवि और वीडियो निर्माण"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "छवि और वीडियो बनाने की सेवा कॉन्फ़िगर करें।"
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "In development"
@@ -4846,6 +4882,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "उप-एजेंट"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "नाम, मॉडल और निर्देश के साथ पुनः उपयोग योग्य एजेंट बनाएं।"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "छवि की समझ"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "पहले मुख्य मॉडल का उपयोग करें, ज़रूरत पर बैकअप मॉडल लें।"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
@@ -7235,6 +7283,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "मेन्यू पर लौटें"
+  },
   "settingsView.title": {
     "defaultMessage": "Settings"
   },
@@ -7580,26 +7631,68 @@
   "subagentLifecycle.start": {
     "defaultMessage": "ने काम शुरू किया"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "अधिकतम पुनरावर्तन गहराई"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "सीमाएँ लोड या सहेजी नहीं जा सकीं। सहेजा गया कॉन्फ़िगरेशन नहीं बदला।"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "गहराई 0 पर कार्य सौंपना बंद रहता है; 1 पर सीधे सब-एजेंट बन सकते हैं। समानांतर सीमा एक मुख्य एजेंट के सक्रिय वंशज गिनती है। बदलाव अगला कार्य तैयार करते समय लागू होंगे; मौजूदा सब-एजेंट रद्द नहीं होंगे।"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "अधिकतम समानांतर सब-एजेंट"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "सीमाएँ सहेजें"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "सहेजा गया। अगला कार्य तैयार करते समय लागू होगा।"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "रनटाइम सीमाएँ"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "उप-एजेंट जोड़ें"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "बदलाव नए उप-एजेंट पर लागू होंगे। मौजूदा एजेंट के निर्देश, टूल, मॉडल और इतिहास सुरक्षित रहेंगे। चैट में टेम्पलेट साझा होते हैं, बातचीत का इतिहास नहीं।"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "वेब स्रोतों की खोज"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "वेब स्रोत खोजें और पढ़ें, फिर निष्कर्षों की जाँच करके सारांश बनाएँ।"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "यह टेम्पलेट हटाएं? मौजूदा उप-एजेंट और उनका इतिहास बना रहेगा।"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "कस्टम उप-एजेंट"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "डिफ़ॉल्ट उप-एजेंट"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "डिफ़ॉल्ट टेम्पलेट इस्तेमाल करें या अपनी भूमिका सहेजें। उप-एजेंट केवल ज़रूरत पड़ने पर बनाए जाते हैं।"
   },
   "subagentTemplates.error": {
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "प्रोजेक्ट की पड़ताल"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "प्रोजेक्ट की फ़ाइलें पढ़ें, कोड के प्रवाह को समझें और संबंधित कार्यान्वयन खोजें।"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.inherit": {
     "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "एक अद्वितीय नाम और निर्देश दर्ज करें।"
   },
   "subagentTemplates.loading": {
     "defaultMessage": "Loading settings…"
@@ -7610,14 +7703,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "नाम"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "निर्देश"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "इसकी भूमिका, काम करने का तरीका और अपेक्षित परिणाम बताएं।"
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "सब-एजेंट हटाएँ"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "उप-एजेंट सेटिंग सहेजें"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -7627,6 +7732,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "Saved connection unavailable"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "नया उप-एजेंट"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7886,6 +7994,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.chart": {
+    "defaultMessage": "Create a chart"
+  },
   "toolAction.code": {
     "defaultMessage": "कोड चलाएँ"
   },
@@ -7904,8 +8015,29 @@
   "toolAction.contractRevise": {
     "defaultMessage": "Update task requirements"
   },
+  "toolAction.control": {
+    "defaultMessage": "Interact with a window control"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "Read pages across a website"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "Create a subagent"
+  },
   "toolAction.delegate": {
     "defaultMessage": "काम सौंपें"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "Locate available document tools"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "Create a desktop pet"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "Draw a diagram"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "Find available tools"
   },
   "toolAction.drag": {
     "defaultMessage": "विंडो में खींचें"
@@ -7919,6 +8051,18 @@
   "toolAction.editSummary": {
     "defaultMessage": "{count,plural,one{Edited # file} other{Edited # files}}"
   },
+  "toolAction.fetch": {
+    "defaultMessage": "Read webpage contents"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "Find files"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "Generate an image"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "Generate a video"
+  },
   "toolAction.generating": {
     "defaultMessage": "Preparing operation parameters{target}"
   },
@@ -7926,10 +8070,22 @@
     "defaultMessage": "{target} तैयार हो रहा है · {count} पंक्तियाँ प्राप्त हुईं — अभी सहेजा नहीं गया"
   },
   "toolAction.generatingFileHeadline": {
-    "defaultMessage": "Generating file contents{target} — not saved yet"
+    "defaultMessage": "Generating file contents{target}"
   },
   "toolAction.keyboard": {
     "defaultMessage": "कीबोर्ड का उपयोग करें"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "Check subagent progress"
+  },
+  "toolAction.location": {
+    "defaultMessage": "Find a location"
+  },
+  "toolAction.map": {
+    "defaultMessage": "Create a map"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "Send a message to a subagent"
   },
   "toolAction.mouse": {
     "defaultMessage": "विंडो में क्लिक करें"
@@ -7946,14 +8102,23 @@
   "toolAction.otherSummary": {
     "defaultMessage": "{count,plural,one{Completed # other operation} other{Completed # other operations}}"
   },
+  "toolAction.question": {
+    "defaultMessage": "सवाल पूछें"
+  },
   "toolAction.read": {
     "defaultMessage": "फ़ाइल पढ़ें"
   },
   "toolAction.readDone": {
     "defaultMessage": "Read file"
   },
+  "toolAction.readImage": {
+    "defaultMessage": "View an image"
+  },
   "toolAction.readSummary": {
     "defaultMessage": "{count,plural,one{Read # file} other{Read # files}}"
+  },
+  "toolAction.research": {
+    "defaultMessage": "Research a topic online"
   },
   "toolAction.result": {
     "defaultMessage": "परिणाम दिखाएँ"
@@ -7970,6 +8135,9 @@
   "toolAction.search": {
     "defaultMessage": "खोजें"
   },
+  "toolAction.searchContents": {
+    "defaultMessage": "Search file contents"
+  },
   "toolAction.shell": {
     "defaultMessage": "कमांड चलाएँ"
   },
@@ -7979,14 +8147,29 @@
   "toolAction.shellSummary": {
     "defaultMessage": "{count,plural,one{Ran # command} other{Ran # commands}}"
   },
+  "toolAction.siteMap": {
+    "defaultMessage": "Find pages on a website"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "Load task instructions"
+  },
   "toolAction.takeover": {
     "defaultMessage": "अधूरा सौंपा गया काम संभालें"
+  },
+  "toolAction.time": {
+    "defaultMessage": "Check the current time"
   },
   "toolAction.tree": {
     "defaultMessage": "फ़ाइलों की सूची देखें"
   },
   "toolAction.type": {
     "defaultMessage": "टेक्स्ट दर्ज करें"
+  },
+  "toolAction.value": {
+    "defaultMessage": "Fill in a field"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "Check the weather"
   },
   "toolAction.webSearch": {
     "defaultMessage": "Search the web"
@@ -7996,6 +8179,15 @@
   },
   "toolAction.webSearchRunning": {
     "defaultMessage": "Searching the web"
+  },
+  "toolAction.window": {
+    "defaultMessage": "Read window contents"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "List open windows"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "Check the working folder"
   },
   "toolAction.write": {
     "defaultMessage": "फ़ाइल लिखें"
@@ -8570,6 +8762,12 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "संपादित संदेश के साथ एक नया सत्र बनाएं"
   },
+  "userMessage.pending": {
+    "defaultMessage": "भेजे जाने की प्रतीक्षा में"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "पुष्टि की प्रतीक्षा में"
+  },
   "workStatus.approval": {
     "defaultMessage": "Waiting for your approval: {action}"
   },
@@ -8604,7 +8802,7 @@
     "defaultMessage": "Connection established; receiving model output"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "मॉडल सेवा की प्रतीक्षा है"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"
@@ -8944,5 +9142,8 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "मॉडल सेवा ने अभी तक कोई सामग्री नहीं भेजी है। आप प्रतीक्षा जारी रख सकते हैं या इस अनुरोध को रोक सकते हैं।"
   }
 }

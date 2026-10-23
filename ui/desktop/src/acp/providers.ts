@@ -277,39 +277,43 @@ export async function acpReadModelDisplaySettings(
   providerId: string,
   modelId: string
 ): Promise<ModelDisplaySettings> {
-  // The canonical lookup primes the existing provider metadata cache for this model.
-  await acpGetCanonicalModelInfo(providerId, modelId);
-  const fields = await acpReadProviderConfig(providerId);
-  const raw = fields.find((field) => field.key === `thinkingEffort:${modelId}`)?.value;
-  if (typeof raw !== 'string') throw new Error('Model thinking settings are unavailable');
-  const data = JSON.parse(raw) as { options?: unknown; value?: unknown; toggle?: unknown };
-  const known = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-  if (!Array.isArray(data.options) || !data.options.every((value) => known.includes(value)))
-    throw new Error('Invalid model thinking options');
-  const options = data.options.map((value) =>
-    value === 'none' ? 'off' : value
-  ) as ThinkingEffort[];
-  const value = data.value === 'none' ? 'off' : data.value;
-  if (value !== null && !options.includes(value as ThinkingEffort))
-    throw new Error('Invalid model thinking selection');
-  let contextWindow: number | null = null;
-  let contextSource: string | null = null;
-  try {
-    const context = JSON.parse(
-      fields.find((field) => field.key === `contextWindow:${modelId}`)?.value ?? 'null'
-    );
-    if (Number.isSafeInteger(context?.contextWindow) && context.contextWindow > 0) {
-      contextWindow = context.contextWindow;
-      contextSource = typeof context.contextSource === 'string' ? context.contextSource : null;
+  // These two existing reads can straddle a metadata refresh. Retry a lost
+  // reasoning profile once; never synthesize levels from the model's name.
+  for (let attempt = 0; ; attempt += 1) {
+    const info = await acpGetCanonicalModelInfo(providerId, modelId);
+    const fields = await acpReadProviderConfig(providerId);
+    const raw = fields.find((field) => field.key === `thinkingEffort:${modelId}`)?.value;
+    if (typeof raw !== 'string') throw new Error('Model thinking settings are unavailable');
+    const data = JSON.parse(raw) as { options?: unknown; value?: unknown; toggle?: unknown };
+    const known = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+    if (!Array.isArray(data.options) || !data.options.every((value) => known.includes(value)))
+      throw new Error('Invalid model thinking options');
+    const options = data.options.map((value) =>
+      value === 'none' ? 'off' : value
+    ) as ThinkingEffort[];
+    const value = data.value === 'none' ? 'off' : data.value;
+    if (value !== null && !options.includes(value as ThinkingEffort))
+      throw new Error('Invalid model thinking selection');
+    let contextWindow: number | null = null;
+    let contextSource: string | null = null;
+    try {
+      const context = JSON.parse(
+        fields.find((field) => field.key === `contextWindow:${modelId}`)?.value ?? 'null'
+      );
+      if (Number.isSafeInteger(context?.contextWindow) && context.contextWindow > 0) {
+        contextWindow = context.contextWindow;
+        contextSource = typeof context.contextSource === 'string' ? context.contextSource : null;
+      }
+    } catch {
+      /* Optional display metadata does not invalidate a valid thinking configuration. */
     }
-  } catch {
-    /* Optional display metadata does not invalidate a valid thinking configuration. */
+    if (attempt === 0 && info?.reasoning && !options.length) continue;
+    return {
+      thinking: { options, value: value as ThinkingEffort | null, toggle: data.toggle === true },
+      contextWindow,
+      contextSource,
+    };
   }
-  return {
-    thinking: { options, value: value as ThinkingEffort | null, toggle: data.toggle === true },
-    contextWindow,
-    contextSource,
-  };
 }
 
 export async function acpSaveThinkingEffort(

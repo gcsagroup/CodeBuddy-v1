@@ -25,6 +25,7 @@ export interface GooseMessageMeta {
   messageId?: string;
   created?: number;
   steer?: boolean;
+  presentation?: Message['metadata']['presentation'];
 }
 
 export interface ToolIdentity {
@@ -37,8 +38,22 @@ export const DEFAULT_VISIBLE_MESSAGE_METADATA: Message['metadata'] = {
   agentVisible: true,
 };
 
-export function messagesChange(state: AdapterState): AcpChatStateChange[] {
-  return [{ type: 'messages', messages: state.messages.map(cloneMessage) }];
+const publishedMessages = new WeakMap<AdapterState, Message[]>();
+
+// The adapter still owns mutable input. Publish isolated snapshots, retaining
+// unchanged messages for a known single-message text/thought update.
+export function messagesChange(state: AdapterState, changed?: Message): AcpChatStateChange[] {
+  const previous = publishedMessages.get(state);
+  const index = changed ? state.messages.indexOf(changed) : -1;
+  let messages: Message[];
+  if (previous && previous.length === state.messages.length && index >= 0 && changed) {
+    messages = previous.slice();
+    messages[index] = cloneMessage(changed);
+  } else {
+    messages = state.messages.map(cloneMessage);
+  }
+  publishedMessages.set(state, messages);
+  return [{ type: 'messages', messages }];
 }
 
 export function cloneMessage(message: Message): Message {
@@ -63,6 +78,13 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
     created: typeof goose.created === 'number' ? goose.created : undefined,
     messageId: typeof goose.messageId === 'string' ? goose.messageId : undefined,
     steer: goose.steer === true ? true : undefined,
+    presentation:
+      isRecord(goose.presentation) &&
+      typeof goose.presentation.afterMessageId === 'string' &&
+      goose.presentation.afterMessageId.length > 0 &&
+      goose.presentation.afterMessageId.length <= 2048
+        ? { afterMessageId: goose.presentation.afterMessageId }
+        : undefined,
   };
 }
 

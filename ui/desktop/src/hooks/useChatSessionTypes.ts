@@ -16,6 +16,8 @@ export interface UseChatSessionParams {
 }
 
 export interface MessageSubmissionLifecycle {
+  /** Diagnostic timestamp only; never used for admission or cancellation. */
+  submittedAtMs?: number;
   onAccepted(): void;
   onRejectedBeforeAcceptance(): void;
   onDeliveryUncertain?(): void;

@@ -58,7 +58,7 @@ test('official Harness sends real image HTTP only to the read-only observer and 
 
 test('official observer rejects invalid pixels, empty output, provider errors and unsolicited tool attempts', { timeout: 30_000 }, async t => {
   const f = await fixture(t);
-  for (const model of ['vision-empty', 'vision-error', 'vision-tool']) await assert.rejects(f.service.preparePrompt(f.request(model)), /no observation text|controlled model error|did not finish|tool|error/i);
+  for (const model of ['vision-empty', 'vision-error', 'vision-tool']) await assert.rejects(f.service.preparePrompt(f.request(model)), error => error.data?.kind === 'vision_error');
   await assert.rejects(access(path.join(f.directory, 'unexpected.txt')));
   const count = f.requests.length, request = f.request('vision'); request.content = [{ ...f.content[1], mediaType: 'image/jpeg' }];
   await assert.rejects(f.service.preparePrompt(request)); assert.equal(f.requests.length, count, 'official attachment admission checks actual pixels before HTTP');
@@ -71,7 +71,7 @@ test('official observer cancellation and independent timeout quiesce streaming H
     f.service.timeoutMs = mode === 'timeout' ? 300 : 10_000;
     const controller = new AbortController();
     const prepared = f.service.preparePrompt({ ...f.request('vision-slow'), signal: controller.signal });
-    const rejected = assert.rejects(prepared, mode === 'timeout' ? /timed out/ : /abort|cancelled/i);
+    const rejected = assert.rejects(prepared, error => mode === 'timeout' ? error.data?.reason === 'vision_timeout' : error.name === 'AbortError');
     await start.promise; assert.deepEqual(f.service.activeProviderIds(), ['fixture']);
     if (mode === 'cancel') controller.abort();
     await rejected; assert.deepEqual(f.service.activeProviderIds(), []);

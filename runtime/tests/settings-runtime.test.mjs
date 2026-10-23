@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import http from "node:http";
 import { Compat } from "../compat.mjs";
 import { openStore } from "../store.mjs";
 import { CODEPRO_ROLES } from "../roles.mjs";
@@ -101,6 +102,31 @@ async function fixture({ codepro = false } = {}) {
   const compat = new Compat(store, driver);
   return { compat, store, created, session, driver };
 }
+
+test('settings model discovery accepts a healthy response slower than advisory metadata probing', async t => {
+  const server = http.createServer((_req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.write('{"data":[');
+    const timer = setTimeout(() => res.end('{"id":"slow-model"}]}'), 2300);
+    res.once('close', () => clearTimeout(timer));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => {
+    server.closeAllConnections();
+    return new Promise(resolve => server.close(resolve));
+  });
+  const f = await fixture();
+  await f.store.update(state => {
+    state.providers[0].apiUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+  const before = f.store.read(['providers']).providers;
+  const result = await f.compat.request(ext('providers/supported-models/list'), {
+    providerId: 'default-provider',
+  });
+  assert.deepEqual(result.models, ['slow-model']);
+  assert.deepEqual(f.store.read(['providers']).providers, before,
+    'Discovery must not rewrite saved connections or model selections');
+});
 
 test("session prompt set replaces the base and append keeps separate keyed instructions through clear", async () => {
   const f = await fixture();

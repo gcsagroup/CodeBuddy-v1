@@ -31,6 +31,7 @@ test('transport timings separate response wait from reasoning and text without c
   const reasoning = events.find(e => e.phase === 'first_reasoning');
   const text = events.find(e => e.phase === 'first_text');
   const end = events.at(-1);
+  assert.ok(events.every(event => Number.isSafeInteger(event.at_ms) && event.at_ms > 0));
   const phases = events.map(event => event.phase);
   for (const [before, after] of [['start','request_created'], ['request_created','request_sent'], ['request_sent','response_headers'], ['response_headers','first_reasoning']])
     assert.ok(phases.indexOf(before) < phases.indexOf(after), `${before} precedes ${after}`);
@@ -60,6 +61,6 @@ test('a tool-only stream records first arguments and wall time without exposing 
   assert.ok(events.some(e => e.phase === 'first_tool_arguments'));
   assert.equal(events.at(-1).toolArgumentChars, 12);
   assert.equal(events.at(-1).toolCallBlocks, 1);
-  assert.ok(events.every(e => Number.isSafeInteger(e.atMs)));
+  assert.ok(events.every(e => Number.isSafeInteger(e.at_ms) && e.at_ms > 0));
   assert.doesNotMatch(JSON.stringify(events), /PRIVATE_CODE/);
 });

@@ -8,7 +8,7 @@ import { validatePreference } from '../settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 
 const id = 'bafe8f1d-310a-4e29-92e7-73e7ba920ade';
-async function fixture(t) {
+async function fixture(t, saveNode = '461') {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-comfy-')));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   t.after(async () => {
@@ -23,7 +23,7 @@ async function fixture(t) {
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.includes('/upload/image')) return Response.json({ name: 'reference.png', subfolder: 'input', type: 'input' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
-    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { '461': { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
+    if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { [saveNode]: { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
       : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'GPU OOM' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[1, id]] : [], queue_pending: state === 'queued' ? [[1, id]] : [] });
     if (url.includes('/view?')) return new Response(png);
@@ -33,6 +33,21 @@ async function fixture(t) {
   return { root, cwd, png, calls, options, tool: comfyuiTool(options), state: value => { state = value; } };
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
+
+test('pre-template queued receipts still download their original output without submitting a replacement', async t => {
+  const f = await fixture(t, 'save');
+  const records = path.join(f.root, 'image-jobs', Buffer.from(f.options.sessionId).toString('hex'));
+  await mkdir(records, { recursive: true });
+  await writeFile(path.join(records, `${id}.json`), JSON.stringify({
+    job_id: id, prompt_id: id, server: f.options.baseUrl, status: 'queued',
+    created_at: new Date().toISOString(), input: generate,
+  }));
+  f.state('completed');
+  const receipt = await f.tool.execute({ operation: 'status', job_id: id });
+  assert.equal(receipt.status, 'completed');
+  assert.deepEqual(await readFile(receipt.images[0].path), f.png);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 0);
+});
 
 test('low disk space prevents submission; completed remote output can be downloaded after space is freed without resubmission', async t => {
   const f = await fixture(t);
@@ -118,6 +133,23 @@ test('unsupported targeted cancellation never calls a global interrupt', async t
   const failure = await old.execute({ operation: 'status', job_id: id });
   assert.equal(failure.status, 'failed'); assert.match(failure.error, /GPU OOM/);
 });
+test('visual inspection refuses an output moved outside the workspace without invalidating the completed job', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate); f.state('completed');
+  const completed = await f.tool.execute({ operation: 'status', job_id: id });
+  const receiptPath = path.join(f.root, 'image-jobs', Buffer.from('test-session').toString('hex'), `${id}.json`);
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  receipt.images[0].path = path.join(f.root, 'outside.png');
+  await writeFile(receipt.images[0].path, f.png);
+  await writeFile(receiptPath, JSON.stringify(receipt));
+  const result = await f.tool.execute({ operation: 'status', job_id: id });
+  assert.equal(result.status, 'completed');
+  assert.ok(result.content.every(block => block.type === 'text'));
+  assert.match(JSON.stringify(result.content), /inspection is unavailable/);
+  assert.deepEqual(await readFile(completed.images[0].path), f.png);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
 test('official Harness discovers and calls the image tool without adding it to the global native filter', async t => {
   const f = await fixture(t);
   const driver = await createHarnessDriver({ dataDir: path.join(f.root, 'harness'), cwd: f.cwd });

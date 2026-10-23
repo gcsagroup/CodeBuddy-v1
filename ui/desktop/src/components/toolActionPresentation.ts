@@ -9,7 +9,7 @@ const messages = defineMessages({
   writeRunning: { id: 'toolAction.writeRunning', defaultMessage: 'Writing file{target}' },
   generatingFileHeadline: {
     id: 'toolAction.generatingFileHeadline',
-    defaultMessage: 'Generating file contents{target} — not saved yet',
+    defaultMessage: 'Generating file contents{target}',
   },
   editDone: { id: 'toolAction.editDone', defaultMessage: 'Edited file' },
   shellDone: { id: 'toolAction.shellDone', defaultMessage: 'Ran command' },
@@ -36,6 +36,41 @@ const messages = defineMessages({
   mouse: { id: 'toolAction.mouse', defaultMessage: 'Click in window' },
   keyboard: { id: 'toolAction.keyboard', defaultMessage: 'Use keyboard' },
   type: { id: 'toolAction.type', defaultMessage: 'Enter text' },
+  windows: { id: 'toolAction.windows', defaultMessage: 'List open windows' },
+  window: { id: 'toolAction.window', defaultMessage: 'Read window contents' },
+  control: { id: 'toolAction.control', defaultMessage: 'Interact with a window control' },
+  value: { id: 'toolAction.value', defaultMessage: 'Fill in a field' },
+  discover: { id: 'toolAction.discover', defaultMessage: 'Find available tools' },
+  findFiles: { id: 'toolAction.findFiles', defaultMessage: 'Find files' },
+  searchContents: { id: 'toolAction.searchContents', defaultMessage: 'Search file contents' },
+  readImage: { id: 'toolAction.readImage', defaultMessage: 'View an image' },
+  createAgent: { id: 'toolAction.createAgent', defaultMessage: 'Create a subagent' },
+  sourceResearch: { id: 'subagentTemplates.browser', defaultMessage: 'Web research' },
+  messageAgent: { id: 'toolAction.messageAgent', defaultMessage: 'Send a message to a subagent' },
+  listAgents: { id: 'toolAction.listAgents', defaultMessage: 'Check subagent progress' },
+  skill: { id: 'toolAction.skill', defaultMessage: 'Load task instructions' },
+  workingDirectory: {
+    id: 'toolAction.workingDirectory',
+    defaultMessage: 'Check the working folder',
+  },
+  dependencies: {
+    id: 'toolAction.dependencies',
+    defaultMessage: 'Locate available document tools',
+  },
+  fetch: { id: 'toolAction.fetch', defaultMessage: 'Read webpage contents' },
+  crawl: { id: 'toolAction.crawl', defaultMessage: 'Read pages across a website' },
+  siteMap: { id: 'toolAction.siteMap', defaultMessage: 'Find pages on a website' },
+  research: { id: 'toolAction.research', defaultMessage: 'Research a topic online' },
+  time: { id: 'toolAction.time', defaultMessage: 'Check the current time' },
+  location: { id: 'toolAction.location', defaultMessage: 'Find a location' },
+  weather: { id: 'toolAction.weather', defaultMessage: 'Check the weather' },
+  diagram: { id: 'toolAction.diagram', defaultMessage: 'Draw a diagram' },
+  chart: { id: 'toolAction.chart', defaultMessage: 'Create a chart' },
+  map: { id: 'toolAction.map', defaultMessage: 'Create a map' },
+  generateImage: { id: 'toolAction.generateImage', defaultMessage: 'Generate an image' },
+  generateVideo: { id: 'toolAction.generateVideo', defaultMessage: 'Generate a video' },
+  desktopPet: { id: 'toolAction.desktopPet', defaultMessage: 'Create a desktop pet' },
+  question: { id: 'toolAction.question', defaultMessage: 'Ask a question' },
   code: { id: 'toolAction.code', defaultMessage: 'Execute code' },
   delegate: { id: 'toolAction.delegate', defaultMessage: 'Delegate work' },
   takeover: { id: 'toolAction.takeover', defaultMessage: 'Take over unfinished delegated work' },
@@ -73,6 +108,11 @@ const messages = defineMessages({
     defaultMessage: 'Completed {count, plural, one {# operation} other {# operations}}',
   },
 });
+
+// Localize the reserved built-in label without changing persisted child identity.
+export function formatSubagentLabel(intl: IntlShape, label: string): string {
+  return label === 'browser' ? intl.formatMessage(messages.sourceResearch) : label;
+}
 
 // Presentation only: these operations manage requirements/evidence, not user artifacts.
 // Unknown operations retain ordinary tool status instead of being silently grouped here.
@@ -137,7 +177,8 @@ export function formatToolAction(
   fullName: string,
   args: Record<string, unknown>,
   state?: 'running' | 'completed',
-  presentation: 'detail' | 'headline' = 'detail'
+  presentation: 'detail' | 'headline' | 'name' = 'detail',
+  fallbackTitle?: string
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
   if (isWebSearchTool(fullName)) {
@@ -159,6 +200,9 @@ export function formatToolAction(
     if (typeof path === 'string') target = path.split(/[\\/]/).filter(Boolean).pop() ?? '';
   };
   switch (name) {
+    case 'subagent_browser':
+      action = 'sourceResearch';
+      break;
     case 'task_contract':
       action =
         args.operation === 'inspect'
@@ -194,6 +238,30 @@ export function formatToolAction(
     case 'tree':
       action = 'tree';
       break;
+    case 'glob':
+      action = 'findFiles';
+      break;
+    case 'grep':
+      action = 'searchContents';
+      break;
+    case 'read_image':
+      action = 'readImage';
+      break;
+    case 'search_mcp_tools':
+      action = 'discover';
+      break;
+    case 'list_apps':
+      action = 'windows';
+      break;
+    case 'get_app_state':
+      action = 'window';
+      break;
+    case 'perform_secondary_action':
+      action = 'control';
+      break;
+    case 'set_value':
+      action = 'value';
+      break;
     case 'search':
     case 'computer_search_ui':
       action = 'search';
@@ -209,21 +277,26 @@ export function formatToolAction(
       action = 'screenshot';
       break;
     case 'computer_click':
+    case 'click':
       action = 'mouse';
       break;
     case 'computer_move':
       action = 'move';
       break;
     case 'computer_drag':
+    case 'drag':
       action = 'drag';
       break;
     case 'computer_scroll':
+    case 'scroll':
       action = 'scroll';
       break;
     case 'computer_key':
+    case 'press_key':
       action = 'keyboard';
       break;
     case 'computer_type':
+    case 'type_text':
       action = 'type';
       break;
     case 'execute_typescript':
@@ -234,6 +307,72 @@ export function formatToolAction(
     case 'delegate_readonly':
       action = 'delegate';
       break;
+    case 'subagent':
+      action = 'createAgent';
+      break;
+    case 'send_message':
+      action = 'messageAgent';
+      break;
+    case 'list_agents':
+      action = 'listAgents';
+      break;
+    case 'skill':
+      action = 'skill';
+      break;
+    case 'working_directory':
+      action = 'workingDirectory';
+      break;
+    case 'load_workspace_dependencies':
+      action = 'dependencies';
+      break;
+    case 'tavily_extract':
+    case 'web_scrape':
+      action = 'fetch';
+      break;
+    case 'tavily_crawl':
+      action = 'crawl';
+      break;
+    case 'tavily_map':
+      action = 'siteMap';
+      break;
+    case 'tavily_research':
+      action = 'research';
+      break;
+    case 'time_now':
+      action = 'time';
+      break;
+    case 'location_resolve':
+      action = 'location';
+      break;
+    case 'weather_get':
+      action = 'weather';
+      break;
+    case 'render_mermaid':
+      action = 'diagram';
+      break;
+    case 'render_map':
+      action = 'map';
+      break;
+    case 'render_chord':
+    case 'render_donut':
+    case 'render_radar':
+    case 'render_sankey':
+    case 'render_treemap':
+    case 'show_chart':
+      action = 'chart';
+      break;
+    case 'generate_image':
+      action = 'generateImage';
+      break;
+    case 'generate_video':
+      action = 'generateVideo';
+      break;
+    case 'create_desktop_pet':
+      action = 'desktopPet';
+      break;
+    case 'ask_user_question':
+      action = 'question';
+      break;
     case 'take_over':
       action = 'takeover';
       break;
@@ -241,7 +380,17 @@ export function formatToolAction(
       action = 'result';
       break;
   }
-  if (!action) return intl.formatMessage(messages.other, { name: snakeToTitleCase(name) });
+  if (!action) {
+    // A supplied display title is presentation only. Raw namespaced identifiers
+    // remain in the original request/receipt for routing, approval and diagnostics.
+    const title = fallbackTitle?.trim();
+    const label =
+      title && title !== fullName && title !== name && !/(__|::)/.test(title)
+        ? title
+        : snakeToTitleCase(name);
+    return presentation === 'name' ? label : intl.formatMessage(messages.other, { name: label });
+  }
+  if (presentation === 'name') return intl.formatMessage(messages[action]);
   const compactTarget = target.replace(/\s+/g, ' ').trim();
   const visibleTarget =
     compactTarget.length > 80 ? compactTarget.slice(0, 77) + '…' : compactTarget;

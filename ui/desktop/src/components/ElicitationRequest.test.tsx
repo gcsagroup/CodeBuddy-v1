@@ -37,6 +37,61 @@ function renderElicitationRequest(onSubmit: SubmitElicitationResponse) {
 }
 
 describe('ElicitationRequest', () => {
+  it('keeps the native timed form answerable after the wait and shows the late-answer phase', async () => {
+    const onSubmit = vi.fn<SubmitElicitationResponse>().mockResolvedValue(true);
+    const content = {
+      ...actionRequiredContent,
+      data: {
+        ...actionRequiredContent.data,
+        nativeQuestion: true,
+        continued: true,
+        expiresAt: Date.now() - 1000,
+      },
+    };
+    render(
+      <ElicitationRequest
+        standalone
+        isCancelledMessage={false}
+        isClicked={false}
+        actionRequiredContent={content}
+        onSubmit={onSubmit}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText('Not answered yet. You can still reply.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(onSubmit).toHaveBeenCalledWith('elicitation-1', {});
+  });
+  it('keeps the original deadline when remounted and never submits an answer on timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const onSubmit = vi.fn<SubmitElicitationResponse>();
+      const content = {
+        ...actionRequiredContent,
+        data: { ...actionRequiredContent.data, expiresAt: Date.now() + 300_000 },
+      };
+      const element = (
+        <ElicitationRequest
+          standalone
+          isCancelledMessage={false}
+          isClicked={false}
+          actionRequiredContent={content}
+          onSubmit={onSubmit}
+        />
+      );
+      const first = render(element, { wrapper: IntlTestWrapper });
+      await act(() => vi.advanceTimersByTimeAsync(290_000));
+      first.unmount();
+      render(element, { wrapper: IntlTestWrapper });
+      expect(screen.getByText(/0:10 remaining/)).toBeInTheDocument();
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      expect(screen.getByText(/This request has expired/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('shows submitted state when the response is accepted', async () => {
     const onSubmit = vi.fn<SubmitElicitationResponse>().mockResolvedValue(true);
 

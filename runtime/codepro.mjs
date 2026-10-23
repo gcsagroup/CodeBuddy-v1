@@ -313,7 +313,7 @@ export class CodeProRuns {
         updated.push(copy(row));
       }
       return updated;
-    });
+    }, ['codeproRuns']);
     for (const row of changed) this.publish(row);
     return changed.length;
   }
@@ -328,7 +328,7 @@ export class CodeProRuns {
       const row = rowIn(state, params); const previousSequence = row.events.length;
       const value = change(row, project(row));
       return { row: copy(row), previousSequence, value };
-    });
+    }, ['codeproRuns']);
     if (result.row.events.length !== result.previousSequence) this.publish(result.row, result.previousSequence);
     return { snapshot: snapshot(result.row), ...result.value };
   }
@@ -344,7 +344,7 @@ export class CodeProRuns {
       const next = { version: VERSION, sessionId, runId, events: [], commands: [] };
       event(next, 'run_created', { goal, sourceMessageId, policy: completionPolicy, executionOwner });
       state.codeproRuns.push(next); return copy(next);
-    });
+    }, ['codeproRuns']);
     this.publish(row, 0);
     return snapshot(row);
   }
@@ -565,7 +565,7 @@ export class CodeProRuns {
       row.commands.push({ commandId: params.commandId, action: copy(action), previousSequence });
       event(row, action.type === 'resume_run' ? 'run_resumed' : 'pause_requested', { reason: action.reason ?? 'User resumed execution', commandId: params.commandId });
       return { row: copy(row), previousSequence, activeAttempt: view.activeAttempt };
-    });
+    }, ['codeproRuns']);
     if (prepared.replay) return prepared.replay;
     this.publish(prepared.row, prepared.previousSequence);
     if (action.type !== 'resume_run' && this.onCancel) {
@@ -599,7 +599,7 @@ export class CodeProRuns {
       const response = { commandId: params.commandId, previousSequence: prepared.previousSequence, committedEventIds: row.events.slice(prepared.previousSequence).map((entry) => entry.eventId), snapshot: snapshot(row) };
       row.commands.find((command) => command.commandId === params.commandId).response = copy(response);
       return { row: copy(row), response };
-    });
+    }, ['codeproRuns']);
     this.publish(committed.row, prepared.row.events.length);
     if (action.type === 'resume_run') queueMicrotask(() => {
       Promise.resolve().then(() => this.onResume({ sessionId: params.sessionId, runId: params.runId, context: this.context(params) })).catch(() => this.mutate(params, (row, view) => {

@@ -21,7 +21,9 @@ export async function createCompatServer({ dataDir, secret, driver }) {
   const profileLock = await acquireProfileLock(path.resolve(dataDir));
   let compat, appProxy;
   try {
-    const store = await openStore(profileLock.directory);
+    const store = await openStore(profileLock.directory, {
+      onTiming: timing => console.info(`[Store ${timing.operation ?? 'commit'} timing]`, JSON.stringify(timing)),
+    });
     let warmup;
     if (!driver) {
       let loaded;
@@ -122,7 +124,7 @@ export async function createCompatServer({ dataDir, secret, driver }) {
         return res.end("Use the authenticated WebSocket transport");
       }
       if (url.pathname === "/status" || url.pathname === "/health") {
-        const d = store.read().defaults;
+        const d = store.read(['defaults']).defaults;
         res.writeHead(200, {
           "content-type": "application/json",
           "cache-control": "no-store",

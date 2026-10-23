@@ -650,7 +650,7 @@ export class Compat {
       throw invalid("Configure the current session model first");
     return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
   }
-  info(s, state = this.store.read()) {
+  info(s, state = this.store.read(['schedules', 'codeproRuns'])) {
     // Scheduled origin is a UI contract, independent of the native execution
     // mode. Older sessions can recover it from the persisted schedule history.
     const scheduled = s.scheduleId || state.schedules?.some((job) => job.sessions?.includes(s.id));
@@ -1356,9 +1356,13 @@ export class Compat {
         typeof p._meta?.query === "string"
           ? p._meta.query.trim().toLocaleLowerCase()
           : "";
-      // A history listing must use one consistent snapshot. Reading the full
-      // transcript store per row blocks model streams on large migrated profiles.
-      const state = this.store.read();
+      // Sidebar refresh needs metadata; only explicit full-text searches need
+      // transcript content. Both paths select one consistent committed snapshot.
+      const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], query ? undefined : {
+        sessionFields: ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
+          'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
+          'readonlyHistory', 'userSetName', 'archivedAt'],
+      });
       const sessions = state.sessions.filter(
           (s) =>
             (!p.cwd || s.cwd === p.cwd) &&

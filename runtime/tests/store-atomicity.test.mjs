@@ -45,6 +45,42 @@ test('configuration snapshots exclude histories, remain detached and publish onl
   assert.equal(store.read().sessions.length, 650);
 });
 
+test('scoped ledger and full history writes remain serialized, detached and durable together', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-scoped-'));
+  const store = await openStore(root);
+  await store.update(s => { s.sessions = [{id: 'chat', updates: ['saved']}]; s.codeproRuns = [{id: 'run', events: ['created']}]; });
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const roots = ['codeproRuns'];
+  const ledger = store.update(async draft => {
+    assert.deepEqual(Object.keys(draft), ['codeproRuns'], 'ledger writer has no historical transcript reference');
+    draft.codeproRuns[0].events.push('stopped');
+    entered.resolve(); await release.promise;
+  }, roots);
+  roots.push('sessions');
+  await entered.promise;
+  assert.deepEqual(store.read(['codeproRuns']).codeproRuns[0].events, ['created']);
+  const history = store.update(s => {
+    assert.deepEqual(s.codeproRuns[0].events, ['created', 'stopped']);
+    s.sessions[0].updates.push('next');
+  });
+  release.resolve(); await Promise.all([ledger, history]);
+  const restored = await openStore(root);
+  assert.deepEqual(restored.readSession('chat').updates, ['saved', 'next']);
+  assert.deepEqual(restored.read(['codeproRuns']).codeproRuns[0].events, ['created', 'stopped']);
+});
+
+test('failed scoped mutations never publish partial ledger changes or modify unrelated roots', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-scoped-failure-'));
+  const store = await openStore(root);
+  await store.update(s => { s.sessions = [{id: 'chat', updates: ['saved']}]; s.codeproRuns = []; });
+  await assert.rejects(store.update(s => { s.codeproRuns.push('uncommitted'); s.sessions = []; }, ['codeproRuns']), TypeError);
+  await assert.rejects(store.update(s => { s.codeproRuns.push('uncommitted'); throw Error('mutation fixture'); }, ['codeproRuns']), /mutation fixture/);
+  assert.deepEqual(store.read(['codeproRuns']).codeproRuns, []);
+  assert.deepEqual((await openStore(root)).readSession('chat').updates, ['saved']);
+  await store.update(s => { s.codeproRuns.push('committed'); }, ['codeproRuns']);
+  assert.deepEqual((await openStore(root)).read(['codeproRuns']).codeproRuns, ['committed']);
+});
+
 test('a transient Windows replace denial keeps the old snapshot until one atomic commit and preserves queued writes', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-retry-'));
   let denied = 0, updates = 0;
@@ -86,4 +122,22 @@ test('nontransient storage errors are surfaced immediately', async () => {
   const store = await openStore(root, { replaceFile: async () => { calls++; throw Object.assign(Error('Disk full fixture'), { code: 'ENOSPC' }); } });
   await assert.rejects(store.update(s => { s.revision = 1; }), { code: 'ENOSPC' });
   assert.equal(calls, 1); assert.equal(store.read().revision, 0);
+});
+
+test('timing observer failures cannot roll back a committed write or mask a storage error', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-timing-'));
+  const observations = []; let deny = false;
+  const store = await openStore(root, {
+    replaceFile: async (from, to) => {
+      if (deny) throw Object.assign(Error('Disk full fixture'), { code: 'ENOSPC' });
+      return rename(from, to);
+    },
+    onTiming: measurement => { observations.push(measurement); throw Error('Observer fixture'); },
+  });
+  await store.update(s => { s.revision = 1; });
+  deny = true;
+  await assert.rejects(store.update(s => { s.revision = 2; }), { code: 'ENOSPC' });
+  assert.equal(store.read().revision, 1);
+  assert.deepEqual(observations.map(item => item.committed), [true, false]);
+  assert.equal(JSON.parse(await readFile(path.join(root, 'state.json'))).revision, 1);
 });

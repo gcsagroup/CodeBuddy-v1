@@ -472,6 +472,83 @@ describe('acpChatSessionController.submitMessage', () => {
     expect(acpChatSessionActions.startPromptAttempt).not.toHaveBeenCalled();
   });
 
+  it('acknowledges the matching user echo before run startup without accepting unrelated history', async () => {
+    let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
+    vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {
+      notifySnapshot = listener;
+      return () => undefined;
+    });
+    let finishPrompt: ((value: { stopReason: string }) => void) | undefined;
+    vi.mocked(acpPromptSession).mockReturnValue(
+      new Promise((resolve) => {
+        finishPrompt = resolve;
+      }) as never
+    );
+    const onAccepted = vi.fn();
+    const onRejectedBeforeAcceptance = vi.fn();
+    const submission = acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null),
+      onFinish: vi.fn(),
+      onAccepted,
+      onRejectedBeforeAcceptance,
+    });
+    const pending = {
+      ...snapshotWithActivePrompt(
+        vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls[0][1]
+      ),
+      activeRunId: null,
+    };
+
+    notifySnapshot?.({ ...pending, messages: [{ ...userMessage(), id: 'older-message' }] });
+    notifySnapshot?.({ ...pending, messages: [{ ...userMessage(), role: 'assistant' }] });
+    notifySnapshot?.({
+      ...pending,
+      activePromptAttemptId: 'older-attempt',
+      messages: [userMessage()],
+    });
+    expect(onAccepted).not.toHaveBeenCalled();
+    notifySnapshot?.({ ...pending, messages: [userMessage()] });
+    expect(onAccepted).toHaveBeenCalledOnce();
+    notifySnapshot?.({ ...pending, activeRunId: 'run-1', messages: [userMessage()] });
+    finishPrompt?.({ stopReason: 'end_turn' });
+    await submission;
+    expect(onAccepted).toHaveBeenCalledOnce();
+    expect(onRejectedBeforeAcceptance).not.toHaveBeenCalled();
+  });
+
+  it('does not use a pre-existing user message as a new submission receipt', async () => {
+    const previous = { ...snapshotWithActivePrompt(null), messages: [userMessage()] };
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(previous);
+    let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
+    vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {
+      notifySnapshot = listener;
+      return () => undefined;
+    });
+    let finishPrompt: ((value: { stopReason: string }) => void) | undefined;
+    vi.mocked(acpPromptSession).mockReturnValue(
+      new Promise((resolve) => {
+        finishPrompt = resolve;
+      }) as never
+    );
+    const onAccepted = vi.fn();
+    const onRejectedBeforeAcceptance = vi.fn();
+    const submission = acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => previous,
+      onFinish: vi.fn(),
+      onAccepted,
+      onRejectedBeforeAcceptance,
+    });
+    notifySnapshot?.({
+      ...previous,
+      activePromptAttemptId: vi.mocked(acpChatSessionActions.startPromptAttempt).mock.calls[0][1],
+      activeRunId: null,
+    });
+    expect(onAccepted).not.toHaveBeenCalled();
+    finishPrompt?.({ stopReason: 'cancelled' });
+    await submission;
+    expect(onRejectedBeforeAcceptance).toHaveBeenCalledOnce();
+  });
+
   it('acknowledges server receipt from the active run before the agent turn completes', async () => {
     let notifySnapshot: ((snapshot: AcpChatSessionSnapshot) => void) | undefined;
     vi.mocked(subscribeToAcpChatSession).mockImplementation((_sessionId, listener) => {

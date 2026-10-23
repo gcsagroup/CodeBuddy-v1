@@ -349,6 +349,10 @@ async function submitMessage(
     return;
   }
 
+  const userMessageAlreadyPresent = snapshot?.messages.some(
+    (message) => message.role === 'user' && message.id === userMessage.id
+  );
+
   const existingTerminalIds = new Set(
     (options.getCurrentSnapshot()?.messages ?? [])
       .map(getTurnTerminalRecord)
@@ -383,8 +387,14 @@ async function submitMessage(
     if (
       !accepted &&
       nextSnapshot.activePromptAttemptId === promptAttemptId &&
-      nextSnapshot.activeRunId !== null
+      (nextSnapshot.activeRunId !== null ||
+        (!userMessageAlreadyPresent &&
+          nextSnapshot.messages.some(
+            (message) => message.role === 'user' && message.id === userMessage.id
+          )))
     ) {
+      // Consume the draft with its server-echoed bubble, before slow run startup.
+      // A message already in history is not a receipt for this submission.
       accepted = true;
       options.onAccepted?.();
     }

@@ -199,6 +199,34 @@ describe('compact queue presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it('clears the received draft before the turn finishes and leaves later input intact', async () => {
+    const pending = deferred<void>();
+    let lifecycle!: MessageSubmissionLifecycle;
+    const view = setup((_input, callbacks) => {
+      lifecycle = callbacks!;
+      return pending.promise;
+    });
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'received message' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    expect(input).toHaveValue('received message');
+    act(() => lifecycle.onAccepted());
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'next draft' } });
+    await act(async () => pending.resolve());
+    expect(input).toHaveValue('next draft');
+  });
+
+  it('keeps the draft when a submission is rejected before any receipt', async () => {
+    const view = setup(async (_input, callbacks) => callbacks?.onRejectedBeforeAcceptance());
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'unsent message' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(input).toHaveValue('unsent message'));
+  });
+
   it('does not offer the submitted draft again while acceptance is pending, but keeps a newer interjection usable', async () => {
     const pending = deferred<void>();
     let lifecycle!: MessageSubmissionLifecycle;

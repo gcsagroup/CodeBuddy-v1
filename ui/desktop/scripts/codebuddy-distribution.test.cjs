@@ -654,7 +654,7 @@ test('Windows live preflight executes fail-closed without starting product execu
     ).stdout.trim()
   );
   assert.match(currentIdentity.Sid, /^S-1-/);
-  assert.match(currentIdentity.Name, /jiangrui$/i);
+  assert.ok(currentIdentity.Name, 'Preflight must identify the current Windows account');
 
   const scripts = [
     {

@@ -187,8 +187,13 @@ test('history replay distinguishes a live Harness turn from completed and paused
     const text = viewer.notifications.slice(start).filter(msg => msg.method === 'session/update' &&
       msg.params.update.sessionUpdate === 'agent_message_chunk').map(msg => msg.params.update.content?.text).join('');
     if (f.driver.prompts.length > 1) assert.equal(text.split('Published live response.').length - 1, 1, 'Replay includes current messages exactly once, both before and after turn projection');
-    return viewer.notifications.slice(start).filter(msg => msg.method === 'session/update' &&
-      msg.params.update.sessionUpdate === 'session_info_update').at(-1)?.params.update._meta.goose.activeRunId;
+    // Question snapshots also use session_info_update. Only the run owner's
+    // metadata carries activeRunId; a later question snapshot cannot erase it.
+    const runInfo = viewer.notifications.slice(start).filter(msg => msg.method === 'session/update' &&
+      msg.params.update.sessionUpdate === 'session_info_update' &&
+      Object.hasOwn(msg.params.update._meta?.goose ?? {}, 'activeRunId')).at(-1);
+    assert.ok(runInfo, 'Loading must publish the run owner\'s live/finished state');
+    return runInfo.params.update._meta.goose.activeRunId;
   };
   f.driver.scripts.push(async (tools) => { await tools.emit({ type: 'text_delta', text: 'Hello.' }); });
   await f.client.request('session/prompt', turn(session.sessionId, 'Hello'));

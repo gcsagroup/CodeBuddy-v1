@@ -283,7 +283,8 @@ test('host image admission failures preserve action receipts without replay', as
     assert.equal(calls, 1);
     const sent = JSON.stringify(requests.at(-1).messages);
     assert.match(sent, /Action completed/);
-    assert.match(sent, /Image observation unavailable/);
+    assert.match(sent, /Image inspection is unavailable for this result/);
+    assert.match(sent, /Do not repeat the action just to retry inspection/);
     assert.doesNotMatch(sent, /invalid-image|attachmentId/);
   }
 });

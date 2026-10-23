@@ -18,6 +18,7 @@ export function PetSprite({
   const canvas = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [frame, setFrame] = useState(0);
+  const hasGazeFrame = gazeFrame !== undefined;
   useEffect(() => {
     let active = true;
     const img = new Image();
@@ -34,10 +35,10 @@ export function PetSprite({
   }, [pet.imageUrl]);
   useEffect(() => {
     setFrame(0);
-    if (reducedMotion || (animation === 'look' && gazeFrame !== undefined)) return;
+    if (reducedMotion || (animation === 'look' && hasGazeFrame)) return;
     const timer = setInterval(() => setFrame((f) => (f + 1) % 6), 1000 / pet.fps);
     return () => clearInterval(timer);
-  }, [pet.id, pet.fps, animation, reducedMotion, gazeFrame !== undefined]);
+  }, [pet.id, pet.fps, animation, reducedMotion, hasGazeFrame]);
   useEffect(() => {
     const ctx = canvas.current?.getContext('2d', { willReadFrequently: Boolean(onAlphaMap) });
     if (!ctx || !image) return;

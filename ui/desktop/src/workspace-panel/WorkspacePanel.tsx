@@ -34,6 +34,7 @@ import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
 import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
+import { formatSubagentLabel } from '../components/toolActionPresentation';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
@@ -320,15 +321,15 @@ export function WorkspacePanelContent({
   }, [scope.sessionId, update]);
   const { jobs: mediaJobs, disconnected: mediaDisconnected } = useMediaJobs(scope.sessionId);
   useEffect(() => {
-    const fresh = mediaJobs.find(
+    const fresh = mediaJobs.filter(
       (job) =>
         !openedMediaJobs.has(`${scope.sessionId}:${job.job_id}`) &&
         ['queued', 'running', 'preparing'].includes(job.status) &&
         Date.now() - Date.parse(job.created_at) < 300_000
     );
-    if (!fresh) return;
-    openedMediaJobs.add(`${scope.sessionId}:${fresh.job_id}`);
-    update((current) => ({ ...current, active: 'media' }));
+    if (!fresh.length) return;
+    for (const job of fresh) openedMediaJobs.add(`${scope.sessionId}:${job.job_id}`);
+    update((current) => ({ ...current, active: 'media', mediaHidden: false }));
     onExpandedChange(true);
   }, [mediaJobs, scope.sessionId, update, onExpandedChange]);
   const selected = state.tabs.find((t) => t.id === state.active);
@@ -921,15 +922,30 @@ export function WorkspacePanelContent({
               {intl.formatMessage(subagentsMessages.title)}
             </span>
           </button>
-          {mediaJobs.length > 0 && (
-            <button
-              role="tab"
-              aria-selected={state.active === 'media'}
-              className="wb-tab"
-              onClick={() => activate('media')}
-            >
-              {mediaText('Generation', '生成预览', '生成預覽')}
-            </button>
+          {mediaJobs.length > 0 && !state.mediaHidden && (
+            <div className={`wb-tab ${state.active === 'media' ? 'is-active' : ''}`}>
+              <button
+                role="tab"
+                aria-selected={state.active === 'media'}
+                className="wb-tab-label"
+                onClick={() => activate('media')}
+              >
+                {mediaText('Generation', '生成预览', '生成預覽')}
+              </button>
+              <button
+                className="wb-tab-close"
+                aria-label={`${intl.formatMessage(m.close)} ${mediaText('Generation', '生成预览', '生成預覽')}`}
+                onClick={() =>
+                  update((current) => ({
+                    ...current,
+                    mediaHidden: true,
+                    active: current.active === 'media' ? 'start' : current.active,
+                  }))
+                }
+              >
+                <X size={12} />
+              </button>
+            </div>
           )}
           {state.tabs.map((t) => (
             <div key={t.id} className={`wb-tab ${t.id === state.active ? 'is-active' : ''}`}>
@@ -937,7 +953,13 @@ export function WorkspacePanelContent({
                 role="tab"
                 aria-selected={t.id === state.active}
                 className="wb-tab-label"
-                title={t.kind === 'file' ? t.document.path : t.title}
+                title={
+                  t.kind === 'file'
+                    ? t.document.path
+                    : t.kind === 'subagent'
+                      ? formatSubagentLabel(intl, t.title)
+                      : t.title
+                }
                 onClick={() => activate(t.id)}
               >
                 {t.kind === 'goal' ? (
@@ -953,13 +975,15 @@ export function WorkspacePanelContent({
                 ) : (
                   <Globe size={13} />
                 )}
-                <span className="truncate">{t.title}</span>
+                <span className="truncate">
+                  {t.kind === 'subagent' ? formatSubagentLabel(intl, t.title) : t.title}
+                </span>
                 {t.kind === 'file' && t.draft !== t.document.content ? ' ●' : ''}
                 {t.kind === 'goal' && t.draft !== t.goal.objective ? ' ●' : ''}
               </button>
               <button
                 className="wb-tab-close"
-                aria-label={`${intl.formatMessage(m.close)} ${t.title}`}
+                aria-label={`${intl.formatMessage(m.close)} ${t.kind === 'subagent' ? formatSubagentLabel(intl, t.title) : t.title}`}
                 onClick={() => void close(t)}
               >
                 <X size={12} />
@@ -1056,6 +1080,16 @@ export function WorkspacePanelContent({
               <kbd className="text-[10px] text-text-secondary">{card.shortcut}</kbd>
             </button>
           ))}
+          {mediaJobs.length > 0 && state.mediaHidden && (
+            <button
+              className="wb-start-card"
+              onClick={() =>
+                update((current) => ({ ...current, active: 'media', mediaHidden: false }))
+              }
+            >
+              {mediaText('Generation', '生成预览', '生成預覽')}
+            </button>
+          )}
           <p
             className="mt-4 max-w-full truncate text-[11px] text-text-secondary"
             title={scope.root}
@@ -1324,7 +1358,7 @@ export function WorkspacePanelContent({
               key={selected.id}
               parentSessionId={selected.parentSessionId}
               childSessionId={selected.childSessionId}
-              title={selected.title}
+              title={formatSubagentLabel(intl, selected.title)}
               ancestorSessionIds={selected.ancestorSessionIds}
             />
           ) : selected?.kind === 'terminal' ? (

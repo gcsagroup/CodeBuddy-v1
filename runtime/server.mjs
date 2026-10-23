@@ -21,7 +21,10 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
   const profileLock = await acquireProfileLock(path.resolve(dataDir));
   let compat, appProxy;
   try {
-    const store = await openStore(profileLock.directory, { defaultModel });
+    const store = await openStore(profileLock.directory, {
+      defaultModel,
+      onTiming: timing => console.info(`[Store ${timing.operation ?? 'commit'} timing]`, JSON.stringify(timing)),
+    });
     let warmup;
     if (!driver) {
       let loaded;
@@ -52,6 +55,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "listTools",
           "callTool",
           "steer",
+          "questions",
+          "answerQuestion",
           "getGoal",
           "controlGoal",
           "getPlanMode",
@@ -86,6 +91,10 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           },
         ]),
       );
+      // Unlike request methods, follow returns an AsyncIterable, not a Promise.
+      driver.followSubagent = async function* (...args) {
+        yield* (await get()).followSubagent(...args);
+      };
       driver.memory = Object.fromEntries(
         ["get", "list", "set", "delete"].map((name) => [
           name,
@@ -122,7 +131,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         return res.end("Use the authenticated WebSocket transport");
       }
       if (url.pathname === "/status" || url.pathname === "/health") {
-        const d = store.read().defaults;
+        const d = store.read(['defaults']).defaults;
         res.writeHead(200, {
           "content-type": "application/json",
           "cache-control": "no-store",
@@ -180,11 +189,11 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
               error ? reject(error) : resolve(result);
             };
             const abort = () => done(Error("Cancelled"));
-            // Filling a recipe is user input, not permission to execute a tool.
-            // Keep the form live until submit/cancel or connection teardown;
-            // otherwise its visible submit button answers an expired request.
+            // Human decisions do not expire into consent or rejection. Native
+            // question waits cancel their own signal; approval waits for the
+            // user, an explicit stop, or connection teardown.
             const timer =
-              method === "_goose/unstable/session/recipe/request-params"
+              ["session/request_permission", "_goose/unstable/session/recipe/request-params", "elicitation/create"].includes(method)
                 ? undefined
                 : setTimeout(
                     () => done(Error("Permission request timed out")),

@@ -72,3 +72,55 @@ it('opens the exact native child from the main-chat caption', () => {
     window.removeEventListener('codebuddy:open-subagent-conversation', open);
   }
 });
+
+it('places an admitted interruption at its original display anchor during live delivery and replay', () => {
+  const prior = {
+    id: 'prior-output',
+    role: 'assistant' as const,
+    created: 1,
+    content: [{ type: 'text' as const, text: 'prior-output' }],
+    metadata: { userVisible: true, agentVisible: true },
+  };
+  for (const initial of [[], [prior]]) {
+    const adapter = createAcpSessionNotificationAdapter(initial);
+    const text = (id: string, role: 'user' | 'assistant', afterMessageId?: string) =>
+      adapter.apply({
+        sessionId: 'parent',
+        update: {
+          sessionUpdate: role === 'user' ? 'user_message_chunk' : 'agent_message_chunk',
+          messageId: id,
+          content: { type: 'text', text: id },
+          _meta: {
+            goose: {
+              messageId: id,
+              ...(afterMessageId ? { presentation: { afterMessageId } } : {}),
+            },
+          },
+        },
+      });
+    if (!initial.length) text('prior-output', 'assistant');
+    for (const activation of ['first', 'second'])
+      adapter.apply({
+        sessionId: 'parent',
+        update: {
+          sessionUpdate: 'session_info_update',
+          _meta: { goose: { subagentLifecycle: fact('end', activation) } },
+        },
+      });
+    // Native cancellation finishes before the next prompt is admitted. Only
+    // this explicit presentation anchor restores the earlier click position.
+    text('stop-request', 'user', 'prior-output');
+    text('stop-request', 'user', 'prior-output');
+    text('stopped-reply', 'assistant');
+    expect(adapter.getMessages().map((message) => message.id)).toEqual([
+      'prior-output',
+      'stop-request',
+      'first:end',
+      'second:end',
+      'stopped-reply',
+    ]);
+    expect(adapter.getMessages()[1].metadata).not.toHaveProperty('pendingDelivery');
+    text('other-request', 'user', 'foreign-chat-anchor');
+    expect(adapter.getMessages().slice(-1)[0]?.id).toBe('other-request');
+  }
+});

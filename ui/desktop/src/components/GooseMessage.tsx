@@ -4,7 +4,6 @@ import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
 import './ui/stream-prose.css';
 import ThinkingContent from './ThinkingContent';
-import { WorkspaceFileReferences } from './WorkspaceFileReferences';
 import ToolCallWithResponse from './ToolCallWithResponse';
 import {
   getTextAndImageContent,
@@ -178,8 +177,6 @@ interface GooseMessageProps {
   sessionId: string;
   message: Message;
   messages: Message[];
-  fileReferenceExclusions?: string[];
-  hideFileReferences?: boolean;
   toolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   toolChains?: number[][];
   suppressProviderThinking?: boolean;
@@ -295,8 +292,6 @@ export default function GooseMessage({
   sessionId,
   message,
   messages,
-  fileReferenceExclusions,
-  hideFileReferences = false,
   toolResponses,
   toolChains,
   suppressProviderThinking = false,
@@ -357,6 +352,44 @@ export default function GooseMessage({
   const textBlockCount = contentBlocks.filter((block) => block.content[0].type === 'text').length;
   const streamRenderProbe = useRef({ messageId: '', lastAt: 0, updates: 0, active: false });
   const displayUnits = displayText.length;
+  const firstTokenProbe = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (
+      !import.meta.env.DEV ||
+      !isStreaming ||
+      message.role !== 'assistant' ||
+      !message.metadata.userVisible ||
+      !message.id ||
+      firstTokenProbe.current === message.id ||
+      (!displayUnits && (suppressProviderThinking || !thinkingContent))
+    )
+      return;
+    firstTokenProbe.current = message.id;
+    try {
+      window.electron.logInfo(
+        JSON.stringify({
+          tag: 'stream_timing',
+          stage: 'ui_first_token_committed',
+          at_ms: Date.now(),
+          session_id: sessionId,
+          message_id: message.id,
+          kind: !suppressProviderThinking && thinkingContent ? 'thought' : 'text',
+          document_visibility: document.visibilityState,
+        })
+      );
+    } catch {
+      /* React commit observation is not screen-paint or execution authority. */
+    }
+  }, [
+    displayUnits,
+    thinkingContent,
+    suppressProviderThinking,
+    isStreaming,
+    message.id,
+    message.role,
+    message.metadata.userVisible,
+    sessionId,
+  ]);
   useEffect(() => {
     // Development E2E probe: React committed this text, not proof of screen paint.
     // Sample progress at most once per second; first and final commits are immediate.
@@ -434,20 +467,6 @@ export default function GooseMessage({
   });
   const showMessageActions = actionPolicy.showActionGroup;
   const showTextMessageActions = actionPolicy.showTextActionGroup;
-  const hasLaterTurnContent = useMemo(() => {
-    for (let index = messageIndex + 1; index < messages.length; index += 1) {
-      const candidate = messages[index];
-      if (isRetryableUserMessage(candidate)) break;
-      if (
-        candidate.metadata.userVisible &&
-        (getToolRequests(candidate).length > 0 ||
-          (candidate.role === 'assistant' &&
-            getTextAndImageContent(candidate).textContent.trim().length > 0))
-      )
-        return true;
-    }
-    return false;
-  }, [messageIndex, messages]);
   const retryMode = actionPolicy.retryMode;
   const retryMessage =
     onRetryMessage && message.id
@@ -654,18 +673,6 @@ export default function GooseMessage({
             )}
           </div>
         )}
-        {!hideFileReferences &&
-          !isTurnRunning &&
-          !isStreaming &&
-          !hasLaterTurnContent &&
-          showTextMessageActions &&
-          displayText.trim() && (
-            <WorkspaceFileReferences
-              sessionId={sessionId}
-              content={displayText}
-              excludePaths={fileReferenceExclusions}
-            />
-          )}
         {toolRequests.length > 0 && !compactTools && !displayText.trim() && (
           <div className="flex items-center justify-between">
             <div

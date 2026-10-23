@@ -119,6 +119,7 @@ const i18n = defineMessages({
     id: 'progressiveMessageList.modelChanged',
     defaultMessage: 'Model changed: {previousModel} → {currentModel}',
   },
+  stopped: { id: 'gooseMessage.turnStopped', defaultMessage: 'Stopped' },
   loadEarlierMessages: {
     id: 'progressiveMessageList.loadEarlierMessages',
     defaultMessage: 'Load earlier messages ({remaining} remaining)',
@@ -131,6 +132,7 @@ interface ProgressiveMessageListProps {
   readOnly?: boolean;
   chat: Pick<ChatType, 'sessionId'>;
   activeRunId?: string | null;
+  cancelling?: boolean;
   toolCallNotifications?: Map<string, NotificationEvent[]>; // Make optional
   append?: (value: string) => void; // Make optional
   isUserMessage: (message: Message) => boolean;
@@ -147,6 +149,7 @@ interface ProgressiveMessageListProps {
   thinkingActivity?: { messageId?: string; receivedAt: number };
   onMessageUpdate?: (messageId: string, newContent: string, editType?: MessageEditType) => void;
   onRenderingComplete?: () => void; // Callback when all messages are rendered
+  onHistoryRendered?: (sessionId: string) => void;
   submitElicitationResponse?: (
     elicitationId: string,
     userData: Record<string, unknown>
@@ -155,7 +158,6 @@ interface ProgressiveMessageListProps {
   resumeAfterWorkspace?: (message: Message, runId: string) => void | Promise<void>;
   suppressProviderThinking?: boolean;
   foldTurns?: boolean;
-  hideFileReferences?: boolean;
   workspaceRoot?: string;
 }
 
@@ -165,9 +167,12 @@ export default function ProgressiveMessageList(props: ProgressiveMessageListProp
 
 function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) => void }) {
   const target = useRef<HTMLDivElement>(null);
+  const following = useContext(ScrollFollowingContext);
   useEffect(() => {
     const element = target.current;
-    if (!element || typeof IntersectionObserver === 'undefined') return;
+    // Initial layout and tail following can expose the sentinel before the
+    // viewport reaches the bottom. Only a reader leaving the tail loads history.
+    if (following || !element || typeof IntersectionObserver === 'undefined') return;
     let requested = false;
     const observer = new IntersectionObserver((entries) => {
       if (!requested && entries.some((entry) => entry.isIntersecting)) {
@@ -177,7 +182,7 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [onLoad]);
+  }, [onLoad, following]);
   return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
 }
 
@@ -264,7 +269,9 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           )
         )
           return [];
-        return content.length ? [{ ...message, content }] : [];
+        return content.length
+          ? [content.length === message.content.length ? message : { ...message, content }]
+          : [];
       });
       return presented.filter(
         (message) =>
@@ -328,6 +335,14 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
   );
   const chains = useMemo(() => identifyConsecutiveToolCalls(props.messages), [props.messages]);
   const presentation = useOrderedToolPresentation(visibleMessages, !!props.isStreamingMessage);
+  const historyMessageCount = props.messages.length;
+  const historySessionId = props.chat.sessionId;
+  const onHistoryRendered = props.onHistoryRendered;
+  useLayoutEffect(() => {
+    if (historyMessageCount > 0 && !presentation.pending) {
+      onHistoryRendered?.(historySessionId);
+    }
+  }, [historyMessageCount, historySessionId, onHistoryRendered, presentation.pending]);
   return (
     <>
       {startIndex > 0 && (
@@ -359,6 +374,7 @@ function ProgressiveMessageListContent({
   readOnly = false,
   chat,
   activeRunId,
+  cancelling,
   toolCallNotifications = new Map(),
   append = () => {},
   isUserMessage,
@@ -379,7 +395,6 @@ function ProgressiveMessageListContent({
   resumeAfterWorkspace,
   suppressProviderThinking = false,
   foldTurns = true,
-  hideFileReferences = false,
   workspaceRoot,
   renderRange,
   sourceMessages = messages,
@@ -582,23 +597,6 @@ function ProgressiveMessageListContent({
       foldTurns && !renderMessage ? collectConversationChanges(changeSource, workspaceRoot) : [],
     [foldTurns, renderMessage, changeSource, workspaceRoot]
   );
-  const fileReferenceExclusions = useMemo(() => {
-    const byTurn = new Map(
-      conversationChanges.map((turn) => [turn.id, turn.files.map((file) => file.path)])
-    );
-    const byMessage = new Map<string, string[]>();
-    let paths: string[] = [];
-    for (const message of sourceMessages) {
-      if (
-        message.role === 'user' &&
-        message.metadata.userVisible &&
-        !getToolResponses(message).length
-      )
-        paths = byTurn.get(message.id ?? '') ?? [];
-      if (message.id) byMessage.set(message.id, paths);
-    }
-    return byMessage;
-  }, [sourceMessages, conversationChanges]);
   const representedActivityToolIds = useMemo(() => {
     const ids = new Set<string>();
     for (const message of messages) {
@@ -850,10 +848,36 @@ function ProgressiveMessageListContent({
         }
         if (message.content.length === 0) return null;
         const terminal = getTurnTerminalRecord(message);
+        const receiptOnly = message.content.every(
+          (content) => content.type === 'systemNotification'
+        );
+        // The local cancellation anchor is not a native stop confirmation.
+        if (cancelling && terminal?.status === 'cancelled' && receiptOnly) return null;
+        const plainStopReceipt =
+          terminal &&
+          (terminal.status === 'cancelled' || terminal.status === 'interrupted') &&
+          terminal.checkpoint_id === null &&
+          terminal.retry_strategy === 'not_available' &&
+          terminal.report?.outcome !== 'waiting_for_user' &&
+          !terminal.report_parse_failed;
+        if (
+          plainStopReceipt &&
+          (terminal.status === 'cancelled' || terminal.user_requested_stop === true) &&
+          receiptOnly
+        ) {
+          return (
+            <div key={message.id} role="status" className="mt-2 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.stopped)}
+            </div>
+          );
+        }
+        // Keep terminal facts for folding and recovery without adding a host-only
+        // chat row. Actual reply text and actionable recovery still render.
         if (
           terminal &&
-          codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
-          !hasMissingFinalReply(terminal) &&
+          (plainStopReceipt ||
+            (codeProTerminalPresentation(terminal)?.summaryStatus === 'completed' &&
+              !hasMissingFinalReply(terminal))) &&
           message.content.every((content) => content.type === 'systemNotification')
         )
           return null;
@@ -1161,10 +1185,6 @@ function ProgressiveMessageListContent({
                   sessionId={chat.sessionId}
                   message={message}
                   messages={sourceMessages}
-                  hideFileReferences={hideFileReferences}
-                  fileReferenceExclusions={
-                    message.id ? fileReferenceExclusions.get(message.id) : undefined
-                  }
                   toolResponses={sharedToolResponses}
                   toolChains={sharedToolChains}
                   suppressProviderThinking={suppressProviderThinking}
@@ -1191,9 +1211,8 @@ function ProgressiveMessageListContent({
     return history;
   }, [
     messages,
+    cancelling,
     sourceMessages,
-    fileReferenceExclusions,
-    hideFileReferences,
     sharedToolResponses,
     sharedToolChains,
     presentationPending,
@@ -1239,8 +1258,7 @@ function ProgressiveMessageListContent({
       start: number,
       end: number,
       streaming: boolean,
-      pending = false,
-      consolidatedFiles = false
+      pending = false
     ) => (
       <ProgressiveMessageListContent
         messages={turn}
@@ -1253,8 +1271,8 @@ function ProgressiveMessageListContent({
         readOnly={readOnly}
         chat={chat}
         activeRunId={activeRunId}
+        cancelling={cancelling && turn[turn.length - 1] === messages[messages.length - 1]}
         foldTurns={false}
-        hideFileReferences={consolidatedFiles}
         toolCallNotifications={toolCallNotifications}
         append={append}
         isUserMessage={isUserMessage}
@@ -1452,14 +1470,7 @@ function ProgressiveMessageListContent({
               : undefined;
           return (
             <section key={turn[0]?.id ?? start} className="mb-6">
-              {renderSlice(
-                displayTurn,
-                0,
-                userCount,
-                false,
-                false,
-                foldable && hasTerminalBoundary
-              )}
+              {renderSlice(displayTurn, 0, userCount, false)}
               <ToolCallExpandable
                 compact
                 // Keep this parent and its process subtree mounted across the
@@ -1482,19 +1493,11 @@ function ProgressiveMessageListContent({
                   userCount,
                   historyEnd,
                   streaming && !foldable,
-                  pending && historyEnd === displayTurn.length,
-                  foldable && hasTerminalBoundary
+                  pending && historyEnd === displayTurn.length
                 )}
               </ToolCallExpandable>
-              {renderSlice(
-                displayTurn,
-                historyEnd,
-                displayTurn.length,
-                streaming,
-                pending,
-                foldable && hasTerminalBoundary
-              )}
-              {foldable && hasTerminalBoundary && (
+              {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
+              {hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}
                   sourceChanges={conversationChanges}

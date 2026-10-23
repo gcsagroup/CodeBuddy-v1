@@ -13,6 +13,7 @@ import { defineMessages, useIntl } from '../i18n';
 import { readSubagentCatalog, type SubagentCatalogEntry } from '../acp/subagentCatalog';
 import { openSubagentConversation } from './subagentPanel';
 import { SubagentAvatar } from '../components/SubagentAvatar';
+import { formatSubagentLabel } from '../components/toolActionPresentation';
 import {
   createSubagentConversationProjection,
   readSubagentConversation,
@@ -220,7 +221,7 @@ function CatalogRow({
 }) {
   const intl = useIntl();
   const local = entry.mode === 'one-shot' || entry.mode === 'continuable';
-  const title = entry.label?.trim() || entry.id;
+  const title = formatSubagentLabel(intl, entry.label?.trim() || entry.id);
   return (
     <li>
       <div className="flex min-w-0 items-center gap-1 px-2 py-1">

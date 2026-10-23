@@ -167,10 +167,16 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,0);assert.equal(initializations,1);
  const count=calls.length;
  const approvals=[];
- await driver.prompt(b.sessionId,'discover verification marker',{onToolPolicy:()=>({kind:'ask'}),onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
- assert.ok(approvals.includes('search_mcp_tools'));
+ await driver.prompt(b.sessionId,'discover verification marker',{onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
+ assert.ok(!approvals.includes('search_mcp_tools'),'loading tool schemas is read-only discovery, not an execution approval');
  assert.ok(approvals.includes('mcp__catalog__tool_137'));
  assert.equal(calls.length,count,'loading a tool must not bypass its execution permission');
+ const explicit=await create(),explicitApprovals=[];
+ await driver.prompt(explicit.sessionId,'hello');
+ await driver.prompt(explicit.sessionId,'discover verification marker',{onToolPolicy:()=>({kind:'ask'}),onPermission:async ({name})=>{explicitApprovals.push(name);return name==='search_mcp_tools';}});
+ assert.ok(explicitApprovals.includes('search_mcp_tools'),'an explicit ask policy still applies to discovery');
+ assert.ok(explicitApprovals.includes('mcp__catalog__tool_137'));
+ assert.equal(calls.length,count,'an explicit discovery grant does not approve the loaded tool');
  await driver.close();driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
  await driver.createSession({sessionId:a.sessionId,cwd:root,provider,model:'fixture',options});await driver.prompt(a.sessionId,'hello again');
  assert.ok(requests.at(-1).tools.some(x=>x.function.name==='mcp__catalog__tool_137'));

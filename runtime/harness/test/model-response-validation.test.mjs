@@ -7,7 +7,11 @@ function fixture() {
   let handler;
   const agents = new Map([['root', { session: { header: { origin: 'new' } } }], ['child', { session: { header: { origin: 'subagent' } } }]]);
   const input = { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'User request' }] };
-  const options = (origin = 'root', source = 'user') => ({ sessionId: origin, messages: [{ ...input, source: { kind: source } }, { role: 'user', source: { kind: 'runtime-context', form: 'snapshot' }, content: [] }, { role: 'user', source: { kind: 'skill-catalog', form: 'catalog' }, content: [] }] });
+  const options = (origin = 'root', source = 'user') => ({ sessionId: origin, messages: [{ ...input, source: { kind: source } },
+    { role: 'user', source: { kind: 'agent-instructions', form: 'instructions' }, content: [] },
+    { role: 'user', source: { kind: 'runtime-context', form: 'snapshot' }, content: [] },
+    { role: 'user', source: { kind: 'skill-catalog', form: 'catalog' }, content: [] },
+    { role: 'user', source: { kind: 'model-selection', form: 'notice' }, content: [] }] });
   const dispose = installModelResponseValidation({ agents, on(name, callback) {
     assert.equal(name, 'llm/stream'); handler = callback; return () => {};
   } });
@@ -35,6 +39,7 @@ test('only direct-user root stops without text or structured tool progress enter
     { name: 'parent-relay', chunks: [reasoning, stop], source: 'agent-message' },
     { name: 'parent-settlement', chunks: [reasoning, stop], source: 'subagent-settled' },
     { name: 'other-native-input', chunks: [reasoning, stop], source: 'goal-round' },
+    { name: 'unknown-native-input', chunks: [reasoning, stop], source: 'future-native-producer' },
     { name: 'unowned-auxiliary-session', chunks: [reasoning, stop], origin: 'missing' },
   ]) await t.test(scenario.name, async () => {
     const received = []; for await (const chunk of f.stream(scenario.chunks, scenario.agent, scenario.origin, scenario.source)) received.push(chunk);
@@ -46,6 +51,18 @@ test('only direct-user root stops without text or structured tool progress enter
       assert.deepEqual(received.slice(0, -1), scenario.chunks.slice(0, -1));
     } else assert.deepEqual(received, scenario.chunks);
   });
+});
+
+test('other native notices after historical human input retain upstream completion authority', async () => {
+  const f = fixture();
+  for (const source of [{kind:'agent-message',form:'relay'}, {kind:'subagent-settled',form:'notice'}, {kind:'future-native-producer',form:'notice'}]) {
+    const options = f.options();
+    options.messages.push({role:'user',source,content:[]});
+    const chunks=[];
+    for await (const chunk of f.handler(markAgentLoopRequest(options),async function*(){yield reasoning;yield stop;})) chunks.push(chunk);
+    assert.strictEqual(chunks.at(-1),stop);
+  }
+  f.dispose();
 });
 
 test('validation forwards reasoning immediately and keeps concurrent response state isolated', async () => {

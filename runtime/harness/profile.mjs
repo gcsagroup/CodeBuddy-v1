@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_SUBAGENT_LIMITS } from '../subagent-limits.mjs';
 
 // Explicit Host composition. No TUI/Web client, telemetry, credential discovery,
 // or second model/agent loop is installed by this embedding profile.
@@ -44,7 +45,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tools', 'dsh-tools', { mode: 'native' }),
     entry('user-questions', 'dsh-user-questions'),
     entry('plan-mode', 'dsh-plan-mode', { section: 'Plan mode is active. Inspect and research the task, clarify requirements, and produce a concrete implementation and verification plan. Do not edit project files, run mutating commands, or execute the plan before user review. Present the finished plan with exit_plan_mode; only continue implementation after the user approves. Existing tool permissions and sandbox policy still apply.' }),
-    entry('tool-ask-user', 'dsh-tool-ask-user', { mode: 'legacy' }),
+    entry('tool-ask-user', 'dsh-tool-ask-user', { mode: 'timed', timeout: 120 }),
     entry('web', 'dsh-web', { fetchProvider: 'http' }),
     entry('web-fetch-http', 'dsh-web-fetch-http', { userAgent: 'CodeBuddy/1.43' }),
     entry('tool-web', 'dsh-tool-web', { search: false, fetch: true }),
@@ -62,7 +63,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tool-goal', 'dsh-tool-goal'),
     entry('jobs', 'dsh-jobs-local'),
     entry('tool-jobs', 'dsh-tool-jobs', { completionDelivery: 'quiet' }),
-    entry('subagents', 'dsh-subagent', { maxActiveSubagents: 3, maxDepth: 1 }),
+    entry('subagents', 'dsh-subagent', { ...DEFAULT_SUBAGENT_LIMITS }),
     entry('subagent-spawn', 'dsh-subagent-spawn-in-process'),
     entry('subagent-fork', 'dsh-subagent-fork-in-process'),
     entry('tool-subagent', 'dsh-tool-subagent', { provider: 'spawn' }),

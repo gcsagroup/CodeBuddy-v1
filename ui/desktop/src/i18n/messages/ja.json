@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "自動圧縮の実行タイミング"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "今すぐ圧縮"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "しきい値の保存に失敗しました: {error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "了解しました"
@@ -902,6 +887,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "Implements code and reports changes"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "カスタム画像モデルを使用"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "Uses the default configuration when not selected"
   },
@@ -1016,14 +1004,41 @@
   "codeProModels.visionAgentDescription": {
     "defaultMessage": "Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider."
   },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "既定：{model}"
+  },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
   },
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "Not configured (disabled)"
   },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "既定のFlashモデルが未設定です。カスタム画像モデルを選んでください。"
+  },
   "codeProModels.visionModelLabel": {
     "defaultMessage": "Vision model"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "画像入力非対応：{model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -1733,9 +1748,6 @@
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
-  "conversationFiles.combinedFiles": {
-    "defaultMessage": "このターンのファイル（{count}）"
-  },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
@@ -2435,11 +2447,17 @@
   "elicitationRequest.expired": {
     "defaultMessage": "このリクエストは期限切れです。拡張機能が再度確認する必要があります。"
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "まだ回答されていません。引き続き回答できます。"
+  },
   "elicitationRequest.planReview": {
     "defaultMessage": "Review plan"
   },
   "elicitationRequest.question": {
     "defaultMessage": "質問"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "質問に回答"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "スキップ"
@@ -2455,6 +2473,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "送信中…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "回答を待っています"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "あなたの応答を待っています（残り{timeRemaining}）"
@@ -3771,7 +3792,7 @@
     "defaultMessage": "キャンセル"
   },
   "jsonSchemaForm.customAnswer": {
-    "defaultMessage": "Other answer"
+    "defaultMessage": "自由回答（任意）"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4829,14 +4850,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "モデルと接続"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "コンテキスト容量"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "サービス情報がない場合にコンテキスト上限を調整します。"
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "画像・動画生成"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "画像や動画を生成するサービスを設定します。"
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "In development"
@@ -4846,6 +4882,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "サブエージェント"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "名前、モデル、プロンプトで再利用可能なエージェントを作成します。"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "画像理解"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "まずメインモデルを使い、必要な場合は予備モデルを使います。"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
@@ -7235,6 +7283,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "メニューに戻る"
+  },
   "settingsView.title": {
     "defaultMessage": "設定"
   },
@@ -7580,26 +7631,68 @@
   "subagentLifecycle.start": {
     "defaultMessage": "が作業を開始しました"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "再帰の最大深度"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "制限の読み込みまたは保存に失敗しました。保存済みの設定は変更されていません。"
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "深度0では委任できず、1では直接の子を作成できます。並列数は主エージェント配下で実行中のすべての子孫を数えます。変更は次のタスク準備時に適用され、既存のサブエージェントは停止しません。"
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "サブエージェントの最大並列数"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "制限を保存"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "保存しました。次のタスク準備時に適用されます。"
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "実行制限"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "サブエージェントを追加"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "変更は新しいサブエージェントに適用されます。既存の指示、ツール、モデル、履歴は保持されます。チャット間で共有するのはテンプレートのみです。"
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "Web資料検索"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "Web上の資料を検索・閲覧し、内容を確認して要点をまとめます。"
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "このテンプレートを削除しますか？既存のサブエージェントと履歴は保持されます。"
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "カスタムサブエージェント"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "既定のサブエージェント"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "既定のテンプレートを使うか、独自の役割を保存できます。サブエージェントは必要なときだけ作成されます。"
   },
   "subagentTemplates.error": {
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "プロジェクト調査"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "プロジェクト内のファイルを読み、コードの流れと関連する実装を調べます。"
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.inherit": {
     "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "重複しない名前とプロンプトを入力してください。"
   },
   "subagentTemplates.loading": {
     "defaultMessage": "Loading settings…"
@@ -7610,14 +7703,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "名前"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "プロンプト"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "役割、進め方、期待する出力を記入してください。"
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "サブエージェントを削除"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "サブエージェント設定を保存"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -7627,6 +7732,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "Saved connection unavailable"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "新しいサブエージェント"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7886,6 +7994,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.chart": {
+    "defaultMessage": "Create a chart"
+  },
   "toolAction.code": {
     "defaultMessage": "コードを実行"
   },
@@ -7904,8 +8015,29 @@
   "toolAction.contractRevise": {
     "defaultMessage": "Update task requirements"
   },
+  "toolAction.control": {
+    "defaultMessage": "Interact with a window control"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "Read pages across a website"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "Create a subagent"
+  },
   "toolAction.delegate": {
     "defaultMessage": "作業を委任"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "Locate available document tools"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "Create a desktop pet"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "Draw a diagram"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "Find available tools"
   },
   "toolAction.drag": {
     "defaultMessage": "ウィンドウ内をドラッグ"
@@ -7919,6 +8051,18 @@
   "toolAction.editSummary": {
     "defaultMessage": "{count,plural,one{Edited # file} other{Edited # files}}"
   },
+  "toolAction.fetch": {
+    "defaultMessage": "Read webpage contents"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "Find files"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "Generate an image"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "Generate a video"
+  },
   "toolAction.generating": {
     "defaultMessage": "Preparing operation parameters{target}"
   },
@@ -7926,10 +8070,22 @@
     "defaultMessage": "{target} を生成中 · {count} 行受信済み — まだ保存されていません"
   },
   "toolAction.generatingFileHeadline": {
-    "defaultMessage": "Generating file contents{target} — not saved yet"
+    "defaultMessage": "Generating file contents{target}"
   },
   "toolAction.keyboard": {
     "defaultMessage": "キーボードを使用"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "Check subagent progress"
+  },
+  "toolAction.location": {
+    "defaultMessage": "Find a location"
+  },
+  "toolAction.map": {
+    "defaultMessage": "Create a map"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "Send a message to a subagent"
   },
   "toolAction.mouse": {
     "defaultMessage": "ウィンドウ内をクリック"
@@ -7946,14 +8102,23 @@
   "toolAction.otherSummary": {
     "defaultMessage": "{count,plural,one{Completed # other operation} other{Completed # other operations}}"
   },
+  "toolAction.question": {
+    "defaultMessage": "ユーザーに質問"
+  },
   "toolAction.read": {
     "defaultMessage": "ファイルを読む"
   },
   "toolAction.readDone": {
     "defaultMessage": "Read file"
   },
+  "toolAction.readImage": {
+    "defaultMessage": "View an image"
+  },
   "toolAction.readSummary": {
     "defaultMessage": "{count,plural,one{Read # file} other{Read # files}}"
+  },
+  "toolAction.research": {
+    "defaultMessage": "Research a topic online"
   },
   "toolAction.result": {
     "defaultMessage": "結果を表示"
@@ -7970,6 +8135,9 @@
   "toolAction.search": {
     "defaultMessage": "検索"
   },
+  "toolAction.searchContents": {
+    "defaultMessage": "Search file contents"
+  },
   "toolAction.shell": {
     "defaultMessage": "コマンドを実行"
   },
@@ -7979,14 +8147,29 @@
   "toolAction.shellSummary": {
     "defaultMessage": "{count,plural,one{Ran # command} other{Ran # commands}}"
   },
+  "toolAction.siteMap": {
+    "defaultMessage": "Find pages on a website"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "Load task instructions"
+  },
   "toolAction.takeover": {
     "defaultMessage": "未完了の委任作業を引き継ぐ"
+  },
+  "toolAction.time": {
+    "defaultMessage": "Check the current time"
   },
   "toolAction.tree": {
     "defaultMessage": "ファイル一覧を表示"
   },
   "toolAction.type": {
     "defaultMessage": "文字を入力"
+  },
+  "toolAction.value": {
+    "defaultMessage": "Fill in a field"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "Check the weather"
   },
   "toolAction.webSearch": {
     "defaultMessage": "Search the web"
@@ -7996,6 +8179,15 @@
   },
   "toolAction.webSearchRunning": {
     "defaultMessage": "Searching the web"
+  },
+  "toolAction.window": {
+    "defaultMessage": "Read window contents"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "List open windows"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "Check the working folder"
   },
   "toolAction.write": {
     "defaultMessage": "ファイルを書き込む"
@@ -8570,6 +8762,12 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "編集したメッセージで新しいセッションを作成"
   },
+  "userMessage.pending": {
+    "defaultMessage": "送信待ち"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "確認待ち"
+  },
   "workStatus.approval": {
     "defaultMessage": "Waiting for your approval: {action}"
   },
@@ -8604,7 +8802,7 @@
     "defaultMessage": "Connection established; receiving model output"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "モデルサービスの応答待ち"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"
@@ -8944,5 +9142,8 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "モデルサービスからまだ内容が返されていません。このまま待つか、今回のリクエストを停止できます。"
   }
 }

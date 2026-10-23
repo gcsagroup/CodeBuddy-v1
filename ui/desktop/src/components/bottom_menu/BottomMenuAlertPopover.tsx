@@ -1,7 +1,6 @@
 import { AppEvents } from '../../constants/events';
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useId, useState } from 'react';
 import { FaCircle } from 'react-icons/fa';
-import { isEqual } from 'lodash';
 import { cn } from '../../utils';
 import { Alert, AlertType } from '../alerts';
 import { AlertBox } from '../alerts';
@@ -13,12 +12,9 @@ interface AlertPopoverProps {
 
 export default function BottomMenuAlertPopover({ alerts, children }: AlertPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [wasAutoShown, setWasAutoShown] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
-  const [shouldShowIndicator, setShouldShowIndicator] = useState(false); // Stable indicator state
-  const previousAlertsRef = useRef<Alert[]>([]);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldShowIndicator = alerts.length > 0;
+  const popoverId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +23,7 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
     if (!triggerRef.current || !popoverRef.current) return;
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
-    const popoverWidth = 275;
+    const popoverWidth = popoverRef.current.offsetWidth;
 
     // Get the actual rendered height of the popover
     const popoverHeight = popoverRef.current.offsetHeight || 120;
@@ -79,90 +75,31 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
     return undefined;
   }, [isOpen, calculatePosition]);
 
-  // Function to start the hide timer
-  const startHideTimer = useCallback((duration = 3000) => {
-    // Clear any existing timer
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-    }
-    // Start new timer
-    hideTimerRef.current = setTimeout(() => {
-      setIsOpen(false);
-      setWasAutoShown(false);
-    }, duration);
-  }, []);
-
-  // Manage stable indicator visibility - once we have alerts, keep showing until explicitly cleared
-  useEffect(() => {
-    if (alerts.length > 0) {
-      setShouldShowIndicator(true);
-    } else {
-      setShouldShowIndicator(false);
-    }
-  }, [alerts.length]);
-
-  // Handle initial show and new alerts
-  useEffect(() => {
-    if (alerts.length === 0) {
-      return;
-    }
-
-    // Find new or changed alerts using deep comparison
-    const changedAlerts = alerts.filter((alert, index) => {
-      const prevAlert = previousAlertsRef.current[index];
-      return !prevAlert || !isEqual(prevAlert, alert);
-    });
-
-    previousAlertsRef.current = alerts;
-
-    // Only auto-show if any of the new/changed alerts have autoShow: true
-    const hasNewAutoShowAlert = changedAlerts.some((alert) => alert.autoShow === true);
-
-    // Auto show the popover for new auto-show alerts
-    if (hasNewAutoShowAlert) {
-      setIsOpen(true);
-      setWasAutoShown(true);
-      // Start 3 second timer for auto-show
-      startHideTimer(3000);
-    }
-  }, [alerts, startHideTimer]);
-
-  // Handle auto-hide based on hover state changes
-  useEffect(() => {
-    if (!isHovered && isOpen && !wasAutoShown) {
-      // Only start 1 second timer for manual interactions
-      startHideTimer(1000);
-    }
-  }, [isHovered, isOpen, startHideTimer, wasAutoShown]);
-
-  // Handle click outside - but not when editing threshold
+  // Moving between the trigger and action must not dismiss a clicked popover.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if we're clicking on an input or button inside the popover
-      const target = event.target as HTMLElement;
-      const isInteractiveElement =
-        target.tagName === 'INPUT' ||
-        target.tagName === 'BUTTON' ||
-        target.closest('button') !== null ||
-        target.closest('input') !== null;
-
       if (
         popoverRef.current &&
         !popoverRef.current.contains(event.target as Node) &&
-        !isInteractiveElement
+        !triggerRef.current?.contains(event.target as Node)
       ) {
         setIsOpen(false);
-        setWasAutoShown(false);
       }
     };
-
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
     if (isOpen) {
-      // Use mouseup instead of mousedown to allow button clicks to complete
-      document.addEventListener('mouseup', handleClickOutside);
+      document.addEventListener('pointerdown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
-      document.removeEventListener('mouseup', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
@@ -171,13 +108,6 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
     const handleHidePopover = () => {
       if (isOpen) {
         setIsOpen(false);
-        setWasAutoShown(false);
-        setIsHovered(false);
-        // Clear any pending hide timer
-        if (hideTimerRef.current) {
-          clearTimeout(hideTimerRef.current);
-          hideTimerRef.current = null;
-        }
       }
     };
 
@@ -207,28 +137,13 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
         <button
           type="button"
           ref={triggerRef}
-          className="cursor-pointer flex items-center gap-1.5 min-h-5 rounded hover:bg-background-secondary px-1"
+          id={`${popoverId}-trigger`}
+          aria-expanded={isOpen && shouldShowIndicator}
+          aria-controls={isOpen && shouldShowIndicator ? popoverId : undefined}
+          aria-haspopup="dialog"
+          className="group/context-usage cursor-pointer flex items-center gap-1.5 min-h-5 rounded px-1"
           onClick={() => {
-            if (alerts.length > 0) setIsOpen(true);
-          }}
-          onMouseEnter={() => {
-            if (alerts.length > 0) {
-              setIsOpen(true);
-              setIsHovered(true);
-              setWasAutoShown(false);
-              if (hideTimerRef.current) {
-                clearTimeout(hideTimerRef.current);
-              }
-            }
-          }}
-          onMouseLeave={() => {
-            // Start a short timer to allow moving to content
-            hideTimerRef.current = setTimeout(() => {
-              if (!isHovered) {
-                setIsHovered(false);
-                setIsOpen(false);
-              }
-            }, 100);
+            if (alerts.length > 0) setIsOpen((open) => !open);
           }}
         >
           {shouldShowIndicator && (
@@ -241,24 +156,20 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
       </div>
 
       {/* Popover rendered separately to avoid blocking clicks */}
-      {isOpen && (
+      {isOpen && shouldShowIndicator && (
         <div
           ref={popoverRef}
-          className="fixed w-[275px] p-0 rounded-lg overflow-hidden bg-app border z-50 shadow-lg pointer-events-auto text-left"
+          id={popoverId}
+          role="dialog"
+          aria-labelledby={`${popoverId}-trigger`}
+          className={cn(
+            'fixed p-0 rounded-lg overflow-hidden bg-app border z-50 shadow-lg pointer-events-auto text-left',
+            alerts.every((alert) => alert.progress) ? 'w-max min-w-24 max-w-48' : 'w-[275px]'
+          )}
           style={{
             top: `${popoverPosition.top}px`,
             left: `${popoverPosition.left}px`,
             visibility: popoverPosition.top === 0 ? 'hidden' : 'visible',
-          }}
-          onMouseEnter={() => {
-            setIsHovered(true);
-            if (hideTimerRef.current) {
-              clearTimeout(hideTimerRef.current);
-            }
-          }}
-          onMouseLeave={() => {
-            setIsHovered(false);
-            setIsOpen(false);
           }}
         >
           <div className="flex flex-col">

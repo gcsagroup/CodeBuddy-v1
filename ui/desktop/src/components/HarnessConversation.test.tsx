@@ -351,7 +351,8 @@ describe('Harness conversation presentation', () => {
     const chat = (messages: Message[], streaming = false, following = true) => (
       <SearchableHistory messages={messages} streaming={streaming} following={following} />
     );
-    const view = render(chat(trace), { wrapper: IntlTestWrapper });
+    // Loading older turns follows a user's upward scroll, not bottom-follow mode.
+    const view = render(chat(trace, false, false), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Result 119')).toBeVisible();
     expect(screen.queryByText('Result 116')).not.toBeInTheDocument();
     expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(3);
@@ -568,7 +569,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.getByText('Second result.')).toBeVisible();
   });
 
-  it('renders a single completed-turn file card for both changed and referenced files', async () => {
+  it('renders a single completed-turn file card for recorded edits only', async () => {
     acpChatSessionActions.setSessionMetadata('session', {
       id: 'session',
       name: 'Fixture',
@@ -593,10 +594,10 @@ describe('Harness conversation presentation', () => {
         ]),
         { wrapper: IntlTestWrapper }
       );
-      await screen.findByRole('button', { name: 'Files this turn (2)' });
+      await screen.findByRole('button', { name: 'Modified 1 files this turn' });
       expect(screen.queryByRole('button', { name: 'Related files' })).toBeNull();
       expect(screen.getAllByRole('button', { name: '/fixture/app.py' })).toHaveLength(1);
-      expect(screen.getAllByRole('button', { name: 'guide.md' })).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: 'guide.md' })).toBeNull();
     } finally {
       window.electron.workspacePanel = originalPanel;
       acpChatSessionActions.setSessionMetadata('session', undefined);

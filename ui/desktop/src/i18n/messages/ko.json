@@ -1,21 +1,6 @@
 {
-  "alertBox.autoCompactAt": {
-    "defaultMessage": "자동 압축 기준"
-  },
-  "alertBox.autoCompactUnavailable": {
-    "defaultMessage": "Auto compact threshold unavailable"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "지금 압축"
-  },
-  "alertBox.editAutoCompactThreshold": {
-    "defaultMessage": "Edit auto-compact threshold"
-  },
-  "alertBox.failedToSaveThreshold": {
-    "defaultMessage": "임계값 저장 실패: {error}"
-  },
-  "alertBox.saveAutoCompactThreshold": {
-    "defaultMessage": "Save auto-compact threshold"
   },
   "announcementModal.gotIt": {
     "defaultMessage": "알았어요!"
@@ -902,6 +887,9 @@
   "codeProModels.coderDescription": {
     "defaultMessage": "Implements code and reports changes"
   },
+  "codeProModels.customVision": {
+    "defaultMessage": "사용자 지정 이미지 모델 사용"
+  },
   "codeProModels.defaultHint": {
     "defaultMessage": "Uses the default configuration when not selected"
   },
@@ -1016,14 +1004,41 @@
   "codeProModels.visionAgentDescription": {
     "defaultMessage": "Images go to the main agent first. Auxiliary vision is used only after you configure its provider and model; images are sent to that provider."
   },
+  "codeProModels.visionCapabilityError": {
+    "defaultMessage": "Could not verify image support. Retry before saving."
+  },
+  "codeProModels.visionChecking": {
+    "defaultMessage": "Checking image support…"
+  },
+  "codeProModels.visionDefault": {
+    "defaultMessage": "기본값: {model}"
+  },
   "codeProModels.visionDefaultModel": {
     "defaultMessage": "Select model"
   },
   "codeProModels.visionDefaultProvider": {
     "defaultMessage": "Not configured (disabled)"
   },
+  "codeProModels.visionDefaultUnavailable": {
+    "defaultMessage": "기본 Flash 모델이 설정되지 않았습니다. 사용자 지정 이미지 모델을 선택하세요."
+  },
   "codeProModels.visionModelLabel": {
     "defaultMessage": "Vision model"
+  },
+  "codeProModels.visionNoModels": {
+    "defaultMessage": "No models with confirmed image input are available on this connection."
+  },
+  "codeProModels.visionSupportedOnly": {
+    "defaultMessage": "Only models with confirmed image input are listed. If service information is missing, verify it in Model image capability correction."
+  },
+  "codeProModels.visionUnavailableSelection": {
+    "defaultMessage": "Current selection unavailable: {model}"
+  },
+  "codeProModels.visionUnsupported": {
+    "defaultMessage": "Select a backup model with confirmed image support."
+  },
+  "codeProModels.visionUnsupportedSelection": {
+    "defaultMessage": "이미지 입력 미지원: {model}"
   },
   "codeProPresentation.activityState.cancelled": {
     "defaultMessage": "Cancelled"
@@ -1733,9 +1748,6 @@
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
-  "conversationFiles.combinedFiles": {
-    "defaultMessage": "이번 턴의 파일 ({count})"
-  },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
@@ -2435,11 +2447,17 @@
   "elicitationRequest.expired": {
     "defaultMessage": "이 요청은 만료되었습니다. 익스텐션에서 다시 질문해야 합니다."
   },
+  "elicitationRequest.pending": {
+    "defaultMessage": "아직 답변이 없습니다. 계속 답변할 수 있습니다."
+  },
   "elicitationRequest.planReview": {
     "defaultMessage": "Review plan"
   },
   "elicitationRequest.question": {
     "defaultMessage": "질문"
+  },
+  "elicitationRequest.replyLater": {
+    "defaultMessage": "질문에 답하기"
   },
   "elicitationRequest.skip": {
     "defaultMessage": "건너뛰기"
@@ -2455,6 +2473,9 @@
   },
   "elicitationRequest.submitting": {
     "defaultMessage": "제출 중…"
+  },
+  "elicitationRequest.waiting": {
+    "defaultMessage": "답변을 기다리는 중"
   },
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "답변을 기다리는 중입니다. ({timeRemaining} 남음)"
@@ -3771,7 +3792,7 @@
     "defaultMessage": "취소"
   },
   "jsonSchemaForm.customAnswer": {
-    "defaultMessage": "Other answer"
+    "defaultMessage": "직접 입력 (선택 사항)"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4829,14 +4850,29 @@
   "modelsAndRuntime.codeBuddyModelDescription": {
     "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "모델 및 연결"
+  },
   "modelsAndRuntime.connectionsUnavailable": {
     "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "컨텍스트 용량"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "서비스 정보가 없을 때 모델의 컨텍스트 한도를 조정합니다."
   },
   "modelsAndRuntime.customConnections": {
     "defaultMessage": "Custom model connections"
   },
   "modelsAndRuntime.customConnectionsDescription": {
     "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "이미지 및 동영상 생성"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "이미지와 동영상을 생성할 서비스를 설정합니다."
   },
   "modelsAndRuntime.inDevelopment": {
     "defaultMessage": "In development"
@@ -4846,6 +4882,18 @@
   },
   "modelsAndRuntime.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "하위 에이전트"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "이름, 모델, 프롬프트로 재사용 가능한 에이전트를 만듭니다."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "이미지 이해"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "기본 모델을 먼저 사용하고 필요하면 보조 모델을 사용합니다."
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "No configured models"
@@ -7235,6 +7283,9 @@
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
+  "settingsMenu.back": {
+    "defaultMessage": "메뉴로 돌아가기"
+  },
   "settingsView.title": {
     "defaultMessage": "설정"
   },
@@ -7580,26 +7631,68 @@
   "subagentLifecycle.start": {
     "defaultMessage": "작업을 시작했습니다"
   },
+  "subagentLimits.depth": {
+    "defaultMessage": "최대 재귀 깊이"
+  },
+  "subagentLimits.error": {
+    "defaultMessage": "제한을 불러오거나 저장하지 못했습니다. 저장된 설정은 변경되지 않았습니다."
+  },
+  "subagentLimits.hint": {
+    "defaultMessage": "깊이 0은 위임을 막고 1은 직접 하위 에이전트를 허용합니다. 병렬 제한은 한 주 에이전트 아래 실행 중인 모든 후손을 계산합니다. 변경은 다음 작업 준비 시 적용되며 기존 하위 에이전트는 취소되지 않습니다."
+  },
+  "subagentLimits.parallel": {
+    "defaultMessage": "최대 병렬 하위 에이전트 수"
+  },
+  "subagentLimits.save": {
+    "defaultMessage": "제한 저장"
+  },
+  "subagentLimits.saved": {
+    "defaultMessage": "저장했습니다. 다음 작업 준비 시 적용됩니다."
+  },
+  "subagentLimits.title": {
+    "defaultMessage": "실행 제한"
+  },
+  "subagentTemplates.add": {
+    "defaultMessage": "하위 에이전트 추가"
+  },
   "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+    "defaultMessage": "변경 사항은 새 하위 에이전트에 적용됩니다. 기존 지침, 도구, 모델, 기록은 유지됩니다. 채팅 간에는 템플릿만 공유하고 대화 기록은 공유하지 않습니다."
   },
   "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
+    "defaultMessage": "웹 자료 검색"
+  },
+  "subagentTemplates.browserDescription": {
+    "defaultMessage": "웹 자료를 검색하고 읽은 뒤 내용을 확인하고 요약합니다."
+  },
+  "subagentTemplates.confirmRemove": {
+    "defaultMessage": "이 템플릿을 삭제할까요? 기존 하위 에이전트와 기록은 유지됩니다."
+  },
+  "subagentTemplates.customTitle": {
+    "defaultMessage": "사용자 지정 하위 에이전트"
+  },
+  "subagentTemplates.defaults": {
+    "defaultMessage": "기본 하위 에이전트"
   },
   "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+    "defaultMessage": "기본 템플릿을 사용하거나 사용자 지정 역할을 저장하세요. 하위 에이전트는 필요할 때만 생성됩니다."
   },
   "subagentTemplates.error": {
     "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
   },
   "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
+    "defaultMessage": "프로젝트 탐색"
+  },
+  "subagentTemplates.explorerDescription": {
+    "defaultMessage": "프로젝트 파일을 읽고 코드 흐름과 관련 구현을 살펴봅니다."
   },
   "subagentTemplates.generic": {
     "defaultMessage": "Other chat-local responsibilities"
   },
   "subagentTemplates.inherit": {
     "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.invalid": {
+    "defaultMessage": "중복되지 않는 이름과 프롬프트를 입력하세요."
   },
   "subagentTemplates.loading": {
     "defaultMessage": "Loading settings…"
@@ -7610,14 +7703,26 @@
   "subagentTemplates.modelError": {
     "defaultMessage": "Could not load the model list. Enter a model id or retry."
   },
+  "subagentTemplates.name": {
+    "defaultMessage": "이름"
+  },
+  "subagentTemplates.prompt": {
+    "defaultMessage": "프롬프트"
+  },
+  "subagentTemplates.promptHint": {
+    "defaultMessage": "역할, 작업 방식, 기대하는 결과를 설명하세요."
+  },
   "subagentTemplates.provider": {
     "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.remove": {
+    "defaultMessage": "하위 에이전트 삭제"
   },
   "subagentTemplates.retry": {
     "defaultMessage": "Retry"
   },
   "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
+    "defaultMessage": "하위 에이전트 설정 저장"
   },
   "subagentTemplates.saved": {
     "defaultMessage": "Saved. Applies to new subagents."
@@ -7627,6 +7732,9 @@
   },
   "subagentTemplates.unavailable": {
     "defaultMessage": "Saved connection unavailable"
+  },
+  "subagentTemplates.unnamed": {
+    "defaultMessage": "새 하위 에이전트"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7886,6 +7994,9 @@
   "toasts.copyError": {
     "defaultMessage": "Copy error"
   },
+  "toolAction.chart": {
+    "defaultMessage": "Create a chart"
+  },
   "toolAction.code": {
     "defaultMessage": "코드 실행"
   },
@@ -7904,8 +8015,29 @@
   "toolAction.contractRevise": {
     "defaultMessage": "Update task requirements"
   },
+  "toolAction.control": {
+    "defaultMessage": "Interact with a window control"
+  },
+  "toolAction.crawl": {
+    "defaultMessage": "Read pages across a website"
+  },
+  "toolAction.createAgent": {
+    "defaultMessage": "Create a subagent"
+  },
   "toolAction.delegate": {
     "defaultMessage": "작업 위임"
+  },
+  "toolAction.dependencies": {
+    "defaultMessage": "Locate available document tools"
+  },
+  "toolAction.desktopPet": {
+    "defaultMessage": "Create a desktop pet"
+  },
+  "toolAction.diagram": {
+    "defaultMessage": "Draw a diagram"
+  },
+  "toolAction.discover": {
+    "defaultMessage": "Find available tools"
   },
   "toolAction.drag": {
     "defaultMessage": "창에서 드래그"
@@ -7919,6 +8051,18 @@
   "toolAction.editSummary": {
     "defaultMessage": "{count,plural,one{Edited # file} other{Edited # files}}"
   },
+  "toolAction.fetch": {
+    "defaultMessage": "Read webpage contents"
+  },
+  "toolAction.findFiles": {
+    "defaultMessage": "Find files"
+  },
+  "toolAction.generateImage": {
+    "defaultMessage": "Generate an image"
+  },
+  "toolAction.generateVideo": {
+    "defaultMessage": "Generate a video"
+  },
   "toolAction.generating": {
     "defaultMessage": "Preparing operation parameters{target}"
   },
@@ -7926,10 +8070,22 @@
     "defaultMessage": "{target} 생성 중 · {count}줄 수신 — 아직 저장되지 않음"
   },
   "toolAction.generatingFileHeadline": {
-    "defaultMessage": "Generating file contents{target} — not saved yet"
+    "defaultMessage": "Generating file contents{target}"
   },
   "toolAction.keyboard": {
     "defaultMessage": "키보드 사용"
+  },
+  "toolAction.listAgents": {
+    "defaultMessage": "Check subagent progress"
+  },
+  "toolAction.location": {
+    "defaultMessage": "Find a location"
+  },
+  "toolAction.map": {
+    "defaultMessage": "Create a map"
+  },
+  "toolAction.messageAgent": {
+    "defaultMessage": "Send a message to a subagent"
   },
   "toolAction.mouse": {
     "defaultMessage": "창에서 클릭"
@@ -7946,14 +8102,23 @@
   "toolAction.otherSummary": {
     "defaultMessage": "{count,plural,one{Completed # other operation} other{Completed # other operations}}"
   },
+  "toolAction.question": {
+    "defaultMessage": "사용자에게 질문"
+  },
   "toolAction.read": {
     "defaultMessage": "파일 읽기"
   },
   "toolAction.readDone": {
     "defaultMessage": "Read file"
   },
+  "toolAction.readImage": {
+    "defaultMessage": "View an image"
+  },
   "toolAction.readSummary": {
     "defaultMessage": "{count,plural,one{Read # file} other{Read # files}}"
+  },
+  "toolAction.research": {
+    "defaultMessage": "Research a topic online"
   },
   "toolAction.result": {
     "defaultMessage": "결과 표시"
@@ -7970,6 +8135,9 @@
   "toolAction.search": {
     "defaultMessage": "검색"
   },
+  "toolAction.searchContents": {
+    "defaultMessage": "Search file contents"
+  },
   "toolAction.shell": {
     "defaultMessage": "명령 실행"
   },
@@ -7979,14 +8147,29 @@
   "toolAction.shellSummary": {
     "defaultMessage": "{count,plural,one{Ran # command} other{Ran # commands}}"
   },
+  "toolAction.siteMap": {
+    "defaultMessage": "Find pages on a website"
+  },
+  "toolAction.skill": {
+    "defaultMessage": "Load task instructions"
+  },
   "toolAction.takeover": {
     "defaultMessage": "완료되지 않은 위임 작업 인계"
+  },
+  "toolAction.time": {
+    "defaultMessage": "Check the current time"
   },
   "toolAction.tree": {
     "defaultMessage": "파일 목록 보기"
   },
   "toolAction.type": {
     "defaultMessage": "텍스트 입력"
+  },
+  "toolAction.value": {
+    "defaultMessage": "Fill in a field"
+  },
+  "toolAction.weather": {
+    "defaultMessage": "Check the weather"
   },
   "toolAction.webSearch": {
     "defaultMessage": "Search the web"
@@ -7996,6 +8179,15 @@
   },
   "toolAction.webSearchRunning": {
     "defaultMessage": "Searching the web"
+  },
+  "toolAction.window": {
+    "defaultMessage": "Read window contents"
+  },
+  "toolAction.windows": {
+    "defaultMessage": "List open windows"
+  },
+  "toolAction.workingDirectory": {
+    "defaultMessage": "Check the working folder"
   },
   "toolAction.write": {
     "defaultMessage": "파일 쓰기"
@@ -8570,6 +8762,12 @@
   "userMessage.forkSessionTitle": {
     "defaultMessage": "편집한 메시지로 새 세션 만들기"
   },
+  "userMessage.pending": {
+    "defaultMessage": "전송 대기 중"
+  },
+  "userMessage.unconfirmed": {
+    "defaultMessage": "확인 대기 중"
+  },
   "workStatus.approval": {
     "defaultMessage": "Waiting for your approval: {action}"
   },
@@ -8604,7 +8802,7 @@
     "defaultMessage": "Connection established; receiving model output"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "모델 서비스 응답 대기 중"
   },
   "workStatus.text": {
     "defaultMessage": "Receiving the response"
@@ -8944,5 +9142,8 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "모델 서비스에서 아직 콘텐츠를 반환하지 않았습니다. 계속 기다리거나 이 요청을 중지할 수 있습니다."
   }
 }

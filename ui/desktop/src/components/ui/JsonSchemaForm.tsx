@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Pencil, ArrowRight } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { Input } from './input';
 import { Button } from './button';
 import { defineMessages, useIntl } from '../../i18n';
@@ -35,7 +35,7 @@ const i18n = defineMessages({
     id: 'jsonSchemaForm.selectPlaceholder',
     defaultMessage: 'Select...',
   },
-  customAnswer: { id: 'jsonSchemaForm.customAnswer', defaultMessage: 'Other answer' },
+  customAnswer: { id: 'jsonSchemaForm.customAnswer', defaultMessage: 'Your own answer (optional)' },
   customPlaceholder: {
     id: 'jsonSchemaForm.customPlaceholder',
     defaultMessage: 'Or write your own response',
@@ -144,7 +144,9 @@ export default function JsonSchemaForm({
   }, [schema.properties]);
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
-    Object.fromEntries(fields.map(([key, prop]) => [key, initialValue(prop)]))
+    Object.fromEntries(
+      Object.entries(schema.properties ?? {}).map(([key, prop]) => [key, initialValue(prop)])
+    )
   );
   const [error, setError] = useState<string>();
 
@@ -189,11 +191,14 @@ export default function JsonSchemaForm({
   );
 
   const updateValue = (key: string, value: unknown) => {
-    const feedback = schema.properties?.[key]?._meta?.['codepro.dev/feedbackField'];
+    const field = schema.properties?.[key];
+    const feedback = field?._meta?.['codepro.dev/feedbackField'];
     setFormData((current) => ({
       ...current,
       [key]: value,
-      ...(feedback && schema.properties?.[feedback]?.type === 'string' ? { [feedback]: '' } : {}),
+      ...(field?.type === 'string' && feedback && schema.properties?.[feedback]?.type === 'string'
+        ? { [feedback]: '' }
+        : {}),
     }));
     setError(undefined);
   };
@@ -206,6 +211,7 @@ export default function JsonSchemaForm({
   const value = formData[key];
   const required = schema.required?.includes(key) ?? false;
   const options = choicesFor(prop);
+  const values = Array.isArray(value) ? value : [value];
   const feedbackKey = prop._meta?.['codepro.dev/feedbackField'];
   const customKey =
     feedbackKey && feedbackKey !== key && schema.properties?.[feedbackKey]?.type === 'string'
@@ -256,10 +262,10 @@ export default function JsonSchemaForm({
           ? 'border-border-secondary bg-background-secondary'
           : 'border-border-primary bg-background-primary',
         disabled && 'cursor-not-allowed opacity-50',
-        compact && 'rounded-lg border-transparent px-3 py-2'
+        compact && 'rounded-lg border-transparent px-2.5 py-1.5'
       )}
     >
-      <span className="flex items-start gap-3">
+      <span className={cn('flex items-start gap-3', compact && 'gap-2')}>
         <span
           aria-hidden="true"
           className={cn(
@@ -282,7 +288,12 @@ export default function JsonSchemaForm({
             )}
           </span>
           {option.description && (
-            <span className="mt-0.5 block text-xs leading-5 text-text-secondary">
+            <span
+              className={cn(
+                'mt-0.5 block text-xs leading-5 text-text-secondary',
+                compact && 'leading-4'
+              )}
+            >
               {option.description}
             </span>
           )}
@@ -302,7 +313,7 @@ export default function JsonSchemaForm({
       const selected = Array.isArray(value) ? (value as string[]) : [];
       return (
         <div
-          className="flex max-h-[min(30vh,18rem)] flex-col gap-1 overflow-y-auto overscroll-contain"
+          className={cn('flex flex-col gap-2', compact && 'gap-1')}
           role="group"
           aria-labelledby={`${key}-title`}
         >
@@ -325,7 +336,7 @@ export default function JsonSchemaForm({
     if (options.length) {
       return (
         <div
-          className="flex max-h-[min(30vh,18rem)] flex-col gap-1 overflow-y-auto overscroll-contain"
+          className={cn('flex flex-col gap-2', compact && 'gap-1')}
           role="radiogroup"
           aria-labelledby={`${key}-title`}
         >
@@ -395,102 +406,90 @@ export default function JsonSchemaForm({
         event.preventDefault();
         advance();
       }}
-      className={cn('flex flex-col gap-4', compact && 'gap-3')}
+      className={cn('flex flex-col gap-4', compact && 'gap-2')}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3
-            id={`${key}-title`}
-            className={cn('text-base font-semibold text-text-primary', compact && 'text-sm')}
-          >
-            {prop.title || key}
-            {required && !compact && <span className="ml-1 text-red-500">*</span>}
-          </h3>
-          {prop.description && (
-            <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
-          )}
-        </div>
-        {(!compact || fields.length > 1) && (
-          <div className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-text-secondary">
-            {compact && (
-              <button
-                type="button"
-                aria-label={intl.formatMessage(i18n.back)}
-                disabled={disabled || step === 0}
-                className="rounded p-1 hover:bg-background-secondary disabled:opacity-30"
-                onClick={() => {
-                  setError(undefined);
-                  setStep((current) => current - 1);
-                }}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-            )}
-            <span>
-              {step + 1} / {fields.length}
-            </span>
-            {compact && (
-              <button
-                type="button"
-                aria-label={intl.formatMessage(i18n.next)}
-                disabled={disabled || isLastStep}
-                className="rounded p-1 hover:bg-background-secondary disabled:opacity-30"
-                onClick={advance}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+      <div
+        className={cn(
+          'flex flex-col gap-3',
+          compact && 'max-h-[min(22vh,12rem)] gap-2 overflow-y-auto'
+        )}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3
+              id={`${key}-title`}
+              className={cn('text-base font-semibold text-text-primary', compact && 'text-sm')}
+            >
+              {prop.title || key}
+              {required && !compact && <span className="ml-1 text-red-500">*</span>}
+            </h3>
+            {prop.description && (
+              <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
             )}
           </div>
+          {(!compact || fields.length > 1) && (
+            <span className="shrink-0 text-sm tabular-nums text-text-secondary">
+              {step + 1} / {fields.length}
+            </span>
+          )}
+        </div>
+
+        {renderField()}
+        {allowsCustom && (
+          <Input
+            aria-label={intl.formatMessage(i18n.customAnswer)}
+            placeholder={intl.formatMessage(i18n.customPlaceholder)}
+            value={customValue}
+            disabled={disabled}
+            onChange={(event) => {
+              if (customKey && prop.type === 'string') {
+                setFormData((current) => ({
+                  ...current,
+                  [key]: '',
+                  [customKey]: event.target.value,
+                }));
+                setError(undefined);
+              } else
+                updateValue(
+                  customKey ?? key,
+                  !customKey && prop.type === 'array'
+                    ? [
+                        ...values.filter((item) => options.some((option) => option.value === item)),
+                        ...(event.target.value ? [event.target.value] : []),
+                      ]
+                    : event.target.value
+                );
+            }}
+          />
+        )}
+        {error && (
+          <p role="alert" className="text-xs text-red-500">
+            {error}
+          </p>
         )}
       </div>
 
-      {renderField()}
-      {error && (
-        <p role="alert" className="text-xs text-red-500">
-          {error}
-        </p>
-      )}
-
-      <div className="mt-1 flex flex-wrap items-end justify-end gap-2 border-t border-border-primary pt-3">
-        {allowsCustom && options.length > 0 && (
-          <div className="flex min-w-48 flex-1 items-start gap-2 rounded-lg px-2 py-1 focus-within:bg-background-secondary">
-            <Pencil className="mt-2 h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />
-            <textarea
-              aria-label={intl.formatMessage(i18n.customAnswer)}
-              placeholder={intl.formatMessage(i18n.customPlaceholder)}
-              disabled={disabled}
-              rows={1}
-              value={customValue}
-              className="max-h-24 min-h-9 w-full resize-y bg-transparent py-1.5 text-sm leading-5 text-text-primary outline-none placeholder:text-text-secondary"
-              onChange={(event) => {
-                if (customKey) {
-                  setFormData((current) => ({
-                    ...current,
-                    [customKey]: event.target.value,
-                    [key]: prop.type === 'array' ? [] : '',
-                  }));
-                  setError(undefined);
-                } else
-                  updateValue(
-                    key,
-                    prop.type === 'array'
-                      ? event.target.value
-                        ? [event.target.value]
-                        : []
-                      : event.target.value
-                  );
-              }}
-            />
-          </div>
+      <div
+        className={cn(
+          'mt-1 flex items-center justify-end gap-2 border-t border-border-primary pt-3',
+          compact && 'mt-0 pt-2'
         )}
+      >
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={disabled}>
+          <Button
+            type="button"
+            size={compact ? 'sm' : 'default'}
+            variant="outline"
+            onClick={onCancel}
+            disabled={disabled}
+          >
             {cancelLabel ?? intl.formatMessage(i18n.cancel)}
           </Button>
         )}
         {step > 0 && !compact && (
           <Button
             type="button"
+            size={compact ? 'sm' : 'default'}
             variant="outline"
             onClick={() => {
               setError(undefined);
@@ -502,7 +501,7 @@ export default function JsonSchemaForm({
             {intl.formatMessage(i18n.back)}
           </Button>
         )}
-        <Button type="submit" disabled={disabled}>
+        <Button type="submit" size={compact ? 'sm' : 'default'} disabled={disabled}>
           {isLastStep
             ? (submitLabel ?? intl.formatMessage(i18n.submit))
             : intl.formatMessage(i18n.next)}

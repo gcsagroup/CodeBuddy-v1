@@ -14,6 +14,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
 import { remarkStreamReveal } from './remarkStreamReveal';
 import { rehypeIncomingText } from './rehypeIncomingText';
+import { StreamingMarkdownBlocks } from './streamingMarkdown';
 import './ui/stream-prose.css';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
@@ -202,7 +203,7 @@ const CodeBlock = memo(function CodeBlock({
     // building thousands of syntax spans when reopening a conversation.
     if (streaming || children.length > 8000) {
       return (
-        <pre
+        <div
           data-plain-code
           style={{
             margin: 0,
@@ -222,7 +223,7 @@ const CodeBlock = memo(function CodeBlock({
           >
             {children}
           </code>
-        </pre>
+        </div>
       );
     }
 
@@ -412,40 +413,52 @@ const MarkdownContent = memo(function MarkdownContent({
     [sessionId, previewLabel]
   );
 
-  const renderMarkdown = (markdown: string, key: string) => (
-    <ReactMarkdown
-      key={key}
-      urlTransform={(url) => (sessionId && workspaceLinkPath(url) ? url : customUrlTransform(url))}
-      remarkPlugins={[
-        [remarkGfm, { singleTilde: false }],
-        [remarkMath, { singleDollarTextMath: false }],
-        ...(revealAt !== undefined && canRevealTree
-          ? [
-              [remarkStreamReveal, { at: revealAt, source: content }] as [
-                typeof remarkStreamReveal,
-                { at: number; source: string },
-              ],
-            ]
-          : []),
-        // Clip before break conversion, which creates nodes without source offsets.
-        remarkBreaks,
-      ]}
-      rehypePlugins={[
-        ...(splitIncoming ? [rehypeIncomingText] : []),
-        [
-          rehypeKatex,
-          {
-            throwOnError: false,
-            errorColor: '#cc0000',
-            strict: false,
-          },
-        ],
-      ]}
-      components={components}
-    >
-      {markdown}
-    </ReactMarkdown>
+  const urlTransform = useCallback(
+    (url: string) => (sessionId && workspaceLinkPath(url) ? url : customUrlTransform(url)),
+    [sessionId]
   );
+  const renderMarkdown = (markdown: string, key: string) =>
+    revealAt === undefined && splitIncoming ? (
+      <StreamingMarkdown
+        key={key}
+        content={markdown}
+        components={components}
+        urlTransform={urlTransform}
+      />
+    ) : (
+      <ReactMarkdown
+        key={key}
+        urlTransform={urlTransform}
+        remarkPlugins={[
+          [remarkGfm, { singleTilde: false }],
+          [remarkMath, { singleDollarTextMath: false }],
+          ...(revealAt !== undefined && canRevealTree
+            ? [
+                [remarkStreamReveal, { at: revealAt, source: content }] as [
+                  typeof remarkStreamReveal,
+                  { at: number; source: string },
+                ],
+              ]
+            : []),
+          // Clip before break conversion, which creates nodes without source offsets.
+          remarkBreaks,
+        ]}
+        rehypePlugins={[
+          ...(splitIncoming ? [rehypeIncomingText] : []),
+          [
+            rehypeKatex,
+            {
+              throwOnError: false,
+              errorColor: '#cc0000',
+              strict: false,
+            },
+          ],
+        ]}
+        components={components}
+      >
+        {markdown}
+      </ReactMarkdown>
+    );
 
   return (
     <StreamingMarkdownContext.Provider value={animateIncoming}>
@@ -510,5 +523,57 @@ const MarkdownContent = memo(function MarkdownContent({
     </StreamingMarkdownContext.Provider>
   );
 });
+
+const StreamingBlock = memo(function StreamingBlock({
+  content,
+  components,
+  urlTransform,
+}: {
+  content: string;
+  components: Components;
+  urlTransform: (url: string) => string;
+}) {
+  return (
+    <ReactMarkdown
+      components={components}
+      urlTransform={urlTransform}
+      remarkPlugins={[
+        [remarkGfm, { singleTilde: false }],
+        [remarkMath, { singleDollarTextMath: false }],
+        remarkBreaks,
+      ]}
+      rehypePlugins={[
+        rehypeIncomingText,
+        [rehypeKatex, { throwOnError: false, errorColor: '#cc0000', strict: false }],
+      ]}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+});
+
+function StreamingMarkdown(props: {
+  content: string;
+  components: Components;
+  urlTransform: (url: string) => string;
+}) {
+  const parser = useRef<StreamingMarkdownBlocks | null>(null);
+  parser.current ??= new StreamingMarkdownBlocks();
+  const blocks = parser.current.update(props.content);
+  return (
+    <>
+      {blocks.map((block, index) => (
+        <React.Fragment key={block.key}>
+          {index > 0 ? '\n' : null}
+          <StreamingBlock
+            content={block.content}
+            components={props.components}
+            urlTransform={props.urlTransform}
+          />
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
 
 export default MarkdownContent;

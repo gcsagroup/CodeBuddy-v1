@@ -624,15 +624,17 @@ body {
 }
 
 .bg-inline-code {
-  border-radius: 4px;
-  color: var(--color-inline-code);
-  background-color: var(--color-neutral-50);
-  font-family: monospace;
-  font-size: 12px;
+  border-radius: 6px;
+  color: inherit;
+  background-color: var(--color-neutral-100);
+  font-family:
+    'Cascadia Mono', 'Cascadia Code', Consolas, 'SFMono-Regular', Menlo, 'Microsoft YaHei UI',
+    'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', monospace;
+  font-size: 0.875em;
   font-style: normal;
   font-weight: 400;
   line-height: normal;
-  padding: 2px 4px;
+  padding: 0.125em 0.4em;
 }
 
 .dark .bg-inline-code {

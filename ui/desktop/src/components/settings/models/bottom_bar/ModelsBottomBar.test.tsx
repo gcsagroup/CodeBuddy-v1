@@ -18,8 +18,8 @@ vi.mock('../../../ModelAndProviderContext', () => ({
 vi.mock('../../../../acp/providers', () => ({
   acpListProviderDetails: vi.fn(),
   acpReadModelDisplaySettings: vi.fn(),
+  acpSaveThinkingEffort: vi.fn(),
 }));
-vi.mock('../../../ThinkingEffortPicker', () => ({ ModelThinkingMenu: () => null }));
 vi.mock('../../../../hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('../predefinedModelsUtils', () => ({ getModelDisplayName: (name: string) => name }));
 vi.mock('react-router-dom', async () => ({
@@ -80,6 +80,38 @@ beforeEach(() => {
   });
 });
 describe('direct model selection', () => {
+  it('recovers thinking controls after an incomplete preload and detail read without changing models', async () => {
+    let targetReads = 0;
+    vi.mocked(acpReadModelDisplaySettings).mockImplementation(async (_provider, model) => {
+      if (model === 'model-B' && ++targetReads <= 2)
+        return {
+          thinking: { options: [], value: null, toggle: false },
+          contextWindow: 262144,
+          contextSource: 'fallback',
+        };
+      return {
+        thinking: { options: ['off', 'low', 'high'], value: 'high', toggle: false },
+        contextWindow: 1048576,
+        contextSource: 'service',
+      };
+    });
+    const user = userEvent.setup();
+    setup();
+    await waitFor(() => expect(targetReads).toBe(1));
+    const trigger = screen.getByRole('button', { name: 'Select or change model' });
+    await user.click(trigger);
+    fireEvent.mouseMove(await screen.findByRole('button', { name: 'model-B' }));
+    expect(await screen.findByText('Not provided')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Thinking effort: High' })).toBeNull();
+    await user.click(document.body);
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
+    await user.click(trigger);
+    fireEvent.mouseMove(await screen.findByRole('button', { name: 'model-B' }));
+    expect(await screen.findByRole('button', { name: 'Thinking effort: High' })).toBeVisible();
+    expect(screen.getByText('1,048,576 tokens')).toBeVisible();
+    expect(targetReads).toBe(3);
+    expect(mocks.change).not.toHaveBeenCalled();
+  });
   it('keeps the clicked list open after pointer movement and closes on an outside click', async () => {
     const user = userEvent.setup();
     setup();

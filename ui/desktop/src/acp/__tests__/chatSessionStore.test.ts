@@ -4,7 +4,7 @@ import type {
   SessionNotification,
 } from '@agentclientprotocol/sdk';
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types/message';
 import { ChatState } from '../../types/chatState';
 import {
@@ -30,6 +30,89 @@ function message(id: string, text: string): Message {
     metadata: { userVisible: true, agentVisible: true },
   };
 }
+
+it('accepts only current-turn file preparation metadata without adding a request or persisting it in history', () => {
+  const id = 'tool-input-display';
+  const now = vi.spyOn(Date, 'now').mockReturnValue(100_000);
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'a', 'u');
+    const update = (source: string, tool_input: unknown) =>
+      acpChatSessionActions.applyAcpGooseSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'status_message',
+          status: {
+            type: 'progress',
+            message: '',
+            data: {
+              schema_version: 1,
+              event: 'execution_activity',
+              source_user_message_id: source,
+              run_id: 'run',
+              phase: 'model',
+              child_count: 0,
+              tool_input,
+            },
+          },
+        },
+      } as never);
+    update('other-turn', { id: 'w', name: 'write', kilobytes: 4 });
+    expect(
+      acpChatSessionStore.getSnapshot(id)?.promptActivity?.execution?.toolInput
+    ).toBeUndefined();
+    update('u', { id: 'w', name: 'write', kilobytes: 4, rawArguments: 'PRIVATE' });
+    const snapshot = acpChatSessionStore.getSnapshot(id)!;
+    expect(snapshot.promptActivity?.execution?.toolInput).toEqual({
+      id: 'w',
+      name: 'write',
+      kilobytes: 4,
+    });
+    expect(snapshot.messages).toHaveLength(0);
+    expect(snapshot.activeToolCallIds).toEqual([]);
+    expect(snapshot.promptActivity?.receivedAt).toBe(100_000);
+    now.mockReturnValue(125_000);
+    update('u', { id: 'w', name: 'write', kilobytes: 4 });
+    expect(acpChatSessionStore.getSnapshot(id)?.promptActivity?.receivedAt).toBe(125_000);
+    update('u', { id: null, name: 'write' });
+    expect(
+      acpChatSessionStore.getSnapshot(id)?.promptActivity?.execution?.toolInput
+    ).toBeUndefined();
+    acpChatSessionActions.finishPromptAttemptIfCurrent(id, 'a');
+    update('u', { id: 'late', name: 'write', kilobytes: 5 });
+    expect(acpChatSessionStore.getSnapshot(id)?.promptActivity).toBeUndefined();
+  } finally {
+    now.mockRestore();
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
+it('publishes appended text without mutating earlier snapshots or replacing unchanged history', () => {
+  const id = 'stream-snapshot-isolation';
+  try {
+    acpChatSessionActions.setMessages(id, [message('user', 'question')]);
+    const delta = (text: string) =>
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          messageId: 'answer',
+          content: { type: 'text', text },
+        },
+      });
+    const first = delta('first');
+    const second = delta(' second');
+    expect(first.messages[1].content).toEqual([{ type: 'text', text: 'first' }]);
+    expect(second.messages[1].content).toEqual([{ type: 'text', text: 'first second' }]);
+    expect(second.messages[0]).toBe(first.messages[0]);
+    expect(second.messages[1]).not.toBe(first.messages[1]);
+    acpChatSessionActions.setMessages(id, [message('replacement', 'restored')]);
+    const restored = delta('new');
+    expect(restored.messages[0].id).toBe('replacement');
+    expect(restored.messages[1].content).toEqual([{ type: 'text', text: 'new' }]);
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
 
 function runningActivityMessage(sessionId: string): Message {
   return {
@@ -114,6 +197,7 @@ function permissionRequest(sessionId: string, toolCallId = 'tool-1'): RequestPer
 function elicitationRequest(sessionId: string): {
   id: string;
   sessionId: string;
+  expiresAt: number;
   request: CreateElicitationRequest & {
     mode: 'form';
     sessionId: string;
@@ -122,6 +206,7 @@ function elicitationRequest(sessionId: string): {
   return {
     id: 'acp_elicitation_1',
     sessionId,
+    expiresAt: Date.now() + 300_000,
     request: {
       mode: 'form',
       sessionId,
@@ -356,8 +441,14 @@ describe('acpChatSessionStore', () => {
   it('applies mode updates after cancellation only to the addressed session', () => {
     const first = sessionId('mode-first');
     const second = sessionId('mode-second');
-    acpChatSessionActions.finishSessionLoad(first, { ...session(first), goose_mode: 'danger-full-access' });
-    acpChatSessionActions.finishSessionLoad(second, { ...session(second), goose_mode: 'read-only' });
+    acpChatSessionActions.finishSessionLoad(first, {
+      ...session(first),
+      goose_mode: 'danger-full-access',
+    });
+    acpChatSessionActions.finishSessionLoad(second, {
+      ...session(second),
+      goose_mode: 'read-only',
+    });
     acpChatSessionActions.startPromptAttempt(first, 'mode-attempt', 'user-1');
     acpChatSessionActions.startPromptCancellation(first, 'mode-attempt');
     acpChatSessionActions.clearPromptCancellation(first, 'mode-attempt');
@@ -673,11 +764,16 @@ describe('acpChatSessionStore', () => {
     acpChatSessionActions.setMessages(currentSessionId, [runningActivityMessage(currentSessionId)]);
     acpChatSessionActions.startPromptAttempt(currentSessionId, 'attempt-1', 'user-1');
 
+    const beforeCancellation = acpChatSessionStore.getSnapshot(currentSessionId);
     const cancellationSnapshot = acpChatSessionActions.startPromptCancellation(
       currentSessionId,
       'attempt-1'
     );
     const activity = cancellationSnapshot?.messages[0].content[0];
+
+    expect(beforeCancellation?.messages[0].content[0]).toMatchObject({
+      data: { status: 'running' },
+    });
 
     expect(activity).toMatchObject({
       type: 'systemNotification',

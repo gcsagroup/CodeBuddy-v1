@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { boot } from '@deepseek-ai/dsh-app-boot';
-import { BlockAssembler } from '@deepseek-ai/dsh-llm';
+import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
 import compactionPlugin from './compaction.mjs';
@@ -17,12 +17,16 @@ import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
+import { imageToolApprovalScope } from '../comfyui-tool.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
+import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { validateSubagentLimits } from '../subagent-limits.mjs';
+import { createToolInputPreview } from './tool-input-preview.mjs';
 
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
@@ -46,6 +50,8 @@ function abortable(promise, signal) {
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
 export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
+  // The alpha2 return contract above must load before the subagent module.
+  const { foldSubagentDescriptor } = await import('@deepseek-ai/dsh-subagent');
   const root = resolve(dataDir);
   await mkdir(root, { recursive: true });
   const configPath = join(root, 'codebuddy-host.json');
@@ -61,11 +67,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const sessionScopes = new Map();
   const directCalls = new Map();
   const toolReceipts = new Map();
+  const hostImageReceipts = new WeakMap();
   const configurationQueues = new Map();
   const extensionStates = new Map();
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
   const approvalOwners = new WeakMap();
+  const imageApprovals = new WeakMap();
+  const imageDefinitions = new WeakMap();
   const initialPermissions = new Map();
   const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
@@ -196,6 +205,22 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     };
   }
 
+  const sameImageScope = (a, b) => a && b && a.key === b.key &&
+    a.fetchImpl === b.fetchImpl && a.statfsImpl === b.statfsImpl;
+  async function imageSessionApproval(exec, rootAgent) {
+    const definition = ctx.tools.get(exec.name, exec.agent);
+    const image = definition && imageDefinitions.get(definition);
+    const binding = rootAgent && imageApprovals.get(rootAgent);
+    if (!image || !binding || !sameImageScope(image.scope, binding.scope) ||
+      imageToolApprovalScope(image.tool) !== image.scope || !(await image.scope.accepts(exec.arguments))) return undefined;
+    exec.signal.throwIfAborted();
+    return {
+      identity: binding.identity, extensionSource: 'builtin',
+      isCurrent: () => imageApprovals.get(rootAgent) === binding &&
+        ctx.tools.get(exec.name, exec.agent) === definition && imageToolApprovalScope(image.tool) === image.scope,
+    };
+  }
+
   function isInternalControl(agent, name) {
     const definition = ctx.tools.get(name, agent);
     return Boolean(definition && delegationDefinitions.has(definition));
@@ -257,8 +282,30 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('user-questions/request', async (request, next) => {
     const active = runFor(request.agent);
     if (!active?.onUserQuestions) return next();
-    return active.onUserQuestions(request);
+    let remainingMs;
+    if (request.wait?.timed) {
+      const wait = ctx.userQuestions.attachWait(request.agent, request.wait.callId, request.signal);
+      try { remainingMs = (await wait.next()).value?.remainingMs; }
+      finally { await wait.return(); }
+    }
+    // Read and release the native wait: Host keeps the timer; the desktop only
+    // displays its remaining duration and never settles a second deadline.
+    return active.onUserQuestions({ ...request, ...(request.wait ? { wait: { ...request.wait, remainingMs } } : {}) });
   });
+  function userQuestions(session) {
+    const snapshot = ctx.sessionProjections.stateOf(session, 'userQuestions')?.questions ?? { active: [], settled: [] };
+    const run = runs.get(session.id);
+    const boundary = session.log.findLast(event => event.type === 'turn/start' || event.type === 'turn/end');
+    // Product reply window: only questions of the still-running native turn.
+    // Native history is retained; finishing/stopping never manufactures answers.
+    const calls = run && !run.cancelRequested && boundary?.type === 'turn/start'
+      ? new Set(session.log.slice(boundary.seq + 1).flatMap(event => event.type === 'tool/call' ? [event.data.callId]
+        : event.type === 'tool/ptc-dispatch' ? [event.data.subCallId] : [])) : new Set();
+    return { nativeSessionId: session.id, ...structuredClone({
+      active: snapshot.active.filter(q => calls.has(q.callId)),
+      settled: snapshot.settled.filter(q => calls.has(q.callId)),
+    }) };
+  }
   function contextUsage(session) {
     const snapshot = ctx.sessionProjections.snapshot(session, ['tokenUsage', 'contextPressure']);
     const meter = ctx.tokenMeter.measure(session);
@@ -303,6 +350,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     console.warn('[Harness model transport]', JSON.stringify(event));
   }), 'CodeBuddy model transport observation');
   ctx.effect(() => installModelResponseValidation(ctx), 'CodeBuddy model response validation');
+  const noticeAdmission = installSubagentNoticeAdmission(ctx, agent => runs.get(agent.id));
+  ctx.effect(() => () => noticeAdmission.dispose(), 'CodeBuddy native subagent notice admission');
   ctx.on('agent/created', async ({ agent }) => {
     if (agent.session.header.origin !== 'subagent') return;
     const parent = ctx.agents.get(agent.session.header.parentSession);
@@ -316,8 +365,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // selects another model. Rehydrate only a matching current connection;
     // never substitute the template's new model into that descriptor.
     if (!providers.has(agent.options.provider) && inherited.restoreSubagentProvider) {
+      const context = agent.session.requestContext();
+      const recorded = context?.provider === agent.options.provider && context.model === agent.options.model
+        ? { contextWindow: context.contextWindow, reasoningEffort: agent.options.reasoningEffort } : undefined;
       const provider = await inherited.restoreSubagentProvider(agent.options.model,
-        candidate => nativeProviderRoute(candidate, agent.options.model) === agent.options.provider);
+        candidate => nativeProviderRoute(candidate, agent.options.model) === agent.options.provider, recorded);
       if (!provider || nativeProviderRoute(provider, agent.options.model) !== agent.options.provider)
         throw new Error('The original subagent model connection is unavailable; its model was not changed.');
       await configureProvider(provider, agent.options.model);
@@ -331,11 +383,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     sessionScopes.delete(agent.id);
     extensionStates.delete(agent.id);
   });
-  function permissionCall(exec, active) {
+  async function permissionCall(exec, active) {
     const definition = ctx.tools.get(exec.name, exec.agent);
     const rootAgent = ctx.agents.get(active.sessionId);
     const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
-    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent);
+    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await imageSessionApproval(exec, rootAgent);
     let sessionApproval;
     if (binding && rootAgent) {
       let owner = approvalOwners.get(rootAgent);
@@ -375,7 +427,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (active.observationFailure) return { kind: 'deny', reason: active.observationFailure.message };
     try {
       await abortable(active.events, exec.signal);
-      const call = permissionCall(exec, active);
+      const call = await permissionCall(exec, active);
       approvalCalls.set(`${exec.agent.id}\0${exec.callId}`, call);
       let gate = active.onToolPolicy
         ? await abortable(active.onToolPolicy(call), exec.signal)
@@ -398,13 +450,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   });
   ctx.on('tools/execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
-    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? permissionCall(exec, active));
+    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? await permissionCall(exec, active));
     return next();
   });
   ctx.on('tools/result', (exec, result) => {
     approvalCalls.delete(`${exec.agent.id}\0${exec.callId}`);
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
-    const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata };
+    const presentationContent = !result.isError ? hostImageReceipts.get(exec) : undefined;
+    hostImageReceipts.delete(exec);
+    const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata,
+      ...(presentationContent ? { presentationContent } : {}),
+    };
     const direct = directCalls.get(exec.callId);
     if (direct) direct.receipt = receipt;
     else if (runFor(exec.agent)) toolReceipts.set(`${exec.agent.id}\0${exec.callId}`, receipt);
@@ -426,15 +482,34 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const run = runFor(agent);
     if (!run) return;
     if (frame.type === 'start') {
-      streamingMeters.set(agent.id, { attemptId: frame.attemptId, assembler: new BlockAssembler(), baseline: contextUsage(agent.session), lastSent: 0 });
+      streamingMeters.set(agent.id, { attemptId: frame.attemptId, assembler: new BlockAssembler(), preview: createToolInputPreview(), publishedPreviews: new Map(), previewSentAt: 0, baseline: contextUsage(agent.session), lastSent: 0 });
       emit(run, { type: 'assistant_start', attemptId: frame.attemptId, turn: frame.turn, step: frame.step, sessionId: agent.id });
       return;
     }
-    if (frame.type !== 'chunk') { streamingMeters.delete(agent.id); return; }
+    if (frame.type !== 'chunk') {
+      streamingMeters.delete(agent.id);
+      emit(run, { type: 'assistant_end', attemptId: frame.attemptId, sessionId: agent.id });
+      return;
+    }
     const chunk = frame.chunk;
     const live = streamingMeters.get(agent.id);
     if (live?.attemptId === frame.attemptId) {
       live.assembler.push(chunk);
+      live.preview.push(chunk);
+      if (chunk.type === 'tool-call-delta') {
+        const preview = live.preview.read(chunk.index);
+        if (preview && !isInternalControl(agent, preview.name)) {
+          const previous = live.publishedPreviews.get(chunk.index);
+          const metadataChanged = !previous || previous.id !== preview.id || previous.name !== preview.name || previous.path !== preview.path;
+          // A late complete path may be followed immediately by stream end.
+          // Throttle size updates, never the first received identity or path.
+          if (metadataChanged || Date.now() - live.previewSentAt >= 250) {
+            live.previewSentAt = Date.now();
+            live.publishedPreviews.set(chunk.index, preview);
+            emit(run, { type: 'tool_input', preview, attemptId: frame.attemptId, sessionId: agent.id });
+          }
+        }
+      }
       if (Date.now() - live.lastSent >= 250 && ['text-delta', 'reasoning-delta', 'tool-call-delta', 'block-end'].includes(chunk.type)) {
         live.lastSent = Date.now();
         // Display only: use upstream block assembly and pricing. The durable
@@ -445,22 +520,26 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (chunk.type === 'text-delta') emit(run, { type: 'text_delta', text: chunk.text, attemptId: frame.attemptId, sessionId: agent.id });
     if (chunk.type === 'reasoning-delta') emit(run, { type: 'thinking_delta', text: chunk.text, attemptId: frame.attemptId, sessionId: agent.id });
     if (chunk.type === 'usage') emit(run, { type: 'usage', ...chunk.usage, sessionId: agent.id });
-    if (chunk.type === 'block-end' && chunk.block.type === 'tool-call') {
-      let args = chunk.block.arguments;
-      try { args = JSON.parse(args); } catch { /* Preserve invalid upstream args for error display. */ }
-      const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, chunk.block.name);
-      emit(run, { type: 'tool_call', id: chunk.block.id, name: chunk.block.name, internalControl: isInternalControl(agent, chunk.block.name), arguments: args, attemptId: frame.attemptId, sessionId: agent.id, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
-    }
   });
   ctx.on('session/event', (session, event) => {
     const agent = ctx.agents.get(session.id);
     const run = runFor(agent);
     if (!run) return;
+    if (event.type === 'tool/call') {
+      let args = event.data.arguments;
+      try { args = JSON.parse(args); } catch { /* Preserve invalid native input for error display. */ }
+      const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, event.data.name);
+      emit(run, { type: 'tool_call', id: event.data.callId, name: event.data.name,
+        internalControl: isInternalControl(agent, event.data.name), arguments: args, sessionId: session.id,
+        ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
+    }
     // Native turn/start is synchronous and precedes inbox claim. Cancelling at
     // pre-step is too late: keepInbox cannot retain already claimed notices.
     // Keep turn/start/end so even an immediately cancelled run can settle.
     if (event.type === 'turn/start' && run.cancelRequested)
       agent.cancel({ kind: 'user' }, { keepInbox: true });
+    if (session.id === run.sessionId && ['tool/result', 'tool/ptc-dispatch', 'user/message', 'turn/end'].includes(event.type))
+      emit(run, { type: 'user_questions', sessionId: session.id, snapshot: userQuestions(session) });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -514,6 +593,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
 
   let creation = Promise.resolve();
   let providerConfiguration = Promise.resolve();
+  let limitsConfiguration = Promise.resolve();
+  function configureSubagentLimits(value) {
+    const limits = validateSubagentLimits(value);
+    const work = limitsConfiguration.then(async () => {
+      if (ctx.subagents.config.maxDepth.get() === limits.maxDepth &&
+          ctx.subagents.config.maxActiveSubagents.get() === limits.maxActiveSubagents) return;
+      const entry = [...ctx.loader.entries()].find(item => item.options.id === 'subagents');
+      // Both official fields are volatile: updating them does not replace the
+      // manager or interrupt children. DSH remains the admission authority.
+      await entry.update({ config: limits });
+      await ctx.loader.await();
+    });
+    limitsConfiguration = work.catch(() => {});
+    return work;
+  }
   function configureProvider(provider, model) {
     const work = providerConfiguration.then(() => configureProviderNow(provider, model));
     providerConfiguration = work.catch(() => {});
@@ -603,6 +697,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
     const { roleModels: _roleModels, maxParallelSubagents: _parallel, maxParallelCoders: _coders, initialPermissionPreset: _initialPreset, ...settings } = { ...previous, ...options };
+    let childFilter;
+    if (agent.session.header.origin === 'subagent') {
+      const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
+      try { childFilter = foldSubagentDescriptor(observation.events.slice(observation.inheritedEventCount))?.toolFilter; }
+      finally { observation[Symbol.dispose](); }
+    }
+    // Native restrictions mask inherited capabilities, while scope-local
+    // registrations are intentionally exempt. Reinstalled host/stdio tools
+    // must therefore consume the same recorded filter before registration.
+    const filters = childFilter ? [settings.toolFilter, childFilter].filter(Boolean) : [];
+    const allowLists = filters.flatMap(filter => filter.allow === undefined ? [] : [filter.allow]);
+    const registrationFilter = filters.length ? {
+      ...(allowLists.length ? { allow: allowLists.reduce((kept, list) => kept.filter(name => list.includes(name))) } : {}),
+      deny: [...new Set(filters.flatMap(filter => filter.deny ?? []))],
+    } : undefined;
     for (const field of ['maxTurns', 'maxTokens']) if (settings[field] !== undefined && (!Number.isSafeInteger(settings[field]) || settings[field] < 1)) throw new TypeError(`${field} must be a positive integer`);
     if (settings.temperature !== undefined && (!Number.isFinite(settings.temperature) || settings.temperature < 0 || settings.temperature > 2)) throw new TypeError('temperature must be between 0 and 2');
     if (settings.autoCompactThreshold !== undefined && (!Number.isFinite(settings.autoCompactThreshold) || settings.autoCompactThreshold <= 0 || settings.autoCompactThreshold >= 1)) throw new TypeError('autoCompactThreshold must be between 0 and 1');
@@ -616,12 +725,24 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     for (const tool of settings.tools ?? []) {
       if (!tool.name || typeof tool.execute !== 'function') throw new TypeError('Host tools require name and execute');
     }
+    if (settings.projectToolContext !== undefined && typeof settings.projectToolContext !== 'function')
+      throw new TypeError('Host tool context projection must be a function');
+    const imageScope = (settings.tools ?? []).map(imageToolApprovalScope).find(Boolean);
+    const previousImage = imageApprovals.get(agent);
+    const imageBinding = imageScope
+      ? sameImageScope(imageScope, previousImage?.scope) ? previousImage : { scope: imageScope, identity: Object.freeze({}) }
+      : undefined;
     const subagentModels = {};
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
     }
+    const subagentTemplates = await Promise.all((settings.subagentTemplates ?? []).map(async template => ({
+      ...template,
+      model: !template.model || template.model.error ? template.model : await configureProvider(template.model.provider, template.model.model),
+    })));
     await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !names.has(server.serverName)).map(server => server.serverName));
+    imageApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
@@ -640,7 +761,12 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           // Session policy must survive the child's native persona override.
           scoped.systemPrompt.section({ name: 'codebuddy:session-instructions', order: 100, text: settings.systemPrompt, interpolate: false });
         }
+        if (settings.conversationLocale) scoped.systemPrompt.section({
+          name: 'codebuddy:conversation-locale', order: 103, interpolate: false,
+          text: `Default conversation language: ${JSON.stringify(settings.conversationLocale)}. Use it for user-facing replies, progress and delegation messages, unless the human explicitly requests another language. Tell subagents the requested language when delegating. Keep original code, identifiers and tool output unchanged.`,
+        });
         for (const tool of settings.tools ?? []) {
+          if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
           scoped.tools.register({
             name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
             output: {
@@ -652,28 +778,36 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
               if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
               const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
               await active?.events;
-              const value = await tool.execute(args, { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId });
+              const context = { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId };
+              const value = await tool.execute(args, settings.projectToolContext ? settings.projectToolContext(context) : context);
               if (Array.isArray(value?.content) && value.content.some(block => block.type === 'image' && !block.attachment)) {
-                // Host tools return wire images, while native history requires
-                // durable references just like the official MCP bridge.
-                let content = value.content;
+                // Display keeps original bytes; native persistence and model
+                // projection use durable references or a backup observation.
+                hostImageReceipts.set(exec, value.content);
                 try {
-                  content = await ctx.get('codebuddyMcpVision').project(content, exec);
+                  const content = await ctx.get('codebuddyMcpVision').project(value.content, exec);
                   const images = content.filter(block => block.type === 'image' && !block.attachment);
-                  const refs = await admitEncodedImages(ctx.attachments, images.map(block => ({
-                    data: block.data, mediaType: block.mimeType ?? block.mediaType,
-                  })));
-                  let index = 0;
-                  content = content.map(block => block.type === 'image' && !block.attachment
-                    ? { type: 'image', attachment: refs[index++] } : block);
+                  if (images.length) {
+                    const route = exec.agent.session.requestHeader()?.config ?? exec.agent.options;
+                    const info = await ctx.llm.resolveModelInfo(route.provider, route.model, exec.signal);
+                    if (!info.inputModalities?.includes('image')) throw new Error('The model has no confirmed image input');
+                    const refs = await admitEncodedImages(ctx.attachments, images.map(block => ({
+                      data: block.data, mediaType: block.mimeType ?? block.mediaType,
+                    })));
+                    let index = 0;
+                    exec.signal.throwIfAborted();
+                    return { ...value, content: content.map(block => images.includes(block) ? { type: 'image', attachment: refs[index++] } : block) };
+                  }
+                  exec.signal.throwIfAborted();
+                  return { ...value, content };
                 } catch (error) {
                   if (exec.signal.aborted) throw error;
-                  // The action already happened; an unavailable observation
-                  // must not invite replay of that successful action.
-                  content = content.map(block => block.type === 'image' ? { type: 'text',
-                    text: '[Image observation unavailable. The tool action receipt is unchanged; do not repeat the action to retry image interpretation or claim visual verification.]' } : block);
+                  // The tool action succeeded. Inspection cannot turn it into a
+                  // retryable action failure or replace its original receipt.
+                  return { ...value, content: value.content.flatMap(block => block.type === 'image'
+                    ? [{ type: 'text', text: 'Image inspection is unavailable for this result. The tool action and saved output remain valid. Do not repeat the action just to retry inspection or claim visual details you did not observe.' }]
+                    : [block]) };
                 }
-                return { ...value, content };
               }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
             },
@@ -683,6 +817,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
             readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
           }
+          const imageScope = imageToolApprovalScope(tool);
+          if (imageScope) imageDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: imageScope });
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
@@ -697,7 +833,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           mcpPresets.acquire(remoteServers).then(value => (shared = value)),
           Promise.all(mcpServers.filter(server => server.transport !== 'streamable-http').map(async server => {
           const started = performance.now();
-          const connection = scoped.plugin(mcpPlugin, { ...server, failOnStartupError: true });
+          const connection = scoped.plugin(mcpPlugin, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true });
           try {
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
@@ -721,10 +857,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
         connections.push(...statuses);
         if (agent.session.header.origin !== 'subagent') {
-          for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
+          for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, custom: subagentTemplates, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
         }
         if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
-        const discovery = installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
+        const discovery = childFilter?.allow?.length === 0 ? undefined
+          : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
         if (discovery) {
           readOnlyDefinitions.add(discovery);
           // Loading tool schemas is internal plumbing, not a project operation.
@@ -736,6 +873,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     catch (error) { await fiber.dispose(); throw error; }
     sessionScopes.set(sessionId, fiber);
     sessionSettings.set(sessionId, settings);
+    if (imageBinding) imageApprovals.set(agent, imageBinding);
     const orderedConnections = mcpServers.map(server => connections.find(connection => connection.serverName === server.serverName));
     extensionStates.set(sessionId, orderedConnections);
     return { configured: true, extensions: orderedConnections };
@@ -821,7 +959,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId };
+      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId, requestId };
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -846,10 +984,12 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
         const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : content;
         const promptAgent = ctx.agents.get(sessionId);
+        if (promptAgent?.inbox.nextTurn.some(message => message.source?.kind === 'subagent-settled'))
+          await noticeAdmission.reconcile(promptAgent, signal);
         const parked = promptAgent?.inbox.nextTurn ?? [];
         // A stopped parent's notices must not open a model request before its
         // new human instruction. Native steer joins that instruction with the
-        // next queued notice; other pending human inputs retain their FIFO.
+        // parked notices through native step admission; mixed human queues retain FIFO.
         const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
         await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
         if (resumeGoal) await driver.controlGoal(sessionId, { action: 'resume', ...resumeGoal });
@@ -898,6 +1038,18 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       }
     },
     configureSession,
+    configureSubagentLimits,
+    async questions(sessionId) {
+      const agent = ctx.agents.get(sessionId);
+      return agent ? userQuestions(agent.session) : { nativeSessionId: sessionId, active: [], settled: [] };
+    },
+    async answerQuestion(sessionId, callId, answer) {
+      const run = runs.get(sessionId);
+      if (!run || run.cancelRequested) throw new Error('当前轮次已停止或结束，无需再回答。');
+      const agent = ctx.agents.get(sessionId);
+      if (!agent || !userQuestions(agent.session).active.some(q => q.callId === callId && q.state === 'continued')) return false;
+      return ctx.userQuestions.answer(agent, callId, answer);
+    },
     extensionStatus(sessionId) {
       const agent = ctx.agents.get(sessionId);
       return (extensionStates.get(sessionId) ?? []).map(state => {
@@ -931,7 +1083,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           const result = await ctx.tools.execute({ callId, name, arguments: args, agent, signal: AbortSignal.any([signal, maintenanceSignal]) });
           emit(run, { type: 'tool_result', id: callId, result: result.content, isError: result.isError, sessionId, name, arguments: args, structuredContent: result.value, error: result.error, ...run.receipt });
           await run.events;
-          return { ...result, ...(run.receipt?.mcpResult ? { mcpResult: run.receipt.mcpResult } : {}) };
+          return { ...result, ...(run.receipt?.mcpResult ? { mcpResult: run.receipt.mcpResult } : {}),
+            ...(run.receipt?.presentationContent ? { presentationContent: run.receipt.presentationContent } : {}),
+          };
         });
       } finally { directCalls.delete(callId); }
     },
@@ -1056,6 +1210,15 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       return result;
     },
     follow(sessionId, signal) { return ctx.sessionController.follow({ address: { kind: 'session', sessionId }, assistantStream: true }, signal); },
+    async *followSubagent(address, signal) {
+      for await (const item of ctx.sessionController.follow({ address: { kind: 'subagent', ...address }, assistantStream: true, maxMessages: Number.MAX_SAFE_INTEGER }, signal)) {
+        const active = item.type === 'snapshot' && item.assistantStream?.activeAttempt;
+        yield active ? { ...item, assistantStream: { activeAttempt: {
+          attemptId: active.attemptId, turn: active.turn, step: active.step,
+          chunks: expandAssistantStream(active.stream).map(timed => timed.chunk),
+        } } } : item;
+      }
+    },
     async upload(sessionId, { data, name }, signal = new AbortController().signal) {
       const resolved = await ctx.sessionController.resolveAgent(sessionId);
       if ('error' in resolved) throw resolved.error;

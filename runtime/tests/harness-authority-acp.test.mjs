@@ -9,7 +9,12 @@ import { openStore } from '../store.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { driverProvider } from '../providers.mjs';
 import { isDeepStrictEqual } from 'node:util';
-import { zCreateElicitationRequest } from '../../ui/node_modules/@agentclientprotocol/sdk/dist/schema/zod.gen.js';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
+// Exercise the desktop's real wire validator, which rejects unsupported form schemas.
+const desktopRequire = createRequire(new URL('../../ui/desktop/package.json', import.meta.url));
+const { zCreateElicitationRequest } = await import(pathToFileURL(desktopRequire.resolve('@agentclientprotocol/sdk/dist/schema/zod.gen.js')));
 
 async function fixture(t) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-')));
@@ -41,8 +46,48 @@ async function fixture(t) {
   const created = await request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
   const sessionId = created.sessionId;
   const prompt = text => request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
-  return { compat, driver, store, connection, notices, sessions, scripts, sessionId, prompt, request, setInitializer(fn) { initialize = fn; } };
+  return { compat, driver, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
 }
+
+test('native questions preserve suggestions, custom answers, skip, timeout and cancellation at the ACP boundary', async t => {
+  const f = await fixture(t), asked = [];
+  const questions = [
+    { id: 'one', question: 'Which color?', options: [{ label: 'Mint', description: 'Cool' }, { label: 'Cream' }] },
+    { id: 'many', question: 'Which checks?', multiSelect: true, options: [{ label: 'Stop' }, { label: 'Resume' }] },
+    { id: 'note', question: 'Anything else?' },
+  ];
+  let reply = { action: 'accept', content: { answer_0: 'Mint', answer_1: ['Stop'], answer_1_custom: 'Other check', answer_2: 'My note' } };
+  f.connection.ask = async (method, params) => { assert.equal(method, 'elicitation/create'); asked.push(zCreateElicitationRequest.parse(params)); return reply; };
+  const run = async check => {
+    f.scripts.push(async callbacks => { await check(callbacks); return { stopReason: 'end_turn' }; });
+    await f.prompt('Question fixture');
+  };
+  await run(async callbacks => {
+    assert.deepEqual(await callbacks.onUserQuestions({ questions }), { answers: [
+      { id: 'one', selected: ['Mint'] }, { id: 'many', selected: ['Stop'], custom: 'Other check' }, { id: 'note', selected: [], custom: 'My note' },
+    ] });
+  });
+  const schema = asked[0].requestedSchema;
+  assert.equal(schema.properties.answer_1.type, 'array');
+  assert.deepEqual(asked[0]._meta['codepro.dev/questionFields'].answer_0['codepro.dev/suggestedOptions'], [
+    { const: 'Mint', title: 'Mint', description: 'Cool' }, { const: 'Cream', title: 'Cream' },
+  ]);
+  assert.deepEqual(schema.properties.answer_1.items.enum, ['Stop', 'Resume']);
+  assert.equal(schema.properties.feedback_1.type, 'string');
+  assert.equal(schema.properties.answer_0.enum, undefined, 'Custom text is allowed, not an enum violation');
+  reply = { action: 'cancel' };
+  await run(async callbacks => assert.deepEqual(await callbacks.onUserQuestions({ questions }), { answers: questions.map(q => ({ id: q.id, selected: [] })) }));
+  reply = { action: 'cancel', _meta: { codepro: { reason: 'expired' } } };
+  await run(async callbacks => assert.rejects(callbacks.onUserQuestions({ questions }), /等待回答已超时/));
+  reply = { action: 'accept', content: { answer_0: { invalid: true } } };
+  await run(async callbacks => assert.rejects(callbacks.onUserQuestions({ questions }), /答复格式无效/));
+  reply = { action: 'accept', content: { answer_0: 'Mint' } };
+  await run(async callbacks => {
+    const controller = new AbortController(); controller.abort();
+    await assert.rejects(callbacks.onUserQuestions({ questions, signal: controller.signal }), /abort/i);
+  });
+
+});
 
 test('native question choices remain selectable and preserve custom and multi-select answers', async t => {
   const f = await fixture(t);
@@ -77,7 +122,8 @@ test('native plan review metadata and feedback survive the UI boundary without t
   f.connection.ask = async (method, params) => {
     const parsed = zCreateElicitationRequest.parse(params);
     assert.deepEqual(parsed._meta['codepro.dev/questionFields'].answer_0['codepro.dev/questionIntent'], intent);
-    assert.equal(params.requestedSchema.properties.answer_0._meta['codepro.dev/feedbackField'], 'feedback_0');
+    assert.equal(parsed._meta['codepro.dev/questionFields'].answer_0['codepro.dev/feedbackField'], 'feedback_0');
+    assert.equal(parsed._meta['codebuddy/question-blocking'], true);
     assert.deepEqual(params.requestedSchema.required, ['answer_0']);
     return { action: 'accept', content: { answer_0: '', feedback_0: 'Approve' } };
   };
@@ -206,6 +252,27 @@ test('model thinking changes preserve session authorization and the active turn,
   assert.equal(f.sessions.at(-1).options.thinkingEffort,'off');
 });
 
+test('interruption presentation metadata persists in the transcript without entering native execution', async t => {
+  const f = await fixture(t);
+  const nativeInputs = [];
+  const prompt = f.compat.driver.prompt;
+  f.compat.driver.prompt = (...args) => { nativeInputs.push(args[1]); return prompt(...args); };
+  f.scripts.push(async ({ onEvent }) => {
+    await onEvent({ type: 'text_delta', text: 'Stopped.' });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  const presentation = { afterMessageId: 'prior-output' };
+  await f.request('session/prompt', { sessionId: f.sessionId,
+    prompt: [{ type: 'text', text: 'Stop' }],
+    _meta: { 'codeagentpro/source-message-id': 'queued-stop', 'codebuddy/message-presentation': presentation },
+  });
+  const echo = f.notices.find(notice => notice.params.update?.sessionUpdate === 'user_message_chunk')?.params.update;
+  assert.deepEqual(echo._meta.goose.presentation, presentation);
+  assert.deepEqual(nativeInputs, [[{ type: 'text', text: 'Stop' }]]);
+  const stored = (await openStore(f.store.directory)).readSession(f.sessionId);
+  assert.deepEqual(stored.updates.find(update => update.messageId === 'queued-stop')._meta.goose.presentation, presentation);
+});
+
 test('new conversation is durable before any model or MCP startup; first message acknowledges before readiness', async t => {
   const f = await fixture(t);
   assert.equal(f.sessions.length, 0, 'new-chat navigation must not await remote services');
@@ -258,6 +325,35 @@ test('final native response observation stays separate from progress, child mess
     assert.equal(terminal.visible_text_available, true, 'earlier progress is still visible');
     assert.equal(terminal.last_response_text_available, finalHasText);
     assert.equal(f.scripts.length, 0, 'one user prompt consumes one native attempt without automatic repair');
+  }
+});
+
+test('only explicit cancel adds a stop display marker after native settlement; steer preserves execution', async t => {
+  const f = await fixture(t);
+  f.compat.driver.steer = async () => {};
+  for (const action of ['stop', 'steer', 'native']) {
+    const entered = Promise.withResolvers(), release = Promise.withResolvers();
+    f.scripts.push(async () => {
+      entered.resolve(); await release.promise;
+      return action === 'steer'
+        ? { stopReason: 'end_turn', reason: { kind: 'completed' } }
+        : { stopReason: 'cancelled', reason: { kind: 'aborted' } };
+    });
+    const firstNotice = f.notices.length;
+    const pending = f.prompt('Continue the existing task.');
+    await entered.promise;
+    if (action === 'stop') await f.request('session/cancel', { sessionId: f.sessionId });
+    if (action === 'steer') await f.request('_goose/unstable/session/steer', {
+      sessionId: f.sessionId, expectedRunId: f.compat.runs.latest(f.sessionId).runId,
+      prompt: [{ type: 'text', text: 'Keep the answer brief.' }],
+    });
+    assert.equal(f.notices.slice(firstNotice).some(n => n.params.update?.status?.data?.terminal_message_id), false);
+    release.resolve(); await pending;
+    const terminal = f.notices.slice(firstNotice).map(n => n.params.update?.status?.data).find(d => d?.terminal_message_id);
+    assert.equal(terminal.status, action === 'steer' ? 'completed' : 'interrupted', 'stop display must not change native recovery state');
+    assert.equal(terminal.user_requested_stop, action === 'stop' ? true : undefined);
+    const saved = f.store.read(['sessions']).sessions.find(s => s.id === f.sessionId).usageUpdates;
+    assert.equal(saved.at(-1).status.data.user_requested_stop, terminal.user_requested_stop);
   }
 });
 

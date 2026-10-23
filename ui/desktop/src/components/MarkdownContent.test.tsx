@@ -14,6 +14,69 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it.each([
+    ['indented code', '    const value = 1;\n    console.log(value);'],
+    ['nested list', '- parent\n  - child\n\n    continued child\n- sibling'],
+    ['quotation', '> quoted\n>\n> - nested item'],
+    ['setext heading', 'Heading\n-------'],
+    ['math', '$$\nx^2 + y^2\n$$'],
+    ['footnote', 'A claim[^note].\n\n[^note]: supporting text'],
+  ])('preserves %s while appending and after settling', (_name, block) => {
+    const prefix = 'First paragraph.\n\nSecond paragraph.\n\n';
+    const view = renderWithIntl(<MarkdownContent animateIncoming content={prefix + block} />);
+    const content = prefix + block + '\n\nAnother paragraph.\n\nLast paragraph.';
+    view.rerender(<MarkdownContent animateIncoming content={content} />);
+    const text = view.container.textContent;
+    const structure = (container: HTMLElement) =>
+      ['h2', 'li', 'blockquote', 'pre', 'code', '.katex', 'sup', 'a'].map(
+        (selector) => container.querySelectorAll(selector).length
+      );
+    const tags = structure(view.container);
+    view.rerender(<MarkdownContent content={content} />);
+    expect(view.container.textContent).toBe(text);
+    expect(structure(view.container)).toEqual(tags);
+  });
+
+  it('retains stable paragraphs while a table tail grows and resolves late references', () => {
+    const prefix = 'Stable **first** paragraph.\n\nSecond paragraph.\n\n';
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent
+        animateIncoming
+        content={prefix + '| Name | Value |\n| --- | --- |\n| a | 1 |'}
+      />
+    );
+    const first = container.querySelector('p');
+    rerender(
+      <MarkdownContent
+        animateIncoming
+        content={prefix + '| Name | Value |\n| --- | --- |\n| a | 1 |\n| b | 2 |'}
+      />
+    );
+    expect(container.querySelector('p')).toBe(first);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+    const refs =
+      'Read [reference][target].\n\nSecond.\n\nThird.\n\n[target]: https://example.com/docs';
+    rerender(<MarkdownContent animateIncoming content={refs} />);
+    expect(screen.getByRole('link', { name: 'reference' })).toHaveAttribute(
+      'href',
+      'https://example.com/docs'
+    );
+    rerender(<MarkdownContent animateIncoming content={'Replacement **only**.'} />);
+    expect(container).not.toHaveTextContent('Stable');
+    expect(container.querySelector('strong')).toHaveTextContent('only');
+  });
+
+  it('keeps long live and historical code complete without blocking on highlighting', () => {
+    const code = 'const answer = 42;\n'.repeat(600);
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent animateIncoming content={'```js\n' + code} />
+    );
+    expect(container.querySelector('code')?.textContent?.trim()).toBe(code.trim());
+    expect(container.querySelector('code span')).toBeNull();
+    rerender(<MarkdownContent content={'```js\n' + code + '```'} />);
+    expect(container.querySelector('code')?.textContent?.trim()).toBe(code.trim());
+    expect(container.querySelector('code span')).toBeNull();
+  });
   it('shows all streaming code without syntax spans and keeps large history inexpensive', () => {
     const code = 'const enemy = { x: 1 };\n'.repeat(450);
     const content = `\`\`\`javascript\n${code}\`\`\``;

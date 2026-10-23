@@ -7,6 +7,8 @@ import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 
 const TICK_MS = 40;
 const MAX_CHARS_PER_TICK = 9.6; // Average 240 characters/second; 20% above the prior cap.
+const MAX_PRESENTATION_LAG_MS = 250;
+const CATCH_UP_WINDOW_MS = 250;
 const TEXT_FADE_MS = 160;
 const CARD_INTERVAL_MS = 100;
 const THOUGHT_COLLAPSE_MS = 280;
@@ -80,6 +82,7 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
     nextAt: 0,
     lastTick: 0,
     characterCredit: 0,
+    pendingSince: null as number | null,
     thoughtBoundaries: new Set<string>(),
   });
   const [, repaint] = useState(0);
@@ -127,7 +130,18 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
         state.shown.set(unit.key, 0);
       }
     }
-    if (newTurn || bypass || history) state.nextAt = 0;
+    if (newTurn || bypass || history) {
+      state.nextAt = 0;
+      state.pendingSince = null;
+    }
+    if (
+      !bypass &&
+      !history &&
+      state.pendingSince === null &&
+      units.some((unit) => (state.shown.get(unit.key) ?? 0) < (unit.text?.length ?? 1))
+    ) {
+      state.pendingSince = window.performance.now();
+    }
     if (newTurn) state.characterCredit = 0;
     if (!bypass && !history) {
       const next = units.findIndex(
@@ -169,14 +183,23 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
             const allowance = MAX_CHARS_PER_TICK + state.characterCredit;
             const limit = Math.floor(allowance);
             state.characterCredit = allowance - limit;
-            const count = Math.min(
-              limit,
-              Math.max(1, Math.ceil((length - shown) / 12))
-            );
+            // Drain an aged burst over a few paints, always from the queue head.
+            // Execution, receipts and terminal state remain owned by the store.
+            const queueAge = state.pendingSince === null ? 0 : now - state.pendingSince;
+            const catchUp = queueAge >= MAX_PRESENTATION_LAG_MS;
+            const count = catchUp
+              ? Math.ceil(
+                  (length - shown) /
+                    Math.max(
+                      1,
+                      Math.ceil((MAX_PRESENTATION_LAG_MS + CATCH_UP_WINDOW_MS - queueAge) / TICK_MS)
+                    )
+                )
+              : Math.min(limit, Math.max(1, Math.ceil((length - shown) / 12)));
             for (let n = 0; n < count && shown < length; n += 1) {
               shown += unit.text.codePointAt(shown)! > 0xffff ? 2 : 1;
             }
-            if (shown >= length) state.nextAt = now + TEXT_FADE_MS;
+            if (shown >= length) state.nextAt = now + (catchUp ? 0 : TEXT_FADE_MS);
           } else {
             shown = 1;
             state.nextAt =
@@ -196,6 +219,7 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
         pending = units.some((unit) => (state.shown.get(unit.key) ?? 0) < (unit.text?.length ?? 1));
       }
       if (pending) frame = requestAnimationFrame(tick);
+      else state.pendingSince = null;
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);

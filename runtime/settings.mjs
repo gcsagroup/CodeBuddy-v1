@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile, discover } from './providers.mjs';
 import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
@@ -166,11 +166,30 @@ export class RuntimeSettings {
         }
         if (c.advancedRoutingEnabled && ['main', 'planner', 'coder', 'tester', 'reviewer'].some(role => !seen.has(role))) throw invalid('Enabled routing requires all five roles');
         if (!c.visionRoute || typeof c.visionRoute.enabled !== 'boolean' || !['auto', 'always', 'disabled'].includes(c.visionRoute.mode)) throw invalid('Invalid vision routing');
+        let visionSelection;
         if (c.visionRoute.enabled) {
           const providerId = requireString(c.visionRoute.providerId, 'vision providerId'), modelId = requireString(c.visionRoute.modelId, 'vision modelId');
-          if (!this.store.read(["providers"]).providers.some(provider => provider.id === providerId && provider.models.includes(modelId) && providerStatus(provider).isConfigured)) throw invalid('Configure the selected auxiliary vision model first');
+          const snapshot = this.store.read(['providers', 'modelCapabilities']);
+          const provider = snapshot.providers.find(provider => provider.id === providerId && providerStatus(provider).isConfigured);
+          const fail = (reason, message) => invalid(message, { kind: 'vision_error', reason });
+          if (!provider) throw fail('provider_unavailable', '备用识图连接尚未配置或已不可用，请重新选择连接。');
+          let available;
+          try { available = await discover(provider, provider, { timeoutMs: 5000 }); }
+          catch { throw fail('capability_unavailable', '暂时无法核实备用识图模型，请检查连接后重试；原设置未更改。'); }
+          if (!available.includes(modelId)) throw fail('model_unavailable', '所选备用识图模型已不在服务列表中，请重新选择。');
+          const capability = await this.request('model-capabilities/resolve', { providerId, modelId });
+          if (capability.imageInput !== 'supported') throw fail('image_not_supported', '所选备用模型尚未确认支持图片，请选择支持图片的模型。');
+          visionSelection = { provider, override: snapshot.modelCapabilities?.overrides.find(item => item.providerId === providerId && item.modelId === modelId) };
         }
-        await this.store.update(s => { s.modelRouting = structuredClone(c); });
+        await this.store.update(s => {
+          if (visionSelection) {
+            const { providerId, modelId } = c.visionRoute;
+            if (!isDeepStrictEqual(s.providers.find(item => item.id === providerId), visionSelection.provider) ||
+              !isDeepStrictEqual(s.modelCapabilities?.overrides.find(item => item.providerId === providerId && item.modelId === modelId), visionSelection.override))
+              throw invalid('识图连接或能力设置刚发生变化，请重新确认后保存。', { kind: 'vision_error', reason: 'configuration_changed' });
+          }
+          s.modelRouting = structuredClone(c);
+        });
         await this.changed(); return { config: c };
       }
       case 'model-capabilities/read': return { config: this.store.read(["modelCapabilities"]).modelCapabilities ?? { version: 1, overrides: [] } };
@@ -190,7 +209,9 @@ export class RuntimeSettings {
         const o = this.store.read(["modelCapabilities"]).modelCapabilities?.overrides.find(o => o.providerId === p.providerId && o.modelId === p.modelId);
         if (o && o.imageInput !== 'auto') return { providerId: p.providerId, modelId: p.modelId,
           imageInput: o.imageInput === 'force_supported' ? 'supported' : 'unsupported', source: 'user_override' };
-        const provider = this.store.read(["providers"]).providers.find(item => item.id === p.providerId && item.models.includes(p.modelId));
+        // The service inventory may include newly published IDs that are not
+        // yet in the connection's saved picker defaults (for example :1017).
+        const provider = this.store.read(["providers"]).providers.find(item => item.id === p.providerId);
         const capability = provider && providerStatus(provider).isConfigured
           ? await resolveImageCapability(provider, p.modelId)
           : { imageInput: 'unknown', source: 'unknown' };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { acpListProviderDetails } from '../../../acp/providers';
+import { acpReadConfig, acpUpsertConfig } from '../../../acp/config';
 import ModelsAndRuntimeSettings from './ModelsAndRuntimeSettings';
 
 vi.mock('../../../i18n', () => ({
@@ -89,6 +90,9 @@ const unfinishedCustomProvider = {
 describe('ModelsAndRuntimeSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(acpReadConfig).mockImplementation(async (key) =>
+      key === 'subagentLimits' ? { maxDepth: 1, maxActiveSubagents: 3 } : null
+    );
     vi.mocked(acpListProviderDetails).mockResolvedValue([
       vendorProvider,
       unfinishedCustomProvider,
@@ -98,9 +102,9 @@ describe('ModelsAndRuntimeSettings', () => {
 
   it('shows only first-party and custom connection choices in the settings page', async () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
-
-    expect(screen.getByText('CodeBuddy model')).toBeInTheDocument();
-    expect(screen.getByText('In development')).toBeInTheDocument();
+    expect(screen.queryByTestId('custom-provider-grid')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+    expect(screen.getByText(/CodeBuddy model.*In development/)).toBeInTheDocument();
     expect(screen.getByText('Custom model connections')).toBeInTheDocument();
     expect(screen.getByTestId('provider-configuration-visibility')).toHaveTextContent('hidden');
     await waitFor(() =>
@@ -108,13 +112,17 @@ describe('ModelsAndRuntimeSettings', () => {
     );
     expect(screen.getByTestId('custom-provider-grid')).not.toHaveTextContent('vendor');
     expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('unfinished-custom');
-    expect(
-      screen.getByRole('combobox', { name: 'explorer · Workspace exploration Model connection' })
-    ).not.toHaveTextContent('unfinished-custom');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Project exploration' }));
+    expect(screen.getByRole('combobox', { name: 'Model' })).not.toHaveTextContent(
+      'unfinished-custom'
+    );
   });
 
   it('replaces the local download console with agent model configuration', () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
 
     expect(screen.queryByText('Model console')).not.toBeInTheDocument();
     expect(screen.queryByText('Built-in local model management')).not.toBeInTheDocument();
@@ -126,6 +134,7 @@ describe('ModelsAndRuntimeSettings', () => {
 
   it('does not restore the GGUF console through the old deep-link state', () => {
     render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
 
     expect(screen.queryByText('local-runtime-console')).not.toBeInTheDocument();
     expect(screen.getByText('Subagent templates and models')).toBeInTheDocument();
@@ -135,6 +144,7 @@ describe('ModelsAndRuntimeSettings', () => {
     'preserves model selection through catalog refresh (failure: %s)',
     async (fails) => {
       render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
       await screen.findByTestId('custom-provider-grid');
       let finishRefresh!: () => void;
       vi.mocked(acpListProviderDetails).mockImplementationOnce(
@@ -160,6 +170,60 @@ describe('ModelsAndRuntimeSettings', () => {
         );
         expect(screen.getByRole('dialog')).toHaveTextContent('Choose saved model');
       }
+    }
+  );
+
+  it('returns one level at a time and reenters the subagent list after returning to the menu', async () => {
+    render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+    expect(acpReadConfig).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add subagent' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Review draft' } });
+    expect(screen.queryByRole('button', { name: 'Back to menu' })).not.toBeInTheDocument();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to List' }));
+    expect(screen.getByLabelText('Name')).toHaveValue('Review draft');
+    expect(acpUpsertConfig).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to List' }));
+    expect(screen.getByRole('button', { name: 'Add subagent' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+    await screen.findByTestId('custom-provider-grid');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
+    expect(screen.getByRole('button', { name: 'Add subagent' })).toBeVisible();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(acpReadConfig).toHaveBeenCalledTimes(2);
+    expect(acpUpsertConfig).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it.each(['menu', 'category'])(
+    'cannot open a late connection dialog after leaving for %s',
+    async (destination) => {
+      const view = render(<ModelsAndRuntimeSettings setView={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+      await screen.findByTestId('custom-provider-grid');
+      let finish!: () => void;
+      vi.mocked(acpListProviderDetails).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve([customProvider]);
+          })
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save connection' }));
+      if (destination === 'menu')
+        fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+      else view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active={false} />);
+      await act(async () => finish());
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      if (destination === 'menu')
+        fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
+      else view.rerender(<ModelsAndRuntimeSettings setView={vi.fn()} active />);
+      await screen.findByTestId('custom-provider-grid');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     }
   );
 });

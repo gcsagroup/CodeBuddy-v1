@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   readCodeProModelRouting,
@@ -12,6 +12,16 @@ import {
 } from '../../acp/providers';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { CodeProModelModal } from './CodeProModelModal';
+import { resolveModelCapability } from '../../acp/modelCapabilities';
+
+vi.mock('../../acp/modelCapabilities', () => ({
+  resolveModelCapability: vi.fn(async (providerId: string, modelId: string) => ({
+    providerId,
+    modelId,
+    imageInput: 'supported',
+    source: 'provider_metadata',
+  })),
+}));
 
 vi.mock('../../acp/codeproModelRouting', () => ({
   DISABLED_CODEPRO_MODEL_ROUTING: {
@@ -75,20 +85,20 @@ describe('CodeProModelModal', () => {
     });
     render(<CodeProModelModal onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
     const toggle = await screen.findByRole('checkbox', { name: 'Enable advanced model routing' });
-    expect(screen.getByText('Vision assistant agent')).toBeInTheDocument();
+    expect(screen.getByText('Backup image model')).toBeInTheDocument();
     expect(screen.getByText('Ollama Cloud / qwen3-coder')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Vision model')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Image model')).not.toBeInTheDocument();
     expect(acpListProviderModels).not.toHaveBeenCalled();
     fireEvent.click(toggle);
-    expect(screen.getByLabelText('Vision assistant agent provider')).toHaveValue('ollama_cloud');
-    expect(screen.getByLabelText('Vision model')).toHaveValue('qwen3-coder');
+    expect(screen.getByLabelText('Backup image model provider')).toHaveValue('ollama_cloud');
+    expect(screen.getByLabelText('Image model')).toHaveValue('qwen3-coder');
     await waitFor(() =>
-      expect(screen.getByLabelText('Vision model')).toHaveTextContent('qwen3-coder')
+      expect(screen.getByLabelText('Image model')).toHaveTextContent('qwen3-coder')
     );
     fireEvent.click(toggle);
-    expect(screen.queryByLabelText('Vision model')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Image model')).not.toBeInTheDocument();
     fireEvent.click(toggle);
-    expect(screen.getByLabelText('Vision model')).toHaveValue('qwen3-coder');
+    expect(screen.getByLabelText('Image model')).toHaveValue('qwen3-coder');
     fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: 'Save combination' }));
     await waitFor(() =>
@@ -129,8 +139,8 @@ describe('CodeProModelModal', () => {
     render(<CodeProModelModal onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
 
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Enable advanced model routing' }));
-    const provider = screen.getByLabelText('Vision assistant agent provider');
-    const model = screen.getByLabelText('Vision model');
+    const provider = screen.getByLabelText('Backup image model provider');
+    const model = screen.getByLabelText('Image model');
     expect(provider).toHaveValue('');
     expect(provider).toHaveDisplayValue('Not configured (disabled)');
     expect(model).toHaveValue('');
@@ -138,7 +148,7 @@ describe('CodeProModelModal', () => {
     expect(model).toBeDisabled();
     await waitFor(() => expect(provider).toHaveTextContent('Ollama Cloud'));
     fireEvent.change(provider, { target: { value: 'ollama_cloud' } });
-    expect(model).not.toBeDisabled();
+    await waitFor(() => expect(model).not.toBeDisabled());
     await waitFor(() => expect(model).toHaveTextContent('qwen3-coder'));
     fireEvent.change(model, { target: { value: 'qwen3-coder' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save combination' }));
@@ -639,13 +649,13 @@ it('keeps auxiliary vision editable without reviving or overwriting legacy role 
   vi.mocked(readCodeProModelRouting).mockResolvedValue(saved);
   vi.mocked(saveCodeProModelRouting).mockClear().mockResolvedValue();
   render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
-  const model = await screen.findByLabelText('Vision model');
-  await waitFor(() => expect(within(model).getByRole('option', { name: 'Vision two' })).toHaveValue('vision-two'));
+  const model = await screen.findByRole('radio', { name: 'Vision two' });
+  expect(screen.getByRole('switch', { name: 'Use a custom image model' })).toBeChecked();
   expect(
     screen.queryByRole('checkbox', { name: 'Enable advanced model routing' })
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Review agent model')).not.toBeInTheDocument();
-  fireEvent.change(model, { target: { value: 'vision-two' } });
+  fireEvent.click(model);
   fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
   await waitFor(() =>
     expect(saveCodeProModelRouting).toHaveBeenCalledWith({
@@ -653,4 +663,154 @@ it('keeps auxiliary vision editable without reviving or overwriting legacy role 
       visionRoute: { ...saved.visionRoute, modelId: 'vision-two' },
     })
   );
+});
+
+it('offers only confirmed image models and keeps the selection when backend validation rejects a save', async () => {
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    {
+      name: 'vision-provider',
+      is_configured: true,
+      provider_type: 'Custom',
+      metadata: { display_name: 'Vision connection' },
+    },
+  ] as Awaited<ReturnType<typeof acpListProviderDetails>>);
+  vi.mocked(acpListProviderModels).mockResolvedValue([
+    { id: 'image-model', name: 'Can read images' },
+    { id: 'text-model', name: 'Text only' },
+    { id: 'unknown-model', name: 'Unknown capability' },
+  ]);
+  vi.mocked(resolveModelCapability).mockImplementation(async (providerId, modelId) => ({
+    providerId,
+    modelId,
+    imageInput:
+      modelId === 'image-model'
+        ? 'supported'
+        : modelId === 'text-model'
+          ? 'unsupported'
+          : 'unknown',
+    source: 'provider_metadata',
+  }));
+  vi.mocked(readCodeProModelRouting).mockResolvedValue(null);
+  const close = vi.fn();
+  render(<CodeProModelModal visionOnly onClose={close} />, { wrapper: IntlTestWrapper });
+  fireEvent.click(await screen.findByRole('switch', { name: 'Use a custom image model' }));
+  const model = await screen.findByRole('radio', { name: 'Can read images' });
+  expect(screen.queryByRole('radio', { name: 'Text only' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: 'Unknown capability' })).not.toBeInTheDocument();
+  fireEvent.click(model);
+  vi.mocked(saveCodeProModelRouting).mockRejectedValueOnce(
+    Object.assign(new Error('所选备用模型尚未确认支持图片，请选择支持图片的模型。'), {
+      data: { kind: 'vision_error', reason: 'image_not_supported' },
+    })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  expect(
+    await screen.findByText('所选备用模型尚未确认支持图片，请选择支持图片的模型。')
+  ).toBeVisible();
+  expect(model).toBeChecked();
+  expect(close).not.toHaveBeenCalled();
+});
+
+it('uses the LAN image default with the switch off, distinguishes equal ids and returns to the distribution default on save', async () => {
+  const saved = {
+    version: 2 as const,
+    advancedRoutingEnabled: false,
+    routes: [],
+    maxParallelCoders: 1,
+    visionRoute: { enabled: true, mode: 'auto' as const, providerId: 'other', modelId: 'shared' },
+  };
+  vi.mocked(readCodeProModelRouting).mockResolvedValue(saved);
+  vi.mocked(acpReadDefaults).mockResolvedValue({
+    providerId: 'custom_codebuddy_lan',
+    modelId: 'text',
+  });
+  vi.mocked(acpListProviderDetails).mockResolvedValue(
+    ['custom_codebuddy_lan', 'other'].map((name) => ({
+      name,
+      is_configured: true,
+      provider_type: 'Custom',
+      metadata: { display_name: name },
+    })) as Awaited<ReturnType<typeof acpListProviderDetails>>
+  );
+  vi.mocked(acpListProviderModels).mockResolvedValue([
+    { id: 'shared', name: 'shared' },
+    {
+      id: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+      name: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+    },
+  ]);
+  vi.mocked(resolveModelCapability).mockImplementation(async (providerId, modelId) => ({
+    providerId,
+    modelId,
+    imageInput: 'supported',
+    source: 'provider_metadata',
+  }));
+  vi.mocked(saveCodeProModelRouting).mockClear().mockResolvedValue();
+  render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
+  const other = await screen.findByRole('group', { name: 'other' });
+  expect(within(other).getByRole('radio', { name: 'shared' })).toBeChecked();
+  const primary = screen.getByRole('group', { name: 'custom_codebuddy_lan' });
+  fireEvent.click(within(primary).getByRole('radio', { name: 'shared' }));
+  expect(within(other).getByRole('radio', { name: 'shared' })).not.toBeChecked();
+  fireEvent.click(screen.getByRole('switch', { name: 'Use a custom image model' }));
+  await waitFor(() =>
+    expect(screen.queryByText('Checking image support…')).not.toBeInTheDocument()
+  );
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  expect(screen.getByText(/Default: gemma-4-26B-A4B-it-uncensored-FP8-W8A16/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  await waitFor(() =>
+    expect(saveCodeProModelRouting).toHaveBeenCalledWith({
+      ...saved,
+      visionRoute: {
+        enabled: true,
+        mode: 'auto',
+        providerId: 'custom_codebuddy_lan',
+        modelId: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+      },
+    })
+  );
+});
+
+it('does not claim unavailable while image capabilities are loading and preserves an unknown saved choice', async () => {
+  vi.mocked(readCodeProModelRouting).mockResolvedValue({
+    version: 2,
+    advancedRoutingEnabled: false,
+    routes: [],
+    maxParallelCoders: 1,
+    visionRoute: { enabled: true, mode: 'auto', providerId: 'one', modelId: 'saved' },
+  });
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    {
+      name: 'one',
+      is_configured: true,
+      provider_type: 'Custom',
+      metadata: { display_name: 'One' },
+    },
+  ] as Awaited<ReturnType<typeof acpListProviderDetails>>);
+  vi.mocked(acpListProviderModels).mockResolvedValue([{ id: 'saved', name: 'saved' }]);
+  let finish!: (value: Awaited<ReturnType<typeof resolveModelCapability>>) => void;
+  vi.mocked(resolveModelCapability).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  vi.mocked(saveCodeProModelRouting).mockClear();
+  render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
+  await waitFor(() => expect(resolveModelCapability).toHaveBeenCalledWith('one', 'saved'));
+  expect(screen.getByText('Checking image support…')).toBeVisible();
+  expect(screen.queryByText(/not confirmed/)).not.toBeInTheDocument();
+  await act(async () =>
+    finish({
+      providerId: 'one',
+      modelId: 'saved',
+      imageInput: 'unknown',
+      source: 'provider_metadata',
+    })
+  );
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  expect(screen.getByText('Image support not confirmed: saved')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  expect(saveCodeProModelRouting).not.toHaveBeenCalled();
 });

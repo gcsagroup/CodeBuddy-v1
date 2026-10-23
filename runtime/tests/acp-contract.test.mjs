@@ -354,6 +354,26 @@ test("provider/default/session contracts preserve the existing picker and sessio
   assert.ok(list.sessions.some((item) => item.sessionId === sessionId));
 });
 
+test('production ACP carries draft progress without storing a call or replaying a stopped input', async t => {
+  const driver = controlledDriver(async (sessionId, _content, { onEvent }) => {
+    await onEvent({ type: 'tool_input', sessionId, preview: { id: 'draft-only', name: 'write', kilobytes: 14 } });
+    await onEvent({ type: 'assistant_end', sessionId });
+    return { stopReason: 'cancelled' };
+  });
+  const { client, dataDir } = await setup(t, driver);
+  await configure(client);
+  const sessionId = await newSession(client, dataDir);
+  const result = await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Prepare a file' }], _meta: { 'codeagentpro/source-message-id': 'draft-input' } });
+  assert.equal(result.stopReason, 'cancelled');
+  const activity = client.notifications.filter(n => n.params?.sessionId === sessionId)
+    .map(n => n.params.update).filter(u => u.sessionUpdate === 'status_message');
+  assert.ok(activity.some(u => u.status?.data?.tool_input?.kilobytes === 14));
+  assert.equal(updates(client, sessionId).filter(u => u.sessionUpdate === 'tool_call').length, 0);
+  client.notifications.length = 0;
+  await client.request('session/load', { sessionId, cwd: dataDir, mcpServers: [] });
+  assert.doesNotMatch(JSON.stringify(updates(client, sessionId)), /draft-only|tool_input/);
+});
+
 test("driver deltas become stable message/thought/tool updates and replay as history", async (t) => {
   const { client, dataDir } = await setup(t);
   await configure(client);
@@ -807,7 +827,7 @@ test("tool permission waits for the original ACP outcome and preserves post-tool
   assert.equal(result.content[0].content.text, "Actual fixture result");
 });
 
-test("tool permission still expires without executing after the recipe timeout exemption", async (t) => {
+test("tool permission waits without a deadline and still needs explicit approval", async (t) => {
   let executed = false;
   const driver = controlledDriver(async (_id, _content, { onPermission }) => {
     const approved = await onPermission({
@@ -825,9 +845,10 @@ test("tool permission still expires without executing after the recipe timeout e
     sessionId,
     prompt: [{ type: "text", text: "Read fixture only after approval" }],
   });
+  let settled = false;
   const outcome = prompt.then(
-    (value) => ({ value }),
-    (error) => ({ error }),
+    (value) => { settled = true; return { value }; },
+    (error) => { settled = true; return { error }; },
   );
   t.mock.timers.enable({ apis: ["setTimeout"] });
   try {
@@ -845,12 +866,17 @@ test("tool permission still expires without executing after the recipe timeout e
       ),
     );
     t.mock.timers.tick(300_001);
+    await Promise.resolve();
+    assert.equal(settled, false);
+    assert.equal(executed, false);
   } finally {
     t.mock.timers.reset();
   }
+  const request = client.notifications.find(message => message.method === 'session/request_permission');
+  client.reply(request.id, { outcome: { outcome: 'selected', optionId: 'allow_once' } });
   const result = await outcome;
-  assert.match(result.error?.message ?? "", /Permission request timed out/);
-  assert.equal(executed, false);
+  assert.equal(result.error, undefined);
+  assert.equal(executed, true);
 });
 
 test("shutdown cancels an active prompt and flushes its partial transcript before restart", async (t) => {

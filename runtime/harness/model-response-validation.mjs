@@ -10,8 +10,11 @@ export function installModelResponseValidation(ctx) {
     // child and notification turns may legitimately stop without new prose.
     // Use durable origin/source attribution; never infer intent from text.
     const agent = ctx.agents.get(options.sessionId);
+    // Native context is appended after the admitted input on first preparation
+    // and model switches. It must not hide that input's source attribution.
     const input = options.messages?.findLast(message => message.role === 'user' &&
-      !['snapshot', 'catalog'].includes(message.source?.form));
+      !['snapshot', 'catalog', 'instructions'].includes(message.source?.form) &&
+      message.source?.kind !== 'model-selection');
     if (!agent || agent.session.header.origin === 'subagent' || input?.source?.kind !== 'user') return next();
     return (async function* () {
       let productive = false;

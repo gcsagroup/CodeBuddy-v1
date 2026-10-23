@@ -7,6 +7,7 @@ import { ChatState } from '../types/chatState';
 import { parseCompactionLifecycle, type CompactionLifecycle } from '../types/compactionLifecycle';
 import type { Message, NotificationEvent } from '../types/message';
 import type { Session } from '../types/session';
+import { parseToolInputPreview, type ToolInputPreview } from '../types/toolInputPreview';
 import { parseSessionMode } from '../utils/sessionMode';
 import { isTerminalActivityEventStatus, parseActivityEvent } from '../types/activityEvent';
 import {
@@ -35,6 +36,7 @@ export interface PromptActivity {
     childCount: number;
     modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
     detail?: string;
+    toolInput?: ToolInputPreview;
   };
 }
 
@@ -760,11 +762,14 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
           Number.isInteger(activity.child_count) &&
           Number(activity.child_count) >= 0
         ) {
+          const toolInput = parseToolInputPreview(activity.tool_input);
           entry.promptActivity = {
             ...entry.promptActivity,
+            ...(toolInput ? { receivedAt: Date.now() } : {}),
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
+              toolInput,
               ...(typeof status.message === 'string' && status.message.trim()
                 ? {
                     detail: status.message,
@@ -808,13 +813,15 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   const applyElicitationRequest: AcpChatSessionActions['applyElicitationRequest'] = (request) => {
     const entry = getOrCreateEntry(request.sessionId);
-    if (entry.sealedIdleBoundaryActive) {
+    if (entry.sealedIdleBoundaryActive && !request.continued) {
       return snapshotFromEntry(entry);
     }
     const changes = entry.adapter.applyElicitationRequest(request);
     applyChatStateChanges(entry, changes);
-    entry.pendingUserInputRequestIds.add(acpElicitationUserInputRequestId(request.id));
-    entry.chatState = ChatState.WaitingForUserInput;
+    if (!request.continued) {
+      entry.pendingUserInputRequestIds.add(acpElicitationUserInputRequestId(request.id));
+      entry.chatState = ChatState.WaitingForUserInput;
+    }
     return notify(request.sessionId, entry);
   };
 
@@ -960,7 +967,7 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
   for (const change of changes) {
     switch (change.type) {
       case 'messages':
-        entry.messages = cloneMessages(change.messages);
+        entry.messages = clonePublishedMessages(change.messages);
         retainPendingLocalSteerMessageIds(entry);
         break;
       case 'tokenState':
@@ -1341,7 +1348,7 @@ function snapshotFromEntry(entry: StoreEntry): AcpChatSessionSnapshot {
       : entry.chatState;
   return {
     session: entry.session,
-    messages: cloneMessages(entry.messages),
+    messages: clonePublishedMessages(entry.messages),
     tokenState: { ...entry.tokenState },
     notifications: [...entry.notifications],
     progressMessage: entry.progressMessage,
@@ -1381,30 +1388,49 @@ function cloneMessages(messages: Message[]): Message[] {
   return messages.map(cloneMessage);
 }
 
+const publishedMessageCopies = new WeakMap<Message, Message>();
+function clonePublishedMessages(messages: Message[]): Message[] {
+  return messages.map((message) => {
+    let copy = publishedMessageCopies.get(message);
+    if (!copy) {
+      copy = cloneMessage(message);
+      publishedMessageCopies.set(message, copy);
+    }
+    return copy;
+  });
+}
+
 function terminalizeCodeProActivities(
   entry: StoreEntry,
   sessionId: string,
   status: 'stopped' | 'interrupted'
 ): void {
   const finishedAt = new Date().toISOString();
-  for (const message of entry.messages) {
-    for (const content of message.content) {
+  entry.messages = entry.messages.map((message) => {
+    let changed = false;
+    const content = message.content.map((content) => {
       if (content.type !== 'systemNotification' || content.notificationType !== 'codeProActivity') {
-        continue;
+        return content;
       }
       const event = parseActivityEvent(content.data);
       if (!event || event.session_id !== sessionId || isTerminalActivityEventStatus(event.status)) {
-        continue;
+        return content;
       }
-      content.data = {
+      changed = true;
+      const data = {
         ...event,
         status,
         finished_at: event.finished_at ?? finishedAt,
       };
       const statusText = status === 'stopped' ? '已停止' : '已中断';
-      if (!content.msg.includes(`状态：${statusText}`)) {
-        content.msg = `${content.msg}\n状态：${statusText}`;
-      }
-    }
-  }
+      return {
+        ...content,
+        data,
+        msg: content.msg.includes(`状态：${statusText}`)
+          ? content.msg
+          : `${content.msg}\n状态：${statusText}`,
+      };
+    });
+    return changed ? { ...message, content } : message;
+  });
 }

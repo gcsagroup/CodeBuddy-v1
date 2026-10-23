@@ -7,6 +7,51 @@ import { useWorkStatus } from './useWorkStatus';
 afterEach(() => vi.useRealTimers());
 
 describe('specific live execution feedback', () => {
+  it('shows file preparation without claiming a write, keeps its clock across size updates and respects approval', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    const input = {
+      chatState: ChatState.Streaming,
+      checking: false,
+      activity: {
+        promptAttemptId: 'attempt',
+        sourceUserMessageId: 'u',
+        startedAt: 100_000,
+        receivedAt: 100_000,
+        execution: {
+          phase: 'model' as const,
+          childCount: 0,
+          toolInput: { id: 'file', name: 'write', path: 'app.js', kilobytes: 1 },
+        },
+      },
+    };
+    const { result, rerender } = renderHook((props) => useWorkStatus(props), {
+      initialProps: input,
+      wrapper: IntlTestWrapper,
+    });
+    expect(result.current.message).toContain('Generating file contents app.js');
+    act(() => vi.advanceTimersByTime(5000));
+    rerender({
+      ...input,
+      activity: {
+        ...input.activity,
+        execution: {
+          ...input.activity.execution,
+          toolInput: { ...input.activity.execution.toolInput, kilobytes: 10 },
+        },
+      },
+    });
+    expect(result.current.elapsedSeconds).toBe(5);
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(result.current.hint).toBeUndefined();
+    rerender({ ...input, activity: { ...input.activity, receivedAt: Date.now() } });
+    expect(result.current.hint).toBeUndefined();
+    expect(result.current.elapsedSeconds).toBe(25);
+    rerender({ ...input, chatState: ChatState.WaitingForUserInput });
+    expect(result.current.message).toBe('Your input is needed');
+    rerender({ ...input, chatState: ChatState.Idle });
+    expect(result.current.source).toBe('chat_state');
+  });
   it('uses thinking only for observed model activity, not transport silence', () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
@@ -175,7 +220,12 @@ describe('specific live execution feedback', () => {
           checking: false,
           action: 'Running fixture command',
           toolPending: true,
-          activity: { promptAttemptId: 'tool', sourceUserMessageId: 'user', startedAt: 1_000 },
+          activity: {
+            promptAttemptId: 'tool',
+            sourceUserMessageId: 'user',
+            startedAt: 1_000,
+            execution: { phase: 'model', childCount: 0, detail: 'Generating tool arguments' },
+          },
         }),
       { wrapper: IntlTestWrapper }
     );

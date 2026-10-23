@@ -1,12 +1,9 @@
 import { invalid, requireString } from './providers.mjs';
+import { createToolInputPreview } from './harness/tool-input-preview.mjs';
 
 const MAX_SCANNED_EVENTS = 512;
 const MAX_BATCH_EVENTS = 100;
 const MAX_BATCH_BYTES = 256 * 1024;
-const MAX_CONTENT_BYTES = 64 * 1024;
-const MAX_CONTENT_BLOCKS = 64;
-const MAX_TEXT_CHARS = 8192;
-const MAX_ARGUMENT_CHARS = 64 * 1024;
 const MAX_ANCESTORS = 32;
 const CATALOG_MODES = new Set(['one-shot', 'continuable', 'external', 'unknown']);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -114,11 +111,13 @@ function bounded(value, limit, clipping) {
 function contentBlock(block, clipping) {
   if (!record(block)) return;
   if (block.type === 'text' && typeof block.text === 'string')
-    return { type: 'text', text: bounded(block.text, MAX_TEXT_CHARS, clipping) };
+    return { type: 'text', text: block.text };
+  if (block.type === 'reasoning' && typeof block.text === 'string')
+    return { type: 'reasoning', text: block.text };
   if (block.type === 'tool-call' && typeof block.id === 'string' && typeof block.name === 'string' && typeof block.arguments === 'string')
     return {
       type: 'tool-call', id: bounded(block.id, 256, clipping),
-      name: bounded(block.name, 256, clipping), arguments: bounded(block.arguments, MAX_TEXT_CHARS, clipping),
+      name: bounded(block.name, 256, clipping), arguments: block.arguments,
     };
   if (['image', 'file'].includes(block.type) && record(block.attachment) && typeof block.attachment.attachmentId === 'string') {
     const source = block.attachment;
@@ -135,17 +134,10 @@ function contentBlock(block, clipping) {
 function publicMessage(message, role, clipping) {
   if (!record(message) || message.role !== role || typeof message.id !== 'string' || !Array.isArray(message.content)) return;
   const content = [];
-  let bytes = 2;
   for (const block of message.content) {
     const projected = contentBlock(block, clipping);
     if (!projected) continue;
-    const size = Buffer.byteLength(JSON.stringify(projected)) + 1;
-    if (content.length >= MAX_CONTENT_BLOCKS || bytes + size > MAX_CONTENT_BYTES) {
-      clipping.truncated = true;
-      break;
-    }
     content.push(projected);
-    bytes += size;
   }
   const value = { id: bounded(message.id, 256, clipping), role, content };
   if (role === 'tool') {
@@ -160,7 +152,8 @@ function errorDetails(source, clipping) {
   if (!record(source)) return;
   const result = {};
   for (const key of ['name', 'code', 'message', 'reason']) {
-    const value = bounded(source[key], key === 'code' || key === 'name' ? 256 : MAX_TEXT_CHARS, clipping);
+    const value = key === 'code' || key === 'name' ? bounded(source[key], 256, clipping)
+      : typeof source[key] === 'string' ? source[key] : undefined;
     if (value !== undefined) result[key] = value;
   }
   return Object.keys(result).length ? result : undefined;
@@ -174,15 +167,9 @@ function fileResult(source, clipping) {
   if (['create', 'update'].includes(source.operation)) result.operation = source.operation;
   if (Array.isArray(source.diffs)) {
     const diffs = [];
-    let bytes = 0;
     for (const entry of source.diffs) {
       if (!record(entry) || typeof entry.oldText !== 'string' || typeof entry.newText !== 'string') return;
       const diff = { oldText: entry.oldText, newText: entry.newText };
-      bytes += Buffer.byteLength(JSON.stringify(diff));
-      if (bytes > MAX_CONTENT_BYTES || diffs.length >= MAX_CONTENT_BLOCKS) {
-        clipping.truncated = true;
-        return { ...result, diffUnavailable: true };
-      }
       diffs.push(diff);
     }
     result.diffs = diffs;
@@ -218,7 +205,7 @@ function publicEvent(event, parentInputs = []) {
     if (typeof source.callId !== 'string' || typeof source.name !== 'string' || typeof source.arguments !== 'string') return;
     data = {
       callId: bounded(source.callId, 256, clipping), name: bounded(source.name, 256, clipping),
-      arguments: bounded(source.arguments, MAX_ARGUMENT_CHARS, clipping),
+      arguments: source.arguments,
     };
     // Attribute display receipts to native human-input admission, never the
     // compatibility journal's second-resolution timestamps or model prose.
@@ -308,4 +295,67 @@ export async function readSubagentConversation(parent, params, driver) {
     ...(attributionUnavailable ? { attributionUnavailable: true } : {}),
     throughSeq, hasMore: index < history.events.length, events,
   };
+}
+
+// Viewing uses the native durable child address. It never resolves/activates an
+// Agent or subscribes to the session execution/control APIs.
+export async function followSubagentConversation(parent, params, driver, signal, publish) {
+  const childSessionId = sessionId(params.childSessionId, 'childSessionId');
+  const path = ancestorPath(params);
+  if (typeof driver.nativeSessionId !== 'function' || typeof driver.nativeHistory !== 'function' ||
+      typeof driver.listSubagentChildren !== 'function' || typeof driver.followSubagent !== 'function')
+    throw Object.assign(Error('Subagent streaming is unavailable'), { code: -32601 });
+  const { nativeRoot, nativeParent, assertCurrent } = await resolveAncestorPath(parent, path, driver);
+  if (childSessionId === nativeRoot || childSessionId === parent.id || path.includes(childSessionId))
+    throw invalid('Subagent path must not contain a cycle');
+  assertCatalogChild(await readCatalog(nativeParent, driver, assertCurrent), childSessionId);
+  const history = await driver.nativeHistory(childSessionId);
+  assertCurrent();
+  assertChild(history, childSessionId, nativeParent);
+  if (!integer(history.inheritedEventCount)) throw invalid('Subagent history boundary is unavailable');
+  const previews = createToolInputPreview();
+  const displayChunk = chunk => {
+    previews.push(chunk);
+    if (record(chunk) && ['text-delta', 'reasoning-delta'].includes(chunk.type) && typeof chunk.text === 'string')
+      return { type: chunk.type, text: chunk.text };
+    if (record(chunk) && chunk.type === 'tool-call-delta') {
+      const preview = previews.read(chunk.index);
+      return { type: chunk.type, text: '', ...(preview ? { preview } : {}) };
+    }
+  };
+  const emit = value => { signal.throwIfAborted(); assertCurrent(); return publish(value); };
+  for await (const item of driver.followSubagent({ parentSessionId: nativeParent, childSessionId, mode: 'unknown' }, signal)) {
+    signal.throwIfAborted();
+    assertCurrent();
+    if (item.type === 'snapshot') {
+      previews.clear();
+      assertChild({ meta: item.header }, childSessionId, nativeParent);
+      await emit({ type: 'reset' });
+      let events = [];
+      for (const row of item.records ?? []) {
+        const event = row.event;
+        if (event?.seq < history.inheritedEventCount) continue;
+        const projected = publicEvent(event);
+        if (projected) events.push(projected);
+        if (events.length === MAX_BATCH_EVENTS) { await emit({ type: 'history', events }); events = []; }
+      }
+      const active = item.assistantStream?.activeAttempt;
+      await emit({ type: 'ready', events, ...(active ? { active: {
+        attemptId: active.attemptId, turn: active.turn, step: active.step,
+        chunks: active.chunks.map(displayChunk).filter(Boolean),
+      } } : {}) });
+    } else if (item.type === 'event') {
+      if (item.event.seq < history.inheritedEventCount) continue;
+      const event = publicEvent(item.event);
+      if (event) await emit({ type: 'history', events: [event] });
+    } else if (item.type === 'assistant-stream') {
+      const frame = item.frame;
+      if (frame.type === 'start' || frame.type === 'end') previews.clear();
+      const chunk = frame.type === 'chunk' ? displayChunk(frame.chunk) : undefined;
+      if (['start', 'end'].includes(frame.type) || chunk) await emit({ type: 'stream', frame: {
+        type: frame.type, attemptId: frame.attemptId, turn: frame.turn, step: frame.step,
+        ...(chunk ? { chunk } : {}),
+      } });
+    }
+  }
 }

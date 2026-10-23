@@ -3,7 +3,7 @@ import type { GooseExtension } from '@aaif/goose-sdk';
 import { AppEvents } from '../constants/events';
 import { ChatState } from '../types/chatState';
 import type { Session } from '../types/session';
-import { errorMessage } from '../utils/conversionUtils';
+import { acpErrorData, errorMessage } from '../utils/conversionUtils';
 import { showExtensionLoadResults } from '../utils/extensionErrorUtils';
 import {
   createUserMessage,
@@ -52,6 +52,7 @@ export interface AcpSnapshotOptions {
 }
 
 export interface AcpSubmitMessageOptions extends AcpSnapshotOptions {
+  submittedAtMs?: number;
   onFinish(error?: string): void | Promise<void>;
   onAccepted?(): void;
   onRejectedBeforeAcceptance?(): void;
@@ -349,6 +350,10 @@ async function submitMessage(
     return;
   }
 
+  const userMessageAlreadyPresent = snapshot?.messages.some(
+    (message) => message.role === 'user' && message.id === userMessage.id
+  );
+
   const existingTerminalIds = new Set(
     (options.getCurrentSnapshot()?.messages ?? [])
       .map(getTurnTerminalRecord)
@@ -378,14 +383,50 @@ async function submitMessage(
     return;
   }
   acpChatSessionActions.startPromptAttempt(sessionId, promptAttemptId, userMessage.id);
+  const startedAtMs = Date.now();
+  const composerStartedAtMs = options.submittedAtMs;
+  const fromComposer = automaticCheckpointResumeCount === 0 &&
+    typeof composerStartedAtMs === 'number' && Number.isFinite(composerStartedAtMs) &&
+    composerStartedAtMs <= startedAtMs;
+  const submittedAtMs = fromComposer ? composerStartedAtMs : startedAtMs;
+  const trace = (stage: string, fields: Record<string, string | number | boolean | null> = {}) => {
+    if (!import.meta.env.DEV) return;
+    try {
+      window.electron.logInfo(JSON.stringify({
+        tag: 'stream_timing', stage, at_ms: Date.now(), session_id: sessionId,
+        prompt_attempt_id: promptAttemptId, source_user_message_id: userMessage.id,
+        submitted_at_ms: submittedAtMs, prompt_started_at_ms: startedAtMs, ...fields,
+      }));
+    } catch { /* Diagnostics must not affect submission or delivery. */ }
+  };
+  trace('prompt_submitted', { origin: fromComposer ? 'composer' : 'prompt' });
+  let firstOutputLogged = false;
   let accepted = false;
   const unsubscribe = subscribeToAcpChatSession(sessionId, (nextSnapshot) => {
+    const activity = nextSnapshot.promptActivity;
+    if (!firstOutputLogged && nextSnapshot.activePromptAttemptId === promptAttemptId &&
+      activity?.promptAttemptId === promptAttemptId && activity.receivedAt !== undefined &&
+      (activity.kind === 'text' || activity.kind === 'thought')) {
+      firstOutputLogged = true;
+      trace('ui_first_token_received', {
+        kind: activity.kind, received_at_ms: activity.receivedAt,
+        elapsed_ms: activity.receivedAt - submittedAtMs,
+        document_visibility: document.visibilityState,
+      });
+    }
     if (
       !accepted &&
       nextSnapshot.activePromptAttemptId === promptAttemptId &&
-      nextSnapshot.activeRunId !== null
+      (nextSnapshot.activeRunId !== null ||
+        (!userMessageAlreadyPresent &&
+          nextSnapshot.messages.some(
+            (message) => message.role === 'user' && message.id === userMessage.id
+          )))
     ) {
+      // Consume the draft with its server-echoed bubble, before slow run startup.
+      // A message already in history is not a receipt for this submission.
       accepted = true;
+      trace('user_message_accepted');
       options.onAccepted?.();
     }
   });
@@ -437,6 +478,7 @@ async function submitMessage(
     }
     void options.onFinish();
   } catch (error) {
+    trace('prompt_failed');
     if (
       acpChatSessionStore.getSnapshot(sessionId)?.pendingCancelPromptAttemptId === promptAttemptId
     ) {
@@ -475,9 +517,15 @@ async function submitMessage(
       return;
     }
 
+    const errorData = acpErrorData(error);
+    const visionError =
+      typeof errorData === 'object' &&
+      errorData !== null &&
+      'kind' in errorData &&
+      errorData.kind === 'vision_error';
     const submitError =
       acpChatSessionStore.getSnapshot(sessionId)?.promptError ??
-      'Submit error: ' + errorMessage(error);
+      (visionError ? errorMessage(error) : 'Submit error: ' + errorMessage(error));
     if (
       acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, submitError)
     ) {
@@ -485,6 +533,7 @@ async function submitMessage(
       void options.onFinish(submitError);
     }
   } finally {
+    trace('prompt_finished', { first_output_received: firstOutputLogged, accepted });
     unsubscribe();
     acpChatSessionActions.finishPromptRequest(sessionId, promptAttemptId);
   }

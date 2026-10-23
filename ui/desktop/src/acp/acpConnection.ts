@@ -329,12 +329,12 @@ function createClientCallbacks(signal: AbortController['signal']): () => GooseCl
       throw new Error(`Unhandled desktop request: ${method}`);
     },
     requestPermission: (request) => requestAcpPermission(request, signal),
-    unstable_createElicitation: requestAcpElicitation,
+    unstable_createElicitation: (request) => requestAcpElicitation(request, signal),
     // A form can only answer the transport which requested it. A replacement
     // connection must never leave an obsolete form offering a dead submit.
     unstable_sessionRecipeRequestParams: (request) => requestAcpRecipeParams(request, signal),
     unstable_skillsManageRequestConfirmation: requestSkillManagementConfirmation,
-    sessionUpdate: handleAcpSessionNotification,
+    sessionUpdate: (notification) => handleAcpSessionNotification(notification, signal),
     unstable_sessionUpdate: handleAcpGooseSessionNotification,
     unstable_codeproRunUpdate: async (notification) => {
       try {

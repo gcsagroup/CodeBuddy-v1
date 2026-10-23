@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageCircleQuestion, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ActionRequired } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
@@ -47,13 +47,19 @@ const i18n = defineMessages({
     id: 'elicitationRequest.waitingForResponse',
     defaultMessage: 'Waiting for your response ({timeRemaining} remaining)',
   },
+  pending: {
+    id: 'elicitationRequest.pending',
+    defaultMessage: 'Not answered yet. You can still reply.',
+  },
+  waiting: {
+    id: 'elicitationRequest.waiting',
+    defaultMessage: 'Waiting for your reply',
+  },
   submitError: {
     id: 'elicitationRequest.submitError',
     defaultMessage: 'This request is no longer active. The extension will need to ask again.',
   },
 });
-
-const ELICITATION_TIMEOUT_SECONDS = 300;
 
 interface ElicitationRequestProps {
   standalone?: boolean;
@@ -86,8 +92,22 @@ export default function ElicitationRequest({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [collapsed, setCollapsed] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(ELICITATION_TIMEOUT_SECONDS);
-  const startTimeRef = useRef(Date.now());
+  const expiresAt =
+    actionRequiredContent.data.actionType === 'elicitation'
+      ? actionRequiredContent.data.expiresAt
+      : undefined;
+  const remaining = () =>
+    expiresAt === undefined ? undefined : Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+  const [timeRemaining, setTimeRemaining] = useState(remaining);
+  const continued =
+    actionRequiredContent.data.actionType === 'elicitation' && actionRequiredContent.data.continued;
+
+  useEffect(() => {
+    if (continued) {
+      setSubmitted(false);
+      setSubmitError(undefined);
+    }
+  }, [continued]);
 
   useEffect(() => {
     if (isClicked) {
@@ -97,20 +117,17 @@ export default function ElicitationRequest({
   }, [isClicked]);
 
   useEffect(() => {
+    if (expiresAt === undefined) {
+      setTimeRemaining(undefined);
+      return;
+    }
     if (submitted || isCancelledMessage || isClicked) return;
-
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const remaining = Math.max(0, ELICITATION_TIMEOUT_SECONDS - elapsed);
-      setTimeRemaining(remaining);
-
-      if (remaining === 0) {
-        clearInterval(interval);
-      }
-    }, 1000);
+    const update = () => setTimeRemaining(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    update();
+    const interval = setInterval(update, 1000);
 
     return () => clearInterval(interval);
-  }, [submitted, isCancelledMessage, isClicked]);
+  }, [submitted, isCancelledMessage, isClicked, expiresAt]);
 
   if (actionRequiredContent.data.actionType !== 'elicitation') {
     return null;
@@ -203,8 +220,10 @@ export default function ElicitationRequest({
     );
   }
 
-  const isUrgent = timeRemaining <= 60;
-  const isExpired = timeRemaining === 0;
+  const isUrgent = timeRemaining !== undefined && timeRemaining <= 60;
+  const isExpired =
+    !actionRequiredContent.data.nativeQuestion &&
+    (actionRequiredContent.data.isExpired || timeRemaining === 0);
 
   if (isExpired) {
     return (
@@ -242,7 +261,7 @@ export default function ElicitationRequest({
       {standalone && (
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 rounded-t-2xl px-4 py-2 text-text-secondary hover:bg-background-secondary focus-visible:ring-1 focus-visible:ring-border-secondary"
+          className="flex w-full items-center justify-between gap-3 rounded-t-2xl px-4 py-1.5 text-text-secondary hover:bg-background-secondary focus-visible:ring-1 focus-visible:ring-border-secondary"
           aria-label={intl.formatMessage(collapsed ? i18n.expand : i18n.collapse)}
           aria-expanded={!collapsed}
           onClick={() => setCollapsed((current) => !current)}
@@ -261,6 +280,7 @@ export default function ElicitationRequest({
           <div
             className={cn(
               'goose-message-content px-4 py-2 text-sm text-text-primary',
+              standalone && 'max-h-[8vh] overflow-y-auto',
               !standalone && 'bg-background-secondary rounded-2xl rounded-b-none'
             )}
           >
@@ -270,6 +290,7 @@ export default function ElicitationRequest({
         <div
           className={cn(
             'goose-message-content bg-background-primary px-4 pb-3 pt-1',
+            standalone && 'pb-2',
             !standalone && 'border border-border-primary dark:border-gray-700 rounded-b-2xl py-3'
           )}
         >
@@ -314,13 +335,27 @@ export default function ElicitationRequest({
               {submitError}
             </div>
           )}
-          <div className={`mt-2 text-xs ${isUrgent ? 'text-red-500' : 'text-text-secondary'}`}>
-            <span>
-              {intl.formatMessage(i18n.waitingForResponse, {
-                timeRemaining: formatTime(timeRemaining),
-              })}
-            </span>
-          </div>
+          {(timeRemaining !== undefined || actionRequiredContent.data.nativeQuestion) && (
+            <div
+              className={cn(
+                'mt-2 text-xs',
+                standalone && 'mt-1.5',
+                !actionRequiredContent.data.nativeQuestion && isUrgent
+                  ? 'text-red-500'
+                  : 'text-text-secondary'
+              )}
+            >
+              <span>
+                {continued
+                  ? intl.formatMessage(i18n.pending)
+                  : timeRemaining === undefined
+                    ? intl.formatMessage(i18n.waiting)
+                    : intl.formatMessage(i18n.waitingForResponse, {
+                        timeRemaining: formatTime(timeRemaining),
+                      })}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </section>

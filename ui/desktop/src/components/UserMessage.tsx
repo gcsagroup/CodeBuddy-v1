@@ -11,6 +11,8 @@ import type { MessageEditType } from '../types/turnTerminal';
 import type { SessionType } from '../types/session';
 
 const i18n = defineMessages({
+  pending: { id: 'userMessage.pending', defaultMessage: 'Waiting to send' },
+  unconfirmed: { id: 'userMessage.unconfirmed', defaultMessage: 'Awaiting confirmation' },
   editPlaceholder: {
     id: 'userMessage.editPlaceholder',
     defaultMessage: 'Edit your message...',
@@ -95,6 +97,8 @@ export default function UserMessage({
 
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const timestamp = formatMessageTimestamp(message.created);
+  const pendingDelivery = message.metadata.pendingDelivery;
+  const canEdit = !readOnly && !pendingDelivery;
 
   // Initialize edit mode with current message content
   const initializeEditMode = useCallback(() => {
@@ -176,7 +180,7 @@ export default function UserMessage({
   return (
     <div className="w-full mt-[16px] opacity-0 animate-[appear_150ms_ease-in_forwards]">
       <div className="flex flex-col group">
-        {isEditing && !readOnly ? (
+        {isEditing && canEdit ? (
           // Truly wide, centered, in-place edit box replacing the bubble
           <div className="w-full max-w-4xl mx-auto text-text-primary rounded-xl border border-border-primary shadow-lg py-4 px-4 my-2 transition-all duration-200 ease-in-out">
             <textarea
@@ -252,12 +256,17 @@ export default function UserMessage({
                   </div>
                 )}
 
+                {pendingDelivery && (
+                  <span role="status" className="mt-1 text-right text-xs text-text-secondary">
+                    {intl.formatMessage(i18n[pendingDelivery])}
+                  </span>
+                )}
                 <div className="relative h-[22px] flex justify-end text-right">
                   <div className="codepro-user-message-actions absolute right-0 flex w-max items-center gap-2 whitespace-nowrap pt-1 transition-all duration-200 opacity-0 -translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 focus-within:opacity-100 focus-within:translate-y-0">
                     <span className="shrink-0 font-mono text-xs text-text-secondary">
                       {timestamp}
                     </span>
-                    {!readOnly && (
+                    {canEdit && (
                       <button
                         onClick={handleEditClick}
                         onKeyDown={(e) => {

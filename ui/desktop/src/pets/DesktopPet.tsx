@@ -4,10 +4,30 @@ import type { PetAnimation, PetSnapshot, PetTask } from './petTypes';
 import { petPanelHeight, petPanelWidth } from './petPolicy';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
-import { ArrowUpRight, ChevronDown, MessageCircle, Pause } from 'lucide-react';
+import {
+  ArrowUp,
+  ArrowUpRight,
+  ChevronDown,
+  FileText,
+  MessageCircle,
+  Paperclip,
+  Pause,
+  X,
+} from 'lucide-react';
+import { compressImageDataUrl } from '../utils/conversionUtils';
+import type { ImageData } from '../types/message';
+import { parsePetMessage } from './petMessage';
 import './desktopPet.css';
 
 const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
+type Attachment = {
+  id: string;
+  name: string;
+  path?: string;
+  image?: ImageData;
+  preview?: string;
+  error?: boolean;
+};
 const labels = {
   idle: '',
   working: t('Working', '工作中', '工作中'),
@@ -98,8 +118,21 @@ export default function DesktopPet() {
   const [snapshot, setSnapshot] = useState<PetSnapshot | null>(null);
   const [temporary, setTemporary] = useState<PetAnimation | null>(null);
   const [gazing, setGazing] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [composing, setComposing] = useState(false);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [readingFiles, setReadingFiles] = useState(false);
+  const [attachmentError, setAttachmentError] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const readingRef = useRef(false);
+  const sendingRef = useRef(false);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const panel = useRef<HTMLDivElement>(null);
+  const spriteContainer = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState({ x: 0, y: 0, reducedMotion: false });
   const alpha = useRef<Uint8ClampedArray | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -123,12 +156,22 @@ export default function DesktopPet() {
       window.electron.off('pet-changed', changed);
       window.electron.off('pet-cursor', moved);
       clearTimeout(release.current);
+      clearTimeout(clickTimer.current);
     };
   }, []);
   useEffect(() => {
     const size = snapshot?.preferences.size ?? 160;
-    const x = Math.floor(((cursor.x - (petPanelWidth - size) / 2) / size) * 192);
-    const y = Math.floor(((cursor.y - petPanelHeight) / size) * 192);
+    const spriteBounds = spriteContainer.current?.querySelector('canvas')?.getBoundingClientRect();
+    const x = Math.floor(
+      ((cursor.x - (spriteBounds?.left ?? (petPanelWidth - size) / 2)) /
+        (spriteBounds?.width || size)) *
+        192
+    );
+    const y = Math.floor(
+      ((cursor.y - (spriteBounds?.top ?? petPanelHeight)) /
+        (spriteBounds?.height || (size * 208) / 192)) *
+        208
+    );
     const sprite =
       x >= 0 &&
       x < 192 &&
@@ -144,7 +187,102 @@ export default function DesktopPet() {
       cursor.y < bounds.bottom
     );
     window.electron.petSignal('pet-hit-test', Boolean(pointer.current) || sprite || badge);
-  }, [cursor, snapshot, expanded]);
+  }, [cursor, snapshot, expanded, composing]);
+  useEffect(() => {
+    if (!input.current) return;
+    input.current.style.height = '44px';
+    input.current.style.height = `${Math.min(88, Math.max(44, input.current.scrollHeight))}px`;
+  }, [message, composing]);
+  const attachFiles = async (files: File[]) => {
+    if (readingRef.current || sendingRef.current) return;
+    if (attachments.length + files.length > 10) {
+      setAttachmentError(true);
+      return;
+    }
+    readingRef.current = true;
+    setReadingFiles(true);
+    setAttachmentError(false);
+    const added: Attachment[] = [];
+    for (const file of files) {
+      const attachment: Attachment = { id: window.crypto.randomUUID(), name: file.name };
+      try {
+        if (file.type.startsWith('image/')) {
+          if (file.size > 20 * 1024 * 1024) throw new Error('Image too large');
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error('Image read failed'));
+            reader.readAsDataURL(file);
+          });
+          attachment.preview = await compressImageDataUrl(dataUrl);
+          const [prefix, data] = attachment.preview.split(',');
+          attachment.image = { mimeType: prefix.slice(5).split(';')[0], data };
+        } else {
+          attachment.path = window.electron.getPathForFile(file);
+          if (!attachment.path) throw new Error('Missing file path');
+        }
+      } catch {
+        attachment.error = true;
+      }
+      added.push(attachment);
+    }
+    setAttachments((current) => [...current, ...added]);
+    readingRef.current = false;
+    setReadingFiles(false);
+    input.current?.focus();
+  };
+  const openComposer = async () => {
+    setComposing(true);
+    setSendError(false);
+    try {
+      await window.electron.desktopPet({ action: 'compose', composing: true });
+      input.current?.focus();
+    } catch {
+      setSendError(true);
+    }
+  };
+  const closeComposer = async () => {
+    if (sendingRef.current) return;
+    try {
+      await window.electron.desktopPet({ action: 'compose', composing: false });
+      setComposing(false);
+    } catch {
+      setSendError(true);
+    }
+  };
+  const sendMessage = async () => {
+    if (
+      (!message.trim() && !attachments.length) ||
+      sendingRef.current ||
+      readingRef.current ||
+      attachments.some((a) => a.error)
+    )
+      return;
+    sendingRef.current = true;
+    setSending(true);
+    setSendError(false);
+    try {
+      const paths = attachments.flatMap((a) => (a.path ? [JSON.stringify(a.path)] : []));
+      const payload = parsePetMessage({
+        msg: [message.trim(), ...paths].filter(Boolean).join('\n'),
+        images: attachments.flatMap((a) => (a.image ? [a.image] : [])),
+      });
+      await window.electron.desktopPet({
+        action: 'send-message',
+        message: payload.msg,
+        ...(payload.images.length ? { images: payload.images } : {}),
+      });
+      setMessage('');
+      setAttachments([]);
+      setComposing(false);
+    } catch {
+      // Keep the draft intact when delivery to the main window fails.
+      setSendError(true);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  };
   useEffect(() => {
     setGazing(true);
     const timeout = setTimeout(() => setGazing(false), 1200);
@@ -184,7 +322,7 @@ export default function DesktopPet() {
               : 5;
   // Brief gaze glances yield to the task animation; temporary interactions always expire.
   const glance =
-    gazing && !task && !reducedMotion && Math.hypot(dx, dy) < 500 && Math.hypot(dx, dy) > 40;
+    gazing && (!task || task.state === 'idle') && !reducedMotion && Math.hypot(dx, dy) > 40;
   return (
     <div
       className="desktop-pet"
@@ -194,42 +332,203 @@ export default function DesktopPet() {
         height: petPanelHeight + Math.round((snapshot.preferences.size * 208) / 192),
       }}
     >
-      {task && (
+      {(task || composing) && (
         <div
           ref={panel}
-          className="pet-task-panel"
+          className={`pet-task-panel${composing ? ' pet-compose-panel' : ''}`}
           style={{
             position: 'absolute',
             bottom: Math.round((snapshot.preferences.size * 208) / 192) + 8,
-            left: 10,
-            right: 10,
+            left: composing ? 24 : 10,
+            right: composing ? 24 : 10,
           }}
         >
-          {tasks.length > 1 && (
-            <button
-              type="button"
-              aria-expanded={expanded}
-              onClick={() => setExpanded(!expanded)}
-              className="pet-task-toggle"
+          {composing ? (
+            <form
+              className="pet-composer"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendMessage();
+              }}
             >
-              <MessageCircle size={13} aria-hidden="true" />
-              <span>{t('Conversations', '对话', '對話')}</span>
-              <span className="pet-task-count">{tasks.length}</span>
-              <ChevronDown
-                size={13}
-                aria-hidden="true"
-                style={{ transform: expanded ? 'rotate(180deg)' : undefined }}
+              <div className="pet-composer-heading">
+                <MessageCircle size={14} aria-hidden="true" />
+                <strong>{t('New conversation', '新对话', '新對話')}</strong>
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={() => void closeComposer()}
+                  aria-label={t('Close', '关闭', '關閉')}
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </div>
+              <textarea
+                ref={input}
+                value={message}
+                maxLength={8000}
+                disabled={sending}
+                rows={2}
+                aria-label={t('Message', '消息', '訊息')}
+                placeholder={t(
+                  'What can I help you with?',
+                  '有什么想让我帮忙的？',
+                  '有什麼想讓我幫忙的？'
+                )}
+                onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                  if (event.key === 'Escape') void closeComposer();
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
               />
-            </button>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                aria-label={t('Choose attachments', '选择附件', '選擇附件')}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  event.target.value = '';
+                  void attachFiles(files);
+                }}
+              />
+              {!!attachments.length && (
+                <div className="pet-attachments" aria-label={t('Attachments', '附件', '附件')}>
+                  {attachments.map((attachment) => (
+                    <div
+                      className="pet-attachment"
+                      key={attachment.id}
+                      data-error={attachment.error || undefined}
+                      title={attachment.path || attachment.name}
+                    >
+                      {attachment.preview ? (
+                        <img src={attachment.preview} alt="" />
+                      ) : (
+                        <FileText size={13} />
+                      )}
+                      <span>
+                        {attachment.name}
+                        {attachment.error ? t(' · Read failed', ' · 读取失败', ' · 讀取失敗') : ''}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={sending}
+                        aria-label={`${t('Remove', '移除', '移除')} ${attachment.name}`}
+                        onClick={() =>
+                          setAttachments((current) => current.filter((a) => a.id !== attachment.id))
+                        }
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attachmentError && (
+                <p role="alert">
+                  {t(
+                    'Up to 10 attachments per message.',
+                    '每条消息最多添加 10 个附件。',
+                    '每則訊息最多加入 10 個附件。'
+                  )}
+                </p>
+              )}
+              {sendError && (
+                <p role="alert">
+                  {t(
+                    'Could not send. Your draft is kept; try again.',
+                    '发送未成功，草稿已保留，请重试。',
+                    '傳送未成功，草稿已保留，請重試。'
+                  )}
+                </p>
+              )}
+              <div className="pet-composer-footer">
+                <button
+                  className="pet-attach-button"
+                  type="button"
+                  disabled={sending || readingFiles}
+                  title={t('Add files or images', '添加文件或图片', '加入檔案或圖片')}
+                  aria-label={t('Add attachment', '添加附件', '加入附件')}
+                  onClick={() => fileInput.current?.click()}
+                >
+                  <Paperclip size={16} />
+                </button>
+                <span>
+                  {readingFiles
+                    ? t('Reading…', '读取中…', '讀取中…')
+                    : t('Enter to send', 'Enter 发送', 'Enter 傳送')}
+                </span>
+                <button
+                  className="pet-send-button"
+                  type="submit"
+                  disabled={
+                    sending ||
+                    readingFiles ||
+                    attachments.some((a) => a.error) ||
+                    (!message.trim() && !attachments.length)
+                  }
+                  aria-label={t('Send', '发送', '傳送')}
+                >
+                  {sending ? '…' : <ArrowUp size={17} aria-hidden="true" />}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {tasks.length > 1 && (
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded(!expanded)}
+                  className="pet-task-toggle"
+                >
+                  <MessageCircle size={13} aria-hidden="true" />
+                  <span>{t('Conversations', '对话', '對話')}</span>
+                  <span className="pet-task-count">{tasks.length}</span>
+                  <ChevronDown
+                    size={13}
+                    aria-hidden="true"
+                    style={{ transform: expanded ? 'rotate(180deg)' : undefined }}
+                  />
+                </button>
+              )}
+              <div className="pet-task-list">
+                {(expanded ? tasks : task ? [task] : []).map((item) => (
+                  <TaskCard key={item.sessionId} task={item} />
+                ))}
+              </div>
+            </>
           )}
-          <div className="pet-task-list">
-            {(expanded ? tasks : [task]).map((item) => (
-              <TaskCard key={item.sessionId} task={item} />
-            ))}
-          </div>
         </div>
       )}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={t('Message your pet', '点击宠物发消息', '點擊寵物發訊息')}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          clearTimeout(clickTimer.current);
+          if (sendingRef.current) return;
+          void (async () => {
+            await closeComposer();
+            await window.electron.desktopPet({ action: 'context-menu' });
+          })().catch(() => setSendError(true));
+        }}
+        onClick={(event) => {
+          // Accessibility activation dispatches click without a pointer gesture.
+          if (event.detail === 0) void openComposer();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            void openComposer();
+          }
+        }}
         style={{
           position: 'absolute',
           top: petPanelHeight,
@@ -243,9 +542,13 @@ export default function DesktopPet() {
           if (event.button !== 0) return;
           pointer.current = { x: event.screenX, y: event.screenY };
           event.currentTarget.setPointerCapture(event.pointerId);
-          void window.electron.desktopPet({ action: 'drag-start' });
+          void window.electron.desktopPet({
+            action: 'drag-start',
+            pointer: { x: event.clientX, y: event.clientY },
+          });
         }}
         onPointerUp={(event) => {
+          if (event.button !== 0) return;
           const start = pointer.current;
           pointer.current = null;
           void window.electron.desktopPet({ action: 'drag-end' });
@@ -253,8 +556,8 @@ export default function DesktopPet() {
             setTemporary('wave');
             clearTimeout(release.current);
             release.current = setTimeout(() => setTemporary(null), 6000 / pet.fps);
-            if (task)
-              void window.electron.desktopPet({ action: 'open-task', sessionId: task.sessionId });
+            clearTimeout(clickTimer.current);
+            clickTimer.current = setTimeout(() => void openComposer(), 300);
           }
         }}
         onPointerCancel={() => {
@@ -262,15 +565,23 @@ export default function DesktopPet() {
           void window.electron.desktopPet({ action: 'drag-end' });
         }}
         onDoubleClick={() => {
+          clearTimeout(clickTimer.current);
           setTemporary('jump');
           clearTimeout(release.current);
           release.current = setTimeout(() => setTemporary(null), 6000 / pet.fps);
         }}
       >
         <div
+          ref={spriteContainer}
+          className="pet-pose"
           style={{
             width: snapshot.preferences.size,
             height: (snapshot.preferences.size * 208) / 192,
+            transform:
+              glance && !temporary
+                ? `translate(${Math.tanh(dx / 700) * 3}px, ${Math.tanh(dy / 700) * 2}px)`
+                : 'translate(0, 0)',
+            transition: reducedMotion ? 'none' : 'transform 220ms ease-out',
           }}
         >
           <PetSprite

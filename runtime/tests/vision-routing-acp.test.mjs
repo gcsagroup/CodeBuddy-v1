@@ -99,7 +99,7 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
     requests.push(m); res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'screenshot', object: 'chat.completion.chunk', model: m.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (m.model === 'vision') { emit({ role: 'assistant', content: 'BLUE_RECTANGLE_VISIBLE' }); emit({}, 'stop'); }
-    else if (!m.messages.some(x => x.role === 'tool')) { emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'observe', type: 'function', function: { name: 'mcp__screen__observe', arguments: '{}' } }] }); emit({}, 'tool_calls'); }
+    else if (!m.messages.some(x => x.role === 'tool')) { emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'observe', type: 'function', function: { name: 'mcp__qwen_computer__observe', arguments: '{}' } }] }); emit({}, 'tool_calls'); }
     else { emit({ role: 'assistant', content: 'Observed blue rectangle' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
   });
@@ -111,7 +111,8 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
   await client.request(ext('defaults/save'), { providerId, modelId: 'main' });
   await client.request(ext('codepro/model-routing/save'), { config: { version: 2, advancedRoutingEnabled: false, routes: [], maxParallelCoders: 1, visionRoute: { enabled: true, mode: 'auto', providerId, modelId: 'vision' } } });
   await client.request(ext('model-capabilities/save'), { config: { version: 1, overrides: [{ providerId, modelId: 'main', imageInput: 'force_unsupported' }, { providerId, modelId: 'vision', imageInput: 'force_supported' }] } });
-  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [{ name: 'screen', type: 'http', url: `http://127.0.0.1:${server.address().port}/mcp`, headers: [] }], _meta: { enabledExtensions: ['screen'] } });
+  const mcpServers = [{ name: 'qwen_computer', type: 'http', url: `http://127.0.0.1:${server.address().port}/mcp`, headers: [] }];
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers, _meta: { enabledExtensions: ['qwen_computer'] } });
   assert.equal((await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Observe the current screen' }] })).stopReason, 'end_turn');
   assert.deepEqual(requests.map(r => r.model), ['main', 'vision', 'main']);
   assert.equal(requests[1].tools?.length ?? 0, 0); assert.match(JSON.stringify(requests[1].messages), /image_url/);
@@ -122,4 +123,9 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
   for (const n of client.notifications.filter(n => n.method === 'session/update')) adapter.apply(n.params);
   const response = adapter.getMessages().flatMap(m => m.content).find(c => c.type === 'toolResponse');
   assert.equal(response.toolResult.status, 'success'); assert.ok(JSON.stringify(adapter.getMessages()).includes(image.data), JSON.stringify(adapter.getMessages()).slice(-6000));
+  await client.request(ext('codepro/model-routing/save'), { config: { version: 2, advancedRoutingEnabled: false, routes: [], maxParallelCoders: 1, visionRoute: { enabled: false, mode: 'auto' } } });
+  const unavailable = await client.request('session/new', { cwd: root, mcpServers, _meta: { enabledExtensions: ['qwen_computer'] } });
+  await assert.rejects(client.request('session/prompt', { sessionId: unavailable.sessionId, prompt: [{ type: 'text', text: 'Observe the current screen' }] }), /电脑控制已停止/);
+  assert.equal(requests.length, 4, 'ACP must report the vision failure before another model request');
+  assert.equal(calls.length, 2, 'an executed observation must not be replayed after losing vision');
 });

@@ -23,7 +23,9 @@ async function connect(url) {
   }); } };
 }
 
-test('ordinary ACP directory switch rebinds tools, project memory and stdio MCP, preserves history after restart and rejects CodePro/read-only/active changes', { timeout: 60_000 }, async t => {
+// Allow cumulative native Keychain latency across directory changes and restart;
+// individual ACP request deadlines remain unchanged.
+test('ordinary ACP directory switch rebinds tools, project memory and stdio MCP, preserves history after restart and rejects CodePro/read-only/active changes', { timeout: process.platform === 'darwin' ? 180_000 : 60_000 }, async t => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-directory-acp-'))), dirA = path.join(root, 'a'), dirB = path.join(root, 'b');
   await mkdir(dirA); await mkdir(dirB);
   const script = path.join(root, 'mcp.mjs');

@@ -96,14 +96,6 @@ export default function UserMessage({
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const timestamp = formatMessageTimestamp(message.created);
 
-  // Effect to handle message content changes and ensure persistence
-  useEffect(() => {
-    // If we're not editing, update the edit content to match the current message
-    if (!isEditing) {
-      setEditContent(textContent);
-    }
-  }, [message.content, textContent, message.id, isEditing]);
-
   // Initialize edit mode with current message content
   const initializeEditMode = useCallback(() => {
     setEditContent(textContent);

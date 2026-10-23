@@ -1,4 +1,5 @@
 import { closeMediaStreams } from './comfyui-live.mjs';
+import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -57,6 +58,7 @@ import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
 import { desktopPetTool, PET_TOOL_NAME } from "./desktop-pet-tool.mjs";
+import { browserTool } from './browser-tool.mjs';
 import { comfyuiTool, IMAGE_TOOL_NAME } from "./comfyui-tool.mjs";
 import { comfyuiVideoTool, VIDEO_TOOL_NAME } from "./comfyui-video-tool.mjs";
 import {
@@ -739,6 +741,9 @@ export class Compat {
     const petEnabled = Boolean(process.env.CODEBUDDY_PET_DIRECTORY) && await toolEnabled(s, this.settings, PET_TOOL_NAME, resolvedExtensions);
     const imageEnabled = await toolEnabled(s, this.settings, IMAGE_TOOL_NAME, resolvedExtensions);
     const videoEnabled = await toolEnabled(s, this.settings, VIDEO_TOOL_NAME, resolvedExtensions);
+    const browserEnabled = await toolEnabled(s, this.settings, 'browser_control', resolvedExtensions);
+    // Host tools are registered in the session scope below. Harness's native
+    // allow list only accepts globally registered tools, not scoped additions.
     return {
       initialPermissionPreset: initialPermissionPreset(s, preferences),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
@@ -798,6 +803,13 @@ export class Compat {
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
+        ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd,
+          request: (method, params, signal) => {
+            const connection = this.active.get(s.id)?.connection;
+            if (!connection?.ask) throw Error('Open this conversation in CodeBuddy desktop to control the embedded browser');
+            return connection.ask(method, params, signal);
+          },
+        })] : []),
         ...(imageEnabled ? [comfyuiTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
         ...(videoEnabled ? [comfyuiVideoTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
         ...(petEnabled ? [desktopPetTool({ cwd: s.cwd })] : []),
@@ -840,16 +852,17 @@ export class Compat {
     return grant;
   }
   async toolPolicy(s, tool, signal = tool.signal) {
+    const extensions = {};
     const denied = () => !this.store.readSession(s.id) ||
       this.store.read(['toolPermissions']).toolPermissions?.[publicToolName(tool.name)] === 'never_allow' ||
       this.store.read(['toolPermissions']).toolPermissions?.[tool.name] === 'never_allow' ||
       (tool.sessionApproval && !tool.sessionApproval.isCurrent());
-    if (denied() || !(await this.toolAvailable(s, tool)))
+    if (denied() || !(await this.toolAvailable(s, tool, extensions)))
       return { kind: 'deny', reason: 'This tool is disabled or its connection is no longer current.' };
     const userMessages = this.active.get(s.id)?.userMessages ?? [];
     const safety = await this.safety.inspect({ tool, userMessages, signal });
     signal?.throwIfAborted();
-    if (denied() || !(await this.toolAvailable(s, tool)))
+    if (denied() || !(await this.toolAvailable(s, tool, extensions)))
       return { kind: 'deny', reason: 'The tool configuration changed before execution.' };
     tool.safety = safety;
     const permissions = this.store.read(['toolPermissions']).toolPermissions ?? {};
@@ -863,14 +876,27 @@ export class Compat {
     // merely by being exposed as tools. Ask through DSH's canonical pipeline.
     return { kind: 'ask', reason: 'This operation runs outside the native file and command sandbox.' };
   }
-  async toolAvailable(s, tool) {
-    if (!(await toolEnabled(s, this.settings, tool.name))) return false;
+  async toolAvailable(s, tool, operation = {}) {
+    const current = this.store.readSession(s.id);
+    if (!current) return false;
+    // Reuse decryption only inside this policy/approval operation. Every check
+    // still validates the live registry and selection, including after a reply.
+    let snapshot = operation.snapshot;
+    try { snapshot?.assertCurrent(current); }
+    catch (error) {
+      if (!isExtensionSnapshotChanged(error)) throw error;
+      snapshot = undefined;
+    }
+    snapshot ??= await resolveSessionExtensions(current, this.settings);
+    // Older injected settings have no revision contract; reread them each time.
+    if (this.settings.extensionSnapshot) operation.snapshot = snapshot;
+    if (!(await toolEnabled(current, this.settings, tool.name, snapshot))) return false;
     if (["read_mcp_resource", "list_mcp_resources"].includes(tool.name)) {
       const names = [
-        ...(await selectedExtensions(s, this.settings)).map((e) =>
+        ...(await selectedExtensions(current, this.settings, snapshot)).map((e) =>
           extensionName(e.extension),
         ),
-        ...(await activeMcpServers(s, this.settings)).map(
+        ...(await activeMcpServers(current, this.settings, snapshot)).map(
           (server) => server.name,
         ),
       ];
@@ -879,7 +905,8 @@ export class Compat {
     return true;
   }
   async approveTool(s, tool, connection, signal, directToolCall = false) {
-    if (!(await this.toolAvailable(s, tool))) return false;
+    const extensions = {};
+    if (!(await this.toolAvailable(s, tool, extensions))) return false;
     // This is an answerer, not an approval-mode owner. DSH has already decided
     // that this exact operation needs a user answer (or this is direct UI input).
     const currentPolicy = () => {
@@ -895,7 +922,7 @@ export class Compat {
     if (blocked(currentPolicy())) return false;
     const safety = tool.safety ?? { requiresApproval: false };
     signal?.throwIfAborted();
-    if (!(await this.toolAvailable(s, tool))) return false;
+    if (!(await this.toolAvailable(s, tool, extensions))) return false;
     if (blocked(currentPolicy())) return false;
     const approval = tool.sessionApproval;
     if (approval && !approval.isCurrent()) return false;
@@ -970,7 +997,7 @@ export class Compat {
       signal?.throwIfAborted();
       // Changing mode does not answer a pending question. A later explicit
       // decision still cannot bypass a newly disabled tool or a hard deny.
-      if (!(await this.toolAvailable(s, tool)) || blocked(currentPolicy())) return false;
+      if (!(await this.toolAvailable(s, tool, extensions)) || blocked(currentPolicy())) return false;
       const option =
         reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
       if (approval && !approval.isCurrent()) return false;
@@ -1674,6 +1701,36 @@ export class Compat {
         await this.driver.invalidateMcpServers?.([name.endsWith("add") ? extensionName(p.extension) : p.name]);
         return {};
       }
+      case "session/plan/get": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory) return { plan: { active: false } };
+        await this.ensureSession(s);
+        return { plan: await this.driver.getPlanMode(s.id) };
+      }
+      case "session/plan/set": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid("Open an active conversation to select plan mode");
+        if (typeof p.active !== 'boolean') throw invalid('Plan mode must be boolean');
+        await this.ensureSession(s);
+        return { plan: await this.driver.setPlanMode(s.id, p.active) };
+      }
+      case "session/goal/get": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory) return { goal: null };
+        await this.ensureSession(s);
+        return { goal: await this.driver.getGoal(s.id) ?? null };
+      }
+      case "session/goal/edit":
+      case "session/goal/clear":
+      case "session/goal/pause": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid("Open an active conversation to change a goal");
+        const request = parseGoalRequest({ ...p, action: name.split('/').at(-1) });
+        await this.ensureSession(s);
+        const goal = await this.driver.controlGoal(s.id, request);
+        if (request.action !== 'edit') await this.request("session/cancel", { sessionId: s.id }, connection);
+        return { goal };
+      }
       case "codepro/run/get":
         return this.runs.get(p);
       case "codepro/run/control":
@@ -2057,6 +2114,10 @@ export class Compat {
   }
   async prompt(p, connection) {
     const s = this.session(p.sessionId);
+    const planMode = p._meta?.['codebuddy/plan'];
+    if (planMode !== undefined && typeof planMode !== 'boolean') throw invalid('Plan mode must be boolean');
+    const goalRequest = parseGoalRequest(p._meta?.['codebuddy/goal']);
+    if (goalRequest && !['create', 'resume'].includes(goalRequest.action)) throw invalid('Change goals through the control endpoint');
     if (this.sessionMutations.has(s.id))
       throw invalid("Wait for the session change to finish");
     if (s.readonlyHistory)
@@ -2211,26 +2272,48 @@ export class Compat {
         runId: active.run?.runId ?? promptScope, signal: controller.signal,
       });
       const callbacks = {
+        ...(planMode !== undefined ? { planMode } : {}),
+        ...(goalRequest?.action === 'create' ? { createGoal: { objective: goalRequest.objective, ...(goalRequest.maxGoalRounds !== undefined ? { maxGoalRounds: goalRequest.maxGoalRounds } : {}) } } : {}),
         signal: controller.signal,
         requestId: userId,
         onUserQuestions: async ({ questions, signal }) => {
           const properties = Object.fromEntries(questions.map((q, i) => [`answer_${i}`, {
-            type: 'string', title: q.question,
-            description: [q.detail, q.options?.map(o => `${o.label}${o.description ? `: ${o.description}` : ''}`).join('; ')].filter(Boolean).join('\n'),
+            type: q.multiSelect ? 'array' : 'string', title: q.question,
+            ...(q.multiSelect ? { items: { type: 'string', enum: (q.options ?? []).map(o => o.label) } } : {}),
+            description: q.detail ?? '',
+            _meta: {
+              ...(q.options?.length ? { 'codepro.dev/suggestedOptions': q.options.map(o => ({ const: o.label, title: o.label, ...(o.description ? { description: o.description } : {}) })) } : {}),
+              ...(q.intent ? { 'codepro.dev/questionIntent': q.intent } : {}),
+              ...(q.options?.length ? { 'codepro.dev/feedbackField': `feedback_${i}` } : {}),
+            },
           }]));
+          const required = Object.keys(properties);
+          for (const [i, q] of questions.entries()) {
+            if (q.options?.length)
+              properties[`feedback_${i}`] = { type: 'string', title: 'Feedback' };
+          }
           const reply = await connection.ask('elicitation/create', {
             sessionId: s.id, mode: 'form', message: questions.map(q => q.question).join('\n'),
-            requestedSchema: { type: 'object', properties, required: Object.keys(properties) },
+            // ACP supports extensions at the request boundary, not on individual properties.
+            _meta: { 'codepro.dev/questionFields': Object.fromEntries(Object.entries(properties).filter(([, field]) => field._meta).map(([key, field]) => [key, field._meta])) },
+            requestedSchema: { type: 'object', properties, required },
           }, signal ?? controller.signal);
           if (reply?.action !== 'accept') throw new Error('User question was cancelled or expired without an answer');
           return { answers: questions.map((q, i) => {
             const answer = reply.content?.[`answer_${i}`];
-            if (typeof answer !== 'string') throw new Error('Missing user question answer');
-            const selected = (q.options ?? []).some(o => o.label === answer) ? [answer] : [];
-            return { id: q.id, selected, ...(selected.length ? {} : { custom: answer }) };
+            const feedback = q.options?.length ? reply.content?.[`feedback_${i}`] : undefined;
+            if (feedback !== undefined && typeof feedback !== 'string') throw new Error('Invalid question feedback');
+            const values = q.multiSelect ? answer : answer === '' ? [] : [answer];
+            if (!Array.isArray(values) || (!values.length && !feedback?.trim()) || values.some(v => typeof v !== 'string' || !v.trim()))
+              throw new Error('Missing user question answer');
+            const selected = values.filter(value => (q.options ?? []).some(o => o.label === value));
+            const custom = [...values.filter(value => !selected.includes(value)), ...(feedback?.trim() ? [feedback] : [])].join('\n');
+            return { id: q.id, selected, ...(custom ? { custom } : {}) };
           }) };
         },
-        ...(["paused", "blocked"].includes(nativeGoal?.phase)
+        ...(goalRequest?.action === 'resume'
+          ? { resumeGoal: { goalId: goalRequest.goalId, revision: goalRequest.revision } }
+          : ["paused", "blocked"].includes(nativeGoal?.phase)
           ? { resumeGoal: { goalId: nativeGoal.id, revision: nativeGoal.revision } }
           : {}),
         onToolPolicy: tool => this.toolPolicy(s, tool, controller.signal),

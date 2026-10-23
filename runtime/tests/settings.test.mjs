@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { openStore } from '../store.mjs';
 import { RuntimeSettings, validatePreference } from '../settings.mjs';
+import { listAvailableBuiltins } from '../builtin-extensions.mjs';
 import { driverProvider } from '../providers.mjs';
 import { zGetConfigExtensionsResponse_unstable, zCodeProModelRoutingReadResponse_unstable, zListPromptsResponse_unstable, zModelCapabilityResolveResponse_unstable } from '../../ui/sdk/src/generated/zod.gen.ts';
 
@@ -16,6 +17,17 @@ async function fixture(t) {
   const settings = new RuntimeSettings(store, { changed: () => changed++, testExtension: async () => { throw Error('Fixture MCP unavailable'); } });
   return { dir, store, settings, changed: () => changed };
 }
+
+test('fresh defaults enable the verified time tool on the host and retain an explicit disabled choice', async t => {
+  const { settings, store } = await fixture(t);
+  const available = (await listAvailableBuiltins()).find(e => e.configKey === 'commonqueries').available;
+  await settings.initialize();
+  assert.equal(store.read().extensions.find(e => e.configKey === 'commonqueries').enabled, available);
+  await settings.request('config/extensions/set-enabled', { configKey: 'commonqueries', enabled: false });
+  await settings.initialize();
+  assert.equal(store.read().extensions.find(e => e.configKey === 'commonqueries').enabled, false);
+  assert.equal(store.read().extensions.filter(e => e.configKey === 'commonqueries').length, 1);
+});
 
 test('per-model context capacity persists, clears, validates atomically and is not shared across models', async t => {
   const f = await fixture(t);

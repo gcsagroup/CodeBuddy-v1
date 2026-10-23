@@ -257,7 +257,8 @@ test('early cancellation reserves admission before workspace validation and neve
   assert.equal(creations, 1);
 });
 
-test('an ordinary fork retains source MCP scope; a committed truncate retires only the replaced native scope', { timeout: 30_000 }, async t => {
+// Fork and truncate each reopen encrypted MCP configuration on macOS.
+test('an ordinary fork retains source MCP scope; a committed truncate retires only the replaced native scope', { timeout: process.platform === 'darwin' ? 90_000 : 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
   await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'HISTORY_TO_EDIT' }] });
   const first = (await f.pids()).at(-1), oldHistory = await f.native.history(id);

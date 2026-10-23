@@ -30,6 +30,7 @@ const i18n = defineMessages({
   },
   context: { id: 'thinkingEffortPicker.context', defaultMessage: 'Context window' },
   unavailable: { id: 'thinkingEffortPicker.unavailable', defaultMessage: 'Not provided' },
+  noControls: { id: 'thinkingEffortPicker.noControls', defaultMessage: 'No verified controls' },
   budget: {
     id: 'thinkingEffortPicker.budget',
     defaultMessage: 'Current budget; model capacity unconfirmed',
@@ -66,7 +67,13 @@ export function ThinkingEffortPicker({
     hoverCloseTimer.current = setTimeout(() => setOpen(false), 150);
   };
   useEffect(() => () => clearTimeout(hoverCloseTimer.current), []);
-  if (!settings.options.length || !settings.value) return null;
+  if (!settings.options.length || !settings.value)
+    return showLabel ? (
+      <div className="flex min-h-9 items-center justify-between gap-3 px-2 text-sm text-text-secondary">
+        <span>{intl.formatMessage(i18n.title)}</span>
+        <span>{intl.formatMessage(i18n.noControls)}</span>
+      </div>
+    ) : null;
   const label = (effort: ThinkingEffort) =>
     intl.formatMessage(settings.toggle && effort !== 'off' ? i18n.on : i18n[effort]);
   const title = intl.formatMessage(i18n.title);

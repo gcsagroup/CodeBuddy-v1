@@ -14,6 +14,20 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('shows all streaming code without syntax spans and keeps large history inexpensive', () => {
+    const code = 'const enemy = { x: 1 };\n'.repeat(450);
+    const content = `\`\`\`javascript\n${code}\`\`\``;
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent content={content} animateIncoming />
+    );
+    expect(container.querySelector('[data-plain-code] code')?.textContent).toBe(code.trimEnd());
+    expect(container.querySelectorAll('.token')).toHaveLength(0);
+    rerender(<MarkdownContent content={content} animateIncoming={false} />);
+    expect(container.querySelector('[data-plain-code] code')?.textContent).toBe(code.trimEnd());
+    rerender(<MarkdownContent content={'```javascript\nconst done = true;\n```'} />);
+    expect(container.querySelector('[data-plain-code]')).toBeNull();
+    expect(container).toHaveTextContent('const done = true;');
+  });
   it('keeps numeric tilde ranges intact while retaining explicit double-tilde deletion', () => {
     const { container } = renderWithIntl(
       <MarkdownContent

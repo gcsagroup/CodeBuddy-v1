@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
-import { FileCode2, ChevronRight } from 'lucide-react';
+import { FileCode2, File, ChevronRight } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { getToolResponses, type Message } from '../../types/message';
 import { openConversationChange } from '../../workspace-panel/conversationChangePanel';
 import {
   collectConversationChanges,
   displayChangePath,
+  fileIdentity,
   type ConversationChangeTurn,
 } from './conversationChanges';
+import { useWorkspaceFileReferences } from '../useWorkspaceFileReferences';
+import { openWorkspaceFile } from '../../workspace-panel/workspaceFilePanel';
 import { FileChangeCount } from './CodeProFileChange';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 
@@ -15,6 +18,10 @@ const i18n = defineMessages({
   files: {
     id: 'conversationFiles.files',
     defaultMessage: 'Modified {count} files this turn',
+  },
+  combinedFiles: {
+    id: 'conversationFiles.combinedFiles',
+    defaultMessage: 'Files this turn ({count})',
   },
   counts: {
     id: 'conversationFiles.changes',
@@ -31,8 +38,7 @@ const i18n = defineMessages({
   },
 });
 
-// The card opens saved evidence in the workbench. It never reads today's files
-// or expands a second history viewer inside the conversation.
+// Recorded edits keep their historical evidence; verified references only provide file navigation.
 export function CodeProConversationFiles({
   messages,
   sourceMessages,
@@ -64,7 +70,29 @@ export function CodeProConversationFiles({
         : collectConversationChanges(messages, workspaceRoot)[0],
     [messages, sourceMessages, sourceChanges, source?.id, workspaceRoot]
   );
-  if (!turn) return null;
+  const content = useMemo(
+    () =>
+      messages
+        .filter((message) => message.role === 'assistant' && message.metadata.userVisible)
+        .flatMap((message) =>
+          message.content.flatMap((entry) => (entry.type === 'text' ? [entry.text] : []))
+        )
+        .join('\n'),
+    [messages]
+  );
+  const references = useWorkspaceFileReferences({ sessionId, content });
+  const changed = new Set(turn?.files.map((file) => fileIdentity(file.path, workspaceRoot)));
+  const files = [
+    ...(turn?.files ?? []).map((change) => ({ path: change.path, change, reference: undefined })),
+    ...references
+      .filter((file) => !changed.has(fileIdentity(file.path, workspaceRoot)))
+      .map((reference) => ({ path: reference.path, change: undefined, reference })),
+  ];
+  if (!files.length) return null;
+  const title = intl.formatMessage(
+    files.some((file) => file.reference) ? i18n.combinedFiles : i18n.files,
+    { count: files.length }
+  );
   const open = (filePath?: string) => {
     if (sessionId)
       openConversationChange({
@@ -73,7 +101,6 @@ export function CodeProConversationFiles({
         ...(filePath ? { filePath } : {}),
       });
   };
-  const { files } = turn;
   return (
     <Collapsible
       open={expanded}
@@ -83,7 +110,7 @@ export function CodeProConversationFiles({
       <div className="flex items-center pr-3">
         <CollapsibleTrigger
           className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left text-text-primary"
-          aria-label={intl.formatMessage(i18n.files, { count: files.length })}
+          aria-label={title}
         >
           <span
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background-secondary"
@@ -93,23 +120,23 @@ export function CodeProConversationFiles({
           </span>
           <span className="min-w-0">
             <span className="flex items-center gap-1.5 font-semibold">
-              {intl.formatMessage(i18n.files, { count: files.length })}
+              {title}
               <ChevronRight
                 className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
                 aria-hidden="true"
               />
             </span>
-            {files.some((file) => file.changes.length > 0) && (
+            {turn && turn.files.some((file) => file.changes.length > 0) && (
               <span className="mt-0.5 block" title={intl.formatMessage(i18n.counts)}>
                 <FileChangeCount change={turn} />
               </span>
             )}
           </span>
         </CollapsibleTrigger>
-        {sessionId && (
+        {sessionId && turn && (
           <button
             type="button"
-            className="shrink-0 text-xs text-text-secondary hover:text-text-primary"
+            className="shrink-0 rounded-lg border border-border-subtle px-2.5 py-1.5 text-xs text-text-secondary hover:bg-background-secondary hover:text-text-primary"
             onClick={() => open()}
           >
             {intl.formatMessage(i18n.viewChanges)}
@@ -121,21 +148,36 @@ export function CodeProConversationFiles({
           {(showAll ? files : files.slice(0, 3)).map((file) => {
             const content = (
               <>
-                <FileCode2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {file.change ? (
+                  <FileCode2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <File className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
                 <span className="min-w-0 flex-1 truncate" title={file.path}>
                   {displayChangePath(file.path, workspaceRoot)}
                 </span>
-                {file.changes.length > 0 && <FileChangeCount change={file} />}
+                {file.change && file.change.changes.length > 0 && (
+                  <FileChangeCount change={file.change} />
+                )}
+                {file.reference && (
+                  <span className="shrink-0 text-xs tabular-nums">
+                    {intl.formatNumber(file.reference.size)} B
+                  </span>
+                )}
               </>
             );
             return (
-              <li key={file.key}>
+              <li key={fileIdentity(file.path, workspaceRoot)}>
                 {sessionId ? (
                   <button
                     type="button"
                     className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
                     aria-label={file.path}
-                    onClick={() => open(file.path)}
+                    onClick={() =>
+                      file.change
+                        ? open(file.path)
+                        : openWorkspaceFile({ sessionId, filePath: file.path })
+                    }
                   >
                     {content}
                   </button>
@@ -144,7 +186,7 @@ export function CodeProConversationFiles({
                     {content}
                   </div>
                 )}
-                {file.hasUnavailableDiff && (
+                {file.change?.hasUnavailableDiff && (
                   <p className="px-3 pb-2 text-xs text-text-secondary">
                     {intl.formatMessage(i18n.diffUnavailable)}
                   </p>
@@ -156,7 +198,7 @@ export function CodeProConversationFiles({
         {!showAll && files.length > 3 && (
           <button
             type="button"
-            className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
+            className="flex w-full items-center gap-1.5 border-t border-border-subtle bg-background-secondary px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
             onClick={() => setShowAll(true)}
           >
             {intl.formatMessage(i18n.moreFiles, { count: files.length - 3 })}

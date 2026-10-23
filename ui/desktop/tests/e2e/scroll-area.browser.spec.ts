@@ -1,29 +1,91 @@
 /* global HTMLDetailsElement */
 import { chromium, expect, test, type Browser, type Page, type Locator } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
-import { resolve } from 'node:path';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { resolve, dirname, basename } from 'node:path';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 let server: ViteDevServer;
 let browser: Browser;
 let page: Page;
+let cacheDirectory: string;
 
 test.beforeAll(async () => {
   server = await createServer({
     configFile: resolve('vite.renderer.config.mts'),
     // Do not invalidate the running desktop's optimized dependencies.
-    cacheDir: await mkdtemp(resolve(tmpdir(), 'codepro-scroll-vite-')),
+    cacheDir: (cacheDirectory = await mkdtemp(resolve(tmpdir(), 'codepro-scroll-vite-'))),
     server: { host: '127.0.0.1', port: 0, hmr: false },
   });
   await server.listen();
-  browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  browser = await chromium.launch({
+    channel: process.platform === 'win32' ? 'msedge' : process.platform === 'darwin' ? 'chrome' : undefined,
+  });
   page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
 });
 
 test.afterAll(async () => {
   await browser?.close();
   await server?.close();
+  if (
+    cacheDirectory &&
+    dirname(resolve(cacheDirectory)) === resolve(tmpdir()) &&
+    basename(cacheDirectory).startsWith('codepro-scroll-vite-')
+  ) {
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
+});
+
+test('automatic thought collapse keeps the final result in view without reserved blank space', async () => {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?auto-fold`
+  );
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await settle();
+  await page.getByRole('button', { name: 'Finish run', exact: true }).click();
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  await expect
+    .poll(async () => {
+      const bounds = (await viewport.boundingBox())!;
+      const result = (await page
+        .getByText('Final verified result', { exact: true })
+        .boundingBox())!;
+      return result.y >= bounds.y && result.y + result.height <= bounds.y + bounds.height;
+    })
+    .toBe(true);
+});
+
+test('latest indicator measures visible bottom independently of disclosure reading mode', async () => {
+  await openFixture();
+  const latest = page.getByRole('button', { name: 'Return to latest', exact: true });
+  await expect(latest).toHaveCount(0);
+  const heading = page.locator('summary').filter({ hasText: /^View changed files$/ });
+  await heading.click();
+  await settle();
+  await expect(page.getByRole('status')).toHaveText('Reading history');
+  await expect(latest).toHaveCount(0);
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  const bounds = (await viewport.boundingBox())!;
+  await page.mouse.move(bounds.x + 5, bounds.y + bounds.height / 2);
+  await page.mouse.wheel(0, -500);
+  await expect(latest).toBeVisible();
+  await page.mouse.wheel(0, 5000);
+  await expect(latest).toHaveCount(0);
+});
+
+test('latest indicator updates for viewport resizing and a completed return to bottom', async () => {
+  await openFixture();
+  const latest = page.getByRole('button', { name: 'Return to latest', exact: true });
+  await page.locator('[data-radix-scroll-area-viewport]').hover();
+  await page.mouse.wheel(0, -350);
+  await expect(latest).toBeVisible();
+  await page.getByRole('button', { name: 'Resize viewport', exact: true }).click();
+  await expect(latest).toBeVisible();
+  await latest.click();
+  await expect(latest).toHaveCount(0);
+  await page.getByRole('button', { name: 'Resize viewport', exact: true }).click();
+  await settle();
+  await expect(latest).toHaveCount(0);
 });
 
 async function settle() {

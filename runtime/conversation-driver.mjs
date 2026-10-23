@@ -69,6 +69,8 @@ export function createConversationDriver(driver, store) {
     steer(id, content, options) { return driver.steer(nativeId(id), content, options); },
     getGoal(id) { return driver.getGoal?.(nativeId(id)); },
     controlGoal(id, options) { return driver.controlGoal(nativeId(id), options); },
+    getPlanMode(id) { return driver.getPlanMode(nativeId(id)); },
+    setPlanMode(id, options) { return driver.setPlanMode(nativeId(id), options); },
     cancel(id) { return driver.cancel(nativeId(id)); },
     upload(id, file, signal) { return driver.upload(nativeId(id), file, signal); },
     listTools(id) { return driver.listTools?.(id === undefined ? id : nativeId(id)) ?? []; },

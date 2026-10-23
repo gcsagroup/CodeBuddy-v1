@@ -79,7 +79,9 @@ export function SessionPermissionSummary({
   busy = false,
   onSavingChange,
   inline = false,
+  openRequest = 0,
 }: {
+  openRequest?: number;
   session: Session;
   busy?: boolean;
   onSavingChange?: (saving: boolean) => void;
@@ -87,6 +89,7 @@ export function SessionPermissionSummary({
 }) {
   return (
     <PermissionPicker
+      openRequest={openRequest}
       mode={session.goose_mode}
       id={session.id}
       workingDirectory={session.working_dir}
@@ -138,7 +141,9 @@ export function PermissionPicker({
   inline = false,
   onSavingChange,
   draft = false,
+  openRequest = 0,
 }: {
+  openRequest?: number;
   mode?: PermissionPreset;
   id?: string;
   workingDirectory?: string;
@@ -150,6 +155,7 @@ export function PermissionPicker({
 }) {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
+  useEffect(() => { if (openRequest > 0) setOpen(true); }, [openRequest]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const savingRef = useRef(false);

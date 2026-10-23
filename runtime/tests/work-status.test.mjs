@@ -15,6 +15,16 @@ test('model transport publishes bounded public waiting phases without diagnostic
   assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' })[0].status.data.phase, 'children');
 });
 
+test('tool argument streaming is reported as preparation, never tool execution or completion', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'first_tool_arguments' });
+  assert.equal(update.status.data.phase, 'model');
+  assert.equal(update.status.data.model_request_phase, 'receiving');
+  assert.match(update.status.message, /尚未执行/);
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end' })[0].status.message, '');
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'child', phase: 'first_tool_arguments' }), []);
+});
+
 test('live child work has a specific wait target without exposing child receipts', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const waiting = project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

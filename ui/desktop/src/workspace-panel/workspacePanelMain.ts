@@ -16,6 +16,8 @@ import { createRequire } from 'node:module';
 import { MEDIA_SCHEME, PanelMediaRegistry, mediaRange } from './workspacePanelMedia';
 import type { IPty } from 'node-pty';
 import { terminalModulePath, terminalShell } from './workspacePanelTerminal';
+import { BrowserController } from './browserControl';
+import { createWorkspacePreview } from './workspacePreview';
 import type {
   PanelBrowserState,
   PanelReply,
@@ -43,6 +45,8 @@ interface BrowserState {
   scope: string;
   view: WebContentsView;
   error?: string;
+  controller: BrowserController;
+  preview?: Awaited<ReturnType<typeof createWorkspacePreview>>;
 }
 interface Owner {
   id: number;
@@ -109,6 +113,7 @@ function dispose(owner: Owner) {
     }
   }
   for (const browser of owner.browsers.values()) {
+    browser.preview?.close();
     if (!browser.view.webContents.isDestroyed()) browser.view.webContents.close();
   }
   owner.terminals.clear();
@@ -190,6 +195,39 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
   const root = await bindScope(owner, request.scope);
   const scope = request.scope.sessionId;
   switch (request.action) {
+    case 'browser-control': {
+      if (request.operation === 'open') {
+        if (Boolean(request.url) === Boolean(request.htmlPath))
+          throw new Error('Specify one URL or HTML path');
+        const preview = request.htmlPath
+          ? await createWorkspacePreview(root, request.htmlPath)
+          : undefined;
+        let id: string | undefined;
+        try {
+          const url = preview?.url ?? panelUrl(request.url!);
+          const created = await dispatch(owner, { scope: request.scope, action: 'browser-create' });
+          id = created.id!;
+          const browser = browserFor(owner, id, scope);
+          browser.preview = preview;
+          await browser.view.webContents.loadURL(url);
+          return {
+            id,
+            browser: browserState(id, browser),
+            result: { id, url, target: 'embedded', localPreview: Boolean(preview) },
+          };
+        } catch (error) {
+          preview?.close();
+          if (id) await dispatch(owner, { scope: request.scope, action: 'browser-close', id });
+          throw error;
+        }
+      }
+      const browser = browserFor(owner, request.id!, scope);
+      if (request.operation === 'close') {
+        await dispatch(owner, { scope: request.scope, action: 'browser-close', id: request.id! });
+        return { result: { closed: true } };
+      }
+      return { result: await browser.controller.run(request) };
+    }
     case 'list':
       return listPanelFiles(root, request.path);
     case 'search':
@@ -290,7 +328,11 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
           partition: `workspace-browser-${owner.win.id}-${scope}`,
         },
       });
-      const state: BrowserState = { scope, view };
+      const state: BrowserState = {
+        scope,
+        view,
+        controller: new BrowserController(view.webContents),
+      };
       owner.browsers.set(id, state);
       owner.win.contentView.addChildView(view);
       view.setVisible(false);
@@ -376,6 +418,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     }
     case 'browser-close': {
       const browser = browserFor(owner, request.id, scope);
+      browser.preview?.close();
       owner.win.contentView.removeChildView(browser.view);
       browser.view.webContents.close();
       owner.browsers.delete(request.id);

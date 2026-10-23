@@ -18,6 +18,7 @@ export interface ScrollAreaHandle {
 interface ScrollAreaProps extends React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> {
   autoScroll?: boolean;
   onScrollChange?: (isAtBottom: boolean) => void;
+  onBottomChange?: (isAtBottom: boolean) => void;
   /* padding needs to be passed into the container inside ScrollArea to avoid pushing the scrollbar out */
   paddingX?: number;
   paddingY?: number;
@@ -71,6 +72,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       children,
       autoScroll = false,
       onScrollChange,
+      onBottomChange,
       paddingX,
       paddingY,
       handleScroll: handleScrollProp,
@@ -82,6 +84,24 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
     const viewportRef = React.useRef<HTMLDivElement>(null);
     const viewportEndRef = React.useRef<HTMLDivElement>(null);
     const contentRef = React.useRef<HTMLDivElement>(null);
+    const naturalContentRef = React.useRef<HTMLDivElement>(null);
+    const lastBottomRef = React.useRef<boolean | null>(null);
+    const reportBottom = React.useCallback(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      // Reading mode and visible position are independent. The end marker also
+      // excludes temporary whitespace reserved by a collapsing disclosure.
+      const end = viewportEndRef.current;
+      const distance = end
+        ? end.getBoundingClientRect().bottom -
+          (viewport.getBoundingClientRect().top + viewport.clientHeight)
+        : viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
+      const atBottom = distance <= 2;
+      if (lastBottomRef.current !== atBottom) {
+        lastBottomRef.current = atBottom;
+        onBottomChange?.(atBottom);
+      }
+    }, [onBottomChange]);
     const [isFollowing, setIsFollowing] = React.useState(true);
     const [isScrolled, setIsScrolled] = React.useState(false);
     const userScrolledUpRef = React.useRef(false);
@@ -204,9 +224,12 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
           if (disclosureAnchorRef.current !== anchor) return;
           restoreDisclosureAnchor();
           disclosureAnchorRef.current = null;
-          // Keep the reserved range until new content fills it or the reader
-          // navigates. Dropping it here would undo the anchor in the last frame.
-          if (!userScrolledUpRef.current) followBottom();
+          // Only a reader needs the old scroll range. Following reserved space
+          // after automatic folding can put the entire final answer above view.
+          if (!userScrolledUpRef.current) {
+            if (contentRef.current) contentRef.current.style.minHeight = '';
+            followBottom();
+          }
         };
       },
       [autoScroll, followBottom, restoreDisclosureAnchor, stopFollowingMotion]
@@ -243,8 +266,9 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         setIsFollowing(true);
         userScrolledUpRef.current = false;
         onScrollChange?.(true);
+        reportBottom();
       }
-    }, [onScrollChange, clearDisclosureAnchor, stopFollowingMotion]);
+    }, [onScrollChange, clearDisclosureAnchor, stopFollowingMotion, reportBottom]);
 
     const scrollToPosition = React.useCallback(
       ({ top, behavior = 'smooth' }: { top: number; behavior?: ScrollBehavior }) => {
@@ -285,6 +309,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       if (!viewportRef.current) return;
 
       const viewport = viewportRef.current;
+      reportBottom();
       if (
         programmedTop.current !== null &&
         Math.abs(viewport.scrollTop - programmedTop.current) < 1
@@ -355,7 +380,20 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       handleScrollProp,
       clearDisclosureAnchor,
       trackNavigation,
+      reportBottom,
     ]);
+
+    React.useLayoutEffect(() => {
+      reportBottom();
+      const viewport = viewportRef.current;
+      const content = contentRef.current;
+      if (!viewport || !content || typeof ResizeObserver === 'undefined') return;
+      const observer = new ResizeObserver(reportBottom);
+      observer.observe(viewport);
+      observer.observe(content);
+      if (naturalContentRef.current) observer.observe(naturalContentRef.current);
+      return () => observer.disconnect();
+    }, [reportBottom]);
 
     // One animation owns both React updates and asynchronous layout growth.
     React.useEffect(() => {
@@ -366,14 +404,24 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       if (!autoScroll) return;
       const content = contentRef.current;
       if (!content || typeof ResizeObserver === 'undefined') return;
+      let frame: number | undefined;
       const observer = new ResizeObserver(() => {
-        if (restoreDisclosureAnchor()) return;
-        if (isFollowing && !userScrolledUpRef.current && !isActivelyScrollingRef.current) {
-          followBottom();
-        }
+        // Anchor restoration can resize the observed element. Run it after the
+        // observer delivery cycle so layout writes cannot feed that same cycle.
+        if (frame !== undefined) return;
+        frame = requestAnimationFrame(() => {
+          frame = undefined;
+          if (restoreDisclosureAnchor()) return;
+          if (isFollowing && !userScrolledUpRef.current && !isActivelyScrollingRef.current) {
+            followBottom();
+          }
+        });
       });
       observer.observe(content);
-      return () => observer.disconnect();
+      return () => {
+        observer.disconnect();
+        if (frame !== undefined) cancelAnimationFrame(frame);
+      };
     }, [autoScroll, isFollowing, restoreDisclosureAnchor, followBottom]);
 
     // Add scroll event listener
@@ -482,12 +530,14 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
             ref={contentRef}
             className={cn(paddingX ? `px-${paddingX}` : '', paddingY ? `py-${paddingY}` : '')}
           >
-            <ScrollFollowingContext.Provider value={!autoScroll || isFollowing}>
-              <ScrollLayoutAnchorContext.Provider value={holdLayoutAnchor}>
-                {children}
-              </ScrollLayoutAnchorContext.Provider>
-            </ScrollFollowingContext.Provider>
-            {autoScroll && <div ref={viewportEndRef} style={{ height: '1px' }} />}
+            <div ref={naturalContentRef}>
+              <ScrollFollowingContext.Provider value={!autoScroll || isFollowing}>
+                <ScrollLayoutAnchorContext.Provider value={holdLayoutAnchor}>
+                  {children}
+                </ScrollLayoutAnchorContext.Provider>
+              </ScrollFollowingContext.Provider>
+              {autoScroll && <div ref={viewportEndRef} style={{ height: '1px' }} />}
+            </div>
           </div>
         </ScrollAreaPrimitive.Viewport>
         <ScrollBar />

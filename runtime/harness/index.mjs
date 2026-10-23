@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler } from '@deepseek-ai/dsh-llm';
+import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
 import compactionPlugin from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
@@ -227,6 +228,16 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     },
   });
   ctx.provide('codebuddyMcpVision', {
+    unavailable(exec, source) {
+      // A desktop action receipt remains true even if its image cannot be read.
+      // Stop the native loop before another model step (or queued tool) can
+      // act blindly. Other MCPs may return optional illustrations.
+      if (source.extensionName !== 'qwen_computer') return;
+      const run = runFor(exec.agent);
+      if (run) run.observationFailure = Object.assign(new Error(
+        '电脑控制已停止：工具已返回截图，但当前模型没有可用的视觉结果。请在“模型与运行”中选择支持图片的模型，或配置辅助视觉，再重新观察窗口。已执行的操作不会重放，发送状态尚未核实。',
+      ), { code: 'desktop/vision-unavailable' });
+    },
     async project(content, exec) {
       const routed = exec.agent?.session.requestHeader()?.config;
       const provider = routed?.provider ?? exec.agent?.options.provider;
@@ -234,7 +245,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const info = await ctx.llm.resolveModelInfo(provider, model, exec.signal);
       if (info.inputModalities?.includes('image')) return content;
       const fallback = settingsFor(exec.agent)?.mcpImageFallback;
-      if (!fallback) return content;
+      if (!fallback) throw new Error('No image-capable model or auxiliary observer is configured');
       return fallback(content, { sessionId: exec.agent.id, toolName: exec.name, signal: exec.signal });
     },
   });
@@ -361,6 +372,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
     if (active?.cancelRequested || exec.signal.aborted) return { kind: 'cancel' };
     if (!active) return { kind: 'deny', reason: 'No active tool invocation context.' };
+    if (active.observationFailure) return { kind: 'deny', reason: active.observationFailure.message };
     try {
       await abortable(active.events, exec.signal);
       const call = permissionCall(exec, active);
@@ -479,6 +491,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('agent/error', ({ agent, error }) => runs.get(agent.id)?.reject(error));
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
+    if (run?.observationFailure) throw run.observationFailure;
     const limit = settingsFor(agent)?.maxTurns;
     if (run && limit && run.steps >= limit) {
       run.limitReached = limit;
@@ -640,6 +653,28 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
               const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
               await active?.events;
               const value = await tool.execute(args, { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId });
+              if (Array.isArray(value?.content) && value.content.some(block => block.type === 'image' && !block.attachment)) {
+                // Host tools return wire images, while native history requires
+                // durable references just like the official MCP bridge.
+                let content = value.content;
+                try {
+                  content = await ctx.get('codebuddyMcpVision').project(content, exec);
+                  const images = content.filter(block => block.type === 'image' && !block.attachment);
+                  const refs = await admitEncodedImages(ctx.attachments, images.map(block => ({
+                    data: block.data, mediaType: block.mimeType ?? block.mediaType,
+                  })));
+                  let index = 0;
+                  content = content.map(block => block.type === 'image' && !block.attachment
+                    ? { type: 'image', attachment: refs[index++] } : block);
+                } catch (error) {
+                  if (exec.signal.aborted) throw error;
+                  // The action already happened; an unavailable observation
+                  // must not invite replay of that successful action.
+                  content = content.map(block => block.type === 'image' ? { type: 'text',
+                    text: '[Image observation unavailable. The tool action receipt is unchanged; do not repeat the action to retry image interpretation or claim visual verification.]' } : block);
+                }
+                return { ...value, content };
+              }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
             },
           });
@@ -689,7 +724,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
         }
         if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
-        const discovery = installToolDiscovery(scoped, agent);
+        const discovery = installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
         if (discovery) {
           readOnlyDefinitions.add(discovery);
           // Loading tool schemas is internal plumbing, not a project operation.
@@ -779,7 +814,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, signal, requestId = randomUUID(), resumeGoal } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode } = {}) {
       if (runs.has(sessionId)) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
       signal?.throwIfAborted();
@@ -791,6 +826,24 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
       try {
+        if (resumeGoal) {
+          const current = ctx.goals.get(await resolveAgent(sessionId));
+          if (!current || current.id !== resumeGoal.goalId || current.revision !== resumeGoal.revision) throw new Error('Goal changed before resume; refresh its current state');
+          if (current.phase === 'complete' || current.roundsStarted >= current.maxGoalRounds) throw new Error('This goal cannot be resumed with its current round budget');
+        }
+        if (planMode !== undefined) {
+          if (typeof planMode !== 'boolean') throw new TypeError('planMode must be boolean');
+          await driver.setPlanMode(sessionId, planMode);
+        }
+        if (createGoal) {
+          const agent = await resolveAgent(sessionId);
+          const created = ctx.goals.create(agent, createGoal);
+          // Keep new goals dormant until the ordinary prompt owns callbacks,
+          // permissions and cancellation. Never start an unobserved round.
+          const paused = ctx.goals.pause(agent, { id: created.id, revision: created.revision });
+          resumeGoal = { goalId: paused.id, revision: paused.revision };
+          await ctx.sessions.flush(agent.session);
+        }
         const parts = typeof content === 'string' ? [{ type: 'text', text: content }] : content;
         const promptAgent = ctx.agents.get(sessionId);
         const parked = promptAgent?.inbox.nextTurn ?? [];
@@ -947,16 +1000,26 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       settleRun(agent);
       return result;
     },
+    async getPlanMode(sessionId) { return ctx.planMode.get(await resolveAgent(sessionId)); },
+    async setPlanMode(sessionId, active) {
+      if (typeof active !== 'boolean') throw new TypeError('Plan mode must be boolean');
+      const agent = await resolveAgent(sessionId);
+      ctx.planMode.set(agent, active);
+      await ctx.sessions.flush(agent.session);
+      return ctx.planMode.get(agent);
+    },
     async getGoal(sessionId) { return ctx.goals.get(await resolveAgent(sessionId)); },
-    async controlGoal(sessionId, { action, goalId, revision }) {
-      if (!['pause', 'resume'].includes(action)) throw new TypeError('Goal control action must be pause or resume');
+    async controlGoal(sessionId, { action, goalId, revision, objective }) {
+      if (!['pause', 'resume', 'edit', 'clear'].includes(action)) throw new TypeError('Unsupported goal control action');
       if (action === 'resume' && !runs.has(sessionId)) throw new Error('Resume a goal through prompt with resumeGoal so its stream and permissions remain attached');
       const agent = await resolveAgent(sessionId);
       // The UI supplies structured human intent and the official CAS identity.
       // Resume arms the official round driver; this adapter never queues work.
-      const goal = ctx.goals[action](agent, { id: goalId, revision });
+      const goal = action === 'edit'
+        ? ctx.goals.edit(agent, { id: goalId, revision }, { objective })
+        : ctx.goals[action](agent, { id: goalId, revision });
       await ctx.sessions.flush(agent.session);
-      return goal;
+      return action === 'clear' ? null : goal;
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },

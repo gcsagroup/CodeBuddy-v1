@@ -34,14 +34,14 @@ export function PetSprite({
   }, [pet.imageUrl]);
   useEffect(() => {
     setFrame(0);
-    if (reducedMotion || animation === 'look') return;
+    if (reducedMotion || (animation === 'look' && gazeFrame !== undefined)) return;
     const timer = setInterval(() => setFrame((f) => (f + 1) % 6), 1000 / pet.fps);
     return () => clearInterval(timer);
-  }, [pet.id, pet.fps, animation, reducedMotion]);
+  }, [pet.id, pet.fps, animation, reducedMotion, gazeFrame !== undefined]);
   useEffect(() => {
     const ctx = canvas.current?.getContext('2d', { willReadFrequently: Boolean(onAlphaMap) });
     if (!ctx || !image) return;
-    const column = animation === 'look' ? (gazeFrame ?? 0) : reducedMotion ? 0 : frame;
+    const column = reducedMotion ? 0 : animation === 'look' ? (gazeFrame ?? frame) : frame;
     ctx.clearRect(0, 0, 192, 208);
     ctx.drawImage(
       image,
@@ -61,6 +61,11 @@ export function PetSprite({
       ref={canvas}
       width={192}
       height={208}
+      className={
+        !reducedMotion && (animation === 'idle' || animation === 'look')
+          ? 'pet-breathing'
+          : undefined
+      }
       style={{ width: '100%', height: '100%', objectFit: 'contain' }}
       aria-label={pet.name}
       role="img"

@@ -155,6 +155,7 @@ interface ProgressiveMessageListProps {
   resumeAfterWorkspace?: (message: Message, runId: string) => void | Promise<void>;
   suppressProviderThinking?: boolean;
   foldTurns?: boolean;
+  hideFileReferences?: boolean;
   workspaceRoot?: string;
 }
 
@@ -378,6 +379,7 @@ function ProgressiveMessageListContent({
   resumeAfterWorkspace,
   suppressProviderThinking = false,
   foldTurns = true,
+  hideFileReferences = false,
   workspaceRoot,
   renderRange,
   sourceMessages = messages,
@@ -1159,6 +1161,7 @@ function ProgressiveMessageListContent({
                   sessionId={chat.sessionId}
                   message={message}
                   messages={sourceMessages}
+                  hideFileReferences={hideFileReferences}
                   fileReferenceExclusions={
                     message.id ? fileReferenceExclusions.get(message.id) : undefined
                   }
@@ -1190,6 +1193,7 @@ function ProgressiveMessageListContent({
     messages,
     sourceMessages,
     fileReferenceExclusions,
+    hideFileReferences,
     sharedToolResponses,
     sharedToolChains,
     presentationPending,
@@ -1235,7 +1239,8 @@ function ProgressiveMessageListContent({
       start: number,
       end: number,
       streaming: boolean,
-      pending = false
+      pending = false,
+      consolidatedFiles = false
     ) => (
       <ProgressiveMessageListContent
         messages={turn}
@@ -1249,6 +1254,7 @@ function ProgressiveMessageListContent({
         chat={chat}
         activeRunId={activeRunId}
         foldTurns={false}
+        hideFileReferences={consolidatedFiles}
         toolCallNotifications={toolCallNotifications}
         append={append}
         isUserMessage={isUserMessage}
@@ -1446,7 +1452,14 @@ function ProgressiveMessageListContent({
               : undefined;
           return (
             <section key={turn[0]?.id ?? start} className="mb-6">
-              {renderSlice(displayTurn, 0, userCount, false)}
+              {renderSlice(
+                displayTurn,
+                0,
+                userCount,
+                false,
+                false,
+                foldable && hasTerminalBoundary
+              )}
               <ToolCallExpandable
                 compact
                 // Keep this parent and its process subtree mounted across the
@@ -1469,10 +1482,18 @@ function ProgressiveMessageListContent({
                   userCount,
                   historyEnd,
                   streaming && !foldable,
-                  pending && historyEnd === displayTurn.length
+                  pending && historyEnd === displayTurn.length,
+                  foldable && hasTerminalBoundary
                 )}
               </ToolCallExpandable>
-              {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
+              {renderSlice(
+                displayTurn,
+                historyEnd,
+                displayTurn.length,
+                streaming,
+                pending,
+                foldable && hasTerminalBoundary
+              )}
               {foldable && hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}

@@ -19,10 +19,12 @@ CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令
 ## Windows 安裝包
 
 ```powershell
-node scripts/build-harness-windows.cjs
+node scripts/build-harness-windows.cjs --installer=inno
 ```
 
-安裝程式為 `ui/desktop/out/make/squirrel.windows/x64/CodeBuddy-Setup.exe`，應用名稱為 CodeBuddy。安裝識別 `CodeBuddyHarness` 保留安裝相容性；預設資料目錄為 `~/.CodeBuddy`。啟動不會自動匯入或覆寫舊資料目錄。
+安裝程式為 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`，使用既有 Inno Setup 6.7+ 與簡體中文語言檔，詳見[建構說明](../../README.md)。舊 Squirrel 相容入口仍可使用 `--installer=squirrel`。預設資料目錄為 `~/.CodeBuddy`，啟動不會自動匯入或覆寫舊資料目錄。
+
+安裝頁可展開、收合安裝詳情，查看實際擷取的檔案及捷徑、連結協定處理步驟。詳情保留最近 200 項並支援捲動，收合期間持續記錄；完整檔案紀錄由 Inno 安裝日誌保存。安裝包使用本機載荷，顯示檔案擷取過程。
 
 首次封裝前依 [Office 建構器說明](../../scripts/office-builder/README.md) 準備 `runtime/py` 與 `runtime/office`。準備步驟會下載依賴；正常封裝僅複製及驗證已有檔案。包內包含 Node 與所需執行載荷；專案開發工具鏈仍依專案需求準備。
 

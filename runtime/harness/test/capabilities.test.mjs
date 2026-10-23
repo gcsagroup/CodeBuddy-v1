@@ -86,6 +86,7 @@ before(async () => {
       call('subagent', { description: 'Rejected fourth catalog child', prompt: 'fixture_catalog_sibling_4' });
     }
     else if (prompt.includes('fixture_limit')) call('read', { file_path: join(root, 'source.txt') });
+    else if (prompt.includes('fixture_browser_capture') && !since.some(message => message.role === 'tool')) call('browser_control', { operation: 'screenshot' });
     else if (prompt.includes('fixture_host') && !since.some(message => message.role === 'tool')) call('record_artifact', { value: 'first' });
     else if (prompt.includes('fixture_host') && since.filter(message => message.role === 'tool').length === 1) call('finish_artifact', {});
     else if (prompt.includes('fixture_large')) { emit({ role: 'assistant', content: 'Long evidence '.repeat(1800) }); emit({}, 'stop'); }
@@ -243,6 +244,48 @@ test('image prompt uses official admission and actual vision HTTP content across
   await driver.createSession({ sessionId: created.sessionId, cwd: root, provider: visionProvider, model: 'fixture-vision' });
   await driver.prompt(created.sessionId, 'fixture_vision followup');
   assert.ok(requests.at(-1).messages.filter(message => message.role === 'user').flatMap(message => message.content).some(part => part.type === 'image_url'));
+});
+
+test('host screenshot survives the next model step and native session restart', async () => {
+  const png = await sharp({ create: { width: 24, height: 12, channels: 3, background: '#4488cc' } }).png().toBuffer();
+  let calls = 0;
+  const visionProvider = { ...provider, inputModalities: ['text', 'image'] };
+  const created = await driver.createSession({ cwd: root, provider: visionProvider, model: 'fixture-host-vision', options: { tools: [{
+    name: 'browser_control', inputSchema: { type: 'object', properties: { operation: { type: 'string' } } },
+    async execute() { calls++; return { content: [{ type: 'text', text: 'Screenshot captured' }, { type: 'image', mimeType: 'image/png', data: png.toString('base64') }] }; },
+  }] } });
+  await driver.prompt(created.sessionId, 'fixture_browser_capture', { onPermission: () => true });
+  assert.equal(calls, 1);
+  assert.ok(JSON.stringify(requests.at(-1).messages).includes('data:image/png;base64,'));
+  const history = await driver.history(created.sessionId);
+  const result = history.events.find(event => event.type === 'tool/result');
+  const image = result.data.message.content.find(part => part.type === 'image');
+  assert.equal(image.attachment.width, 24);
+  assert.equal(image.attachment.height, 12);
+  assert.equal(JSON.stringify(history.events).includes(png.toString('base64')), false);
+  await driver.close();
+  driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
+  await driver.createSession({ sessionId: created.sessionId, cwd: root, provider: visionProvider, model: 'fixture-host-vision' });
+  await driver.prompt(created.sessionId, 'fixture_vision followup');
+  assert.ok(JSON.stringify(requests.at(-1).messages).includes('data:image/png;base64,'));
+  assert.equal(calls, 1, 'history reuse must not replay the screenshot action');
+});
+
+test('host image admission failures preserve action receipts without replay', async () => {
+  for (const badImage of [false, true]) {
+    let calls = 0;
+    const created = await driver.createSession({ cwd: root, provider: badImage ? { ...provider, inputModalities: ['text', 'image'] } : provider,
+      model: 'fixture-image-unavailable', options: { tools: [{
+        name: 'browser_control', inputSchema: { type: 'object', properties: { operation: { type: 'string' } } },
+        async execute() { calls++; return { content: [{ type: 'text', text: 'Action completed' }, { type: 'image', mimeType: 'image/png', data: 'invalid-image' }] }; },
+      }] } });
+    await driver.prompt(created.sessionId, 'fixture_browser_capture', { onPermission: () => true });
+    assert.equal(calls, 1);
+    const sent = JSON.stringify(requests.at(-1).messages);
+    assert.match(sent, /Action completed/);
+    assert.match(sent, /Image observation unavailable/);
+    assert.doesNotMatch(sent, /invalid-image|attachmentId/);
+  }
 });
 
 test('generic file upload uses session-owned receipts and read-on-demand projection', async () => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHarnessDriver } from '../index.mjs';
@@ -31,7 +31,13 @@ test('shared MCP connection reads live metadata from the executing session only'
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const root = await mkdtemp(path.join(tmpdir(), 'mcp-live-metadata-'));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
-  t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  t.after(async () => {
+    await driver.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+    assert.equal(path.dirname(root), path.resolve(tmpdir()));
+    await rm(root, { recursive: true, force: true });
+  });
   const mcp = { serverName: 'metadata', transport: 'streamable-http', url: `http://127.0.0.1:${server.address().port}/mcp` };
   const session = async callback => (await driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl: 'http://127.0.0.1:1/v1', apiKey: '' }, model: 'fixture', options: { mcpServers: [mcp], mcpRequestMetadata: callback } })).sessionId;
   let value = 'A';

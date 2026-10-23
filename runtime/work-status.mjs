@@ -72,7 +72,9 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
       }
     } else if (event.sessionId === sessionId) {
       if (event.type === 'model_diagnostic') {
-        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving' })[event.phase];
+        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving', first_tool_arguments: 'receiving', first_text: 'receiving', first_reasoning: 'receiving' })[event.phase];
+        if (event.phase === 'first_tool_arguments' && !children.size)
+          message = '正在生成工具调用参数（尚未执行）';
         if (event.phase === 'response_headers' && !(event.status >= 200 && event.status < 300)) modelRequestPhase = undefined;
         if (!modelRequestPhase && !['end', 'response_headers'].includes(event.phase)) return [];
         phase = children.size ? 'children' : 'model';

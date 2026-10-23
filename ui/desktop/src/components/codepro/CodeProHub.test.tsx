@@ -13,6 +13,10 @@ import { ChatState } from '../../types/chatState';
 import { getHostProcessWorkingDir } from '../../utils/workingDir';
 import { AppEvents } from '../../constants/events';
 import { CodeProHub } from './CodeProHub';
+import { readPreferences } from '../../acp/preferences';
+import type { FixedExtensionEntry } from '../ConfigContext';
+
+const configFixture = vi.hoisted(() => ({ extensions: [] as FixedExtensionEntry[] }));
 
 const navigate = vi.fn();
 let submittedInput: UserInput = { msg: '开发一个记账应用', images: [] };
@@ -23,6 +27,8 @@ vi.mock('../ChatInput', () => ({
     initialValue,
     chatState,
     onWorkingDirChange,
+    modelToolbarSlot,
+    onNextChatExtensionDraftChange,
   }: {
     handleSubmit: (
       input: UserInput,
@@ -31,13 +37,24 @@ vi.mock('../ChatInput', () => ({
     initialValue: string;
     chatState: ChatState;
     onWorkingDirChange?: (path: string) => void;
+    modelToolbarSlot?: React.ReactNode;
+    onNextChatExtensionDraftChange?: (draft: { selectedNames: Set<string> }) => void;
   }) {
     const [input, setInput] = useState<UserInput>(() => ({
+      ...submittedInput,
       msg: initialValue || submittedInput.msg,
       images: submittedInput.images,
     }));
     return (
       <>
+        {modelToolbarSlot}
+        <button
+          onClick={() =>
+            onNextChatExtensionDraftChange?.({ selectedNames: new Set(['selected-mcp']) })
+          }
+        >
+          Choose MCP
+        </button>
         <button onClick={() => onWorkingDirChange?.('D:\\')}>Select root</button>
         <button onClick={() => onWorkingDirChange?.('D:\\SchoolSystem')}>Select project</button>
         <span data-testid="draft-message">{input.msg}</span>
@@ -63,13 +80,18 @@ vi.mock('../ChatInput', () => ({
 vi.mock('../ChatInputCard', () => ({
   ChatInputCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('../ConfigContext', () => ({ useConfig: () => ({ extensionsList: [] }) }));
+vi.mock('../ConfigContext', () => ({
+  useConfig: () => ({
+    extensionsList: configFixture.extensions,
+  }),
+}));
 vi.mock('../../hooks/useNavigation', () => ({ useNavigation: () => vi.fn() }));
 vi.mock('../../utils/workingDir', () => ({
   getHostProcessWorkingDir: vi.fn(() => 'C:\\host-cwd'),
 }));
 vi.mock('../../codepro/startCodeProSession', () => ({ startCodeProSession: vi.fn() }));
 vi.mock('../../sessions', () => ({ createSession: vi.fn() }));
+vi.mock('../../acp/preferences', () => ({ readPreferences: vi.fn() }));
 
 const inspection = {
   requestedPath: 'E:\\CodeProCp01\\Ledger',
@@ -97,7 +119,12 @@ const session = {
 
 describe('CodeProHub', () => {
   beforeEach(() => {
+    configFixture.extensions = [];
     vi.clearAllMocks();
+    vi.mocked(readPreferences).mockResolvedValue({
+      revision: 1,
+      values: [{ key: 'gooseMode', value: 'workspace-write', isMutable: true }],
+    });
     submittedInput = { msg: '开发一个记账应用', images: [] };
     window.electron.defaultCodeProWorkspacePath = vi
       .fn()
@@ -120,6 +147,47 @@ describe('CodeProHub', () => {
       },
     });
     vi.mocked(createSession).mockResolvedValue(session);
+  });
+
+  it('starts new tasks with the configured native permission preset', async () => {
+    const user = userEvent.setup();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(await screen.findByText('Workspace write')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Submit development goal' }));
+    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledWith(
+      expect.objectContaining({ initialPermissionPreset: 'workspace-write' })
+    ));
+  });
+
+  it('passes the chosen approval mode to the new task before its first prompt', async () => {
+    const user = userEvent.setup();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    await screen.findByText('Workspace write');
+    await user.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
+    await user.click(screen.getByRole('radio', { name: /Read only/ }));
+    await user.click(screen.getByRole('button', { name: 'Submit development goal' }));
+    await waitFor(() =>
+      expect(startCodeProSession).toHaveBeenCalledWith(
+        expect.objectContaining({ initialPermissionPreset: 'read-only' })
+      )
+    );
+  });
+
+  it('loads a slash-selected extension into the first session without changing global defaults', async () => {
+    configFixture.extensions = [
+      { type: 'builtin', name: 'selected-mcp', description: '', enabled: false },
+    ];
+    const user = userEvent.setup();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    await user.click(screen.getByText('Choose MCP'));
+    await user.click(screen.getByText('Submit development goal'));
+    await waitFor(() =>
+      expect(startCodeProSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allExtensions: [expect.objectContaining({ name: 'selected-mcp', enabled: true })],
+        })
+      )
+    );
   });
 
   it('keeps a pet template on the new-task page until the user sends it', async () => {
@@ -226,6 +294,7 @@ describe('CodeProHub', () => {
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(screen.queryByRole('heading', { name: 'Confirm project workspace' })).toBeNull();
     expect(startCodeProSession).toHaveBeenCalledWith({
+      initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage: { msg: '开发一个记账应用', images: [] },
       allExtensions: [],
@@ -242,6 +311,23 @@ describe('CodeProHub', () => {
     expect(navigate).toHaveBeenCalledOnce();
     expect(sequence).toEqual(['SESSION_CREATED', 'ADD_ACTIVE_SESSION', 'navigate']);
     dispatch.mockRestore();
+  });
+
+  it.each([
+    { goalRequest: { action: 'create' as const, objective: 'Ship and test', maxGoalRounds: 20 } },
+    { planMode: true },
+  ])('preserves structured slash requests in the first project message: %j', async (request) => {
+    submittedInput = { msg: 'Ship and test', images: [], ...request };
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Submit development goal' }));
+    await waitFor(() =>
+      expect(startCodeProSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          initialMessage: submittedInput,
+        })
+      )
+    );
   });
 
   it('rejects an occupied default workspace without starting or clearing the goal', async () => {
@@ -320,6 +406,7 @@ describe('CodeProHub', () => {
 
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage,
       allExtensions: [],
@@ -406,6 +493,7 @@ describe('CodeProHub', () => {
 
     await waitFor(() => expect(createSession).toHaveBeenCalledOnce());
     expect(createSession).toHaveBeenCalledWith('D:\\', {
+      initialPermissionPreset: 'workspace-write',
       allExtensions: [],
       workspaceMode: 'codepro',
       workspaceBinding: 'root_container',
@@ -450,6 +538,7 @@ describe('CodeProHub', () => {
     });
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage: submittedInput,
       allExtensions: [],
@@ -513,6 +602,7 @@ describe('CodeProHub', () => {
     await user.click(screen.getByRole('button', { name: 'Retry workspace setup' }));
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage,
       allExtensions: [],

@@ -15,6 +15,7 @@ import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifi
 import type { AdapterState } from '../acp/adapter/shared';
 import { SearchView } from './conversation/SearchView';
 import { ScrollFollowingContext } from './ui/scroll-follow-context';
+import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { OPEN_CONVERSATION_CHANGE } from '../workspace-panel/conversationChangePanel';
 
 beforeEach(() => window.sessionStorage.clear());
@@ -565,6 +566,41 @@ describe('Harness conversation presentation', () => {
     expect(screen.queryByText('Second stage.')).not.toBeInTheDocument();
     expect(screen.getByText('First result.')).toBeVisible();
     expect(screen.getByText('Second result.')).toBeVisible();
+  });
+
+  it('renders a single completed-turn file card for both changed and referenced files', async () => {
+    acpChatSessionActions.setSessionMetadata('session', {
+      id: 'session',
+      name: 'Fixture',
+      working_dir: '/fixture',
+      created_at: '2026-10-22T00:00:00Z',
+      updated_at: '2026-10-22T00:00:00Z',
+      message_count: 5,
+      extension_data: { workspaceBinding: 'bound' },
+    });
+    const originalPanel = window.electron.workspacePanel;
+    window.electron.workspacePanel = async (request) => ({
+      file: { path: 'path' in request ? request.path : '', size: 30, openExternally: false },
+    });
+    try {
+      render(
+        show([
+          user(),
+          requestMessage(write('a')),
+          responseMessage(receipt('a')),
+          prose('Updated `app.py`; see `guide.md`.'),
+          terminal(),
+        ]),
+        { wrapper: IntlTestWrapper }
+      );
+      await screen.findByRole('button', { name: 'Files this turn (2)' });
+      expect(screen.queryByRole('button', { name: 'Related files' })).toBeNull();
+      expect(screen.getAllByRole('button', { name: '/fixture/app.py' })).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: 'guide.md' })).toHaveLength(1);
+    } finally {
+      window.electron.workspacePanel = originalPanel;
+      acpChatSessionActions.setSessionMetadata('session', undefined);
+    }
   });
 
   it('shows three edited files initially and can reveal the rest without including failed writes', () => {

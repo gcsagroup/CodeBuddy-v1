@@ -179,6 +179,7 @@ interface GooseMessageProps {
   message: Message;
   messages: Message[];
   fileReferenceExclusions?: string[];
+  hideFileReferences?: boolean;
   toolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   toolChains?: number[][];
   suppressProviderThinking?: boolean;
@@ -295,6 +296,7 @@ export default function GooseMessage({
   message,
   messages,
   fileReferenceExclusions,
+  hideFileReferences = false,
   toolResponses,
   toolChains,
   suppressProviderThinking = false,
@@ -652,7 +654,8 @@ export default function GooseMessage({
             )}
           </div>
         )}
-        {!isTurnRunning &&
+        {!hideFileReferences &&
+          !isTurnRunning &&
           !isStreaming &&
           !hasLaterTurnContent &&
           showTextMessageActions &&

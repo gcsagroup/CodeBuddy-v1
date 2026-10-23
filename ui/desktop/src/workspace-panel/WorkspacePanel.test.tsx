@@ -6,6 +6,79 @@ import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
 import type { PanelRequest } from './workspacePanelTypes';
 import type { Message } from '../types/message';
 import { AppEvents } from '../constants/events';
+import { getSessionGoal } from '../acp/goals';
+import { OPEN_GOAL_EDITOR } from './goalPanel';
+vi.mock('../acp/goals', () => ({ getSessionGoal: vi.fn(), changeSessionGoal: vi.fn() }));
+
+it('opens a goal after expanding a collapsed panel rerenders its parent callback', async () => {
+  let resolveGoal!: (goal: Awaited<ReturnType<typeof getSessionGoal>>) => void;
+  vi.mocked(getSessionGoal).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveGoal = resolve;
+      })
+  );
+  function Host() {
+    const [expanded, setExpanded] = useState(false);
+    return (
+      <WorkspacePanelContent
+        scope={{ sessionId: 'collapsed-goal', root: '' }}
+        expanded={expanded}
+        width={560}
+        onExpandedChange={(value) => setExpanded(value)}
+      />
+    );
+  }
+  render(<Host />, { wrapper: IntlTestWrapper });
+  fireEvent(window, new CustomEvent(OPEN_GOAL_EDITOR, { detail: { sessionId: 'collapsed-goal' } }));
+  resolveGoal({
+    id: 'goal',
+    revision: 1,
+    objective: 'Keep the pending editor request',
+    phase: 'paused',
+    activation: 'disarmed',
+    roundsStarted: 0,
+    maxGoalRounds: 256,
+  });
+  expect(await screen.findByRole('textbox', { name: 'Edit goal' })).toHaveValue(
+    'Keep the pending editor request'
+  );
+});
+
+it('opens one goal editor tab and protects its draft when closing is cancelled', async () => {
+  vi.mocked(getSessionGoal).mockResolvedValue({
+    id: 'goal',
+    revision: 1,
+    objective: 'Build a calendar',
+    phase: 'paused',
+    activation: 'disarmed',
+    roundsStarted: 0,
+    maxGoalRounds: 256,
+  });
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'goal-panel-test', root: '' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  const open = () =>
+    fireEvent(
+      window,
+      new CustomEvent(OPEN_GOAL_EDITOR, { detail: { sessionId: 'goal-panel-test' } })
+    );
+  open();
+  const input = await screen.findByRole('textbox', { name: 'Edit goal' });
+  fireEvent.change(input, { target: { value: 'Keep my revised goal' } });
+  open();
+  expect(screen.getAllByRole('tab', { name: /Edit goal/ })).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Edit goal' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Discard unsaved edits');
+  fireEvent.click(screen.getByRole('button', { name: 'No' }));
+  expect(input).toHaveValue('Keep my revised goal');
+});
 vi.mock('./WorkspaceSubagent', () => ({
   WorkspaceSubagent: ({ childSessionId }: { childSessionId: string }) => (
     <div>child-conversation:{childSessionId}</div>

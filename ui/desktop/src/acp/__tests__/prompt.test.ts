@@ -52,6 +52,24 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('transports explicit plan and goal selections without rewriting message text', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    const message: Message = {
+      id: 'slash-message',
+      role: 'user',
+      created: 123,
+      content: [{ type: 'text', text: 'Plan the project' }],
+      metadata: { userVisible: true, agentVisible: true, planMode: true },
+    };
+    await acpPromptSession('session-1', message);
+    expect(prompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _meta: expect.objectContaining({ 'codebuddy/plan': true }),
+        prompt: [{ type: 'text', text: 'Plan the project' }],
+      })
+    );
+  });
   it('sends an image-only user message without inventing a text instruction', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);

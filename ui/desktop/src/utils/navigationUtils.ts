@@ -35,6 +35,8 @@ export type ViewOptions = {
   resumeSessionId?: string;
   pendingScheduleDeepLink?: string;
   section?: string;
+  toolboxItemId?: string;
+  toolboxProjectDir?: string;
   backgroundLocation?: Location;
 };
 
@@ -102,7 +104,10 @@ export const createNavigationHandler = (
         navigateWithinWorkspace('/skills', options);
         break;
       case 'toolbox':
-        navigateWithinWorkspace('/toolbox', options);
+        navigateWithinWorkspace(
+          `/toolbox${options?.toolboxItemId ? `?item=${encodeURIComponent(options.toolboxItemId)}` : ''}`,
+          options
+        );
         break;
       case 'permission':
         navigateWithinWorkspace('/permission', options);

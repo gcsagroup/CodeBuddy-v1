@@ -15,6 +15,7 @@ import { requestAcpElicitation } from './elicitationRequests';
 import { requestAcpPermission } from './permissionRequests';
 import { requestAcpRecipeParams } from './recipeParamRequests';
 import { requestSkillManagementConfirmation } from './skillConfirmationRequests';
+import { controlWorkspaceBrowser } from '../workspace-panel/browserControlClient';
 import {
   applyCodeProRunNotification,
   applyCodeProRunSnapshot,
@@ -323,6 +324,10 @@ function delay(delayMs: number): Promise<void> {
 
 function createClientCallbacks(signal: AbortController['signal']): () => GooseClientCallbacks {
   return () => ({
+    extMethod: async (method, params) => {
+      if (method === '_codebuddy/browser/control') return controlWorkspaceBrowser(params, signal);
+      throw new Error(`Unhandled desktop request: ${method}`);
+    },
     requestPermission: (request) => requestAcpPermission(request, signal),
     unstable_createElicitation: requestAcpElicitation,
     // A form can only answer the transport which requested it. A replacement

@@ -1,5 +1,10 @@
 import React from 'react';
 import {
+  Target,
+  ListChecks,
+  CircleMinus,
+  Pause,
+  Play,
   Folder,
   File,
   Image,
@@ -16,6 +21,10 @@ import {
   BookOpen,
   Wrench,
   Sparkles,
+  Paperclip,
+  ShieldCheck,
+  Download,
+  Bot,
 } from 'lucide-react';
 import { DisplayItem } from './MentionPopover';
 
@@ -31,6 +40,17 @@ interface IconInfo {
 export const getItemIcon = (item: DisplayItem): IconInfo => {
   switch (item.itemType) {
     case 'Builtin':
+      if (item.relativePath === 'file') return { Icon: Paperclip, color: 'currentColor' };
+      if (item.relativePath === 'permission') return { Icon: ShieldCheck, color: 'currentColor' };
+      if (item.relativePath === 'model') return { Icon: Bot, color: 'currentColor' };
+      if (item.relativePath === 'export') return { Icon: Download, color: 'currentColor' };
+      if (item.relativePath === 'goal pause') return { Icon: Pause, color: 'currentColor' };
+      if (item.relativePath === 'goal resume') return { Icon: Play, color: 'currentColor' };
+      if (item.relativePath === 'goal' || item.relativePath === 'goal status')
+        return { Icon: Target, color: 'currentColor' };
+      if (item.relativePath === 'plan' || item.relativePath === 'plan off')
+        return { Icon: ListChecks, color: 'currentColor' };
+      if (item.relativePath === 'compact') return { Icon: CircleMinus, color: 'currentColor' };
       return { Icon: Zap, color: '#3b82f6' }; // Blue
     case 'Recipe':
       return { Icon: BookOpen, color: '#10b981' }; // Green
@@ -38,6 +58,10 @@ export const getItemIcon = (item: DisplayItem): IconInfo => {
       return { Icon: Sparkles, color: '#8b5cf6' }; // Purple
     case 'Agent':
       return { Icon: Terminal, color: '#f59e0b' }; // Amber
+    case 'Mcp':
+      return { Icon: Database, color: 'currentColor' };
+    case 'Tool':
+      return { Icon: Wrench, color: 'currentColor' };
     case 'Directory':
       return { Icon: Folder, color: '#f59e0b' }; // Amber
     default: {

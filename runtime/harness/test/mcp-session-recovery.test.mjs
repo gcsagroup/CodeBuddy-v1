@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +12,11 @@ async function fixture(t, options) {
   const remote = await statefulMcp(t, options);
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-mcp-recovery-'));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'data'), cwd: root });
-  t.after(() => driver.close());
+  t.after(async () => {
+    await driver.close();
+    assert.equal(path.dirname(root), path.resolve(tmpdir()));
+    await rm(root, { recursive: true, force: true });
+  });
   const mcp = { serverName: 'Hex', transport: 'streamable-http', url: `${remote.baseUrl}/mcp`, reconnect: { initialDelayMs: 100, maxDelayMs: 400, maxAttempts: 3 }, headers: { 'Mcp-Session-Id': 'obsolete-saved-id', Authorization: 'Bearer fixture' } };
   const session = async (servers = [mcp]) => (await driver.createSession({ sessionId: randomUUID(), cwd: root, provider: { id: 'fixture', baseUrl: `${remote.baseUrl}/v1`, apiKey: 'fixture' }, model: 'fixture', options: { mcpServers: servers } })).sessionId;
   const call = id => driver.callTool(id, 'mcp__Hex__health', {}, { onPermission: async () => true });

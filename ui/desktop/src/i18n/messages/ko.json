@@ -98,14 +98,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "자격 증명 삭제"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "자격 증명이 삭제되었습니다."
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "{provider}의 {name} 자격 증명을 삭제하시겠습니까?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "자격 증명 삭제"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "자격 증명이 삭제되었습니다."
   },
   "authSettings.description": {
     "defaultMessage": "CodeBuddy에 로컬로 저장된 제공업체 자격 증명을 관리합니다."
@@ -131,11 +131,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "재승인"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "자격 증명이 설정되었습니다."
-  },
   "authSettings.signIn": {
     "defaultMessage": "로그인"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "자격 증명이 설정되었습니다."
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "제공업체 캐시"
@@ -164,11 +164,11 @@
   "baseChat.goHome": {
     "defaultMessage": "홈으로 이동"
   },
-  "baseChat.latest": {
-    "defaultMessage": "Back to latest"
-  },
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
+  },
+  "baseChat.latest": {
+    "defaultMessage": "Back to latest"
   },
   "baseChat.readonlyHistory": {
     "defaultMessage": "Imported history is read-only. Start a new task to continue working."
@@ -179,12 +179,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "연결이 끊어졌습니다. 다시 연결하는 중…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "새 채팅에 사용할 익스텐션"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "이 채팅 세션의 익스텐션"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "익스텐션이 업데이트되었습니다."
   },
@@ -193,6 +187,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name}은 새 채팅에서 활성화됩니다."
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "새 채팅에 사용할 익스텐션"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "이 채팅 세션의 익스텐션"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "익스텐션 관리"
@@ -268,6 +268,9 @@
   },
   "chatInput.processingDroppedFiles": {
     "defaultMessage": "끌어다 놓은 파일을 처리하는 중..."
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
   },
   "chatInput.recording": {
     "defaultMessage": "녹음..."
@@ -734,6 +737,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -748,12 +757,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -812,14 +815,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -850,6 +853,9 @@
   },
   "codeProHub.eyebrow": {
     "defaultMessage": "Multi-Agent development workspace"
+  },
+  "codeProHub.goalPlaceholder": {
+    "defaultMessage": "Describe your task, expected result, and how to check it…"
   },
   "codeProHub.leaseBackedStartFailed": {
     "defaultMessage": "선택한 작업 공간에서 CodePro를 시작할 수 없습니다."
@@ -976,6 +982,9 @@
   },
   "codeProModels.saveError": {
     "defaultMessage": "Failed to save. Try again later."
+  },
+  "codeProModels.saveVision": {
+    "defaultMessage": "Save vision settings"
   },
   "codeProModels.saving": {
     "defaultMessage": "Saving…"
@@ -1481,6 +1490,201 @@
   "commonQueries.units": {
     "defaultMessage": "Temperature unit"
   },
+  "composerCommands.active": {
+    "defaultMessage": "Active"
+  },
+  "composerCommands.blocked": {
+    "defaultMessage": "Needs attention"
+  },
+  "composerCommands.busy": {
+    "defaultMessage": "Wait for the current turn to finish, or pause the goal first."
+  },
+  "composerCommands.cancelMode": {
+    "defaultMessage": "Cancel command input"
+  },
+  "composerCommands.cannotResume": {
+    "defaultMessage": "This goal is complete or has reached its continuation limit. Review its results before starting a new goal."
+  },
+  "composerCommands.cleared": {
+    "defaultMessage": "Goal cleared. Conversation and project files are retained."
+  },
+  "composerCommands.compact": {
+    "defaultMessage": "Compact context"
+  },
+  "composerCommands.compactHint": {
+    "defaultMessage": "Summarize the current conversation context"
+  },
+  "composerCommands.complete": {
+    "defaultMessage": "Marked complete; review the results"
+  },
+  "composerCommands.disabledSkill": {
+    "defaultMessage": "This skill is disabled. Enable it in Toolbox before using it."
+  },
+  "composerCommands.disarmed": {
+    "defaultMessage": "Ready to resume"
+  },
+  "composerCommands.editPrefix": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerCommands.editUsage": {
+    "defaultMessage": "Type /goal edit followed by the revised objective."
+  },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
+  "composerCommands.export": {
+    "defaultMessage": "Export conversation"
+  },
+  "composerCommands.exportHint": {
+    "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
+  },
+  "composerCommands.failure": {
+    "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
+  },
+  "composerCommands.file": {
+    "defaultMessage": "File"
+  },
+  "composerCommands.fileHint": {
+    "defaultMessage": "Attach a file to this message"
+  },
+  "composerCommands.goal": {
+    "defaultMessage": "Long-term goal"
+  },
+  "composerCommands.goalHint": {
+    "defaultMessage": "Describe a goal to continue across rounds"
+  },
+  "composerCommands.goalPlaceholder": {
+    "defaultMessage": "Describe your goal; the agent will keep working toward it"
+  },
+  "composerCommands.goalPrefix": {
+    "defaultMessage": "Goal"
+  },
+  "composerCommands.goalUsage": {
+    "defaultMessage": "Type /goal followed by your objective and acceptance criteria. Automatic continuation is limited to 20 rounds and uses model credits."
+  },
+  "composerCommands.loadingTool": {
+    "defaultMessage": "Connecting the selected tool…"
+  },
+  "composerCommands.messagePlaceholder": {
+    "defaultMessage": "Send a message, / for commands, @ for files"
+  },
+  "composerCommands.model": {
+    "defaultMessage": "Model"
+  },
+  "composerCommands.modelHint": {
+    "defaultMessage": "Select the model for this conversation"
+  },
+  "composerCommands.noGoal": {
+    "defaultMessage": "This conversation has no saved goal. Use /goal followed by your objective."
+  },
+  "composerCommands.noSession": {
+    "defaultMessage": "Open a conversation to use this command."
+  },
+  "composerCommands.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
+  "composerCommands.paused": {
+    "defaultMessage": "Goal paused. Use /goal resume to continue."
+  },
+  "composerCommands.pausedState": {
+    "defaultMessage": "Paused"
+  },
+  "composerCommands.permission": {
+    "defaultMessage": "Permissions"
+  },
+  "composerCommands.permissionHint": {
+    "defaultMessage": "Choose how actions are approved"
+  },
+  "composerCommands.plan": {
+    "defaultMessage": "Plan"
+  },
+  "composerCommands.planHint": {
+    "defaultMessage": "Research and review a plan before implementation"
+  },
+  "composerCommands.planOff": {
+    "defaultMessage": "Leave plan mode"
+  },
+  "composerCommands.planOffDone": {
+    "defaultMessage": "Normal collaboration selected."
+  },
+  "composerCommands.planOffHint": {
+    "defaultMessage": "Return to normal collaboration; keep the approval setting"
+  },
+  "composerCommands.planOn": {
+    "defaultMessage": "Plan mode selected. Describe the task in the input below."
+  },
+  "composerCommands.planPlaceholder": {
+    "defaultMessage": "Describe the task to plan before implementation"
+  },
+  "composerCommands.planUsage": {
+    "defaultMessage": "Type /plan followed by the task you want to plan."
+  },
+  "composerCommands.queued": {
+    "defaultMessage": "The mode change will apply at the next model step."
+  },
+  "composerCommands.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerCommands.resumeHint": {
+    "defaultMessage": "Continue the saved goal from its current progress"
+  },
+  "composerCommands.resumePrompt": {
+    "defaultMessage": "Continue the saved long-term goal from its current progress. Verify remaining work without repeating completed external actions."
+  },
+  "composerCommands.status": {
+    "defaultMessage": "View goal"
+  },
+  "composerCommands.statusHint": {
+    "defaultMessage": "Show the saved objective, state and continuation limit"
+  },
+  "composerCommands.statusText": {
+    "defaultMessage": "{objective} {state} · {used}/{limit} continuation rounds"
+  },
+  "composerCommands.toolLoadFailed": {
+    "defaultMessage": "The tool could not be loaded. Your draft is preserved; check its configuration and try again."
+  },
+  "composerCommands.useSkill": {
+    "defaultMessage": "Use the {name} skill to:"
+  },
+  "composerCommands.useTool": {
+    "defaultMessage": "Use {name} to:"
+  },
+  "composerGoalBar.active": {
+    "defaultMessage": "Active goal"
+  },
+  "composerGoalBar.blocked": {
+    "defaultMessage": "Goal needs attention"
+  },
+  "composerGoalBar.clear": {
+    "defaultMessage": "Clear goal; keep conversation and files"
+  },
+  "composerGoalBar.details": {
+    "defaultMessage": "View goal details"
+  },
+  "composerGoalBar.edit": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerGoalBar.idle": {
+    "defaultMessage": "Goal ready to resume"
+  },
+  "composerGoalBar.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerGoalBar.paused": {
+    "defaultMessage": "Paused goal"
+  },
+  "composerGoalBar.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerGoalBar.unavailable": {
+    "defaultMessage": "Goal state is unavailable. Use /goal status to retry."
+  },
   "configureApproveMode.cancel": {
     "defaultMessage": "취소"
   },
@@ -1520,14 +1724,29 @@
   "conversation.turnCompleted": {
     "defaultMessage": "Completed · {count} operations"
   },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
+  "conversationFiles.combinedFiles": {
+    "defaultMessage": "이번 턴의 파일 ({count})"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "Historical diff unavailable for some operations"
+  },
   "conversationFiles.files": {
     "defaultMessage": "Files written in this conversation · {count}"
+  },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "Show {count} more files"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "View changes"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "대화 제한"
@@ -1868,11 +2087,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "첨부파일"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "인증"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Ollama와 같은 로컬 LLM에는 일반적으로 API 키가 필요하지 않습니다."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "인증"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "사용 가능한 모델(쉼표로 구분)"
@@ -1967,11 +2186,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -1988,6 +2207,9 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
     "defaultMessage": "Models loaded. The selected model will be verified when you save."
   },
@@ -1996,9 +2218,6 @@
   },
   "customProviderForm.modelsRequired": {
     "defaultMessage": "모델이 1개 이상 필요합니다."
-  },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
   },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
@@ -2216,6 +2435,9 @@
   "elicitationRequest.expired": {
     "defaultMessage": "이 요청은 만료되었습니다. 익스텐션에서 다시 질문해야 합니다."
   },
+  "elicitationRequest.planReview": {
+    "defaultMessage": "Review plan"
+  },
   "elicitationRequest.question": {
     "defaultMessage": "질문"
   },
@@ -2237,20 +2459,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "답변을 기다리는 중입니다. ({timeRemaining} 남음)"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Dev"
-  },
   "envVarsSection.add": {
     "defaultMessage": "추가"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "변수 이름과 값을 모두 입력해야 합니다."
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "환경 변수"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "환경 변수에 대한 키-값 쌍을 추가합니다. 두 필드를 모두 채운 후 \"+\" 버튼을 클릭하여 추가하세요. 기존 비밀 값의 경우 편집 버튼을 클릭하여 수정하세요."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "환경 변수"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "변수 이름에는 공백이 포함될 수 없습니다."
@@ -2260,6 +2479,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "변수 이름"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Dev"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "오류가 발생했습니다."
@@ -2441,11 +2663,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "익스텐션 구성에 저장되지 않은 변경사항이 있습니다. 저장하지 않고 닫으시겠습니까?"
@@ -2483,6 +2705,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "시간 초과"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "사용자 지정 익스텐션 추가"
   },
@@ -2512,12 +2740,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "익스텐션 검색..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "시간 초과"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "인증서 지문(선택 사항)"
@@ -3209,6 +3431,51 @@
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy 홈 디렉터리를 사용할 수 없습니다."
   },
+  "goalEditor.failure": {
+    "defaultMessage": "The goal could not be saved. Your draft is kept. Read the latest goal before retrying."
+  },
+  "goalEditor.hint": {
+    "defaultMessage": "Describe the outcome and acceptance criteria. Saving updates the goal without starting or resuming execution."
+  },
+  "goalEditor.missing": {
+    "defaultMessage": "This conversation no longer has a goal."
+  },
+  "goalEditor.refresh": {
+    "defaultMessage": "Read latest goal"
+  },
+  "goalEditor.save": {
+    "defaultMessage": "Save"
+  },
+  "goalEditor.saved": {
+    "defaultMessage": "Saved"
+  },
+  "goalEditor.saving": {
+    "defaultMessage": "Saving…"
+  },
+  "goalEditor.title": {
+    "defaultMessage": "Edit goal"
+  },
+  "goalEditor.undo": {
+    "defaultMessage": "Undo changes"
+  },
+  "goalEditor.unsaved": {
+    "defaultMessage": "Unsaved changes"
+  },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "중지됨"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "도구 작업 {count}개를 보존했습니다."
+  },
   "goosehintsModal.close": {
     "defaultMessage": "닫기"
   },
@@ -3271,18 +3538,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "중지됨"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "도구 작업 {count}개를 보존했습니다."
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "CodeBuddy에게 묻기"
@@ -3392,11 +3647,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Hugging Face에 로그인하지 못했습니다: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Hugging Face 로그인됨"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "로그인"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Hugging Face 로그인됨"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "로그인 중..."
@@ -3431,14 +3686,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "예상 레시피 구조"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "가져오는 중..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "레시피 가져오기"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "레시피 가져오기"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "가져오는 중..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "또는"
@@ -3515,6 +3770,12 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "취소"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Other answer"
+  },
+  "jsonSchemaForm.customPlaceholder": {
+    "defaultMessage": "Or write your own response"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "이 필드는 필수입니다"
   },
@@ -3533,11 +3794,26 @@
   "jsonSchemaForm.noFields": {
     "defaultMessage": "표시할 필드가 없습니다."
   },
+  "jsonSchemaForm.recommended": {
+    "defaultMessage": "Recommended"
+  },
   "jsonSchemaForm.selectPlaceholder": {
     "defaultMessage": "선택..."
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "제출"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "사전 구성된 값 추가"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "매개변수 이름..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "매개변수 값..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "사전 구성된 값 제거: {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "창을 항상 위에 표시할지 전환합니다."
@@ -3683,18 +3959,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "탐색 메뉴 전환"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "사전 구성된 값 추가"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "매개변수 이름..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "매개변수 값..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "사전 구성된 값 제거: {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "CodeBuddy에게 무엇이든 물어보세요..."
   },
@@ -3740,17 +4004,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "다운로드가 취소되었습니다."
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "다운로드한 모델"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "다운로드 실패"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "다운로드 중"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "다운로드한 모델"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "다운로드 중"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -3836,14 +4100,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "사용 가능한 모델을 확인하는 중..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "{modelId} 다운로드 중"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "{modelId} 다운로드 ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "{modelId} 다운로드 중"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "사용 가능한 모델을 로드하지 못했습니다. 다시 시도해 주세요."
@@ -4001,11 +4265,29 @@
   "memorySettings.toggleDescription": {
     "defaultMessage": "Turning this off stops new memory writes and recall without deleting stored records."
   },
+  "mentionPopover.addGroup": {
+    "defaultMessage": "Add"
+  },
+  "mentionPopover.commandGroup": {
+    "defaultMessage": "Commands"
+  },
+  "mentionPopover.disabled": {
+    "defaultMessage": "Disabled"
+  },
+  "mentionPopover.inventoryFailed": {
+    "defaultMessage": "Some Toolbox entries could not be loaded. Reopen the menu to retry."
+  },
+  "mentionPopover.inventoryHint": {
+    "defaultMessage": "View details in Toolbox"
+  },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{#개 항목 발견} other{#개 항목 발견}}"
   },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "명령 로드 중..."
+  },
+  "mentionPopover.mcpGroup": {
+    "defaultMessage": "MCP servers"
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "\"{query}\"과 일치하는 명령을 찾을 수 없습니다."
@@ -4013,8 +4295,17 @@
   "mentionPopover.noItemsFound": {
     "defaultMessage": "\"{query}\"과(와) 일치하는 항목이 없습니다."
   },
+  "mentionPopover.recipeGroup": {
+    "defaultMessage": "Saved tasks"
+  },
   "mentionPopover.scanningFiles": {
     "defaultMessage": "파일을 스캔하는 중..."
+  },
+  "mentionPopover.skillGroup": {
+    "defaultMessage": "Skills"
+  },
+  "mentionPopover.toolsGroup": {
+    "defaultMessage": "Built-in tools"
   },
   "messageCopyLink.copied": {
     "defaultMessage": "복사되었습니다!"
@@ -4064,9 +4355,6 @@
   "messageQueue.paused": {
     "defaultMessage": "일시중지됨"
   },
-  "messageQueue.queued": {
-    "defaultMessage": "대기 중"
-  },
   "messageQueue.queuePaused": {
     "defaultMessage": "대기열이 일시중지되었습니다."
   },
@@ -4075,6 +4363,9 @@
   },
   "messageQueue.queuePausedExpanded": {
     "defaultMessage": "대기열이 일시 중지되었습니다. 현재 작업을 확인한 후 “지금 보내기”로 메시지를 보내세요."
+  },
+  "messageQueue.queued": {
+    "defaultMessage": "대기 중"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "대기열에서 이 메시지 제거"
@@ -4091,6 +4382,9 @@
   "messageQueue.stopAndSend": {
     "defaultMessage": "현재 처리를 중지하고 이 메시지 지금 보내기"
   },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
+  },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
   },
@@ -4102,6 +4396,12 @@
   },
   "messageQueue.waiting": {
     "defaultMessage": "대기 중"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
   },
   "messageUsageStats.cacheHitRate": {
     "defaultMessage": "(입력의 {percent}%)"
@@ -4136,11 +4436,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "속도"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "합계"
@@ -4178,6 +4478,30 @@
   "microphoneSelector.test": {
     "defaultMessage": "테스트"
   },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "자율"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "도구나 익스텐션을 사용하지 않고 선택한 제공업체와 대화합니다."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "채팅 전용"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
+  },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
   },
@@ -4187,9 +4511,6 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "모델 변경됨"
-  },
   "modelAndProviderContext.modelChangeFailed": {
     "defaultMessage": "{provider}/{model} 실패"
   },
@@ -4198,6 +4519,9 @@
   },
   "modelAndProviderContext.modelChangeFailedTraceback": {
     "defaultMessage": "The model change could not be completed."
+  },
+  "modelAndProviderContext.modelChangedTitle": {
+    "defaultMessage": "모델 변경됨"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
@@ -4213,6 +4537,72 @@
   },
   "modelAndProviderContext.unknownProviderTitle": {
     "defaultMessage": "제공업체 이름 조회"
+  },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "Custom model provided by {provider}."
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
   },
   "modelImageCapability.auto": {
     "defaultMessage": "Automatic / unknown"
@@ -4252,39 +4642,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "모델 로드 중..."
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "모델 선택"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "제공업체 설정"
@@ -4463,29 +4820,59 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "자율"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "도구나 익스텐션을 사용하지 않고 선택한 제공업체와 대화합니다."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "채팅 전용"
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "모델 로드 중..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "모델 선택"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "새 채팅"
@@ -4574,11 +4961,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -4606,6 +4993,15 @@
   },
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "CodeBuddy 서버에 접속할 수 없습니다"
+  },
+  "onboardingGuard.configureDescription": {
+    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
+  },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "Open model settings"
+  },
+  "onboardingGuard.configureTitle": {
+    "defaultMessage": "Connect a model to get started"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "다시 시도"
@@ -4642,6 +5038,9 @@
   },
   "operation.draftStopped": {
     "defaultMessage": "Generation stopped — execution was not confirmed"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "Unsuccessful"
   },
   "parameterInput.defaultValue": {
     "defaultMessage": "기본값"
@@ -4793,6 +5192,24 @@
   "permissionSetting.permissionRulesDescription": {
     "defaultMessage": "응답에 컨텍스트를 추가하고 지시하는 데 도움이 되도록 제공업체에게 전달되는 숨겨진 지침입니다."
   },
+  "planReview.approve": {
+    "defaultMessage": "Approve and implement"
+  },
+  "planReview.choose": {
+    "defaultMessage": "How would you like to proceed?"
+  },
+  "planReview.hint": {
+    "defaultMessage": "Review the plan before implementation begins."
+  },
+  "planReview.keepPlanning": {
+    "defaultMessage": "Keep planning"
+  },
+  "planReview.send": {
+    "defaultMessage": "Send"
+  },
+  "planReview.submitting": {
+    "defaultMessage": "Submitting…"
+  },
   "platformExtension.analyze.description": {
     "defaultMessage": "Inspect code structure, files, and symbol relationships."
   },
@@ -4858,6 +5275,18 @@
   },
   "platformExtension.orchestrator.name": {
     "defaultMessage": "Agent coordination"
+  },
+  "platformExtension.playwright.description": {
+    "defaultMessage": "Observe and test websites in a separate Edge (Windows) or Chrome (Mac) window with Playwright MCP."
+  },
+  "platformExtension.playwright.name": {
+    "defaultMessage": "Browser control · Separate window"
+  },
+  "platformExtension.playwrightUser.description": {
+    "defaultMessage": "Connect to a Chrome or Edge tab you select. Install the official Playwright extension and confirm the connection in your browser."
+  },
+  "platformExtension.playwrightUser.name": {
+    "defaultMessage": "Browser control · Your browser"
   },
   "platformExtension.projectmemory.description": {
     "defaultMessage": "Store user-authorized project rules, preferences, and verified facts."
@@ -4967,11 +5396,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "없음"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "표시되지 않음(신뢰할 수 없음)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "없음"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "표시되지 않음(신뢰할 수 없음)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "프로젝트 메모리 저장 요청"
@@ -5093,10 +5522,10 @@
   "promptsSettings.edit": {
     "defaultMessage": "편집"
   },
-  "promptsSettings.editingLabel": {
+  "promptsSettings.editPromptTitle": {
     "defaultMessage": "편집: {name}"
   },
-  "promptsSettings.editPromptTitle": {
+  "promptsSettings.editingLabel": {
     "defaultMessage": "편집: {name}"
   },
   "promptsSettings.enterPromptContent": {
@@ -5207,11 +5636,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "API 키가 없나요?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "로그인 중..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "{providerName}으로 로그인"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "로그인 중..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "이 제공업체를 CodeBuddy에 연동하려면 API 키를 추가하세요."
@@ -5273,11 +5702,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "자세한 내용은 <link>문서</link>를 참조하세요."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "로그인 중..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "{providerName}으로 로그인"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "로그인 중..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "제공업체 추가"
@@ -5501,6 +5930,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "자동으로 형식이 지정됩니다(소문자, 공백은 대시로 변환)."
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "취소"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "설명:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "이전에 실행한 적이 없는 레시피를 실행하려고 합니다."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "이 레시피에는 악의적인 목적으로 사용될 수 있으므로 안전을 위해 무시되는 숨겨진 문자가 포함되어 있습니다."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "지침:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ 새로운 레시피 경고"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "레시피 미리보기:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ 보안 경고"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "제목:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "신뢰하고 실행"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "이 레시피의 출처를 신뢰하는 경우에만 진행하세요."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "일정 추가"
   },
@@ -5654,14 +6116,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "일정 삭제"
   },
-  "recipesView.runs": {
-    "defaultMessage": "{schedule} 실행"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "{schedule} 실행"
   },
   "recipesView.save": {
     "defaultMessage": "저장"
@@ -5731,39 +6193,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "YAML 파일"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "취소"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "설명:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "이전에 실행한 적이 없는 레시피를 실행하려고 합니다."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "이 레시피에는 악의적인 목적으로 사용될 수 있으므로 안전을 위해 무시되는 숨겨진 문자가 포함되어 있습니다."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "지침:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ 새로운 레시피 경고"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "레시피 미리보기:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ 보안 경고"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "제목:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "신뢰하고 실행"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "이 레시피의 출처를 신뢰하는 경우에만 진행하세요."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "제공업체 및 모델 초기화"
@@ -5870,11 +6299,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "cron 표현식:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "현재 실행 중"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "현재 세션:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "현재 실행 중"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "디렉터리: {path}"
@@ -5933,6 +6362,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "이 일정에 대한 세션을 찾을 수 없습니다."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "일정 일시 중지"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "일시중지/일시중지 해제 오류"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "일시중지됨"
   },
@@ -5941,12 +6376,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "이 일정은 일시 중지되어 자동으로 실행되지 않습니다. 수동으로 실행하려면 \"지금 일정 실행\"을 사용하거나, 자동 실행을 재개하려면 일시 중지를 해제하세요."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "일정 일시 중지"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "일시중지/일시중지 해제 오류"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "프로세스 시작:"
@@ -5993,17 +6422,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "세션 ID: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "\"{id}\" 일시중지 해제됨"
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "일정 일시중지 해제"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "\"{id}\" 업데이트됨"
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "\"{id}\" 일시중지 해제됨"
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "일정 업데이트 오류"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "\"{id}\" 업데이트됨"
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "일정 ID 보기: {id}"
@@ -6140,11 +6569,11 @@
   "schedulesView.pause": {
     "defaultMessage": "일시 중지"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "일시중지됨"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "일정 일시 중지 오류"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "일시중지됨"
   },
   "schedulesView.refresh": {
     "defaultMessage": "새로고침"
@@ -6164,9 +6593,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "일정 \"{id}\"을(를) 일시중지했습니다."
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "스케줄러"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "일정 일시중지 해제됨"
   },
@@ -6178,6 +6604,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "\"{id}\" 일정이 업데이트되었습니다."
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "스케줄러"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "일시중지 해제 일정 오류"
@@ -6290,14 +6719,14 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "텍스트 복사"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "세션이 복제되었습니다"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "세션 복제 실패: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "세션 복제"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "세션이 복제되었습니다"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "텍스트 값"
@@ -6317,9 +6746,6 @@
   "sessionActionsHeader.modelInteractionsTitle": {
     "defaultMessage": "Recent model interactions"
   },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "세션 이름이 변경되었습니다"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "세션 이름 변경 실패: {error}"
   },
@@ -6331,6 +6757,9 @@
   },
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "세션 이름 변경"
+  },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "세션 이름이 변경되었습니다"
   },
   "sessionActionsHeader.save": {
     "defaultMessage": "저장"
@@ -6403,6 +6832,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "작업 공간 권한이 아직 동기화되지 않았습니다."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "이 세션에는 메시지가 없습니다."
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "메시지를 찾을 수 없습니다."
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "세션 세부정보를 로드하는 중 오류가 발생했습니다."
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "다시 시도"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "나"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -6503,9 +6950,6 @@
   "sessions.import": {
     "defaultMessage": "세션 가져오기"
   },
-  "sessions.importing": {
-    "defaultMessage": "가져오는 중..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "링크 가져오기"
   },
@@ -6517,6 +6961,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Nostr 세션 가져오기"
+  },
+  "sessions.importing": {
+    "defaultMessage": "가져오는 중..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "추가 세션 로드 중..."
@@ -6542,38 +6989,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "암호화된 Nostr 공유 링크"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "클립보드에 복사됨"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "세션이 삭제되었습니다."
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "\"{name}\" 세션 삭제 실패: {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "세션 \"{name}\"이(가) 성공적으로 복제되었습니다."
+  "sessions.toast.deleted": {
+    "defaultMessage": "세션이 삭제되었습니다."
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "세션 복제 실패: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "세션을 성공적으로 내보냈습니다."
+  "sessions.toast.duplicated": {
+    "defaultMessage": "세션 \"{name}\"이(가) 성공적으로 복제되었습니다."
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "세션을 성공적으로 가져왔습니다."
+  "sessions.toast.exported": {
+    "defaultMessage": "세션을 성공적으로 내보냈습니다."
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "세션 가져오기 실패: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "세션을 성공적으로 가져왔습니다."
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "암호화된 Nostr 공유 링크가 생성되었습니다."
@@ -6584,29 +7031,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "세션 설명이 업데이트되었습니다."
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "세션 설명 업데이트 실패: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "이 세션에는 메시지가 없습니다."
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "메시지를 찾을 수 없습니다."
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "세션 세부정보를 로드하는 중 오류가 발생했습니다."
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "다시 시도"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "나"
+  "sessions.toast.updated": {
+    "defaultMessage": "세션 설명이 업데이트되었습니다."
   },
   "settings.appearance.description": {
     "defaultMessage": "시스템에서 CodeBuddy가 표시되는 방식을 설정합니다."
@@ -6797,11 +7226,11 @@
   "settingsCenter.pageModels": {
     "defaultMessage": "Models and runtime"
   },
+  "settingsCenter.pagePets": {
+    "defaultMessage": "Virtual pets"
+  },
   "settingsCenter.pageSecurity": {
     "defaultMessage": "Security and permissions"
-  },
-  "settingsCenter.pageSharing": {
-    "defaultMessage": "Tools and connections"
   },
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
@@ -7145,6 +7574,60 @@
   "subRecipeModal.subtitle": {
     "defaultMessage": "레시피 실행 시 도구로 호출할 수 있는 서브레시피를 구성합니다."
   },
+  "subagentLifecycle.end": {
+    "defaultMessage": "종료되었습니다"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "작업을 시작했습니다"
+  },
+  "subagentTemplates.boundary": {
+    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+  },
+  "subagentTemplates.browser": {
+    "defaultMessage": "browser · Web and browser research"
+  },
+  "subagentTemplates.description": {
+    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+  },
+  "subagentTemplates.error": {
+    "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
+  },
+  "subagentTemplates.explorer": {
+    "defaultMessage": "explorer · Workspace exploration"
+  },
+  "subagentTemplates.generic": {
+    "defaultMessage": "Other chat-local responsibilities"
+  },
+  "subagentTemplates.inherit": {
+    "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.loading": {
+    "defaultMessage": "Loading settings…"
+  },
+  "subagentTemplates.model": {
+    "defaultMessage": "Model"
+  },
+  "subagentTemplates.modelError": {
+    "defaultMessage": "Could not load the model list. Enter a model id or retry."
+  },
+  "subagentTemplates.provider": {
+    "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.retry": {
+    "defaultMessage": "Retry"
+  },
+  "subagentTemplates.save": {
+    "defaultMessage": "Save subagent models"
+  },
+  "subagentTemplates.saved": {
+    "defaultMessage": "Saved. Applies to new subagents."
+  },
+  "subagentTemplates.title": {
+    "defaultMessage": "Subagent templates and models"
+  },
+  "subagentTemplates.unavailable": {
+    "defaultMessage": "Saved connection unavailable"
+  },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
   },
@@ -7349,6 +7832,54 @@
   "thinkingContent.thinkingLive": {
     "defaultMessage": "Thinking · Updating"
   },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "Current budget; model capacity unconfirmed"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "Context window"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "Could not save thinking effort. Try again."
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "High"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "Low"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "Maximum"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "Medium"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "Minimal"
+  },
+  "thinkingEffortPicker.noControls": {
+    "defaultMessage": "검증된 설정 없음"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "None"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "On"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "Could not read model settings"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "Thinking effort"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "Not provided"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "Extra high"
+  },
   "toasts.askCodeBuddy": {
     "defaultMessage": "Ask CodeBuddy"
   },
@@ -7457,6 +7988,15 @@
   "toolAction.type": {
     "defaultMessage": "텍스트 입력"
   },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
   "toolAction.write": {
     "defaultMessage": "파일 쓰기"
   },
@@ -7472,14 +8012,14 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "한 번만 허용"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "한 번 허용됨"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "한 번만 허용"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "항상 허용"
@@ -7529,11 +8069,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -7649,138 +8189,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "도구 호출 결과"
   },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Office 문서"
-  },
-  "toolbox.addSkill": {
-    "defaultMessage": "스킬 추가"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "설치된 스킬과 연결된 외부 MCP 서버를 관리합니다."
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "전체"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "외부 MCP"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "스킬"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "설치됨"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "시작 중…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "중지 중…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "도구 상태: {status}"
   },
@@ -7808,8 +8216,20 @@
   "toolCallWithResponse.output": {
     "defaultMessage": "출력"
   },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
   "toolCallWithResponse.subagentBudget": {
     "defaultMessage": "부분 결과 · 위임 작업 한도 도달"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
   },
   "toolCallWithResponse.subagentUnavailable": {
     "defaultMessage": "부분 결과 · 모델 서비스 사용 불가"
@@ -7874,6 +8294,162 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "스킬 추가"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "데스크톱 제어 및 로컬 Git 작업 등을 수행하는 도구입니다."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "데스크톱 조작 안내"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "모델의 관찰, 입력 및 결과 확인을 안내합니다. 컴퓨터 제어 도구를 사용합니다."
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "설치된 스킬과 연결된 외부 MCP 서버를 관리합니다."
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "GitHub 저장소, 이슈, 풀 리퀘스트 등 외부 서비스 연결입니다."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "GitHub에 연결하여 원격 저장소, 이슈, 풀 리퀘스트 및 CI를 관리합니다."
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "로컬 Git"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "로컬 변경 사항을 확인하고 스테이징, 커밋 및 브랜치를 관리합니다."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "모델이 도구 사용을 위해 불러오는 안내입니다. 스킬 자체가 관련 도구를 활성화하지는 않습니다."
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office 문서"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "전체"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "외부 MCP"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "스킬"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "설치됨"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "시작 중…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "중지 중…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "업데이트는 백그라운드에서 자동으로 다운로드됩니다."
   },
@@ -7901,17 +8477,17 @@
   "updateSection.disableAutoDownloadDesc": {
     "defaultMessage": "활성화하면 CodeBuddy가 새 버전을 알려주지만 자동으로 다운로드하지는 않습니다."
   },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "업데이트 다운로드 중... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "업데이트 다운로드 중..."
-  },
   "updateSection.downloadNow": {
     "defaultMessage": "지금 다운로드"
   },
   "updateSection.downloadReady": {
     "defaultMessage": "업데이트가 다운로드되었으며 설치 준비가 완료되었습니다!"
+  },
+  "updateSection.downloadingProgress": {
+    "defaultMessage": "업데이트 다운로드 중... {percent}%"
+  },
+  "updateSection.downloadingUpdate": {
+    "defaultMessage": "업데이트 다운로드 중..."
   },
   "updateSection.installAndRestart": {
     "defaultMessage": "설치 및 다시 시작"
@@ -7937,11 +8513,11 @@
   "updateSection.readyInstallManual": {
     "defaultMessage": "✓ 업데이트가 준비되었습니다! 설치 지침을 보려면 \"설치 및 다시 시작\"을 클릭하세요."
   },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "업데이트가 있습니다!"
-  },
   "updateSection.upToDate": {
     "defaultMessage": "최신 상태"
+  },
+  "updateSection.updateAvailable": {
+    "defaultMessage": "업데이트가 있습니다!"
   },
   "updateSection.versionAvailable": {
     "defaultMessage": "→ {version} 사용 가능"
@@ -7993,6 +8569,90 @@
   },
   "userMessage.forkSessionTitle": {
     "defaultMessage": "편집한 메시지로 새 세션 만들기"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Request sent; waiting for the model service to respond"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "All turns"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "No recorded file changes yet."
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "This change is no longer present in the conversation records."
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "Edit {number}"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "Changes"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{files} files across {turns} turns"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "This long diff has been shortened."
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "Turn {number}"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "Earlier records"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
   },
   "workspaceConfirmation.cancel": {
     "defaultMessage": "취소"
@@ -8111,6 +8771,9 @@
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "This document opens in its associated application."
+  },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
   },
@@ -8123,14 +8786,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
+  },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -8150,11 +8813,17 @@
   "workspacePanel.maximize": {
     "defaultMessage": "Expand or restore panel"
   },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "Select a workspace and open a conversation to use files and terminals."
   },
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
+  },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "Open in default application"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -8162,14 +8831,23 @@
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
   },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "View in right panel"
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
+  },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "Referenced workspace files"
   },
   "workspacePanel.reload": {
     "defaultMessage": "Reload file from disk"
   },
   "workspacePanel.resize": {
     "defaultMessage": "Resize workspace panel"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
   "workspacePanel.running": {
     "defaultMessage": "Running"
@@ -8207,351 +8885,6 @@
   "workspacePanel.wrap": {
     "defaultMessage": "Wrap lines"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "subagentTemplates.title": {
-    "defaultMessage": "Subagent templates and models"
-  },
-  "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
-  },
-  "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
-  },
-  "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
-  },
-  "subagentTemplates.generic": {
-    "defaultMessage": "Other chat-local responsibilities"
-  },
-  "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
-  },
-  "subagentTemplates.provider": {
-    "defaultMessage": "Model connection"
-  },
-  "subagentTemplates.model": {
-    "defaultMessage": "Model"
-  },
-  "subagentTemplates.inherit": {
-    "defaultMessage": "Inherit the main agent model"
-  },
-  "subagentTemplates.unavailable": {
-    "defaultMessage": "Saved connection unavailable"
-  },
-  "subagentTemplates.loading": {
-    "defaultMessage": "Loading settings…"
-  },
-  "subagentTemplates.error": {
-    "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
-  },
-  "subagentTemplates.modelError": {
-    "defaultMessage": "Could not load the model list. Enter a model id or retry."
-  },
-  "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
-  },
-  "subagentTemplates.saved": {
-    "defaultMessage": "Saved. Applies to new subagents."
-  },
-  "subagentTemplates.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "codeProModels.saveVision": {
-    "defaultMessage": "Save vision settings"
-  },
-  "chatInput.queueMessage": {
-    "defaultMessage": "Queue message"
-  },
-  "conversation.turnDuration": {
-    "defaultMessage": "Time spent {minutes} min {seconds} sec"
-  },
-  "conversationFiles.diffUnavailable": {
-    "defaultMessage": "Historical diff unavailable for some operations"
-  },
-  "conversationFiles.moreFiles": {
-    "defaultMessage": "Show {count} more files"
-  },
-  "conversationFiles.viewChanges": {
-    "defaultMessage": "View changes"
-  },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
-  },
-  "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
-  },
-  "messageQueue.waitingForPreviousPrompt": {
-    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
-  },
-  "modelDescriptions.beam": {
-    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
-  },
-  "modelDescriptions.clef": {
-    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
-  },
-  "modelDescriptions.custom": {
-    "defaultMessage": "Custom model provided by {provider}."
-  },
-  "modelDescriptions.custom-gemma4": {
-    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
-  },
-  "modelDescriptions.deepseek-v4-pro": {
-    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
-  },
-  "modelDescriptions.deepseek-v4.1-flash": {
-    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
-  },
-  "modelDescriptions.gemma4": {
-    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
-  },
-  "modelDescriptions.glm-5.2": {
-    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
-  },
-  "modelDescriptions.glm-5.3": {
-    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
-  },
-  "modelDescriptions.glm-5.3-flash": {
-    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
-  },
-  "modelDescriptions.gpt-oss": {
-    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
-  },
-  "modelDescriptions.kimi-k2.6": {
-    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
-  },
-  "modelDescriptions.kimi-k2.7-code": {
-    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
-  },
-  "modelDescriptions.kimi-k3": {
-    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
-  },
-  "modelDescriptions.minimax-m2.7": {
-    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
-  },
-  "modelDescriptions.minimax-m3": {
-    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
-  },
-  "modelDescriptions.mistral-large-3": {
-    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
-  },
-  "modelDescriptions.mistral-large-4": {
-    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
-  },
-  "modelDescriptions.muse-spark-open": {
-    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
-  },
-  "modelDescriptions.nemotron-3-nano": {
-    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
-  },
-  "modelDescriptions.nemotron-3-super": {
-    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
-  },
-  "modelDescriptions.nemotron-3-ultra": {
-    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
-  },
-  "onboardingGuard.configureDescription": {
-    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
-  },
-  "onboardingGuard.configureModel": {
-    "defaultMessage": "Open model settings"
-  },
-  "onboardingGuard.configureTitle": {
-    "defaultMessage": "Connect a model to get started"
-  },
-  "operation.unsuccessful": {
-    "defaultMessage": "Unsuccessful"
-  },
-  "settingsCenter.pagePets": {
-    "defaultMessage": "Virtual pets"
-  },
-  "thinkingEffortPicker.budget": {
-    "defaultMessage": "Current budget; model capacity unconfirmed"
-  },
-  "thinkingEffortPicker.context": {
-    "defaultMessage": "Context window"
-  },
-  "thinkingEffortPicker.error": {
-    "defaultMessage": "Could not save thinking effort. Try again."
-  },
-  "thinkingEffortPicker.high": {
-    "defaultMessage": "High"
-  },
-  "thinkingEffortPicker.loading": {
-    "defaultMessage": "Reading…"
-  },
-  "thinkingEffortPicker.low": {
-    "defaultMessage": "Low"
-  },
-  "thinkingEffortPicker.max": {
-    "defaultMessage": "Maximum"
-  },
-  "thinkingEffortPicker.medium": {
-    "defaultMessage": "Medium"
-  },
-  "thinkingEffortPicker.minimal": {
-    "defaultMessage": "Minimal"
-  },
-  "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
-  },
-  "thinkingEffortPicker.on": {
-    "defaultMessage": "On"
-  },
-  "thinkingEffortPicker.readFailed": {
-    "defaultMessage": "Could not read model settings"
-  },
-  "thinkingEffortPicker.title": {
-    "defaultMessage": "Thinking effort"
-  },
-  "thinkingEffortPicker.unavailable": {
-    "defaultMessage": "Not provided"
-  },
-  "thinkingEffortPicker.xhigh": {
-    "defaultMessage": "Extra high"
-  },
-  "toolAction.webSearch": {
-    "defaultMessage": "Search the web"
-  },
-  "toolAction.webSearchDone": {
-    "defaultMessage": "Searched the web"
-  },
-  "toolAction.webSearchRunning": {
-    "defaultMessage": "Searching the web"
-  },
-  "toolCallWithResponse.searchQuery": {
-    "defaultMessage": "Query"
-  },
-  "toolCallWithResponse.searchResponse": {
-    "defaultMessage": "Search response"
-  },
-  "toolCallWithResponse.searchSources": {
-    "defaultMessage": "Sources"
-  },
-  "toolCallWithResponse.subagentStarted": {
-    "defaultMessage": "Started {name}"
-  },
-  "workspaceChanges.all": {
-    "defaultMessage": "All turns"
-  },
-  "workspaceChanges.coverage": {
-    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
-  },
-  "workspaceChanges.empty": {
-    "defaultMessage": "No recorded file changes yet."
-  },
-  "workspaceChanges.missing": {
-    "defaultMessage": "This change is no longer present in the conversation records."
-  },
-  "workspaceChanges.operation": {
-    "defaultMessage": "Edit {number}"
-  },
-  "workspaceChanges.operationUnavailable": {
-    "defaultMessage": "No historical diff was returned for this operation."
-  },
-  "workspaceChanges.partial": {
-    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
-  },
-  "workspaceChanges.title": {
-    "defaultMessage": "Changes"
-  },
-  "workspaceChanges.total": {
-    "defaultMessage": "{files} files across {turns} turns"
-  },
-  "workspaceChanges.truncated": {
-    "defaultMessage": "This long diff has been shortened."
-  },
-  "workspaceChanges.turn": {
-    "defaultMessage": "Turn {number}"
-  },
-  "workspaceChanges.unassigned": {
-    "defaultMessage": "Earlier records"
-  },
-  "workspaceChanges.unavailable": {
-    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
-  },
-  "workspacePanel.documentInfo": {
-    "defaultMessage": "This document opens in its associated application."
-  },
-  "workspacePanel.openDocument": {
-    "defaultMessage": "Open in default application"
-  },
-  "workspacePanel.relatedFiles": {
-    "defaultMessage": "Referenced workspace files"
-  },
-  "workspacePanel.restartDesktop": {
-    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
-  },
   "workspaceSubagent.all": {
     "defaultMessage": "All subagents"
   },
@@ -8579,14 +8912,23 @@
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "종료 · {count}"
+  },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
   },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "실행 중인 하위 에이전트가 없습니다"
+  },
   "workspaceSubagents.refresh": {
     "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "실행 중 · {count}"
   },
   "workspaceSubagents.stale": {
     "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
@@ -8597,28 +8939,10 @@
   "workspaceSubagents.unknown": {
     "defaultMessage": "Conversation unavailable"
   },
-  "workspacePanel.mediaFailed": {
-    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
-  },
-  "workspacePanel.previewMedia": {
-    "defaultMessage": "View in right panel"
-  },
-  "workspaceSubagents.running": {
-    "defaultMessage": "실행 중 · {count}"
-  },
-  "workspaceSubagents.ended": {
-    "defaultMessage": "종료 · {count}"
-  },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "상태 알 수 없음 · {count}"
   },
-  "workspaceSubagents.noRunning": {
-    "defaultMessage": "실행 중인 하위 에이전트가 없습니다"
-  },
-  "subagentLifecycle.start": {
-    "defaultMessage": "작업을 시작했습니다"
-  },
-  "subagentLifecycle.end": {
-    "defaultMessage": "종료되었습니다"
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
   }
 }

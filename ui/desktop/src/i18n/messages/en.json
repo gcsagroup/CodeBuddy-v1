@@ -854,6 +854,9 @@
   "codeProHub.eyebrow": {
     "defaultMessage": "Multi-Agent development workspace"
   },
+  "codeProHub.goalPlaceholder": {
+    "defaultMessage": "Describe your task, or type / to see commands…"
+  },
   "codeProHub.leaseBackedStartFailed": {
     "defaultMessage": "Unable to start CodePro in the selected workspace."
   },
@@ -1487,6 +1490,201 @@
   "commonQueries.units": {
     "defaultMessage": "Temperature unit"
   },
+  "composerCommands.active": {
+    "defaultMessage": "Active"
+  },
+  "composerCommands.blocked": {
+    "defaultMessage": "Needs attention"
+  },
+  "composerCommands.busy": {
+    "defaultMessage": "Wait for the current turn to finish, or pause the goal first."
+  },
+  "composerCommands.cancelMode": {
+    "defaultMessage": "Cancel command input"
+  },
+  "composerCommands.cannotResume": {
+    "defaultMessage": "This goal is complete or has reached its continuation limit. Review its results before starting a new goal."
+  },
+  "composerCommands.cleared": {
+    "defaultMessage": "Goal cleared. Conversation and project files are retained."
+  },
+  "composerCommands.compact": {
+    "defaultMessage": "Compact context"
+  },
+  "composerCommands.compactHint": {
+    "defaultMessage": "Summarize the current conversation context"
+  },
+  "composerCommands.complete": {
+    "defaultMessage": "Marked complete; review the results"
+  },
+  "composerCommands.disabledSkill": {
+    "defaultMessage": "This skill is disabled. Enable it in Toolbox before using it."
+  },
+  "composerCommands.disarmed": {
+    "defaultMessage": "Ready to resume"
+  },
+  "composerCommands.editPrefix": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerCommands.editUsage": {
+    "defaultMessage": "Type /goal edit followed by the revised objective."
+  },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
+  "composerCommands.export": {
+    "defaultMessage": "Export conversation"
+  },
+  "composerCommands.exportHint": {
+    "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
+  },
+  "composerCommands.failure": {
+    "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
+  },
+  "composerCommands.file": {
+    "defaultMessage": "File"
+  },
+  "composerCommands.fileHint": {
+    "defaultMessage": "Attach a file to this message"
+  },
+  "composerCommands.goal": {
+    "defaultMessage": "Goal"
+  },
+  "composerCommands.goalHint": {
+    "defaultMessage": "Set or view a long-term goal"
+  },
+  "composerCommands.goalPlaceholder": {
+    "defaultMessage": "Describe your goal; the agent will keep working toward it"
+  },
+  "composerCommands.goalPrefix": {
+    "defaultMessage": "Goal"
+  },
+  "composerCommands.goalUsage": {
+    "defaultMessage": "Type /goal followed by your objective and acceptance criteria. The agent continues automatically and uses model credits; you can pause at any time."
+  },
+  "composerCommands.loadingTool": {
+    "defaultMessage": "Connecting the selected tool…"
+  },
+  "composerCommands.messagePlaceholder": {
+    "defaultMessage": "Send a message, / for commands, @ for files"
+  },
+  "composerCommands.model": {
+    "defaultMessage": "Model"
+  },
+  "composerCommands.modelHint": {
+    "defaultMessage": "Select the model for this conversation"
+  },
+  "composerCommands.noGoal": {
+    "defaultMessage": "This conversation has no saved goal. Use /goal followed by your objective."
+  },
+  "composerCommands.noSession": {
+    "defaultMessage": "Open a conversation to use this command."
+  },
+  "composerCommands.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
+  "composerCommands.paused": {
+    "defaultMessage": "Goal paused. Use /goal resume to continue."
+  },
+  "composerCommands.pausedState": {
+    "defaultMessage": "Paused"
+  },
+  "composerCommands.permission": {
+    "defaultMessage": "Permissions"
+  },
+  "composerCommands.permissionHint": {
+    "defaultMessage": "Choose how actions are approved"
+  },
+  "composerCommands.plan": {
+    "defaultMessage": "Plan"
+  },
+  "composerCommands.planHint": {
+    "defaultMessage": "Plan and review the task before implementation"
+  },
+  "composerCommands.planOff": {
+    "defaultMessage": "Leave plan mode"
+  },
+  "composerCommands.planOffDone": {
+    "defaultMessage": "Normal collaboration selected."
+  },
+  "composerCommands.planOffHint": {
+    "defaultMessage": "Return to normal collaboration; keep the approval setting"
+  },
+  "composerCommands.planOn": {
+    "defaultMessage": "Plan mode selected. Describe the task in the input below."
+  },
+  "composerCommands.planPlaceholder": {
+    "defaultMessage": "Describe the task to plan before implementation"
+  },
+  "composerCommands.planUsage": {
+    "defaultMessage": "Type /plan followed by the task you want to plan."
+  },
+  "composerCommands.queued": {
+    "defaultMessage": "The mode change will apply at the next model step."
+  },
+  "composerCommands.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerCommands.resumeHint": {
+    "defaultMessage": "Continue the saved goal from its current progress"
+  },
+  "composerCommands.resumePrompt": {
+    "defaultMessage": "Continue the saved long-term goal from its current progress. Verify remaining work without repeating completed external actions."
+  },
+  "composerCommands.status": {
+    "defaultMessage": "View goal"
+  },
+  "composerCommands.statusHint": {
+    "defaultMessage": "Show the saved objective, state and continuation limit"
+  },
+  "composerCommands.statusText": {
+    "defaultMessage": "{objective} {state} · {used}/{limit} continuation rounds"
+  },
+  "composerCommands.toolLoadFailed": {
+    "defaultMessage": "The tool could not be loaded. Your draft is preserved; check its configuration and try again."
+  },
+  "composerCommands.useSkill": {
+    "defaultMessage": "Use the {name} skill to:"
+  },
+  "composerCommands.useTool": {
+    "defaultMessage": "Use {name} to:"
+  },
+  "composerGoalBar.active": {
+    "defaultMessage": "Active goal"
+  },
+  "composerGoalBar.blocked": {
+    "defaultMessage": "Goal needs attention"
+  },
+  "composerGoalBar.clear": {
+    "defaultMessage": "Clear goal; keep conversation and files"
+  },
+  "composerGoalBar.details": {
+    "defaultMessage": "View goal details"
+  },
+  "composerGoalBar.edit": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerGoalBar.idle": {
+    "defaultMessage": "Goal ready to resume"
+  },
+  "composerGoalBar.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerGoalBar.paused": {
+    "defaultMessage": "Paused goal"
+  },
+  "composerGoalBar.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerGoalBar.unavailable": {
+    "defaultMessage": "Goal state is unavailable. Use /goal status to retry."
+  },
   "configureApproveMode.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -1534,6 +1732,9 @@
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
+  },
+  "conversationFiles.combinedFiles": {
+    "defaultMessage": "Files this turn ({count})"
   },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
@@ -2193,13 +2394,13 @@
     "defaultMessage": "Voice Dictation Provider"
   },
   "dirSwitcher.chooseDirectory": {
-    "defaultMessage": "Choose directory…"
+    "defaultMessage": "Choose project…"
   },
   "dirSwitcher.chooseFolder": {
-    "defaultMessage": "Choose a folder"
+    "defaultMessage": "Select project"
   },
   "dirSwitcher.currentDirectory": {
-    "defaultMessage": "Current directory"
+    "defaultMessage": "Current project"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Failed to update working directory"
@@ -2214,7 +2415,7 @@
     "defaultMessage": "Open in file manager"
   },
   "dirSwitcher.recentDirectories": {
-    "defaultMessage": "Recent directories"
+    "defaultMessage": "Recent projects"
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Accept"
@@ -2233,6 +2434,9 @@
   },
   "elicitationRequest.expired": {
     "defaultMessage": "This request has expired. The extension will need to ask again."
+  },
+  "elicitationRequest.planReview": {
+    "defaultMessage": "Review plan"
   },
   "elicitationRequest.question": {
     "defaultMessage": "Question"
@@ -3227,6 +3431,36 @@
   "globalInstructions.unavailable": {
     "defaultMessage": "The CodeBuddy home directory is unavailable."
   },
+  "goalEditor.failure": {
+    "defaultMessage": "The goal could not be saved. Your draft is kept. Read the latest goal before retrying."
+  },
+  "goalEditor.hint": {
+    "defaultMessage": "Describe the outcome and acceptance criteria. Saving updates the goal without starting or resuming execution."
+  },
+  "goalEditor.missing": {
+    "defaultMessage": "This conversation no longer has a goal."
+  },
+  "goalEditor.refresh": {
+    "defaultMessage": "Read latest goal"
+  },
+  "goalEditor.save": {
+    "defaultMessage": "Save"
+  },
+  "goalEditor.saved": {
+    "defaultMessage": "Saved"
+  },
+  "goalEditor.saving": {
+    "defaultMessage": "Saving…"
+  },
+  "goalEditor.title": {
+    "defaultMessage": "Edit goal"
+  },
+  "goalEditor.undo": {
+    "defaultMessage": "Undo changes"
+  },
+  "goalEditor.unsaved": {
+    "defaultMessage": "Unsaved changes"
+  },
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
   },
@@ -3536,6 +3770,12 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "Cancel"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Other answer"
+  },
+  "jsonSchemaForm.customPlaceholder": {
+    "defaultMessage": "Or write your own response"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "This field is required"
   },
@@ -3553,6 +3793,9 @@
   },
   "jsonSchemaForm.noFields": {
     "defaultMessage": "No fields to display"
+  },
+  "jsonSchemaForm.recommended": {
+    "defaultMessage": "Recommended"
   },
   "jsonSchemaForm.selectPlaceholder": {
     "defaultMessage": "Select..."
@@ -4022,11 +4265,29 @@
   "memorySettings.toggleDescription": {
     "defaultMessage": "Turning this off stops new memory writes and recall without deleting stored records."
   },
+  "mentionPopover.addGroup": {
+    "defaultMessage": "Add"
+  },
+  "mentionPopover.commandGroup": {
+    "defaultMessage": "Commands"
+  },
+  "mentionPopover.disabled": {
+    "defaultMessage": "Disabled"
+  },
+  "mentionPopover.inventoryFailed": {
+    "defaultMessage": "Some Toolbox entries could not be loaded. Reopen the menu to retry."
+  },
+  "mentionPopover.inventoryHint": {
+    "defaultMessage": "Use in this conversation"
+  },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# item found} other{# items found}}"
   },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "Loading commands..."
+  },
+  "mentionPopover.mcpGroup": {
+    "defaultMessage": "MCP servers"
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "No commands found matching \"{query}\""
@@ -4034,8 +4295,17 @@
   "mentionPopover.noItemsFound": {
     "defaultMessage": "No items found matching \"{query}\""
   },
+  "mentionPopover.recipeGroup": {
+    "defaultMessage": "Saved tasks"
+  },
   "mentionPopover.scanningFiles": {
     "defaultMessage": "Scanning files..."
+  },
+  "mentionPopover.skillGroup": {
+    "defaultMessage": "Skills"
+  },
+  "mentionPopover.toolsGroup": {
+    "defaultMessage": "Built-in tools"
   },
   "messageCopyLink.copied": {
     "defaultMessage": "Copied!"
@@ -4922,6 +5192,24 @@
   "permissionSetting.permissionRulesDescription": {
     "defaultMessage": "Hidden instructions that will be passed to the provider to help direct and add context to your responses."
   },
+  "planReview.approve": {
+    "defaultMessage": "Approve and implement"
+  },
+  "planReview.choose": {
+    "defaultMessage": "How would you like to proceed?"
+  },
+  "planReview.hint": {
+    "defaultMessage": "Review the plan before implementation begins."
+  },
+  "planReview.keepPlanning": {
+    "defaultMessage": "Keep planning"
+  },
+  "planReview.send": {
+    "defaultMessage": "Send"
+  },
+  "planReview.submitting": {
+    "defaultMessage": "Submitting…"
+  },
   "platformExtension.analyze.description": {
     "defaultMessage": "Inspect code structure, files, and symbol relationships."
   },
@@ -4987,6 +5275,18 @@
   },
   "platformExtension.orchestrator.name": {
     "defaultMessage": "Agent coordination"
+  },
+  "platformExtension.playwright.description": {
+    "defaultMessage": "Observe and test websites in a separate Edge (Windows) or Chrome (Mac) window with Playwright MCP."
+  },
+  "platformExtension.playwright.name": {
+    "defaultMessage": "Browser control · Separate window"
+  },
+  "platformExtension.playwrightUser.description": {
+    "defaultMessage": "Connect to a Chrome or Edge tab you select. Install the official Playwright extension and confirm the connection in your browser."
+  },
+  "platformExtension.playwrightUser.name": {
+    "defaultMessage": "Browser control · Your browser"
   },
   "platformExtension.projectmemory.description": {
     "defaultMessage": "Store user-authorized project rules, preferences, and verified facts."
@@ -6932,9 +7232,6 @@
   "settingsCenter.pageSecurity": {
     "defaultMessage": "Security and permissions"
   },
-  "settingsCenter.pageSharing": {
-    "defaultMessage": "Tools and connections"
-  },
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
   },
@@ -7562,6 +7859,9 @@
   "thinkingEffortPicker.minimal": {
     "defaultMessage": "Minimal"
   },
+  "thinkingEffortPicker.noControls": {
+    "defaultMessage": "No verified controls"
+  },
   "thinkingEffortPicker.off": {
     "defaultMessage": "None"
   },
@@ -8003,6 +8303,15 @@
   "toolbox.availability": {
     "defaultMessage": "Availability"
   },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "Tools that perform actions, such as desktop control and local Git operations."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "Desktop operation guide"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "Guides the model through observation, input and result verification. Uses the Computer control tools."
+  },
   "toolbox.computerSafety": {
     "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
   },
@@ -8039,6 +8348,12 @@
   "toolbox.enabledUnverified": {
     "defaultMessage": "Enabled · not verified"
   },
+  "toolbox.externalHelp": {
+    "defaultMessage": "Connections to external services, such as GitHub repositories, issues and pull requests."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "Connect to GitHub to manage remote repositories, issues, pull requests and CI."
+  },
   "toolbox.globalDefault": {
     "defaultMessage": "This switch controls the default availability for new tasks."
   },
@@ -8053,6 +8368,15 @@
   },
   "toolbox.loading": {
     "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "Local Git"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "Inspect local changes and manage staging, commits and branches."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "Guides the model loads to use tools. A skill does not enable its underlying tools."
   },
   "toolbox.noItems": {
     "defaultMessage": "Nothing is configured in this section yet."
@@ -8247,49 +8571,49 @@
     "defaultMessage": "Create a new session with the edited message"
   },
   "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
+    "defaultMessage": "Please approve: {action}"
   },
   "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
+    "defaultMessage": "Stopping the current operation"
   },
   "workStatus.check": {
     "defaultMessage": "Checking execution results"
   },
   "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
+    "defaultMessage": "Bringing the results together"
   },
   "workStatus.children": {
-    "defaultMessage": "{count,plural,one{Waiting for # subagent to return results} other{Waiting for # subagents to return results}}"
+    "defaultMessage": "{count,plural,one{# assistant is working} other{# assistants are working}}"
   },
   "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
+    "defaultMessage": "Connecting"
   },
   "workStatus.elapsed": {
     "defaultMessage": "{seconds}s"
   },
   "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
+    "defaultMessage": "Working on your request"
   },
   "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
+    "defaultMessage": "Getting ready"
   },
   "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
+    "defaultMessage": "Your input is needed"
   },
   "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
+    "defaultMessage": "Preparing a response"
   },
   "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
+    "defaultMessage": "Working on your request"
   },
   "workStatus.text": {
-    "defaultMessage": "Receiving the response"
+    "defaultMessage": "Writing a response"
   },
   "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
+    "defaultMessage": "Thinking"
   },
   "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
+    "defaultMessage": "Reviewing the tool results"
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"

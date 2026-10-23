@@ -6,9 +6,11 @@ import { Button } from './ui/button';
 import JsonSchemaForm from './ui/JsonSchemaForm';
 import type { JsonSchema } from './ui/JsonSchemaForm';
 import { cn } from '../utils';
+import PlanReviewForm, { getPlanReview } from './PlanReviewForm';
 
 const i18n = defineMessages({
   question: { id: 'elicitationRequest.question', defaultMessage: 'Question' },
+  planReview: { id: 'elicitationRequest.planReview', defaultMessage: 'Review plan' },
   collapse: { id: 'elicitationRequest.collapse', defaultMessage: 'Collapse question' },
   expand: {
     id: 'elicitationRequest.expand',
@@ -36,6 +38,7 @@ const i18n = defineMessages({
     id: 'elicitationRequest.submit',
     defaultMessage: 'Submit',
   },
+  send: { id: 'chatInput.send', defaultMessage: 'Send' },
   accept: {
     id: 'elicitationRequest.accept',
     defaultMessage: 'Accept',
@@ -116,7 +119,20 @@ export default function ElicitationRequest({
   const { id: elicitationId, message, requested_schema } = actionRequiredContent.data;
 
   const schema = (requested_schema ?? {}) as JsonSchema;
+  const planReview = getPlanReview(schema);
   const hasSchemaFields = Boolean(schema.properties && Object.keys(schema.properties).length > 0);
+  const feedbackFields = new Set(
+    Object.values(schema.properties ?? {}).map(
+      (field) => field._meta?.['codepro.dev/feedbackField']
+    )
+  );
+  const repeatsQuestion =
+    message ===
+    Object.entries(schema.properties ?? {})
+      .filter(([key]) => !feedbackFields.has(key))
+      .map(([, field]) => field.title)
+      .filter(Boolean)
+      .join('\n');
 
   const submitResponse = async (
     formData: Record<string, unknown>,
@@ -216,7 +232,7 @@ export default function ElicitationRequest({
 
   return (
     <section
-      aria-label={intl.formatMessage(i18n.question)}
+      aria-label={intl.formatMessage(planReview ? i18n.planReview : i18n.question)}
       className={cn(
         'flex flex-col',
         standalone &&
@@ -233,13 +249,15 @@ export default function ElicitationRequest({
         >
           <span className="flex items-center gap-2 text-xs text-text-secondary">
             <MessageCircleQuestion className="h-4 w-4" aria-hidden="true" />
-            {intl.formatMessage(collapsed ? i18n.expand : i18n.question)}
+            {intl.formatMessage(
+              collapsed ? i18n.expand : planReview ? i18n.planReview : i18n.question
+            )}
           </span>
           {collapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
       )}
       <div hidden={standalone && collapsed}>
-        {(message || !hasSchemaFields) && (
+        {!planReview && !repeatsQuestion && (message || !hasSchemaFields) && (
           <div
             className={cn(
               'goose-message-content px-4 py-2 text-sm text-text-primary',
@@ -255,13 +273,22 @@ export default function ElicitationRequest({
             !standalone && 'border border-border-primary dark:border-gray-700 rounded-b-2xl py-3'
           )}
         >
-          {hasSchemaFields ? (
+          {planReview ? (
+            <PlanReviewForm
+              review={planReview}
+              disabled={isSubmitting}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+            />
+          ) : hasSchemaFields ? (
             <JsonSchemaForm
               compact={standalone}
               schema={schema}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
-              submitLabel={intl.formatMessage(isSubmitting ? i18n.submitting : i18n.submit)}
+              submitLabel={intl.formatMessage(
+                isSubmitting ? i18n.submitting : standalone ? i18n.send : i18n.submit
+              )}
               cancelLabel={standalone ? intl.formatMessage(i18n.skip) : undefined}
               disabled={isSubmitting}
             />

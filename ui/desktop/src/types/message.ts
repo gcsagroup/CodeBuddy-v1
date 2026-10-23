@@ -213,6 +213,8 @@ export type MessageUsage = {
 };
 
 export type MessageMetadata = {
+  goalRequest?: GoalRequest;
+  planMode?: boolean;
   agentVisible: boolean;
   inference?: InferenceMetadata | null;
   steer?: boolean;
@@ -294,7 +296,13 @@ export interface ImageData {
 export interface UserInput {
   msg: string;
   images: ImageData[];
+  goalRequest?: GoalRequest;
+  planMode?: boolean;
 }
+
+export type GoalRequest =
+  | { action: 'create'; objective: string; maxGoalRounds?: number }
+  | { action: 'resume'; goalId: string; revision: number };
 
 export function createUserMessage(text: string, images?: ImageData[]): Message {
   const content: Message['content'] = [];

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, rm, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { comfyuiTool, comfyWorkflow, comfyuiUrl } from '../comfyui-tool.mjs';
@@ -9,10 +9,10 @@ import { createHarnessDriver } from '../harness/index.mjs';
 
 const id = 'bafe8f1d-310a-4e29-92e7-73e7ba920ade';
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-comfy-'));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-comfy-')));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   t.after(async () => {
-    assert.equal(path.dirname(root), os.tmpdir());
+    assert.equal(path.dirname(root), await realpath(os.tmpdir()));
     assert.ok(path.basename(root).startsWith('codebuddy-comfy-'));
     await rm(root, { recursive: true, force: true });
   });

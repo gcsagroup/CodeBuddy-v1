@@ -55,7 +55,22 @@ export interface PetSnapshot {
   tasks?: PetTask[];
 }
 export interface PetRequest {
-  action: 'get' | 'refresh' | 'configure' | 'create' | 'open-task' | 'pause-task' | 'drag-start' | 'drag-end';
+  action:
+    | 'get'
+    | 'refresh'
+    | 'configure'
+    | 'create'
+    | 'open-task'
+    | 'pause-task'
+    | 'drag-start'
+    | 'drag-end'
+    | 'compose'
+    | 'context-menu'
+    | 'send-message';
   preferences?: Partial<Pick<PetPreferences, 'visible' | 'selectedId' | 'size' | 'reducedMotion'>>;
   sessionId?: string;
+  composing?: boolean;
+  pointer?: { x: number; y: number };
+  message?: string;
+  images?: import('../types/message').ImageData[];
 }

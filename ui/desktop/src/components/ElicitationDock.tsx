@@ -39,7 +39,9 @@ export default function ElicitationDock({ requests, onSubmit }: ElicitationDockP
   if (!requests.length) return null;
   return (
     <div className="mx-4 mb-2">
-      <div className="mx-auto flex max-h-[min(42vh,24rem)] w-full max-w-[46rem] flex-col gap-2 overflow-y-auto">
+      <div
+        className={`mx-auto flex w-full flex-col gap-2 ${requests.length > 1 ? 'max-h-[min(52vh,32rem)] overflow-y-auto' : ''}`}
+      >
         {requests.map((request) => (
           <ElicitationRequest
             key={request.data.id}

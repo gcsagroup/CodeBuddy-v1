@@ -34,7 +34,12 @@ function logRendererCrash(error: unknown, source: string, componentStack?: strin
   try {
     window.electron.logInfo(
       JSON.stringify({
-        tag: 'renderer_crash',
+        tag:
+          source === 'window_error'
+            ? 'renderer_window_error'
+            : source === 'unhandled_rejection'
+              ? 'renderer_unhandled_rejection'
+              : 'renderer_crash',
         diagnostic_revision: 'crash-stack-v1',
         at_ms: Date.now(),
         source,

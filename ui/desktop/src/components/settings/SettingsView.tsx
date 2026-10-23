@@ -4,7 +4,6 @@ import {
   AppWindow,
   Bot,
   Brain,
-  Cable,
   Keyboard,
   KeyRound,
   MessageSquare,
@@ -15,7 +14,6 @@ import {
 import { ScrollArea } from '../ui/scroll-area';
 import { View, ViewOptions } from '../../utils/navigationUtils';
 import ModelsAndRuntimeSettings from './models/ModelsAndRuntimeSettings';
-import ExternalBackendSection from './app/ExternalBackendSection';
 import AppSettingsSection from './app/AppSettingsSection';
 import type { ExtensionConfig } from '../../types/extensions';
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
@@ -81,10 +79,6 @@ const i18n = defineMessages({
     id: 'settingsCenter.pageMemory',
     defaultMessage: 'Memory',
   },
-  pageSharing: {
-    id: 'settingsCenter.pageSharing',
-    defaultMessage: 'Tools and connections',
-  },
   pageAuth: {
     id: 'settingsCenter.pageAuth',
     defaultMessage: 'Accounts and credentials',
@@ -112,7 +106,6 @@ const pageMessages: Record<SettingsPageId, (typeof i18n)[keyof typeof i18n]> = {
   models: i18n.pageModels,
   chat: i18n.pageChat,
   memory: i18n.pageMemory,
-  sharing: i18n.pageSharing,
   auth: i18n.pageAuth,
   input: i18n.pageInput,
   security: i18n.pageSecurity,
@@ -134,8 +127,6 @@ function SettingsPageIcon({ page }: { page: SettingsPageId }) {
       return <MessageSquare className={className} />;
     case 'memory':
       return <Brain className={className} />;
-    case 'sharing':
-      return <Cable className={className} />;
     case 'auth':
       return <KeyRound className={className} />;
     case 'input':
@@ -198,8 +189,6 @@ export default function SettingsView({
         return <ModelsAndRuntimeSettings setView={setView} />;
       case 'chat':
         return <ChatSettingsSection />;
-      case 'sharing':
-        return <ExternalBackendSection />;
       case 'input':
         return <InputSettingsSection />;
       case 'security':

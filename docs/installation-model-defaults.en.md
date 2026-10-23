@@ -1,0 +1,13 @@
+# Toolbox and installation model defaults
+
+Fresh installations include two connections: **CodeBuddy LAN**, selected initially, and the **ollama** cloud service at `https://ollama.com`. Ollama includes the 22 model names loaded in the user's configuration on 2026-10-23; users can refresh that snapshot in connection settings. This build includes the shared Ollama Cloud key explicitly approved by the user, so cloud models work immediately after installation. First launch imports the key into local DPAPI/Keychain-protected settings. The plaintext distribution credential file is used only for local packaging and is Git-ignored. Embedded client keys can be extracted; usage and charges belong to the associated account. Existing Ollama connections and model selections are preserved. See [Ollama authentication](https://github.com/ollama/ollama/blob/main/docs/api/authentication.mdx).
+
+All tools are grouped into built-in capabilities, skills, and external MCP services. Computer control executes actions; the Desktop operation guide (computer-use) is a skill loaded by the model and does not enable those tools. Local Git manages workspace repositories, while GitHub connects remote repositories, issues, pull requests, and CI.
+
+Fresh Windows/macOS desktop installations use the same Harness state initialization entry and runtime/default-model.json. The preset is gemma-4-26B-A4B-it-uncensored-FP8-W8A16 at http://192.168.9.101:8001, with the 65,536-token context reported by the service on 2026-10-22. Startup does not send user content or require the endpoint to be online.
+
+The main model and auxiliary image recognition default to the same service. On 2026-10-23, an isolated red-and-blue image request returned the correct left/right colors, so the distribution preset enables image input. This verifies that image request only, not desktop control or other tools.
+
+This LAN endpoint may be unreachable from other networks. Users can edit the service, add providers, and independently change the main model, image recognition model, and image capability setting in Settings → Models and runtime. Existing state.json files are preserved, including intentionally empty provider lists. Removing the preset does not cause it to be re-added on restart. The preset does not grant OS network permission.
+
+On 2026-10-23, raw Ollama streaming responses from `kimi-k3` had empty answer content. Fresh installations therefore list `kimi-k2.6` first for the cloud connection while preserving the catalogue. Existing configurations are unchanged. Other catalogue entries have not each passed product acceptance.

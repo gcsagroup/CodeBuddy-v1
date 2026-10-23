@@ -380,12 +380,13 @@ export async function acpNewSession(
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.newSession(request);
   const sessionId = String(response.sessionId);
+  const loadMeta = parseLoadMeta(response);
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 
   return {
     sessionId,
     sessionInfo: sessionInfoResponse.session,
-    meta: parseLoadMeta(response),
+    meta: loadMeta,
   };
 }
 

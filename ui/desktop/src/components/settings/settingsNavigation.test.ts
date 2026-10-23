@@ -7,13 +7,14 @@ import {
 
 describe('settings navigation', () => {
   it('keeps every legacy settings destination reachable', () => {
+    expect(resolveSettingsPage('storage')).toBeUndefined();
     expect(resolveSettingsPage('update')).toBe('app');
     expect(resolveSettingsPage('models')).toBe('models');
     expect(resolveSettingsPage('local-inference')).toBe('models');
     expect(resolveSettingsPage('modes')).toBe('chat');
     expect(resolveSettingsPage('styles')).toBe('chat');
     expect(resolveSettingsPage('tools')).toBe('chat');
-    expect(resolveSettingsPage('sharing')).toBe('sharing');
+    expect(resolveSettingsPage('sharing')).toBe('models');
     expect(resolveSettingsPage('prompts')).toBe('chat');
     expect(resolveSettingsPage('keyboard')).toBe('keyboard');
     expect(resolveSettingsPage('auth')).toBe('auth');
@@ -34,7 +35,6 @@ describe('settings navigation', () => {
         'models',
         'pets',
         'security',
-        'sharing',
       ].sort()
     );
   });

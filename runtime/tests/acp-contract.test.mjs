@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -137,9 +137,9 @@ function controlledDriver(prompt) {
 }
 
 async function setup(t, driver = controlledDriver()) {
-  const dataDir = await mkdtemp(
+  const dataDir = await realpath(await mkdtemp(
     path.join(os.tmpdir(), "codebuddy-acp-contract-"),
-  );
+  ));
   let server = await createCompatServer({ dataDir, secret, driver });
   const baseUrl = await server.listen(0, "127.0.0.1");
   const provider = http.createServer(async (request, response) => {

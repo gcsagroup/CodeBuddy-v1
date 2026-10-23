@@ -43,6 +43,9 @@ describe('SettingsView', () => {
     expect(screen.getByText('AI')).toBeInTheDocument();
     expect(screen.getByText('Connections and security')).toBeInTheDocument();
     expect(screen.queryByText('Advanced')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-nav-sharing')).not.toBeInTheDocument();
+    expect(screen.queryByText('connection-settings')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-nav-storage')).not.toBeInTheDocument();
     expect(screen.queryByTestId('settings-models-tab')).not.toBeInTheDocument();
   });
 

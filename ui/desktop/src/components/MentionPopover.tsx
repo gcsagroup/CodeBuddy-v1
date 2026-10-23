@@ -1,3 +1,4 @@
+import { composerCommandItems } from './composerCommands';
 import {
   forwardRef,
   useCallback,
@@ -11,8 +12,23 @@ import { ItemIcon } from './ItemIcon';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { defineMessages, useIntl } from '../i18n';
 import { listAgentMentionItems, listSlashCommandItems } from '../acp/autocomplete';
+import { loadToolbox } from '../acp/toolbox';
+import { localizeToolboxItem } from './toolbox/toolboxLocalization';
+import type { ToolboxItem } from '../types/toolbox';
 
 const i18n = defineMessages({
+  addGroup: { id: 'mentionPopover.addGroup', defaultMessage: 'Add' },
+  commandGroup: { id: 'mentionPopover.commandGroup', defaultMessage: 'Commands' },
+  skillGroup: { id: 'mentionPopover.skillGroup', defaultMessage: 'Skills' },
+  recipeGroup: { id: 'mentionPopover.recipeGroup', defaultMessage: 'Saved tasks' },
+  mcpGroup: { id: 'mentionPopover.mcpGroup', defaultMessage: 'MCP servers' },
+  toolsGroup: { id: 'mentionPopover.toolsGroup', defaultMessage: 'Built-in tools' },
+  disabled: { id: 'mentionPopover.disabled', defaultMessage: 'Disabled' },
+  inventoryHint: { id: 'mentionPopover.inventoryHint', defaultMessage: 'Use in this conversation' },
+  inventoryFailed: {
+    id: 'mentionPopover.inventoryFailed',
+    defaultMessage: 'Some Toolbox entries could not be loaded. Reopen the menu to retry.',
+  },
   scanningFiles: {
     id: 'mentionPopover.scanningFiles',
     defaultMessage: 'Scanning files...',
@@ -36,7 +52,7 @@ const i18n = defineMessages({
 });
 
 type CommandItemType = 'Builtin' | 'Recipe' | 'Skill' | 'Agent';
-type DisplayItemType = CommandItemType | 'Directory' | 'File';
+type DisplayItemType = CommandItemType | 'Directory' | 'File' | 'Mcp' | 'Tool';
 
 const typeOrder: Record<DisplayItemType, number> = {
   Agent: 0,
@@ -45,6 +61,8 @@ const typeOrder: Record<DisplayItemType, number> = {
   Builtin: 3,
   Skill: 4,
   Recipe: 5,
+  Mcp: 6,
+  Tool: 7,
 };
 
 export interface DisplayItem {
@@ -53,6 +71,9 @@ export interface DisplayItem {
   itemType: DisplayItemType;
   relativePath: string;
   insertText?: string;
+  commandGroup?: 'add' | 'control';
+  commandOrder?: number;
+  toolboxItem?: ToolboxItem;
 }
 
 export interface DisplayItemWithMatch extends DisplayItem {
@@ -61,11 +82,32 @@ export interface DisplayItemWithMatch extends DisplayItem {
   matchedText: string;
 }
 
+const commandGroup = (item: DisplayItem) =>
+  item.commandGroup === 'add'
+    ? 0
+    : item.itemType === 'Builtin'
+      ? 1
+      : item.itemType === 'Skill'
+        ? 2
+        : item.itemType === 'Mcp'
+          ? 3
+          : item.itemType === 'Tool'
+            ? 4
+            : 5;
+const groupLabels = [
+  i18n.addGroup,
+  i18n.commandGroup,
+  i18n.skillGroup,
+  i18n.mcpGroup,
+  i18n.toolsGroup,
+  i18n.recipeGroup,
+];
+
 interface MentionPopoverProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (filePath: string) => void;
-  position: { x: number; y: number };
+  onSelect: (filePath: string, item?: DisplayItem) => void;
+  position: { x: number; y: number; width?: number };
   query: string;
   isSlashCommand: boolean;
   selectedIndex: number;
@@ -160,6 +202,7 @@ const MentionPopover = forwardRef<
     const intl = useIntl();
     const [items, setItems] = useState<DisplayItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [inventoryError, setInventoryError] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const currentWorkingDir = workingDir ?? getInitialWorkingDir();
@@ -412,6 +455,10 @@ const MentionPopover = forwardRef<
               : 0,
           }))
           .sort((a, b) => {
+            if (isSlashCommand && commandGroup(a) !== commandGroup(b))
+              return commandGroup(a) - commandGroup(b);
+            if (isSlashCommand && a.commandOrder !== undefined && b.commandOrder !== undefined)
+              return a.commandOrder - b.commandOrder;
             if (a.depth !== b.depth) return a.depth - b.depth;
             const typeComparison = compareByType(a, b);
             return typeComparison || a.name.localeCompare(b.name);
@@ -424,6 +471,14 @@ const MentionPopover = forwardRef<
             { match: fuzzyMatch(query, file.name), text: file.name },
             { match: fuzzyMatch(query, file.relativePath), text: file.relativePath },
             { match: fuzzyMatch(query, file.extra), text: file.extra },
+            ...(isSlashCommand && file.toolboxItem
+              ? [
+                  {
+                    match: fuzzyMatch(query, intl.formatMessage(groupLabels[commandGroup(file)])),
+                    text: file.name,
+                  },
+                ]
+              : []),
           ];
 
           const { match: bestMatch, text: matchedText } = matches.reduce((best, current) =>
@@ -447,13 +502,15 @@ const MentionPopover = forwardRef<
         })
         .filter((file) => file.matchScore > 0)
         .sort((a, b) => {
+          if (isSlashCommand && commandGroup(a) !== commandGroup(b))
+            return commandGroup(a) - commandGroup(b);
           // Sort by score first, then prefer items over directories, then alphabetically
           const scoreDiff = b.matchScore - a.matchScore;
           if (Math.abs(scoreDiff) >= 1) return scoreDiff;
           const typeComparison = compareByType(a, b);
           return typeComparison || a.name.localeCompare(b.name);
         });
-    }, [items, query, currentWorkingDir]);
+    }, [items, query, currentWorkingDir, isSlashCommand, intl]);
 
     const getSelectionText = (item: DisplayItem): string => {
       if (item.insertText) {
@@ -475,7 +532,9 @@ const MentionPopover = forwardRef<
         getDisplayFiles: () => displayItems,
         selectFile: (index: number) => {
           if (displayItems[index]) {
-            onSelect(getSelectionText(displayItems[index]));
+            const item = displayItems[index];
+            if (item.toolboxItem) onSelect(getSelectionText(item), item);
+            else onSelect(getSelectionText(item));
             onClose();
           }
         },
@@ -487,20 +546,70 @@ const MentionPopover = forwardRef<
       let cancelled = false;
 
       const loadData = async () => {
-        setItems([]);
+        setItems(isSlashCommand ? composerCommandItems(intl) : []);
+        setInventoryError(false);
         if (!isSlashCommand && !currentWorkingDir.trim()) {
           setIsLoading(false);
           return;
         }
-        setIsLoading(true);
+        setIsLoading(!isSlashCommand);
         try {
           if (isSlashCommand) {
-            const commandItems = await listSlashCommandItems(
-              currentWorkingDir,
-              sessionId ?? undefined
-            );
-            if (cancelled) return;
-            setItems(commandItems);
+            let commandItems: DisplayItem[] = [],
+              inventoryItems: DisplayItem[] = [];
+            const publish = () => {
+              if (cancelled) return;
+              const builtinItems = composerCommandItems(intl);
+              setItems([
+                ...builtinItems,
+                ...commandItems.filter(
+                  (item) =>
+                    !builtinItems.some((builtin) => builtin.relativePath === item.relativePath) &&
+                    !inventoryItems.some(
+                      (entry) =>
+                        entry.itemType === 'Skill' &&
+                        item.itemType === 'Skill' &&
+                        entry.relativePath === item.relativePath
+                    )
+                ),
+                ...inventoryItems,
+              ]);
+            };
+            const failed = () => {
+              if (!cancelled) setInventoryError(true);
+            };
+            await Promise.allSettled([
+              listSlashCommandItems(currentWorkingDir, sessionId ?? undefined)
+                .then((result) => {
+                  commandItems = result;
+                  publish();
+                })
+                .catch(failed),
+              loadToolbox(currentWorkingDir, sessionId ?? undefined)
+                .then((result) => {
+                  if (Object.keys(result.errors).length) failed();
+                  inventoryItems = [
+                    ...result.model.methods,
+                    ...result.model.external,
+                    ...result.model.capabilities,
+                  ].map((source) => {
+                    const item = localizeToolboxItem(source, intl);
+                    return {
+                      name: item.name,
+                      relativePath:
+                        source.reference?.value && source.kind !== 'skill'
+                          ? source.reference.value
+                          : source.name,
+                      extra: `${item.status === 'disabled' ? intl.formatMessage(i18n.disabled) + ' · ' : ''}${item.description}`,
+                      itemType:
+                        item.kind === 'skill' ? 'Skill' : item.kind === 'external' ? 'Mcp' : 'Tool',
+                      toolboxItem: source,
+                    };
+                  });
+                  publish();
+                })
+                .catch(failed),
+            ]);
           } else {
             // Fetch agents from server and scan files in parallel
             const [agentItems, scannedFiles] = await Promise.all([
@@ -513,7 +622,7 @@ const MentionPopover = forwardRef<
         } catch (error) {
           if (!cancelled) {
             console.error('Error loading popover items:', error);
-            setItems([]);
+            setItems(isSlashCommand ? composerCommandItems(intl) : []);
           }
         } finally {
           if (!cancelled) {
@@ -529,7 +638,7 @@ const MentionPopover = forwardRef<
       return () => {
         cancelled = true;
       };
-    }, [isOpen, isSlashCommand, scanDirectoryFromRoot, currentWorkingDir, sessionId]);
+    }, [isOpen, isSlashCommand, scanDirectoryFromRoot, currentWorkingDir, sessionId, intl]);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -550,7 +659,8 @@ const MentionPopover = forwardRef<
     // Scroll selected item into view
     useEffect(() => {
       if (listRef.current && selectedIndex >= 0 && selectedIndex < displayItems.length) {
-        const selectedElement = listRef.current.children[selectedIndex] as HTMLElement;
+        const selectedElement =
+          listRef.current.querySelectorAll<HTMLElement>('[role="option"]')[selectedIndex];
         if (selectedElement) {
           selectedElement.scrollIntoView({
             block: 'nearest',
@@ -563,7 +673,9 @@ const MentionPopover = forwardRef<
     const handleItemClick = (index: number) => {
       if (index >= 0 && index < displayItems.length) {
         onSelectedIndexChange(index);
-        onSelect(getSelectionText(displayItems[index]));
+        const item = displayItems[index];
+        if (item.toolboxItem) onSelect(getSelectionText(item), item);
+        else onSelect(getSelectionText(item));
         onClose();
       }
     };
@@ -573,14 +685,22 @@ const MentionPopover = forwardRef<
     return (
       <div
         ref={popoverRef}
-        className="fixed z-50 bg-background-primary border border-border-primary rounded-lg shadow-lg min-w-96 max-w-lg max-h-80"
+        className="fixed z-50 bg-background-primary border border-border-primary rounded-2xl shadow-lg"
         style={{
-          left: position.x,
+          width: Math.min(position.width ?? 640, window.innerWidth - 32),
+          maxHeight: Math.max(80, Math.min(560, position.y - 24)),
+          left: Math.max(
+            16,
+            Math.min(
+              position.x,
+              window.innerWidth - Math.min(position.width ?? 640, window.innerWidth - 32) - 16
+            )
+          ),
           top: position.y - 10, // Position above the chat input
           transform: 'translateY(-100%)', // Move it fully above
         }}
       >
-        <div className="p-3 flex flex-col max-h-80">
+        <div className="p-3 flex flex-col min-h-0" style={{ maxHeight: 'inherit' }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2"></div>
@@ -590,31 +710,70 @@ const MentionPopover = forwardRef<
             </div>
           ) : (
             <>
-              {displayItems.length > 0 && (
+              {inventoryError && isSlashCommand && (
+                <p role="status" className="px-2 pb-2 text-xs text-text-secondary">
+                  {intl.formatMessage(i18n.inventoryFailed)}
+                </p>
+              )}
+              {!isSlashCommand && displayItems.length > 0 && (
                 <div className="text-xs text-text-secondary mb-2 px-1">
                   {intl.formatMessage(i18n.itemsFound, { count: displayItems.length })}
                 </div>
               )}
               <div
+                role="listbox"
                 ref={listRef}
-                className="space-y-1 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-borderStandard scrollbar-track-transparent"
-                style={{ maxHeight: '280px' }}
+                className="space-y-1 min-h-0 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-borderStandard scrollbar-track-transparent"
+                style={{ maxHeight: isSlashCommand ? '520px' : '280px' }}
               >
                 {displayItems.map((item, index) => (
                   <div
                     key={`${item.itemType}-${item.relativePath}-${item.extra}-${item.insertText ?? ''}`}
-                    onClick={() => handleItemClick(index)}
-                    data-selected={index === selectedIndex}
-                    className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                      index === selectedIndex ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'
-                    }`}
                   >
-                    <div className="flex-shrink-0 text-text-secondary">
-                      <ItemIcon item={item} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate text-text-primary">{item.name}</div>
-                      <div className="text-xs truncate text-text-secondary">{item.extra}</div>
+                    {isSlashCommand &&
+                      (index === 0 ||
+                        commandGroup(item) !== commandGroup(displayItems[index - 1])) && (
+                        <div
+                          aria-hidden="true"
+                          className="px-2 pb-1 pt-2 text-xs text-text-secondary"
+                        >
+                          {intl.formatMessage(groupLabels[commandGroup(item)])}
+                        </div>
+                      )}
+                    <div
+                      role="option"
+                      aria-label={
+                        isSlashCommand
+                          ? `${item.name} ${item.toolboxItem ? '' : '/'}${item.relativePath} ${item.extra}`
+                          : undefined
+                      }
+                      aria-selected={index === selectedIndex}
+                      title={item.toolboxItem ? intl.formatMessage(i18n.inventoryHint) : undefined}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleItemClick(index)}
+                      data-selected={index === selectedIndex}
+                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                        index === selectedIndex ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'
+                      }`}
+                    >
+                      <div className="flex-shrink-0 text-text-secondary">
+                        <ItemIcon item={item} />
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-text-primary">
+                          <span>{item.name}</span>
+                          {isSlashCommand &&
+                            (!item.toolboxItem || item.relativePath !== item.name) && (
+                              <span className="text-xs text-text-secondary">
+                                {item.toolboxItem ? '' : '/'}
+                                {item.relativePath}
+                              </span>
+                            )}
+                        </div>
+                        <div className="min-w-[10rem] flex-1 break-words text-right text-xs text-text-secondary line-clamp-2">
+                          {item.extra}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

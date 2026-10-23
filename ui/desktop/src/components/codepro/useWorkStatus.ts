@@ -4,36 +4,36 @@ import type { PromptActivity } from '../../acp/chatSessionStore';
 import { ChatState } from '../../types/chatState';
 
 const labels = defineMessages({
-  first: { id: 'workStatus.first', defaultMessage: 'Waiting for model response' },
-  preparing: { id: 'workStatus.preparing', defaultMessage: 'Preparing the model request' },
-  connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting to the model service' },
+  first: { id: 'workStatus.first', defaultMessage: 'Working on your request' },
+  preparing: { id: 'workStatus.preparing', defaultMessage: 'Getting ready' },
+  connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting' },
   responseWait: {
     id: 'workStatus.responseWait',
-    defaultMessage: 'Request sent; waiting for the model service to respond',
+    defaultMessage: 'Working on your request',
   },
   responseRead: {
     id: 'workStatus.responseRead',
-    defaultMessage: 'Connection established; receiving model output',
+    defaultMessage: 'Preparing a response',
   },
   children: {
     id: 'workStatus.children',
     defaultMessage:
-      'Waiting for {count, plural, one {# subagent} other {# subagents}} to return results',
+      '{count, plural, one {# assistant is working} other {# assistants are working}}',
   },
   childResult: {
     id: 'workStatus.childResult',
-    defaultMessage: 'Waiting for the main agent to process subagent results',
+    defaultMessage: 'Bringing the results together',
   },
   toolResult: {
     id: 'workStatus.toolResult',
-    defaultMessage: 'Waiting for the main agent to process tool results',
+    defaultMessage: 'Reviewing the tool results',
   },
-  text: { id: 'workStatus.text', defaultMessage: 'Receiving the response' },
-  thought: { id: 'workStatus.thought', defaultMessage: 'Receiving model activity' },
-  question: { id: 'workStatus.question', defaultMessage: 'Waiting for your answer or approval' },
-  cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping; waiting for confirmation' },
+  text: { id: 'workStatus.text', defaultMessage: 'Writing a response' },
+  thought: { id: 'workStatus.thought', defaultMessage: 'Thinking' },
+  question: { id: 'workStatus.question', defaultMessage: 'Your input is needed' },
+  cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping the current operation' },
   check: { id: 'workStatus.check', defaultMessage: 'Checking execution results' },
-  approval: { id: 'workStatus.approval', defaultMessage: 'Waiting for your approval: {action}' },
+  approval: { id: 'workStatus.approval', defaultMessage: 'Please approve: {action}' },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 

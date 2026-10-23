@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { comfyuiVideoTool, comfyVideoWorkflow, inspectMp4 } from '../comfyui-video-tool.mjs';
@@ -16,7 +16,7 @@ function metadataFixture() {
   return Buffer.concat([box('ftyp', Buffer.from('isom0000')), box('moov', box('trak', Buffer.concat([box('tkhd', tkhd), box('mdia', Buffer.concat([box('mdhd', mdhd), box('hdlr', hdlr)]))]))), box('mdat', Buffer.from('fixture'))]);
 }
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-video-'));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-video-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   const calls = []; let state = 'queued';

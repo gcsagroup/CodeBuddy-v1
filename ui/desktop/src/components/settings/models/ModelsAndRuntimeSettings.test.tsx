@@ -107,7 +107,10 @@ describe('ModelsAndRuntimeSettings', () => {
       expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('studio')
     );
     expect(screen.getByTestId('custom-provider-grid')).not.toHaveTextContent('vendor');
-    expect(screen.getByTestId('custom-provider-grid')).not.toHaveTextContent('unfinished-custom');
+    expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('unfinished-custom');
+    expect(
+      screen.getByRole('combobox', { name: 'explorer · Workspace exploration Model connection' })
+    ).not.toHaveTextContent('unfinished-custom');
   });
 
   it('replaces the local download console with agent model configuration', () => {

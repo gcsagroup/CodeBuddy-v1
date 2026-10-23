@@ -29,7 +29,7 @@ test('Ollama profiles, per-connection preferences, persistence and actual DSH re
     if(req.url==='/api/tags'){res.setHeader('content-type','application/json');res.end(JSON.stringify({models:models.map(name=>({name}))}));return;}
     if(req.url==='/api/show'){
       const values=body.model==='toggle'?[false,true]:body.model==='fixed'?['high']:['low','medium','high'];
-      res.setHeader('content-type','application/json');res.end(JSON.stringify({capabilities:['completion','thinking'],thinking:{values,default:body.model==='fixed'?'high':'medium'}}));return;
+      res.setHeader('content-type','application/json');res.end(JSON.stringify({capabilities:['completion','thinking','tools'],thinking:{values,default:body.model==='fixed'?'high':'medium'}}));return;
     }
     requests.push(body);res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'thinking',object:'chat.completion.chunk',model:body.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
@@ -37,6 +37,7 @@ test('Ollama profiles, per-connection preferences, persistence and actual DSH re
     emit({content:'391'});emit({},'stop');res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
   const root=await mkdtemp(path.join(tmpdir(),'model-thinking-preferences-'));
   const store=await openStore(path.join(root,'host'));
   const base={engine:'ollama_compatible',apiUrl:`http://127.0.0.1:${server.address().port}`,models,requiresAuth:false};
@@ -57,7 +58,7 @@ test('Ollama profiles, per-connection preferences, persistence and actual DSH re
   assert.deepEqual(reloaded.read(['providers']).providers.find(p=>p.id==='A').thinkingEfforts,{toggle:'none',graded:'high'});
   assert.equal(reloaded.read(['preferences']).preferences.gooseThinkingEffort,'medium');
   const driver=await createHarnessDriver({dataDir:path.join(root,'native'),cwd:root});
-  t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
+  t.after(()=>driver.close());
   for(const model of ['toggle','graded']){
     const provider=store.read(['providers']).providers.find(p=>p.id==='A');
     const native=await driverProvider(provider,model);
@@ -83,11 +84,11 @@ test('fresh profiles read mixed Ollama Cloud efforts without breaking other mode
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     const url = new URL(input);
     assert.equal(url.origin, 'https://ollama.com');
-    if (url.pathname === '/api/tags') return Response.json({ models: models.map(name => ({ name, capabilities: ['completion'] })) });
+    if (url.pathname === '/api/tags') return Response.json({ models: models.map(name => ({ name, capabilities: ['completion', 'tools'] })) });
     assert.equal(url.pathname, '/api/show');
     const { model } = JSON.parse(options.body);
     assert.ok(Object.hasOwn(metadata, model));
-    return Response.json({ capabilities: ['completion', 'thinking'], ...metadata[model] });
+    return Response.json({ capabilities: ['completion', 'thinking', 'tools'], ...metadata[model] });
   });
   const root = await mkdtemp(path.join(tmpdir(), 'cloud-thinking-mixed-'));
   const store = await openStore(root);

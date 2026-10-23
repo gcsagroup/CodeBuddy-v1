@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { WorkspaceFileReferences } from './WorkspaceFileReferences';
+import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
+import type { Message } from '../types/message';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { PanelReply, PanelRequest } from '../workspace-panel/workspacePanelTypes';
 
@@ -137,4 +139,97 @@ it('recognizes a standalone media path in a historical code block and verifies i
     action: 'inspect',
     path: 'D:/fixture/clip.mp4',
   });
+});
+
+const turnMessages: Message[] = [
+  {
+    id: 'turn',
+    role: 'user',
+    created: 1,
+    metadata: { userVisible: true, agentVisible: true },
+    content: [{ type: 'text', text: 'Create a page' }],
+  },
+  {
+    id: 'answer',
+    role: 'assistant',
+    created: 2,
+    metadata: { userVisible: true, agentVisible: true },
+    content: [{ type: 'text', text: '`page.html`, `guide.md`, `missing.txt`' }],
+  },
+];
+
+it('merges verified references with recorded edits into one card without counting references as edits', async () => {
+  inspect.mockImplementation(async (request) => {
+    if (!('path' in request) || request.path === 'missing.txt') throw new Error('missing');
+    return { file: { path: request.path, size: 20, openExternally: false } };
+  });
+  const opened = vi.spyOn(window, 'dispatchEvent');
+  try {
+    render(
+      <CodeProConversationFiles
+        sessionId="one"
+        messages={turnMessages}
+        workspaceRoot="D:/fixture"
+        sourceChanges={[
+          {
+            id: 'turn',
+            number: 1,
+            created: 1,
+            title: 'Create a page',
+            added: 3,
+            removed: 0,
+            files: [
+              {
+                key: 'page',
+                path: 'D:/fixture/PAGE.html',
+                added: 3,
+                removed: 0,
+                changes: [],
+                hasUnavailableDiff: true,
+              },
+            ],
+          },
+        ]}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    await screen.findByRole('button', { name: 'Files this turn (2)' });
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Related files' })).toBeNull();
+    expect(screen.queryByText('missing.txt')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'D:/fixture/PAGE.html' }));
+    expect(opened).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'codebuddy:open-conversation-change',
+        detail: { sessionId: 'one', turnId: 'turn', filePath: 'D:/fixture/PAGE.html' },
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'guide.md' }));
+    expect(opened).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'codebuddy:open-workspace-file',
+        detail: { sessionId: 'one', filePath: 'guide.md' },
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Files this turn (2)' }));
+    expect(screen.queryByRole('listitem')).toBeNull();
+  } finally {
+    opened.mockRestore();
+  }
+});
+
+it('retains a reference-only turn without manufacturing a change summary or change action', async () => {
+  inspect.mockResolvedValue({ file: { path: 'guide.md', size: 30, openExternally: false } });
+  render(
+    <CodeProConversationFiles
+      sessionId="one"
+      messages={turnMessages}
+      sourceChanges={[]}
+      workspaceRoot="D:/fixture"
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  await screen.findByRole('button', { name: 'Files this turn (1)' });
+  expect(screen.queryByRole('button', { name: 'View changes' })).toBeNull();
+  expect(screen.queryByText(/Modified/)).toBeNull();
 });

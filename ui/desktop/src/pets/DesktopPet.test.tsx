@@ -31,6 +31,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('observes a global cursor beyond 500 pixels even when an idle task remains', async () => {
+  request.mockResolvedValue({
+    ...snapshot,
+    task: { sessionId: 'old', state: 'idle', title: 'Idle' },
+  });
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  const callback = vi
+    .mocked(window.electron.on)
+    .mock.calls.find(([event]) => event === 'pet-cursor')?.[1];
+  expect(callback).toBeDefined();
+  act(() => {
+    callback?.({} as Electron.IpcRendererEvent, { x: -1600, y: -800, reducedMotion: false });
+  });
+  expect(screen.getByRole('img', { name: 'look' })).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(1300);
+  });
+  expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
+});
+
 it('waves for a full cycle after a click, then stays visible and returns to idle', async () => {
   await act(async () => {
     render(<DesktopPet />);
@@ -39,7 +61,7 @@ it('waves for a full cycle after a click, then stays visible and returns to idle
   fireEvent.pointerDown(sprite, { button: 0, screenX: 100, screenY: 100 });
   fireEvent.pointerUp(sprite, { button: 0, screenX: 100, screenY: 100 });
   expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
-  act(() => {
+  await act(async () => {
     vi.advanceTimersByTime(999);
   });
   expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
@@ -51,10 +73,11 @@ it('waves for a full cycle after a click, then stays visible and returns to idle
     'get',
     'drag-start',
     'drag-end',
+    'compose',
   ]);
 });
 
-it('does not open a task during a drag, but opens it on a stationary click', async () => {
+it('does not open a task during a drag, and opens the composer on a stationary click', async () => {
   request.mockResolvedValue({
     ...snapshot,
     task: { state: 'completed', sessionId: 'fixture', title: 'Done' },
@@ -68,7 +91,11 @@ it('does not open a task during a drag, but opens it on a stationary click', asy
   expect(request.mock.calls.some(([value]) => value.action === 'open-task')).toBe(false);
   fireEvent.pointerDown(sprite, { button: 0, screenX: 150, screenY: 100 });
   fireEvent.pointerUp(sprite, { button: 0, screenX: 150, screenY: 100 });
-  expect(request).toHaveBeenCalledWith({ action: 'open-task', sessionId: 'fixture' });
+  await act(async () => {
+    vi.advanceTimersByTime(300);
+  });
+  expect(request).toHaveBeenCalledWith({ action: 'compose', composing: true });
+  expect(request.mock.calls.some(([value]) => value.action === 'open-task')).toBe(false);
   expect(screen.getByRole('img', { name: 'wave' })).toBeInTheDocument();
 });
 
@@ -88,8 +115,13 @@ it('shows conversation identity, live action and completed check; list clicks op
     render(<DesktopPet />);
   });
   expect(screen.getByText('Publish website')).toBeInTheDocument();
+  expect(screen.getByText('Build desktop')).toBeInTheDocument();
+  const toggle = screen.getByRole('button', { name: /Conversations/ });
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(toggle);
   expect(screen.queryByText('Build desktop')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Conversations/ }));
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(toggle);
   expect(screen.getByText('Run regression tests', { exact: false })).toBeInTheDocument();
   expect(screen.getByText('Running tool · pwsh')).toBeInTheDocument();
   expect(screen.getByText('✓')).toBeInTheDocument();
@@ -119,7 +151,6 @@ it('shows question detail, preserves waiting on click, and pauses a running task
   expect(screen.getByText('Waiting for your reply')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /Choose pet/ }));
   expect(screen.getByText('Which color?')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Conversations/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
   expect(request).toHaveBeenCalledWith({ action: 'pause-task', sessionId: 'w' });
 });

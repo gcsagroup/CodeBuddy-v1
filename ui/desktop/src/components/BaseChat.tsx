@@ -1,6 +1,7 @@
 import { AppEvents } from '../constants/events';
 import { useWorkStatus } from './codepro/useWorkStatus';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SearchView } from './conversation/SearchView';
@@ -120,7 +121,7 @@ export default function BaseChat({
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef<ScrollAreaHandle>(null);
-  const [followingOutput, setFollowingOutput] = useState(true);
+  const [atLatest, setAtLatest] = useState(true);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
   const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
@@ -128,6 +129,7 @@ export default function BaseChat({
   const [hasRecipeSecurityWarnings, setHasRecipeSecurityWarnings] = useState(false);
   const [acpRecovering, setAcpRecovering] = useState(isAcpRecovering);
   const [savingModeSessionId, setSavingModeSessionId] = useState<string>();
+  const [permissionOpenRequest, setPermissionOpenRequest] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const modeSaving = savingModeSessionId === sessionId;
   const isMobile = useIsMobile();
@@ -693,7 +695,7 @@ export default function BaseChat({
             ref={scrollRef}
             className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-6 pt-3' : contentClassName}`}
             autoScroll
-            onScrollChange={setFollowingOutput}
+            onBottomChange={setAtLatest}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
@@ -770,15 +772,36 @@ export default function BaseChat({
             />
           )}
 
-          {!followingOutput && (
+          {!atLatest && (
             <button
               type="button"
-              className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border-primary bg-background-primary px-4 py-2 text-sm text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+              aria-label={intl.formatMessage(i18n.latest)}
+              title={intl.formatMessage(i18n.latest)}
+              className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               onClick={() => scrollRef.current?.scrollToBottom()}
             >
-              {intl.formatMessage(i18n.latest)}
+              <ArrowDown className="size-5" strokeWidth={1.75} aria-hidden="true" />
             </button>
           )}
+          {atLatest &&
+            !showHistoryLoading &&
+            !readonlyHistory &&
+            !acpRecovering &&
+            !cancelling &&
+            (chatState === ChatState.Thinking ||
+              chatState === ChatState.Streaming ||
+              chatState === ChatState.Compacting ||
+              chatState === ChatState.RestartingAgent) && (
+              <div
+                data-testid="chat-running-indicator"
+                aria-hidden="true"
+                className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center gap-1 rounded-full border border-border-primary bg-background-primary text-text-secondary shadow-sm pointer-events-none"
+              >
+                <span className="chat-running-dot" />
+                <span className="chat-running-dot" />
+                <span className="chat-running-dot" />
+              </div>
+            )}
 
           {!showHistoryLoading &&
             chatState !== ChatState.Idle &&
@@ -875,9 +898,11 @@ export default function BaseChat({
               )}
             >
               <ChatInput
+                onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
                 modelToolbarSlot={
                   session && (
                     <SessionPermissionSummary
+                      openRequest={permissionOpenRequest}
                       inline
                       key={sessionId}
                       session={session}

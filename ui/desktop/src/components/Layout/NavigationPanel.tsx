@@ -312,8 +312,8 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
     <div
       data-testid="navigation-header-slot"
       className={cn(
-        'relative z-[100] flex shrink-0 flex-col px-3',
-        needsTrafficLightInset && 'pt-8'
+        'relative z-30 flex shrink-0 flex-col px-3',
+        needsTrafficLightInset && 'pl-[92px]'
       )}
     >
       <div className="flex h-10 items-center">

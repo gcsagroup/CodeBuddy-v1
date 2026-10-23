@@ -15,13 +15,13 @@ const equal = (a, b) => {
     right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
 };
-export async function createCompatServer({ dataDir, secret, driver }) {
+export async function createCompatServer({ dataDir, secret, driver, defaultModel }) {
   if (typeof secret !== "string" || secret.length < 16)
     throw Error("A local server secret of at least 16 characters is required");
   const profileLock = await acquireProfileLock(path.resolve(dataDir));
   let compat, appProxy;
   try {
-    const store = await openStore(profileLock.directory);
+    const store = await openStore(profileLock.directory, { defaultModel });
     let warmup;
     if (!driver) {
       let loaded;
@@ -54,6 +54,8 @@ export async function createCompatServer({ dataDir, secret, driver }) {
           "steer",
           "getGoal",
           "controlGoal",
+          "getPlanMode",
+          "setPlanMode",
           "compact",
           "contextUsage",
           "listSkills",
@@ -333,6 +335,7 @@ if (
   const service = await createCompatServer({
     dataDir: path.resolve(arg("--data-dir", ".preview-data/backend")),
     secret: process.env.CODEBUDDY_SERVER__SECRET_KEY,
+    defaultModel: (await import('./default-model.json', { with: { type: 'json' } })).default,
   });
   const url = await service.listen(
     Number(arg("--port", "39127")),

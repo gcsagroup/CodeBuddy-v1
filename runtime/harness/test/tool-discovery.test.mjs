@@ -5,7 +5,72 @@ import {mkdtemp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHarnessDriver} from '../index.mjs';
-import {installToolDiscovery} from '../tool-discovery.mjs';
+import {installToolDiscovery, projectOptionalValues} from '../tool-discovery.mjs';
+
+test('Ollama optional-value declarations preserve required nulls, payload data and the registry', async () => {
+ const parameters = {type:'object',properties:{
+   location:{type:['string','null'],description:'City',default:null},
+   coordinates:{anyOf:[{$ref:'#/$defs/Coordinates'},{type:'null'}]},
+   requiredNull:{type:['string','null']},
+   nullOnly:{type:'null'},
+   nested:{type:'object',properties:{enabled:{type:['boolean','null']}}},
+   values:{type:'array',items:{type:['string','null']}},
+   payload:{type:'object',default:{properties:{x:{type:['string','null']}}}},
+ },required:['requiredNull'], $defs:{Coordinates:{type:'object',properties:{latitude:{type:'number'},longitude:{type:'number'}},required:['latitude','longitude']}}};
+ const original = structuredClone(parameters);
+ const catalog = [{name:'mcp__queries__weather',parameters}];
+ let hook,search,endpoint='https://ollama.com/v1';
+ const ctx={tools:{schemas:()=>catalog,get:()=>search,register(t){search=t;}},systemPrompt:{section(){}},on(_n,h){hook=h;}};
+ installToolDiscovery(ctx,{session:{requestHeader:()=>undefined}},()=>endpoint);
+ const found = await search.execute({names:[catalog[0].name]});
+ const projected = found.tools[0].parameters;
+ assert.deepEqual(projected.properties.location,{type:'string',description:'City'});
+ assert.deepEqual(projected.properties.coordinates,parameters.$defs.Coordinates);
+ assert.deepEqual(projected.properties.requiredNull,original.properties.requiredNull);
+ assert.deepEqual(projected.properties.nullOnly,original.properties.nullOnly);
+ assert.deepEqual(projected.properties.values,original.properties.values,'null array entries are meaningful values');
+ assert.deepEqual(projected.properties.payload,original.properties.payload,'defaults are data, not schemas');
+ assert.equal(projected.properties.nested.properties.enabled.type,'boolean');
+ assert.deepEqual(parameters,original,'discovery must not alter canonical validation');
+ assert.deepEqual((await hook({}, {},async()=>({tools:catalog}))).tools[0].parameters,projected);
+ endpoint='https://example.com/v1';
+ assert.equal((await hook({}, {},async()=>({tools:catalog}))).tools[0],catalog[0],'model changes must not retain another route projection');
+ assert.equal((await search.execute({names:[catalog[0].name]})).tools[0],catalog[0]);
+});
+
+test('optional projection does not overwrite intersecting union constraints', () => {
+ const schema={type:'object',properties:{choice:{type:'number',anyOf:[{type:'integer',minimum:1},{type:'null'}]}}};
+ const projected=projectOptionalValues(schema);
+ assert.equal(projected.properties.choice.type,'number');
+ assert.deepEqual(projected.properties.choice.anyOf,[{type:'integer',minimum:1}]);
+ assert.deepEqual(schema.properties.choice.anyOf,[{type:'integer',minimum:1},{type:'null'}]);
+});
+
+test('model declaration references retain constraints, cycles and reference scopes', () => {
+ const schema={type:'object',properties:{
+   coordinate:{$ref:'#/$defs/alias',description:'Chosen coordinates'},
+   constrained:{$ref:'#/$defs/number',minimum:5},
+   recursive:{$ref:'#/$defs/node'},
+   external:{$ref:'https://example.com/schema.json'},
+   missing:{$ref:'#/$defs/missing'},
+   escaped:{$ref:'#/$defs/a~1b~0c'},
+   resource:{$id:'nested.json',$ref:'#/$defs/number'},
+ },$defs:{
+   alias:{$ref:'#/$defs/coordinate'},
+   coordinate:{type:'object',properties:{latitude:{type:'number'}},required:['latitude']},
+   number:{type:'number',minimum:1},
+   node:{type:'object',properties:{next:{$ref:'#/$defs/node'}}},
+   'a/b~c':{type:'string'},
+ }};
+ const original=structuredClone(schema);
+ const result=projectOptionalValues(schema);
+ assert.deepEqual(result.properties.coordinate,{...schema.$defs.coordinate,description:'Chosen coordinates'});
+ assert.deepEqual(result.properties.constrained,{minimum:5,allOf:[schema.$defs.number]});
+ assert.deepEqual(result.properties.recursive,schema.$defs.node);
+ for(const name of ['external','missing','resource']) assert.deepEqual(result.properties[name],schema.properties[name]);
+ assert.deepEqual(result.properties.escaped,{type:'string'});
+ assert.deepEqual(schema,original);
+});
 
 test('native capabilities and guidance are loaded on demand without removing their registry entries', async () => {
  const names=['read','pwsh','edit','skill','project_memory','create_goal','subagent','job_list','web_fetch','load_workspace_dependencies'];
@@ -15,9 +80,9 @@ test('native capabilities and guidance are loaded on demand without removing the
  installToolDiscovery(ctx,{session:{requestHeader:()=>undefined}});
  const assembly=()=>({tools:catalog,sections:['tool:read','tool:pwsh','tool:edit','tool:goal','tool:subagent','tool:jobs','tool:web_fetch','tool:load_workspace_dependencies','sandbox'].map(name=>({name,text:name}))});
  const initial=await hook({}, {}, async()=>assembly());
- assert.deepEqual(initial.tools.map(t=>t.name),['read']);
- assert.deepEqual(initial.sections.map(s=>s.name),['tool:read','sandbox']);
- for(const name of names.slice(1)) {
+ assert.deepEqual(initial.tools.map(t=>t.name),['read','edit','skill']);
+ assert.deepEqual(initial.sections.map(s=>s.name),['tool:read','tool:edit','sandbox']);
+ for(const name of names.slice(1).filter(name=>name!=='skill')) {
    const found=await search.execute({names:[name]});
    assert.equal(found.tools[0].name,name);
    assert.ok((await hook({}, {}, async()=>assembly())).tools.some(t=>t.name===name));
@@ -25,6 +90,18 @@ test('native capabilities and guidance are loaded on demand without removing the
  assert.deepEqual(ctx.tools.schemas().map(t=>t.name),names);
  const loaded=await hook({}, {}, async()=>assembly());
  assert.deepEqual(loaded.sections.map(s=>s.name),assembly().sections.map(s=>s.name));
+});
+
+test('delivery tools are present in the first request only when the scoped registry allows them', async () => {
+ let hook;
+ let catalog = ['read', 'write', 'edit', 'browser_control', 'pwsh'].map(name => ({ name }));
+ installToolDiscovery({ tools: { schemas: () => catalog, get() {}, register() {} },
+   systemPrompt: { section() {} }, on(_name, callback) { hook = callback; } },
+   { session: { requestHeader: () => undefined } });
+ const assemble = () => hook({}, {}, async () => ({ tools: catalog }));
+ assert.deepEqual((await assemble()).tools.map(t => t.name), ['read', 'write', 'edit', 'browser_control']);
+ catalog = catalog.filter(t => !['write', 'browser_control'].includes(t.name));
+ assert.deepEqual((await assemble()).tools.map(t => t.name), ['read', 'edit']);
 });
 
 test('legacy full-catalog headers are not restored as selected tools', async () => {
@@ -90,7 +167,7 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,0);assert.equal(initializations,1);
  const count=calls.length;
  const approvals=[];
- await driver.prompt(b.sessionId,'discover verification marker',{onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
+ await driver.prompt(b.sessionId,'discover verification marker',{onToolPolicy:()=>({kind:'ask'}),onPermission:async ({name})=>{approvals.push(name);return name==='search_mcp_tools';}});
  assert.ok(approvals.includes('search_mcp_tools'));
  assert.ok(approvals.includes('mcp__catalog__tool_137'));
  assert.equal(calls.length,count,'loading a tool must not bypass its execution permission');

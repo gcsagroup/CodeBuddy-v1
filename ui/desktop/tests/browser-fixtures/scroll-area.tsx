@@ -30,27 +30,60 @@ import 'react-toastify/dist/ReactToastify.css';
 import { toastService } from '../../src/toasts';
 import { showExtensionLoadResults } from '../../src/utils/extensionErrorUtils';
 
+function AutoFoldFixture() {
+  const area = useRef<ScrollAreaHandle>(null);
+  const [running, setRunning] = useState(true);
+  return (
+    <IntlTestWrapper>
+      <main style={{ padding: 24, width: 850 }}>
+        <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
+        <button onClick={() => setRunning(false)}>Finish run</button>
+        <ScrollArea ref={area} autoScroll style={{ height: 520 }}>
+          <div style={{ height: 900 }}>Earlier conversation</div>
+          {[0, 1, 2].map((id) => (
+            <ThinkingContent
+              key={id}
+              isExpanded={running}
+              content={Array.from({ length: 30 }, (_, n) => `Reasoning ${id}-${n}\n\n`).join('')}
+            />
+          ))}
+          <p>Final verified result</p>
+        </ScrollArea>
+      </main>
+    </IntlTestWrapper>
+  );
+}
+
 function Fixture() {
   const area = useRef<ScrollAreaHandle>(null);
   const [lines, setLines] = useState(0);
   const [following, setFollowing] = useState(true);
+  const [atBottom, setAtBottom] = useState(true);
+  const [height, setHeight] = useState(520);
   const [earlierHeight, setEarlierHeight] = useState(900);
   return (
     <main style={{ padding: 24, width: 850 }}>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 16, height: 60, alignItems: 'center', marginBottom: 12 }}>
         <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
         <button onClick={() => setLines((value) => value + 1)}>Append output</button>
         <button onClick={() => setLines((value) => value + 8)}>Append burst</button>
         <button onClick={() => setEarlierHeight((value) => value + 420)}>
           Grow earlier content
         </button>
+        <button onClick={() => setHeight((value) => (value === 520 ? 300 : 520))}>
+          Resize viewport
+        </button>
         <span role="status">{following ? 'Following output' : 'Reading history'}</span>
+        {!atBottom && (
+          <button onClick={() => area.current?.scrollToBottom()}>Return to latest</button>
+        )}
       </div>
       <ScrollArea
         ref={area}
         autoScroll
         onScrollChange={setFollowing}
-        style={{ height: 520, border: '1px solid gray' }}
+        onBottomChange={setAtBottom}
+        style={{ height, border: '1px solid gray' }}
       >
         <div style={{ padding: '0 24px' }}>
           <div style={{ height: earlierHeight }}>Earlier conversation</div>
@@ -320,6 +353,8 @@ function PresentationFixture({ subagent = false }: { subagent?: boolean }) {
           <ThinkingContent content="思考内容" isExpanded={false} />
           <ToolCallExpandable
             compact
+            groupHeading
+            scrollable={false}
             label="用时 1分钟 10秒"
             contentClassName="text-text-secondary"
           >
@@ -387,7 +422,9 @@ function ToastFixture() {
 
 const query = new URLSearchParams(window.location.search);
 createRoot(document.getElementById('root')!).render(
-  query.has('file-card') ? (
+  query.has('auto-fold') ? (
+    <AutoFoldFixture />
+  ) : query.has('file-card') ? (
     <FileCardFixture />
   ) : query.has('presentation') ? (
     <PresentationFixture subagent={query.has('subagent')} />

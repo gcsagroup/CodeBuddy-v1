@@ -87,12 +87,13 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
   const customProviders = useMemo(
     () =>
       providers.filter(
-        (provider) =>
-          provider.is_configured &&
-          provider.provider_type === 'Custom' &&
-          provider.category !== 'agent'
+        (provider) => provider.provider_type === 'Custom' && provider.category !== 'agent'
       ),
     [providers]
+  );
+  const configuredProviders = useMemo(
+    () => customProviders.filter((provider) => provider.is_configured),
+    [customProviders]
   );
 
   return (
@@ -154,7 +155,7 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
         </CardContent>
       </Card>
 
-      <SubagentTemplateSettings providers={customProviders} />
+      <SubagentTemplateSettings providers={configuredProviders} />
       <Button variant="outline" onClick={() => setVisionSettingsOpen(true)}>
         {intl.formatMessage(i18n.auxiliaryVision)}
       </Button>
@@ -168,9 +169,9 @@ export default function ModelsAndRuntimeSettings({ setView }: ModelsAndRuntimeSe
           }}
         />
       )}
-      <ModelImageCapabilitySettings providers={customProviders} />
+      <ModelImageCapabilitySettings providers={configuredProviders} />
       <ImageGenerationSettings />
-      <ModelContextSettings providers={customProviders} />
+      <ModelContextSettings providers={configuredProviders} />
     </div>
   );
 }

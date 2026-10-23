@@ -1,10 +1,20 @@
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
+import { createHash } from 'node:crypto';
 import { invalid } from "./providers.mjs";
 import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 import { builtinArtifacts, verifiedBinary } from './builtin-artifacts.mjs';
+import { playwrightCli } from './harness/playwright-entry.mjs';
 
 const builtins = {
+  playwright: {
+    artifact: 'playwright', args: ['--isolated', '--browser', process.platform === 'win32' ? 'msedge' : 'chrome'],
+    displayName: '浏览器控制 · 独立窗口', description: 'Microsoft Playwright MCP：在独立测试窗口中观察网页、交互及调试；使用已安装的 Edge（Windows）或 Chrome（Mac）。', tools: [],
+  },
+  playwright_user: {
+    artifact: 'playwright', args: ['--extension'],
+    displayName: '浏览器控制 · 用户浏览器', description: 'Microsoft Playwright MCP：连接用户选择的 Chrome/Edge 标签页。需先在浏览器安装官方 Playwright 扩展并确认连接。', tools: [],
+  },
   commonqueries: {
     artifact: 'tools',
     args: ["mcp", "commonqueries"],
@@ -71,6 +81,7 @@ export function builtinToolNames(name) {
 
 async function verifiedEntry(entry, platform = process.platform, arch = process.arch) {
   try {
+    if (entry.artifact === 'playwright' && ['win32', 'darwin'].includes(platform)) { await lstat(playwrightCli()); return process.execPath; }
     const artifacts = await builtinArtifacts(platform, arch);
     // Go dispatches to this fixed sibling helper. Validate both parts before
     // catalog availability or startup, not merely the MCP front-end executable.
@@ -207,13 +218,31 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
   let command;
   try { command = await verifiedEntry(entry); }
   catch (error) { throw invalid(error.message); }
+  const env = await toolEnvironment(dataDir, extension.name);
+  if (entry.artifact === 'playwright' && process.platform === 'darwin') {
+    // macOS Unix sockets are limited to 103 bytes. The isolated data directory
+    // can exceed that before Playwright adds its domain and socket filename.
+    const hash = createHash('sha256').update(await realpath(dataDir)).digest('hex').slice(0, 12);
+    const sockets = path.join('/private/tmp', `cb-pw-${process.getuid()}-${hash}`);
+    await mkdir(sockets, { mode: 0o700, recursive: true });
+    const metadata = await lstat(sockets);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink() || metadata.uid !== process.getuid() || (metadata.mode & 0o077))
+      throw invalid('Playwright socket directory must be private and owned by the current user');
+    env.PWTEST_SOCKETS_DIR = sockets;
+  }
+  if (extension.name === 'playwright_user') {
+    // The official extension discovers installed profiles. Do not redirect these
+    // lookup roots to the isolated tool home; no profile is copied or read here.
+    const profileKeys = new Set(['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'XDG_CONFIG_HOME']);
+    for (const key of Object.keys(env)) if (profileKeys.has(key.toUpperCase())) delete env[key];
+  }
   return {
     serverName: extension.name,
     transport: "stdio",
     command,
-    args: [...entry.args],
+    args: entry.artifact === 'playwright' ? [playwrightCli(), ...entry.args, '--output-dir', path.join(dataDir, 'tool-runtime', extension.name, 'cache'), '--output-max-size', '52428800'] : [...entry.args],
     cwd: directory,
-    env: await toolEnvironment(dataDir, extension.name),
+    env,
     toolCallTimeoutMs,
     failOnStartupError: true,
   };

@@ -12,7 +12,7 @@ export function modelThinkingPreference(profile, saved, legacy) {
   const level = legacy === 'none' ? 'off' : legacy;
   if (profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, level)) return legacy;
   return profile.reasoningEfforts && Object.hasOwn(profile.reasoningEfforts, profile.thinkingDefault)
-    ? profile.thinkingDefault : undefined;
+    ? profile.thinkingDefault === 'off' ? 'none' : profile.thinkingDefault : undefined;
 }
 
 export function modelThinkingOptions(profile, saved, legacy) {

@@ -12,13 +12,29 @@ export type ElicitationStatus = 'submitted' | 'cancelled';
 export function elicitationContent(
   request: AcpElicitationRequest
 ): ActionRequired & { type: 'actionRequired' } {
+  const schema = request.request.requestedSchema;
+  const fieldHints = request.request._meta?.['codepro.dev/questionFields'];
+  const properties = Object.fromEntries(
+    Object.entries(schema.properties ?? {}).map(([key, field]) => {
+      const hint =
+        fieldHints && typeof fieldHints === 'object' && !Array.isArray(fieldHints)
+          ? (fieldHints as Record<string, unknown>)[key]
+          : undefined;
+      return [
+        key,
+        hint && typeof hint === 'object' && !Array.isArray(hint)
+          ? { ...field, _meta: hint }
+          : field,
+      ];
+    })
+  );
   return {
     type: 'actionRequired',
     data: {
       actionType: 'elicitation',
       id: request.id,
       message: request.request.message,
-      requested_schema: request.request.requestedSchema,
+      requested_schema: { ...schema, properties },
     },
   };
 }

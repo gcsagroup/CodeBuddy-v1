@@ -1,0 +1,9 @@
+# 瀏覽器控制
+
+Windows 與 macOS 共用三種入口：右側內嵌頁面、Playwright MCP 獨立視窗、使用者選擇的 Chrome/Edge 分頁。
+
+開發工具中的 `browser_control` 可開啟 HTTP(S) 或工作區 HTML；HTML 檔案工具列也提供瀏覽器按鈕。頁面綁定目前對話。工具箱可啟用獨立視窗（Windows 使用已安裝的 Edge；Mac 使用 Chrome）或使用者瀏覽器。後者需按 [官方說明](https://github.com/microsoft/playwright-mcp/tree/main/extension)安裝 Playwright 擴充功能，並在瀏覽器確認分頁連線；應用程式不複製個人 profile。缺少擴充功能時需先完成設定。
+
+輸入 `/` 選擇工具；舊對話須經既有擴充載入入口載入 MCP。模型選擇工具，宿主不以自由文字關鍵字裁決。Playwright 導覽可能回傳快照檔連結，可呼叫 `browser_snapshot` 取得快照，再使用目前工具結構的 `target`。內嵌頁面使用觀察所得節點，拒絕點擊遮擋目標；導覽後舊節點失效。輸入只追加、不清空、不自動送出。派發不代表成功，結果不明時不要重送。
+
+驗收：建立姓名輸入框及驗證按鈕，開啟頁面、觀察、輸入「瀏覽器測試」、點擊並重新讀取實際結果；三種入口各自測試。HTML 預覽只服務同目錄網頁資源，屬本機臨時網址，關閉分頁或應用程式即失效。Playwright 輸出快取清理閾值為 50 MiB，隔離 profile 不保留登入狀態。Mac 原生結果須獨立驗證。

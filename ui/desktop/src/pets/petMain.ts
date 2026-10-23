@@ -1,11 +1,10 @@
-import { app, BrowserWindow, ipcMain, nativeImage, screen, systemPreferences } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen } from 'electron';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { loadPetAsset, type PetPixels } from './petLibrary';
 import {
   builtinPetIds,
-  defaultPetId,
   defaultPetPreferences,
   normalizePetPreferences,
   restorePetBounds,
@@ -13,6 +12,8 @@ import {
 } from './petPolicy';
 import type { PetAsset, PetPreferences, PetRequest, PetSnapshot, PetTask } from './petTypes';
 import log from '../utils/logger';
+import { parsePetMessage } from './petMessage';
+import { selectNativeText } from '../utils/nativeLocalization';
 
 const auxiliaryWindows = new Set<number>();
 export function applicationWindows() {
@@ -42,6 +43,9 @@ export async function registerDesktopPet(options: {
     query?: string;
     dir?: string;
     resumeSessionId?: string;
+    noAutoSubmit?: boolean;
+    images?: import('../types/message').ImageData[];
+    settings?: boolean;
   }) => Promise<unknown>;
 }) {
   const root = path.join(app.getPath('userData'), 'pets');
@@ -58,6 +62,7 @@ export async function registerDesktopPet(options: {
   let errors: string[] = [];
   let petWindow: BrowserWindow | null = null;
   let ignoresMouse = true;
+  let composing = false;
   let drag: {
     cursor: { x: number; y: number };
     x: number;
@@ -155,10 +160,10 @@ export async function registerDesktopPet(options: {
         errors.push(`${entry.name}: ${String(error)}`);
       }
     }
-    if (!pets.has(preferences.selectedId))
-      preferences.selectedId = pets.has(defaultPetId)
-        ? defaultPetId
-        : pets.keys().next().value || defaultPetId;
+    if (preferences.selectedId && !pets.has(preferences.selectedId)) {
+      errors.push(`Selected pet is unavailable: ${preferences.selectedId}`);
+      preferences = { ...preferences, selectedId: '', visible: false };
+    }
   };
   // Recover accepted packages even if a later source edit is corrupt or incomplete.
   const accepted = path.join(root, 'accepted');
@@ -225,6 +230,8 @@ export async function registerDesktopPet(options: {
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
+          // This non-focusable overlay must animate while another app is active.
+          backgroundThrottling: false,
         },
       });
       markAuxiliaryWindow(petWindow);
@@ -285,12 +292,12 @@ export async function registerDesktopPet(options: {
           });
         }
         const bounds = petWindow.getBounds();
+        // Electron screen/bounds are DIP; DOM hit testing uses zoomed CSS pixels.
+        const zoom = petWindow.webContents.getZoomFactor();
         petWindow.webContents.send('pet-cursor', {
-          x: cursor.x - bounds.x,
-          y: cursor.y - bounds.y,
-          reducedMotion:
-            preferences.reducedMotion ||
-            systemPreferences.getAnimationSettings().prefersReducedMotion,
+          x: (cursor.x - bounds.x) / zoom,
+          y: (cursor.y - bounds.y) / zoom,
+          reducedMotion: preferences.reducedMotion,
         });
       }, 100);
   }
@@ -315,12 +322,88 @@ export async function registerDesktopPet(options: {
       const fromPet = event.sender === petWindow?.webContents;
       if (
         fromPet &&
-        !['get', 'open-task', 'pause-task', 'drag-start', 'drag-end'].includes(request.action)
+        ![
+          'get',
+          'open-task',
+          'pause-task',
+          'drag-start',
+          'drag-end',
+          'compose',
+          'context-menu',
+          'send-message',
+        ].includes(request.action)
       )
         throw new Error('Pet window request denied');
       if (!fromPet && !applicationWindows().some((w) => w.webContents === event.sender))
         throw new Error('Unknown pet client');
       switch (request.action) {
+        case 'context-menu': {
+          if (!fromPet) throw new Error('Pet menu request denied');
+          const label = (en: string, cn: string, tw: string) =>
+            selectNativeText(app.getLocale(), en, cn, tw);
+          petWindow!.setFocusable(true);
+          const choice = await new Promise<'hide' | 'settings' | undefined>((resolve) => {
+            Menu.buildFromTemplate([
+              {
+                label: label('Pet settings', '宠物设置', '寵物設定'),
+                click: () => resolve('settings'),
+              },
+              { type: 'separator' },
+              { label: label('Hide pet', '隐藏宠物', '隱藏寵物'), click: () => resolve('hide') },
+            ]).popup({ window: petWindow!, callback: () => resolve(undefined) });
+          });
+          petWindow?.setFocusable(composing);
+          if (choice === 'hide') {
+            preferences = { ...preferences, visible: false };
+            save();
+            syncWindow();
+          } else if (choice === 'settings') {
+            const destination = applicationWindows()[0];
+            if (destination) {
+              if (destination.isMinimized()) destination.restore();
+              destination.show();
+              destination.focus();
+              destination.webContents.send('set-view', 'settings', 'pets');
+            } else await options.openChat({ settings: true });
+          }
+          restoreOverlayOrder();
+          break;
+        }
+        case 'compose':
+          if (!fromPet || typeof request.composing !== 'boolean')
+            throw new Error('Invalid pet composer request');
+          composing = request.composing;
+          petWindow!.setFocusable(composing);
+          if (request.composing) {
+            petWindow!.setIgnoreMouseEvents(false);
+            ignoresMouse = false;
+            petWindow!.focus();
+            petWindow!.webContents.focus();
+          }
+          restoreOverlayOrder();
+          break;
+        case 'send-message': {
+          if (!fromPet) throw new Error('Invalid pet message');
+          const message = parsePetMessage({ msg: request.message, images: request.images ?? [] });
+          const windows = applicationWindows();
+          const destination = windows.find((window) => window.isFocused()) ?? windows[0];
+          if (destination) {
+            if (destination.isMinimized()) destination.restore();
+            destination.show();
+            destination.focus();
+            destination.webContents.send('pet-send-message', message);
+          } else {
+            await options.openChat({
+              query: message.msg,
+              images: message.images,
+              noAutoSubmit: false,
+            });
+          }
+          composing = false;
+          petWindow!.setFocusable(false);
+          restoreOverlayOrder();
+          break;
+        }
         case 'get':
           return snapshot();
         case 'refresh':
@@ -330,8 +413,10 @@ export async function registerDesktopPet(options: {
           break;
         case 'configure': {
           const p = request.preferences;
-          if (!p || (p.selectedId !== undefined && !pets.has(p.selectedId)))
+          if (!p || (p.selectedId !== undefined && p.selectedId !== '' && !pets.has(p.selectedId)))
             throw new Error('Unknown pet');
+          if (p.visible === true && !pets.has(p.selectedId ?? preferences.selectedId))
+            throw new Error('Select a pet before showing it');
           preferences = normalizePetPreferences({
             ...preferences,
             ...p,
@@ -344,7 +429,25 @@ export async function registerDesktopPet(options: {
         case 'drag-start':
           if (fromPet && petWindow) {
             const b = petWindow.getBounds();
-            drag = { cursor: screen.getCursorScreenPoint(), ...b, moved: false };
+            const point = request.pointer;
+            const zoom = petWindow.webContents.getZoomFactor();
+            if (
+              point &&
+              (!Number.isFinite(point.x) ||
+                !Number.isFinite(point.y) ||
+                point.x < 0 ||
+                point.y < 0 ||
+                point.x * zoom > b.width ||
+                point.y * zoom > b.height)
+            ) {
+              throw new Error('Invalid pet pointer position');
+            }
+            // IPC can arrive after a fast gesture has already moved the cursor.
+            // Preserve the actual pointer-down position in window CSS coordinates.
+            const cursor = point
+              ? { x: b.x + point.x * zoom, y: b.y + point.y * zoom }
+              : screen.getCursorScreenPoint();
+            drag = { cursor, ...b, moved: false };
             restoreOverlayOrder();
           }
           break;
@@ -421,7 +524,7 @@ export async function registerDesktopPet(options: {
   });
   ipcMain.on('pet-hit-test', (event, opaque: unknown) => {
     if (event.sender === petWindow?.webContents && typeof opaque === 'boolean') {
-      const ignore = !opaque && !drag;
+      const ignore = !composing && !opaque && !drag;
       if (ignore !== ignoresMouse) {
         ignoresMouse = ignore;
         petWindow?.setIgnoreMouseEvents(ignore, { forward: true });

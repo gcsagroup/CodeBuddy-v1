@@ -7,6 +7,39 @@ import { useWorkStatus } from './useWorkStatus';
 afterEach(() => vi.useRealTimers());
 
 describe('specific live execution feedback', () => {
+  it('uses thinking only for observed model activity, not transport silence', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(100_000);
+    const base = { chatState: ChatState.Streaming, checking: false };
+    const { result, rerender } = renderHook((props) => useWorkStatus(props), {
+      initialProps: {
+        ...base,
+        activity: {
+          promptAttemptId: 'a',
+          sourceUserMessageId: 'u',
+          startedAt: 100_000,
+          receivedAt: 100_000,
+          kind: 'thought' as const,
+        },
+      },
+      wrapper: IntlTestWrapper,
+    });
+    expect(result.current.message).toBe('Thinking');
+    act(() => vi.advanceTimersByTime(4000));
+    expect(result.current.message).toMatch(/^Working on your request/);
+    rerender({
+      ...base,
+      chatState: ChatState.WaitingForUserInput,
+      activity: {
+        promptAttemptId: 'a',
+        sourceUserMessageId: 'u',
+        startedAt: 100_000,
+        receivedAt: Date.now(),
+        kind: 'thought' as const,
+      },
+    });
+    expect(result.current.message).toBe('Your input is needed');
+  });
   it('renders native reconnection feedback, while long waiting alone never becomes an error', () => {
     vi.useFakeTimers();
     const input = {
@@ -29,7 +62,7 @@ describe('specific live execution feedback', () => {
       wrapper: IntlTestWrapper,
     });
     act(() => vi.advanceTimersByTime(600000));
-    expect(result.current.message).toContain('waiting for the model service to respond');
+    expect(result.current.message).toContain('Working on your request');
     expect(result.current.message).not.toMatch(/reconnect|error|failed/i);
     rerender({
       ...input,
@@ -40,7 +73,7 @@ describe('specific live execution feedback', () => {
     });
     expect(result.current.message).toBe('连接发生错误；正在重新连接（1/5）');
     rerender(input);
-    expect(result.current.message).toContain('waiting for the model service to respond');
+    expect(result.current.message).toContain('Working on your request');
   });
   it('shows actual transport stages and keeps approval above transport waiting', () => {
     const input = {
@@ -62,11 +95,11 @@ describe('specific live execution feedback', () => {
       initialProps: input,
       wrapper: IntlTestWrapper,
     });
-    expect(result.current.message).toBe('Request sent; waiting for the model service to respond');
+    expect(result.current.message).toBe('Working on your request');
     rerender({ ...input, chatState: ChatState.WaitingForUserInput });
-    expect(result.current.message).toBe('Waiting for your answer or approval');
+    expect(result.current.message).toBe('Your input is needed');
   });
-  it('names the model being waited for instead of generic subsequent-output text', () => {
+  it('returns to processing after output pauses and resumes writing when text arrives', () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);
     const input = {
@@ -84,11 +117,11 @@ describe('specific live execution feedback', () => {
       initialProps: input,
       wrapper: IntlTestWrapper,
     });
-    expect(result.current.message).toBe('Receiving the response');
+    expect(result.current.message).toBe('Writing a response');
     act(() => vi.advanceTimersByTime(15_000));
-    expect(result.current.message).toMatch(/^Waiting for model response(?: \d+s)?$/);
+    expect(result.current.message).toMatch(/^Working on your request(?: \d+s)?$/);
     rerender({ ...input, activity: { ...input.activity, receivedAt: Date.now() } });
-    expect(result.current.message).toBe('Receiving the response');
+    expect(result.current.message).toBe('Writing a response');
     expect(result.current.source).toBe('text');
   });
 
@@ -109,7 +142,7 @@ describe('specific live execution feedback', () => {
     };
     const { result } = renderHook(() => useWorkStatus(input), { wrapper: IntlTestWrapper });
     act(() => vi.advanceTimersByTime(69_000));
-    expect(result.current.message).toBe('Waiting for 2 subagents to return results 69s');
+    expect(result.current.message).toBe('2 assistants are working 69s');
     expect(result.current.source).toBe('children');
   });
 
@@ -128,7 +161,7 @@ describe('specific live execution feedback', () => {
         }),
       { wrapper: IntlTestWrapper }
     );
-    expect(result.current.message).toBe('Waiting for the main agent to process subagent results');
+    expect(result.current.message).toBe('Bringing the results together');
   });
 
   it('keeps a real pending tool visible instead of inventing model or completion status', () => {
@@ -157,8 +190,8 @@ describe('specific live execution feedback', () => {
       wrapper: IntlTestWrapper,
     });
     act(() => vi.advanceTimersByTime(20_000));
-    expect(result.current.message).toContain('Stopping; waiting for confirmation');
+    expect(result.current.message).toContain('Stopping the current operation');
     rerender({ chatState: ChatState.WaitingForUserInput, checking: false, cancelling: false });
-    expect(result.current.message).toBe('Waiting for your answer or approval');
+    expect(result.current.message).toBe('Your input is needed');
   });
 });

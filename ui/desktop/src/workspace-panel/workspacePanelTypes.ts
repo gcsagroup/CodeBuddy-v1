@@ -1,3 +1,4 @@
+import type { BrowserControlInput } from './browserControl';
 export interface PanelScope {
   sessionId: string;
   root: string;
@@ -36,6 +37,7 @@ export interface PanelBrowserState {
   error?: string;
 }
 export type PanelRequest = { scope: PanelScope } & (
+  | ({ action: 'browser-control' } & BrowserControlInput)
   | { action: 'list'; path: string }
   | { action: 'search'; query: string }
   | { action: 'read'; path: string }
@@ -59,6 +61,7 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'browser-close'; id: string }
 );
 export interface PanelReply {
+  result?: Record<string, unknown>;
   entries?: PanelEntry[];
   truncated?: boolean;
   document?: PanelDocument;

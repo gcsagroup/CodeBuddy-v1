@@ -24,6 +24,7 @@ import {
   TerminalSquare,
   Bot,
   X,
+  Target,
 } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
@@ -35,6 +36,7 @@ import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
+import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
 import { WorkspaceTerminal } from './WorkspaceTerminal';
 import { WorkspaceSubagent } from './WorkspaceSubagent';
 import {
@@ -71,6 +73,9 @@ import {
 import { WorkspaceCodePreview } from './WorkspaceCodePreview';
 import { WorkspaceGeneration, useMediaJobs, mediaText } from './WorkspaceGeneration';
 import './workspacePanel.css';
+import { OPEN_GOAL_EDITOR } from './goalPanel';
+import { getSessionGoal } from '../acp/goals';
+import { WorkspaceGoalEditor, goalEditorMessages } from './WorkspaceGoalEditor';
 const openedMediaJobs = new Set<string>();
 
 export const WORKSPACE_PANEL_GAP = 0;
@@ -241,6 +246,8 @@ export function WorkspacePanelContent({
   const intl = useIntl(),
     key = scopeKey(scope);
   const changeSource = useConversationChangeMessages(scope.sessionId, messages);
+  const expandPanel = useRef(onExpandedChange);
+  expandPanel.current = onExpandedChange;
   const reducedMotion = useReducedMotion();
   const [contentMounted, setContentMounted] = useState(expanded);
   useEffect(() => {
@@ -331,6 +338,78 @@ export function WorkspacePanelContent({
       ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [state.active]);
   const available = !!scope.root && !!scope.sessionId;
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (
+        detail?.scope?.sessionId !== scope.sessionId ||
+        detail?.scope?.root !== scope.root ||
+        typeof detail.id !== 'string'
+      )
+        return;
+      update((s) =>
+        detail.closed
+          ? {
+              tabs: s.tabs.filter((t) => t.id !== detail.id),
+              active: s.active === detail.id ? 'start' : s.active,
+            }
+          : {
+              tabs: s.tabs.some((t) => t.id === detail.id)
+                ? s.tabs
+                : [
+                    ...s.tabs,
+                    { id: detail.id, kind: 'browser', title: intl.formatMessage(m.browser) },
+                  ],
+              active: detail.id,
+            }
+      );
+      if (!detail.closed) onExpandedChange(true);
+    };
+    window.addEventListener(BROWSER_TAB_EVENT, changed);
+    return () => window.removeEventListener(BROWSER_TAB_EVENT, changed);
+  }, [scope, update, intl, onExpandedChange]);
+  useEffect(() => {
+    let disposed = false;
+    const open = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId !== scope.sessionId)
+        return;
+      const id = 'goal-editor';
+      expandPanel.current(true);
+      if (latest.current.tabs.some((tab) => tab.id === id)) {
+        update((s) => ({ ...s, active: id }));
+        return;
+      }
+      void getSessionGoal(scope.sessionId)
+        .then((goal) => {
+          if (disposed || !alive.current) return;
+          if (!goal) {
+            setError(intl.formatMessage(goalEditorMessages.missing));
+            return;
+          }
+          update((s) => ({
+            tabs: s.tabs.some((tab) => tab.id === id)
+              ? s.tabs
+              : [
+                  ...s.tabs,
+                  {
+                    id,
+                    kind: 'goal',
+                    title: intl.formatMessage(goalEditorMessages.title),
+                    goal,
+                    draft: goal.objective,
+                  },
+                ],
+            active: id,
+          }));
+        })
+        .catch(fail);
+    };
+    window.addEventListener(OPEN_GOAL_EDITOR, open);
+    return () => {
+      disposed = true;
+      window.removeEventListener(OPEN_GOAL_EDITOR, open);
+    };
+  }, [scope.sessionId, update, intl, fail]);
   useEffect(() => {
     const open = (event: Event) => {
       const target = (event as CustomEvent<SubagentConversationTarget>).detail;
@@ -674,8 +753,8 @@ export function WorkspacePanelContent({
   }, [activate, add, save, onExpandedChange]);
   const close = async (tab: WorkbenchTab) => {
     if (
-      tab.kind === 'file' &&
-      tab.draft !== tab.document.content &&
+      ((tab.kind === 'file' && tab.draft !== tab.document.content) ||
+        (tab.kind === 'goal' && tab.draft !== tab.goal.objective)) &&
       !(await confirm(intl.formatMessage(m.discard)))
     )
       return;
@@ -861,7 +940,9 @@ export function WorkspacePanelContent({
                 title={t.kind === 'file' ? t.document.path : t.title}
                 onClick={() => activate(t.id)}
               >
-                {t.kind === 'change' ? (
+                {t.kind === 'goal' ? (
+                  <Target size={13} />
+                ) : t.kind === 'change' ? (
                   <FileDiff size={13} />
                 ) : t.kind === 'file' || t.kind === 'file-info' ? (
                   <FileCode2 size={13} />
@@ -874,6 +955,7 @@ export function WorkspacePanelContent({
                 )}
                 <span className="truncate">{t.title}</span>
                 {t.kind === 'file' && t.draft !== t.document.content ? ' ●' : ''}
+                {t.kind === 'goal' && t.draft !== t.goal.objective ? ' ●' : ''}
               </button>
               <button
                 className="wb-tab-close"
@@ -929,7 +1011,8 @@ export function WorkspacePanelContent({
           messages={messages}
           selection={selected?.kind === 'change' ? selected : undefined}
         />
-      ) : (!available && selected?.kind !== 'subagent') || state.active === 'start' ? (
+      ) : (!available && selected?.kind !== 'subagent' && selected?.kind !== 'goal') ||
+        state.active === 'start' ? (
         <div className="wb-start">
           <div className="mb-6 rounded-full border-2 border-border-primary p-3 text-text-secondary opacity-40">
             <Globe size={28} />
@@ -1084,6 +1167,24 @@ export function WorkspacePanelContent({
                 <span className="min-w-0 flex-1 truncate" title={selected.document.path}>
                   {scope.root.replace(/[\\/]$/, '')}/{selected.document.path}
                 </span>
+                {/\.html?$/i.test(selected.document.path) && (
+                  <button
+                    className="wb-icon"
+                    title={intl.formatMessage(m.browser)}
+                    aria-label={intl.formatMessage(m.browser)}
+                    disabled={busy || selected.draft !== selected.document.content}
+                    onClick={() =>
+                      void controlWorkspaceBrowser({
+                        scope,
+                        action: 'browser-control',
+                        operation: 'open',
+                        htmlPath: selected.document.path,
+                      }).catch(fail)
+                    }
+                  >
+                    <Globe size={15} />
+                  </button>
+                )}
                 <button
                   className="wb-icon"
                   title={intl.formatMessage(m.reload)}
@@ -1186,6 +1287,38 @@ export function WorkspacePanelContent({
                 </span>
               </footer>
             </section>
+          ) : selected?.kind === 'goal' ? (
+            <WorkspaceGoalEditor
+              key={selected.id}
+              sessionId={scope.sessionId}
+              goal={selected.goal}
+              draft={selected.draft}
+              onDraftChange={(draft) =>
+                update((s) => ({
+                  ...s,
+                  tabs: s.tabs.map((t) =>
+                    t.id === selected.id && t.kind === 'goal' ? { ...t, draft } : t
+                  ),
+                }))
+              }
+              onGoalChange={(goal, submittedDraft) =>
+                update((s) => ({
+                  ...s,
+                  tabs: s.tabs.map((t) =>
+                    t.id === selected.id && t.kind === 'goal'
+                      ? {
+                          ...t,
+                          goal,
+                          draft:
+                            submittedDraft !== undefined && t.draft === submittedDraft
+                              ? goal.objective
+                              : t.draft,
+                        }
+                      : t
+                  ),
+                }))
+              }
+            />
           ) : selected?.kind === 'subagent' ? (
             <WorkspaceSubagent
               key={selected.id}

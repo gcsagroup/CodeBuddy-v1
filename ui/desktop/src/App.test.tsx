@@ -13,7 +13,14 @@ import { reconnectAcpAfterSystemResume } from './acp/acpConnection';
 import { acpReadDefaults } from './acp/providers';
 import { createSession } from './sessions';
 
-vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+);
 
 // Set up globals for jsdom
 Object.defineProperty(window, 'location', {
@@ -563,6 +570,42 @@ describe('App Component - Brand New State', () => {
         initialMessage: { msg: '宠物形象：\n名字：', images: [] },
         noAutoSubmit: true,
       },
+    });
+  });
+
+  it('keeps image-only input when a new main window delivers its pending message', async () => {
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(
+      ([channel]) => channel === 'set-initial-message'
+    )?.[1];
+    const images = [{ mimeType: 'image/jpeg', data: 'eA==' }];
+    await handler({}, '', { images, noAutoSubmit: false });
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+      state: { initialMessage: { msg: '', images }, noAutoSubmit: false },
+    });
+  });
+
+  it('starts pet messages as fresh chats without inheriting a project or a previous draft', async () => {
+    mockLocationState = { workingDir: 'D:/previous', draftOnly: true };
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(
+      ([channel]) => channel === 'pet-send-message'
+    )?.[1];
+    mockNavigate.mockClear();
+    handler({}, ' 新任务🙂 ');
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+      state: { initialMessage: { msg: '新任务🙂', images: [] }, noAutoSubmit: false },
+    });
+    mockNavigate.mockClear();
+    handler({}, '  ');
+    handler({}, 'x'.repeat(8001));
+    expect(mockNavigate).not.toHaveBeenCalled();
+    const image = { data: 'eA==', mimeType: 'image/png' };
+    handler({}, { msg: '', images: [image] });
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+      state: { initialMessage: { msg: '', images: [image] }, noAutoSubmit: false },
     });
   });
 

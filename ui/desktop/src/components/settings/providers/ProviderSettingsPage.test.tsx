@@ -60,6 +60,6 @@ describe('ProviderSettingsPage', () => {
       expect(screen.getByTestId('provider-grid')).toHaveTextContent('saved-local')
     );
     expect(screen.getByTestId('provider-grid')).not.toHaveTextContent('amazon_bedrock');
-    expect(screen.getByTestId('provider-grid')).not.toHaveTextContent('unfinished-custom');
+    expect(screen.getByTestId('provider-grid')).toHaveTextContent('unfinished-custom');
   });
 });

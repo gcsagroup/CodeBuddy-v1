@@ -11,7 +11,7 @@ import {
   Search,
   Wrench,
 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { loadToolbox, type ToolboxLoadResult } from '../../acp/toolbox';
 import { testConfigExtension } from '../../acp/extensions';
 import { getInitialWorkingDir } from '../../utils/workingDir';
@@ -62,6 +62,20 @@ const i18n = defineMessages({
   all: { id: 'toolbox.sectionAll', defaultMessage: 'All' },
   capabilities: { id: 'toolbox.sectionCapabilities', defaultMessage: 'Built-in capabilities' },
   methods: { id: 'toolbox.sectionMethods', defaultMessage: 'Skills' },
+  capabilitiesHelp: {
+    id: 'toolbox.capabilitiesHelp',
+    defaultMessage: 'Tools that perform actions, such as desktop control and local Git operations.',
+  },
+  methodsHelp: {
+    id: 'toolbox.methodsHelp',
+    defaultMessage:
+      'Guides the model loads to use tools. A skill does not enable its underlying tools.',
+  },
+  externalHelp: {
+    id: 'toolbox.externalHelp',
+    defaultMessage:
+      'Connections to external services, such as GitHub repositories, issues and pull requests.',
+  },
   apps: { id: 'toolbox.sectionApps', defaultMessage: 'My mini tools' },
   external: { id: 'toolbox.sectionExternal', defaultMessage: 'External MCP' },
   addSkill: { id: 'toolbox.addSkill', defaultMessage: 'Add skill' },
@@ -186,7 +200,7 @@ function ItemCard({
   const toggleable = item.actions.includes(enabled ? 'disable' : 'enable');
   return (
     <Card className="group overflow-hidden border-border-secondary bg-background-primary py-0 shadow-none transition-colors hover:border-border-primary hover:bg-background-secondary">
-      <div className="flex min-h-32 items-stretch">
+      <div className="flex min-h-28 items-stretch">
         <button
           type="button"
           aria-label={item.name}
@@ -358,6 +372,13 @@ export default function ToolboxView() {
   const intl = useIntl();
   const { extensionsList, setExtensionEnabled } = useConfig();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const projectDir =
+    typeof location.state?.toolboxProjectDir === 'string'
+      ? location.state.toolboxProjectDir
+      : getInitialWorkingDir();
+  const requestedItem = searchParams.get('item');
+  const openedItem = useRef<string | undefined>(undefined);
   const requestedSection = searchParams.get('section');
   const selectedSection: VisibleToolboxSection = isToolboxSection(requestedSection)
     ? requestedSection
@@ -379,7 +400,7 @@ export default function ToolboxView() {
   const refresh = useCallback(async () => {
     const version = ++refreshVersion.current;
     try {
-      const next = await loadToolbox(getInitialWorkingDir());
+      const next = await loadToolbox(projectDir);
       if (version === refreshVersion.current) {
         setResult(next);
         if (!next.errors.methods) {
@@ -403,7 +424,7 @@ export default function ToolboxView() {
     } finally {
       if (version === refreshVersion.current) setLoading(false);
     }
-  }, []);
+  }, [projectDir]);
 
   useEffect(() => {
     void refresh();
@@ -459,6 +480,22 @@ export default function ToolboxView() {
       setControlledMcpKey(item.reference?.value ?? item.name);
     }
   };
+  useEffect(() => {
+    if (!requestedItem || loading || openedItem.current === requestedItem) return;
+    const item = [
+      ...result.model.capabilities,
+      ...result.model.methods,
+      ...result.model.external,
+    ].find((entry) => entry.id === requestedItem);
+    if (!item) return;
+    openedItem.current = requestedItem;
+    if (item.kind === 'builtin') setSelectedBuiltIn(localizeToolboxItem(item, intl));
+    else if (item.kind === 'external') setControlledMcpKey(item.reference?.value ?? item.name);
+    else {
+      const skill = managedSkillFor(item);
+      if (skill) setSkillRequest({ type: 'detail', skill });
+    }
+  }, [requestedItem, loading, result.model, intl]);
 
   const toggleItem = async (item: ToolboxItem) => {
     if (item.locked || togglingId) return;
@@ -628,7 +665,32 @@ export default function ToolboxView() {
           {loading ? (
             <p className="text-sm text-text-secondary">{intl.formatMessage(i18n.loading)}</p>
           ) : items.length > 0 ? (
-            selectedSection === 'methods' ? (
+            selectedSection === 'all' ? (
+              <div className="space-y-7">
+                {(['capabilities', 'methods', 'external'] as const).map((section) => {
+                  const kind = { capabilities: 'builtin', methods: 'skill', external: 'external' }[
+                    section
+                  ];
+                  const entries = items.filter((item) => item.kind === kind);
+                  return (
+                    entries.length > 0 && (
+                      <section key={section} aria-label={intl.formatMessage(i18n[section])}>
+                        <div className="mb-1 flex items-center gap-2">
+                          <h2 className="text-sm font-medium">
+                            {intl.formatMessage(i18n[section])}
+                          </h2>
+                          <span className="text-xs text-text-muted">{entries.length}</span>
+                        </div>
+                        <p className="mb-3 text-xs leading-5 text-text-secondary">
+                          {intl.formatMessage(i18n[`${section}Help`])}
+                        </p>
+                        {renderCardGrid(entries)}
+                      </section>
+                    )
+                  );
+                })}
+              </div>
+            ) : selectedSection === 'methods' ? (
               <div className="space-y-8">
                 {builtInSkills.length > 0 && (
                   <section>

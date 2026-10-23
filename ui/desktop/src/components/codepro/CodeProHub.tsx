@@ -1,4 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createNextChatExtensionDraft,
+  type NextChatExtensionDraft,
+} from '../../utils/nextChatExtensions';
 import { useNavigate } from 'react-router-dom';
 import { Bot, ListChecks, ShieldCheck } from 'lucide-react';
 import ChatInput from '../ChatInput';
@@ -115,6 +119,10 @@ const i18n = defineMessages({
     id: 'codeProHub.retryWorkspaceSetup',
     defaultMessage: 'Retry workspace setup',
   },
+  goalPlaceholder: {
+    id: 'codeProHub.goalPlaceholder',
+    defaultMessage: 'Describe your task, or type / to see commands…',
+  },
 });
 
 const setupMessages: Record<CodeProSetupMessageKey, MessageDescriptor> = {
@@ -133,9 +141,22 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const setView = useNavigation();
   const { extensionsList } = useConfig();
   const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
+  const [extensionDraft, setExtensionDraft] = useState<NextChatExtensionDraft>();
+  const draftForMenu = extensionDraft ?? createNextChatExtensionDraft(extensionsList);
+  const sessionExtensions = useMemo(
+    () =>
+      extensionDraft
+        ? extensionsList.map((extension) => ({
+            ...extension,
+            enabled: extensionDraft.selectedNames.has(extension.name),
+          }))
+        : extensionsList,
+    [extensionsList, extensionDraft]
+  );
   // Keep an explicit folder choice separate from the host process directory and prior chats.
   // When absent, the host allocates a fresh workspace for this conversation.
   const [workingDir, setWorkingDir] = useState(launchIntent?.workingDir ?? '');
+  const [permissionOpenRequest, setPermissionOpenRequest] = useState(0);
   const [rootContainer, setRootContainer] = useState<string | null>(null);
   const [isInspecting, setIsInspecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -244,10 +265,8 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
     void inspectAndStage(launchIntent).catch(() => {});
   }, [inspectAndStage, launchIntent]);
 
-  const handleSubmit = async (
-    { msg, images }: UserInput,
-    lifecycle?: MessageSubmissionLifecycle
-  ) => {
+  const handleSubmit = async (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+    const { msg, images } = input;
     if (
       isCreating ||
       inspectingRef.current ||
@@ -258,7 +277,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       return;
     }
     submissionLifecycleRef.current = lifecycle;
-    await inspectAndStage({ initialMessage: { msg, images } });
+    await inspectAndStage({ initialMessage: input });
   };
 
   const handleWorkspaceConfirm = useCallback(
@@ -269,7 +288,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         setSetupError(null);
         try {
           const session = await createSession(candidate.normalizedPath, {
-            allExtensions: extensionsList,
+            allExtensions: sessionExtensions,
             workspaceMode: 'codepro',
             workspaceBinding: 'root_container',
             rootContainerPath: candidate.normalizedPath,
@@ -298,7 +317,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         const { session } = await startCodeProSession({
           candidate,
           initialMessage: pending.intent.initialMessage ?? { msg: '', images: [] },
-          allExtensions: extensionsList,
+          allExtensions: sessionExtensions,
           recipeDeeplink: pending.intent.recipeDeeplink,
           recipeId: pending.intent.recipeId,
           ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
@@ -324,7 +343,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         setIsCreating(false);
       }
     },
-    [extensionsList, initialPermissionPreset, isCreating, openSession]
+    [sessionExtensions, initialPermissionPreset, isCreating, openSession]
   );
 
   useEffect(() => {
@@ -346,10 +365,10 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
 
   return (
     <main
-      className="flex h-full min-h-0 items-center justify-center px-6"
+      className="flex h-full min-h-0 overflow-y-auto px-4 py-6 sm:px-6"
       aria-labelledby="codepro-title"
     >
-      <div className="w-full max-w-2xl">
+      <div className="m-auto w-full min-w-0 max-w-2xl">
         <div className="mb-7">
           <p className="mb-2 text-sm font-medium text-text-secondary">
             {intl.formatMessage(i18n.eyebrow)}
@@ -398,8 +417,11 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
               }}
             >
               <ChatInput
+                onOpenPermissions={() => setPermissionOpenRequest((value) => value + 1)}
+                placeholder={intl.formatMessage(i18n.goalPlaceholder)}
                 modelToolbarSlot={
                   <PermissionPicker
+                    openRequest={permissionOpenRequest}
                     inline
                     draft
                     mode={initialPermissionPreset}
@@ -409,6 +431,8 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
                 }
                 sessionId={null}
                 handleSubmit={handleSubmit}
+                nextChatExtensionDraft={draftForMenu}
+                onNextChatExtensionDraftChange={setExtensionDraft}
                 chatState={ChatState.Idle}
                 onStop={() => {}}
                 initialValue={draftMessage}

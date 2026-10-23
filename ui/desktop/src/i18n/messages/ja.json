@@ -98,14 +98,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "認証情報を削除"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "認証情報を削除しました"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "{provider} の {name} 認証情報を削除しますか？"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "認証情報を削除"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "認証情報を削除しました"
   },
   "authSettings.description": {
     "defaultMessage": "CodeBuddyがローカルに保存したプロバイダー認証情報を管理します。"
@@ -131,11 +131,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "再認証"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "認証情報を設定しました"
-  },
   "authSettings.signIn": {
     "defaultMessage": "サインイン"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "認証情報を設定しました"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "プロバイダーキャッシュ"
@@ -164,11 +164,11 @@
   "baseChat.goHome": {
     "defaultMessage": "ホームへ"
   },
-  "baseChat.latest": {
-    "defaultMessage": "Back to latest"
-  },
   "baseChat.lastStage": {
     "defaultMessage": "Last update: {stage}"
+  },
+  "baseChat.latest": {
+    "defaultMessage": "Back to latest"
   },
   "baseChat.readonlyHistory": {
     "defaultMessage": "Imported history is read-only. Start a new task to continue working."
@@ -179,12 +179,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "接続が失われました。再接続しています…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "新しいチャットの拡張機能"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "このチャットセッションの拡張機能"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "拡張機能を更新しました"
   },
@@ -193,6 +187,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} は新しいチャットで有効になります"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "新しいチャットの拡張機能"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "このチャットセッションの拡張機能"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "拡張機能を管理"
@@ -268,6 +268,9 @@
   },
   "chatInput.processingDroppedFiles": {
     "defaultMessage": "ドロップしたファイルを処理中..."
+  },
+  "chatInput.queueMessage": {
+    "defaultMessage": "Queue message"
   },
   "chatInput.recording": {
     "defaultMessage": "録音中..."
@@ -734,6 +737,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -748,12 +757,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -812,14 +815,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -850,6 +853,9 @@
   },
   "codeProHub.eyebrow": {
     "defaultMessage": "Multi-Agent development workspace"
+  },
+  "codeProHub.goalPlaceholder": {
+    "defaultMessage": "Describe your task, expected result, and how to check it…"
   },
   "codeProHub.leaseBackedStartFailed": {
     "defaultMessage": "選択したワークスペースで CodePro を開始できません。"
@@ -976,6 +982,9 @@
   },
   "codeProModels.saveError": {
     "defaultMessage": "Failed to save. Try again later."
+  },
+  "codeProModels.saveVision": {
+    "defaultMessage": "Save vision settings"
   },
   "codeProModels.saving": {
     "defaultMessage": "Saving…"
@@ -1481,6 +1490,201 @@
   "commonQueries.units": {
     "defaultMessage": "Temperature unit"
   },
+  "composerCommands.active": {
+    "defaultMessage": "Active"
+  },
+  "composerCommands.blocked": {
+    "defaultMessage": "Needs attention"
+  },
+  "composerCommands.busy": {
+    "defaultMessage": "Wait for the current turn to finish, or pause the goal first."
+  },
+  "composerCommands.cancelMode": {
+    "defaultMessage": "Cancel command input"
+  },
+  "composerCommands.cannotResume": {
+    "defaultMessage": "This goal is complete or has reached its continuation limit. Review its results before starting a new goal."
+  },
+  "composerCommands.cleared": {
+    "defaultMessage": "Goal cleared. Conversation and project files are retained."
+  },
+  "composerCommands.compact": {
+    "defaultMessage": "Compact context"
+  },
+  "composerCommands.compactHint": {
+    "defaultMessage": "Summarize the current conversation context"
+  },
+  "composerCommands.complete": {
+    "defaultMessage": "Marked complete; review the results"
+  },
+  "composerCommands.disabledSkill": {
+    "defaultMessage": "This skill is disabled. Enable it in Toolbox before using it."
+  },
+  "composerCommands.disarmed": {
+    "defaultMessage": "Ready to resume"
+  },
+  "composerCommands.editPrefix": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerCommands.editUsage": {
+    "defaultMessage": "Type /goal edit followed by the revised objective."
+  },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
+  "composerCommands.export": {
+    "defaultMessage": "Export conversation"
+  },
+  "composerCommands.exportHint": {
+    "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
+  },
+  "composerCommands.failure": {
+    "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
+  },
+  "composerCommands.file": {
+    "defaultMessage": "File"
+  },
+  "composerCommands.fileHint": {
+    "defaultMessage": "Attach a file to this message"
+  },
+  "composerCommands.goal": {
+    "defaultMessage": "Long-term goal"
+  },
+  "composerCommands.goalHint": {
+    "defaultMessage": "Describe a goal to continue across rounds"
+  },
+  "composerCommands.goalPlaceholder": {
+    "defaultMessage": "Describe your goal; the agent will keep working toward it"
+  },
+  "composerCommands.goalPrefix": {
+    "defaultMessage": "Goal"
+  },
+  "composerCommands.goalUsage": {
+    "defaultMessage": "Type /goal followed by your objective and acceptance criteria. Automatic continuation is limited to 20 rounds and uses model credits."
+  },
+  "composerCommands.loadingTool": {
+    "defaultMessage": "Connecting the selected tool…"
+  },
+  "composerCommands.messagePlaceholder": {
+    "defaultMessage": "Send a message, / for commands, @ for files"
+  },
+  "composerCommands.model": {
+    "defaultMessage": "Model"
+  },
+  "composerCommands.modelHint": {
+    "defaultMessage": "Select the model for this conversation"
+  },
+  "composerCommands.noGoal": {
+    "defaultMessage": "This conversation has no saved goal. Use /goal followed by your objective."
+  },
+  "composerCommands.noSession": {
+    "defaultMessage": "Open a conversation to use this command."
+  },
+  "composerCommands.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
+  "composerCommands.paused": {
+    "defaultMessage": "Goal paused. Use /goal resume to continue."
+  },
+  "composerCommands.pausedState": {
+    "defaultMessage": "Paused"
+  },
+  "composerCommands.permission": {
+    "defaultMessage": "Permissions"
+  },
+  "composerCommands.permissionHint": {
+    "defaultMessage": "Choose how actions are approved"
+  },
+  "composerCommands.plan": {
+    "defaultMessage": "Plan"
+  },
+  "composerCommands.planHint": {
+    "defaultMessage": "Research and review a plan before implementation"
+  },
+  "composerCommands.planOff": {
+    "defaultMessage": "Leave plan mode"
+  },
+  "composerCommands.planOffDone": {
+    "defaultMessage": "Normal collaboration selected."
+  },
+  "composerCommands.planOffHint": {
+    "defaultMessage": "Return to normal collaboration; keep the approval setting"
+  },
+  "composerCommands.planOn": {
+    "defaultMessage": "Plan mode selected. Describe the task in the input below."
+  },
+  "composerCommands.planPlaceholder": {
+    "defaultMessage": "Describe the task to plan before implementation"
+  },
+  "composerCommands.planUsage": {
+    "defaultMessage": "Type /plan followed by the task you want to plan."
+  },
+  "composerCommands.queued": {
+    "defaultMessage": "The mode change will apply at the next model step."
+  },
+  "composerCommands.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerCommands.resumeHint": {
+    "defaultMessage": "Continue the saved goal from its current progress"
+  },
+  "composerCommands.resumePrompt": {
+    "defaultMessage": "Continue the saved long-term goal from its current progress. Verify remaining work without repeating completed external actions."
+  },
+  "composerCommands.status": {
+    "defaultMessage": "View goal"
+  },
+  "composerCommands.statusHint": {
+    "defaultMessage": "Show the saved objective, state and continuation limit"
+  },
+  "composerCommands.statusText": {
+    "defaultMessage": "{objective} {state} · {used}/{limit} continuation rounds"
+  },
+  "composerCommands.toolLoadFailed": {
+    "defaultMessage": "The tool could not be loaded. Your draft is preserved; check its configuration and try again."
+  },
+  "composerCommands.useSkill": {
+    "defaultMessage": "Use the {name} skill to:"
+  },
+  "composerCommands.useTool": {
+    "defaultMessage": "Use {name} to:"
+  },
+  "composerGoalBar.active": {
+    "defaultMessage": "Active goal"
+  },
+  "composerGoalBar.blocked": {
+    "defaultMessage": "Goal needs attention"
+  },
+  "composerGoalBar.clear": {
+    "defaultMessage": "Clear goal; keep conversation and files"
+  },
+  "composerGoalBar.details": {
+    "defaultMessage": "View goal details"
+  },
+  "composerGoalBar.edit": {
+    "defaultMessage": "Edit goal"
+  },
+  "composerGoalBar.idle": {
+    "defaultMessage": "Goal ready to resume"
+  },
+  "composerGoalBar.pause": {
+    "defaultMessage": "Pause goal"
+  },
+  "composerGoalBar.paused": {
+    "defaultMessage": "Paused goal"
+  },
+  "composerGoalBar.resume": {
+    "defaultMessage": "Resume goal"
+  },
+  "composerGoalBar.unavailable": {
+    "defaultMessage": "Goal state is unavailable. Use /goal status to retry."
+  },
   "configureApproveMode.cancel": {
     "defaultMessage": "キャンセル"
   },
@@ -1520,14 +1724,29 @@
   "conversation.turnCompleted": {
     "defaultMessage": "Completed · {count} operations"
   },
+  "conversation.turnDuration": {
+    "defaultMessage": "Time spent {minutes} min {seconds} sec"
+  },
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
+  "conversationFiles.combinedFiles": {
+    "defaultMessage": "このターンのファイル（{count}）"
+  },
+  "conversationFiles.diffUnavailable": {
+    "defaultMessage": "Historical diff unavailable for some operations"
+  },
   "conversationFiles.files": {
     "defaultMessage": "Files written in this conversation · {count}"
+  },
+  "conversationFiles.moreFiles": {
+    "defaultMessage": "Show {count} more files"
+  },
+  "conversationFiles.viewChanges": {
+    "defaultMessage": "View changes"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "会話制限"
@@ -1868,11 +2087,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "添付ファイル"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "認証"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "OllamaのようなローカルLLMは通常APIキーを必要としません。"
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "認証"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "利用可能なモデル（カンマ区切り）"
@@ -1967,11 +2186,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -1988,6 +2207,9 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
     "defaultMessage": "Models loaded. The selected model will be verified when you save."
   },
@@ -1996,9 +2218,6 @@
   },
   "customProviderForm.modelsRequired": {
     "defaultMessage": "少なくとも1つのモデルが必要です"
-  },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
   },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
@@ -2216,6 +2435,9 @@
   "elicitationRequest.expired": {
     "defaultMessage": "このリクエストは期限切れです。拡張機能が再度確認する必要があります。"
   },
+  "elicitationRequest.planReview": {
+    "defaultMessage": "Review plan"
+  },
   "elicitationRequest.question": {
     "defaultMessage": "質問"
   },
@@ -2237,20 +2459,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "あなたの応答を待っています（残り{timeRemaining}）"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "開発"
-  },
   "envVarsSection.add": {
     "defaultMessage": "追加"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "変数名と値の両方を入力してください"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "環境変数"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "環境変数のキーと値のペアを追加します。両方のフィールドを入力後、「+」ボタンをクリックして追加してください。既存のシークレット値を変更するには、編集ボタンをクリックしてください。"
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "環境変数"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "変数名にスペースは使用できません"
@@ -2260,6 +2479,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "変数名"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "開発"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "エラーが発生しました。"
@@ -2441,11 +2663,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "拡張機能の設定に未保存の変更があります。保存せずに閉じてもよろしいですか？"
@@ -2483,6 +2705,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "タイムアウト"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "カスタム拡張機能を追加"
   },
@@ -2512,12 +2740,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "拡張機能を検索..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "タイムアウト"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "証明書フィンガープリント（任意）"
@@ -3209,6 +3431,51 @@
   "globalInstructions.unavailable": {
     "defaultMessage": "CodeBuddy のホームディレクトリを使用できません。"
   },
+  "goalEditor.failure": {
+    "defaultMessage": "The goal could not be saved. Your draft is kept. Read the latest goal before retrying."
+  },
+  "goalEditor.hint": {
+    "defaultMessage": "Describe the outcome and acceptance criteria. Saving updates the goal without starting or resuming execution."
+  },
+  "goalEditor.missing": {
+    "defaultMessage": "This conversation no longer has a goal."
+  },
+  "goalEditor.refresh": {
+    "defaultMessage": "Read latest goal"
+  },
+  "goalEditor.save": {
+    "defaultMessage": "Save"
+  },
+  "goalEditor.saved": {
+    "defaultMessage": "Saved"
+  },
+  "goalEditor.saving": {
+    "defaultMessage": "Saving…"
+  },
+  "goalEditor.title": {
+    "defaultMessage": "Edit goal"
+  },
+  "goalEditor.undo": {
+    "defaultMessage": "Undo changes"
+  },
+  "goalEditor.unsaved": {
+    "defaultMessage": "Unsaved changes"
+  },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "停止しました"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count} 件のツール操作を保持しました。"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "閉じる"
   },
@@ -3271,18 +3538,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "停止しました"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count} 件のツール操作を保持しました。"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "CodeBuddyに聞く"
@@ -3392,11 +3647,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Hugging Faceへのサインインに失敗しました: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Hugging Faceにサインイン済み"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "サインイン"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Hugging Faceにサインイン済み"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "サインイン中..."
@@ -3431,14 +3686,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "想定されるレシピ構造"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "インポート中..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "レシピをインポート"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "レシピをインポート"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "インポート中..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "または"
@@ -3515,6 +3770,12 @@
   "jsonSchemaForm.cancel": {
     "defaultMessage": "キャンセル"
   },
+  "jsonSchemaForm.customAnswer": {
+    "defaultMessage": "Other answer"
+  },
+  "jsonSchemaForm.customPlaceholder": {
+    "defaultMessage": "Or write your own response"
+  },
   "jsonSchemaForm.fieldRequired": {
     "defaultMessage": "このフィールドは必須です"
   },
@@ -3533,11 +3794,26 @@
   "jsonSchemaForm.noFields": {
     "defaultMessage": "表示するフィールドがありません"
   },
+  "jsonSchemaForm.recommended": {
+    "defaultMessage": "Recommended"
+  },
   "jsonSchemaForm.selectPlaceholder": {
     "defaultMessage": "選択..."
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "送信"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "事前設定値を追加"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "パラメーター名..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "パラメーター値..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "事前設定値 {key} を削除"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "ウィンドウの常に手前表示を切り替える"
@@ -3683,18 +3959,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "ナビゲーションを切り替え"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "事前設定値を追加"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "パラメーター名..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "パラメーター値..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "事前設定値 {key} を削除"
-  },
   "launcher.placeholder": {
     "defaultMessage": "CodeBuddyに何でも聞いて..."
   },
@@ -3740,17 +4004,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "ダウンロードがキャンセルされました"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "ダウンロード済みモデル"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "ダウンロードに失敗しました"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "ダウンロード中"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "ダウンロード済みモデル"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "ダウンロード中"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -3836,14 +4100,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "利用可能なモデルを確認中..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "{modelId}をダウンロード中"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "{modelId}をダウンロード（{size}）"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "{modelId}をダウンロード中"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "利用可能なモデルの読み込みに失敗しました。もう一度お試しください。"
@@ -4001,11 +4265,29 @@
   "memorySettings.toggleDescription": {
     "defaultMessage": "Turning this off stops new memory writes and recall without deleting stored records."
   },
+  "mentionPopover.addGroup": {
+    "defaultMessage": "Add"
+  },
+  "mentionPopover.commandGroup": {
+    "defaultMessage": "Commands"
+  },
+  "mentionPopover.disabled": {
+    "defaultMessage": "Disabled"
+  },
+  "mentionPopover.inventoryFailed": {
+    "defaultMessage": "Some Toolbox entries could not be loaded. Reopen the menu to retry."
+  },
+  "mentionPopover.inventoryHint": {
+    "defaultMessage": "View details in Toolbox"
+  },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# 件見つかりました} other{# 件見つかりました}}"
   },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "コマンドを読み込み中..."
+  },
+  "mentionPopover.mcpGroup": {
+    "defaultMessage": "MCP servers"
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "「{query}」に一致するコマンドは見つかりません"
@@ -4013,8 +4295,17 @@
   "mentionPopover.noItemsFound": {
     "defaultMessage": "「{query}」に一致する項目は見つかりません"
   },
+  "mentionPopover.recipeGroup": {
+    "defaultMessage": "Saved tasks"
+  },
   "mentionPopover.scanningFiles": {
     "defaultMessage": "ファイルをスキャン中..."
+  },
+  "mentionPopover.skillGroup": {
+    "defaultMessage": "Skills"
+  },
+  "mentionPopover.toolsGroup": {
+    "defaultMessage": "Built-in tools"
   },
   "messageCopyLink.copied": {
     "defaultMessage": "コピーしました！"
@@ -4064,9 +4355,6 @@
   "messageQueue.paused": {
     "defaultMessage": "一時停止中"
   },
-  "messageQueue.queued": {
-    "defaultMessage": "キュー内"
-  },
   "messageQueue.queuePaused": {
     "defaultMessage": "キューを一時停止中"
   },
@@ -4075,6 +4363,9 @@
   },
   "messageQueue.queuePausedExpanded": {
     "defaultMessage": "キューは一時停止中です。現在のタスクを確認してから、「今すぐ送信」でメッセージを送信してください。"
+  },
+  "messageQueue.queued": {
+    "defaultMessage": "キュー内"
   },
   "messageQueue.removeFromQueue": {
     "defaultMessage": "このメッセージをキューから削除"
@@ -4091,6 +4382,9 @@
   "messageQueue.stopAndSend": {
     "defaultMessage": "現在の処理を停止して、このメッセージを今すぐ送信"
   },
+  "messageQueue.stopAndSendLabel": {
+    "defaultMessage": "Stop and send"
+  },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
   },
@@ -4102,6 +4396,12 @@
   },
   "messageQueue.waiting": {
     "defaultMessage": "待機中"
+  },
+  "messageQueue.waitingForCancellation": {
+    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+  },
+  "messageQueue.waitingForPreviousPrompt": {
+    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
   },
   "messageUsageStats.cacheHitRate": {
     "defaultMessage": "（入力の{percent}%）"
@@ -4136,11 +4436,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "速度"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "合計"
@@ -4178,6 +4478,30 @@
   "microphoneSelector.test": {
     "defaultMessage": "テスト"
   },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "自律"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "ツールや拡張機能を使わず、選択したプロバイダーとやり取りします。"
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "チャットのみ"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
+  },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
   },
@@ -4187,9 +4511,6 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "モデルを変更しました"
-  },
   "modelAndProviderContext.modelChangeFailed": {
     "defaultMessage": "{provider}/{model}に失敗しました"
   },
@@ -4198,6 +4519,9 @@
   },
   "modelAndProviderContext.modelChangeFailedTraceback": {
     "defaultMessage": "The model change could not be completed."
+  },
+  "modelAndProviderContext.modelChangedTitle": {
+    "defaultMessage": "モデルを変更しました"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
@@ -4213,6 +4537,72 @@
   },
   "modelAndProviderContext.unknownProviderTitle": {
     "defaultMessage": "プロバイダー名の確認"
+  },
+  "modelDescriptions.beam": {
+    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
+  },
+  "modelDescriptions.clef": {
+    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
+  },
+  "modelDescriptions.custom": {
+    "defaultMessage": "Custom model provided by {provider}."
+  },
+  "modelDescriptions.custom-gemma4": {
+    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
+  },
+  "modelDescriptions.deepseek-v4-pro": {
+    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
+  },
+  "modelDescriptions.deepseek-v4.1-flash": {
+    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
+  },
+  "modelDescriptions.gemma4": {
+    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
+  },
+  "modelDescriptions.glm-5.2": {
+    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
+  },
+  "modelDescriptions.glm-5.3": {
+    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
+  },
+  "modelDescriptions.glm-5.3-flash": {
+    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
+  },
+  "modelDescriptions.gpt-oss": {
+    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
+  },
+  "modelDescriptions.kimi-k2.6": {
+    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
+  },
+  "modelDescriptions.kimi-k2.7-code": {
+    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
+  },
+  "modelDescriptions.kimi-k3": {
+    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
+  },
+  "modelDescriptions.minimax-m2.7": {
+    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
+  },
+  "modelDescriptions.minimax-m3": {
+    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
+  },
+  "modelDescriptions.mistral-large-3": {
+    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
+  },
+  "modelDescriptions.mistral-large-4": {
+    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
+  },
+  "modelDescriptions.muse-spark-open": {
+    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
+  },
+  "modelDescriptions.nemotron-3-nano": {
+    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
+  },
+  "modelDescriptions.nemotron-3-super": {
+    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
+  },
+  "modelDescriptions.nemotron-3-ultra": {
+    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
   },
   "modelImageCapability.auto": {
     "defaultMessage": "Automatic / unknown"
@@ -4252,39 +4642,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "モデルを読み込み中..."
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "モデルを選択"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "プロバイダーを設定"
@@ -4463,29 +4820,59 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "自律"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "ツールや拡張機能を使わず、選択したプロバイダーとやり取りします。"
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "チャットのみ"
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "モデルを読み込み中..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "モデルを選択"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "新規チャット"
@@ -4574,11 +4961,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -4606,6 +4993,15 @@
   },
   "onboardingGuard.checkProviderErrorTitle": {
     "defaultMessage": "CodeBuddyサーバーに接続できません"
+  },
+  "onboardingGuard.configureDescription": {
+    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
+  },
+  "onboardingGuard.configureModel": {
+    "defaultMessage": "Open model settings"
+  },
+  "onboardingGuard.configureTitle": {
+    "defaultMessage": "Connect a model to get started"
   },
   "onboardingGuard.retry": {
     "defaultMessage": "再試行"
@@ -4642,6 +5038,9 @@
   },
   "operation.draftStopped": {
     "defaultMessage": "Generation stopped — execution was not confirmed"
+  },
+  "operation.unsuccessful": {
+    "defaultMessage": "Unsuccessful"
   },
   "parameterInput.defaultValue": {
     "defaultMessage": "デフォルト値"
@@ -4793,6 +5192,24 @@
   "permissionSetting.permissionRulesDescription": {
     "defaultMessage": "レスポンスの方向づけやコンテキスト追加のためにプロバイダーへ渡される非表示の指示です。"
   },
+  "planReview.approve": {
+    "defaultMessage": "Approve and implement"
+  },
+  "planReview.choose": {
+    "defaultMessage": "How would you like to proceed?"
+  },
+  "planReview.hint": {
+    "defaultMessage": "Review the plan before implementation begins."
+  },
+  "planReview.keepPlanning": {
+    "defaultMessage": "Keep planning"
+  },
+  "planReview.send": {
+    "defaultMessage": "Send"
+  },
+  "planReview.submitting": {
+    "defaultMessage": "Submitting…"
+  },
   "platformExtension.analyze.description": {
     "defaultMessage": "Inspect code structure, files, and symbol relationships."
   },
@@ -4858,6 +5275,18 @@
   },
   "platformExtension.orchestrator.name": {
     "defaultMessage": "Agent coordination"
+  },
+  "platformExtension.playwright.description": {
+    "defaultMessage": "Observe and test websites in a separate Edge (Windows) or Chrome (Mac) window with Playwright MCP."
+  },
+  "platformExtension.playwright.name": {
+    "defaultMessage": "Browser control · Separate window"
+  },
+  "platformExtension.playwrightUser.description": {
+    "defaultMessage": "Connect to a Chrome or Edge tab you select. Install the official Playwright extension and confirm the connection in your browser."
+  },
+  "platformExtension.playwrightUser.name": {
+    "defaultMessage": "Browser control · Your browser"
   },
   "platformExtension.projectmemory.description": {
     "defaultMessage": "Store user-authorized project rules, preferences, and verified facts."
@@ -4967,11 +5396,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "なし"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "マークなし（信頼されていません）"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "なし"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "マークなし（信頼されていません）"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "プロジェクトメモリの保存リクエスト"
@@ -5093,11 +5522,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "編集"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "編集中: {name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "編集: {name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "編集中: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "プロンプト内容を入力..."
@@ -5207,11 +5636,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "APIキーをお持ちでないですか？"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "サインイン中..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "{providerName}でサインイン"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "サインイン中..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "CodeBuddyと連携するには、このプロバイダーのAPIキーを追加してください"
@@ -5273,11 +5702,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "詳細は<link>ドキュメント</link>をご覧ください。"
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "サインイン中..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "{providerName}でサインイン"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "サインイン中..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "プロバイダーを追加"
@@ -5501,6 +5930,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "自動的に整形されます（小文字、スペースはダッシュ）"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "説明:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "これまで実行したことのないレシピを実行しようとしています。"
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "このレシピには、安全のため無視される隠し文字が含まれています。悪意のある目的に使用される可能性があります。"
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "指示:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ 新しいレシピの警告"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "レシピのプレビュー:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ セキュリティ警告"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "タイトル:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "信頼して実行"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "このレシピの提供元を信頼できる場合のみ続行してください。"
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "スケジュールを追加"
   },
@@ -5654,14 +6116,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "スケジュールを削除"
   },
-  "recipesView.runs": {
-    "defaultMessage": "実行: {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "実行: {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "保存"
@@ -5731,39 +6193,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "YAMLファイル"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "キャンセル"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "説明:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "これまで実行したことのないレシピを実行しようとしています。"
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "このレシピには、安全のため無視される隠し文字が含まれています。悪意のある目的に使用される可能性があります。"
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "指示:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ 新しいレシピの警告"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "レシピのプレビュー:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ セキュリティ警告"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "タイトル:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "信頼して実行"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "このレシピの提供元を信頼できる場合のみ続行してください。"
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "プロバイダーとモデルをリセット"
@@ -5870,11 +6299,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Cron式:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "実行中"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "現在のセッション:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "実行中"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "ディレクトリ: {path}"
@@ -5933,6 +6362,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "このスケジュールのセッションはありません。"
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "スケジュールを一時停止"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "一時停止/再開エラー"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "一時停止中"
   },
@@ -5941,12 +6376,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "このスケジュールは一時停止中のため、自動実行されません。手動で実行するには「スケジュールを今すぐ実行」を使用するか、一時停止を解除して自動実行を再開してください。"
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "スケジュールを一時停止"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "一時停止/再開エラー"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "プロセス開始:"
@@ -5993,17 +6422,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "セッションID: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "「{id}」を再開しました"
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "スケジュールを再開"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "「{id}」を更新しました"
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "「{id}」を再開しました"
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "スケジュール更新エラー"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "「{id}」を更新しました"
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "表示中のスケジュールID: {id}"
@@ -6140,11 +6569,11 @@
   "schedulesView.pause": {
     "defaultMessage": "一時停止"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "一時停止中"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "スケジュール一時停止エラー"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "一時停止中"
   },
   "schedulesView.refresh": {
     "defaultMessage": "更新"
@@ -6164,9 +6593,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "スケジュール「{id}」を一時停止しました"
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "スケジューラー"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "スケジュールを再開しました"
   },
@@ -6178,6 +6604,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "スケジュール「{id}」を更新しました"
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "スケジューラー"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "スケジュール再開エラー"
@@ -6290,14 +6719,14 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "テキストをコピー"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "セッションを複製しました"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "セッションを複製できませんでした: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "セッションを複製"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "セッションを複製しました"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "テキスト値"
@@ -6317,9 +6746,6 @@
   "sessionActionsHeader.modelInteractionsTitle": {
     "defaultMessage": "Recent model interactions"
   },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "セッションの名前を変更しました"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "セッションの名前を変更できませんでした: {error}"
   },
@@ -6331,6 +6757,9 @@
   },
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "セッションの名前を変更"
+  },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "セッションの名前を変更しました"
   },
   "sessionActionsHeader.save": {
     "defaultMessage": "保存"
@@ -6403,6 +6832,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "ワークスペースの権限はまだ同期されていません。"
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "このセッションにはメッセージがありません"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "メッセージが見つかりません"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "セッション詳細の読み込みエラー"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "再試行"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "あなた"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -6503,9 +6950,6 @@
   "sessions.import": {
     "defaultMessage": "セッションをインポート"
   },
-  "sessions.importing": {
-    "defaultMessage": "インポート中..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "リンクをインポート"
   },
@@ -6517,6 +6961,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Nostrセッションをインポート"
+  },
+  "sessions.importing": {
+    "defaultMessage": "インポート中..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "さらにセッションを読み込み中..."
@@ -6542,38 +6989,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "暗号化Nostr共有リンク"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "クリップボードにコピーしました"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "セッションを削除しました"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "セッション「{name}」を削除できませんでした: {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "セッション「{name}」を複製しました"
+  "sessions.toast.deleted": {
+    "defaultMessage": "セッションを削除しました"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "セッションを複製できませんでした: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "セッションをエクスポートしました"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "セッション「{name}」を複製しました"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "セッションをインポートしました"
+  "sessions.toast.exported": {
+    "defaultMessage": "セッションをエクスポートしました"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "セッションをインポートできませんでした: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "セッションをインポートしました"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "暗号化Nostr共有リンクを作成しました"
@@ -6584,29 +7031,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "セッションの説明を更新しました"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "セッションの説明を更新できませんでした: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "このセッションにはメッセージがありません"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "メッセージが見つかりません"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "セッション詳細の読み込みエラー"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "再試行"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "あなた"
+  "sessions.toast.updated": {
+    "defaultMessage": "セッションの説明を更新しました"
   },
   "settings.appearance.description": {
     "defaultMessage": "システム上でのCodeBuddyの表示を設定します"
@@ -6797,11 +7226,11 @@
   "settingsCenter.pageModels": {
     "defaultMessage": "Models and runtime"
   },
+  "settingsCenter.pagePets": {
+    "defaultMessage": "Virtual pets"
+  },
   "settingsCenter.pageSecurity": {
     "defaultMessage": "Security and permissions"
-  },
-  "settingsCenter.pageSharing": {
-    "defaultMessage": "Tools and connections"
   },
   "settingsCenter.searchPlaceholder": {
     "defaultMessage": "Search settings"
@@ -7145,6 +7574,60 @@
   "subRecipeModal.subtitle": {
     "defaultMessage": "レシピ実行中にツールとして呼び出せるサブレシピを設定します"
   },
+  "subagentLifecycle.end": {
+    "defaultMessage": "が終了しました"
+  },
+  "subagentLifecycle.start": {
+    "defaultMessage": "が作業を開始しました"
+  },
+  "subagentTemplates.boundary": {
+    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
+  },
+  "subagentTemplates.browser": {
+    "defaultMessage": "browser · Web and browser research"
+  },
+  "subagentTemplates.description": {
+    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
+  },
+  "subagentTemplates.error": {
+    "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
+  },
+  "subagentTemplates.explorer": {
+    "defaultMessage": "explorer · Workspace exploration"
+  },
+  "subagentTemplates.generic": {
+    "defaultMessage": "Other chat-local responsibilities"
+  },
+  "subagentTemplates.inherit": {
+    "defaultMessage": "Inherit the main agent model"
+  },
+  "subagentTemplates.loading": {
+    "defaultMessage": "Loading settings…"
+  },
+  "subagentTemplates.model": {
+    "defaultMessage": "Model"
+  },
+  "subagentTemplates.modelError": {
+    "defaultMessage": "Could not load the model list. Enter a model id or retry."
+  },
+  "subagentTemplates.provider": {
+    "defaultMessage": "Model connection"
+  },
+  "subagentTemplates.retry": {
+    "defaultMessage": "Retry"
+  },
+  "subagentTemplates.save": {
+    "defaultMessage": "Save subagent models"
+  },
+  "subagentTemplates.saved": {
+    "defaultMessage": "Saved. Applies to new subagents."
+  },
+  "subagentTemplates.title": {
+    "defaultMessage": "Subagent templates and models"
+  },
+  "subagentTemplates.unavailable": {
+    "defaultMessage": "Saved connection unavailable"
+  },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
   },
@@ -7349,6 +7832,54 @@
   "thinkingContent.thinkingLive": {
     "defaultMessage": "Thinking · Updating"
   },
+  "thinkingEffortPicker.budget": {
+    "defaultMessage": "Current budget; model capacity unconfirmed"
+  },
+  "thinkingEffortPicker.context": {
+    "defaultMessage": "Context window"
+  },
+  "thinkingEffortPicker.error": {
+    "defaultMessage": "Could not save thinking effort. Try again."
+  },
+  "thinkingEffortPicker.high": {
+    "defaultMessage": "High"
+  },
+  "thinkingEffortPicker.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "thinkingEffortPicker.low": {
+    "defaultMessage": "Low"
+  },
+  "thinkingEffortPicker.max": {
+    "defaultMessage": "Maximum"
+  },
+  "thinkingEffortPicker.medium": {
+    "defaultMessage": "Medium"
+  },
+  "thinkingEffortPicker.minimal": {
+    "defaultMessage": "Minimal"
+  },
+  "thinkingEffortPicker.noControls": {
+    "defaultMessage": "確認済みの設定はありません"
+  },
+  "thinkingEffortPicker.off": {
+    "defaultMessage": "None"
+  },
+  "thinkingEffortPicker.on": {
+    "defaultMessage": "On"
+  },
+  "thinkingEffortPicker.readFailed": {
+    "defaultMessage": "Could not read model settings"
+  },
+  "thinkingEffortPicker.title": {
+    "defaultMessage": "Thinking effort"
+  },
+  "thinkingEffortPicker.unavailable": {
+    "defaultMessage": "Not provided"
+  },
+  "thinkingEffortPicker.xhigh": {
+    "defaultMessage": "Extra high"
+  },
   "toasts.askCodeBuddy": {
     "defaultMessage": "Ask CodeBuddy"
   },
@@ -7457,6 +7988,15 @@
   "toolAction.type": {
     "defaultMessage": "文字を入力"
   },
+  "toolAction.webSearch": {
+    "defaultMessage": "Search the web"
+  },
+  "toolAction.webSearchDone": {
+    "defaultMessage": "Searched the web"
+  },
+  "toolAction.webSearchRunning": {
+    "defaultMessage": "Searching the web"
+  },
   "toolAction.write": {
     "defaultMessage": "ファイルを書き込む"
   },
@@ -7472,14 +8012,14 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "1回のみ許可"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "1回のみ許可済み"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "1回のみ許可"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "常に許可"
@@ -7529,11 +8069,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -7649,138 +8189,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "ツール呼び出し結果"
   },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Office ドキュメント"
-  },
-  "toolbox.addSkill": {
-    "defaultMessage": "スキルを追加"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "インストール済みスキルと接続済みの外部 MCP サーバーを管理します。"
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "すべて"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "外部 MCP"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "スキル"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "インストール済み"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "起動中…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "停止中…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "ツールのステータス: {status}"
   },
@@ -7808,8 +8216,20 @@
   "toolCallWithResponse.output": {
     "defaultMessage": "出力"
   },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
   "toolCallWithResponse.subagentBudget": {
     "defaultMessage": "部分的な結果 · 委任作業の上限に到達"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
   },
   "toolCallWithResponse.subagentUnavailable": {
     "defaultMessage": "部分的な結果 · モデルサービスを利用できません"
@@ -7874,6 +8294,162 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "スキルを追加"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "デスクトップ操作やローカル Git 操作などを実行するツールです。"
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "デスクトップ操作ガイド"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "観察、入力、結果確認の手順をモデルに案内します。コンピューター操作ツールを使用します。"
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "インストール済みスキルと接続済みの外部 MCP サーバーを管理します。"
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "GitHub のリポジトリ、Issue、プルリクエストなどの外部サービスへの接続です。"
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "GitHub に接続してリモートリポジトリ、Issue、プルリクエスト、CI を管理します。"
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "ローカル Git"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "ローカルの変更を確認し、ステージング、コミット、ブランチを管理します。"
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "ツールを使うためにモデルが読み込むガイドです。スキル自体は関連ツールを有効にしません。"
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office ドキュメント"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "すべて"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "外部 MCP"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "スキル"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "インストール済み"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "起動中…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "停止中…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "updateSection.autoDownload": {
     "defaultMessage": "アップデートはバックグラウンドで自動的にダウンロードされます。"
   },
@@ -7901,17 +8477,17 @@
   "updateSection.disableAutoDownloadDesc": {
     "defaultMessage": "有効にすると、CodeBuddy は新しいバージョンを通知しますが、自動的にはダウンロードしません。"
   },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "アップデートをダウンロード中... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "アップデートをダウンロード中..."
-  },
   "updateSection.downloadNow": {
     "defaultMessage": "今すぐダウンロード"
   },
   "updateSection.downloadReady": {
     "defaultMessage": "アップデートのダウンロードが完了し、インストールの準備ができました！"
+  },
+  "updateSection.downloadingProgress": {
+    "defaultMessage": "アップデートをダウンロード中... {percent}%"
+  },
+  "updateSection.downloadingUpdate": {
+    "defaultMessage": "アップデートをダウンロード中..."
   },
   "updateSection.installAndRestart": {
     "defaultMessage": "インストールして再起動"
@@ -7937,11 +8513,11 @@
   "updateSection.readyInstallManual": {
     "defaultMessage": "✓ アップデートの準備ができました！インストール手順を表示するには「インストールして再起動」をクリックしてください。"
   },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "アップデートがあります！"
-  },
   "updateSection.upToDate": {
     "defaultMessage": "(最新)"
+  },
+  "updateSection.updateAvailable": {
+    "defaultMessage": "アップデートがあります！"
   },
   "updateSection.versionAvailable": {
     "defaultMessage": "→ {version} が利用可能"
@@ -7993,6 +8569,90 @@
   },
   "userMessage.forkSessionTitle": {
     "defaultMessage": "編集したメッセージで新しいセッションを作成"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Request sent; waiting for the model service to respond"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workspaceChanges.all": {
+    "defaultMessage": "All turns"
+  },
+  "workspaceChanges.coverage": {
+    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
+  },
+  "workspaceChanges.empty": {
+    "defaultMessage": "No recorded file changes yet."
+  },
+  "workspaceChanges.missing": {
+    "defaultMessage": "This change is no longer present in the conversation records."
+  },
+  "workspaceChanges.operation": {
+    "defaultMessage": "Edit {number}"
+  },
+  "workspaceChanges.operationUnavailable": {
+    "defaultMessage": "No historical diff was returned for this operation."
+  },
+  "workspaceChanges.partial": {
+    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
+  },
+  "workspaceChanges.title": {
+    "defaultMessage": "Changes"
+  },
+  "workspaceChanges.total": {
+    "defaultMessage": "{files} files across {turns} turns"
+  },
+  "workspaceChanges.truncated": {
+    "defaultMessage": "This long diff has been shortened."
+  },
+  "workspaceChanges.turn": {
+    "defaultMessage": "Turn {number}"
+  },
+  "workspaceChanges.unassigned": {
+    "defaultMessage": "Earlier records"
+  },
+  "workspaceChanges.unavailable": {
+    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
   },
   "workspaceConfirmation.cancel": {
     "defaultMessage": "キャンセル"
@@ -8111,6 +8771,9 @@
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
+  "workspacePanel.documentInfo": {
+    "defaultMessage": "This document opens in its associated application."
+  },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
   },
@@ -8123,14 +8786,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
+  },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -8150,11 +8813,17 @@
   "workspacePanel.maximize": {
     "defaultMessage": "Expand or restore panel"
   },
+  "workspacePanel.mediaFailed": {
+    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "Select a workspace and open a conversation to use files and terminals."
   },
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
+  },
+  "workspacePanel.openDocument": {
+    "defaultMessage": "Open in default application"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -8162,14 +8831,23 @@
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
   },
+  "workspacePanel.previewMedia": {
+    "defaultMessage": "View in right panel"
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
+  },
+  "workspacePanel.relatedFiles": {
+    "defaultMessage": "Referenced workspace files"
   },
   "workspacePanel.reload": {
     "defaultMessage": "Reload file from disk"
   },
   "workspacePanel.resize": {
     "defaultMessage": "Resize workspace panel"
+  },
+  "workspacePanel.restartDesktop": {
+    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
   "workspacePanel.running": {
     "defaultMessage": "Running"
@@ -8207,351 +8885,6 @@
   "workspacePanel.wrap": {
     "defaultMessage": "Wrap lines"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Request sent; waiting for the model service to respond"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "subagentTemplates.title": {
-    "defaultMessage": "Subagent templates and models"
-  },
-  "subagentTemplates.description": {
-    "defaultMessage": "Two default templates are available on demand. Other responsibilities are created and reused within the current chat."
-  },
-  "subagentTemplates.explorer": {
-    "defaultMessage": "explorer · Workspace exploration"
-  },
-  "subagentTemplates.browser": {
-    "defaultMessage": "browser · Web and browser research"
-  },
-  "subagentTemplates.generic": {
-    "defaultMessage": "Other chat-local responsibilities"
-  },
-  "subagentTemplates.boundary": {
-    "defaultMessage": "Models apply to new subagents. Existing subagents keep their model and history. Different chats share templates, not conversation history."
-  },
-  "subagentTemplates.provider": {
-    "defaultMessage": "Model connection"
-  },
-  "subagentTemplates.model": {
-    "defaultMessage": "Model"
-  },
-  "subagentTemplates.inherit": {
-    "defaultMessage": "Inherit the main agent model"
-  },
-  "subagentTemplates.unavailable": {
-    "defaultMessage": "Saved connection unavailable"
-  },
-  "subagentTemplates.loading": {
-    "defaultMessage": "Loading settings…"
-  },
-  "subagentTemplates.error": {
-    "defaultMessage": "Could not load or save settings. Your saved configuration was not changed."
-  },
-  "subagentTemplates.modelError": {
-    "defaultMessage": "Could not load the model list. Enter a model id or retry."
-  },
-  "subagentTemplates.save": {
-    "defaultMessage": "Save subagent models"
-  },
-  "subagentTemplates.saved": {
-    "defaultMessage": "Saved. Applies to new subagents."
-  },
-  "subagentTemplates.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "codeProModels.saveVision": {
-    "defaultMessage": "Save vision settings"
-  },
-  "chatInput.queueMessage": {
-    "defaultMessage": "Queue message"
-  },
-  "conversation.turnDuration": {
-    "defaultMessage": "Time spent {minutes} min {seconds} sec"
-  },
-  "conversationFiles.diffUnavailable": {
-    "defaultMessage": "Historical diff unavailable for some operations"
-  },
-  "conversationFiles.moreFiles": {
-    "defaultMessage": "Show {count} more files"
-  },
-  "conversationFiles.viewChanges": {
-    "defaultMessage": "View changes"
-  },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
-  },
-  "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
-  },
-  "messageQueue.waitingForPreviousPrompt": {
-    "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
-  },
-  "modelDescriptions.beam": {
-    "defaultMessage": "Reflection open model for coding, tool use, and token-efficient reasoning."
-  },
-  "modelDescriptions.clef": {
-    "defaultMessage": "Cloudflare multimodal model for structured decision-making from state and typed questions."
-  },
-  "modelDescriptions.custom": {
-    "defaultMessage": "Custom model provided by {provider}."
-  },
-  "modelDescriptions.custom-gemma4": {
-    "defaultMessage": "A custom quantized Gemma 4 variant; behavior depends on this deployment."
-  },
-  "modelDescriptions.deepseek-v4-pro": {
-    "defaultMessage": "DeepSeek MoE model for complex reasoning and long-context tasks."
-  },
-  "modelDescriptions.deepseek-v4.1-flash": {
-    "defaultMessage": "DeepSeek model designed for faster inference and higher throughput."
-  },
-  "modelDescriptions.gemma4": {
-    "defaultMessage": "Google open model for reasoning, coding, and multimodal understanding."
-  },
-  "modelDescriptions.glm-5.2": {
-    "defaultMessage": "Z.ai flagship model focused on long-horizon tasks."
-  },
-  "modelDescriptions.glm-5.3": {
-    "defaultMessage": "Z.ai flagship open-weight model for coding and long-horizon agent work."
-  },
-  "modelDescriptions.glm-5.3-flash": {
-    "defaultMessage": "Z.ai native multimodal model focused on coding and agent tasks."
-  },
-  "modelDescriptions.gpt-oss": {
-    "defaultMessage": "OpenAI open-weight models for reasoning, agent tasks, and developer workflows."
-  },
-  "modelDescriptions.kimi-k2.6": {
-    "defaultMessage": "Kimi open multimodal model for long-horizon coding and agent orchestration."
-  },
-  "modelDescriptions.kimi-k2.7-code": {
-    "defaultMessage": "Moonshot coding model focused on real-world, long-horizon programming tasks."
-  },
-  "modelDescriptions.kimi-k3": {
-    "defaultMessage": "Kimi open-weight native multimodal model for agent workflows."
-  },
-  "modelDescriptions.minimax-m2.7": {
-    "defaultMessage": "MiniMax model for coding, agent workflows, and professional productivity."
-  },
-  "modelDescriptions.minimax-m3": {
-    "defaultMessage": "MiniMax multimodal model built for coding and agent workflows."
-  },
-  "modelDescriptions.mistral-large-3": {
-    "defaultMessage": "Mistral multimodal MoE model for production and enterprise workloads."
-  },
-  "modelDescriptions.mistral-large-4": {
-    "defaultMessage": "Mistral open-weight multimodal model for general-purpose tasks."
-  },
-  "modelDescriptions.muse-spark-open": {
-    "defaultMessage": "Open multimodal model for coding, software engineering, and multi-step reasoning."
-  },
-  "modelDescriptions.nemotron-3-nano": {
-    "defaultMessage": "NVIDIA lightweight open model focused on efficient agent workflows."
-  },
-  "modelDescriptions.nemotron-3-super": {
-    "defaultMessage": "NVIDIA MoE model built for efficient, complex multi-agent workloads."
-  },
-  "modelDescriptions.nemotron-3-ultra": {
-    "defaultMessage": "NVIDIA model for high-throughput reasoning and long-running agent workflows."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
-  },
-  "onboardingGuard.configureDescription": {
-    "defaultMessage": "Add your model provider in settings, then choose a model in the chat."
-  },
-  "onboardingGuard.configureModel": {
-    "defaultMessage": "Open model settings"
-  },
-  "onboardingGuard.configureTitle": {
-    "defaultMessage": "Connect a model to get started"
-  },
-  "operation.unsuccessful": {
-    "defaultMessage": "Unsuccessful"
-  },
-  "settingsCenter.pagePets": {
-    "defaultMessage": "Virtual pets"
-  },
-  "thinkingEffortPicker.budget": {
-    "defaultMessage": "Current budget; model capacity unconfirmed"
-  },
-  "thinkingEffortPicker.context": {
-    "defaultMessage": "Context window"
-  },
-  "thinkingEffortPicker.error": {
-    "defaultMessage": "Could not save thinking effort. Try again."
-  },
-  "thinkingEffortPicker.high": {
-    "defaultMessage": "High"
-  },
-  "thinkingEffortPicker.loading": {
-    "defaultMessage": "Reading…"
-  },
-  "thinkingEffortPicker.low": {
-    "defaultMessage": "Low"
-  },
-  "thinkingEffortPicker.max": {
-    "defaultMessage": "Maximum"
-  },
-  "thinkingEffortPicker.medium": {
-    "defaultMessage": "Medium"
-  },
-  "thinkingEffortPicker.minimal": {
-    "defaultMessage": "Minimal"
-  },
-  "thinkingEffortPicker.off": {
-    "defaultMessage": "None"
-  },
-  "thinkingEffortPicker.on": {
-    "defaultMessage": "On"
-  },
-  "thinkingEffortPicker.readFailed": {
-    "defaultMessage": "Could not read model settings"
-  },
-  "thinkingEffortPicker.title": {
-    "defaultMessage": "Thinking effort"
-  },
-  "thinkingEffortPicker.unavailable": {
-    "defaultMessage": "Not provided"
-  },
-  "thinkingEffortPicker.xhigh": {
-    "defaultMessage": "Extra high"
-  },
-  "toolAction.webSearch": {
-    "defaultMessage": "Search the web"
-  },
-  "toolAction.webSearchDone": {
-    "defaultMessage": "Searched the web"
-  },
-  "toolAction.webSearchRunning": {
-    "defaultMessage": "Searching the web"
-  },
-  "toolCallWithResponse.searchQuery": {
-    "defaultMessage": "Query"
-  },
-  "toolCallWithResponse.searchResponse": {
-    "defaultMessage": "Search response"
-  },
-  "toolCallWithResponse.searchSources": {
-    "defaultMessage": "Sources"
-  },
-  "toolCallWithResponse.subagentStarted": {
-    "defaultMessage": "Started {name}"
-  },
-  "workspaceChanges.all": {
-    "defaultMessage": "All turns"
-  },
-  "workspaceChanges.coverage": {
-    "defaultMessage": "Totals count recorded file edits. Command, external tool and child-agent edits may not be included."
-  },
-  "workspaceChanges.empty": {
-    "defaultMessage": "No recorded file changes yet."
-  },
-  "workspaceChanges.missing": {
-    "defaultMessage": "This change is no longer present in the conversation records."
-  },
-  "workspaceChanges.operation": {
-    "defaultMessage": "Edit {number}"
-  },
-  "workspaceChanges.operationUnavailable": {
-    "defaultMessage": "No historical diff was returned for this operation."
-  },
-  "workspaceChanges.partial": {
-    "defaultMessage": "Some recorded edits have no historical diff. Line totals are partial."
-  },
-  "workspaceChanges.title": {
-    "defaultMessage": "Changes"
-  },
-  "workspaceChanges.total": {
-    "defaultMessage": "{files} files across {turns} turns"
-  },
-  "workspaceChanges.truncated": {
-    "defaultMessage": "This long diff has been shortened."
-  },
-  "workspaceChanges.turn": {
-    "defaultMessage": "Turn {number}"
-  },
-  "workspaceChanges.unassigned": {
-    "defaultMessage": "Earlier records"
-  },
-  "workspaceChanges.unavailable": {
-    "defaultMessage": "A file modification was recorded, but its historical diff is unavailable."
-  },
-  "workspacePanel.documentInfo": {
-    "defaultMessage": "This document opens in its associated application."
-  },
-  "workspacePanel.openDocument": {
-    "defaultMessage": "Open in default application"
-  },
-  "workspacePanel.relatedFiles": {
-    "defaultMessage": "Referenced workspace files"
-  },
-  "workspacePanel.restartDesktop": {
-    "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
-  },
   "workspaceSubagent.all": {
     "defaultMessage": "All subagents"
   },
@@ -8579,14 +8912,23 @@
   "workspaceSubagents.empty": {
     "defaultMessage": "No subagents in this directory."
   },
+  "workspaceSubagents.ended": {
+    "defaultMessage": "終了 · {count}"
+  },
   "workspaceSubagents.external": {
     "defaultMessage": "External agent"
   },
   "workspaceSubagents.loading": {
     "defaultMessage": "Loading subagents…"
   },
+  "workspaceSubagents.noRunning": {
+    "defaultMessage": "実行中のサブエージェントはありません"
+  },
   "workspaceSubagents.refresh": {
     "defaultMessage": "Refresh subagents"
+  },
+  "workspaceSubagents.running": {
+    "defaultMessage": "実行中 · {count}"
   },
   "workspaceSubagents.stale": {
     "defaultMessage": "The directory could not be refreshed. Previously loaded entries are shown below."
@@ -8597,28 +8939,10 @@
   "workspaceSubagents.unknown": {
     "defaultMessage": "Conversation unavailable"
   },
-  "workspacePanel.mediaFailed": {
-    "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
-  },
-  "workspacePanel.previewMedia": {
-    "defaultMessage": "View in right panel"
-  },
-  "workspaceSubagents.running": {
-    "defaultMessage": "実行中 · {count}"
-  },
-  "workspaceSubagents.ended": {
-    "defaultMessage": "終了 · {count}"
-  },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状態不明 · {count}"
   },
-  "workspaceSubagents.noRunning": {
-    "defaultMessage": "実行中のサブエージェントはありません"
-  },
-  "subagentLifecycle.start": {
-    "defaultMessage": "が作業を開始しました"
-  },
-  "subagentLifecycle.end": {
-    "defaultMessage": "が終了しました"
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
   }
 }

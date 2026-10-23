@@ -19,6 +19,7 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每个主会�
 `configureSession(sessionId,options)` 在空闲时生效；应用保存并在重启后重新传入。参数：
 
 - systemPrompt、maxTokens、temperature、thinkingEffort 进入真实模型请求；思考档位须由 provider 声明。
+- 自定义连接按模型列表的 `owned_by` 选择预览接口：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基础路径和连接鉴权。预览仅渲染实际聊天模板，不生成回答；只有实际改变模板的档位才显示，等效档位合并，并保留服务默认值。结果复用现有能力缓存，刷新模型列表后重新验证。旧服务缺少预览、调用失败或参数被忽略时不推断强度，模型详情显示“尚未确认可用档位”；不以通用参数枚举或模型名称判断支持情况。依据：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步骤数；到达后返回 max_turns，历史保留，不标记业务完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手动压缩，原事件证据保留。
 - tools 为 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 并返回 JSON 对象，仍经官方 registry、校验和审批。

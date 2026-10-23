@@ -68,7 +68,7 @@ test('real Harness streams, uses HTTP adapter, and persists session history', as
   assert.match(system, /You are CodeBuddy/);
   assert.doesNotMatch(system, /powered by DeepSeek Harness/);
   assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'search_mcp_tools'));
-  assert.ok(!requests.at(-1).tools.some(tool => tool.function.name === 'write'));
+  assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'write'));
   assert.ok((await driver.listTools(created.sessionId)).some(tool => tool.name === 'write'));
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(event => event.type === 'assistant/message'));

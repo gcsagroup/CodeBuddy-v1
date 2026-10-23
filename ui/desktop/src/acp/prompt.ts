@@ -42,6 +42,10 @@ export async function acpPromptSession(
 ): Promise<PromptResponse> {
   const client = await getAcpClient();
   const meta = {
+    ...(message.metadata.planMode !== undefined
+      ? { 'codebuddy/plan': message.metadata.planMode }
+      : {}),
+    ...(message.metadata.goalRequest ? { 'codebuddy/goal': message.metadata.goalRequest } : {}),
     ...(message.id ? { [CODEPRO_SOURCE_MESSAGE_ID_META_KEY]: message.id } : {}),
     ...(turnRetry ? { [CODEPRO_TURN_RETRY_META_KEY]: turnRetry } : {}),
     ...(checkpointContext ? { [CODEPRO_CHECKPOINT_CONTEXT_META_KEY]: checkpointContext } : {}),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Profiler, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import MarkdownContent from '../../src/components/MarkdownContent';
 import GooseMessage from '../../src/components/GooseMessage';
@@ -7,13 +7,24 @@ import { ScrollArea, type ScrollAreaHandle } from '../../src/components/ui/scrol
 import { IntlTestWrapper } from '../../src/i18n/test-utils';
 import '../../src/components/ui/stream-prose.css';
 
-const answer =
+const proseAnswer =
   '# 流式阅读\n\n文字应该平缓出现，屏幕随着内容连续移动。\n\n' +
   '| 层 | 位置 | 职责 |\n| --- | --- | --- |\n' +
   '| 界面 | ui/desktop/src/components/MarkdownContent.tsx | 展示已经接收的正文 |\n' +
   '| 传输 | ui/desktop/src/acp/chatSessionStore.ts | 接收真实事件并更新会话 |\n\n' +
   '## 稳定的阅读位置\n\n' +
   '新文字继续增长，已经显示的内容保持稳定。读者向上滚动时，不再追赶最新位置。\n\n'.repeat(25);
+const longCode = window.location.search.includes('long-code');
+const answer = longCode
+  ? '```html\n<!DOCTYPE html>\n<html><body><script>\n' +
+    Array.from(
+      { length: 140 },
+      (_, i) => `const enemy${i} = { x: Math.random() * 400, y: -30, speed: 2 }; // 飞机大战\n`
+    ).join('') +
+    '</script></body></html>\n```\nDone.'
+  : proseAnswer;
+const samples: number[] = [];
+Object.assign(window, { streamRenderSamples: samples });
 
 function Body({ text, streaming }: { text: string; streaming: boolean }) {
   return (
@@ -37,15 +48,19 @@ function Fixture() {
     let index = 0;
     // Deliberately bursty transport, including a silent interval. The current
     // renderer paints all received text without a delayed playback queue.
-    const timer = setInterval(() => {
-      index++;
-      if (index === 3 || index === 4) return;
-      setText(answer.slice(0, Math.min(answer.length, index * 160)));
-      if (index * 160 >= answer.length) {
-        setStreaming(false);
-        clearInterval(timer);
-      }
-    }, 500);
+    const timer = setInterval(
+      () => {
+        index++;
+        if (!longCode && (index === 3 || index === 4)) return;
+        const size = longCode ? 90 : 160;
+        setText(answer.slice(0, Math.min(answer.length, index * size)));
+        if (index * size >= answer.length) {
+          setStreaming(false);
+          clearInterval(timer);
+        }
+      },
+      longCode ? 30 : 500
+    );
     return () => clearInterval(timer);
   }, [started]);
   return (
@@ -57,7 +72,9 @@ function Fixture() {
         <ScrollArea ref={area} autoScroll style={{ height: 480, border: '1px solid gray' }}>
           <div style={{ padding: 24 }}>
             <div style={{ height: 700 }}>Earlier conversation</div>
-            <Body text={text} streaming={streaming} />
+            <Profiler id="stream" onRender={(_id, _phase, duration) => samples.push(duration)}>
+              <Body text={text} streaming={streaming} />
+            </Profiler>
           </div>
         </ScrollArea>
       </main>

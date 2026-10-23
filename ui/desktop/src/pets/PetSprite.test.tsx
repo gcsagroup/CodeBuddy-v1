@@ -63,3 +63,12 @@ it('keeps reduced motion still and selects the requested gaze pose', () => {
   view.rerender(<PetSprite pet={pet} animation="look" gazeFrame={5} />);
   expect(drawImage.mock.calls[drawImage.mock.calls.length - 1]?.slice(1, 3)).toEqual([960, 1456]);
 });
+
+it('cycles observation directions in preview when no live cursor pose is supplied', () => {
+  render(<PetSprite pet={pet} animation="look" />);
+  act(() => {
+    vi.advanceTimersByTime(510);
+  });
+  expect(drawImage.mock.calls[drawImage.mock.calls.length - 1]?.[1]).toBeGreaterThan(0);
+  expect(drawImage.mock.calls[drawImage.mock.calls.length - 1]?.[2]).toBe(1456);
+});

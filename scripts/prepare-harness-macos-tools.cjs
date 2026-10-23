@@ -10,6 +10,19 @@ const { targetFor, verifyMachO, sha256 } = require('../ui/desktop/scripts/macos-
 const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
 const { writeMacArtifacts, verifyMacArtifacts } = require('./macos-tool-artifacts.cjs');
 
+function replaceMacExecutable(source, destination) {
+  // macOS caches signing information by inode: never overwrite executed code.
+  const temporary = fs.mkdtempSync(path.join(path.dirname(destination), '.replace-'));
+  try {
+    const staged = path.join(temporary, path.basename(destination));
+    fs.copyFileSync(source, staged);
+    fs.chmodSync(staged, 0o755);
+    fs.renameSync(staged, destination);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 function run(command, args, cwd, capture = false) {
   const result = spawnSync(command, args, { cwd, shell: false,
     ...(capture ? { encoding: 'utf8' } : { stdio: 'inherit' }) });
@@ -18,13 +31,14 @@ function run(command, args, cwd, capture = false) {
   return result.stdout?.trim();
 }
 
-function buildMacTools(repo, arch) {
+function buildMacTools(repo, arch, verifiedSource) {
   const target = targetFor(arch);
   if (process.platform !== 'darwin' || process.arch !== arch)
     throw new Error(`Build MCP tools on a native ${arch} Mac`);
   const source = {
     revision: run('git', ['rev-parse', 'HEAD'], repo, true),
     dirty: run('git', ['status', '--porcelain'], repo, true).length > 0,
+    ...verifiedSource,
     rustTarget: target,
   };
   const cargoOutput = JSON.parse(run('cargo', ['metadata', '--offline', '--no-deps', '--format-version', '1'], repo, true)).target_directory;
@@ -78,8 +92,7 @@ function main() {
   const destination = path.join(repo, 'runtime/tools');
   fs.mkdirSync(path.join(destination, 'bin'), { recursive: true });
   for (const file of Object.values(macArtifactFiles)) {
-    fs.copyFileSync(path.join(output, 'bin', file), path.join(destination, 'bin', file));
-    fs.chmodSync(path.join(destination, 'bin', file), 0o755);
+    replaceMacExecutable(path.join(output, 'bin', file), path.join(destination, 'bin', file));
   }
   fs.cpSync(path.join(output, 'licenses'), path.join(destination, 'licenses'), { recursive: true });
   fs.copyFileSync(path.join(output, 'provenance.json'), path.join(destination, 'provenance.macos.json'));
@@ -91,7 +104,7 @@ function main() {
   console.log(`Prepared native preview tools from ${output}`);
 }
 
-module.exports = { buildMacTools };
+module.exports = { buildMacTools, replaceMacExecutable };
 if (require.main === module) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

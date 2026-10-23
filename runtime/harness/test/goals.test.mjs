@@ -41,6 +41,66 @@ async function fixture(t, handler, { sessionOptions = {}, effectValue } = {}) {
   return { root, requests, effects, sessionId: input.sessionId, get driver() { return driver; }, async restart() { await driver.close(); driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root }); await driver.createSession(input); } };
 }
 
+test('native plan mode reaches the model, survives restart and exits without changing permissions', { timeout: 20000 }, async t => {
+  const f = await fixture(t, async ({ text }) => text('Plan ready for review.'));
+  await f.driver.prompt(f.sessionId, 'Plan this change', { planMode: true, onPermission: () => false });
+  assert.equal((await f.driver.getPlanMode(f.sessionId)).active, true);
+  assert.match(JSON.stringify(f.requests[0].messages), /Plan mode is active/);
+  assert.ok(f.requests[0].tools.some(tool => tool.function.name === 'exit_plan_mode'));
+  await f.restart();
+  assert.equal((await f.driver.getPlanMode(f.sessionId)).active, true);
+  await f.driver.setPlanMode(f.sessionId, false);
+  assert.equal((await f.driver.getPlanMode(f.sessionId)).active, false);
+  await f.driver.prompt(f.sessionId, 'Continue normally', { onPermission: () => false });
+  assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages.filter(m => m.role === 'system')), /Plan mode is active/);
+  await assert.rejects(f.driver.setPlanMode(f.sessionId, 'yes'), /boolean/);
+});
+
+for (const approved of [false, true]) {
+  test(`native plan review leaves planning only after explicit approval: ${approved}`, { timeout: 20000 }, async t => {
+    const f = await fixture(t, async ({ count, tool, text }) => {
+      if (count === 1) tool('exit_plan_mode', { plan: '# Implementation plan\nInspect the fixture, then verify the result.' });
+      else text('Review response received.');
+    });
+    let reviews = 0;
+    await f.driver.prompt(f.sessionId, 'Prepare a plan for review', {
+      planMode: true,
+      onPermission: () => true,
+      onUserQuestions: async ({ questions }) => {
+        reviews++;
+        assert.equal(questions[0].intent.kind, 'plan-review');
+        return { answers: [{ id: questions[0].id, selected: [questions[0].options[approved ? 0 : 1].label] }] };
+      },
+    });
+    assert.equal(reviews, 1);
+    assert.equal((await f.driver.getPlanMode(f.sessionId)).active, !approved);
+    assert.equal(f.effects.length, 0);
+  });
+}
+
+for (const kind of ['skipped', 'feedback', 'expired']) {
+  test(`native plan review cannot approve through ${kind}`, { timeout: 20000 }, async t => {
+    const f = await fixture(t, async ({ count, tool, text }) => {
+      if (count === 1) tool('exit_plan_mode', { plan: '# Review\nWait for explicit approval.' });
+      else text('The plan remains under review.');
+    });
+    let reviews = 0;
+    await f.driver.prompt(f.sessionId, 'Review this plan', {
+      planMode: true,
+      onPermission: () => true,
+      onUserQuestions: async ({ questions }) => {
+        reviews++;
+        if (kind === 'expired') throw new Error('The client answer expired without a response');
+        return { answers: [{ id: questions[0].id, selected: [],
+          ...(kind === 'feedback' ? { custom: questions[0].intent.approve } : {}) }] };
+      },
+    });
+    assert.equal(reviews, 1);
+    assert.equal((await f.driver.getPlanMode(f.sessionId)).active, true);
+    assert.equal(f.effects.length, 0);
+  });
+}
+
 test('official goal round driver continues the same session beyond first turn and returns final native goal', { timeout: 15000 }, async t => {
   const f = await fixture(t, async ({ body, count, tool, text }) => {
     if (count === 1) tool('create_goal', { objective: 'Complete the controlled two-round task', max_goal_rounds: 3 });
@@ -57,6 +117,43 @@ test('official goal round driver continues the same session beyond first turn an
   const history = await f.driver.history(f.sessionId);
   assert.equal(history.events.filter(e => e.type === 'turn/end').length, 2);
   assert.equal(history.events.filter(e => e.type === 'goal/change').at(-1).data.goal.phase, 'complete');
+});
+
+test('UI creates the native goal, pauses it, and resumes the same revision through an observed prompt', { timeout: 20000 }, async t => {
+  const f = await fixture(t, async ({ body, count, tool, text }) => {
+    if (count === 1 || count === 4) tool('get_goal', {});
+    else if (count === 2) { const goal = lastGoal(body); tool('update_goal', { goal_id: goal.id, revision: goal.revision, action: 'pause' }); }
+    else if (count === 5) { const goal = lastGoal(body); tool('update_goal', { goal_id: goal.id, revision: goal.revision, action: 'complete' }); }
+    else text('Checkpoint');
+  });
+  const first = await f.driver.prompt(f.sessionId, 'Work toward the supplied goal then pause', {
+    createGoal: { objective: 'Persist this UI goal', maxGoalRounds: 5 }, onPermission: () => true,
+  });
+  assert.equal(first.goal.phase, 'paused');
+  assert.equal(first.goal.objective, 'Persist this UI goal');
+  assert.equal(first.goal.maxGoalRounds, 5);
+  await f.restart();
+  const saved = await f.driver.getGoal(f.sessionId);
+  assert.equal(saved.id, first.goal.id);
+  assert.equal(saved.activation, 'disarmed');
+  const edited = await f.driver.controlGoal(f.sessionId, { action: 'edit', goalId: saved.id, revision: saved.revision, objective: 'Edited objective with acceptance criteria' });
+  assert.equal(edited.id, saved.id);
+  assert.equal(edited.objective, 'Edited objective with acceptance criteria');
+  assert.equal(edited.phase, 'paused');
+  const before = f.requests.length;
+  await assert.rejects(f.driver.prompt(f.sessionId, 'stale request', { resumeGoal: { goalId: saved.id, revision: saved.revision - 1 } }), /changed before resume/);
+  assert.equal(f.requests.length, before, 'stale controls must not send a model request');
+  const approvals = [];
+  const final = await f.driver.prompt(f.sessionId, 'Resume the saved goal', { resumeGoal: { goalId: edited.id, revision: edited.revision }, onToolPolicy: () => ({ kind: 'ask' }), onPermission: (tool) => { approvals.push(tool.name); return true; } });
+  assert.equal(final.goal.id, saved.id);
+  assert.equal(final.goal.phase, 'complete');
+  assert.deepEqual(approvals, ['get_goal', 'update_goal']);
+  const historyBeforeClear = await f.driver.history(f.sessionId);
+  assert.equal(await f.driver.controlGoal(f.sessionId, { action: 'clear', goalId: final.goal.id, revision: final.goal.revision }), null);
+  await f.restart();
+  assert.equal(await f.driver.getGoal(f.sessionId), undefined);
+  const historyAfterClear = await f.driver.history(f.sessionId);
+  assert.deepEqual(historyAfterClear.events.slice(0, historyBeforeClear.events.length), historyBeforeClear.events);
 });
 
 test('official goal round cap returns blocked with its native reason without extra model rounds', { timeout: 15000 }, async t => {
@@ -131,7 +228,7 @@ test('structured human resume retains official paused-goal CAS and keeps permiss
   await assert.rejects(f.driver.controlGoal(f.sessionId, { action: 'pause', goalId: paused.goal.id, revision: paused.goal.revision - 1 }), /revision|stale/i);
   assert.equal((await f.driver.getGoal(f.sessionId)).phase, 'paused');
   const approvals = [];
-  const resumed = await f.driver.prompt(f.sessionId, 'Resume the paused goal', { resumeGoal: { goalId: paused.goal.id, revision: paused.goal.revision }, onPermission(tool) { approvals.push(tool.name); return true; } });
+  const resumed = await f.driver.prompt(f.sessionId, 'Resume the paused goal', { resumeGoal: { goalId: paused.goal.id, revision: paused.goal.revision }, onToolPolicy: () => ({ kind: 'ask' }), onPermission(tool) { approvals.push(tool.name); return true; } });
   assert.equal(resumed.goal.phase, 'complete'); assert.equal(resumed.goal.id, paused.goal.id);
   assert.deepEqual(approvals, ['get_goal', 'update_goal']); assert.equal(f.requests.length, 6);
 });

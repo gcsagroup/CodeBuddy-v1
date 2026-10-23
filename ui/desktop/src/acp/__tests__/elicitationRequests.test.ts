@@ -59,6 +59,28 @@ async function expectStillPending(promise: Promise<CreateElicitationResponse>): 
 }
 
 describe('ACP elicitation requests', () => {
+  it('keeps a native blocking plan review pending without inventing a deadline or approval', async () => {
+    vi.useFakeTimers();
+    const connection = new AbortController();
+    try {
+      const response = requestAcpElicitation(
+        {
+          ...formRequest('session-1'),
+          _meta: { 'codebuddy/question-blocking': true },
+        },
+        connection.signal
+      );
+      expect(getPendingAcpElicitationRequests('session-1')[0].expiresAt).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(86_400_000);
+      await expectStillPending(response);
+      expect(acpChatSessionActions.setElicitationStatus).not.toHaveBeenCalled();
+      connection.abort();
+      await expect(response).resolves.toEqual({ action: 'cancel' });
+    } finally {
+      connection.abort();
+      vi.useRealTimers();
+    }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     for (const sessionId of TEST_SESSION_IDS) {

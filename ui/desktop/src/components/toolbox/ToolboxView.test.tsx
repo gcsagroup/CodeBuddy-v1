@@ -75,6 +75,81 @@ function CurrentPath() {
 describe('ToolboxView', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('separates tools, instruction skills and remote services without hiding their controls', async () => {
+    vi.mocked(loadToolbox).mockResolvedValue({
+      model: buildToolboxModel({
+        apps: [],
+        skills: [
+          {
+            type: 'builtinSkill',
+            name: 'computer-use',
+            description: 'guide',
+            path: '/builtin/computer-use',
+            content: 'fixture guide',
+            global: true,
+          },
+        ],
+        extensions: [
+          { type: 'builtin', name: 'qwen_computer', enabled: false },
+          { type: 'builtin', name: 'git', enabled: true },
+          {
+            type: 'streamable_http',
+            name: 'github_official',
+            uri: 'https://api.githubcopilot.com/mcp/',
+            enabled: false,
+          },
+        ],
+      }),
+      errors: {},
+      warnings: [],
+    });
+    renderView();
+    const tools = await screen.findByRole('region', { name: 'Built-in capabilities' });
+    expect(within(tools).getByRole('button', { name: 'Computer control' })).toBeVisible();
+    expect(within(tools).getByRole('button', { name: 'Local Git' })).toBeVisible();
+    expect(
+      within(tools).getByRole('switch', { name: 'Enable Computer control' })
+    ).not.toBeChecked();
+    const skills = screen.getByRole('region', { name: 'Skills' });
+    expect(within(skills).getByRole('button', { name: 'Desktop operation guide' })).toBeVisible();
+    expect(within(skills).queryByRole('switch')).toBeNull();
+    expect(
+      within(screen.getByRole('region', { name: 'External MCP' })).getByRole('button', {
+        name: 'GitHub',
+      })
+    ).toBeVisible();
+    await userEvent.type(screen.getByPlaceholderText('Search tools'), 'computer-use');
+    expect(screen.getByRole('button', { name: 'Desktop operation guide' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'External MCP' })).toBeNull();
+  });
+
+  it('opens the exact MCP entry selected from the composer without enabling it', async () => {
+    vi.mocked(loadToolbox).mockResolvedValue({
+      model: {
+        capabilities: [],
+        methods: [],
+        apps: [],
+        external: [
+          {
+            id: 'external:fixture',
+            kind: 'external',
+            source: 'extension',
+            name: 'Fixture',
+            description: 'Selected from slash menu',
+            status: 'disabled',
+            actions: ['configure'],
+            reference: { key: 'configKey', value: 'fixture' },
+          },
+        ],
+      },
+      errors: {},
+      warnings: [],
+    });
+    renderView('/toolbox?item=external%3Afixture');
+    expect(await screen.findByRole('dialog')).toHaveTextContent('MCP configuration: fixture');
+    expect(configContext.setExtensionEnabled).not.toHaveBeenCalled();
+  });
+
   it('groups upstream Office skills and keeps their details and search accessible', async () => {
     vi.mocked(loadToolbox).mockResolvedValue({
       model: buildToolboxModel({

@@ -15,7 +15,24 @@ const {
   bundlePaths,
   sha256,
   verifyArtifact,
+  verifySourceSnapshot,
 } = require('./macos-package.cjs');
+
+test('synchronized source identity requires matching file bytes and rejects traversal', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mac-source-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, 'source.js');
+  const manifest = path.join(root, 'source.json');
+  fs.writeFileSync(file, 'current source');
+  const data = { revision: 'a'.repeat(40), dirty: true, files: { 'source.js': sha256(file) } };
+  fs.writeFileSync(manifest, JSON.stringify(data));
+  assert.equal(verifySourceSnapshot(root, manifest).verifiedFiles, 1);
+  fs.writeFileSync(file, 'stale source');
+  assert.throws(() => verifySourceSnapshot(root, manifest), /snapshot mismatch/);
+  data.files = { '../outside': sha256(file) };
+  fs.writeFileSync(manifest, JSON.stringify(data));
+  assert.throws(() => verifySourceSnapshot(root, manifest), /Invalid source snapshot entry/);
+});
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mac-package-'));
@@ -28,6 +45,13 @@ function fixture(t) {
   fs.writeFileSync(path.join(desktop, 'codebuddy.distro.json'), '{"productName":"Fixture App"}');
   return { root, desktop };
 }
+
+test('signing entitlements use Apple-compatible XML bytes across checkouts', () => {
+  const xml = fs.readFileSync(path.resolve(__dirname, '../entitlements.plist'), 'utf8');
+  assert.ok(xml.startsWith('<?xml'), 'No BOM before the XML declaration');
+  assert.ok(!xml.includes('\r'), 'Apple AMFI requires LF line endings');
+  assert.ok(!xml.includes('<!--'), 'Apple AMFI does not accept XML comments');
+});
 
 function macho(file, arch) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -233,6 +257,7 @@ test('Forge signing skips non-code resources through the installed signer API', 
     const util=require(require('node:path').join(require('node:path').dirname(signPath),'util.js'));
     util.execFileAsync=async (command,args)=>{calls.push({command,args});return '';};
     const options=require(${JSON.stringify(path.resolve(__dirname, '../forge.config.ts'))}).packagerConfig.osxSign;
+    require('node:assert/strict').equal(options.continueOnError,false,'A signing failure must stop packaging');
     require('@electron/osx-sign').signAsync({...options, app:${JSON.stringify(app)}, platform:'darwin', identityValidation:false})
       .then(()=>console.log(JSON.stringify(calls.filter(c=>c.args.includes('--sign')).map(c=>c.args.at(-1)))))
       .catch(error=>{console.error(error);process.exitCode=1});

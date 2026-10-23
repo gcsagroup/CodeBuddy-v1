@@ -2,6 +2,7 @@ import type { ContentBlock, PromptResponse } from '@agentclientprotocol/sdk';
 import type { SteerSessionRequest_unstable, SteerSessionResponse_unstable } from '@aaif/goose-sdk';
 import type { Message } from '../types/message';
 import { getAcpClient } from './acpConnection';
+import { currentLocale } from '../i18n';
 
 // Stable ACP wire identifiers preserve compatibility with existing backends.
 export const CODEPRO_TURN_RETRY_META_KEY = 'codeagentpro/turn-retry';
@@ -42,6 +43,11 @@ export async function acpPromptSession(
 ): Promise<PromptResponse> {
   const client = await getAcpClient();
   const meta = {
+    'codebuddy/client-locale': currentLocale,
+    ...(message.metadata.planMode !== undefined
+      ? { 'codebuddy/plan': message.metadata.planMode }
+      : {}),
+    ...(message.metadata.goalRequest ? { 'codebuddy/goal': message.metadata.goalRequest } : {}),
     ...(message.id ? { [CODEPRO_SOURCE_MESSAGE_ID_META_KEY]: message.id } : {}),
     ...(message.metadata.presentation
       ? { 'codebuddy/message-presentation': message.metadata.presentation }

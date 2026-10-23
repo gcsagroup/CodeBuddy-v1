@@ -1,10 +1,12 @@
 # Desktop pets
 
+Multiple conversations are expanded by default. Click the list heading to collapse or expand it. Collapsing retains the priority conversation; long lists remain scrollable.
+
 Task cards use a light rounded surface, soft shadow, and distinct title, status, and action areas. Titles wrap to two lines; the expanded list scrolls. The reading hierarchy references [Fluent toast guidance](https://fluent2.microsoft.design/components/web/react/core/toast/usage), without adding a UI dependency.
 
 Drag positions are validated against the union of display work areas, allowing the window to span adjacent screens. Positions beyond outer edges or on disconnected displays recover to the nearest visible work area. Passive hover updates mouse passthrough without raising the window; explicit pet interaction restores its stacking order. This reduces capture-overlay conflicts but does not implement global screenshot detection or automatic animation freezing. WeChat capture and mixed-scale multi-monitor behavior still require acceptance in the corresponding desktop environment.
 
-Settings → Pets offers Red Panda, Cream Cat and White Fox. Red Panda is the default. Click a card to preview, then choose Set as desktop pet to select and show it. Show and Hide are also available separately. Existing custom selections are retained; the early `buddy` default migrates to `red-panda`.
+Settings → Pets offers Red Panda, Cream Cat and White Fox. First use starts with no pet selected. Click a card to preview, then choose Set as desktop pet to select and show it. Existing selections are retained; use Show this pet to enable a hidden selection again. The early `buddy` selection migrates to `red-panda`. If selected artwork is missing, selection is cleared rather than silently replaced with another pet.
 
 Animations cover idle, wave, jump, working, waiting for input, blocked, review completed and gaze directions. Drag to move, click to greet and double-click to jump. Task notices consume structured ACP session state; clicking a notice opens its session. Reduce motion is available in settings.
 
@@ -13,6 +15,8 @@ A completion notice is marked read only when its chat is visible in a focused wi
 One pet hosts an expandable chat list, prioritizing input needed, blocked, unread completed, then working chats. Each card shows its title and actual activity (thinking, responding, active tool, compaction, and so on), plus an existing structured work stage when available. Completed cards have a checkmark. A new unnamed chat uses its first request as a title. Clicking a card opens that exact chat. No percentages are invented, and completion is never inferred from reply text.
 
 ## Assets and creation
+
+Click the pet to open a New conversation composer. Enter sends; Shift+Enter inserts a line break, and IME confirmation does not send. Sending opens a fresh conversation in the CodeBuddy main window using the current model and default workspace rules. Closing preserves the unsent draft; failed window handoffs retain the text for retry. Task cards still open their own conversations. Dragging and double-click jumping remain available.
 
 The completion checkmark and sidebar green unread dot consume the same completion record and clear together after the chat is viewed. When the Agent calls `ask_user_question`, the pet shows a waiting-for-reply notice and question summary. Clicking opens that question; viewing does not answer it. Pause uses the existing session stop action. Follow up opens the original chat so the user can send further instructions.
 
@@ -35,3 +39,5 @@ Invalid updates report errors and preserve the validated version. A damaged bund
 ## Assembly
 
 `runtime/assets/assemble-pet.py` crops, scales and registers generated poses, then exports previews and inspection records; it does not draw characters. The former `ui/desktop/scripts/assemble-pet.py` remains an entry point to the same implementation. The builtin tool accepts workspace-local images, validates a temporary package before publishing it atomically, preserves existing IDs and never selects the pet automatically. Pixel checks do not prove character consistency or action semantics; visual preview is still required. Source images, workflows and local acceptance files live under `target/pet-redesign` and are not distributed with the application.
+
+The compact composer starts at two lines and grows to a bounded height. Use the paperclip to select files or images and remove them through attachment chips. Each message allows up to 10 attachments; source images are limited to 20 MB each. Images reuse chat compression and image input, while other files are local path references without extra copies. Right-click the pet for Hide pet or Pet settings. Settings opens the Virtual pets page directly, where a hidden pet can be shown again.

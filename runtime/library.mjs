@@ -354,12 +354,12 @@ export class LibraryService {
             .map((entry) => ({
               name: entry.slash_command,
               description: entry.recipe.description,
-              _meta: { recipeId: entry.id },
+              _meta: { recipeId: entry.id, commandType: "Recipe", sourcePath: entry.file_path },
             })),
           ...skills.map((skill) => ({
             name: skill.name,
             description: skill.description,
-            _meta: { skillPath: skill.displayPath },
+            _meta: { skillPath: skill.displayPath, commandType: "Skill" },
           })),
         ],
       };

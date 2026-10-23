@@ -5,7 +5,6 @@ export type SettingsPageId =
   | 'input'
   | 'security'
   | 'memory'
-  | 'sharing'
   | 'auth'
   | 'keyboard'
   | 'pets';
@@ -126,25 +125,6 @@ export const settingsNavigationItems: SettingsNavigationItem[] = [
     keywords: ['memory', 'project', 'recall', 'expired', '记忆', '記憶', '项目', '專案', '过期'],
   },
   {
-    id: 'sharing',
-    group: 'connections',
-    label: 'Tools and connections',
-    description: 'External backends and tool connections',
-    keywords: [
-      'external backend',
-      'tool',
-      'connection',
-      'extension',
-      'mcp',
-      '工具',
-      '连接',
-      '連線',
-      '扩展',
-      '擴充',
-      '外部后端',
-    ],
-  },
-  {
     id: 'auth',
     group: 'connections',
     label: 'Accounts and credentials',
@@ -180,7 +160,7 @@ const legacySectionToPage: Record<string, SettingsPageId> = {
   security: 'security',
   permissions: 'security',
   advanced: 'chat',
-  sharing: 'sharing',
+  sharing: 'models',
   prompts: 'chat',
   keyboard: 'keyboard',
   auth: 'auth',

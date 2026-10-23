@@ -14,6 +14,7 @@ import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
 import SettingsMenu from '../SettingsMenu';
+import ExternalBackendSection from '../app/ExternalBackendSection';
 
 const i18n = defineMessages({
   connections: { id: 'modelsAndRuntime.connections', defaultMessage: 'Models and connections' },
@@ -127,10 +128,7 @@ export default function ModelsAndRuntimeSettings({
   const customProviders = useMemo(
     () =>
       providers.filter(
-        (provider) =>
-          provider.is_configured &&
-          provider.provider_type === 'Custom' &&
-          provider.category !== 'agent'
+        (provider) => provider.provider_type === 'Custom' && provider.category !== 'agent'
       ),
     [providers]
   );
@@ -172,6 +170,8 @@ export default function ModelsAndRuntimeSettings({
           )}
         </CardContent>
       </Card>
+
+      <ExternalBackendSection />
 
       <p className="text-xs text-text-muted">
         {intl.formatMessage(i18n.codeBuddyModel)} · {intl.formatMessage(i18n.inDevelopment)}

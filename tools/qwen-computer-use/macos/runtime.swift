@@ -73,9 +73,13 @@ func frontmostPID() -> pid_t? {
     let system = AXUIElementCreateSystemWide()
     AXUIElementSetMessagingTimeout(system, 1)
     guard let value = attribute(system, kAXFocusedApplicationAttribute),
-          CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+          CFGetTypeID(value) == AXUIElementGetTypeID() else {
+        return confirmedForegroundPID(accessibilityPID: nil, workspacePID: workspacePID)
+    }
     var focusedPID: pid_t = -1
-    guard AXUIElementGetPid(value as! AXUIElement, &focusedPID) == .success else { return nil }
+    guard AXUIElementGetPid(value as! AXUIElement, &focusedPID) == .success else {
+        return confirmedForegroundPID(accessibilityPID: nil, workspacePID: workspacePID)
+    }
     return confirmedForegroundPID(accessibilityPID: focusedPID, workspacePID: workspacePID)
 }
 
@@ -129,6 +133,16 @@ func accessibilityWindow(_ window: NativeWindow) throws -> AXUIElement {
 
 @MainActor
 func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
+    if AXIsProcessTrusted() {
+        let app = AXUIElementCreateApplication(window.pid)
+        AXUIElementSetMessagingTimeout(app, 1)
+        // Electron/Chromium defer their web accessibility tree until an AT client
+        // requests it. Scope this to the observed PID; never toggle system access.
+        let enabled = enableTargetAccessibility(
+            read: { attribute(app, $0) as? Bool },
+            enable: { AXUIElementSetAttributeValue(app, $0 as CFString, kCFBooleanTrue) == .success })
+        if enabled { try await Task.sleep(nanoseconds: 500_000_000) }
+    }
     let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
     guard let target = content.windows.first(where: { $0.windowID == window.id && $0.owningApplication?.processID == window.pid }),
           WindowFrame(target.frame).matches(window.bounds) else {
@@ -160,7 +174,11 @@ func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
         visit(root, path: [0], depth: 0)
         if elements.count >= 400 || Date() >= deadline { lines.append("Accessibility tree truncated; use visible image coordinates where needed.") }
     } else {
-        lines.append("Accessibility tree unavailable. Use coordinates bound to this window screenshot.")
+        if AXIsProcessTrusted() {
+            lines.append("Accessibility tree unavailable for this app. Inspect the actual screenshot before choosing coordinates.")
+        } else {
+            lines.append("Accessibility permission is missing. Screen capture alone does not grant input. Authorize the responsible application identified by macOS; development launches may belong to Terminal. Reopen that application if requested and recheck access. Do not substitute shell UI automation.")
+        }
     }
     // Reject geometry changes while the image/tree were being collected.
     guard windows().contains(where: { $0.id == window.id && $0.pid == window.pid && $0.bounds.matches(window.bounds) }) else {
@@ -218,7 +236,17 @@ func mouse(_ type: CGEventType, _ point: CGPoint, _ button: CGMouseButton = .lef
 
 @main
 struct NativeRuntime {
-    @MainActor static func main() async {
+    @MainActor static func main() {
+        // AppKit focus/activation state needs its event loop to receive changes.
+        NSApplication.shared.setActivationPolicy(.prohibited)
+        Task {
+            await processRequest()
+            exit(0)
+        }
+        NSApplication.shared.run()
+    }
+
+    @MainActor static func processRequest() async {
         let receipt = InputDispatchReceipt()
         do {
             NSApplication.shared.setActivationPolicy(.prohibited)
@@ -298,29 +326,15 @@ struct NativeRuntime {
             return try window.bounds.globalPoint(x: request.x, y: request.y)
         }
         func visiblePoint(_ point: CGPoint) throws {
-            let candidates = windows()
-            if candidates.first(where: { $0.bounds.rect.contains(point) })?.id == window.id { return }
-            // A compositor tracking surface can cover the display geometrically
-            // without receiving input. System-wide AX hit-testing resolves the
-            // actual topmost window at the point, including real overlays.
-            let system = AXUIElementCreateSystemWide()
-            AXUIElementSetMessagingTimeout(system, 1)
-            var hit: AXUIElement?
-            var hitPID: pid_t = -1
-            guard AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit) == .success,
-                  let hit, AXUIElementGetPid(hit, &hitPID) == .success, hitPID == window.pid else {
-                throw RuntimeFailure("Another window covers the input point or its target is unavailable; re-observe.")
+            guard let primary = NSScreen.screens.first else {
+                throw RuntimeFailure("No primary display is available for mouse hit-testing; re-observe.")
             }
-            let root: AXUIElement
-            if textAttribute(hit, kAXRoleAttribute) == kAXWindowRole { root = hit }
-            else if let value = attribute(hit, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() {
-                root = value as! AXUIElement
-            } else { throw RuntimeFailure("The input point has no confirmed accessibility window; re-observe.") }
-            guard let rect = elementRect(root),
-                  matchFocusedWindow(candidates, pid: hitPID, frame: WindowFrame(rect),
-                    title: textAttribute(root, kAXTitleAttribute))?.id == window.id else {
-                throw RuntimeFailure("The input point belongs to a different or ambiguous window; re-observe.")
-            }
+            // This public API applies mouse-down hit-testing, including transparent
+            // and ignoresMouseEvents surfaces. CG window rectangles include Dock's
+            // full-display tracking surface and do not identify input recipients.
+            let hit = NSWindow.windowNumber(at: appKitHitPoint(point, primaryDisplayTop: primary.frame.maxY),
+                belowWindowWithWindowNumber: 0)
+            try validateMouseHit(hit, target: window)
         }
         switch request.tool {
         case "click":

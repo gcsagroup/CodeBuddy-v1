@@ -62,7 +62,8 @@ function fixture(t) {
   };
 }
 
-test('preview uses the product data root, supports isolation and rejects legacy aliases', () => {
+test('preview uses the product data root, supports isolation and rejects legacy aliases', (t) => {
+  const isolatedConfig = fixture(t).root;
   const root = path.resolve('preview-fixture');
   const inherited = {
     Path: process.env.Path || process.env.PATH,
@@ -88,9 +89,16 @@ test('preview uses the product data root, supports isolation and rejects legacy 
   assert.equal(isolated.CODEBUDDY_HOME, isolatedHome);
   assert.equal(isolated.CODEBUDDY_USER_DATA_DIR, path.join(isolatedHome, 'state', 'electron-app'));
   assert.equal(isolated.CODEBUDDY_WORKSPACE_ROOT, path.join(isolatedHome, 'workspaces'));
-  const defaults = previewEnvironment(root, 12345, 'fixture-secret', {});
+  const configEnv = { APPDATA: isolatedConfig, XDG_CONFIG_HOME: isolatedConfig };
+  const defaults = previewEnvironment(root, 12345, 'fixture-secret', configEnv);
   assert.equal(defaults.CODEBUDDY_HOME, path.join(os.homedir(), '.CodeBuddy'));
   assert.equal(defaults.CODEBUDDY_WORKSPACE_ROOT, path.join(defaults.CODEBUDDY_HOME, 'workspaces'));
+  const locator = require('../runtime/storage-management.cjs').locationFile(configEnv);
+  fs.mkdirSync(path.dirname(locator), { recursive: true });
+  const selected = path.join(isolatedConfig, 'selected-data');
+  fs.writeFileSync(locator, selected + '\n');
+  assert.equal(previewEnvironment(root, 12345, 'fixture-secret', configEnv).CODEBUDDY_HOME, selected);
+  assert.equal(previewEnvironment(root, 12345, 'fixture-secret', configEnv, isolatedHome).CODEBUDDY_HOME, isolatedHome);
   assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', inherited, 'relative-data'), /absolute path/);
   assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', { CODEBUDDY_HOME: 'relative' }), /absolute non-root/);
   assert.throws(() => previewEnvironment(root, 12346, 'fixture-secret', {}, path.parse(root).root), /non-root/);

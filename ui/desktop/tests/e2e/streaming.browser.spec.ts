@@ -14,7 +14,14 @@ test.beforeAll(async () => {
     server: { host: '127.0.0.1', port: 0, hmr: false },
   });
   await server.listen();
-  browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
+  browser = await chromium.launch({
+    channel:
+      process.platform === 'win32'
+        ? 'msedge'
+        : process.platform === 'darwin'
+          ? 'chrome'
+          : undefined,
+  });
 });
 test.afterAll(async () => {
   await browser?.close();
@@ -30,6 +37,39 @@ test.afterEach(async () => {
   await page.close();
 });
 
+test('long HTML code stream records render cost and remains complete', async () => {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/streaming.html?long-code`
+  );
+  await page.evaluate(() => {
+    const durations: number[] = [];
+    Object.assign(window, { longTasks: durations });
+    new window.PerformanceObserver((list) =>
+      durations.push(...list.getEntries().map((e) => e.duration))
+    ).observe({ type: 'longtask', buffered: false });
+  });
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.getByTestId('transport')).toHaveText('finished', { timeout: 60000 });
+  await expect(page.getByTestId('body')).toContainText('const enemy139');
+  const metrics = await page.evaluate(() => {
+    const values = window as unknown as { streamRenderSamples: number[]; longTasks: number[] };
+    const renders = values.streamRenderSamples.slice(2).sort((a, b) => a - b);
+    return {
+      count: renders.length,
+      p95: renders[Math.floor(renders.length * 0.95)],
+      max: Math.max(...renders),
+      totalRenderMs: renders.reduce((a, b) => a + b, 0),
+      longTasks: values.longTasks.length,
+      longTaskMs: values.longTasks.reduce((a, b) => a + b, 0),
+    };
+  });
+  console.log('LONG_CODE_METRICS', JSON.stringify(metrics));
+  await test.info().attach('long-code-metrics', {
+    body: JSON.stringify(metrics),
+    contentType: 'application/json',
+  });
+});
+
 test('bursty input renders without a playback backlog while table columns stay stable', async () => {
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   const samples = await page.evaluate(async () => {
@@ -43,11 +83,11 @@ test('bursty input renders without a playback backlog while table columns stay s
       top: number;
       columns: number[];
     }[] = [];
-    const start = performance.now();
+    const start = window.performance.now();
     await new Promise<void>((resolve) => {
       const sample = () => {
         samples.push({
-          at: performance.now() - start,
+          at: window.performance.now() - start,
           visible: Number(body.getAttribute('data-visible')),
           received: Number(body.getAttribute('data-received')),
           rendered: body.textContent?.length ?? 0,
@@ -56,7 +96,7 @@ test('bursty input renders without a playback backlog while table columns stay s
             (th) => th.getBoundingClientRect().width
           ),
         });
-        if (performance.now() - start < 6500) requestAnimationFrame(sample);
+        if (window.performance.now() - start < 6500) requestAnimationFrame(sample);
         else resolve();
       };
       requestAnimationFrame(sample);

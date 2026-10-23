@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import http from "node:http";
@@ -42,9 +42,9 @@ test("common query settings reach the standalone tool without leaking other conf
   assert.equal(f.compat.initialized.has(f.session.id), false, "other configuration retains capability invalidation");
 });
 async function fixture({ codepro = false } = {}) {
-  const directory = await mkdtemp(
+  const directory = await realpath(await mkdtemp(
     path.join(tmpdir(), "codebuddy-settings-runtime-"),
-  );
+  ));
   const store = await openStore(path.join(directory, "data"));
   const cwd = path.join(directory, "project");
   await mkdir(cwd);

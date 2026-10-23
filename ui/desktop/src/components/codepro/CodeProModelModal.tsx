@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import distributionModel from '../../../../../runtime/default-model.json';
 import { AlertTriangle, Bot } from 'lucide-react';
 import {
   readCodeProModelRouting,
@@ -253,7 +254,7 @@ const selectionsFromDefault = (
 });
 
 const CONFIGURE_PROVIDER_VALUE = '__configure_provider__';
-const DEFAULT_IMAGE_MODEL = 'deepseek-v4.1-flash';
+const DEFAULT_IMAGE_MODEL = distributionModel.modelId;
 
 export function CodeProModelModal({
   onClose,
@@ -342,6 +343,7 @@ export function CodeProModelModal({
   const defaultVisionModel = useMemo(() => {
     const candidates = visionInventory.filter((model) => model.id === DEFAULT_IMAGE_MODEL);
     return (
+      candidates.find((model) => model.providerId === distributionModel.providerId) ??
       candidates.find((model) => model.providerId === defaultSelection.provider) ??
       (candidates.length === 1 ? candidates[0] : undefined)
     );

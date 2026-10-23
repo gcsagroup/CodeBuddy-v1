@@ -711,7 +711,7 @@ it('offers only confirmed image models and keeps the selection when backend vali
   expect(close).not.toHaveBeenCalled();
 });
 
-it('uses Flash with the switch off, distinguishes equal model ids by connection and returns to the default on save', async () => {
+it('uses the LAN image default with the switch off, distinguishes equal ids and returns to the distribution default on save', async () => {
   const saved = {
     version: 2 as const,
     advancedRoutingEnabled: false,
@@ -720,9 +720,12 @@ it('uses Flash with the switch off, distinguishes equal model ids by connection 
     visionRoute: { enabled: true, mode: 'auto' as const, providerId: 'other', modelId: 'shared' },
   };
   vi.mocked(readCodeProModelRouting).mockResolvedValue(saved);
-  vi.mocked(acpReadDefaults).mockResolvedValue({ providerId: 'ollama_cloud', modelId: 'text' });
+  vi.mocked(acpReadDefaults).mockResolvedValue({
+    providerId: 'custom_codebuddy_lan',
+    modelId: 'text',
+  });
   vi.mocked(acpListProviderDetails).mockResolvedValue(
-    ['ollama_cloud', 'other'].map((name) => ({
+    ['custom_codebuddy_lan', 'other'].map((name) => ({
       name,
       is_configured: true,
       provider_type: 'Custom',
@@ -731,7 +734,10 @@ it('uses Flash with the switch off, distinguishes equal model ids by connection 
   );
   vi.mocked(acpListProviderModels).mockResolvedValue([
     { id: 'shared', name: 'shared' },
-    { id: 'deepseek-v4.1-flash', name: 'deepseek-v4.1-flash' },
+    {
+      id: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+      name: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
+    },
   ]);
   vi.mocked(resolveModelCapability).mockImplementation(async (providerId, modelId) => ({
     providerId,
@@ -743,7 +749,7 @@ it('uses Flash with the switch off, distinguishes equal model ids by connection 
   render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
   const other = await screen.findByRole('group', { name: 'other' });
   expect(within(other).getByRole('radio', { name: 'shared' })).toBeChecked();
-  const primary = screen.getByRole('group', { name: 'ollama_cloud' });
+  const primary = screen.getByRole('group', { name: 'custom_codebuddy_lan' });
   fireEvent.click(within(primary).getByRole('radio', { name: 'shared' }));
   expect(within(other).getByRole('radio', { name: 'shared' })).not.toBeChecked();
   fireEvent.click(screen.getByRole('switch', { name: 'Use a custom image model' }));
@@ -751,7 +757,7 @@ it('uses Flash with the switch off, distinguishes equal model ids by connection 
     expect(screen.queryByText('Checking image support…')).not.toBeInTheDocument()
   );
   expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-  expect(screen.getByText(/Default: deepseek-v4.1-flash/)).toBeVisible();
+  expect(screen.getByText(/Default: gemma-4-26B-A4B-it-uncensored-FP8-W8A16/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
   await waitFor(() =>
     expect(saveCodeProModelRouting).toHaveBeenCalledWith({
@@ -759,8 +765,8 @@ it('uses Flash with the switch off, distinguishes equal model ids by connection 
       visionRoute: {
         enabled: true,
         mode: 'auto',
-        providerId: 'ollama_cloud',
-        modelId: 'deepseek-v4.1-flash',
+        providerId: 'custom_codebuddy_lan',
+        modelId: 'gemma-4-26B-A4B-it-uncensored-FP8-W8A16',
       },
     })
   );

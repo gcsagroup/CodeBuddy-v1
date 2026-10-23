@@ -69,7 +69,11 @@ test('native web session grants are origin-scoped and keep the upstream network 
   await store.update(state => { state.toolPermissions = {}; });
   answer = 'reject_once';
   const beforeShell = questions.length;
-  const shell = await invoke(s, 'pwsh', { command: 'Write-Output native-workspace-command', description: 'Print isolated native command marker' });
+  const shellName = process.platform === 'win32' ? 'pwsh' : 'bash';
+  const command = process.platform === 'win32'
+    ? 'Write-Output native-workspace-command'
+    : "printf '%s\\n' native-workspace-command";
+  const shell = await invoke(s, shellName, { command, description: 'Print isolated native command marker' });
   assert.equal(shell.isError, false, JSON.stringify(shell));
   assert.equal(shell.value.exitCode, 0);
   assert.equal(questions.length, beforeShell, 'The native sandbox authorizes its own command independently of the network grant');

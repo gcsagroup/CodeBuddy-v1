@@ -111,7 +111,13 @@ describe('ModelsAndRuntimeSettings', () => {
       expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('studio')
     );
     expect(screen.getByTestId('custom-provider-grid')).not.toHaveTextContent('vendor');
-    expect(screen.getByTestId('custom-provider-grid')).not.toHaveTextContent('unfinished-custom');
+    expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('unfinished-custom');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Subagents' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Project exploration' }));
+    expect(screen.getByRole('combobox', { name: 'Model' })).not.toHaveTextContent(
+      'unfinished-custom'
+    );
   });
 
   it('replaces the local download console with agent model configuration', () => {

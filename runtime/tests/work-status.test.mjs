@@ -15,6 +15,29 @@ test('model transport publishes bounded public waiting phases without diagnostic
   assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' })[0].status.data.phase, 'children');
 });
 
+test('tool argument streaming is reported as preparation, never tool execution or completion', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'first_tool_arguments' });
+  assert.equal(update.status.data.phase, 'model');
+  assert.equal(update.status.data.model_request_phase, 'receiving');
+  assert.equal(update.status.message, '正在生成工具调用参数');
+  assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end' })[0].status.message, '');
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'child', phase: 'first_tool_arguments' }), []);
+});
+
+test('file input previews stay ephemeral, deduplicate size ticks and clear at native dispatch or attempt end', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const event = { type: 'tool_input', sessionId: 'parent', preview: { id: 'w', name: 'write', kilobytes: 3 } };
+  const [update] = project(event);
+  assert.deepEqual(update.status.data.tool_input, event.preview);
+  assert.equal(update.status.data.phase, 'model');
+  assert.deepEqual(project(event), []);
+  assert.deepEqual(project({ ...event, sessionId: 'child' }), []);
+  assert.equal(project({ type: 'tool_call', sessionId: 'parent' })[0].status.data.tool_input, undefined);
+  project(event);
+  assert.equal(project({ type: 'assistant_end', sessionId: 'parent' })[0].status.data.tool_input, undefined);
+});
+
 test('live child work has a specific wait target without exposing child receipts', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const waiting = project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

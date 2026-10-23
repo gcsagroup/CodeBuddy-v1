@@ -7,7 +7,7 @@ export const petPanelHeight = 272;
 
 export const defaultPetPreferences: PetPreferences = {
   visible: false,
-  selectedId: defaultPetId,
+  selectedId: '',
   size: 160,
   reducedMotion: false,
 };
@@ -39,10 +39,15 @@ export function validatePetManifest(value: unknown): PetManifest {
 }
 export function normalizePetPreferences(value: unknown): PetPreferences {
   const p = (value || {}) as Partial<PetPreferences>;
+  const selectedId =
+    typeof p.selectedId === 'string'
+      ? p.selectedId === 'buddy'
+        ? defaultPetId
+        : p.selectedId
+      : '';
   return {
-    visible: p.visible === true,
-    selectedId:
-      typeof p.selectedId === 'string' && p.selectedId !== 'buddy' ? p.selectedId : defaultPetId,
+    visible: p.visible === true && selectedId !== '',
+    selectedId,
     size:
       typeof p.size === 'number' && Number.isFinite(p.size)
         ? Math.max(96, Math.min(256, Math.round(p.size)))

@@ -1,10 +1,17 @@
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolvePackagedCodeBuddyHome } from './codeBuddyPaths';
 
-const fixture = () => mkdtempSync(join(tmpdir(), 'codebuddy-profile-retest-'));
+const fixture = () => realpathSync(mkdtempSync(join(tmpdir(), 'codebuddy-profile-retest-')));
 
 describe('packaged default profile isolation', () => {
   it('uses .CodeBuddy for a fresh synthetic home', () => {

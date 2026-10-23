@@ -2,38 +2,39 @@ import { useEffect, useState } from 'react';
 import { defineMessages, useIntl } from '../../i18n';
 import type { PromptActivity } from '../../acp/chatSessionStore';
 import { ChatState } from '../../types/chatState';
+import { formatToolInputPreview } from '../ToolInputPreview';
 
 const labels = defineMessages({
-  first: { id: 'workStatus.first', defaultMessage: 'Waiting for model response' },
-  preparing: { id: 'workStatus.preparing', defaultMessage: 'Preparing the model request' },
-  connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting to the model service' },
+  first: { id: 'workStatus.first', defaultMessage: 'Working on your request' },
+  preparing: { id: 'workStatus.preparing', defaultMessage: 'Getting ready' },
+  connecting: { id: 'workStatus.connecting', defaultMessage: 'Connecting' },
   responseWait: {
     id: 'workStatus.responseWait',
-    defaultMessage: 'Request sent; waiting for the model service to respond',
+    defaultMessage: 'Working on your request',
   },
   responseRead: {
     id: 'workStatus.responseRead',
-    defaultMessage: 'Connection established; receiving model output',
+    defaultMessage: 'Preparing a response',
   },
   children: {
     id: 'workStatus.children',
     defaultMessage:
-      'Waiting for {count, plural, one {# subagent} other {# subagents}} to return results',
+      '{count, plural, one {# assistant is working} other {# assistants are working}}',
   },
   childResult: {
     id: 'workStatus.childResult',
-    defaultMessage: 'Waiting for the main agent to process subagent results',
+    defaultMessage: 'Bringing the results together',
   },
   toolResult: {
     id: 'workStatus.toolResult',
-    defaultMessage: 'Waiting for the main agent to process tool results',
+    defaultMessage: 'Reviewing the tool results',
   },
-  text: { id: 'workStatus.text', defaultMessage: 'Receiving the response' },
-  thought: { id: 'workStatus.thought', defaultMessage: 'Receiving model activity' },
-  question: { id: 'workStatus.question', defaultMessage: 'Waiting for your answer or approval' },
-  cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping; waiting for confirmation' },
+  text: { id: 'workStatus.text', defaultMessage: 'Writing a response' },
+  thought: { id: 'workStatus.thought', defaultMessage: 'Thinking' },
+  question: { id: 'workStatus.question', defaultMessage: 'Your input is needed' },
+  cancel: { id: 'workStatus.cancel', defaultMessage: 'Stopping the current operation' },
   check: { id: 'workStatus.check', defaultMessage: 'Checking execution results' },
-  approval: { id: 'workStatus.approval', defaultMessage: 'Waiting for your approval: {action}' },
+  approval: { id: 'workStatus.approval', defaultMessage: 'Please approve: {action}' },
   elapsed: { id: 'workStatus.elapsed', defaultMessage: '{seconds}s' },
 });
 
@@ -63,7 +64,9 @@ export function selectWorkStatus(input: WorkStatusInput, now: number) {
     : 0;
   const recent = activity?.receivedAt !== undefined && silence < 3;
   const execution = activity?.execution;
-  if (execution?.detail) return { source: 'stage' as const, title: execution.detail };
+  if (execution?.toolInput && !action)
+    return { source: 'toolInput' as const, preview: execution.toolInput };
+  if (execution?.detail && !action) return { source: 'stage' as const, title: execution.detail };
   const transportSource =
     execution?.phase === 'model' && execution.modelRequestPhase
       ? (
@@ -112,13 +115,15 @@ export function useWorkStatus(input: WorkStatusInput) {
     source,
     source === 'tool'
       ? [input.actionId ?? input.action, Boolean(input.toolPending)]
-      : source === 'stage'
-        ? selection.title
-        : source === 'chat_state'
-          ? input.chatState
-          : source === 'children'
-            ? selection.childCount
-            : null,
+      : source === 'toolInput'
+        ? selection.preview.id
+        : source === 'stage'
+          ? selection.title
+          : source === 'chat_state'
+            ? input.chatState
+            : source === 'children'
+              ? selection.childCount
+              : null,
   ]);
   const [clock, setClock] = useState(() => ({ key: statusKey, startedAt: Date.now() }));
   let startedAt = clock.startedAt;
@@ -132,14 +137,16 @@ export function useWorkStatus(input: WorkStatusInput) {
     ? Math.max(0, Math.floor((Math.max(now, Date.now()) - startedAt) / 1000))
     : undefined;
   const title =
-    'title' in selection && selection.title
-      ? selection.title
-      : source === 'chat_state' || source === 'stage' || source === 'tool'
-        ? undefined
-        : intl.formatMessage(labels[source], {
-            count: 'childCount' in selection ? selection.childCount : 0,
-            action: 'action' in selection ? selection.action : '',
-          });
+    source === 'toolInput'
+      ? formatToolInputPreview(intl, selection.preview)
+      : 'title' in selection && selection.title
+        ? selection.title
+        : source === 'chat_state' || source === 'stage' || source === 'tool'
+          ? undefined
+          : intl.formatMessage(labels[source], {
+              count: 'childCount' in selection ? selection.childCount : 0,
+              action: 'action' in selection ? selection.action : '',
+            });
   const elapsed =
     elapsedSeconds !== undefined && elapsedSeconds >= 1
       ? intl.formatMessage(labels.elapsed, {

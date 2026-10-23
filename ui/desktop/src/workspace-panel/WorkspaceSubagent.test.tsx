@@ -9,12 +9,14 @@ import { readSubagentCatalog } from '../acp/subagentCatalog';
 import {
   createSubagentConversationProjection,
   readSubagentConversation,
+  watchSubagentConversation,
   type SubagentConversationPage,
 } from '../acp/subagentConversation';
 
 vi.mock('../acp/subagentConversation', async (original) => ({
   ...(await original<typeof import('../acp/subagentConversation')>()),
   readSubagentConversation: vi.fn(),
+  watchSubagentConversation: vi.fn(() => vi.fn()),
 }));
 vi.mock('../acp/subagentCatalog', () => ({ readSubagentCatalog: vi.fn() }));
 vi.mock('../components/ProgressiveMessageList', () => ({
@@ -23,7 +25,11 @@ vi.mock('../components/ProgressiveMessageList', () => ({
     expect(props).not.toHaveProperty('resubmitMessage');
     expect(props).not.toHaveProperty('resumeAfterWorkspace');
     return (
-      <div>
+      <div
+        aria-label={
+          'thinkingActivity' in props && props.thinkingActivity ? 'Live reasoning' : undefined
+        }
+      >
         {messages
           .flatMap((m) => m.content)
           .map((c, i) => (
@@ -36,9 +42,19 @@ vi.mock('../components/ProgressiveMessageList', () => ({
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  Object.defineProperty(window.HTMLElement.prototype, 'scrollTo', {
+    configurable: true,
+    value: function (this: globalThis.HTMLElement, options: { top?: number }) {
+      this.scrollTop = options.top ?? 0;
+    },
+  });
 });
+const originalScrollTo = Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'scrollTo');
 afterEach(() => {
   vi.useRealTimers();
+  if (originalScrollTo)
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollTo', originalScrollTo);
+  else Reflect.deleteProperty(window.HTMLElement.prototype, 'scrollTo');
 });
 const page = (
   events: SubagentConversationPage['events'],
@@ -372,7 +388,7 @@ it('projects native tool receipts once without inventing an answer or execution'
     },
   ];
   const messages = projection.append(events);
-  expect(messages.some((message) => message.id === 'task')).toBe(false);
+  expect(messages.some((message) => message.id === 'task')).toBe(true);
   expect(messages.flatMap((message) => message.content)).toContainEqual({
     type: 'text',
     text: 'Also inspect discounts',
@@ -454,4 +470,207 @@ it('passes durable file evidence to the same change renderer used by the main ch
       (node) => node.textContent?.trim() === ''
     )
   ).toBe(true);
+});
+
+it('shows the initial delegation and live reasoning/text once, then replaces them with the durable native message', async () => {
+  const projection = createSubagentConversationProjection('child');
+  projection.append(first.events.slice(0, 2));
+  projection.stream({ type: 'start', attemptId: 'a', turn: 1, step: 1 });
+  projection.stream({
+    type: 'chunk',
+    attemptId: 'a',
+    chunk: { type: 'reasoning-delta', text: '检查 A/B 🙂' },
+  });
+  projection.stream({
+    type: 'chunk',
+    attemptId: 'a',
+    chunk: { type: 'text-delta', text: '边界 **完整**' },
+  });
+  expect(projection.streaming).toBe(true);
+  expect(projection.messages.flatMap((message) => message.content)).toEqual(
+    expect.arrayContaining([
+      { type: 'text', text: 'Review quantities' },
+      expect.objectContaining({ type: 'thinking', thinking: '检查 A/B 🙂' }),
+      { type: 'text', text: '边界 **完整**' },
+    ])
+  );
+  projection.stream({ type: 'end', attemptId: 'stale' });
+  expect(projection.streaming).toBe(true);
+  projection.append([
+    {
+      seq: 2,
+      type: 'assistant/message',
+      data: {
+        turn: 1,
+        step: 1,
+        message: {
+          id: 'native-final',
+          role: 'assistant',
+          content: [
+            { type: 'reasoning', text: '检查 A/B 🙂' },
+            { type: 'text', text: '边界 **完整**' },
+          ],
+        },
+      },
+    },
+  ]);
+  projection.stream({ type: 'end', attemptId: 'a' });
+  expect(projection.streaming).toBe(false);
+  expect(projection.messages.filter((message) => message.role === 'assistant')).toHaveLength(1);
+  expect(
+    projection.messages
+      .flatMap((message) => message.content)
+      .filter((block) => block.type === 'text' && block.text === '边界 **完整**')
+  ).toHaveLength(1);
+});
+
+it('retains reading position and a stale transcript on observer failure while allowing a complete rebaseline', async () => {
+  vi.mocked(readSubagentConversation).mockResolvedValue(first);
+  let receive!: Parameters<typeof watchSubagentConversation>[3];
+  const close = vi.fn();
+  vi.mocked(watchSubagentConversation).mockImplementationOnce(
+    (_parent, _child, _ancestors, callback) => {
+      receive = callback;
+      return close;
+    }
+  );
+  const view = render(
+    <WorkspaceSubagent parentSessionId="parent" childSessionId="child" title="Review" />,
+    { wrapper: IntlTestWrapper }
+  );
+  await act(async () => {
+    receive({ type: 'ready', events: first.events });
+  });
+  expect(screen.getByText('Review quantities')).toBeVisible();
+  const scroll = view.container.querySelector('[data-radix-scroll-area-viewport]')!;
+  Object.defineProperties(scroll, {
+    scrollHeight: { value: 2000, configurable: true },
+    clientHeight: { value: 300, configurable: true },
+  });
+  fireEvent.wheel(scroll, { deltaY: -100 });
+  fireEvent.scroll(scroll, { target: { scrollTop: 300 } });
+  await act(async () => {
+    receive({ type: 'stream', frame: { type: 'start', attemptId: 'a', turn: 1, step: 2 } });
+    receive({
+      type: 'stream',
+      frame: {
+        type: 'chunk',
+        attemptId: 'a',
+        chunk: { type: 'reasoning-delta', text: 'Live reasoning fragment' },
+      },
+    });
+  });
+  expect(screen.getByLabelText('Live reasoning')).toBeVisible();
+  await act(async () => {
+    receive({
+      type: 'stream',
+      frame: {
+        type: 'chunk',
+        attemptId: 'a',
+        chunk: { type: 'text-delta', text: 'Live response' },
+      },
+    });
+  });
+  expect(screen.getByText('Live response')).toBeVisible();
+  expect(screen.getByText('Writing a response')).toBeVisible();
+  expect(scroll.scrollTop).toBe(300);
+  await act(async () => {
+    receive({ type: 'error', message: 'Disconnected' });
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent('Disconnected');
+  expect(screen.queryByText('Writing a response')).toBeNull();
+  expect(screen.getByText('Live response')).toBeVisible();
+  await act(async () => {
+    receive({ type: 'reset' });
+    receive({ type: 'ready', events: first.events });
+  });
+  expect(screen.queryByText('Live response')).toBeNull();
+  expect(screen.getAllByText('Review quantities')).toHaveLength(1);
+  expect(scroll.scrollTop).toBe(300);
+  view.unmount();
+  expect(close).toHaveBeenCalledOnce();
+});
+
+it('shows observer failures before the first snapshot instead of silently disguising a broken live connection', async () => {
+  vi.mocked(readSubagentConversation).mockResolvedValue(first);
+  let receive!: Parameters<typeof watchSubagentConversation>[3];
+  vi.mocked(watchSubagentConversation).mockImplementationOnce(
+    (_parent, _child, _ancestors, callback) => {
+      receive = callback;
+      return vi.fn();
+    }
+  );
+  render(<WorkspaceSubagent parentSessionId="parent" childSessionId="child" title="Review" />, {
+    wrapper: IntlTestWrapper,
+  });
+  await act(async () => {
+    receive({ type: 'error', message: 'Streaming unavailable' });
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent('Streaming unavailable');
+  expect(screen.getByText('Review quantities')).toBeVisible();
+  expect(screen.queryByText('Working on your request')).toBeNull();
+  await act(async () => {
+    receive({ type: 'ready', events: first.events });
+  });
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('uses real live tool events for the filename status and retires it at the native turn end', () => {
+  const projection = createSubagentConversationProjection('child');
+  const call = {
+    seq: 0,
+    type: 'tool/call',
+    data: { callId: 'write', name: 'write', arguments: '{"file_path":"fixture.ts","content":"x"}' },
+  };
+  projection.append([call]);
+  expect(projection.activity).toBeUndefined();
+  const live = createSubagentConversationProjection('child');
+  live.append([call], true);
+  expect(live.pendingTool).toMatchObject({ name: 'write', arguments: { file_path: 'fixture.ts' } });
+  expect(live.activity?.kind).toBe('tool');
+  live.append([{ seq: 1, type: 'turn/end', data: { turn: 1, reason: { kind: 'aborted' } } }], true);
+  expect(live.activity).toBeUndefined();
+  expect(live.pendingTool).toBeUndefined();
+});
+
+it('shows sanitized file preparation without adding a tool request and removes it on stop', async () => {
+  vi.mocked(readSubagentConversation).mockResolvedValue(first);
+  let receive!: Parameters<typeof watchSubagentConversation>[3];
+  vi.mocked(watchSubagentConversation).mockImplementationOnce(
+    (_parent, _child, _ancestors, callback) => {
+      receive = callback;
+      return vi.fn();
+    }
+  );
+  render(<WorkspaceSubagent parentSessionId="parent" childSessionId="child" title="Review" />, {
+    wrapper: IntlTestWrapper,
+  });
+  await act(async () => {
+    receive({ type: 'ready', events: first.events });
+    receive({ type: 'stream', frame: { type: 'start', attemptId: 'draft', turn: 2, step: 1 } });
+    receive({
+      type: 'stream',
+      frame: {
+        type: 'chunk',
+        attemptId: 'draft',
+        chunk: {
+          type: 'tool-call-delta',
+          text: '',
+          preview: { id: 'w', name: 'write', kilobytes: 14 },
+        },
+      },
+    });
+  });
+  expect(screen.queryByText('14 KB')).toBeNull();
+  expect(screen.getAllByText(/Generating file contents/).length).toBeGreaterThan(0);
+  await act(async () => {
+    receive({
+      type: 'history',
+      events: [{ seq: 5, type: 'turn/end', data: { turn: 2, reason: { kind: 'aborted' } } }],
+    });
+    receive({ type: 'stream', frame: { type: 'end', attemptId: 'draft' } });
+  });
+  expect(screen.queryByText('14 KB')).toBeNull();
+  expect(screen.queryByText(/Generating file contents/)).toBeNull();
+  expect(screen.getByText('Turn interrupted')).toBeVisible();
 });

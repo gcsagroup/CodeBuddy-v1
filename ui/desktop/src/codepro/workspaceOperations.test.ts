@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,8 +46,8 @@ describe('listGitWorktreeDirs', () => {
     const directories = await listGitWorktreeDirs(source);
 
     expect(directories.map(path.normalize)).toEqual([
-      path.normalize(source),
-      path.normalize(worktree),
+      path.normalize(await realpath(source)),
+      path.normalize(await realpath(worktree)),
     ]);
   });
 });

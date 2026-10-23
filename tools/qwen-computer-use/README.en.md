@@ -1,5 +1,11 @@
 # Standalone Computer Use MCP
 
+Mac observations enable the Electron/Chromium accessibility tree through capabilities exposed by the target process. Already enabled or unsupported attributes remain unchanged. This does not grant system permission or replace Screen Recording, Accessibility, or verification after input. See the [Electron accessibility interface](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md).
+
+On macOS permission denial, check the responsible application identified by the system prompt or TCC logs. Development launches may be attributed to Terminal. A helper path or containing application directory alone does not prove permission attribution. Confirm the launch source before checking Screen Recording and Accessibility, then restart if requested by macOS. Do not repeatedly add the helper or remove existing grants based only on a helper error.
+
+Observations with screenshots include the window's screen position so fresh observations before and after a drag can verify movement. Click, scroll and drag input still uses window-local coordinates. Observations without screenshots do not claim an observed position.
+
 [繁體中文](README.md) · [简体中文](README.zh-CN.md)
 
 Based on Qwen open-computer-use 0.2.3 for Windows, commit 24b7cae4d449a5a8ea58c583e5151096b26de03c, MIT license. Retains Unicode, window identity and foreground input fixes. The hybrid host bridge and Rust Qwen adapter have been removed. Nine standard MCP tools return screenshots and accessibility data directly to the agent.

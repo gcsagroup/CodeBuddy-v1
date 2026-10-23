@@ -1,8 +1,13 @@
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerGitHubCliAuth } from './github/githubCliMain';
 import { startHarnessService } from './harnessService';
+import { showMacUninstall } from './storage/macosUninstall';
+import { locationFile, readDataRoot, assertNoMigration } from '../../../runtime/storage-management.cjs';
 import { readFileResponse } from './storage/readFileResponse';
-import { registerWorkspacePanel, registerWorkspaceMediaSession } from './workspace-panel/workspacePanelMain';
+import {
+  registerWorkspacePanel,
+  registerWorkspaceMediaSession,
+} from './workspace-panel/workspacePanelMain';
 import type { OpenDialogOptions, OpenDialogReturnValue, Session } from 'electron';
 import {
   app,
@@ -66,14 +71,23 @@ import distro from '../codebuddy.distro.json';
 import { hasSupportedDeepLinkPrefix, PRIMARY_DEEP_LINK_PREFIX } from './utils/deepLinkProtocol';
 import { listGitWorktreeDirs } from './codepro/workspaceOperations';
 import { confirmCodeProWorkspace, inspectCodeProWorkspace } from './codepro/projectWorkspace';
-import { trayIconFileName, trayTooltip, windowIconFileName, windowsAppUserModelId } from './utils/appIcons';
+import {
+  trayIconFileName,
+  trayTooltip,
+  windowIconFileName,
+  windowsAppUserModelId,
+} from './utils/appIcons';
 import { resolveCodeBuddyUserDataDir } from './utils/userDataPath';
 import {
   applyLegacyEnvironment,
   resolveCodeBuddyPaths,
   resolvePackagedCodeBuddyHome,
 } from './storage/codeBuddyPaths';
-import { configureElectronProfile, profilePartition, maintainElectronCache } from './storage/electronProfile';
+import {
+  configureElectronProfile,
+  profilePartition,
+  maintainElectronCache,
+} from './storage/electronProfile';
 
 // Preview and packaged launches use the same data root unless explicitly isolated.
 // A missing launcher configuration must never fall back to the retired backend.
@@ -82,7 +96,17 @@ const harnessPackaged = app.isPackaged;
 // This product has one Agent runtime. Development must use start-preview.ps1.
 if (harnessPackaged) {
   if (!process.env.CODEBUDDY_HOME) {
-    process.env.CODEBUDDY_HOME = resolvePackagedCodeBuddyHome(os.homedir());
+    try {
+      const locator = locationFile();
+      assertNoMigration(locator);
+      process.env.CODEBUDDY_HOME = readDataRoot(locator, resolvePackagedCodeBuddyHome(os.homedir()));
+      if (fsSync.existsSync(path.join(process.env.CODEBUDDY_HOME, '.codebuddy-migration')))
+        throw new Error('所选目录包含未完成的迁移，请保留原数据并在设置中重新迁移');
+    } catch (error) {
+      dialog.showErrorBox('CodeBuddy 数据目录', error instanceof Error ? error.message : String(error));
+      app.exit(1);
+      throw error;
+    }
   }
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
@@ -116,6 +140,17 @@ const storagePaths = resolveCodeBuddyPaths({
   userHome: os.homedir(),
   platform: process.platform === 'win32' ? 'win32' : 'posix',
 });
+if (harnessPackaged) {
+  try {
+    assertNoMigration(locationFile());
+    if (fsSync.existsSync(path.join(storagePaths.homeDir, '.codebuddy-migration')))
+      throw new Error('该目录包含尚未完成的迁移副本，请使用原数据目录或检查迁移记录。');
+  }
+  catch (error) {
+    dialog.showErrorBox('CodeBuddy 数据目录', error instanceof Error ? error.message : String(error));
+    app.exit(1);
+  }
+}
 process.env.CODEBUDDY_HOME = storagePaths.homeDir;
 process.env.CODEBUDDY_WORKSPACE_ROOT ||= storagePaths.workspacesDir;
 if (!started) {
@@ -1082,12 +1117,14 @@ const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blocke
 // Track pending initial messages per window
 const pendingInitialMessages = new Map<
   number,
-  { message: string; noAutoSubmit: boolean; workingDir?: string }
+  { message: string; noAutoSubmit: boolean; workingDir?: string; images?: import('./types/message').ImageData[] }
 >();
 
 interface CreateChatOptions {
   initialMessage?: string;
   initialMessageNoAutoSubmit?: boolean;
+  initialImages?: import('./types/message').ImageData[];
+  settingsSection?: string;
   dir?: string;
   resumeSessionId?: string;
   viewType?: string;
@@ -1106,6 +1143,8 @@ const createChat = async (
   const {
     initialMessage,
     initialMessageNoAutoSubmit,
+    initialImages,
+    settingsSection,
     dir,
     resumeSessionId,
     viewType,
@@ -1544,6 +1583,7 @@ const createChat = async (
     !viewType &&
     !resumeSessionId &&
     !initialMessage &&
+    !initialImages?.length &&
     !recipeId &&
     !recipeDeeplink
   ) {
@@ -1552,12 +1592,13 @@ const createChat = async (
   }
   if (
     appPath === '/' &&
-    (recipeDeeplink !== undefined || recipeId !== undefined || initialMessage)
+    (recipeDeeplink !== undefined || recipeId !== undefined || initialMessage || initialImages?.length)
   ) {
     appPath = '/pair';
   }
 
   let searchParams = new URLSearchParams();
+  if (viewType === 'settings' && settingsSection) searchParams.set('section', settingsSection);
   if (resumeSessionId) {
     searchParams.set('resumeSessionId', resumeSessionId);
     if (appPath === '/') {
@@ -1573,9 +1614,10 @@ const createChat = async (
   mainWindow.loadURL(formattedUrl);
 
   // If we have an initial message, store it to send after React is ready
-  if (initialMessage) {
+  if (initialMessage || initialImages?.length) {
     pendingInitialMessages.set(mainWindow.id, {
-      message: initialMessage,
+      message: initialMessage ?? '',
+      ...(initialImages?.length ? { images: initialImages } : {}),
       noAutoSubmit: Boolean(initialMessageNoAutoSubmit),
       // Carry only the explicitly requested folder, never the recent-project fallback.
       ...(dir?.trim() ? { workingDir: dir } : {}),
@@ -2751,6 +2793,15 @@ async function appMain() {
 
   const appMenu = menu?.items.find((item) => item.label === distro.productName);
   if (appMenu?.submenu) {
+    if (process.platform === 'darwin' && app.isPackaged) {
+      appMenu.submenu.append(new MenuItem({ type: 'separator' }));
+      appMenu.submenu.append(new MenuItem({
+        label: nativeT('Uninstall CodeBuddy…', '卸载 CodeBuddy…', '解除安裝 CodeBuddy…'),
+        click: () => { void showMacUninstall({ dataRoot: storagePaths.homeDir,
+          workspace: process.env.CODEBUDDY_WORKSPACE_ROOT || storagePaths.workspacesDir,
+          runtimePid: packagedHarnessService?.pid, t: nativeT }); },
+      }));
+    }
     appMenu.submenu.insert(1, new MenuItem({ type: 'separator' }));
     if (shortcuts.settings) {
       appMenu.submenu.insert(
@@ -2864,7 +2915,11 @@ async function appMain() {
     fileMenu.submenu.insert(
       menuIndex++,
       new MenuItem({
-        label: nativeT('Open CodeBuddy Data Folder', '打开 CodeBuddy 数据目录', '開啟 CodeBuddy 資料目錄'),
+        label: nativeT(
+          'Open CodeBuddy Data Folder',
+          '打开 CodeBuddy 数据目录',
+          '開啟 CodeBuddy 資料目錄'
+        ),
         click: async () => {
           const error = await shell.openPath(storagePaths.homeDir);
           if (error) log.error('Could not open CodeBuddy data directory', error);
@@ -3344,20 +3399,39 @@ app.whenReady().then(async () => {
   try {
     const maintainCaches = async () => {
       for (const target of [session.defaultSession, session.fromPartition(localProfilePartition)]) {
-        try { await maintainElectronCache(target); }
-        catch (error) { log.warn('Browser cache maintenance failed', error); }
+        try {
+          await maintainElectronCache(target);
+        } catch (error) {
+          log.warn('Browser cache maintenance failed', error);
+        }
       }
     };
     await appMain();
     // Large legacy caches must not delay opening the user's main window.
     void maintainCaches();
-    const cacheTimer = setInterval(() => { void maintainCaches(); }, 6 * 60 * 60 * 1000);
+    const cacheTimer = setInterval(
+      () => {
+        void maintainCaches();
+      },
+      6 * 60 * 60 * 1000
+    );
     cacheTimer.unref();
     await registerDesktopPet({
       preload: path.join(__dirname, 'preload.js'),
       rendererUrl: formatUrl(getAppUrl()),
-      builtinDirectory: path.join(app.isPackaged ? process.resourcesPath : app.getAppPath(), app.isPackaged ? 'assets' : 'src/pets/assets'),
-      openChat: ({ query, dir, resumeSessionId }) => createChat(app, { initialMessage: query, initialMessageNoAutoSubmit: Boolean(query), dir, resumeSessionId }),
+      builtinDirectory: path.join(
+        app.isPackaged ? process.resourcesPath : app.getAppPath(),
+        app.isPackaged ? 'assets' : 'src/pets/assets'
+      ),
+      openChat: ({ query, dir, resumeSessionId, noAutoSubmit, images, settings }) =>
+        createChat(app, {
+          initialMessage: query,
+          initialMessageNoAutoSubmit: noAutoSubmit ?? Boolean(query),
+          initialImages: images,
+          ...(settings ? { viewType: 'settings', settingsSection: 'pets' } : {}),
+          dir,
+          resumeSessionId,
+        }),
     });
   } catch (error) {
     dialog.showErrorBox(

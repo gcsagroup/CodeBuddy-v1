@@ -86,7 +86,10 @@ test("legacy document configuration reconnects with residual tools and upstream 
     }
     const discovery = await driver.callTool(sessionId, "search_mcp_tools", { names: ["skill", "load_workspace_dependencies"] }, { onPermission: () => true });
     assert.equal(discovery.isError, false);
-    assert.equal(discovery.value.tools.length, 2);
+    assert.ok(names.includes('skill'), 'Skills remain directly callable without deferred discovery');
+    assert.deepEqual(discovery.value.tools.map(tool => tool.name), ['load_workspace_dependencies']);
+    const skill = await driver.callTool(sessionId, 'skill', { name: 'office-docx' }, { onPermission: () => true });
+    assert.equal(skill.isError, false);
     const cache = await driver.callTool(sessionId, "mcp__computercontroller__cache", { command: "list" }, { onPermission: () => true });
     assert.equal(cache.isError, false);
   } finally { await driver.close(); }
@@ -98,12 +101,14 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
     "autovisualiser",
     "commonqueries",
     "computercontroller",
+    "playwright",
+    "playwright_user",
     "qwen_computer",
   ]);
   for (const row of catalog) {
     assert.equal(
       row.available,
-      nativeArtifactsPrepared,
+      row.configKey.startsWith("playwright") ? true : nativeArtifactsPrepared,
       row.reason,
     );
     assert.equal(row.enabled, false);

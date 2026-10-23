@@ -9,7 +9,7 @@ const messages = defineMessages({
   writeRunning: { id: 'toolAction.writeRunning', defaultMessage: 'Writing file{target}' },
   generatingFileHeadline: {
     id: 'toolAction.generatingFileHeadline',
-    defaultMessage: 'Generating file contents{target} — not saved yet',
+    defaultMessage: 'Generating file contents{target}',
   },
   editDone: { id: 'toolAction.editDone', defaultMessage: 'Edited file' },
   shellDone: { id: 'toolAction.shellDone', defaultMessage: 'Ran command' },

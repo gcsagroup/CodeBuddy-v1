@@ -40,3 +40,18 @@ test('cancel while waiting never submits a model request and keeps the running t
   assert.deepEqual(f.calls, ['tool']);
   assert.equal(f.driver.isConversationBusy('s'), false);
 });
+
+test('plan controls resolve the current native fork while a prompt is active', async () => {
+  const done = Promise.withResolvers(), calls = [];
+  const driver = createConversationDriver({
+    prompt: () => done.promise,
+    getPlanMode: async id => { calls.push(['get', id]); return { active: true }; },
+    setPlanMode: async (id, active) => { calls.push(['set', id, active]); return { active }; },
+  }, { readSession: () => ({ nativeSessionId: 'native-fork' }) });
+  const running = driver.prompt('product', 'review');
+  assert.deepEqual(await driver.getPlanMode('product'), { active: true });
+  assert.deepEqual(await driver.setPlanMode('product', false), { active: false });
+  assert.deepEqual(calls, [['get', 'native-fork'], ['set', 'native-fork', false]]);
+  done.resolve();
+  await running;
+});

@@ -6,6 +6,19 @@
     system-ui,
     sans-serif;
 }
+.pet-breathing {
+  transform-origin: 50% 90%;
+  animation: pet-breathe 3.8s ease-in-out infinite;
+}
+@keyframes pet-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(1.006, 1.012);
+  }
+}
 .pet-task-panel {
   border: 1px solid #e3e7e4;
   border-radius: 20px;
@@ -137,4 +150,123 @@
   background: #e4ebe6;
   padding: 0 6px;
   font-variant-numeric: tabular-nums;
+}
+.pet-compose-panel {
+  border-radius: 16px;
+  background: #fff;
+}
+.pet-composer {
+  padding: 9px 10px 8px;
+  max-height: 252px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.pet-composer-heading,
+.pet-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pet-composer-heading button {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: 8px;
+  background: transparent;
+  color: #7a847f;
+}
+.pet-composer-heading {
+  font-size: 11px;
+  color: #65736b;
+}
+.pet-composer textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  max-height: 88px;
+  margin: 5px 0;
+  padding: 4px 2px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  color: #25302d;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  user-select: text;
+}
+.pet-composer textarea:focus {
+  outline: none;
+}
+.pet-composer-footer {
+  color: #69756f;
+  font-size: 11px;
+}
+.pet-composer-footer button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #357159;
+  color: #fff;
+}
+.pet-composer-footer .pet-send-button {
+  margin-left: auto;
+}
+.pet-composer-footer .pet-attach-button {
+  background: #f1f4f2;
+  color: #52685b;
+  border-radius: 8px;
+}
+.pet-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 64px;
+  overflow-y: auto;
+  margin: 4px 0 7px;
+  scrollbar-width: thin;
+}
+.pet-attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 5px;
+  background: #f2f5f3;
+  border-radius: 7px;
+  font-size: 11px;
+}
+.pet-attachment img {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.pet-attachment span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pet-attachment button {
+  background: transparent;
+  padding: 3px;
+}
+.pet-attachment[data-error] {
+  color: #a43e32;
+  background: #fff0ed;
+}
+.pet-composer button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.pet-composer [role='alert'] {
+  margin: 4px 0 8px;
+  color: #a43e32;
+  font-size: 11px;
 }

@@ -48,7 +48,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
   let currentProvider = provider;
   const restoreSubagentProvider = async (_model, matches) => matches(currentProvider) ? currentProvider : undefined;
   const custom = { id: 'saved-review', name: '保存的审查员', description: '在需要独立代码审查时使用', prompt: 'SAVED_RESPONSIBILITY {{literal}}: 只审查本次给定任务，并报告证据。', model: null, tools: 'read-only' };
-  const options = { subagentModels: models, subagentTemplates: [custom], restoreSubagentProvider,
+  const options = { conversationLocale: 'zh-CN', subagentModels: models, subagentTemplates: [custom], restoreSubagentProvider,
     tools: ['fixture_host_tool', 'fixture_allowed_tool'].map(name => ({ name, description: 'Fixture host capability', inputSchema: { type: 'object', properties: {} }, execute: async () => ({ content: [{ type: 'text', text: 'fixture' }] }) })),
     mcpServers: [
       { serverName: 'local', transport: 'stdio', command: process.execPath, args: [script], cwd: root, reconnect: { enabled: false } },
@@ -81,10 +81,21 @@ test('native templates preserve chat-local histories, roles and resolved models 
   const saved = await spawn(main.sessionId, 'subagent', { description: 'Saved review', template: custom.id, prompt: 'CHILD_SAVED_INITIAL' });
   const savedRequest = byTask('CHILD_SAVED_INITIAL').at(-1);
   assert.ok(savedRequest, 'The native child must receive the delegated task');
+  const requestCount = requests.length;
+  const observer = new AbortController();
+  const feed = driver.followSubagent({ parentSessionId: main.sessionId, childSessionId: saved, mode: 'unknown' }, observer.signal);
+  const snapshot = (await feed.next()).value;
+  assert.equal(snapshot.type, 'snapshot');
+  assert.equal(snapshot.header.id, saved);
+  assert.ok(snapshot.records.some(row => row.event?.type === 'assistant/message'));
+  observer.abort();
+  await feed.return();
+  assert.equal(requests.length, requestCount, 'Viewing and closing a child must never invoke the model');
   assert.equal(savedRequest.model, 'fixture-main', 'Custom inheritance must not use the generic role model override');
   assert.equal((await driver.listSubagentChildren(main.sessionId)).find(row => row.id === saved).label, custom.name);
   assert.match(JSON.stringify(savedRequest.messages.filter(message => message.role === 'system')), /SAVED_RESPONSIBILITY/);
-  assert.deepEqual(savedRequest.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'search_mcp_tools'].sort(), 'Discovery only exposes the native-filtered child tool catalog');
+  // The bundled computer guide makes the already-allowed read-only skill loader available.
+  assert.deepEqual(savedRequest.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'skill', 'search_mcp_tools'].sort(), 'Discovery only exposes the native-filtered child tool catalog');
   assert.ok(savedRequest.messages.some(message => message.role === 'tool' && message.content.includes('"missingNames":["write","mcp__local__allowed","mcp__local__blocked","fixture_host_tool"]')), 'Read-only discovery cannot load native writes, MCP or host tools');
   const rootSchema = (await driver.listTools(main.sessionId)).find(tool => tool.name === 'subagent');
   assert.ok(JSON.stringify(rootSchema).includes(custom.description));
@@ -109,6 +120,7 @@ test('native templates preserve chat-local histories, roles and resolved models 
   for (const request of [requests[0], byTask('CHILD_JULY_ONLY').at(-1), byTask('CHILD_BACKEND_ONLY').at(-1)]) {
     const instructions = JSON.stringify(request.messages.filter(message => ['system', 'developer'].includes(message.role)));
     assert.ok(instructions.includes('Write delegation prompts and follow-up messages'), 'The shared conversation-language instruction must survive template and custom child personas');
+    assert.ok(instructions.includes('zh-CN'), 'The explicit UI language hint must reach both parent and children');
   }
   await spawn(main.sessionId, 'subagent_browser', { description: 'Browser research', prompt: 'CHILD_BROWSER_ONLY' });
   assert.equal(byTask('CHILD_BROWSER_ONLY').at(-1).model, 'fixture-browser');
@@ -136,13 +148,19 @@ test('native templates preserve chat-local histories, roles and resolved models 
   await driver.close();
   currentProvider = { ...provider, outputTokenCapacity: 8192 };
   driver = await createHarnessDriver({ dataDir: join(root, 'native'), cwd: root });
+  const coldCount = requests.length, coldObserver = new AbortController();
+  const coldFeed = driver.followSubagent({ parentSessionId: main.sessionId, childSessionId: saved, mode: 'unknown' }, coldObserver.signal);
+  assert.equal((await coldFeed.next()).value.header.id, saved);
+  coldObserver.abort();
+  await coldFeed.return();
+  assert.equal(requests.length, coldCount, 'Cold viewing must not restore an executing child or invoke a provider');
   await driver.createSession({ sessionId: main.sessionId, provider, model: 'fixture-main', options: { ...updated, subagentTemplates: [] } });
   const before = (await driver.listSubagentChildren(main.sessionId)).map(row => row.id);
   await action(main.sessionId, 'send_message', { agent_id: saved, message: 'CHILD_SAVED_COLD' });
   const coldSaved = byTask('CHILD_SAVED_COLD').at(-1);
   assert.equal(coldSaved.model, 'fixture-main');
   assert.match(JSON.stringify(coldSaved.messages), /SAVED_RESPONSIBILITY/);
-  assert.deepEqual(coldSaved.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'search_mcp_tools'].sort(), 'Deleting a template does not change a cold child tool restriction');
+  assert.deepEqual(coldSaved.tools.map(tool => tool.function.name).sort(), ['read', 'grep', 'skill', 'search_mcp_tools'].sort(), 'Deleting a template does not change a cold child tool restriction');
   await action(main.sessionId, 'send_message', { agent_id: explorer, message: 'CHILD_COLD_CONTINUE_ONLY' });
   assert.equal(byTask('CHILD_COLD_CONTINUE_ONLY').at(-1).model, 'fixture-explorer');
   assert.ok(JSON.stringify(byTask('CHILD_COLD_CONTINUE_ONLY').at(-1)).includes('CHILD_JULY_ONLY'));

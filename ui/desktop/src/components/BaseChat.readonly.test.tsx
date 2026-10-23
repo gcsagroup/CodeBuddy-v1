@@ -6,12 +6,15 @@ import { useLayoutEffect } from 'react';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import BaseChat from './BaseChat';
 import type { Message } from '../types/message';
+import type { PromptActivity } from '../acp/chatSessionStore';
 
 const fixture = vi.hoisted(() => ({
   readonly: true,
   loading: false,
   cancelling: false,
   busy: false,
+  state: 'idle',
+  activity: undefined as PromptActivity | undefined,
   submit: vi.fn(),
   update: vi.fn(),
   history: undefined as Message[] | undefined,
@@ -39,8 +42,9 @@ vi.mock('../hooks/useChatSession', () => ({
             metadata: { userVisible: true, agentVisible: true },
           },
         ]),
-    chatState: fixture.loading ? 'loadingConversation' : fixture.busy ? 'thinking' : 'idle',
+    chatState: fixture.loading ? 'loadingConversation' : fixture.busy ? 'thinking' : fixture.state,
     cancelling: fixture.cancelling,
+    promptActivity: fixture.activity,
     tokenState: {},
     notifications: new Map(),
     handleSubmit: fixture.submit,
@@ -106,6 +110,8 @@ beforeEach(() => {
   fixture.loading = false;
   fixture.cancelling = false;
   fixture.busy = false;
+  fixture.state = 'idle';
+  fixture.activity = undefined;
   fixture.submit.mockReset();
   fixture.update.mockReset();
   fixture.history = undefined;
@@ -136,6 +142,32 @@ function show({ startAgent = true } = {}) {
     { wrapper: IntlTestWrapper }
   );
 }
+
+it('renders a file draft outside durable history and clears it when the turn is stopped', () => {
+  fixture.readonly = false;
+  fixture.state = 'streaming';
+  fixture.activity = {
+    promptAttemptId: 'a',
+    sourceUserMessageId: 'u',
+    startedAt: Date.now(),
+    execution: {
+      phase: 'model',
+      childCount: 0,
+      toolInput: { id: 'w', name: 'write', kilobytes: 14 },
+    },
+  };
+  const view = show();
+  expect(screen.getAllByText('Generating file contents').length).toBeGreaterThan(0);
+  expect(screen.queryByText('14 KB')).toBeNull();
+  expect(screen.getByTestId('history-order')).not.toHaveTextContent('tool-preview');
+  fixture.state = 'idle';
+  view.rerender(
+    <MemoryRouter>
+      <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+    </MemoryRouter>
+  );
+  expect(screen.queryByText('14 KB')).toBeNull();
+});
 
 it('projects pending input before stop receipts without changing execution history or leaking into another chat', () => {
   fixture.readonly = false;
@@ -366,15 +398,48 @@ it('retains normal conversation controls outside imported history', () => {
   expect(screen.getByRole('button', { name: 'Resume task' })).toBeVisible();
 });
 
-it('offers a way back to the latest output after the reader pauses following', () => {
+it('offers a way back only when the latest output is below the viewport', () => {
   const { container } = show();
   const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
-  viewport.scrollTo = vi.fn();
+  const end = viewport.querySelector('div[style="height: 1px;"]')!;
+  const bounds = vi.spyOn(end, 'getBoundingClientRect');
+  const rect = end.getBoundingClientRect();
+  viewport.scrollTo = vi.fn(() => bounds.mockReturnValue({ ...rect, bottom: 0 }));
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
   fireEvent.wheel(viewport, { deltaY: -100 });
+  expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+  bounds.mockReturnValue({ ...rect, bottom: 100 });
+  fireEvent.scroll(viewport);
   fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
   expect(viewport.scrollTo).toHaveBeenCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+});
+
+it('shows running dots at the bottom, preserves the return control, and clears dots when waiting or idle', async () => {
+  fixture.readonly = false;
+  fixture.state = 'thinking';
+  const view = show();
+  await waitFor(() => expect(screen.getByTestId('chat-running-indicator')).toBeVisible());
+  const viewport = view.container.querySelector<HTMLDivElement>(
+    '[data-radix-scroll-area-viewport]'
+  )!;
+  const end = viewport.querySelector('div[style="height: 1px;"]')!;
+  const rect = end.getBoundingClientRect();
+  const bounds = vi.spyOn(end, 'getBoundingClientRect').mockReturnValue({ ...rect, bottom: 100 });
+  viewport.scrollTo = vi.fn(() => bounds.mockReturnValue({ ...rect, bottom: 0 }));
+  fireEvent.scroll(viewport);
+  expect(screen.queryByTestId('chat-running-indicator')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
+  expect(screen.getByTestId('chat-running-indicator')).toBeVisible();
+  for (const state of ['waitingForUserInput', 'idle']) {
+    fixture.state = state;
+    view.rerender(
+      <MemoryRouter>
+        <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('chat-running-indicator')).toBeNull();
+  }
 });
 
 it.each(['keyboard', 'menu'] as const)(

@@ -13,6 +13,7 @@ export function elicitationContent(
   request: AcpElicitationRequest
 ): ActionRequired & { type: 'actionRequired' } {
   const schema = request.request.requestedSchema;
+  const fieldHints = request.request._meta?.['codepro.dev/questionFields'];
   const hints = request.request._meta?.['codepro/questionFields'];
   const properties: Record<
     string,
@@ -49,11 +50,23 @@ export function elicitationContent(
       properties[key] = {
         ...properties[key],
         _meta: {
-          'codepro.dev/options': options,
-          'codepro.dev/allowCustom': properties[key].type === 'string' || Boolean(customKey),
-          ...(customKey ? { 'codepro.dev/customAnswerKey': customKey } : {}),
+          'codepro.dev/suggestedOptions': options.map(
+            (option: { label: string; description?: string }) => ({
+              const: option.label,
+              title: option.label,
+              description: option.description,
+            })
+          ),
+          ...(customKey ? { 'codepro.dev/feedbackField': customKey } : {}),
         },
       };
+    }
+  }
+  // Normalize old saved cards above; live producers use one canonical hint map.
+  if (fieldHints && typeof fieldHints === 'object' && !Array.isArray(fieldHints)) {
+    for (const [key, hint] of Object.entries(fieldHints)) {
+      if (!properties[key] || !hint || typeof hint !== 'object' || Array.isArray(hint)) continue;
+      properties[key] = { ...properties[key], _meta: { ...properties[key]._meta, ...hint } };
     }
   }
   return {

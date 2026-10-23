@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 
 const stage = path.resolve(process.argv[2]);
+await assert.rejects(access(path.join(stage, 'runtime/distribution-credentials.json')), { code: 'ENOENT' });
 // A signed .app must remain immutable during post-sign verification.
 const evidence = await mkdtemp(path.join(process.argv[3] ? path.resolve(process.argv[3]) : path.dirname(stage), 'service-check-'));
 const { createCompatServer } = await import(pathToFileURL(path.join(stage, 'runtime/server.mjs')));
@@ -15,6 +16,9 @@ let service;
 try {
   const native = await driver.createSession({ cwd: evidence, provider: { id: 'build-fixture', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'fixture' }, model: 'fixture', options: {} });
   assert.ok(native.sessionId);
+  const computer = await driver.callTool(native.sessionId, 'skill', { name: 'computer-use' }, { onPermission: () => true });
+  assert.equal(computer.isError, false, JSON.stringify(computer));
+  assert.match(JSON.stringify(computer), /mcp__qwen_computer__get_app_state/);
   const shell = await driver.callTool(native.sessionId, process.platform === 'win32' ? 'pwsh' : 'bash', {
     description: 'Verify bundled native subprocess runner', command: process.platform === 'win32' ? 'Write-Output HARNESS_PACKAGED_SHELL_OK' : "printf '%s\\n' HARNESS_PACKAGED_SHELL_OK",
   }, { onPermission: () => true });
@@ -69,14 +73,25 @@ try {
     assert.equal(result.isError, false, JSON.stringify(result));
     assert.ok(result.content?.length > 0);
   }
-  const { protectSecret, revealSecret } = await import(pathToFileURL(path.join(stage, 'runtime/secrets.mjs')));
-  const credentialFixture = 'PACKAGE_CREDENTIAL_FIXTURE 中文 🔑\n  whitespace  ';
-  const protectedCredential = await protectSecret(credentialFixture);
-  const credentialFile = path.join(evidence, 'credential-fixture.json');
-  await writeFile(credentialFile, JSON.stringify(protectedCredential));
-  assert.ok(!(await readFile(credentialFile, 'utf8')).includes('PACKAGE_CREDENTIAL_FIXTURE'));
-  assert.equal(protectedCredential.kind, process.platform === 'darwin' ? 'macos-keychain-aesgcm-v1' : 'windows-dpapi');
-  assert.equal(await revealSecret(JSON.parse(await readFile(credentialFile, 'utf8'))), credentialFixture);
+  if (process.platform === 'darwin') {
+    // Each signing phase uses its own temporary Keychain item. Build fixtures
+    // must never create or request access to the user's production master key.
+    const { builtinArtifacts, verifiedBinary } = await import(pathToFileURL(path.join(stage, 'runtime/builtin-artifacts.mjs')));
+    const helper = await verifiedBinary((await builtinArtifacts()).credentials);
+    const verification = spawnSync(helper, ['--self-test'], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(verification.error, undefined);
+    assert.equal(verification.status, 0, verification.stderr);
+    assert.deepEqual(JSON.parse(verification.stdout), { passed: true, isolatedKeychain: true });
+  } else {
+    const { protectSecret, revealSecret } = await import(pathToFileURL(path.join(stage, 'runtime/secrets.mjs')));
+    const credentialFixture = 'PACKAGE_CREDENTIAL_FIXTURE 中文 🔑\n  whitespace  ';
+    const protectedCredential = await protectSecret(credentialFixture);
+    const credentialFile = path.join(evidence, 'credential-fixture.json');
+    await writeFile(credentialFile, JSON.stringify(protectedCredential));
+    assert.ok(!(await readFile(credentialFile, 'utf8')).includes('PACKAGE_CREDENTIAL_FIXTURE'));
+    assert.equal(protectedCredential.kind, process.platform === 'darwin' ? 'macos-keychain-aesgcm-v1' : 'windows-dpapi');
+    assert.equal(await revealSecret(JSON.parse(await readFile(credentialFile, 'utf8'))), credentialFixture);
+  }
   const receipt = { passed: true, sourceDigest: manifest.sourceDigest, nodeVersion: process.versions.node, nodeExecutable: process.execPath, nativeSessionCreated: true, nativeSubprocessVerified: true, officePayloadVerified: true, builtinMcpDiscoveryVerified: true, builtinMcpCallsVerified: true, credentialProtectionVerified: true, desktopInputVerified: false, compatServiceStarted: true };
   await writeFile(path.join(evidence, 'receipt.json'), JSON.stringify(receipt, null, 2));
   console.log(JSON.stringify({ ...receipt, evidence }));

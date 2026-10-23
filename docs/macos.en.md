@@ -65,7 +65,7 @@ The last two require matching native artifacts. `test:macos-native` runs Go/Swif
 
 API smoke exercises startup, workspace, PTY and embedded-browser paths; it does not establish real-model or complete user-flow acceptance. Subsequent RustDesk acceptance should cover Finder launch, Unicode projects, model/tool execution, exit/restart and durable history. Computer control separately needs TCC, screenshots, Unicode input, window transitions and action postconditions, recording source identity and artifact hashes.
 
-Preview data/logs live in `.preview-data`; installed builds retain `~/.CodeBuddy-Harness`, with service logs in `logs/harness`. Use isolated test profiles and preserve existing user data.
+Preview and installed builds both default to `~/.CodeBuddy`; `CODEBUDDY_HOME` can select an isolated directory. Preview logs are under `logs/preview`, and installed service logs under `logs/harness`. Previous `.preview-data` and `~/.CodeBuddy-Harness` directories are not automatically imported or overwritten. Acceptance uses isolated profiles.
 
 ## Mac credential protection (2026-10-16)
 

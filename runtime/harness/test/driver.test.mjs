@@ -31,7 +31,15 @@ before(async () => {
       res.on('close', () => clearTimeout(timer));
       return;
     }
-    if (prompt.includes('fixture_write') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
+    if (prompt.includes('fixture_write_stream') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
+      const file = join(root, prompt.includes('cancel') ? 'cancel-preview.txt' : 'preview.txt');
+      emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'draft-write', type: 'function', function: { name: 'write', arguments: '{"content":"' + 'x'.repeat(1500) } }] });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      emit({ tool_calls: [{ index: 0, function: { arguments: '\\nmore","file_path":' + JSON.stringify(file) } }] });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      emit({ tool_calls: [{ index: 0, function: { arguments: '}' } }] });
+      emit({}, 'tool_calls');
+    } else if (prompt.includes('fixture_write') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'call-write', type: 'function', function: { name: 'write', arguments: JSON.stringify({ file_path: join(root, prompt.includes('denied') ? 'denied.txt' : 'allowed.txt'), content: 'harness wrote this\n' }) } }] });
       emit({}, 'tool_calls');
     } else if (prompt.includes('fixture_shell') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
@@ -68,7 +76,7 @@ test('real Harness streams, uses HTTP adapter, and persists session history', as
   assert.match(system, /You are CodeBuddy/);
   assert.doesNotMatch(system, /powered by DeepSeek Harness/);
   assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'search_mcp_tools'));
-  assert.ok(!requests.at(-1).tools.some(tool => tool.function.name === 'write'));
+  assert.ok(requests.at(-1).tools.some(tool => tool.function.name === 'write'));
   assert.ok((await driver.listTools(created.sessionId)).some(tool => tool.name === 'write'));
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(event => event.type === 'assistant/message'));
@@ -97,6 +105,41 @@ test('official tool pipeline owns requested approval and its dispatch result', a
   assert.ok(events.some(event => event.type === 'tool_result' && !event.isError));
   assert.equal(events.filter(event => event.type === 'assistant_start').length, 2);
   assert.equal(events.filter(event => event.type === 'assistant_committed').length, 2);
+});
+
+test('streamed file input is visible before native dispatch without leaking draft contents or inventing its path', async () => {
+  const created = await session(), events = [];
+  const result = await driver.prompt(created.sessionId, 'fixture_write_stream', {
+    onPermission: () => true,
+    async onEvent(event) {
+      events.push(event);
+      if (event.type === 'tool_input') await assert.rejects(access(join(root, 'preview.txt')));
+    },
+  });
+  assert.equal(result.stopReason, 'end_turn');
+  const previews = events.filter(e => e.type === 'tool_input');
+  assert.ok(previews.length >= 2);
+  assert.deepEqual(previews[0].preview, { id: 'draft-write', name: 'write', kilobytes: 2 });
+  assert.equal(previews.at(-1).preview.path, join(root, 'preview.txt'));
+  assert.doesNotMatch(JSON.stringify(previews), /xxxxxxxx|argumentsDelta|content/);
+  assert.equal(events.filter(e => e.type === 'tool_call' && e.id === 'draft-write').length, 1);
+  assert.ok(events.findIndex(e => e.type === 'tool_input') < events.findIndex(e => e.type === 'tool_call'));
+  assert.equal(await readFile(join(root, 'preview.txt'), 'utf8'), 'x'.repeat(1500) + '\nmore');
+});
+
+test('stopping during file parameter generation never dispatches or writes the draft', async () => {
+  const created = await session(), controller = new AbortController(), events = [];
+  const result = await driver.prompt(created.sessionId, 'fixture_write_stream_cancel', {
+    signal: controller.signal,
+    onEvent(event) { events.push(event); if (event.type === 'tool_input') controller.abort(); },
+  });
+  assert.equal(result.stopReason, 'cancelled');
+  assert.ok(events.some(e => e.type === 'tool_input'));
+  assert.equal(events.filter(e => e.type === 'tool_call').length, 0);
+  await assert.rejects(access(join(root, 'cancel-preview.txt')));
+  const history = await driver.history(created.sessionId);
+  assert.equal(history.events.filter(e => e.type === 'tool/call').length, 0);
+  assert.equal(history.events.at(-1).data.reason.kind, 'aborted');
 });
 
 test('adopting a live session and changing its model preserves prior history', async () => {

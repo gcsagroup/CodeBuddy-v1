@@ -162,3 +162,6 @@ gooseselftest/
 !.env.*.example
 *.pfx
 *.p12
+
+# Explicitly approved shared distribution credentials; packaged locally, never committed
+/runtime/distribution-credentials.json

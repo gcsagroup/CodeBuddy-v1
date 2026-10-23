@@ -8,10 +8,14 @@ import {
 import { validatePetPixels } from './petLibrary';
 
 describe('desktop pet boundaries', () => {
-  it('defaults to the red panda and preserves an explicitly selected alternative', () => {
-    expect(normalizePetPreferences({}).selectedId).toBe('red-panda');
+  it('starts unselected and preserves explicit choices and legacy selections', () => {
+    expect(normalizePetPreferences({})).toMatchObject({ selectedId: '', visible: false });
+    expect(normalizePetPreferences({ visible: true, selectedId: '' })).toMatchObject({
+      selectedId: '',
+      visible: false,
+    });
     expect(normalizePetPreferences({ selectedId: 'buddy' }).selectedId).toBe('red-panda');
-    for (const selectedId of ['cream-cat', 'white-fox', 'my-custom-pet']) {
+    for (const selectedId of ['red-panda', 'cream-cat', 'white-fox', 'my-custom-pet']) {
       expect(normalizePetPreferences({ selectedId }).selectedId).toBe(selectedId);
     }
   });

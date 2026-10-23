@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { Input } from './input';
 import { Button } from './button';
 import { defineMessages, useIntl } from '../../i18n';
@@ -36,6 +36,11 @@ const i18n = defineMessages({
     defaultMessage: 'Select...',
   },
   customAnswer: { id: 'jsonSchemaForm.customAnswer', defaultMessage: 'Your own answer (optional)' },
+  customPlaceholder: {
+    id: 'jsonSchemaForm.customPlaceholder',
+    defaultMessage: 'Or write your own response',
+  },
+  recommended: { id: 'jsonSchemaForm.recommended', defaultMessage: 'Recommended' },
 });
 
 interface JsonSchemaChoice {
@@ -60,9 +65,9 @@ interface JsonSchemaProperty {
   maxItems?: number;
   _meta?: {
     'codepro.dev/optionDescriptions'?: Record<string, string>;
-    'codepro.dev/allowCustom'?: boolean;
-    'codepro.dev/options'?: { label: string; description?: string }[];
-    'codepro.dev/customAnswerKey'?: string;
+    'codepro.dev/suggestedOptions'?: JsonSchemaChoice[];
+    'codepro.dev/questionIntent'?: unknown;
+    'codepro.dev/feedbackField'?: string;
   };
 }
 
@@ -91,16 +96,21 @@ interface ChoiceOption {
 }
 
 function choicesFor(prop: JsonSchemaProperty): ChoiceOption[] {
-  const suggestions = prop._meta?.['codepro.dev/options'];
-  if (suggestions) return suggestions.map((option) => ({ value: option.label, ...option }));
   const descriptions = prop._meta?.['codepro.dev/optionDescriptions'] ?? {};
-  const titled = prop.oneOf ?? prop.items?.anyOf;
-  if (titled) {
-    return titled.map((choice) => ({
-      value: choice.const,
-      label: choice.title || choice.const,
-      description: choice.description || descriptions[choice.const],
-    }));
+  const titled = prop._meta?.['codepro.dev/suggestedOptions'] ?? prop.oneOf ?? prop.items?.anyOf;
+  if (Array.isArray(titled)) {
+    return titled
+      .filter((choice) => choice && typeof choice.const === 'string')
+      .map((choice) => ({
+        value: choice.const,
+        label: typeof choice.title === 'string' && choice.title ? choice.title : choice.const,
+        description:
+          typeof choice.description === 'string'
+            ? choice.description
+            : typeof descriptions[choice.const] === 'string'
+              ? descriptions[choice.const]
+              : undefined,
+      }));
   }
   const values = prop.enum ?? prop.items?.enum ?? [];
   return values.map((value) => ({ value, label: value, description: descriptions[value] }));
@@ -125,10 +135,12 @@ export default function JsonSchemaForm({
   const intl = useIntl();
   const fields = useMemo(() => {
     const entries = Object.entries(schema.properties ?? {});
-    const customKeys = new Set(
-      entries.map(([, prop]) => prop._meta?.['codepro.dev/customAnswerKey'])
+    const feedbackKeys = new Set(
+      entries
+        .map(([, prop]) => prop._meta?.['codepro.dev/feedbackField'])
+        .filter((key) => key && schema.properties?.[key]?.type === 'string')
     );
-    return entries.filter(([key]) => !customKeys.has(key));
+    return entries.filter(([key]) => !feedbackKeys.has(key));
   }, [schema.properties]);
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Record<string, unknown>>(() =>
@@ -179,7 +191,15 @@ export default function JsonSchemaForm({
   );
 
   const updateValue = (key: string, value: unknown) => {
-    setFormData((current) => ({ ...current, [key]: value }));
+    const field = schema.properties?.[key];
+    const feedback = field?._meta?.['codepro.dev/feedbackField'];
+    setFormData((current) => ({
+      ...current,
+      [key]: value,
+      ...(field?.type === 'string' && feedback && schema.properties?.[feedback]?.type === 'string'
+        ? { [feedback]: '' }
+        : {}),
+    }));
     setError(undefined);
   };
 
@@ -191,21 +211,24 @@ export default function JsonSchemaForm({
   const value = formData[key];
   const required = schema.required?.includes(key) ?? false;
   const options = choicesFor(prop);
-  const allowsCustom = options.length > 0 && prop._meta?.['codepro.dev/allowCustom'] === true;
-  const customKey = prop._meta?.['codepro.dev/customAnswerKey'];
   const values = Array.isArray(value) ? value : [value];
+  const feedbackKey = prop._meta?.['codepro.dev/feedbackField'];
+  const customKey =
+    feedbackKey && feedbackKey !== key && schema.properties?.[feedbackKey]?.type === 'string'
+      ? feedbackKey
+      : undefined;
+  const allowsCustom = Boolean(customKey || prop._meta?.['codepro.dev/suggestedOptions']);
   const customValue = customKey
     ? String(formData[customKey] ?? '')
-    : values
-        .filter(
-          (item) => typeof item === 'string' && !options.some((option) => option.value === item)
-        )
-        .join('\n');
+    : Array.isArray(value)
+      ? value.filter((entry) => !options.some((option) => option.value === entry)).join('\n')
+      : options.some((option) => option.value === value)
+        ? ''
+        : String(value ?? '');
   const isLastStep = step === fields.length - 1;
 
-  const handleAdvance = (event: React.FormEvent) => {
-    event.preventDefault();
-    const nextError = validateField(key, prop, value);
+  const advance = () => {
+    const nextError = customKey && customValue.trim() ? undefined : validateField(key, prop, value);
     setError(nextError);
     if (nextError) return;
     if (isLastStep) {
@@ -225,6 +248,10 @@ export default function JsonSchemaForm({
       key={option.value}
       type="button"
       role={prop.type === 'array' ? 'checkbox' : 'radio'}
+      aria-label={option.label}
+      aria-description={
+        index === 0 && options.length ? intl.formatMessage(i18n.recommended) : undefined
+      }
       aria-checked={selected}
       disabled={disabled}
       onClick={onSelect}
@@ -243,16 +270,23 @@ export default function JsonSchemaForm({
           aria-hidden="true"
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border',
-            prop.type === 'array' ? 'rounded' : 'rounded-full',
+            compact || prop.type === 'array' ? 'rounded-md' : 'rounded-full',
             selected
               ? 'border-text-primary bg-text-primary text-background-primary'
               : 'border-border-secondary'
           )}
         >
-          {selected ? <Check className="h-3.5 w-3.5" /> : compact ? index + 1 : null}
+          {compact ? index + 1 : selected ? <Check className="h-3.5 w-3.5" /> : null}
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-medium text-text-primary">{option.label}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-text-primary">
+            {option.label}
+            {index === 0 && options.length > 0 && (
+              <span className="rounded bg-background-secondary px-1.5 py-0.5 text-[11px] font-normal text-text-secondary">
+                {intl.formatMessage(i18n.recommended)}
+              </span>
+            )}
+          </span>
           {option.description && (
             <span
               className={cn(
@@ -264,6 +298,12 @@ export default function JsonSchemaForm({
             </span>
           )}
         </span>
+        {selected && compact && (
+          <ArrowRight
+            className="ml-auto mt-0.5 h-4 w-4 shrink-0 text-text-secondary"
+            aria-hidden="true"
+          />
+        )}
       </span>
     </button>
   );
@@ -361,7 +401,13 @@ export default function JsonSchemaForm({
   };
 
   return (
-    <form onSubmit={handleAdvance} className={cn('flex flex-col gap-4', compact && 'gap-2')}>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        advance();
+      }}
+      className={cn('flex flex-col gap-4', compact && 'gap-2')}
+    >
       <div
         className={cn(
           'flex flex-col gap-3',
@@ -392,20 +438,28 @@ export default function JsonSchemaForm({
         {allowsCustom && (
           <Input
             aria-label={intl.formatMessage(i18n.customAnswer)}
-            placeholder={intl.formatMessage(i18n.customAnswer)}
+            placeholder={intl.formatMessage(i18n.customPlaceholder)}
             value={customValue}
             disabled={disabled}
-            onChange={(event) =>
-              updateValue(
-                customKey ?? key,
-                !customKey && prop.type === 'array'
-                  ? [
-                      ...values.filter((item) => options.some((option) => option.value === item)),
-                      ...(event.target.value ? [event.target.value] : []),
-                    ]
-                  : event.target.value
-              )
-            }
+            onChange={(event) => {
+              if (customKey && prop.type === 'string') {
+                setFormData((current) => ({
+                  ...current,
+                  [key]: '',
+                  [customKey]: event.target.value,
+                }));
+                setError(undefined);
+              } else
+                updateValue(
+                  customKey ?? key,
+                  !customKey && prop.type === 'array'
+                    ? [
+                        ...values.filter((item) => options.some((option) => option.value === item)),
+                        ...(event.target.value ? [event.target.value] : []),
+                      ]
+                    : event.target.value
+                );
+            }}
           />
         )}
         {error && (
@@ -432,7 +486,7 @@ export default function JsonSchemaForm({
             {cancelLabel ?? intl.formatMessage(i18n.cancel)}
           </Button>
         )}
-        {step > 0 && (
+        {step > 0 && !compact && (
           <Button
             type="button"
             size={compact ? 'sm' : 'default'}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-10-21T02:50:10.448476+00:00",
+  "copiedAt": "2026-10-23T09:25:28.000Z",
   "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
   "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
@@ -10,14 +10,15 @@
       "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "6e2cd0c832c9d83756c0cd27feb592c0e5e5760ba2bce7cb3c7d362dfc27a72a",
+      "sha256": "0018705b8dff04f3fa5407b2ef31ef8cd5c26321cae42d095ac44184aed2cc50",
       "bytes": 21821440,
       "sourcePath": "target/debug/codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-10-20T11:32:42.015742+00:00",
-      "sourceBaselineRevision": "10a88b27b383b3435ea2185dc046ef322e177529",
-      "sourceBaselineIncludesUncommittedChanges": false,
+      "sourceModifiedAt": "2026-10-23T09:25:28.000Z",
+      "sourceBaselineRevision": "927d6772619737ddbbc814b41db55dd94ccac9cc",
+      "integrationMergeParent": "09b02190f771c12ca747aa3e30065fe4e44c36c7",
+      "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
-      "buildLog": ".preview-data/subagent-repair-20261021/timing-desktop-20261021/tool-build.json",
+      "buildLog": "../tools-build.log",
       "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
@@ -36,7 +37,7 @@
           "commonqueries"
         ]
       ],
-      "sourceManifest": ".preview-data/subagent-repair-20261021/timing-desktop-20261021/tool-build.json"
+      "sourceManifest": "docs/reconstruction/2026-10-23-integration-validation.zh-CN.md"
     },
     {
       "name": "qwen-computer-use",

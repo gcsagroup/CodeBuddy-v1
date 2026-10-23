@@ -1,5 +1,7 @@
 import type { PanelDocument, PanelFileInfo, PanelScope } from './workspacePanelTypes';
+import type { LongTermGoal } from '../acp/goals';
 export type WorkbenchTab =
+  | { id: string; kind: 'goal'; title: string; goal: LongTermGoal; draft: string }
   | {
       id: string;
       kind: 'file';
@@ -29,6 +31,7 @@ export type WorkbenchTab =
 export interface WorkbenchState {
   tabs: WorkbenchTab[];
   active: string;
+  mediaHidden?: boolean;
 }
 const sessions = new Map<string, WorkbenchState>();
 export const scopeKey = (scope: PanelScope) => JSON.stringify([scope.sessionId, scope.root]);
@@ -40,6 +43,10 @@ export function saveWorkbench(key: string, state: WorkbenchState) {
 }
 export function hasUnsavedWorkbenchFiles() {
   return [...sessions.values()].some((s) =>
-    s.tabs.some((t) => t.kind === 'file' && t.draft !== t.document.content)
+    s.tabs.some(
+      (t) =>
+        (t.kind === 'file' && t.draft !== t.document.content) ||
+        (t.kind === 'goal' && t.draft !== t.goal.objective)
+    )
   );
 }

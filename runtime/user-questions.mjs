@@ -6,14 +6,23 @@ export function questionForm(sessionId, questions, wait) {
     ...(q.multiSelect && q.options?.length ? { items: { type: 'string', enum: q.options.map(o => o.label) } } : {}),
   }]));
   const questionFields = Object.fromEntries(questions.flatMap((q, i) => {
-    if (!q.options?.length) return [];
-    const customKey = q.multiSelect ? `answer_${i}_custom` : undefined;
+    if (!q.options?.length && !q.intent) return [];
+    const customKey = q.options?.length ? `feedback_${i}` : undefined;
     if (customKey) properties[customKey] = { type: 'string', title: q.question };
-    return [[`answer_${i}`, { options: q.options, ...(customKey ? { customKey } : {}) }]];
+    return [[`answer_${i}`, {
+      ...(q.options?.length ? { 'codepro.dev/suggestedOptions': q.options.map(option => ({
+        const: option.label, title: option.label, ...(option.description ? { description: option.description } : {}),
+      })) } : {}),
+      ...(q.intent ? { 'codepro.dev/questionIntent': q.intent } : {}),
+      ...(customKey ? { 'codepro.dev/feedbackField': customKey } : {}),
+    }]];
   }));
   return {
-    sessionId, mode: 'form', message: '', requestedSchema: { type: 'object', properties },
-    _meta: { 'codepro/questionFields': questionFields, ...(wait ? { 'codebuddy/question': wait } : {}) },
+    sessionId, mode: 'form', message: '', requestedSchema: {
+      type: 'object', properties, required: questions.map((_question, index) => `answer_${index}`),
+    },
+    _meta: { 'codepro.dev/questionFields': questionFields,
+      ...(wait ? { 'codebuddy/question': wait } : { 'codebuddy/question-blocking': true }) },
   };
 }
 
@@ -26,9 +35,9 @@ export function questionAnswer(questions, reply) {
     const values = answer === undefined || answer === '' ? [] : q.multiSelect && Array.isArray(answer) ? answer : [answer];
     if (values.some(value => typeof value !== 'string')) throw new Error('用户答复格式无效。');
     const selected = values.filter(value => (q.options ?? []).some(o => o.label === value));
-    const customAnswer = reply.content?.[`answer_${i}_custom`];
+    const customAnswer = reply.content?.[`feedback_${i}`] ?? reply.content?.[`answer_${i}_custom`];
     if (customAnswer !== undefined && typeof customAnswer !== 'string') throw new Error('用户答复格式无效。');
-    const custom = [...values.filter(value => !(q.options ?? []).some(o => o.label === value)), ...(q.multiSelect && customAnswer ? [customAnswer] : [])].join('\n');
+    const custom = [...values.filter(value => !(q.options ?? []).some(o => o.label === value)), ...(customAnswer ? [customAnswer] : [])].join('\n');
     return { id: q.id, selected, ...(custom ? { custom } : {}) };
   }) };
 }

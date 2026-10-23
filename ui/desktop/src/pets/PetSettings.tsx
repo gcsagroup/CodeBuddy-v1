@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
 import { PetSprite } from './PetSprite';
-import { defaultPetId } from './petPolicy';
 import { petStates, type PetAnimation, type PetPreferences, type PetSnapshot } from './petTypes';
 
 const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
@@ -39,7 +38,7 @@ export default function PetSettings() {
   if (!snapshot)
     return <p role="status">{error || t('Loading pets…', '正在读取宠物…', '正在讀取寵物…')}</p>;
   const { preferences, pets } = snapshot;
-  const pet = pets.find((p) => p.id === (previewId || preferences.selectedId)) || pets[0];
+  const pet = pets.find((p) => p.id === (previewId || preferences.selectedId));
   const names = [
     t('Idle', '待机', '待機'),
     t('Wave', '挥手', '揮手'),
@@ -62,7 +61,7 @@ export default function PetSettings() {
         </p>
         <button
           className={button}
-          disabled={busy || pets.length === 0}
+          disabled={busy || !pets.some((p) => p.id === preferences.selectedId)}
           onClick={() => void configure({ visible: !preferences.visible })}
         >
           {preferences.visible
@@ -76,15 +75,24 @@ export default function PetSettings() {
             <PetSprite pet={pet} animation={animation} reducedMotion={preferences.reducedMotion} />
           </div>
         )}
-        <p className="font-medium">{pet?.name}</p>
+        <p className="font-medium">
+          {pet?.name || t('No pet selected', '尚未选择宠物', '尚未選擇寵物')}
+        </p>
         <p className="mt-1 max-w-lg break-words text-center text-sm text-text-muted">
-          {pet?.description}
+          {pet?.description ||
+            (!pet &&
+              t(
+                'Preview a companion below, then choose Set as desktop pet.',
+                '在下方预览喜欢的形象，点击“设为桌面宠物”即可显示。',
+                '在下方預覽喜歡的形象，點擊「設為桌面寵物」即可顯示。'
+              ))}
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm">
           {t('Preview animation', '预览动作', '預覽動作')}
           <select
             className="rounded border border-border-subtle bg-background-primary p-1"
             value={animation}
+            disabled={!pet}
             onChange={(e) => setAnimation(e.target.value as PetAnimation)}
           >
             {petStates.map((state, i) => (
@@ -112,7 +120,14 @@ export default function PetSettings() {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2">
+        <label
+          className="flex items-center gap-2"
+          title={t(
+            'Controls pet animation independently of system motion settings',
+            '独立控制宠物动画，不跟随系统动态效果设置',
+            '獨立控制寵物動畫，不跟隨系統動態效果設定'
+          )}
+        >
           <input
             type="checkbox"
             checked={preferences.reducedMotion}
@@ -166,11 +181,6 @@ export default function PetSettings() {
                 <PetSprite pet={item} reducedMotion={preferences.reducedMotion} />
               </div>
               <span className="line-clamp-2 break-words font-medium">{item.name}</span>
-              {item.id === defaultPetId && (
-                <span className="mt-1 text-xs text-text-muted">
-                  {t('Default companion', '默认宠物', '預設寵物')}
-                </span>
-              )}
               <span
                 title={item.description}
                 className="mt-2 line-clamp-3 break-words text-sm text-text-muted"
@@ -180,15 +190,17 @@ export default function PetSettings() {
             </button>
             <button
               className={`${button} mt-4 w-full shrink-0`}
-              disabled={busy || preferences.selectedId === item.id}
+              disabled={busy || (preferences.selectedId === item.id && preferences.visible)}
               onClick={() => {
                 setPreviewId(item.id);
                 void configure({ selectedId: item.id, visible: true });
               }}
             >
-              {preferences.selectedId === item.id
-                ? t('Selected', '已选择', '已選擇')
-                : t('Set as desktop pet', '设为桌面宠物', '設為桌面寵物')}
+              {preferences.selectedId === item.id && preferences.visible
+                ? t('Enabled', '已启用', '已啟用')
+                : preferences.selectedId === item.id
+                  ? t('Show this pet', '显示此宠物', '顯示此寵物')
+                  : t('Set as desktop pet', '设为桌面宠物', '設為桌面寵物')}
             </button>
           </article>
         ))}

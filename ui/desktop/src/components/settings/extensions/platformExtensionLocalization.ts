@@ -3,6 +3,24 @@ import { defineMessages } from '../../../i18n';
 import type { ExtensionConfig } from '../../../types/extensions';
 
 const messages = defineMessages({
+  playwrightName: {
+    id: 'platformExtension.playwright.name',
+    defaultMessage: 'Browser control · Separate window',
+  },
+  playwrightDescription: {
+    id: 'platformExtension.playwright.description',
+    defaultMessage:
+      'Observe and test websites in a separate Edge (Windows) or Chrome (Mac) window with Playwright MCP.',
+  },
+  playwrightUserName: {
+    id: 'platformExtension.playwrightUser.name',
+    defaultMessage: 'Browser control · Your browser',
+  },
+  playwrightUserDescription: {
+    id: 'platformExtension.playwrightUser.description',
+    defaultMessage:
+      'Connect to a Chrome or Edge tab you select. Install the official Playwright extension and confirm the connection in your browser.',
+  },
   commonqueriesName: {
     id: 'platformExtension.commonqueries.name',
     defaultMessage: 'Common queries',
@@ -123,6 +141,11 @@ const metadata: Record<string, { name: MessageDescriptor; description: MessageDe
     name: messages.extensionmanagerName,
     description: messages.extensionmanagerDescription,
   },
+  playwright: { name: messages.playwrightName, description: messages.playwrightDescription },
+  playwrightuser: {
+    name: messages.playwrightUserName,
+    description: messages.playwrightUserDescription,
+  },
   git: { name: messages.gitName, description: messages.gitDescription },
   summon: { name: messages.summonName, description: messages.summonDescription },
   summarize: { name: messages.summarizeName, description: messages.summarizeDescription },
@@ -149,7 +172,10 @@ export function localizePlatformExtension(
 ): { name: string; description: string } | undefined {
   if (
     extension.type !== 'platform' &&
-    !(extension.type === 'builtin' && extension.name === 'qwen_computer')
+    !(
+      extension.type === 'builtin' &&
+      ['qwen_computer', 'playwright', 'playwright_user'].includes(extension.name)
+    )
   )
     return undefined;
   const entry = metadata[extension.name.toLowerCase().replace(/[\s_-]/g, '')];

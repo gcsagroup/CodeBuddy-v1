@@ -6,6 +6,7 @@ import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
 import { comfyuiUrl } from './comfyui-tool.mjs';
 import { permissionPresets } from './permission-presets.mjs';
+import { listAvailableBuiltins } from './builtin-extensions.mjs';
 
 const permissionLevels = new Set(['always_allow', 'ask_before', 'never_allow']);
 const roles = new Set(['main', 'planner', 'coder', 'tester', 'reviewer']);
@@ -29,8 +30,11 @@ export function validatePreference(key, value) {
 export class RuntimeSettings {
   constructor(store, { changed = () => {}, testExtension, checkProviderMutation = () => {}, reveal = revealSecret } = {}) { this.store = store; this.changed = changed; this.testExtension = testExtension; this.checkProviderMutation = checkProviderMutation; this.extensionRevision = 0; this.reveal = reveal; this.decodedExtensions = new Map(); }
   async initialize() {
+    const commonQueriesAvailable = this.store.read(['extensions']).extensions.some(e => e.configKey === 'commonqueries')
+      ? false
+      : (await listAvailableBuiltins()).some(e => e.configKey === 'commonqueries' && e.available);
     await this.store.update(s => {
-      if (!s.extensions.some(e => e.configKey === 'commonqueries')) s.extensions.push({ configKey: 'commonqueries', enabled: process.platform === 'win32' && process.arch === 'x64', extension: { type: 'builtin', name: 'commonqueries', display_name: '时间与天气', description: '读取主机时间、解析城市并按设置查询天气。' } });
+      if (!s.extensions.some(e => e.configKey === 'commonqueries')) s.extensions.push({ configKey: 'commonqueries', enabled: commonQueriesAvailable, extension: { type: 'builtin', name: 'commonqueries', display_name: '时间与天气', description: '读取主机时间、解析城市并按设置查询天气。' } });
       if (!s.extensions.some(e => e.configKey === 'developer')) s.extensions.push({ configKey: 'developer', enabled: true, extension: { type: 'builtin', name: 'developer', description: 'Official Harness file, search and shell tools' } });
       if (!s.extensions.some(e => e.configKey === 'projectmemory')) s.extensions.push({ configKey: 'projectmemory', enabled: true, extension: { type: 'platform', name: 'projectmemory', description: 'Project memory stored by Harness with candidate review and controlled recall' } });
       if (!s.extensions.some(e => e.configKey === 'git')) s.extensions.push({ configKey: 'git', enabled: true, extension: { type: 'builtin', name: 'git', description: 'Inspect repository changes and manage staging, commits, and local branches' } });

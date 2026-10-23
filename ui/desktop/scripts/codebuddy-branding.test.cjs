@@ -60,7 +60,7 @@ test('CodePro unified mode hides the workspace switcher while preserving titleba
 
   assert.doesNotMatch(appLayout, /left-1\/2 top-\[10px\]/);
   assert.match(navigationPanel, /data-testid="navigation-header-slot"/);
-  assert.match(navigationPanel, /needsTrafficLightInset && 'pt-8'/);
+  assert.match(navigationPanel, /needsTrafficLightInset && 'pl-\[92px\]'/);
   assert.match(navigationPanel, /flex h-10 items-center/);
   assert.match(navigationPanel, /\{!unifiedMode && \(/);
   assert.match(navigationPanel, /<WorkspaceSwitcher/);

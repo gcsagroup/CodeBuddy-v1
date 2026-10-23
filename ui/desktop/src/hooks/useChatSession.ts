@@ -232,6 +232,9 @@ export function useChatSession({
             metadata: { userVisible: true, agentVisible: true, presentation: input.presentation },
           }
         : currentMessages[currentMessages.length - 1];
+      if (hasNewMessage && input.planMode !== undefined)
+        newMessage.metadata.planMode = input.planMode;
+      if (hasNewMessage && input.goalRequest) newMessage.metadata.goalRequest = input.goalRequest;
 
       let accepted = false;
       const onAccepted = () => {

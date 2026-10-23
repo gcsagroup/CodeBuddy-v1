@@ -8,6 +8,23 @@ import type { Message, UserInput } from '../types/message';
 import ChatInput from './ChatInput';
 import { MessageQueue } from './MessageQueue';
 import { QueuedMessageStorage } from '../utils/queuedMessageStorage';
+import { getSessionGoal, pauseSessionGoal } from '../acp/goals';
+import { OPEN_GOAL_EDITOR } from '../workspace-panel/goalPanel';
+import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
+import type { ToolboxItem } from '../types/toolbox';
+
+const selection = vi.hoisted(() => ({ item: null as ToolboxItem | null }));
+vi.mock('../acp/session-extensions', () => ({
+  getSessionExtensions: vi.fn(),
+  addSessionExtension: vi.fn(),
+}));
+
+vi.mock('../acp/goals', () => ({
+  getSessionGoal: vi.fn(),
+  pauseSessionGoal: vi.fn(),
+  setSessionPlanMode: vi.fn(),
+  changeSessionGoal: vi.fn(),
+}));
 
 vi.mock('./ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({ getCurrentModelAndProvider: async () => ({}) }),
@@ -26,7 +43,20 @@ vi.mock('./bottom_menu/BottomMenuExtensionSelection', () => ({
 }));
 vi.mock('./bottom_menu/CostTracker', () => ({ CostTracker: () => null }));
 vi.mock('./bottom_menu/ContextWindowIndicator', () => ({ ContextWindowIndicator: () => null }));
-vi.mock('./MentionPopover', () => ({ default: () => null }));
+vi.mock('./MentionPopover', () => ({
+  default: ({
+    isOpen,
+    onSelect,
+  }: {
+    isOpen: boolean;
+    onSelect: (text: string, item: unknown) => void;
+  }) =>
+    isOpen && selection.item ? (
+      <button onClick={() => onSelect('/selected', { toolboxItem: selection.item })}>
+        Select toolbox item
+      </button>
+    ) : null,
+}));
 vi.mock('./ui/Diagnostics', () => ({ DiagnosticsModal: () => null }));
 
 function deferred<T>() {
@@ -211,6 +241,7 @@ describe('ChatInput queue delivery', () => {
     fireEvent.change(input, { target: { value: 'received message' } });
     fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
     expect(input).toHaveValue('received message');
+    await waitFor(() => expect(lifecycle).toBeDefined());
     act(() => lifecycle.onAccepted());
     expect(input).toHaveValue('');
     fireEvent.change(input, { target: { value: 'next draft' } });
@@ -239,6 +270,7 @@ describe('ChatInput queue delivery', () => {
     const input = screen.getByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'submit once' } });
     fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
     view.changeState(ChatState.Thinking);
     expect(input).toHaveValue('submit once');
     expect(screen.getByRole('button', { name: /^Stop$/ })).toBeVisible();
@@ -254,6 +286,97 @@ describe('ChatInput queue delivery', () => {
     await act(async () => pending.resolve());
   });
 
+  it('opens goal editing in the side panel without replacing the message draft', async () => {
+    const goal = {
+      id: 'saved',
+      revision: 4,
+      phase: 'paused' as const,
+      activation: 'disarmed' as const,
+      objective: 'Original goal',
+      roundsStarted: 1,
+      maxGoalRounds: 256,
+    };
+    vi.mocked(getSessionGoal).mockResolvedValue(goal);
+    const opened = vi.fn();
+    window.addEventListener(OPEN_GOAL_EDITOR, opened);
+    const view = setup(vi.fn());
+    view.changeState(ChatState.Idle);
+    const textarea = screen.getByTestId('chat-input');
+    fireEvent.change(textarea, { target: { value: 'Keep my message' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit goal' }));
+    expect(opened).toHaveBeenCalledOnce();
+    expect((opened.mock.calls[0][0] as CustomEvent).detail).toEqual({ sessionId: 'queue-test' });
+    expect(textarea).toHaveValue('Keep my message');
+    expect(screen.queryByRole('button', { name: 'Cancel command input' })).not.toBeInTheDocument();
+    window.removeEventListener(OPEN_GOAL_EDITOR, opened);
+  });
+  it('preserves an unrelated draft when pausing from the compact goal bar', async () => {
+    const goal = {
+      id: 'saved',
+      revision: 4,
+      phase: 'active' as const,
+      activation: 'armed' as const,
+      objective: 'Ship',
+      roundsStarted: 1,
+      maxGoalRounds: 256,
+    };
+    vi.mocked(getSessionGoal).mockResolvedValue(goal);
+    vi.mocked(pauseSessionGoal).mockResolvedValue({
+      ...goal,
+      phase: 'paused',
+      activation: 'disarmed',
+    });
+    setup(vi.fn());
+    const textarea = screen.getByTestId('chat-input');
+    fireEvent.change(textarea, { target: { value: 'Keep this draft' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Pause goal' }));
+    await screen.findByText('Goal paused. Use /goal resume to continue.');
+    expect(textarea).toHaveValue('Keep this draft');
+  });
+  it('can pause a resumed goal before its model prompt settles and never queues the command', async () => {
+    const goal = {
+      id: 'saved',
+      revision: 4,
+      phase: 'paused' as const,
+      activation: 'disarmed' as const,
+      objective: 'Ship',
+      roundsStarted: 1,
+      maxGoalRounds: 20,
+    };
+    vi.mocked(getSessionGoal).mockResolvedValue(goal);
+    vi.mocked(pauseSessionGoal).mockResolvedValue(goal);
+    const pending = deferred<void>();
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+      lifecycle?.onAccepted();
+      return pending.promise;
+    });
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const textarea = screen.getByTestId('chat-input');
+    fireEvent.change(textarea, { target: { value: '/goal resume' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(textarea).toHaveValue('');
+    view.changeState(ChatState.Thinking);
+    fireEvent.change(textarea, { target: { value: '/goal pause' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(pauseSessionGoal).toHaveBeenCalledWith('queue-test', goal));
+    expect(screen.queryByText('Message Queue')).toBeNull();
+    await act(async () => pending.resolve());
+  });
+
+  it('preserves a failed control command and ignores Enter while composing Chinese text', async () => {
+    vi.mocked(getSessionGoal).mockRejectedValue(new Error('offline'));
+    const submit = vi.fn();
+    setup(submit);
+    const textarea = screen.getByTestId('chat-input');
+    fireEvent.change(textarea, { target: { value: '/goal pause' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', isComposing: true });
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await screen.findByText(/The command did not complete/);
+    expect(textarea).toHaveValue('/goal pause');
+  });
   it('keeps pending input paused after Stop and sends it once on explicit resume', async () => {
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
       lifecycle?.onAccepted()
@@ -274,6 +397,10 @@ describe('ChatInput queue delivery', () => {
 
   afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
+    selection.item = null;
+    vi.mocked(getSessionExtensions).mockReset().mockResolvedValue([]);
+    vi.mocked(addSessionExtension).mockReset().mockResolvedValue(undefined);
+    vi.mocked(getSessionGoal).mockResolvedValue(null);
     window.localStorage.clear();
     window.sessionStorage.clear();
     vi.stubGlobal(
@@ -284,6 +411,85 @@ describe('ChatInput queue delivery', () => {
         unobserve() {}
       }
     );
+  });
+
+  it.each(['skill', 'external', 'builtin'] as const)(
+    'uses a slash %s in the composer without navigating or sending',
+    async (kind) => {
+      selection.item = {
+        id: kind + ':test',
+        kind,
+        source: kind === 'skill' ? 'source' : 'extension',
+        name: 'test-tool',
+        description: '',
+        status: 'ready',
+        actions: ['inspect'],
+        ...(kind === 'skill'
+          ? {}
+          : {
+              extensionSource: {
+                type: 'builtin',
+                name: 'test-tool',
+                description: '',
+                enabled: false,
+              } as const,
+            }),
+      };
+      const setView = vi.fn();
+      const submit = vi.fn();
+      render(
+        <ChatInput
+          sessionId="slash-test"
+          handleSubmit={submit}
+          setView={setView}
+          chatState={ChatState.Idle}
+        />,
+        { wrapper: IntlTestWrapper }
+      );
+      const input = screen.getByRole('textbox');
+      await userEvent.type(input, '/');
+      await userEvent.click(await screen.findByText('Select toolbox item'));
+      await waitFor(() =>
+        expect(input).toHaveValue(
+          kind === 'skill' ? 'Use the test-tool skill to: ' : 'Use test-tool to: '
+        )
+      );
+      expect(setView).not.toHaveBeenCalled();
+      expect(submit).not.toHaveBeenCalled();
+      expect(addSessionExtension).toHaveBeenCalledTimes(kind === 'skill' ? 0 : 1);
+    }
+  );
+
+  it('preserves the slash draft when the selected MCP fails to connect', async () => {
+    selection.item = {
+      id: 'external:test',
+      kind: 'external',
+      source: 'extension',
+      name: 'test-tool',
+      description: '',
+      status: 'configured',
+      actions: ['configure'],
+      extensionSource: { type: 'builtin', name: 'test-tool', description: '', enabled: true },
+    };
+    vi.mocked(addSessionExtension).mockRejectedValue(new Error('connection failed'));
+    const setView = vi.fn();
+    render(
+      <ChatInput
+        sessionId="slash-failure"
+        handleSubmit={vi.fn()}
+        setView={setView}
+        chatState={ChatState.Idle}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, '/');
+    await userEvent.click(await screen.findByText('Select toolbox item'));
+    await screen.findByText(
+      'The tool could not be loaded. Your draft is preserved; check its configuration and try again.'
+    );
+    expect(input).toHaveValue('/');
+    expect(setView).not.toHaveBeenCalled();
   });
 
   it('keeps file attachment reachable when the workspace panel narrows the composer', () => {

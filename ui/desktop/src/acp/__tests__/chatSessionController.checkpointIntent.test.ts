@@ -16,6 +16,8 @@ vi.mock('../chatSessionStore', () => ({
   subscribeToAcpChatSession: vi.fn(() => () => undefined),
   acpChatSessionStore: { getSnapshot: vi.fn() },
   acpChatSessionActions: {
+    startPromptRequest: vi.fn(() => true),
+    finishPromptRequest: vi.fn(),
     startPromptAttempt: vi.fn(),
     finishPromptAttemptIfCurrent: vi.fn(() => true),
     clearPromptCancellation: vi.fn(() => false),

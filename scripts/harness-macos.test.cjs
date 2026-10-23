@@ -9,6 +9,25 @@ const { distributionTarget, assertOfficeTarget } = require('./stage-harness-dist
 const { verifyHarnessBundle } = require('../ui/desktop/scripts/bundle-macos.cjs');
 const { writeMacArtifacts, verifyMacArtifacts, macSigningOptionsForFile, ignoreNonMacCode } = require('./macos-tool-artifacts.cjs');
 const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
+const { replaceMacExecutable } = require('./prepare-harness-macos-tools.cjs');
+
+test('replacing executed Mac tools leaves the previous inode untouched', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-mac-replace-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const destination = path.join(directory, 'tool');
+  const retained = path.join(directory, 'executed-inode');
+  const source = path.join(directory, 'new-tool');
+  fs.writeFileSync(destination, 'old signed executable');
+  fs.linkSync(destination, retained);
+  fs.writeFileSync(source, 'new signed executable');
+  replaceMacExecutable(source, destination);
+  assert.equal(fs.readFileSync(retained, 'utf8'), 'old signed executable');
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'new signed executable');
+  assert.notEqual(fs.statSync(destination).ino, fs.statSync(retained).ino);
+  assert.throws(() => replaceMacExecutable(path.join(directory, 'missing'), destination));
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'new signed executable');
+  assert.deepEqual(fs.readdirSync(directory).sort(), ['executed-inode', 'new-tool', 'tool']);
+});
 
 function binary(file, arch) {
   fs.mkdirSync(path.dirname(file), { recursive: true });

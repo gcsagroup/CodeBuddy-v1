@@ -1,0 +1,9 @@
+# Browser control
+
+Windows and macOS share three targets: the embedded right panel, an isolated Playwright MCP browser, and a user-selected Chrome/Edge tab.
+
+The developer tool `browser_control` opens HTTP(S) URLs or workspace HTML. HTML file tabs also offer a browser button. Tabs belong to their conversation. Enable the isolated or user-browser Playwright entry in Toolbox. Isolated mode uses installed Edge on Windows or Chrome on Mac. User-browser mode requires the [official extension](https://github.com/microsoft/playwright-mcp/tree/main/extension) and browser-side tab selection and connection confirmation; CodeBuddy does not copy personal browser profiles. Missing extension configuration must be resolved before that connection works.
+
+Use `/` to select available tools. Existing conversations load MCPs through the existing extension-loading flow. The model chooses tools; the host does not route free-form intent using keywords. Playwright navigation may return a snapshot file link; `browser_snapshot` returns the page snapshot for the current `target` schema. Embedded operations use observed node IDs, reject covered click targets and invalidate IDs after navigation. Text insertion appends without clearing or submitting. Dispatch is not proof of success; verify observable results and do not repeat uncertain submissions.
+
+Acceptance: create a name field and verification button, open the page, observe, type a test name, click and read the actual result. Repeat for each target. HTML preview is a temporary local URL serving web assets alongside the selected HTML, not a public deployment; closing the tab or app releases it. Playwright automatic output uses a 50 MiB cleanup threshold and isolated profiles do not persist login state. Record native Mac acceptance separately from Windows results.

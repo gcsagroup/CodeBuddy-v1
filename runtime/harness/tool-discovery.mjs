@@ -2,12 +2,73 @@ import { getMcpToolMetadata } from './mcp-bridge.mjs';
 
 // Optional adapter capabilities share Harness's registry and logged assembly.
 // The canonical registry, authorization, execution and inventory stay unchanged.
-const optionalNative = new Set(['generate_image', 'generate_video', 'create_desktop_pet', 'write', 'edit', 'glob', 'grep', 'pwsh', 'bash', 'read_image', 'working_directory',
-  'skill', 'web_fetch', 'load_workspace_dependencies', 'todo_write', 'project_memory', 'create_goal', 'get_goal', 'update_goal', 'subagent', 'subagent_explorer', 'subagent_browser', 'list_agents',
+const optionalNative = new Set(['browser_control', 'generate_image', 'generate_video', 'create_desktop_pet', 'write', 'edit', 'glob', 'grep', 'pwsh', 'bash', 'read_image', 'working_directory',
+  'web_fetch', 'load_workspace_dependencies', 'todo_write', 'project_memory', 'create_goal', 'get_goal', 'update_goal', 'subagent', 'subagent_explorer', 'subagent_browser', 'list_agents',
   'interrupt_agent', 'send_message', 'job_kill', 'job_list', 'job_output',
   'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']);
 const deferred = name => optionalNative.has(name) || name.startsWith('mcp__') || name.startsWith('git_') || name === 'github_runtime_status' || /^subagent_(coder|planner|reviewer|tester)$/.test(name);
-export function installToolDiscovery(ctx, agent) {
+// Basic delivery actions remain visible, but only when the scoped registry
+// permits them. Discovery and permission/execution ownership stay unchanged.
+const deliveryTools = new Set(['write', 'edit', 'browser_control']);
+// Real Ollama Cloud calls emitted null for optional nullable values and strings
+// for referenced objects. Advertise omission and inline acyclic local references;
+// the registry retains the original schema and validates the actual call.
+export function projectOptionalValues(schema, optional = false, root = schema, references = new Set()) {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return schema;
+  // A nested resource has its own reference scope; leave it intact.
+  if (schema !== root && schema.$id) return schema;
+  let result = { ...schema };
+  if (optional) {
+    if (Array.isArray(result.type) && result.type.includes('null') && result.type.length > 1) {
+      const types = result.type.filter(type => type !== 'null');
+      result.type = types.length === 1 ? types[0] : types;
+    }
+    for (const union of ['anyOf', 'oneOf']) {
+      const branches = result[union];
+      if (!Array.isArray(branches)) continue;
+      const nonNull = branches.filter(branch => !(branch?.type === 'null' && Object.keys(branch).length === 1));
+      if (!nonNull.length || nonNull.length === branches.length) continue;
+      const { [union]: _, ...rest } = result;
+      const annotations = new Set(['title', 'description', 'default']);
+      if (nonNull.length === 1 && Object.keys(nonNull[0]).every(key => !(key in rest) || annotations.has(key)))
+        result = { ...nonNull[0], ...rest };
+      else result[union] = nonNull;
+    }
+    if (result.default === null && (result.type !== schema.type || result.anyOf !== schema.anyOf || result.oneOf !== schema.oneOf))
+      delete result.default;
+  }
+  const ref = result.$ref;
+  if (typeof ref === 'string' && /^#\/(\$defs|definitions)\//.test(ref) && !references.has(ref)) {
+    const target = ref.slice(2).split('/').reduce((value, key) => {
+      const decoded = key.replace(/~1/g, '/').replace(/~0/g, '~');
+      return value && Object.hasOwn(value, decoded) ? value[decoded] : undefined;
+    }, root);
+    if (target && typeof target === 'object' && !Array.isArray(target) && !target.$id) {
+      references = new Set([...references, ref]);
+      const { $ref: _, ...siblings } = result;
+      const annotations = new Set(['title', 'description', 'default']);
+      result = Object.keys(target).every(key => !(key in siblings) || annotations.has(key))
+        ? { ...target, ...siblings }
+        : { ...siblings, allOf: [target, ...(siblings.allOf ?? [])] };
+      return projectOptionalValues(result, optional, root, references);
+    }
+  }
+  const required = new Set(result.required ?? []);
+  if (result.properties) result.properties = Object.fromEntries(Object.entries(result.properties).map(([key, value]) => [key, projectOptionalValues(value, !required.has(key), root, references)]));
+  for (const key of ['$defs', 'definitions', 'patternProperties'])
+    if (result[key]) result[key] = Object.fromEntries(Object.entries(result[key]).map(([name, value]) => [name, projectOptionalValues(value, false, root, references)]));
+  for (const key of ['anyOf', 'oneOf', 'allOf', 'prefixItems'])
+    if (Array.isArray(result[key])) result[key] = result[key].map(value => projectOptionalValues(value, false, root, references));
+  for (const key of ['items', 'additionalProperties', 'not', 'if', 'then', 'else'])
+    if (result[key]) result[key] = projectOptionalValues(result[key], false, root, references);
+  return result;
+}
+export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined) {
+  const project = tool => {
+    const endpoint = modelEndpoint();
+    if (!endpoint || new URL(endpoint).hostname !== 'ollama.com') return tool;
+    return { ...tool, parameters: projectOptionalValues(tool.parameters) };
+  };
   const previous = agent.session.requestHeader()?.tools ?? [];
   // Older headers contained the whole catalog. Only restore headers written
   // by discovery, otherwise reopening an old conversation reloads every tool.
@@ -34,18 +95,18 @@ export function installToolDiscovery(ctx, agent) {
       const page = matches.slice(offset, offset + 5);
       for (const tool of page) { selected.delete(tool.name); selected.add(tool.name); }
       while (selected.size > 16) selected.delete(selected.values().next().value);
-      return { tools: page, totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)) };
+      return { tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)) };
     },
   });
   ctx.systemPrompt.section({ name: 'codebuddy:mcp-discovery', order: 99, interpolate: false,
     text: () => {
       const count = available().length;
-      return count ? `${count} tools are available through search_mcp_tools. Load schemas before calling. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.` : '';
+      return count ? `${count} tools are available through search_mcp_tools. Load schemas before calling. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '';
     },
   });
   ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const assembly = await next();
-    const tools = assembly.tools.filter(tool => !deferred(tool.name) || selected.has(tool.name));
+    const tools = assembly.tools.filter(tool => !deferred(tool.name) || deliveryTools.has(tool.name) || selected.has(tool.name));
     const servers = new Set(tools.filter(tool => tool.name.startsWith('mcp__')).map(tool => getMcpToolMetadata(ctx, agent, tool.name)?.extensionName).filter(Boolean));
     // Server guidance is separate from schemas upstream. Keep it with loaded
     // server tools, without mutating shared connection scopes or their registry.
@@ -59,7 +120,7 @@ export function installToolDiscovery(ctx, agent) {
       if (section.name.startsWith('tool:') && deferred(section.name.slice(5))) return active.has(section.name.slice(5));
       return true;
     });
-    return { ...assembly, ...(sections ? { sections } : {}), tools };
+    return { ...assembly, ...(sections ? { sections } : {}), tools: tools.map(project) };
   });
   return ctx.tools.get('search_mcp_tools', agent);
 }

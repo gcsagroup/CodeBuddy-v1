@@ -31,7 +31,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
   let previous;
   return event => {
     if (signal?.aborted) return [];
-    let phase, modelRequestPhase, message = '', type = 'progress';
+    let phase, modelRequestPhase, toolInput, message = '', type = 'progress';
     if (event.type === 'model_diagnostic' && event.sessionId) {
       if (event.phase === 'start') observations.delete(event.sessionId);
       else if (event.phase === 'end' && !event.cancelled)
@@ -74,12 +74,17 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
         phase = children.size ? 'children' : 'child_result';
       }
     } else if (event.sessionId === sessionId) {
-      if (event.type === 'model_diagnostic') {
-        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving' })[event.phase];
+      if (event.type === 'tool_input') {
+        phase = children.size ? 'children' : 'model';
+        if (!children.size) { toolInput = event.preview; modelRequestPhase = 'receiving'; }
+      } else if (event.type === 'model_diagnostic') {
+        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving', first_tool_arguments: 'receiving', first_text: 'receiving', first_reasoning: 'receiving' })[event.phase];
+        if (event.phase === 'first_tool_arguments' && !children.size)
+          message = '正在生成工具调用参数';
         if (event.phase === 'response_headers' && !(event.status >= 200 && event.status < 300)) modelRequestPhase = undefined;
         if (!modelRequestPhase && !['end', 'response_headers'].includes(event.phase)) return [];
         phase = children.size ? 'children' : 'model';
-      } else if (event.type === 'assistant_start' || event.type === 'assistant_committed')
+      } else if (['assistant_start', 'assistant_end', 'assistant_committed', 'tool_call'].includes(event.type))
         phase = children.size ? 'children' : 'model';
       else if (event.type === 'tool_result' && !event.internalControl)
         phase = children.size ? 'children' : 'tool_result';
@@ -88,13 +93,14 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     if (!phase) return [];
     // One worker's recovery cannot clear another worker's active backoff.
     if (type === 'progress' && retryMessages.size) message = [...retryMessages.values()].at(-1);
-    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}`;
+    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}`;
     if (key === previous) return [];
     previous = key;
     return [{ sessionUpdate: 'status_message', status: { type, message, data: {
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,
       ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),
+      ...(toolInput ? { tool_input: toolInput } : {}),
     } } }];
   };
 }

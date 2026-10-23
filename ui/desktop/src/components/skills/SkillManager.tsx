@@ -722,16 +722,18 @@ export default function SkillManager({
       )}
 
       <Dialog open={!!selectedSkill} onOpenChange={(open) => !open && closeDetails()}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="flex max-h-[85dvh] w-[calc(100%-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
           {selectedSkill && (
             <>
-              <DialogHeader>
-                <DialogTitle>{skillPresentation(selectedSkill, intl).name}</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="m-0 shrink-0 px-6 pt-6 pb-4 pr-14 text-left">
+                <DialogTitle className="min-w-0 leading-6 [overflow-wrap:anywhere]">
+                  {skillPresentation(selectedSkill, intl).name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="min-h-0 min-w-0 space-y-5 overflow-y-auto px-6 pb-6 [overflow-wrap:anywhere]">
+                <DialogDescription className="whitespace-pre-wrap leading-6">
                   {skillPresentation(selectedSkill, intl).description}
                 </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
                 <div>
                   <p className="text-xs font-medium text-text-muted">
                     {intl.formatMessage(i18n.source)}
@@ -742,12 +744,12 @@ export default function SkillManager({
                   <p className="text-xs font-medium text-text-muted">
                     {intl.formatMessage(i18n.content)}
                   </p>
-                  <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-background-secondary p-3 text-sm">
+                  <pre className="mt-2 min-w-0 whitespace-pre-wrap rounded-lg bg-background-secondary p-4 text-sm leading-6 [overflow-wrap:anywhere]">
                     {selectedSkill.rawDocument}
                   </pre>
                 </div>
               </div>
-              <DialogFooter className="flex-wrap">
+              <DialogFooter className="shrink-0 flex-row flex-wrap border-t px-6 py-4">
                 <Button variant="outline" onClick={closeDetails}>
                   {intl.formatMessage(i18n.close)}
                 </Button>

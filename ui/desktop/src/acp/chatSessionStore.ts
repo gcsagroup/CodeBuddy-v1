@@ -7,6 +7,7 @@ import { ChatState } from '../types/chatState';
 import { parseCompactionLifecycle, type CompactionLifecycle } from '../types/compactionLifecycle';
 import type { Message, NotificationEvent } from '../types/message';
 import type { Session } from '../types/session';
+import { parseToolInputPreview, type ToolInputPreview } from '../types/toolInputPreview';
 import { parseSessionMode } from '../utils/sessionMode';
 import { isTerminalActivityEventStatus, parseActivityEvent } from '../types/activityEvent';
 import {
@@ -35,6 +36,7 @@ export interface PromptActivity {
     childCount: number;
     modelRequestPhase?: 'preparing' | 'connecting' | 'waiting' | 'receiving';
     detail?: string;
+    toolInput?: ToolInputPreview;
   };
 }
 
@@ -765,6 +767,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
             execution: {
               phase: activity.phase as NonNullable<PromptActivity['execution']>['phase'],
               childCount: Number(activity.child_count),
+              toolInput: parseToolInputPreview(activity.tool_input),
               ...(typeof status.message === 'string' && status.message.trim()
                 ? {
                     detail: status.message,

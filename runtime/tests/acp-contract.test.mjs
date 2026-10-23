@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -137,9 +137,9 @@ function controlledDriver(prompt) {
 }
 
 async function setup(t, driver = controlledDriver()) {
-  const dataDir = await mkdtemp(
+  const dataDir = await realpath(await mkdtemp(
     path.join(os.tmpdir(), "codebuddy-acp-contract-"),
-  );
+  ));
   let server = await createCompatServer({ dataDir, secret, driver });
   const baseUrl = await server.listen(0, "127.0.0.1");
   const provider = http.createServer(async (request, response) => {
@@ -352,6 +352,26 @@ test("provider/default/session contracts preserve the existing picker and sessio
     _meta: { types: ["user", "scheduled"] },
   });
   assert.ok(list.sessions.some((item) => item.sessionId === sessionId));
+});
+
+test('production ACP carries draft progress without storing a call or replaying a stopped input', async t => {
+  const driver = controlledDriver(async (sessionId, _content, { onEvent }) => {
+    await onEvent({ type: 'tool_input', sessionId, preview: { id: 'draft-only', name: 'write', kilobytes: 14 } });
+    await onEvent({ type: 'assistant_end', sessionId });
+    return { stopReason: 'cancelled' };
+  });
+  const { client, dataDir } = await setup(t, driver);
+  await configure(client);
+  const sessionId = await newSession(client, dataDir);
+  const result = await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Prepare a file' }], _meta: { 'codeagentpro/source-message-id': 'draft-input' } });
+  assert.equal(result.stopReason, 'cancelled');
+  const activity = client.notifications.filter(n => n.params?.sessionId === sessionId)
+    .map(n => n.params.update).filter(u => u.sessionUpdate === 'status_message');
+  assert.ok(activity.some(u => u.status?.data?.tool_input?.kilobytes === 14));
+  assert.equal(updates(client, sessionId).filter(u => u.sessionUpdate === 'tool_call').length, 0);
+  client.notifications.length = 0;
+  await client.request('session/load', { sessionId, cwd: dataDir, mcpServers: [] });
+  assert.doesNotMatch(JSON.stringify(updates(client, sessionId)), /draft-only|tool_input/);
 });
 
 test("driver deltas become stable message/thought/tool updates and replay as history", async (t) => {

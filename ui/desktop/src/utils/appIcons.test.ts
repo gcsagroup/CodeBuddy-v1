@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { trayIconFileName, trayTooltip, windowIconFileName, windowsAppUserModelId } from './appIcons';
+import fs from 'node:fs';
+import path from 'node:path';
+import {
+  trayIconFileName,
+  trayTooltip,
+  windowIconFileName,
+  windowsAppUserModelId,
+} from './appIcons';
 
 describe('CodeBuddy application icons', () => {
   it('uses the branded application icon for Windows windows and tray', () => {
@@ -23,5 +30,16 @@ describe('CodeBuddy application icons', () => {
   it('matches the installed Squirrel shortcut without grouping preview windows with Electron', () => {
     expect(windowsAppUserModelId(true)).toBe('com.squirrel.CodeBuddyHarness.CodeBuddy');
     expect(windowsAppUserModelId(false)).toBe('local.codebuddy.harness.preview');
+  });
+  it('keeps the Inno shortcut identity aligned with installed windows and provides an explicit icon', () => {
+    const installer = fs.readFileSync(
+      path.resolve(process.cwd(), '../../scripts/installer/codebuddy.iss'),
+      'utf8'
+    );
+    const shortcut = installer
+      .split('\n')
+      .find((line) => line.startsWith('Name: "{app}\\resources\\CodeBuddy"'))!;
+    expect(shortcut).toContain(`AppUserModelID: "${windowsAppUserModelId(true)}"`);
+    expect(shortcut).toContain('IconFilename: "{app}\\CodeBuddy.exe"; IconIndex: 0');
   });
 });

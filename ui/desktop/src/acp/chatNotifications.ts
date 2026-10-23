@@ -7,6 +7,7 @@ import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
 import { isTerminalActivityEventStatus, parseActivityEvent } from '../types/activityEvent';
 import { isTurnTerminalRecord } from '../types/turnTerminal';
 import { applyNativeQuestionSnapshot } from './elicitationRequests';
+import { applySubagentViewNotification } from './subagentConversation';
 import {
   expireAcpPermissionRequestForTool,
   expireAcpPermissionRequestsForTurn,
@@ -16,6 +17,7 @@ export function handleAcpSessionNotification(
   notification: SessionNotification,
   signal?: globalThis.AbortSignal
 ): Promise<void> {
+  if (applySubagentViewNotification(notification, signal)) return Promise.resolve();
   const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
     ?.session?.name;
   const updatedName =

@@ -123,6 +123,7 @@ func (s *appSnapshot) renderedText() string {
 		lines = append(lines, fmt.Sprintf("Observed target: window:%d:%d.", s.App.PID, s.WindowHandle))
 	}
 	if s.WindowBounds != nil && s.ScreenshotPNGBase64 != "" {
+		lines = append(lines, fmt.Sprintf("Observed window position in screen coordinates: x %.1f, y %.1f. Compare fresh observations to verify window movement; do not use these screen coordinates as input coordinates.", s.WindowBounds.X, s.WindowBounds.Y))
 		lines = append(lines, fmt.Sprintf("Input coordinate space: window-local, width %.0f, height %.0f, origin (0,0) at this window's top-left. Use this tool's current screenshot; external screenshots may have different shadows, scaling or bounds.", s.WindowBounds.Width, s.WindowBounds.Height))
 	}
 	if active := s.Foreground; active != nil && active.WindowHandle != s.WindowHandle {

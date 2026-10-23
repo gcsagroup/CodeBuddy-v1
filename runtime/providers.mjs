@@ -310,7 +310,9 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     .map(model => [model.id, modelImageProfile(model)]));
   const outputs = Object.fromEntries(models.filter(model => modelOutput(model) !== undefined)
     .map(model => [model.id, modelOutput(model)]));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, expires: Date.now() + metadataTtlMs });
+  const templateBackends = Object.fromEntries(models.filter(model => ['vllm', 'sglang'].includes(model?.owned_by))
+    .map(model => [model.id, model.owned_by]));
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, expires: Date.now() + metadataTtlMs });
   return ids;
 }
 
@@ -334,9 +336,14 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
       try {
         let capacity, source;
         const base = new URL(provider.apiUrl);
+        if (Object.hasOwn(cached.templateBackends ?? {}, model) && endpoints(provider).completion.pathname.endsWith('/chat/completions')) {
+          const auth = await (authPending ?? credentials(provider, provider));
+          cached.thinking ??= {};
+          cached.thinking[model] = await templateThinkingProfile(provider, model, auth.requestHeaders, cached.templateBackends[model]);
+        }
         // Cloud uses its full window. Local model_info is only an architectural
         // maximum, not the running num_ctx; never adopt it as deployment capacity.
-        if (base.protocol === 'https:' && base.hostname === 'ollama.com' || provider.engine === 'ollama_compatible') {
+        if (base.protocol === 'https:' && base.hostname === 'ollama.com' || engineName(provider.engine) === 'ollama_compatible') {
           const auth = await (authPending ?? credentials(provider, provider));
           const body = await requestJson(new URL('/api/show', base), { method: 'POST', headers: auth.requestHeaders,
             payload: { model }, timeoutMs: 5000 });
@@ -347,6 +354,11 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           if (Array.isArray(body.capabilities) && body.capabilities.length && body.capabilities.every(value => typeof value === 'string')) {
             cached.inputs ??= {};
             cached.inputs[model] = { imageInput: body.capabilities.includes('vision') ? 'supported' : 'unsupported', source: 'provider_metadata' };
+            cached.tools ??= {};
+            cached.tools[model] = body.capabilities.includes('tools');
+            cached.nonChatModels ??= [];
+            if (!body.capabilities.includes('completion') && !cached.nonChatModels.includes(model))
+              cached.nonChatModels.push(model);
           }
           source = 'service';
         }
@@ -506,6 +518,41 @@ export function inventory(provider) {
   };
 }
 
+async function templateThinkingProfile(provider, model, headers, backend) {
+  // The generic OpenAPI enum is not a model capability. Render the actual
+  // template without inference: custom/quantized names need no name heuristics.
+  const completionPath = endpoints(provider).completion.pathname;
+  const url = new URL(backend === 'sglang'
+    ? completionPath.replace(/chat\/completions$/, 'tokenize')
+    : `${completionPath}/render`, provider.apiUrl);
+  headers = new Headers(headers);
+  headers.set('Content-Type', 'application/json');
+  const levels = [undefined, 'medium', 'low', 'high', 'xhigh', 'minimal', 'max', 'none'];
+  const rendered = await Promise.all(levels.map(async level => {
+    try {
+      const body = await requestJson(url, { method: 'POST', headers,
+        payload: { model, messages: [{ role: 'user', content: 'Reply OK.' }], max_tokens: 1,
+          ...(level === undefined ? {} : { reasoning_effort: level }) }, timeoutMs: 2000 });
+      const tokens = backend === 'sglang' ? body.tokens : body.token_ids;
+      if (!Array.isArray(tokens) || !tokens.length || !tokens.every(token => Number.isSafeInteger(token) && token >= 0)) return null;
+      return JSON.stringify(tokens);
+    } catch { return null; }
+  }));
+  if (!rendered[0]) return {};
+  // Accepted but ignored fields must not become fake intensity settings. Only
+  // expose distinct rendered modes, and preserve the service's existing default.
+  const modes = new Map();
+  for (let i = 1; i < levels.length; i++) {
+    if (rendered[i] && !modes.has(rendered[i])) modes.set(rendered[i], levels[i]);
+  }
+  if (modes.size < 2 || !modes.has(rendered[0])) return {};
+  const reasoningEfforts = Object.fromEntries([...modes.values()].map(level => [level === 'none' ? 'off' : level, level]));
+  const defaultLevel = modes.get(rendered[0]);
+  return { reasoningEfforts, thinkingDefault: defaultLevel === 'none' ? 'off' : defaultLevel,
+    thinkingToggle: Object.keys(reasoningEfforts).every(level => ['off', 'medium'].includes(level)),
+    compat: { thinkingFormat: 'openai', supportsReasoningEffort: true, supportsDeveloperRole: false } };
+}
+
 function modelThinkingProfile(model) {
   // Gemma 4 uses its published boolean chat-template switch, not reasoning_effort.
   if (!/^gemma-?4(?:[-:]|$)/i.test(model?.split('/').at(-1) ?? '')) return {};
@@ -601,6 +648,8 @@ export async function driverProvider(provider, model, { legacyThinking = false }
   const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
   if (cachedModels(provider)?.nonChatModels?.includes(model))
     throw providerError('model_unavailable', 'The selected model does not support chat completions.');
+  if (cachedModels(provider)?.tools?.[model] === false)
+    throw providerError('tools_unsupported', 'This Ollama model reports no tool-calling support. Select an installed model with the tools capability for CodeBuddy tasks.');
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
   const { thinkingToggle: _toggle, thinkingDefault: _default, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);

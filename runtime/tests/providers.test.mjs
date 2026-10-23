@@ -58,12 +58,31 @@ function memoryStore() {
   };
 }
 
+test('local Ollama show metadata distinguishes vision, tool support and non-chat models', async t => {
+  const api = await endpoint(t, (req, res, body) => res.end(JSON.stringify(req.url.endsWith('/api/tags')
+    ? { models: ['vision-agent', 'text-only', 'embedding', 'unknown'].map(name => ({ name })) }
+    : req.url.endsWith('/api/show') ? ({
+      'vision-agent': { capabilities: ['completion', 'vision', 'tools'] },
+      'text-only': { capabilities: ['completion'] },
+      embedding: { capabilities: ['embedding'] },
+      unknown: {},
+    }[body.model]) : {})));
+  const provider = input(api.url, { engine: 'ollama', models: ['vision-agent', 'text-only', 'embedding', 'unknown'] });
+  assert.equal((await resolveImageCapability(provider, 'vision-agent')).imageInput, 'supported');
+  assert.equal((await resolveImageCapability(provider, 'text-only')).imageInput, 'unsupported');
+  await assert.rejects(driverProvider(provider, 'text-only'), error => error.data.code === 'custom_provider_tools_unsupported');
+  await assert.rejects(driverProvider(provider, 'embedding'), error => error.data.code === 'custom_provider_model_unavailable');
+  assert.ok(!(await resolvedInventory(provider)).models.some(m => m.id === 'embedding'));
+  await driverProvider(provider, 'vision-agent');
+  await driverProvider(provider, 'unknown');
+});
+
 test('Ollama cloud details supply capacity once per model; local architectural limits are not adopted', async t => {
   const calls=[];
   t.mock.method(globalThis,'fetch',async (url, options={})=>{
     calls.push({url:String(url),body:options.body});
     return new Response(JSON.stringify(String(url).endsWith('/api/show')
-      ? {model_info:{'kimi-k3.context_length':1048576}, capabilities:['completion','vision','thinking']}
+      ? {model_info:{'kimi-k3.context_length':1048576}, capabilities:['completion','vision','thinking','tools']}
       : String(url).endsWith('/api/tags') ? {models:[{name:'kimi-k3',capabilities:['completion','thinking']}]}
       : {data:[{id:'kimi-k3'}]}),{headers:{'content-type':'application/json'}});
   });

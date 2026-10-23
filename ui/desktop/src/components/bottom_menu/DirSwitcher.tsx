@@ -19,7 +19,7 @@ const i18n = defineMessages({
   },
   currentDirectory: {
     id: 'dirSwitcher.currentDirectory',
-    defaultMessage: 'Current directory',
+    defaultMessage: 'Current project',
   },
   gitWorktrees: {
     id: 'dirSwitcher.gitWorktrees',
@@ -27,15 +27,15 @@ const i18n = defineMessages({
   },
   recentDirectories: {
     id: 'dirSwitcher.recentDirectories',
-    defaultMessage: 'Recent directories',
+    defaultMessage: 'Recent projects',
   },
   chooseDirectory: {
     id: 'dirSwitcher.chooseDirectory',
-    defaultMessage: 'Choose directory…',
+    defaultMessage: 'Choose project…',
   },
   chooseFolder: {
     id: 'dirSwitcher.chooseFolder',
-    defaultMessage: 'Choose a folder',
+    defaultMessage: 'Select project',
   },
   openInFinder: {
     id: 'dirSwitcher.openInFinder',
@@ -224,7 +224,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-[28rem]"
+        className="w-[min(28rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto"
         side="top"
         align="start"
         onInteractOutside={(event) => {

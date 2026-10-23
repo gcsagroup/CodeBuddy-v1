@@ -5,3 +5,6 @@ evals/codebuddy/ollama-cloud-*/fixtures/** text eol=lf
 
 # Keep the macOS preview entry executable by Bash after Windows checkouts.
 /start-preview.sh text eol=lf
+
+# Apple's entitlement parser requires LF XML even when sources come from Windows.
+/ui/desktop/entitlements.plist text eol=lf

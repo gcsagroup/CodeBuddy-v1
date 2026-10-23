@@ -26,14 +26,14 @@ it('offers a late-answer bubble without submitting on open/close and removes it 
     wrapper: IntlTestWrapper,
   });
   const bubble = screen.getByRole('button', { name: /Answer question.*Which color/ });
-  expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
   await user.click(bubble);
-  expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
   await user.keyboard('{Escape}');
   expect(onSubmit).not.toHaveBeenCalled();
   await user.click(bubble);
   view.rerender(<ElicitationDock requests={[]} onSubmit={onSubmit} />);
   expect(screen.queryByRole('button', { name: /Answer question/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
   expect(onSubmit).not.toHaveBeenCalled();
 });

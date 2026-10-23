@@ -11,6 +11,14 @@ struct ContractTests {
         throw RuntimeFailure("Invalid input was accepted")
     }
     static func main() throws {
+        var requested: [String] = []
+        try require(!enableTargetAccessibility(read: { _ in nil }, enable: { _ in false }), "Unsupported app capabilities reported enabled")
+        try require(!enableTargetAccessibility(read: { _ in true }, enable: { requested.append($0); return true }), "Existing enabled accessibility was toggled")
+        try require(requested.isEmpty, "Existing enabled accessibility was written again")
+        try require(enableTargetAccessibility(read: { _ in nil }, enable: { requested.append($0); return $0 == "AXManualAccessibility" }), "Electron write-only accessibility was not initialized")
+        try require(requested == ["AXManualAccessibility", "AXEnhancedUserInterface"], "Accessibility initialization escaped known target attributes")
+        try require(!enableTargetAccessibility(read: { _ in false }, enable: { _ in false }), "Failed attribute writes reported enabled accessibility")
+        print("Target accessibility: optional capabilities, existing grants and failed writes preserved.")
         let input = InputDispatchReceipt()
         try rejects { throw RuntimeFailure("Foreground window changed") }
         try require(!input.dispatched, "Preflight failure was reported as input")
@@ -27,12 +35,23 @@ struct ContractTests {
         try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: 76) == nil,
             "Conflicting foreground identities accepted")
         for invalid in [nil, -1, 0] as [pid_t?] {
-            try require(confirmedForegroundPID(accessibilityPID: invalid, workspacePID: 54081) == nil,
-                "Unconfirmed system-wide focus accepted for input")
+            try require(confirmedForegroundPID(accessibilityPID: invalid, workspacePID: 54081) == 54081,
+                "Valid AppKit focus lost when system-wide AX is unavailable")
         }
+        try require(confirmedForegroundPID(accessibilityPID: nil, workspacePID: -1) == nil,
+            "Two unavailable authorities must not guess a foreground app")
         print("Foreground identity: installed helper invalid AppKit PID and fail-closed conflicts passed.")
         let mainWindow = NativeWindow(id: 575, pid: 76632, name: "WeChat", bundle: "com.tencent.xinWeChat", title: "微信", bounds: WindowFrame(CGRect(x: 273, y: 156, width: 880, height: 640)))
         let popover = NativeWindow(id: 772, pid: 76632, name: "WeChat", bundle: "com.tencent.xinWeChat", title: "", bounds: WindowFrame(CGRect(x: 321, y: 191, width: 368, height: 96)))
+        try validateMouseHit(575, target: mainWindow)
+        try rejects { try validateMouseHit(772, target: mainWindow) }
+        try rejects { try validateMouseHit(0, target: mainWindow) }
+        try rejects { try validateMouseHit(-1, target: mainWindow) }
+        try validateMouseHit(772, target: popover)
+        try require(appKitHitPoint(CGPoint(x: 434, y: 261), primaryDisplayTop: 956) == CGPoint(x: 434, y: 695), "Primary display hit-test coordinates inverted incorrectly")
+        try require(appKitHitPoint(CGPoint(x: -400, y: -200), primaryDisplayTop: 956) == CGPoint(x: -400, y: 1156), "Secondary display coordinates were clamped or flipped against the wrong display")
+        try require(appKitHitPoint(CGPoint(x: 1600, y: 1200), primaryDisplayTop: 956) == CGPoint(x: 1600, y: -244), "Lower secondary display coordinates were clamped")
+        print("Mouse hit-test contract: exact window, real overlay, unknown recipient and multi-display coordinates passed.")
         try require(matchFocusedWindow([popover, mainWindow], pid: 76632, frame: mainWindow.bounds, title: "微信")?.id == 575, "Search popover stole keyboard focus solely due to stacking order")
         try require(matchFocusedWindow([popover, mainWindow], pid: 76632, frame: popover.bounds, title: "")?.id == 772, "A genuinely focused popup was ignored")
         try require(matchFocusedWindow([mainWindow, mainWindow], pid: 76632, frame: mainWindow.bounds, title: "微信") == nil, "Ambiguous focus identity was accepted")
@@ -62,6 +81,11 @@ struct ContractTests {
         try require(current.denied("Screen Recording").contains(current.path), "Permission failure omitted the exact application path")
         let standalone = PermissionApplication.locate(executable: URL(fileURLWithPath: "/tmp/qwen-computer-runtime"), bundleInfo: { _ in nil })
         try require(standalone.path == "/tmp/qwen-computer-runtime" && standalone.identifier == "standalone helper", "Standalone helper impersonated an installed application")
+        try require(!standalone.isApplicationBundle && current.isApplicationBundle, "Bundle identity was confused with a standalone executable")
+        let standaloneDenial = standalone.denied("Screen Recording")
+        try require(standaloneDenial.contains("launcher, such as Terminal") && standaloneDenial.contains("TCC diagnostic attribution"), "Development permission denial omitted responsible-launcher guidance")
+        try require(!standaloneDenial.contains("Select this exact application"), "Standalone helper was incorrectly claimed to own TCC permission")
+        try require(current.denied("Accessibility").contains("does not establish the responsible application"), "Containing bundle was incorrectly treated as authoritative TCC attribution")
         let session: [String: Any] = [kCGSessionOnConsoleKey as String: true,
             kCGSessionLoginDoneKey as String: true, kCGSessionUserIDKey as String: NSNumber(value: 501)]
         func diagnostic(_ value: [String: Any]?, ax: Bool = true, screen: Bool = true) -> DesktopEnvironmentDiagnostic {

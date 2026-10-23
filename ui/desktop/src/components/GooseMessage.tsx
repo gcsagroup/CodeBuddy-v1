@@ -354,20 +354,42 @@ export default function GooseMessage({
   const displayUnits = displayText.length;
   const firstTokenProbe = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!import.meta.env.DEV || !isStreaming || message.role !== 'assistant' ||
-      !message.metadata.userVisible || !message.id || firstTokenProbe.current === message.id ||
-      (!displayUnits && (suppressProviderThinking || !thinkingContent))) return;
+    if (
+      !import.meta.env.DEV ||
+      !isStreaming ||
+      message.role !== 'assistant' ||
+      !message.metadata.userVisible ||
+      !message.id ||
+      firstTokenProbe.current === message.id ||
+      (!displayUnits && (suppressProviderThinking || !thinkingContent))
+    )
+      return;
     firstTokenProbe.current = message.id;
     try {
-      window.electron.logInfo(JSON.stringify({
-        tag: 'stream_timing', stage: 'ui_first_token_committed', at_ms: Date.now(),
-        session_id: sessionId, message_id: message.id,
-        kind: !suppressProviderThinking && thinkingContent ? 'thought' : 'text',
-        document_visibility: document.visibilityState,
-      }));
-    } catch { /* React commit observation is not screen-paint or execution authority. */ }
-  }, [displayUnits, thinkingContent, suppressProviderThinking, isStreaming,
-    message.id, message.role, message.metadata.userVisible, sessionId]);
+      window.electron.logInfo(
+        JSON.stringify({
+          tag: 'stream_timing',
+          stage: 'ui_first_token_committed',
+          at_ms: Date.now(),
+          session_id: sessionId,
+          message_id: message.id,
+          kind: !suppressProviderThinking && thinkingContent ? 'thought' : 'text',
+          document_visibility: document.visibilityState,
+        })
+      );
+    } catch {
+      /* React commit observation is not screen-paint or execution authority. */
+    }
+  }, [
+    displayUnits,
+    thinkingContent,
+    suppressProviderThinking,
+    isStreaming,
+    message.id,
+    message.role,
+    message.metadata.userVisible,
+    sessionId,
+  ]);
   useEffect(() => {
     // Development E2E probe: React committed this text, not proof of screen paint.
     // Sample progress at most once per second; first and final commits are immediate.

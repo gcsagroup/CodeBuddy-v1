@@ -50,6 +50,7 @@ export async function requestAcpElicitation(
 
   if (signal?.aborted) return cancelledElicitationResponse();
   const native = nativeQuestion(request);
+  const nativeBlocking = request._meta?.['codebuddy/question-blocking'] === true;
   const elicitationRequest: AcpElicitationRequest = {
     id: native ? nativeQuestionId(native) : `acp_elicitation_${uuidv7()}`,
     sessionId: request.sessionId,
@@ -61,32 +62,35 @@ export async function requestAcpElicitation(
             ? {}
             : { expiresAt: Date.now() + native.remainingMs }),
         }
-      : { expiresAt: Date.now() + ACP_ELICITATION_TIMEOUT_SECONDS * 1000 }),
+      : nativeBlocking
+        ? {}
+        : { expiresAt: Date.now() + ACP_ELICITATION_TIMEOUT_SECONDS * 1000 }),
   };
   const key = elicitationRequestKey(elicitationRequest.sessionId, elicitationRequest.id);
 
   return new Promise<CreateElicitationResponse>((resolve) => {
-    const timeoutId = native
-      ? undefined
-      : setTimeout(() => {
-          const pending = pendingRequests.get(key);
-          if (!pending) {
-            return;
-          }
+    const timeoutId =
+      native || nativeBlocking
+        ? undefined
+        : setTimeout(() => {
+            const pending = pendingRequests.get(key);
+            if (!pending) {
+              return;
+            }
 
-          pendingRequests.delete(key);
-          acpChatSessionActions.setElicitationStatus(
-            elicitationRequest.sessionId,
-            elicitationRequest.id,
-            'expired'
-          );
-          acpChatSessionActions.resolveUserInputRequest(
-            elicitationRequest.sessionId,
-            acpElicitationUserInputRequestId(elicitationRequest.id)
-          );
-          pending.resolve?.({ action: 'cancel', _meta: { codepro: { reason: 'expired' } } });
-          pending.dispose?.();
-        }, ACP_ELICITATION_TIMEOUT_SECONDS * 1000);
+            pendingRequests.delete(key);
+            acpChatSessionActions.setElicitationStatus(
+              elicitationRequest.sessionId,
+              elicitationRequest.id,
+              'expired'
+            );
+            acpChatSessionActions.resolveUserInputRequest(
+              elicitationRequest.sessionId,
+              acpElicitationUserInputRequestId(elicitationRequest.id)
+            );
+            pending.resolve?.({ action: 'cancel', _meta: { codepro: { reason: 'expired' } } });
+            pending.dispose?.();
+          }, ACP_ELICITATION_TIMEOUT_SECONDS * 1000);
 
     const previous = pendingRequests.get(key);
     previous?.resolve?.(cancelledElicitationResponse());

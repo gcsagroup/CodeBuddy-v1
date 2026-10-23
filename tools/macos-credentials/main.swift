@@ -5,6 +5,11 @@ struct CredentialHelper {
     struct Request: Decodable { let action: String; let value: String }
     static func main() {
         do {
+            if Array(CommandLine.arguments.dropFirst()) == ["--self-test"] {
+                try CredentialVerification.run()
+                print("{\"passed\":true,\"isolatedKeychain\":true}")
+                return
+            }
             guard CommandLine.arguments.count == 1 else { throw CredentialFailure.invalidInput }
             // Bound input before decoding, including JSON escaping overhead.
             var input = Data()

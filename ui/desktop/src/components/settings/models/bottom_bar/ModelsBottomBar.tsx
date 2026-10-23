@@ -48,6 +48,7 @@ interface ModelsBottomBarProps {
   latestInference?: Message['metadata']['inference'] | null;
   onModelChanged: (override: { model: string; provider: string }) => void;
   sessionLoaded?: boolean;
+  openRequest?: number;
 }
 
 export default function ModelsBottomBar({
@@ -58,6 +59,7 @@ export default function ModelsBottomBar({
   sessionProvider,
   onModelChanged,
   sessionLoaded,
+  openRequest = 0,
 }: ModelsBottomBarProps) {
   const intl = useIntl();
   const location = useLocation();
@@ -72,6 +74,9 @@ export default function ModelsBottomBar({
   const currentProvider = sessionProvider ?? configProvider;
   const loadingSession = Boolean(sessionId && !sessionLoaded);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (openRequest > 0) setOpen(true);
+  }, [openRequest]);
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);

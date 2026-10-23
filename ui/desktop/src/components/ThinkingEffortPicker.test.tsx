@@ -111,6 +111,7 @@ describe('ThinkingEffortPicker', () => {
       contextSource: 'service',
     });
     expect(await screen.findByText('262,144 tokens')).toBeVisible();
+    expect(screen.getByText('No verified controls')).toBeVisible();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
   it('does not offer a disclosure for a single supported level or a non-reasoning model', () => {

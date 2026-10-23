@@ -42,7 +42,7 @@ test('official Office skills use the relocatable payload through Harness shell',
     assert.equal(loaded.isError, false);
     assert.match(JSON.stringify(loaded), /Installed LibreOffice Kit/);
   }
-  const denied = await driver.callTool(sessionId, 'load_workspace_dependencies', {}, { onPermission: () => false });
+  const denied = await driver.callTool(sessionId, 'load_workspace_dependencies', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: () => false });
   assert.equal(denied.isError, true);
   const result = await driver.callTool(sessionId, 'load_workspace_dependencies', {}, { onPermission: () => true });
   assert.equal(result.isError, false);

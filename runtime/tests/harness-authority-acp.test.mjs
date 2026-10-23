@@ -46,7 +46,7 @@ async function fixture(t) {
   const created = await request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
   const sessionId = created.sessionId;
   const prompt = text => request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
-  return { compat, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
+  return { compat, driver, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
 }
 
 test('native questions preserve suggestions, custom answers, skip, timeout and cancellation at the ACP boundary', async t => {
@@ -69,9 +69,11 @@ test('native questions preserve suggestions, custom answers, skip, timeout and c
   });
   const schema = asked[0].requestedSchema;
   assert.equal(schema.properties.answer_1.type, 'array');
-  assert.deepEqual(asked[0]._meta['codepro/questionFields'].answer_0.options, questions[0].options);
+  assert.deepEqual(asked[0]._meta['codepro.dev/questionFields'].answer_0['codepro.dev/suggestedOptions'], [
+    { const: 'Mint', title: 'Mint', description: 'Cool' }, { const: 'Cream', title: 'Cream' },
+  ]);
   assert.deepEqual(schema.properties.answer_1.items.enum, ['Stop', 'Resume']);
-  assert.equal(schema.properties.answer_1_custom.type, 'string');
+  assert.equal(schema.properties.feedback_1.type, 'string');
   assert.equal(schema.properties.answer_0.enum, undefined, 'Custom text is allowed, not an enum violation');
   reply = { action: 'cancel' };
   await run(async callbacks => assert.deepEqual(await callbacks.onUserQuestions({ questions }), { answers: questions.map(q => ({ id: q.id, selected: [] })) }));
@@ -84,6 +86,109 @@ test('native questions preserve suggestions, custom answers, skip, timeout and c
     const controller = new AbortController(); controller.abort();
     await assert.rejects(callbacks.onUserQuestions({ questions, signal: controller.signal }), /abort/i);
   });
+
+});
+
+test('native question choices remain selectable and preserve custom and multi-select answers', async t => {
+  const f = await fixture(t);
+  f.connection.ask = async (method, params) => {
+    assert.equal(method, 'elicitation/create');
+    const parsed = zCreateElicitationRequest.parse(params);
+    const properties = parsed.requestedSchema.properties;
+    assert.deepEqual(parsed._meta['codepro.dev/questionFields'].answer_0['codepro.dev/suggestedOptions'], [
+      { const: 'Approve', title: 'Approve', description: 'Continue implementation' },
+      { const: 'Keep planning', title: 'Keep planning' },
+    ]);
+    assert.equal(properties.answer_0.default, undefined);
+    assert.equal(properties.answer_1.type, 'array');
+    return { action: 'accept', content: { answer_0: 'Approve', answer_1: ['A'], feedback_1: 'Custom scope' } };
+  };
+  f.scripts.push(async callbacks => {
+    assert.deepEqual(await callbacks.onUserQuestions({ questions: [
+      { id: 'review', question: 'Review plan', detail: '# Plan', options: [{ label: 'Approve', description: 'Continue implementation' }, { label: 'Keep planning' }] },
+      { id: 'scope', question: 'Choose scope', multiSelect: true, options: [{ label: 'A' }, { label: 'B' }] },
+    ] }), { answers: [
+      { id: 'review', selected: ['Approve'] },
+      { id: 'scope', selected: ['A'], custom: 'Custom scope' },
+    ] });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.prompt('Ask the user');
+});
+
+test('native plan review metadata and feedback survive the UI boundary without turning feedback into approval', async t => {
+  const f = await fixture(t);
+  const intent = { kind: 'plan-review', approve: 'Approve', callId: 'review-call' };
+  f.connection.ask = async (method, params) => {
+    const parsed = zCreateElicitationRequest.parse(params);
+    assert.deepEqual(parsed._meta['codepro.dev/questionFields'].answer_0['codepro.dev/questionIntent'], intent);
+    assert.equal(parsed._meta['codepro.dev/questionFields'].answer_0['codepro.dev/feedbackField'], 'feedback_0');
+    assert.equal(parsed._meta['codebuddy/question-blocking'], true);
+    assert.deepEqual(params.requestedSchema.required, ['answer_0']);
+    return { action: 'accept', content: { answer_0: '', feedback_0: 'Approve' } };
+  };
+  f.scripts.push(async callbacks => {
+    assert.deepEqual(await callbacks.onUserQuestions({ questions: [
+      { id: 'review', question: 'Review', detail: '# Plan', intent, options: [{ label: 'Approve' }, { label: 'Keep planning' }] },
+    ] }), { answers: [{ id: 'review', selected: [], custom: 'Approve' }] });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.prompt('Review the plan');
+});
+
+test('goal UI transport retains native ownership and pauses before cancelling the active prompt', async t => {
+  const f = await fixture(t);
+  const goal = { id: 'native-goal', revision: 4, phase: 'active', objective: 'Verify project', activation: 'armed', maxGoalRounds: 20, roundsStarted: 1 };
+  f.driver.getGoal = async () => goal;
+  const order = [];
+  f.driver.controlGoal = async (id, request) => {
+    assert.equal(id, f.sessionId);
+    assert.deepEqual(request, { action: 'pause', goalId: goal.id, revision: goal.revision });
+    order.push('pause');
+    return { ...goal, phase: 'paused', activation: 'disarmed' };
+  };
+  assert.deepEqual(await f.request('_goose/unstable/session/goal/get', { sessionId: f.sessionId }), { goal });
+  const controller = new AbortController();
+  controller.signal.addEventListener('abort', () => order.push('cancel'));
+  f.compat.active.set(f.sessionId, { controller, driverStarted: false });
+  const result = await f.request('_goose/unstable/session/goal/pause', { sessionId: f.sessionId, goalId: goal.id, revision: goal.revision });
+  assert.equal(result.goal.phase, 'paused');
+  assert.deepEqual(order, ['pause', 'cancel']);
+  f.compat.active.delete(f.sessionId);
+});
+
+test('explicit goal creation is attached to the normal observed and permission-bound prompt', async t => {
+  const f = await fixture(t);
+  f.scripts.push(async callbacks => {
+    assert.deepEqual(callbacks.createGoal, { objective: 'Literal pause and continue words', maxGoalRounds: 7 });
+    assert.equal(typeof callbacks.onPermission, 'function');
+    assert.ok(callbacks.signal);
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.request('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'Ordinary text' }], _meta: { 'codebuddy/goal': { action: 'create', objective: 'Literal pause and continue words', maxGoalRounds: 7 } } });
+  await assert.rejects(f.request('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'invalid' }], _meta: { 'codebuddy/goal': { action: 'resume', goalId: 'g', revision: -1 } } }), /revision/);
+});
+
+test('explicit plan selection is validated and forwarded to the native owner', async t => {
+  const f = await fixture(t);
+  f.driver.getPlanMode = async id => {
+    assert.equal(id, f.sessionId);
+    return { active: true };
+  };
+  assert.deepEqual(await f.request('_goose/unstable/session/plan/get', { sessionId: f.sessionId }), { plan: { active: true } });
+  f.driver.setPlanMode = async (id, active) => {
+    assert.equal(id, f.sessionId);
+    return { active };
+  };
+  assert.deepEqual(await f.request('_goose/unstable/session/plan/set', { sessionId: f.sessionId, active: true }), { plan: { active: true } });
+  await assert.rejects(f.request('_goose/unstable/session/plan/set', { sessionId: f.sessionId, active: 'yes' }), /boolean/);
+  f.scripts.push(async callbacks => {
+    assert.equal(callbacks.planMode, true);
+    assert.equal(typeof callbacks.onPermission, 'function');
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.request('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'Plan the change' }], _meta: { 'codebuddy/plan': true } });
+  await assert.rejects(f.request('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'Bad mode' }], _meta: { 'codebuddy/plan': 'yes' } }), /boolean/);
 });
 
 test('saved connection cards read locally without waiting for model metadata; the model picker filters live capabilities', { timeout: 3000 }, async t => {

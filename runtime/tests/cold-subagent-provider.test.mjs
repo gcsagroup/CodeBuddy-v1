@@ -37,8 +37,8 @@ async function fixture(t) {
     if (path === '/api/tags' || path === '/api/show') {
       if (!recovered) return Response.json({ error: 'Synthetic advisory metadata outage' }, { status: 503 });
       return Response.json(path === '/api/tags'
-        ? { models: [{ name: model, contextWindow: 1048576, capabilities: ['completion', 'thinking'] }] }
-        : { model_info: { 'cold.context_length': 1048576 }, capabilities: ['completion', 'thinking'], thinking: { values: [false, 'low', 'high'], default: 'low' } });
+        ? { models: [{ name: model, contextWindow: 1048576, capabilities: ['completion', 'thinking', 'tools'] }] }
+        : { model_info: { 'cold.context_length': 1048576 }, capabilities: ['completion', 'thinking', 'tools'], thinking: { values: [false, 'low', 'high'], default: 'low' } });
     }
     assert.ok(path.endsWith('/chat/completions'), 'Only the synthetic model endpoint may be used');
     const body = JSON.parse(options.body);

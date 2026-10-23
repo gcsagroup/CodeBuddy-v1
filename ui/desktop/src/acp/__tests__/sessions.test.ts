@@ -62,6 +62,16 @@ describe('ACP sessions', () => {
       window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, listener);
     }
   });
+
+  it('passes the requested native preset atomically when creating a session', async () => {
+    const client = { newSession: vi.fn().mockResolvedValue({sessionId: 'session-1', modes: {currentModeId: 'read-only'}}), setSessionMode: vi.fn(), goose: {sessionInfo_unstable: vi.fn().mockResolvedValue({session: sessionInfo()})} };
+    vi.mocked(getAcpClient).mockResolvedValue(client as unknown as Awaited<ReturnType<typeof getAcpClient>>);
+    const result = await acpNewSession('/tmp', [], {initialPermissionPreset: 'read-only'});
+    expect(client.newSession).toHaveBeenCalledWith(expect.objectContaining({_meta: expect.objectContaining({initialPermissionPreset: 'read-only'})}));
+    expect(result.meta.gooseMode).toBe('read-only');
+    expect(client.setSessionMode).not.toHaveBeenCalled();
+  });
+
   it('preserves imported history as a readonly presentation instead of an executable workspace', () => {
     const session = sessionInfoToSession(
       sessionInfo({

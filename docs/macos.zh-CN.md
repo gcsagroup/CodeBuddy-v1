@@ -76,7 +76,7 @@ corepack pnpm --dir ui/desktop run test:macos-install
 
 脚本 smoke 覆盖启动、工作区、PTY 和内嵌浏览器的接口路径，不替代真实模型对话或完整用户交互。打包验证会检查四个 MCP 的真实工具发现，但不宣称桌面输入通过。后续通过 RustDesk 核对 Finder 启动、中文项目、实际模型与工具调用、退出重启及历史持久化；电脑控制单独验收 TCC、截图、中文输入、窗口切换和动作后置结果。验收前记录 revision、dirty 差异、产物清单和哈希。
 
-开发版数据和日志位于 `.preview-data`；安装版沿用 `~/.CodeBuddy-Harness`，运行日志位于其 `logs/harness`。测试使用独立 profile，保留现有用户数据。
+开发版与安装版默认数据目录均为 `~/.CodeBuddy`，可通过 `CODEBUDDY_HOME` 指定隔离目录。开发日志位于 `logs/preview`，安装版服务日志位于 `logs/harness`。旧 `.preview-data` 和 `~/.CodeBuddy-Harness` 不自动导入或覆盖；验收使用独立 profile。
 
 ## Mac 凭据保护（2026-10-16）
 

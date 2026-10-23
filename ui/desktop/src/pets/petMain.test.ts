@@ -14,6 +14,8 @@ const host = vi.hoisted(() => ({
   show: vi.fn(),
   focus: vi.fn(),
   minimized: false,
+  menuChoice: -1,
+  menu: vi.fn(),
   restore: vi.fn(),
   createWindow: vi.fn(),
   extraWindows: [] as Array<{
@@ -26,10 +28,31 @@ const host = vi.hoisted(() => ({
   }>,
 }));
 vi.mock('electron', () => ({
-  app: { getPath: () => host.root, on: vi.fn() },
+  app: { getPath: () => host.root, getLocale: () => 'zh-CN', on: vi.fn() },
+  Menu: {
+    buildFromTemplate: (items: Array<{ click?: () => void }>) => {
+      host.menu(items);
+      return {
+        popup: ({ callback }: { callback: () => void }) => {
+          items[host.menuChoice]?.click?.();
+          callback();
+        },
+      };
+    },
+  },
   BrowserWindow: Object.assign(host.createWindow, {
     getAllWindows: () => [
-      { id: 1, isDestroyed: (): boolean => false, webContents: host.sender, once: vi.fn() },
+      {
+        id: 1,
+        isDestroyed: (): boolean => false,
+        webContents: host.sender,
+        once: vi.fn(),
+        isFocused: () => false,
+        isMinimized: () => host.minimized,
+        restore: host.restore,
+        show: host.show,
+        focus: host.focus,
+      },
       ...host.extraWindows,
     ],
     fromId: (id: number) =>
@@ -98,6 +121,8 @@ describe('bundled pet registry and saved selection', () => {
     host.show.mockClear();
     host.focus.mockClear();
     host.minimized = false;
+    host.menuChoice = -1;
+    host.menu.mockClear();
     host.restore.mockClear();
     host.createWindow.mockClear();
   });
@@ -122,7 +147,11 @@ describe('bundled pet registry and saved selection', () => {
     await start();
     const initial = await request({ action: 'get' });
     expect(initial.pets.map((p) => p.id)).toEqual(['red-panda', 'cream-cat', 'white-fox']);
-    expect(initial.preferences.selectedId).toBe('red-panda');
+    expect(initial.preferences).toMatchObject({ selectedId: '', visible: false });
+    await expect(request({ action: 'configure', preferences: { visible: true } })).rejects.toThrow(
+      'Select a pet'
+    );
+    expect((await request({ action: 'refresh' })).preferences.selectedId).toBe('');
     await request({ action: 'configure', preferences: { selectedId: 'white-fox' } });
     const saved = JSON.parse(
       await fs.readFile(path.join(host.root, 'pets/preferences.json'), 'utf8')
@@ -207,6 +236,7 @@ describe('bundled pet registry and saved selection', () => {
       once: vi.fn(),
       show: vi.fn(),
       focus: vi.fn(),
+      hide: vi.fn(),
     };
     host.extraWindows.push(second);
     const publish = host.signals.get('pet-task')!;
@@ -272,10 +302,10 @@ describe('bundled pet registry and saved selection', () => {
     expect(refreshed.errors.join('\n')).toMatch(/missing pet.json/);
   });
 
-  it('falls back to a valid bundled animal and tolerates an entirely damaged bundle at startup', async () => {
+  it('does not silently select a different animal when the saved package is missing', async () => {
     host.invalid.add('red-panda');
     await start();
-    expect((await request({ action: 'get' })).preferences.selectedId).toBe('cream-cat');
+    expect((await request({ action: 'get' })).preferences.selectedId).toBe('');
     host.invalid.add('cream-cat');
     host.invalid.add('white-fox');
     await fs.writeFile(
@@ -284,6 +314,10 @@ describe('bundled pet registry and saved selection', () => {
     );
     await expect(start()).resolves.toBeUndefined();
     expect((await request({ action: 'get' })).pets).toHaveLength(0);
+    expect((await request({ action: 'get' })).preferences).toMatchObject({
+      selectedId: '',
+      visible: false,
+    });
     expect(host.createWindow).not.toHaveBeenCalled();
   });
 
@@ -294,6 +328,8 @@ describe('bundled pet registry and saved selection', () => {
       once: vi.fn(),
       setWindowOpenHandler: vi.fn(),
       send: vi.fn(),
+      focus: vi.fn(),
+      getZoomFactor: vi.fn(() => 1.5),
     };
     const floating = {
       id: 2,
@@ -307,13 +343,21 @@ describe('bundled pet registry and saved selection', () => {
       loadURL: vi.fn(async () => undefined),
       setBounds: vi.fn(),
       showInactive: vi.fn(),
+      hide: vi.fn(),
+      setFocusable: vi.fn(),
+      focus: vi.fn(),
       getBounds: () => ({ x: 1700, y: 800, width: 160, height: 213 }),
     };
     host.createWindow.mockImplementation(function () {
       return floating;
     });
     await start();
-    await request({ action: 'configure', preferences: { visible: true } });
+    await request({ action: 'configure', preferences: { selectedId: 'red-panda', visible: true } });
+    expect(host.createWindow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        webPreferences: expect.objectContaining({ backgroundThrottling: false }),
+      })
+    );
     floating.setBounds.mockClear();
     floating.showInactive.mockClear();
     floating.setIgnoreMouseEvents.mockClear();
@@ -329,6 +373,12 @@ describe('bundled pet registry and saved selection', () => {
     const dispatch = (action: PetRequest['action']) =>
       host.handlers.get('desktop-pet')!(event, { action });
     host.cursor = { x: 1800, y: 900 };
+    vi.advanceTimersByTime(100);
+    expect(contents.send).toHaveBeenLastCalledWith('pet-cursor', {
+      x: 100 / 1.5,
+      y: 100 / 1.5,
+      reducedMotion: false,
+    });
     await dispatch('drag-start');
     if (process.platform === 'win32') {
       expect(floating.setAlwaysOnTop).toHaveBeenCalledWith(true, 'screen-saver');
@@ -376,5 +426,87 @@ describe('bundled pet registry and saved selection', () => {
     expect(final.x + final.width).toBeLessThanOrEqual(1920);
     expect(final.y + final.height).toBeLessThanOrEqual(1080);
     expect(final.width).toBe(320);
+    // The physical cursor can already be at release when pointer-down IPC arrives.
+    floating.setBounds.mockClear();
+    host.cursor = { x: 1720, y: 860 };
+    await host.handlers.get('desktop-pet')!(event, {
+      action: 'drag-start',
+      pointer: { x: 100 / 1.5, y: 100 / 1.5 },
+    });
+    await dispatch('drag-end');
+    const quickBounds = restorePetBounds(
+      {
+        visible: true,
+        selectedId: 'red-panda',
+        size: 160,
+        reducedMotion: false,
+        position: { x: 1620, y: 760 },
+      },
+      [{ x: 0, y: 0, width: 1920, height: 1080 }]
+    );
+    expect(floating.setBounds).toHaveBeenLastCalledWith(quickBounds);
+    await expect(
+      host.handlers.get('desktop-pet')!(event, {
+        action: 'drag-start',
+        pointer: { x: NaN, y: 10 },
+      })
+    ).rejects.toThrow('Invalid pet pointer position');
+    await expect(request({ action: 'send-message', message: 'hello' })).rejects.toThrow(
+      'Invalid pet message'
+    );
+    await host.handlers.get('desktop-pet')!(event, { action: 'compose', composing: true });
+    expect(floating.setFocusable).toHaveBeenLastCalledWith(true);
+    expect(floating.focus).toHaveBeenCalledOnce();
+    expect(contents.focus).toHaveBeenCalledOnce();
+    floating.setIgnoreMouseEvents.mockClear();
+    hit(event, false);
+    expect(floating.setIgnoreMouseEvents).not.toHaveBeenCalled();
+    for (const message of ['', '  ', 'x'.repeat(8001), 123]) {
+      await expect(
+        host.handlers.get('desktop-pet')!(event, { action: 'send-message', message })
+      ).rejects.toThrow('Invalid pet message');
+    }
+    host.minimized = true;
+    await host.handlers.get('desktop-pet')!(event, {
+      action: 'send-message',
+      message: ' 新的任务🙂 ',
+    });
+    expect(host.restore).toHaveBeenCalledOnce();
+    expect(host.show).toHaveBeenCalledOnce();
+    expect(host.focus).toHaveBeenCalledOnce();
+    expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', {
+      msg: '新的任务🙂',
+      images: [],
+    });
+    expect(floating.setFocusable).toHaveBeenLastCalledWith(false);
+    await host.handlers.get('desktop-pet')!(event, { action: 'compose', composing: false });
+    expect(floating.setFocusable).toHaveBeenLastCalledWith(false);
+    const image = { mimeType: 'image/png', data: 'eA==' };
+    await host.handlers.get('desktop-pet')!(event, {
+      action: 'send-message',
+      message: '',
+      images: [image],
+    });
+    expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', { msg: '', images: [image] });
+    await expect(
+      host.handlers.get('desktop-pet')!(event, {
+        action: 'send-message',
+        message: '',
+        images: [{ mimeType: 'text/html', data: 'eA==' }],
+      })
+    ).rejects.toThrow();
+    await expect(request({ action: 'context-menu' })).rejects.toThrow('Pet menu request denied');
+    host.menuChoice = 0;
+    await dispatch('context-menu');
+    expect(host.sender.send).toHaveBeenCalledWith('set-view', 'settings', 'pets');
+    expect(host.menu.mock.calls[0][0][0].label).toBe('宠物设置');
+    host.menuChoice = 2;
+    await dispatch('context-menu');
+    expect(floating.hide).toHaveBeenCalled();
+    expect((await request({ action: 'get' })).preferences.visible).toBe(false);
+    const hiddenPrefs = JSON.parse(
+      await fs.readFile(path.join(host.root, 'pets/preferences.json'), 'utf8')
+    );
+    expect(hiddenPrefs.visible).toBe(false);
   });
 });

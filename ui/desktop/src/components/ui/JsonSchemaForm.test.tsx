@@ -63,6 +63,43 @@ describe('JsonSchemaForm', () => {
     );
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
+  it('renders native suggestions without preselecting approval and allows a custom answer', async () => {
+    const user = userEvent.setup(),
+      onSubmit = vi.fn();
+    render(
+      <JsonSchemaForm
+        schema={{
+          properties: {
+            answer: {
+              type: 'string',
+              title: 'Review plan',
+              _meta: {
+                'codepro.dev/feedbackField': 'feedback',
+                'codepro.dev/suggestedOptions': [
+                  { const: 'Approve', title: 'Approve' },
+                  { const: 'Keep planning', title: 'Keep planning' },
+                ],
+              },
+            },
+            feedback: { type: 'string' },
+          },
+          required: ['answer'],
+        }}
+        onSubmit={onSubmit}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByRole('radio', { name: 'Approve' })).not.toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'Approve' }));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Your own answer (optional)' }),
+      'Revise the plan'
+    );
+    expect(screen.getByRole('radio', { name: 'Approve' })).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(onSubmit).toHaveBeenCalledWith({ answer: '', feedback: 'Revise the plan' });
+  });
+
   it('walks through single choice, multi choice, and text while retaining answers', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();

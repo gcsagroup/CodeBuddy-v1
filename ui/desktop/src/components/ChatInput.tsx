@@ -1,9 +1,23 @@
+import { ComposerGoalBar } from './ComposerGoalBar';
+import { ComposerPlanMode } from './ComposerPlanMode';
+import {
+  composerCommandFailure,
+  composerMessages,
+  isComposerControl,
+  parseComposerCommand,
+  parseComposerUiCommand,
+  prepareComposerCommand,
+} from './composerCommands';
+import { getSessionGoal } from '../acp/goals';
+import { acpExportSession } from '../acp/sessions';
+import { GOAL_CHANGED, openGoalEditor } from '../workspace-panel/goalPanel';
 import { AppEvents } from '../constants/events';
+import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
-import type { View } from '../utils/navigationUtils';
+import type { View, ViewOptions } from '../utils/navigationUtils';
 import { ChatInputStopButton } from './ChatInputStopButton';
 import { Attach, Close, Microphone } from './icons';
 import { ChatState } from '../types/chatState';
@@ -11,14 +25,13 @@ import debounce from 'lodash/debounce';
 import { LocalMessageStorage } from '../utils/localMessageStorage';
 import { DirSwitcher } from './bottom_menu/DirSwitcher';
 import ModelsBottomBar from './settings/models/bottom_bar/ModelsBottomBar';
-import { BottomMenuExtensionSelection } from './bottom_menu/BottomMenuExtensionSelection';
 import { cn } from '../utils';
 import { useAlerts } from './alerts';
 import { getContextAlertType, shouldShowContextAlert } from './contextWindowAlert';
 import { useModelAndProvider } from './ModelAndProviderContext';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { toastError } from '../toasts';
-import MentionPopover, { DisplayItemWithMatch } from './MentionPopover';
+import MentionPopover, { DisplayItem, DisplayItemWithMatch } from './MentionPopover';
 import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
@@ -186,7 +199,9 @@ const i18n = defineMessages({
 });
 
 interface ChatInputProps {
+  onOpenPermissions?: () => void;
   modelToolbarSlot?: React.ReactNode;
+  placeholder?: string;
   sessionId: string | null;
   handleSubmit: (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => Promise<void> | void;
   chatState: ChatState;
@@ -201,7 +216,7 @@ interface ChatInputProps {
   initialValue?: string;
   droppedFiles?: DroppedFile[];
   onFilesProcessed?: () => void;
-  setView: (view: View) => void;
+  setView: (view: View, options?: ViewOptions) => void;
   totalTokens?: number;
   contextLimit?: number;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
@@ -239,7 +254,9 @@ export function shouldShowWorkingDirectorySwitcher(canChangeWorkingDirectory: bo
 }
 
 export default function ChatInput({
+  onOpenPermissions,
   modelToolbarSlot,
+  placeholder,
   sessionId,
   handleSubmit,
   chatState = ChatState.Idle,
@@ -303,6 +320,19 @@ export default function ChatInput({
   const [queueStorageError, setQueueStorageError] = useState<'save' | 'read' | 'conflict' | null>(
     null
   );
+  const [composerMode, setComposerMode] = useState<'goal' | 'plan' | null>(null);
+  const [modelOpenRequest, setModelOpenRequest] = useState(0);
+  const [goalRefresh, setGoalRefresh] = useState(0);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
+  const commandControlInFlight = useRef<symbol | null>(null);
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ sessionId: string }>).detail?.sessionId === sessionId)
+        setGoalRefresh((value) => value + 1);
+    };
+    window.addEventListener(GOAL_CHANGED, changed);
+    return () => window.removeEventListener(GOAL_CHANGED, changed);
+  }, [sessionId]);
   const queueSessionIdRef = useRef(sessionId);
   queueSessionIdRef.current = sessionId;
   const queuePausedRef = useRef(false);
@@ -633,7 +663,7 @@ export default function ChatInput({
   ]);
   const [mentionPopover, setMentionPopover] = useState<{
     isOpen: boolean;
-    position: { x: number; y: number };
+    position: { x: number; y: number; width?: number };
     query: string;
     mentionStart: number;
     selectedIndex: number;
@@ -891,6 +921,7 @@ export default function ChatInput({
       isOpen: true,
       position: {
         x: textAreaRect.left,
+        width: textAreaRect.width,
         y: textAreaRect.top, // Position at the top of the textarea
       },
       query: afterAt,
@@ -944,6 +975,7 @@ export default function ChatInput({
   );
 
   const clearInputState = useCallback(() => {
+    setComposerMode(null);
     setDisplayValue('');
     setValue('');
     setPastedImages([]);
@@ -1180,12 +1212,103 @@ export default function ChatInput({
       allDroppedFiles.some((file) => !file.error && !file.isLoading));
 
   const performSubmit = useCallback(
-    async (text?: string) => {
+    async (text?: string, preserveDraft = false) => {
+      // Control commands must remain usable while the ordinary prompt awaits completion.
+      const commandText =
+        text ?? (composerMode ? `/${composerMode} ${displayValue.trim()}` : displayValue.trim());
+      const uiCommand = parseComposerUiCommand(commandText);
+      if (uiCommand) {
+        const revision = inputRevisionRef.current;
+        try {
+          if (uiCommand === 'file') fileInputRef.current?.click();
+          else if (uiCommand === 'permission') {
+            if (!onOpenPermissions) {
+              setCommandNotice(intl.formatMessage(composerMessages.noSession));
+              return;
+            }
+            onOpenPermissions();
+          } else if (uiCommand === 'model') setModelOpenRequest((value) => value + 1);
+          else {
+            if (!sessionId) {
+              setCommandNotice(intl.formatMessage(composerMessages.noSession));
+              return;
+            }
+            const json = await acpExportSession(sessionId);
+            const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+            const anchor = document.createElement('a');
+            try {
+              anchor.href = url;
+              anchor.download = `conversation-${sessionId}.json`;
+              document.body.appendChild(anchor);
+              anchor.click();
+            } finally {
+              anchor.remove();
+              URL.revokeObjectURL(url);
+            }
+            setCommandNotice(intl.formatMessage(composerMessages.exported));
+          }
+          if (inputRevisionRef.current === revision) {
+            inputRevisionRef.current += 1;
+            setDisplayValue('');
+            setValue('');
+            setComposerMode(null);
+          }
+        } catch {
+          setCommandNotice(composerCommandFailure(intl));
+        }
+        return;
+      }
+      if (isComposerControl(commandText)) {
+        if (commandControlInFlight.current) return;
+        const operation = Symbol('composer-command');
+        commandControlInFlight.current = operation;
+        const revision = inputRevisionRef.current;
+        const release = () => {
+          if (commandControlInFlight.current === operation) commandControlInFlight.current = null;
+        };
+        const clearCommand = () => {
+          // Status-bar actions must preserve the user's unrelated message draft.
+          if (preserveDraft) return;
+          if (revision !== inputRevisionRef.current) return;
+          inputRevisionRef.current += 1;
+          setComposerMode(null);
+          setDisplayValue('');
+          setValue('');
+        };
+        try {
+          const result = await prepareComposerCommand(
+            { msg: commandText, images: [] },
+            sessionId,
+            isLoading,
+            intl
+          );
+          if (result.notice) setCommandNotice(result.notice);
+          if (result.input) {
+            setCommandNotice(null);
+            await handleSubmit(result.input, {
+              onAccepted: () => {
+                setGoalRefresh((value) => value + 1);
+                clearCommand();
+                release();
+              },
+              onRejectedBeforeAcceptance: () => setCommandNotice(composerCommandFailure(intl)),
+            });
+          } else {
+            setGoalRefresh((value) => value + 1);
+            clearCommand();
+          }
+        } catch {
+          setCommandNotice(composerCommandFailure(intl));
+        } finally {
+          release();
+        }
+        return;
+      }
       const submittedAtMs = Date.now();
       if (submitInFlightRef.current || sendNowInFlightMessageIdsRef.current.size > 0) return;
 
       const imageData = convertImagesToImageData();
-      const textToSend = appendDroppedFilePaths(text ?? displayValue.trim());
+      const textToSend = appendDroppedFilePaths(commandText);
 
       if (textToSend || imageData.length > 0) {
         const submittedDraft = createSubmittedDraftState(
@@ -1205,6 +1328,7 @@ export default function ChatInput({
             if (accepted) return;
             accepted = true;
             clearPendingDraft();
+            setGoalRefresh((value) => value + 1);
             if (displayValue.trim()) {
               LocalMessageStorage.addMessage(displayValue);
             } else {
@@ -1237,7 +1361,18 @@ export default function ChatInput({
         submitInFlightRef.current = true;
         setPendingDraft(pending);
         try {
-          await handleSubmit({ msg: textToSend, images: imageData }, lifecycle);
+          const prepared = await prepareComposerCommand(
+            { msg: textToSend, images: imageData },
+            sessionId,
+            isLoading,
+            intl
+          );
+          if (prepared.notice) {
+            setCommandNotice(prepared.notice);
+            return;
+          }
+          setCommandNotice(null);
+          if (prepared.input) await handleSubmit(prepared.input, lifecycle);
         } catch {
           lifecycle.onRejectedBeforeAcceptance();
           return;
@@ -1248,6 +1383,11 @@ export default function ChatInput({
       }
     },
     [
+      composerMode,
+      onOpenPermissions,
+      sessionId,
+      isLoading,
+      intl,
       convertImagesToImageData,
       appendDroppedFilePaths,
       displayValue,
@@ -1257,11 +1397,11 @@ export default function ChatInput({
       handleSubmit,
       clearInputState,
       setLocalDroppedFiles,
-      sessionId,
     ]
   );
 
   const handleKeyDown = (evt: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (evt.key === 'Enter' && (isComposing || evt.nativeEvent.isComposing)) return;
     if (mentionPopover.isOpen && mentionPopoverRef.current) {
       if (evt.key === 'ArrowDown') {
         evt.preventDefault();
@@ -1281,7 +1421,7 @@ export default function ChatInput({
         }));
         return;
       }
-      if (evt.key === 'Enter') {
+      if (evt.key === 'Enter' || (evt.key === 'Tab' && !evt.shiftKey)) {
         evt.preventDefault();
         mentionPopoverRef.current.selectFile(mentionPopover.selectedIndex);
         return;
@@ -1293,6 +1433,10 @@ export default function ChatInput({
       }
     }
 
+    if (composerMode && !displayValue && evt.key === 'Backspace') {
+      setComposerMode(null);
+      return;
+    }
     handleHistoryNavigation(evt);
 
     if (evt.key === 'Enter') {
@@ -1311,6 +1455,14 @@ export default function ChatInput({
 
       evt.preventDefault();
 
+      if (
+        composerMode ||
+        parseComposerCommand(displayValue) ||
+        parseComposerUiCommand(displayValue)
+      ) {
+        void performSubmit();
+        return;
+      }
       // Busy input is queued; only the explicit button cancels the current turn.
       if (queueWhileBusy()) {
         return;
@@ -1324,6 +1476,14 @@ export default function ChatInput({
 
   const onFormSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
+    if (
+      composerMode ||
+      parseComposerCommand(displayValue) ||
+      parseComposerUiCommand(displayValue)
+    ) {
+      void performSubmit();
+      return;
+    }
     if (queueWhileBusy()) return;
     const canSubmit =
       !isLoading &&
@@ -1413,7 +1573,102 @@ export default function ChatInput({
     }
   };
 
-  const handleMentionItemSelect = (itemText: string) => {
+  const toolboxSelectionRef = useRef(false);
+  const selectionSessionRef = useRef(sessionId);
+  selectionSessionRef.current = sessionId;
+
+  const handleMentionItemSelect = async (itemText: string, item?: DisplayItem) => {
+    if (item?.toolboxItem) {
+      if (toolboxSelectionRef.current) return;
+      const selected = item.toolboxItem;
+      const revision = inputRevisionRef.current;
+      const selectedSession = sessionId;
+      setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+      if (selected.kind === 'skill' && selected.status === 'disabled') {
+        setCommandNotice(intl.formatMessage(composerMessages.disabledSkill));
+        return;
+      }
+      toolboxSelectionRef.current = true;
+      try {
+        const extension = selected.extensionSource;
+        if (extension && sessionId) {
+          setCommandNotice(intl.formatMessage(composerMessages.loadingTool));
+          const loaded = await getSessionExtensions(sessionId);
+          if (!loaded.some((entry) => entry.name === extension.name)) {
+            await addSessionExtension(sessionId, extension);
+            window.dispatchEvent(new Event(AppEvents.SESSION_EXTENSIONS_LOADED));
+          }
+        } else if (extension && nextChatExtensionDraft && onNextChatExtensionDraftChange) {
+          onNextChatExtensionDraftChange({
+            selectedNames: new Set([...nextChatExtensionDraft.selectedNames, extension.name]),
+          });
+        } else if (extension) {
+          throw new Error('No conversation extension selection is available');
+        }
+        // Do not overwrite typing or a different conversation while a server connects.
+        if (
+          selectionSessionRef.current !== selectedSession ||
+          inputRevisionRef.current !== revision
+        )
+          return;
+        itemText = intl.formatMessage(
+          selected.kind === 'skill' ? composerMessages.useSkill : composerMessages.useTool,
+          { name: selected.name }
+        );
+        setCommandNotice(null);
+      } catch {
+        if (selectionSessionRef.current === selectedSession)
+          setCommandNotice(intl.formatMessage(composerMessages.toolLoadFailed));
+        return;
+      } finally {
+        toolboxSelectionRef.current = false;
+      }
+    }
+    if (mentionPopover.isSlashCommand && parseComposerUiCommand(itemText)) {
+      setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+      void performSubmit(itemText.trim());
+      return;
+    }
+    if (mentionPopover.isSlashCommand && ['/goal', '/plan'].includes(itemText.trim())) {
+      if (itemText.trim() === '/goal' && sessionId) {
+        setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+        const revision = inputRevisionRef.current;
+        void getSessionGoal(sessionId)
+          .then((goal) => {
+            if (revision !== inputRevisionRef.current) return;
+            if (goal && goal.phase !== 'complete') {
+              openGoalEditor(sessionId);
+              setDisplayValue('');
+              setValue('');
+            } else {
+              setComposerMode('goal');
+              setDisplayValue('');
+              setValue('');
+              textAreaRef.current?.focus();
+            }
+            inputRevisionRef.current += 1;
+          })
+          .catch(() => setCommandNotice(composerCommandFailure(intl)));
+        return;
+      }
+      setComposerMode(itemText.trim() === '/goal' ? 'goal' : 'plan');
+      setDisplayValue('');
+      setValue('');
+      inputRevisionRef.current += 1;
+      setCommandNotice(null);
+      setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+      textAreaRef.current?.focus();
+      return;
+    }
+    if (
+      mentionPopover.isSlashCommand &&
+      isComposerControl(itemText) &&
+      !['/goal', '/plan'].includes(itemText.trim())
+    ) {
+      setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+      void performSubmit(itemText.trim());
+      return;
+    }
     // Replace the @ mention with the file path
     const beforeMention = displayValue.slice(0, mentionPopover.mentionStart);
     const afterMention = displayValue.slice(
@@ -1421,6 +1676,7 @@ export default function ChatInput({
     );
     const newValue = `${beforeMention}${itemText}${afterMention}`;
 
+    inputRevisionRef.current += 1;
     setDisplayValue(newValue);
     setValue(newValue);
     setMentionPopover((prev) => ({ ...prev, isOpen: false }));
@@ -1457,6 +1713,7 @@ export default function ChatInput({
 
   const getSubmitButtonTooltip = (): string => {
     if (chatState === ChatState.RestartingAgent) return intl.formatMessage(i18n.restartingSession);
+    if (isComposerControl(displayValue)) return intl.formatMessage(i18n.send);
     if (isLoading || queueProcessingBlocked)
       return queueBlockedReason ?? intl.formatMessage(i18n.queueMessage);
     if (isAnyImageLoading) return intl.formatMessage(i18n.waitingForImages);
@@ -1575,6 +1832,15 @@ export default function ChatInput({
         style={{ display: 'none' }}
         accept="*/*"
       />
+      <ComposerGoalBar
+        sessionId={sessionId}
+        busy={isLoading}
+        refreshKey={goalRefresh}
+        onCommand={(command) => performSubmit(command, true)}
+        onEdit={() => {
+          if (sessionId) openGoalEditor(sessionId);
+        }}
+      />
       {/* Message Queue Display */}
       {queueStorageError && (
         <div role="alert" className="p-3 text-sm text-text-primary">
@@ -1632,14 +1898,51 @@ export default function ChatInput({
           className="border-b border-border-primary"
         />
       )}
+      {commandNotice && (
+        <div
+          role="status"
+          className="mx-3 mb-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-background-secondary px-3 py-2 text-xs leading-5 text-text-secondary"
+        >
+          {commandNotice}
+        </div>
+      )}
       {/* Input row with inline action buttons wrapped in form */}
       <form onSubmit={onFormSubmit} className="relative">
-        <div className="relative">
+        <div className="relative flex items-start">
+          {composerMode && (
+            <button
+              type="button"
+              className="ml-3 mt-3 shrink-0 text-sm text-blue-500 hover:underline"
+              title={intl.formatMessage(composerMessages.cancelMode)}
+              aria-label={intl.formatMessage(composerMessages.cancelMode)}
+              onClick={() => {
+                setComposerMode(null);
+                textAreaRef.current?.focus();
+              }}
+            >
+              /
+              {intl.formatMessage(
+                composerMode === 'plan' ? composerMessages.plan : composerMessages.goalPrefix
+              )}
+            </button>
+          )}
           <textarea
             data-testid="chat-input"
             autoFocus
             id="dynamic-textarea"
-            placeholder={isRecording ? '' : getNavigationShortcutText(intl)}
+            placeholder={
+              isRecording
+                ? ''
+                : composerMode
+                  ? intl.formatMessage(
+                      composerMode === 'plan'
+                        ? composerMessages.planPlaceholder
+                        : composerMessages.goalPlaceholder
+                    )
+                  : (placeholder ?? intl.formatMessage(composerMessages.messagePlaceholder))
+            }
+            title={getNavigationShortcutText(intl)}
+            aria-label={placeholder}
             value={displayValue}
             onChange={handleChange}
             onCompositionStart={handleCompositionStart}
@@ -1656,7 +1959,7 @@ export default function ChatInput({
               maxHeight: `${maxHeight}px`,
               overflowY: 'auto',
             }}
-            className="w-full outline-none border-none focus:ring-0 bg-transparent px-3 pt-3 pb-1.5 text-sm resize-none text-text-primary placeholder:text-text-secondary"
+            className="w-full min-w-0 flex-1 outline-none border-none focus:ring-0 bg-transparent px-3 pt-3 pb-1.5 text-sm resize-none text-text-primary placeholder:text-text-secondary"
           />
 
           {/* Recording/transcribing status indicator (floats above the bottom bar) */}
@@ -1794,6 +2097,7 @@ export default function ChatInput({
           <div className="min-w-0 max-w-48">
             <ModelsBottomBar
               sessionId={sessionId}
+              openRequest={modelOpenRequest}
               dropdownRef={dropdownRef}
               setView={setView}
               sessionModel={effectiveModel}
@@ -1820,6 +2124,13 @@ export default function ChatInput({
           />
         )}
 
+        <ComposerPlanMode
+          sessionId={sessionId}
+          busy={isLoading}
+          refreshKey={goalRefresh}
+          onExit={() => void performSubmit('/plan off', true)}
+        />
+
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {!isBottomBarNarrow && (
             <>
@@ -1832,13 +2143,6 @@ export default function ChatInput({
                   capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined
                 }
                 alerts={alerts}
-              />
-
-              {/* Right: extension selector */}
-              <BottomMenuExtensionSelection
-                sessionId={sessionId}
-                nextChatExtensionDraft={nextChatExtensionDraft}
-                onNextChatExtensionDraftChange={onNextChatExtensionDraftChange}
               />
             </>
           )}

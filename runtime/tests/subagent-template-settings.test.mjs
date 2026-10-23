@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Compat } from '../compat.mjs';
 import { openStore } from '../store.mjs';
 
 test('template config ACP validates atomically, persists selections and resolves only approved provider references', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-template-settings-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-template-settings-')));
   const store = await openStore(root);
   await store.update(state => { state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', requiresAuth: false, models: ['one'] }]; });
   const compat = new Compat(store, { close: async () => {}, listTools: async () => [] });

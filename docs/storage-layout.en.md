@@ -23,3 +23,13 @@ References: [VS Code portable data](https://code.visualstudio.com/docs/setup/por
 Cache maintenance uses the [Electron Session API](https://www.electronjs.org/docs/latest/api/session), preserving the rest of the browser profile.
 
 An old root may still be referenced by historical projects, including early pet creation workspaces. In that case it is more than a rollback copy: resolve those project references before retiring it. Deleting the entire old root can break historical media links.
+
+## Installation and data preservation
+
+The installer uses a compact native Windows layout with consistent typography, spacing, buttons and progress. Expandable install and uninstall activity shows application UI, assistant, document processing and built-in tool components, coalescing consecutive duplicates. Internal paths and dependency filenames remain in diagnostic logs. Percentages come from actual Inno progress; component labels describe the real file being processed.
+
+Storage management and its migration, disk-usage and manual cache-cleanup interfaces have been removed. The default remains ~/.CodeBuddy. Existing saved locations and legacy migration guards remain readable so previously moved data does not disappear. No existing data or projects are removed. Existing automatic Electron cache limits remain active.
+
+Uninstall details retain the latest 200 component activity entries. Inno continues to own deletion; user data, projects and the location record are preserved by default.
+
+Button layout: Install, Cancel and Browse share consistent dimensions. Footer actions align with the content column and use an 8-logical-pixel gap. The completion page follows the same column. Installation details use a lightweight link on the progress row, aligned with the percentage and accessible by keyboard.

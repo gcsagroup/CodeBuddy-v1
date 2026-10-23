@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, readFile, access } from 'node:fs/promises';
+import { mkdtemp, realpath, readFile, access } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
@@ -119,7 +119,7 @@ async function fixtureServer(root) {
 }
 
 test('ACP facade runs official Harness with permissions, cancellation and restart persistence', async t => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-harness-acp-'));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-harness-acp-')));
   const dataDir = path.join(root, 'application-data');
   const model = await fixtureServer(root);
   // Deliberately no injected driver: this must use server.mjs -> official Harness.

@@ -66,7 +66,7 @@ describe('MarkdownContent', () => {
     expect(container.querySelector('strong')).toHaveTextContent('only');
   });
 
-  it('keeps long live code complete and restores highlighting when settled', () => {
+  it('keeps long live and historical code complete without blocking on highlighting', () => {
     const code = 'const answer = 42;\n'.repeat(600);
     const { container, rerender } = renderWithIntl(
       <MarkdownContent animateIncoming content={'```js\n' + code} />
@@ -75,7 +75,21 @@ describe('MarkdownContent', () => {
     expect(container.querySelector('code span')).toBeNull();
     rerender(<MarkdownContent content={'```js\n' + code + '```'} />);
     expect(container.querySelector('code')?.textContent?.trim()).toBe(code.trim());
-    expect(container.querySelector('code span')).not.toBeNull();
+    expect(container.querySelector('code span')).toBeNull();
+  });
+  it('shows all streaming code without syntax spans and keeps large history inexpensive', () => {
+    const code = 'const enemy = { x: 1 };\n'.repeat(450);
+    const content = `\`\`\`javascript\n${code}\`\`\``;
+    const { container, rerender } = renderWithIntl(
+      <MarkdownContent content={content} animateIncoming />
+    );
+    expect(container.querySelector('[data-plain-code] code')?.textContent).toBe(code.trimEnd());
+    expect(container.querySelectorAll('.token')).toHaveLength(0);
+    rerender(<MarkdownContent content={content} animateIncoming={false} />);
+    expect(container.querySelector('[data-plain-code] code')?.textContent).toBe(code.trimEnd());
+    rerender(<MarkdownContent content={'```javascript\nconst done = true;\n```'} />);
+    expect(container.querySelector('[data-plain-code]')).toBeNull();
+    expect(container).toHaveTextContent('const done = true;');
   });
   it('keeps numeric tilde ranges intact while retaining explicit double-tilde deletion', () => {
     const { container } = renderWithIntl(

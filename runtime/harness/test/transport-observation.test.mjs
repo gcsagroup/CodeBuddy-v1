@@ -47,3 +47,20 @@ test('transport timings separate response wait from reasoning and text without c
   assert.equal(timing.status, 200);
   assert.doesNotMatch(JSON.stringify(events), /private|secret|Authorization|127\.0\.0\.1/);
 });
+
+test('a tool-only stream records first arguments and wall time without exposing arguments', async t => {
+  let handler;
+  const events = [];
+  t.after(observeModelTransport({ on(_name, callback) { handler = callback; return () => {}; } }, e => events.push(e)));
+  const next = async function* () {
+    yield { type: 'tool-call-delta', argumentsDelta: 'PRIVATE_CODE' };
+    yield { type: 'block-end', block: { type: 'tool-call' } };
+  };
+  for await (const _ of handler({ sessionId: 'tool-only' }, next)) { /* passthrough */ }
+  assert.ok(events.some(e => e.phase === 'first_chunk'));
+  assert.ok(events.some(e => e.phase === 'first_tool_arguments'));
+  assert.equal(events.at(-1).toolArgumentChars, 12);
+  assert.equal(events.at(-1).toolCallBlocks, 1);
+  assert.ok(events.every(e => Number.isSafeInteger(e.at_ms) && e.at_ms > 0));
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_CODE/);
+});

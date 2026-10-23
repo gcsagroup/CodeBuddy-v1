@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -61,7 +61,11 @@ async function fixture(t, { mode = 'legacy', capability = true, support = 'optio
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   t.after(() => { server.closeAllConnections(); return new Promise(r => server.close(r)); });
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'harness'), cwd: root });
-  t.after(() => driver.close());
+  t.after(async () => {
+    await driver.close();
+    assert.equal(path.dirname(root), path.resolve(tmpdir()));
+    await rm(root, { recursive: true, force: true });
+  });
   const config = { serverName: 'fixture', transport: 'streamable-http', url: `http://127.0.0.1:${server.address().port}/mcp`, ...(timeout ? { toolCallTimeoutMs: timeout } : {}) };
   if (stdio) {
     const script = path.join(root, 'stdio.mjs');

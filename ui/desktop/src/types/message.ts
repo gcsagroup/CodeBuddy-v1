@@ -217,6 +217,8 @@ export type MessageUsage = {
 };
 
 export type MessageMetadata = {
+  goalRequest?: GoalRequest;
+  planMode?: boolean;
   agentVisible: boolean;
   // Presentation only: a queued request is not yet admitted to the model.
   pendingDelivery?: 'pending' | 'unconfirmed';
@@ -301,6 +303,8 @@ export interface ImageData {
 export interface UserInput {
   msg: string;
   images: ImageData[];
+  goalRequest?: GoalRequest;
+  planMode?: boolean;
   messageId?: string;
   presentation?: MessageMetadata['presentation'];
 }
@@ -312,6 +316,10 @@ export function insertPresentedUserMessage(messages: Message[], message: Message
     ? [...messages, message]
     : [...messages.slice(0, index + 1), message, ...messages.slice(index + 1)];
 }
+
+export type GoalRequest =
+  | { action: 'create'; objective: string; maxGoalRounds?: number }
+  | { action: 'resume'; goalId: string; revision: number };
 
 export function createUserMessage(text: string, images?: ImageData[]): Message {
   const content: Message['content'] = [];

@@ -14,7 +14,7 @@
 
 CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.5`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-frontend-merge.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
 
-Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。首次启动空数据目录时由用户添加模型连接。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
+Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。安装版首次启动空数据目录时预置 `http://192.168.9.101:8001` 的局域网模型连接，用户仍可在设置中添加自己的模型；已有配置不被覆盖。详见[安装版默认模型](docs/installation-model-defaults.zh-CN.md)。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
 
 Git 仅保存源码、依赖锁文件和许可证，不包含本机凭据、聊天数据、运行载荷和构建产物。首次克隆需要准备开发依赖及独立工具，详见下文。
 
@@ -33,6 +33,12 @@ node scripts/build-harness-windows.cjs --installer=inno
 ```
 
 产物为 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`；包含安装位置选择、真实安装进度、完成页可选桌面快捷方式、开始菜单入口与启动应用，以及 Windows 卸载入口。界面为简体中文，采用 Windows 11 简约样式。默认仅为当前用户安装到 `%LOCALAPPDATA%/Programs/CodeBuddy`，可以选择其他可写位置；卸载保留用户配置、聊天记录和工作项目。
+
+用户数据位置不在安装时选择：新安装使用 `~/.CodeBuddy`，升级保留已保存的位置；此前保存的数据位置继续沿用，设置中不再提供存储管理。
+
+安装界面采用原生浅色布局，统一标题、间距和按钮尺寸；完成页以左侧标识、右侧说明与选项排列。进度条上方直接显示当前操作和正在处理的组件，不再使用展开链接或日志框。内部路径和依赖文件名仅保留在诊断日志。界面与隔离验收说明见[安装器界面](docs/windows-installer-ui.zh-CN.md)。
+
+卸载页与安装页使用相同的操作、组件和进度条布局，直接显示实际观察到删除的组件，不再提供展开链接或日志框。文件删除由 Inno 负责，用户数据、聊天和项目默认保留。
 
 向导使用已有 Inno Setup 6.7+（或 7.x），不自动安装编译工具。安装官方编译器后，将其 `ISCC.exe` 路径通过 `CODEBUDDY_ISCC` 指定，或使用当前用户／Program Files 下的标准安装位置。简体中文翻译使用 [Inno Setup 6.7.3 的 ChineseSimplified.isl](https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl)，放在编译器 `Languages/` 目录，或通过 `CODEBUDDY_INNO_ZH_CN` 指定。工具准备及载荷下载需先获授权。
 

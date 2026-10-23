@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -34,6 +35,42 @@ describe('UserMessage', () => {
     view.rerender(<UserMessage message={message} />);
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByRole('button', { name: /Edit message/ })).toBeVisible();
+  });
+  it('renders incoming message updates without a second draft-state commit', async () => {
+    const commits = vi.fn();
+    const view = (text: string) => (
+      <Profiler id="user-message" onRender={commits}>
+        <UserMessage message={{ ...message, content: [{ type: 'text', text }] }} />
+      </Profiler>
+    );
+    const { rerender } = render(view('initial'), { wrapper: IntlTestWrapper });
+    rerender(view('received -1'));
+    await act(async () => {});
+    commits.mockClear();
+    for (let index = 0; index < 60; index += 1) rerender(view(`received ${index}`));
+    expect(commits).toHaveBeenCalledTimes(60);
+    expect(screen.getByText('received 59')).toBeVisible();
+  });
+
+  it('starts editing the latest source and retains an active draft across source updates', async () => {
+    const user = userEvent.setup();
+    const view = (text: string) => (
+      <UserMessage message={{ ...message, content: [{ type: 'text', text }] }} />
+    );
+    const { rerender } = render(view('initial'), { wrapper: IntlTestWrapper });
+    rerender(view('latest'));
+    await user.click(screen.getByRole('button', { name: 'Edit message: latest' }));
+    const editor = screen.getByRole('textbox', { name: 'Edit message content' });
+    expect(editor).toHaveValue('latest');
+    await user.clear(editor);
+    await user.type(editor, 'my draft');
+    rerender(view('updated source'));
+    expect(editor).toHaveValue('my draft');
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Edit message: updated source' }));
+    expect(screen.getByRole('textbox', { name: 'Edit message content' })).toHaveValue(
+      'updated source'
+    );
   });
 
   it('keeps read-only conversation messages copyable without editing actions', async () => {

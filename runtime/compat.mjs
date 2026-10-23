@@ -1,5 +1,6 @@
 import { closeMediaStreams } from './comfyui-live.mjs';
 import { questionForm, questionAnswer, questionNotification } from './user-questions.mjs';
+import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -55,11 +56,12 @@ import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
 import { ConversationEditing } from "./conversation-editing.mjs";
-import { listSubagentCatalog, readSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
+import { listSubagentCatalog, readSubagentConversation, followSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
 import { VisionRouting } from "./vision-routing.mjs";
 import { LibraryService } from "./library.mjs";
 import { desktopPetTool, PET_TOOL_NAME } from "./desktop-pet-tool.mjs";
+import { browserTool } from './browser-tool.mjs';
 import { comfyuiTool, IMAGE_TOOL_NAME } from "./comfyui-tool.mjs";
 import { comfyuiVideoTool, VIDEO_TOOL_NAME } from "./comfyui-video-tool.mjs";
 import {
@@ -226,6 +228,8 @@ export class Compat {
     this.thinking = new Map();
     this.sessionMutations = new Map();
     this.connections = new Set();
+    this.clientLocales = new Map();
+    this.subagentViews = new Map();
     this.workspaces = new WorkspaceService(store);
     this.memory = new ProjectMemory(driver);
     this.history = new HistoryService(store);
@@ -577,6 +581,8 @@ export class Compat {
     }
   }
   disconnect(connection) {
+    for (const controller of this.subagentViews.get(connection)?.values() ?? []) controller.abort();
+    this.subagentViews.delete(connection);
     this.transcription.disconnect(connection);
     this.connections.delete(connection);
     this.workspaces.disconnect(connection).catch(() => {});
@@ -744,8 +750,12 @@ export class Compat {
     const petEnabled = Boolean(process.env.CODEBUDDY_PET_DIRECTORY) && await toolEnabled(s, this.settings, PET_TOOL_NAME, resolvedExtensions);
     const imageEnabled = await toolEnabled(s, this.settings, IMAGE_TOOL_NAME, resolvedExtensions);
     const videoEnabled = await toolEnabled(s, this.settings, VIDEO_TOOL_NAME, resolvedExtensions);
+    const browserEnabled = await toolEnabled(s, this.settings, 'browser_control', resolvedExtensions);
+    // Host tools are registered in the session scope below. Harness's native
+    // allow list only accepts globally registered tools, not scoped additions.
     return {
       initialPermissionPreset: initialPermissionPreset(s, preferences),
+      conversationLocale: this.clientLocales.get(s.id),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
         basePrompt,
@@ -820,6 +830,13 @@ export class Compat {
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
+        ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd,
+          request: (method, params, signal) => {
+            const connection = this.active.get(s.id)?.connection;
+            if (!connection?.ask) throw Error('Open this conversation in CodeBuddy desktop to control the embedded browser');
+            return connection.ask(method, params, signal);
+          },
+        })] : []),
         ...(imageEnabled ? [comfyuiTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
         ...(videoEnabled ? [comfyuiVideoTool({ cwd: s.cwd, dataDir: this.store.directory, sessionId: s.id, baseUrl: preferences.comfyuiBaseUrl ?? undefined })] : []),
         ...(petEnabled ? [desktopPetTool({ cwd: s.cwd })] : []),
@@ -862,16 +879,17 @@ export class Compat {
     return grant;
   }
   async toolPolicy(s, tool, signal = tool.signal) {
+    const extensions = {};
     const denied = () => !this.store.readSession(s.id) ||
       this.store.read(['toolPermissions']).toolPermissions?.[publicToolName(tool.name)] === 'never_allow' ||
       this.store.read(['toolPermissions']).toolPermissions?.[tool.name] === 'never_allow' ||
       (tool.sessionApproval && !tool.sessionApproval.isCurrent());
-    if (denied() || !(await this.toolAvailable(s, tool)))
+    if (denied() || !(await this.toolAvailable(s, tool, extensions)))
       return { kind: 'deny', reason: 'This tool is disabled or its connection is no longer current.' };
     const userMessages = this.active.get(s.id)?.userMessages ?? [];
     const safety = await this.safety.inspect({ tool, userMessages, signal });
     signal?.throwIfAborted();
-    if (denied() || !(await this.toolAvailable(s, tool)))
+    if (denied() || !(await this.toolAvailable(s, tool, extensions)))
       return { kind: 'deny', reason: 'The tool configuration changed before execution.' };
     tool.safety = safety;
     const permissions = this.store.read(['toolPermissions']).toolPermissions ?? {};
@@ -885,14 +903,27 @@ export class Compat {
     // merely by being exposed as tools. Ask through DSH's canonical pipeline.
     return { kind: 'ask', reason: 'This operation runs outside the native file and command sandbox.' };
   }
-  async toolAvailable(s, tool) {
-    if (!(await toolEnabled(s, this.settings, tool.name))) return false;
+  async toolAvailable(s, tool, operation = {}) {
+    const current = this.store.readSession(s.id);
+    if (!current) return false;
+    // Reuse decryption only inside this policy/approval operation. Every check
+    // still validates the live registry and selection, including after a reply.
+    let snapshot = operation.snapshot;
+    try { snapshot?.assertCurrent(current); }
+    catch (error) {
+      if (!isExtensionSnapshotChanged(error)) throw error;
+      snapshot = undefined;
+    }
+    snapshot ??= await resolveSessionExtensions(current, this.settings);
+    // Older injected settings have no revision contract; reread them each time.
+    if (this.settings.extensionSnapshot) operation.snapshot = snapshot;
+    if (!(await toolEnabled(current, this.settings, tool.name, snapshot))) return false;
     if (["read_mcp_resource", "list_mcp_resources"].includes(tool.name)) {
       const names = [
-        ...(await selectedExtensions(s, this.settings)).map((e) =>
+        ...(await selectedExtensions(current, this.settings, snapshot)).map((e) =>
           extensionName(e.extension),
         ),
-        ...(await activeMcpServers(s, this.settings)).map(
+        ...(await activeMcpServers(current, this.settings, snapshot)).map(
           (server) => server.name,
         ),
       ];
@@ -901,7 +932,8 @@ export class Compat {
     return true;
   }
   async approveTool(s, tool, connection, signal, directToolCall = false) {
-    if (!(await this.toolAvailable(s, tool))) return false;
+    const extensions = {};
+    if (!(await this.toolAvailable(s, tool, extensions))) return false;
     // This is an answerer, not an approval-mode owner. DSH has already decided
     // that this exact operation needs a user answer (or this is direct UI input).
     const currentPolicy = () => {
@@ -917,7 +949,7 @@ export class Compat {
     if (blocked(currentPolicy())) return false;
     const safety = tool.safety ?? { requiresApproval: false };
     signal?.throwIfAborted();
-    if (!(await this.toolAvailable(s, tool))) return false;
+    if (!(await this.toolAvailable(s, tool, extensions))) return false;
     if (blocked(currentPolicy())) return false;
     const approval = tool.sessionApproval;
     if (approval && !approval.isCurrent()) return false;
@@ -992,7 +1024,7 @@ export class Compat {
       signal?.throwIfAborted();
       // Changing mode does not answer a pending question. A later explicit
       // decision still cannot bypass a newly disabled tool or a hard deny.
-      if (!(await this.toolAvailable(s, tool)) || blocked(currentPolicy())) return false;
+      if (!(await this.toolAvailable(s, tool, extensions)) || blocked(currentPolicy())) return false;
       const option =
         reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
       if (approval && !approval.isCurrent()) return false;
@@ -1572,6 +1604,27 @@ export class Compat {
     }
     if (!method.startsWith(prefix)) throw unsupported(method);
     const name = method.slice(prefix.length);
+    if (name === 'subagent/conversation/follow' || name === 'subagent/conversation/unfollow') {
+      if (!connection?.notify) throw invalid('A live connection is required for subagent viewing');
+      const id = requireString(p.subscriptionId, 'subscriptionId');
+      if (id.length > 128) throw invalid('subscriptionId is too long');
+      let views = this.subagentViews.get(connection);
+      views?.get(id)?.abort();
+      views?.delete(id);
+      if (name.endsWith('/unfollow')) return {};
+      const parent = this.session(p.sessionId, { fields: ['id'] });
+      if (!views) this.subagentViews.set(connection, views = new Map());
+      if (views.size >= 16) throw invalid('Too many open subagent views');
+      const controller = new AbortController();
+      views.set(id, controller);
+      const publish = value => connection.notify('session/update', { sessionId: parent.id, update: {
+        sessionUpdate: 'session_info_update', _meta: { 'codebuddy/subagent-view': { subscriptionId: id, childSessionId: p.childSessionId, ...value } },
+      } });
+      void followSubagentConversation(parent, p, this.driver, controller.signal, publish)
+        .catch(error => { if (!controller.signal.aborted) publish({ type: 'error', message: String(error.message ?? error) }); })
+        .finally(() => { if (views.get(id) === controller) views.delete(id); });
+      return {};
+    }
     if (name === "subagent/conversation/get")
       return readSubagentConversation(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (name === "subagent/catalog/list")
@@ -1720,6 +1773,36 @@ export class Compat {
         this.initialized.delete(s.id);
         await this.driver.invalidateMcpServers?.([name.endsWith("add") ? extensionName(p.extension) : p.name]);
         return {};
+      }
+      case "session/plan/get": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory) return { plan: { active: false } };
+        await this.ensureSession(s);
+        return { plan: await this.driver.getPlanMode(s.id) };
+      }
+      case "session/plan/set": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid("Open an active conversation to select plan mode");
+        if (typeof p.active !== 'boolean') throw invalid('Plan mode must be boolean');
+        await this.ensureSession(s);
+        return { plan: await this.driver.setPlanMode(s.id, p.active) };
+      }
+      case "session/goal/get": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory) return { goal: null };
+        await this.ensureSession(s);
+        return { goal: await this.driver.getGoal(s.id) ?? null };
+      }
+      case "session/goal/edit":
+      case "session/goal/clear":
+      case "session/goal/pause": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid("Open an active conversation to change a goal");
+        const request = parseGoalRequest({ ...p, action: name.split('/').at(-1) });
+        await this.ensureSession(s);
+        const goal = await this.driver.controlGoal(s.id, request);
+        if (request.action !== 'edit') await this.request("session/cancel", { sessionId: s.id }, connection);
+        return { goal };
       }
       case "codepro/run/get":
         return this.runs.get(p);
@@ -2109,6 +2192,10 @@ export class Compat {
   async prompt(p, connection) {
     const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
+    const planMode = p._meta?.['codebuddy/plan'];
+    if (planMode !== undefined && typeof planMode !== 'boolean') throw invalid('Plan mode must be boolean');
+    const goalRequest = parseGoalRequest(p._meta?.['codebuddy/goal']);
+    if (goalRequest && !['create', 'resume'].includes(goalRequest.action)) throw invalid('Change goals through the control endpoint');
     if (this.sessionMutations.has(s.id))
       throw invalid("Wait for the session change to finish");
     if (s.readonlyHistory)
@@ -2241,6 +2328,15 @@ export class Compat {
       for (const update of users)
         connection.notify("session/update", { sessionId: s.id, update });
       controller.signal.throwIfAborted();
+      const locale = p._meta?.['codebuddy/client-locale'];
+      if (typeof locale === 'string' && locale.length <= 64) {
+        let canonical;
+        try { [canonical] = Intl.getCanonicalLocales(locale); } catch { /* Ignore invalid presentation hints. */ }
+        if (canonical && this.clientLocales.get(s.id) !== canonical) {
+          this.clientLocales.set(s.id, canonical);
+          this.initialized.delete(s.id);
+        }
+      }
       await this.ensureSession(s);
       trace('session_ready');
       controller.signal.throwIfAborted();
@@ -2290,6 +2386,8 @@ export class Compat {
       const projectContext = contextUpdates({ sessionId: s.id, runId: active.run?.runId, signal: controller.signal });
       const internalToolCalls = new Set();
       const callbacks = {
+        ...(planMode !== undefined ? { planMode } : {}),
+        ...(goalRequest?.action === 'create' ? { createGoal: { objective: goalRequest.objective, ...(goalRequest.maxGoalRounds !== undefined ? { maxGoalRounds: goalRequest.maxGoalRounds } : {}) } } : {}),
         signal: controller.signal,
         requestId: userId,
         onUserQuestions: async ({ questions, signal, wait }) => {
@@ -2302,7 +2400,9 @@ export class Compat {
           if (reply?._meta?.codepro?.reason === 'expired') throw new Error('等待回答已超时，未收到用户答复。');
           return questionAnswer(questions, reply);
         },
-        ...(["paused", "blocked"].includes(nativeGoal?.phase)
+        ...(goalRequest?.action === 'resume'
+          ? { resumeGoal: { goalId: goalRequest.goalId, revision: goalRequest.revision } }
+          : ["paused", "blocked"].includes(nativeGoal?.phase)
           ? { resumeGoal: { goalId: nativeGoal.id, revision: nativeGoal.revision } }
           : {}),
         onToolPolicy: tool => this.toolPolicy(s, tool, controller.signal),
@@ -2702,6 +2802,8 @@ export class Compat {
     return { stopReason: result?.stopReason ?? "end_turn" };
   }
   async close() {
+    for (const views of this.subagentViews.values()) for (const controller of views.values()) controller.abort();
+    this.subagentViews.clear();
     closeMediaStreams(this.store.directory);
     this.closing = true;
     await this.transcription.close();

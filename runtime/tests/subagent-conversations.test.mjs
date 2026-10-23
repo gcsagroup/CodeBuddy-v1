@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Compat } from '../compat.mjs';
-import { readSubagentConversation, subagentLifecycleUpdate } from '../subagent-conversations.mjs';
+import { followSubagentConversation, readSubagentConversation, subagentLifecycleUpdate } from '../subagent-conversations.mjs';
 import { createConversationDriver } from '../conversation-driver.mjs';
 
 const method = '_goose/unstable/subagent/conversation/get';
@@ -105,7 +105,7 @@ test('only public child-owned messages and actual terminal facts cross the bridg
     event(5, 'turn/start', { turn: 1, request: 'PRIVATE_TURN' }),
     event(6, 'assistant/message', { turn: 1, step: 1, stream: 'PRIVATE_STREAM', message: {
       ...assistant('answer', 'Reading the file'),
-      content: [{ type: 'reasoning', text: 'PRIVATE_REASONING' }, { type: 'text', text: 'Reading the file', provider: 'PRIVATE_BLOCK' },
+      content: [{ type: 'reasoning', text: 'Checking file boundaries' }, { type: 'text', text: 'Reading the file', provider: 'PRIVATE_BLOCK' },
         { type: 'tool-call', id: 'read-1', name: 'read', arguments: '{"file_path":"example.mjs"}', replayState: 'PRIVATE_CALL' }],
     } }),
     event(7, 'tool/call', { turn: 1, step: 1, callId: 'read-1', name: 'read', arguments: '{"file_path":"example.mjs"}', config: 'PRIVATE_CONFIG' }),
@@ -121,6 +121,7 @@ test('only public child-owned messages and actual terminal facts cross the bridg
   assert.deepEqual(result.events.map(item => item.seq), [3, 5, 6, 7, 8, 10]);
   assert.equal(result.throughSeq, 10);
   assert.equal(result.hasMore, false);
+  assert.deepEqual(result.events.find(item => item.type === 'assistant/message').data.message.content[0], { type: 'reasoning', text: 'Checking file boundaries' });
   assert.deepEqual(result.events.find(item => item.type === 'user/message').data, { id: 'task', role: 'user', content: [{ type: 'text', text: 'Inspect the module' }] });
   const call = result.events.find(item => item.type === 'tool/call').data;
   const response = result.events.find(item => item.type === 'tool/result').data;
@@ -145,9 +146,9 @@ test('preserves native file display receipts without exposing opaque metadata or
   assert.deepEqual(result.events[1].data.fileResult, { path: 'review.py', operation: 'create', diffs: [{ oldText: 'old\n', newText: 'new\n' }] });
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_/);
   f.history.events[1].data.meta.diffs[0].newText = 'x'.repeat(100_000);
-  const clipped = await f.request();
-  assert.deepEqual(clipped.events[1].data.fileResult, { path: 'review.py', operation: 'create', diffUnavailable: true });
-  assert.equal(clipped.events[1].truncated, true);
+  const complete = await f.request();
+  assert.equal(complete.events[1].data.fileResult.diffs[0].newText, 'x'.repeat(100_000));
+  assert.equal(complete.events[1].truncated, undefined);
 });
 
 test('cursor batches are bounded, repeatable and advance over nonpublic events without replaying them', async () => {
@@ -176,15 +177,20 @@ test('cursor batches are bounded, repeatable and advance over nonpublic events w
   for (const afterSeq of [-2, 0.5, '1', NaN, null]) await assert.rejects(f.request({ afterSeq }), /afterSeq/);
 });
 
-test('large display payloads are explicitly clipped and cannot grow a response beyond the batch budget', async () => {
-  const f = fixture(Array.from({ length: 20 }, (_, seq) => event(seq, 'assistant/message', { turn: 1, step: seq, message: {
+test('an oversized native message stays complete while pagination still advances one event at a time', async () => {
+  const f = fixture(Array.from({ length: 2 }, (_, seq) => event(seq, 'assistant/message', { turn: 1, step: seq, message: {
     ...assistant(`large-${seq}`, ''), content: Array.from({ length: 80 }, () => ({ type: 'text', text: 'large result '.repeat(6000) })),
   } })));
   const result = await f.request();
   assert.equal(result.hasMore, true);
-  assert.ok(result.events.every(item => item.truncated === true));
-  assert.ok(Buffer.byteLength(JSON.stringify(result)) <= 256 * 1024);
-  assert.ok(result.events[0].data.message.content[0].text.length < 10_000);
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].truncated, undefined);
+  assert.equal(result.events[0].data.message.content.length, 80);
+  assert.equal(result.events[0].data.message.content[0].text, 'large result '.repeat(6000));
+  const next = await f.request({ afterSeq: result.throughSeq });
+  assert.equal(next.hasMore, false);
+  assert.equal(next.events[0].seq, 1);
+  assert.equal(next.events[0].data.message.content[79].text, 'large result '.repeat(6000));
 });
 
 test('terminal errors and interrupted committed text remain observable while opaque metadata stays private', async () => {
@@ -261,6 +267,75 @@ function catalogFixture() {
     conversation: extra => compat.request(method, { sessionId: 'parent-product', childSessionId: 'grandchild', ...extra }),
   };
 }
+
+test('native following exposes full delegation, reasoning and live text without leaking provider state or acquiring execution', async () => {
+  const f = catalogFixture(), controller = new AbortController(), updates = [];
+  const history = f.histories.get('child-native');
+  history.events = [event(0, 'user/message', user('task', 'Review A/B、中文 🙂')), event(1, 'assistant/message', {
+    turn: 1, step: 1, message: { ...assistant('answer', ''), content: [{ type: 'reasoning', text: 'Inspect the boundary' }, { type: 'text', text: 'x'.repeat(12_000) }] },
+  })];
+  f.rawDriver.followSubagent = async function* (address, signal) {
+    assert.deepEqual(address, { parentSessionId: 'parent-native', childSessionId: 'child-native', mode: 'unknown' });
+    assert.equal(signal, controller.signal);
+    yield { type: 'snapshot', header: history.meta, records: history.events.map(event => ({ type: 'event', event })), assistantStream: { activeAttempt: {
+      attemptId: 'attempt', turn: 1, step: 2, chunks: [{ type: 'reasoning-delta', text: 'Thinking' }, { type: 'finish', replayState: 'PRIVATE_STATE' }],
+    } } };
+    yield { type: 'assistant-stream', frame: { type: 'chunk', attemptId: 'attempt', chunk: { type: 'text-delta', text: 'Live reply' } } };
+    yield { type: 'assistant-stream', frame: { type: 'chunk', attemptId: 'attempt', chunk: { type: 'tool-call-delta', argumentsDelta: 'PRIVATE_ARGUMENTS' } } };
+    yield { type: 'assistant-stream', frame: { type: 'chunk', attemptId: 'attempt', chunk: { type: 'tool-call-delta', index: 0, id: 'draft', name: 'write', argumentsDelta: '{"file_path":"draft.js","content":"PRIVATE_CONTENT' } } };
+  };
+  await followSubagentConversation(f.state.sessions[0], { childSessionId: 'child-native', ancestorSessionIds: [] }, f.driver, controller.signal, value => updates.push(value));
+  assert.deepEqual(updates.map(item => item.type), ['reset', 'ready', 'stream', 'stream', 'stream']);
+  assert.equal(updates[1].events[0].data.content[0].text, 'Review A/B、中文 🙂');
+  assert.equal(updates[1].events[1].data.message.content[1].text.length, 12_000);
+  assert.deepEqual(updates[1].active.chunks, [{ type: 'reasoning-delta', text: 'Thinking' }]);
+  assert.equal(updates[2].frame.chunk.text, 'Live reply');
+  assert.deepEqual(updates[3].frame.chunk, { type: 'tool-call-delta', text: '' });
+  assert.deepEqual(updates[4].frame.chunk.preview, { id: 'draft', name: 'write', path: 'draft.js', kilobytes: 1 });
+  assert.doesNotMatch(JSON.stringify(updates), /PRIVATE_/);
+  assert.equal(f.state.sessions[0].updates.length, 0);
+  f.catalogs.set('parent-native', []);
+  await assert.rejects(followSubagentConversation(f.state.sessions[0], { childSessionId: 'child-native' }, f.driver, controller.signal, () => assert.fail()), /catalog/);
+});
+
+test('following stops publishing after cancellation or root rebinding and never sends a stop to the child', async () => {
+  for (const reason of ['abort', 'rebind']) {
+    const f = catalogFixture(), controller = new AbortController(), updates = [];
+    f.rawDriver.followSubagent = async function* () {
+      yield { type: 'snapshot', header: f.histories.get('child-native').meta, records: [] };
+      if (reason === 'abort') controller.abort();
+      else f.state.sessions[0].nativeSessionId = 'new-root';
+      yield { type: 'event', event: event(0, 'user/message', user('late', 'STALE')) };
+    };
+    await assert.rejects(followSubagentConversation(f.state.sessions[0], { childSessionId: 'child-native' }, f.driver, controller.signal, value => updates.push(value)), reason === 'abort' ? /abort/i : /changed during inspection/);
+    assert.deepEqual(updates.map(item => item.type), ['reset', 'ready']);
+  }
+});
+
+test('unfollow and transport disconnect abort only that connection observer, never child execution', async () => {
+  const f = fixture(), signals = [], frames = [];
+  f.driver.listSubagentChildren = async () => [{ id: 'child-native', mode: 'continuable', label: 'Review', createdAt: 1 }];
+  f.driver.followSubagent = async function* (_address, signal) {
+    signals.push(signal);
+    yield { type: 'snapshot', header: f.history.meta, records: [] };
+    if (!signal.aborted) await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
+  };
+  f.driver.cancel = () => assert.fail('Viewing must not cancel child execution');
+  const a = { notify: (_method, value) => frames.push(value) }, b = { notify: (_method, value) => frames.push(value) };
+  const params = { ...f.params, subscriptionId: 'same-id', ancestorSessionIds: [] };
+  await f.compat.request('_goose/unstable/subagent/conversation/follow', params, a);
+  await f.compat.request('_goose/unstable/subagent/conversation/follow', params, b);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(signals.length, 2);
+  assert.equal(frames.length, 4);
+  await f.compat.request('_goose/unstable/subagent/conversation/unfollow', params, a);
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[1].aborted, false);
+  f.compat.disconnect(b);
+  assert.equal(signals[1].aborted, true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(frames.length, 4, 'No late publication after observer teardown');
+});
 
 test('catalog reads native membership in order through the product mapping and exposes only public fields', async () => {
   const f = catalogFixture(), before = JSON.stringify([...f.catalogs]);

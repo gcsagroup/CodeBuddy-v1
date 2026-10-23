@@ -109,9 +109,7 @@ export default function ProviderSettings({
                 <ProviderGrid
                   providers={providers.filter(
                     (provider) =>
-                      provider.is_configured &&
-                      provider.provider_type === 'Custom' &&
-                      provider.category !== 'agent'
+                      provider.provider_type === 'Custom' && provider.category !== 'agent'
                   )}
                   isOnboarding={isOnboarding}
                   refreshProviders={refreshProviders}

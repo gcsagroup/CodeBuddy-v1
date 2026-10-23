@@ -73,7 +73,7 @@ async function modelFixture(cwd, completedChildren) {
       if (req.url.endsWith('/models')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: models.map(id => ({ id })) })); return; }
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw);
-      if (req.url.endsWith('/api/show')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({capabilities:['completion','thinking'],thinking:{values:['low','medium','high'],default:'medium'}})); return; }
+      if (req.url.endsWith('/api/show')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({capabilities:['completion','thinking','tools'],thinking:{values:['low','medium','high'],default:'medium'}})); return; }
       requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       assert.equal(request.model, 'selected-main', 'the current session model owns main and child requests despite saved role routes');

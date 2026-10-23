@@ -112,9 +112,10 @@ export async function apply(ctx, config) {
                 try { content = await ctx.get('codebuddyMcpVision')?.project(content, exec) ?? content; }
                 catch (error) {
                   if (exec.signal.aborted) throw error;
+                  ctx.get('codebuddyMcpVision')?.unavailable?.(exec, { extensionName: config.serverName, toolName: tool.name });
                   // The upstream action already happened. An observer outage
                   // must not turn a successful action into a retryable failure.
-                  content = content.map(block => block.type === 'image' ? { type: 'text', text: '[auxiliary image observation unavailable; the tool action receipt is unchanged. Do not repeat an action to retry image interpretation. Check vision configuration before further visual actions.]' } : block);
+                  content = content.map(block => block.type === 'image' ? { type: 'text', text: '[auxiliary image observation unavailable; the tool action receipt is unchanged. Do not repeat an action to retry image interpretation. The tool returned an image, but this model did not receive usable visual content. This is a model/auxiliary vision routing problem, not evidence of missing macOS Screen Recording permission. Select a confirmed image-capable model or configure auxiliary vision, then observe again before further visual actions. Do not guess coordinates or claim a message was sent or read without visible evidence.]' } : block);
                 }
               }
               const canonical = { content, ...(result.structuredContent !== undefined ? { structuredContent: result.structuredContent } : {}) };

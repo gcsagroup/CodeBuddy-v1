@@ -31,6 +31,55 @@ function message(id: string, text: string): Message {
   };
 }
 
+it('accepts only current-turn file preparation metadata without adding a request or persisting it in history', () => {
+  const id = 'tool-input-display';
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'a', 'u');
+    const update = (source: string, tool_input: unknown) =>
+      acpChatSessionActions.applyAcpGooseSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'status_message',
+          status: {
+            type: 'progress',
+            message: '',
+            data: {
+              schema_version: 1,
+              event: 'execution_activity',
+              source_user_message_id: source,
+              run_id: 'run',
+              phase: 'model',
+              child_count: 0,
+              tool_input,
+            },
+          },
+        },
+      } as never);
+    update('other-turn', { id: 'w', name: 'write', kilobytes: 4 });
+    expect(
+      acpChatSessionStore.getSnapshot(id)?.promptActivity?.execution?.toolInput
+    ).toBeUndefined();
+    update('u', { id: 'w', name: 'write', kilobytes: 4, rawArguments: 'PRIVATE' });
+    const snapshot = acpChatSessionStore.getSnapshot(id)!;
+    expect(snapshot.promptActivity?.execution?.toolInput).toEqual({
+      id: 'w',
+      name: 'write',
+      kilobytes: 4,
+    });
+    expect(snapshot.messages).toHaveLength(0);
+    expect(snapshot.activeToolCallIds).toEqual([]);
+    update('u', { id: null, name: 'write' });
+    expect(
+      acpChatSessionStore.getSnapshot(id)?.promptActivity?.execution?.toolInput
+    ).toBeUndefined();
+    acpChatSessionActions.finishPromptAttemptIfCurrent(id, 'a');
+    update('u', { id: 'late', name: 'write', kilobytes: 5 });
+    expect(acpChatSessionStore.getSnapshot(id)?.promptActivity).toBeUndefined();
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
 it('publishes appended text without mutating earlier snapshots or replacing unchanged history', () => {
   const id = 'stream-snapshot-isolation';
   try {

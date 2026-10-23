@@ -27,7 +27,9 @@ async function connect(url) {
   }); } };
 }
 
-test('frozen MCP Apps UI consumers read/call/import/export through ACP and official Harness with metadata and restart durability', { timeout: 60_000 }, async t => {
+// This fixture performs many separate native Keychain operations; retain the
+// 20-second deadline on each ACP request while allowing the complete workflow.
+test('frozen MCP Apps UI consumers read/call/import/export through ACP and official Harness with metadata and restart durability', { timeout: process.platform === 'darwin' ? 180_000 : 60_000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-app-acp-')), calls = [], failures = [], resourceUri = 'ui://chart/view';
   const hiddenMeta = { chartControls: { active: 'y' } }, resourceMeta = { ui: { csp: { connectDomains: ['https://api.example.test'] } } };
   const server = http.createServer(async (req, res) => {

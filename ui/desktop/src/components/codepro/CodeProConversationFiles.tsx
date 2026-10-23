@@ -65,6 +65,8 @@ export function CodeProConversationFiles({
     [messages, sourceMessages, sourceChanges, source?.id, workspaceRoot]
   );
   if (!turn) return null;
+  const { files } = turn;
+  const title = intl.formatMessage(i18n.files, { count: files.length });
   const open = (filePath?: string) => {
     if (sessionId)
       openConversationChange({
@@ -73,7 +75,6 @@ export function CodeProConversationFiles({
         ...(filePath ? { filePath } : {}),
       });
   };
-  const { files } = turn;
   return (
     <Collapsible
       open={expanded}
@@ -83,7 +84,7 @@ export function CodeProConversationFiles({
       <div className="flex items-center pr-3">
         <CollapsibleTrigger
           className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left text-text-primary"
-          aria-label={intl.formatMessage(i18n.files, { count: files.length })}
+          aria-label={title}
         >
           <span
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-background-secondary"
@@ -93,7 +94,7 @@ export function CodeProConversationFiles({
           </span>
           <span className="min-w-0">
             <span className="flex items-center gap-1.5 font-semibold">
-              {intl.formatMessage(i18n.files, { count: files.length })}
+              {title}
               <ChevronRight
                 className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
                 aria-hidden="true"
@@ -109,7 +110,7 @@ export function CodeProConversationFiles({
         {sessionId && (
           <button
             type="button"
-            className="shrink-0 text-xs text-text-secondary hover:text-text-primary"
+            className="shrink-0 rounded-lg border border-border-subtle px-2.5 py-1.5 text-xs text-text-secondary hover:bg-background-secondary hover:text-text-primary"
             onClick={() => open()}
           >
             {intl.formatMessage(i18n.viewChanges)}
@@ -156,7 +157,7 @@ export function CodeProConversationFiles({
         {!showAll && files.length > 3 && (
           <button
             type="button"
-            className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
+            className="flex w-full items-center gap-1.5 border-t border-border-subtle bg-background-secondary px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
             onClick={() => setShowAll(true)}
           >
             {intl.formatMessage(i18n.moreFiles, { count: files.length - 3 })}

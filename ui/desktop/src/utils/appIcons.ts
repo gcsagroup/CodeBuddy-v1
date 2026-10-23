@@ -15,6 +15,6 @@ export function trayIconFileName(platform: typeof process.platform, hasUpdate = 
 export const trayTooltip = 'CodeBuddy';
 
 export function windowsAppUserModelId(packaged: boolean): string {
-  // Match the shortcut ID created by the existing Squirrel package.
+  // Both Windows installers must use this same ID for their shortcuts.
   return packaged ? 'com.squirrel.CodeBuddyHarness.CodeBuddy' : 'local.codebuddy.harness.preview';
 }

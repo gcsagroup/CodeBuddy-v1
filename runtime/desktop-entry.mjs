@@ -1,5 +1,6 @@
 import { createCompatServer } from './server.mjs';
 import path from 'node:path';
+import defaultModel from './default-model.json' with { type: 'json' };
 
 // Electron owns one bundled Node service for all desktop windows. Native
 // Harness subprocess runners must inherit Node's execPath, not Electron's.
@@ -7,6 +8,7 @@ import path from 'node:path';
 const service = await createCompatServer({
   dataDir: path.join(process.env.CODEBUDDY_HOME, 'backend'),
   secret: process.env.CODEBUDDY_SERVER__SECRET_KEY,
+  defaultModel,
 });
 let closing;
 const stop = () => closing ??= service.close().then(() => {

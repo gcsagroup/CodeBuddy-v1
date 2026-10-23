@@ -82,6 +82,38 @@ describe('ProviderGrid custom provider lifecycle', () => {
     providerApi.remove.mockResolvedValue({});
   });
 
+  it('opens an unconfigured cloud preset for credentials without activating a model', async () => {
+    providerApi.get.mockResolvedValueOnce({
+      editable: true,
+      provider: {
+        providerId: customProvider.name,
+        engine: 'openai_compatible',
+        displayName: 'ollama',
+        apiUrl: 'https://ollama.com',
+        models: ['kimi-k3'],
+        supportsStreaming: true,
+        requiresAuth: true,
+        apiKeySet: false,
+        headers: {},
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <ProviderGrid
+        providers={[{ ...customProvider, is_configured: false }]}
+        isOnboarding={false}
+        compactConnectionSetup
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(screen.getByTestId('provider-card-custom_office_local'));
+    expect(await screen.findByText('Edit Provider')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://ollama.com')).toBeInTheDocument();
+    expect(screen.queryByText('Choose model for custom_office_local')).not.toBeInTheDocument();
+    expect(providerApi.update).not.toHaveBeenCalled();
+    expect(providerApi.create).not.toHaveBeenCalled();
+  });
+
   it('waits for the saved card inventory before closing, without opening model selection', async () => {
     const user = userEvent.setup();
     let finishRefresh!: () => void;

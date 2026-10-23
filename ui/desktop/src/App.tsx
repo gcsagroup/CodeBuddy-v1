@@ -36,6 +36,7 @@ interface PairRouteState {
   recipeId?: string;
 }
 import SettingsView, { SettingsViewOptions } from './components/settings/SettingsView';
+import { parsePetMessage } from './pets/petMessage';
 import SessionsView from './components/sessions/SessionsView';
 import SchedulesView from './components/schedule/SchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
@@ -250,6 +251,7 @@ export const PairRouteWrapper = ({
   if (hasFreshCodeProLaunchIntent) {
     return (
       <CodeProHub
+        key={location.key}
         launchIntent={{
           initialMessage,
           draftOnly: routeState.draftOnly,
@@ -443,10 +445,21 @@ export function AppInner() {
       });
     };
     window.electron.on('pet-create-session', createPetSession);
+    const sendPetMessage = (_event: IpcRendererEvent, message: unknown) => {
+      try {
+        navigate('/codepro/pair', {
+          state: { initialMessage: parsePetMessage(message), noAutoSubmit: false },
+        });
+      } catch {
+        /* Invalid cross-window input must not create an empty conversation. */
+      }
+    };
+    window.electron.on('pet-send-message', sendPetMessage);
     return () => {
       window.electron.off('pet-open-session', openPetSession);
       window.electron.off('pet-pause-session', pausePetSession);
       window.electron.off('pet-create-session', createPetSession);
+      window.electron.off('pet-send-message', sendPetMessage);
     };
   }, [location.pathname, navigate]);
 
@@ -721,13 +734,15 @@ export function AppInner() {
     const handleSetInitialMessage = async (_event: IpcRendererEvent, ...args: unknown[]) => {
       const initialMessage = args[0] as string;
       const options =
-        (args[1] as { noAutoSubmit?: boolean; workingDir?: string } | undefined) || {};
+        (args[1] as
+          | { noAutoSubmit?: boolean; workingDir?: string; images?: UserInput['images'] }
+          | undefined) || {};
 
-      if (initialMessage && !isProcessingRef.current) {
+      if ((initialMessage || options.images?.length) && !isProcessingRef.current) {
         isProcessingRef.current = true;
         navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
           state: {
-            initialMessage: { msg: initialMessage, images: [] },
+            initialMessage: { msg: initialMessage, images: options.images ?? [] },
             noAutoSubmit: options.noAutoSubmit,
             ...(typeof options.workingDir === 'string' && options.workingDir.trim()
               ? { workingDir: options.workingDir }

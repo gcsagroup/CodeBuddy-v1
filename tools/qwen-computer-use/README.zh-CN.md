@@ -1,5 +1,9 @@
 # 独立 Computer Use MCP
 
+Mac 观察目标时会按应用暴露的能力启用 Electron/Chromium 辅助功能树，仅作用于目标进程；已启用和不支持的属性保持不变。这不是系统授权，也不替代录屏、辅助功能或实际输入后的结果核验。依据 [Electron 辅助功能接口](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md)。
+
+macOS 权限拒绝时，应核对系统弹窗或 TCC 日志中的实际归属应用。开发启动可能归属终端，helper 路径或包含它的应用目录本身不证明授权归属；先确认启动来源，再检查录屏与辅助功能权限，按系统要求重启。不要仅凭 helper 报错重复添加文件或删除旧授权。
+
 [繁體中文](README.md) · [English](README.en.md)
 
 基于 Qwen open-computer-use 0.2.3 Windows，MIT 许可，上游提交 24b7cae4d449a5a8ea58c583e5151096b26de03c。保留中文输入、窗口绑定和前台输入修复，删除组合版 host bridge 与 Rust Qwen 适配器。标准 MCP 九个工具直接返回截图和 UIA，供 Agent 判断后续动作。
@@ -9,6 +13,8 @@
 启用内置 qwen_computer，停用 computer 和 computercontroller，新建会话。启动参数 `--foreground-input mcp`，Windows 路径需本机桌面，Mac 路径见下节。外部同名扩展不会被视为可信内置工具。
 
 动作后复用返回状态，窗口变化则重新观察。保护原草稿，核对收件人和正文；未知发送结果先查证，不盲目重发。界面发出证据不代表接收端已送达。
+
+有截图的观察同时报告窗口在屏幕上的位置，可比较拖动前后的新观察确认移动；点击、滚动和拖动的输入仍使用窗口相对坐标。无截图时不报告已观察到的位置。
 
 ## 窗口切换与滚动
 

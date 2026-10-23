@@ -85,7 +85,7 @@ export function observeModelTransport(ctx, publish) {
       report('start');
       const iterator = context.run(scope, () => next()[Symbol.asyncIterator]());
       let first = false, exhausted = false, failureCode, finishKind;
-      let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0;
+      let textDeltaChars = 0, reasoningDeltaChars = 0, toolCallBlocks = 0, toolArgumentChars = 0;
       const seen = new Set();
       try {
         while (true) {
@@ -94,14 +94,19 @@ export function observeModelTransport(ctx, publish) {
           scope.chunks += 1;
           if (result.value.type === 'text-delta') textDeltaChars += result.value.text.length;
           if (result.value.type === 'reasoning-delta') reasoningDeltaChars += result.value.text.length;
+          if (result.value.type === 'tool-call-delta') toolArgumentChars += result.value.argumentsDelta?.length ?? 0;
           if (result.value.type === 'block-end' && result.value.block.type === 'tool-call') toolCallBlocks += 1;
           if (result.value.type === 'finish') finishKind = result.value.reason.kind;
-          if (!first && ['text-delta', 'reasoning-delta'].includes(result.value.type)) {
+          if (!first && ['text-delta', 'reasoning-delta', 'tool-call-delta'].includes(result.value.type)) {
             first = true; report('first_chunk');
           }
           if (['text-delta', 'reasoning-delta'].includes(result.value.type) && !seen.has(result.value.type)) {
             seen.add(result.value.type);
             report(result.value.type === 'text-delta' ? 'first_text' : 'first_reasoning');
+          }
+          if (result.value.type === 'tool-call-delta' && !seen.has(result.value.type)) {
+            seen.add(result.value.type);
+            report('first_tool_arguments');
           }
           if (result.value.type === 'finish' && result.value.reason.kind === 'error') failureCode = result.value.reason.failure.code;
           yield result.value;
@@ -111,7 +116,7 @@ export function observeModelTransport(ctx, publish) {
         throw error;
       } finally {
         try { if (!exhausted) await context.run(scope, () => iterator.return?.()); }
-        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolCallBlocks, ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
+        finally { report('end', { textDeltaChars, reasoningDeltaChars, toolArgumentChars, toolCallBlocks, ...(finishKind ? { finishKind } : {}), ...(failureCode ? { failureCode } : {}), cancelled: Boolean(options.signal?.aborted) }); }
       }
     })();
   });

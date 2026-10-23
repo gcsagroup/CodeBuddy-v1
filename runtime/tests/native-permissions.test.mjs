@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { mkdir, mkdtemp, readFile, access, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -19,7 +20,9 @@ const text = message => typeof message.content === 'string' ? message.content :
   (message.content ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n');
 
 async function fixture(t) {
-  const fixtures = fileURLToPath(new URL('../../.preview-data/', import.meta.url));
+  // The native Windows sandbox needs an owned temporary workspace whose ACL
+  // can be granted to its worker; repository drives may inherit Modify only.
+  const fixtures = join(tmpdir(), 'codebuddy-native-permissions');
   await mkdir(fixtures, { recursive: true });
   const root = await mkdtemp(join(fixtures, 'native-permissions-'));
   const plans = new Map(), events = [], calls = [], questions = [];

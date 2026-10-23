@@ -1,4 +1,13 @@
-import React, { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  memo,
+  useMemo,
+  useCallback,
+  createContext,
+  useContext,
+} from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
@@ -149,6 +158,8 @@ export function splitCodeProTechnicalEvidence(content: string): MarkdownSegment[
 }
 
 // Memoized CodeBlock component to prevent re-rendering when props haven't changed
+const StreamingMarkdownContext = createContext(false);
+
 const CodeBlock = memo(function CodeBlock({
   language,
   children,
@@ -157,8 +168,8 @@ const CodeBlock = memo(function CodeBlock({
   children: string;
 }) {
   const intl = useIntl();
+  const streaming = useContext(StreamingMarkdownContext);
   const [copied, setCopied] = useState(false);
-  const streaming = React.useContext(StreamingCodeContext);
   const timeoutRef = useRef<number | null>(null);
 
   const handleCopy = async () => {
@@ -187,24 +198,34 @@ const CodeBlock = memo(function CodeBlock({
   // Memoize the SyntaxHighlighter component to prevent re-rendering
   // Only re-render if language or children change
   const memoizedSyntaxHighlighter = useMemo(() => {
-    // Keep all source and copy behavior available. Re-highlighting thousands of
-    // changing tokens blocks input; large live fences settle into the same
-    // syntax renderer once this message finishes.
-    if (streaming && children.length > 10000)
+    // Re-tokenizing an ever-growing program stalls input and cancellation.
+    // Keep every received character visible; large historical blocks also avoid
+    // building thousands of syntax spans when reopening a conversation.
+    if (streaming || children.length > 8000) {
       return (
-        <pre
+        <div
+          data-plain-code
           style={{
             margin: 0,
             padding: '1em',
+            borderRadius: 8,
+            lineHeight: '1.6',
             background: '#282c34',
             color: '#e6e6e6',
-            fontSize: 'var(--conversation-code-size, 14px)',
-            lineHeight: 1.6,
           }}
         >
-          <code>{children}</code>
-        </pre>
+          <code
+            style={{
+              whiteSpace: 'pre',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--conversation-code-size, 14px)',
+            }}
+          >
+            {children}
+          </code>
+        </div>
       );
+    }
 
     return (
       <SyntaxHighlighter
@@ -440,7 +461,7 @@ const MarkdownContent = memo(function MarkdownContent({
     );
 
   return (
-    <>
+    <StreamingMarkdownContext.Provider value={animateIncoming}>
       <div
         className={`w-full overflow-x-hidden prose prose-sm text-text-primary dark:prose-invert max-w-full word-break font-sans
         prose-pre:p-0 prose-pre:m-0 !p-0
@@ -499,11 +520,10 @@ const MarkdownContent = memo(function MarkdownContent({
         confirmLabel={intl.formatMessage(i18n.open)}
         cancelLabel={intl.formatMessage(i18n.cancel)}
       />
-    </>
+    </StreamingMarkdownContext.Provider>
   );
 });
 
-const StreamingCodeContext = React.createContext(false);
 const StreamingBlock = memo(function StreamingBlock({
   content,
   components,
@@ -541,7 +561,7 @@ function StreamingMarkdown(props: {
   parser.current ??= new StreamingMarkdownBlocks();
   const blocks = parser.current.update(props.content);
   return (
-    <StreamingCodeContext.Provider value={true}>
+    <>
       {blocks.map((block, index) => (
         <React.Fragment key={block.key}>
           {index > 0 ? '\n' : null}
@@ -552,7 +572,7 @@ function StreamingMarkdown(props: {
           />
         </React.Fragment>
       ))}
-    </StreamingCodeContext.Provider>
+    </>
   );
 }
 

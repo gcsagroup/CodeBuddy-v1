@@ -1,6 +1,34 @@
 
 # CodePro 事实权威与模块职责
 
+## 2026-10-23 已批准：子 Agent 完整只读会话展示
+
+DSH alpha2 的原生会话日志、父子 catalog 和 session controller 持有子会话身份、历史与实时 assistant stream。CodeBuddy 只通过原生 `subagent` 地址的 `follow` 观察已验证的父子关系，不使用普通 session 地址激活子 Agent，不改变调度、停止、恢复、审批与完成语义。兼容层按连接管理只读观察订阅；断开或关闭面板只取消观察，不取消子任务。切换或 fork 后旧根地址失效，不能向新聊天发布旧子会话内容。
+
+桌面复用主聊天的消息、Markdown、思考和工具回执渲染。公开委派、思考、文字和文件差异完整呈现；事件分页仍限制批次数量与通常体积，单个较大的原生事件保持完整。provider/replay 状态、认证信息、系统及注入上下文不进入展示。观察数据仅用于展示，不能作为工具执行、授权或完成判断。断线后只读重连以原生快照替换展示，不重放模型或工具动作。
+
+工具输入准备态复用锁定 DSH 的 `PartialArguments`，只投影调用身份、工具名、完整且解码有效的路径和已接收内容大小。大小按解码后UTF-16长度换算KB，是生成进度而非落盘字节数。主聊天通过已有临时 execution_activity 通道接收，子级通过只读 follow 接收；均不写入聊天历史、不计为实际修改或审批。原生 `tool/call` 才发布调用展示，block-end 不代表执行；停止、失败、重试或失去当前会话身份会清除准备态。正文中的路径和修复后的部分JSON不得充当真实参数。
+
+桌面 locale 作为可选的当前语言提示随 prompt 传入，兼容层只传递规范化语言代码，原生 scoped system prompt 为主子 Agent 设置默认回复及委派语言。用户明确要求其他语言仍优先；历史记录、代码和原始工具输出不翻译，模型实际遵循情况需单独验收。此提示不持有执行状态或权限，也不替换现有持久化设置。
+
+繁體：子會話使用原生唯讀 follow，關閉僅停止觀察；完整顯示公開記錄，權限與執行仍由 Harness 持有。English: Native read-only child follow owns synchronization; closing a viewer never stops or resumes execution, and display projections cannot authorize actions.
+
+## 2026-10-22 已批准：双入口浏览器控制
+
+Harness 继续持有工具发现、审批、执行与完成判断。browser_control 经现有 ACP 请求连接到 Electron 工作台；Electron 持有当前窗口、会话、真实工作区路径和 WebContentsView 身份，只接受有限操作，不暴露全局调试端口。页面观察与输入回执分别返回；派发成功不等于页面行为已成功。后台会话的浏览器标签由现有工作台状态保存，不能转移到另一会话。
+
+独立浏览器与用户浏览器使用锁定版本的 Microsoft Playwright MCP，分别消费隔离配置和官方扩展连接；用户浏览器由用户选择并确认标签页，不复制日常浏览器 profile。工作区 HTML 预览只服务选中文件同目录的公开网页资源，关闭标签或宿主时释放服务。旧配置和历史不迁移；设置中移除“工具与连接”入口不删除用户数据或改变工具箱配置。
+
+繁體：Harness 持有執行與審批；Electron 管理會話內嵌頁面，Playwright MCP 管理獨立或使用者選擇的瀏覽器。English: Harness owns execution and approval; Electron owns embedded session pages and Playwright MCP owns isolated or user-selected browsers.
+
+## 2026-10-22 已批准：Mac 原生卸载与安装界面
+
+Electron 主进程持有原生菜单选择、最终路径确认和退出流程；独立卸载 worker 在主进程与 Harness 服务退出后，重新校验应用身份、目录身份及清理白名单并记录逐项结果。该流程不暴露为 Agent/MCP 工具，不改变 Harness 执行与完成语义。普通卸载只移除当前应用副本；清理模式删除已知应用数据，项目默认保留，应用管理工作区需要单独勾选。外部项目、未知文件、其他安装副本和旧迁移目录保持原样。
+
+数据根继续消费既有 storage-management 位置结果，不恢复存储管理页面或迁移操作。清理专用钥匙串及 TCC 仅发生于用户确认的清理卸载；更新不触发。系统拒绝和残留由真实回执判定，逻辑容量不视为实际磁盘释放量。DMG 布局由打包脚本负责，验收状态另行记录。
+
+繁體：原生選單確認後由卸載 worker 執行，專案預設保留，更新不清理資料。English: Native menu confirmation authorizes a dedicated uninstall worker; projects remain by default and updates never run cleanup.
+
 ## 2026-10-21 已批准：子 Agent 停止交接与只读终态上下文
 
 DSH 继续持有子 Agent 生命周期、原生收件箱和 `turn/start`、`turn/end` 事实。CodeBuddy 在取消所属运行后，使用同步的原生 `turn/start` 边界阻止后续取消息，不在已经 claim 的 `pre-step` 阶段假定 `keepInbox` 能恢复消息。当前取消请求自身尚未处理的人工输入，使用原生队列移除接口清理；不删除其他人工排队输入或子 Agent 通知。
@@ -22,6 +50,11 @@ DSH 子 Agent 保留原生创建时捕获的沙箱范围及非交互 `approval: 
 CodeBuddy 继续持有连接鉴权、凭据保护、工具启用与明确禁用、可信工具定义及已有显式授权绑定。`tools/pre-execute` 仅把这些边界和用户启用的安全检查编译为原生 allow/deny/ask；需要 Agent 审批时交给 DSH 的请求、非交互拒绝、取消和审计，现有 ACP 表单仅提供答复。远端 MCP 注解不自动授予权限，非沙箱能力不能因移除旧审批模式而静默放开。原生 `tools/execute` 只为既有审计提供派发观测，不代表实际副作用成功。
 
 直接 UI 操作没有模型 turn，沿用原有的显式用户确认和原生 maintenance/工具执行；不伪造原生 Agent 审批审计，也不把一次 UI 确认写成模型长期权限。原生 Windows 沙箱的已知兼容问题本轮仅记录，不修补官方包；实施和实际验收结果另行记录。
+## 2026-10-21 用户修订：移除存储管理
+
+设置中的存储管理页面、导航、手动缓存清理、空间统计和迁移 IPC 及 worker 已移除。runtime/storage-management.cjs 只保留已有数据位置和旧迁移记录的兼容读取与启动占用检查；安装器不选择、迁移或覆盖数据位置。默认 ~/.CodeBuddy，已保存位置优先，不因功能移除重置或删除数据。Harness 继续拥有会话、执行和任务状态；既有 Electron 自动缓存维护不变。
+
+繁體：儲存管理入口與操作已移除，保留既有資料位置相容讀取，不刪除資料。English: Storage management actions are removed; existing data locations remain compatible and no user data is deleted.
 
 ## 2026-10-19 已批准：安装版手动配置与模型能力读取
 
@@ -174,6 +207,10 @@ English: runtime settings owns configuration and the MCP server owns task state/
 繁體：舊核心原始碼移除，協議原樣保留於 SDK，工具獨立保留，Harness 權威不變。English: retired Rust Agent sources are removed; compatibility schemas and independent tools remain, with Harness retaining execution and compaction authority.
 
 ## 2026-10-14 已批准：新版 Harness 执行与目标权威
+
+2026-10-20 用户明确要求通过输入框 `/` 菜单提供长期目标、暂停/继续和计划入口，取代常驻目标表单：桌面通过结构化 `codebuddy/goal` prompt 元数据和原生目标读/暂停适配接入 GoalService。Harness 仍是目标日志、revision、轮次、激活及完成的唯一 owner；UI 只读取投影、提交用户操作并展示实际回执。创建/继续绑定普通 prompt 的批准和取消通道；暂停先提交原生 CAS，再取消当前执行。新任务批准选择先完成现有 ACP set_mode，再发送首条消息，不修改全局默认。计划使用锁定上游 `PlanModeController` 的日志与投影，`codebuddy/plan` 仅传递显式选择；不改变批准模式，不新增调度器。没有目标或计划元数据的旧会话保持原行为。三语说明见 `docs/long-term-goals.*.md`。
+
+繁體：斜線命令沿用原生目標與計畫狀態，長期目標 UI 沿用 Harness 唯一狀態與續輪權威，結構化控制綁定原有核准、取消及 revision 檢查。English: Slash commands consume native Harness goal and plan state; structured controls retain existing approval, cancellation, and revision checks without adding a second scheduler.
 
 压缩中进程退出后，只有不存在活跃操作的历史加载才核对原生 `compaction/end`：有结束记录就恢复其结果，没有则仅将显示投影置为“中断、结果未确认”，不写入 Harness 完成事实、不改原始日志，也不重放摘要请求。繁體：重啟僅核對原生結束記錄，缺失時清除失效進度但不宣告完成。 English: idle replay reconciles missing notifications with durable Harness end events; absent evidence clears a dead spinner as interrupted/unconfirmed, without changing native history or replaying work.
 

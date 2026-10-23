@@ -158,6 +158,7 @@ test("recipe YAML CRUD, legacy links, slash commands and persistence follow the 
     await call("slash-commands/list"),
   );
   assert.equal(commands.availableCommands[0].name, "build-demo");
+  assert.equal(commands.availableCommands[0]._meta.commandType, "Recipe");
   const changed = { ...recipe, prompt: "Build then verify." };
   await call("recipes/save", { id: saved.id, recipe: changed });
   assert.equal(

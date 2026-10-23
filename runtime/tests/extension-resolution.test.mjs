@@ -25,6 +25,7 @@ const {
   isExtensionSnapshotChanged,
 } = await import("../session-extensions.mjs");
 const { toolEnabled } = await import("../tool-policy.mjs");
+const { Compat } = await import("../compat.mjs");
 
 const extension = (name) => ({
   type: "mcp",
@@ -69,6 +70,29 @@ async function fixture(t) {
   await settings.initialize();
   return { store, settings };
 }
+
+test('tool policy and approval each resolve credentials once while rechecking live selections', async t => {
+  const { store, settings } = await fixture(t);
+  const session = { id: 'approval-resolution', ...(await sealSessionExtensions(null, [extension('remote').server])) };
+  await store.update(state => state.sessions.push(session));
+  const host = Object.assign(Object.create(Compat.prototype), {
+    store, settings, active: new Map(),
+    safety: { async inspect() { return { requiresApproval: false }; } },
+  });
+  const call = { name: 'read_mcp_resource', arguments: { server: 'remote' } };
+  let before = credentialProcesses;
+  assert.equal((await host.toolPolicy(session, call)).kind, 'ask');
+  assert.equal(credentialProcesses - before, 1, 'classification rechecks must reuse the same current snapshot');
+  before = credentialProcesses;
+  assert.equal(await host.approveTool(session, call, { async ask() {
+    return { outcome: { outcome: 'selected', optionId: 'allow_once' } };
+  } }), true);
+  assert.equal(credentialProcesses - before, 1, 'approval rechecks must not repeatedly invoke the OS credential helper');
+  assert.equal(await host.approveTool(session, call, { async ask() {
+    await store.update(state => { state.sessions[0].protectedMcpServers = null; state.sessions[0].extensions = []; });
+    return { outcome: { outcome: 'selected', optionId: 'allow_once' } };
+  } }), false, 'a stale captured session must not allow a removed server after the answer');
+});
 
 test('configured selections do not decrypt unused historical definitions, but removed globals require the fallback', async t => {
   const { store, settings } = await fixture(t);

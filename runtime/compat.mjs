@@ -2243,10 +2243,10 @@ export class Compat {
         )
           run = await this.runs.create({
             sessionId: s.id,
-            goal: p.prompt
-              .filter((c) => c.type === "text")
-              .map((c) => c.text)
-              .join("\n"),
+            // This is the turn's display/audit summary, not a replacement
+            // prompt. Image-only requests retain their original image blocks.
+            goal: (content.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim() ||
+              '图片消息（未附文字）').slice(0, 32000),
             sourceMessageId: userId,
             executionOwner: "harness",
           });

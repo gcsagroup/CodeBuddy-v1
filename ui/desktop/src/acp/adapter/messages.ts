@@ -72,9 +72,8 @@ export function applyContentChunk(
     };
     if (role === 'user') state.messages = insertPresentedUserMessage(state.messages, message);
     else state.messages.push(message);
+    return messagesChange(state, message, true);
   }
-
-  return messagesChange(state);
 }
 
 export function applyThoughtChunk(
@@ -97,13 +96,15 @@ export function applyThoughtChunk(
       existing.content.push({ type: 'thinking', thinking: update.content.text, signature: '' });
     }
   } else {
-    state.messages.push({
+    const message: Message = {
       ...(messageId ? { id: messageId } : {}),
       role: 'assistant',
       created: gooseMeta.created ?? Math.floor(Date.now() / 1000),
       content: [{ type: 'thinking', thinking: update.content.text, signature: '' }],
       metadata: { ...DEFAULT_VISIBLE_MESSAGE_METADATA },
-    });
+    };
+    state.messages.push(message);
+    return messagesChange(state, message, true);
   }
 
   return messagesChange(state, existing);

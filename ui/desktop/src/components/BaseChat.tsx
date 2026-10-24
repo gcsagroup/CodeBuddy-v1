@@ -58,6 +58,7 @@ import { errorMessage } from '../utils/conversionUtils';
 import { createChatInputSubmitHandler } from './baseChatSubmission';
 import './chat-history.css';
 import './conversation-presentation.css';
+import { finishSessionLoadTiming, traceSessionLoad } from '../acp/sessionLoadTiming';
 
 const i18n = defineMessages({
   readonlyHistory: {
@@ -523,6 +524,7 @@ export default function BaseChat({
         return;
       // Replay completion is not a paint acknowledgement. Start this boundary only
       // after the message list has committed the target conversation's DOM.
+      traceSessionLoad(sessionId, 'history_dom_committed');
       historyFrames.current.first = requestAnimationFrame(() => {
         historyFrames.current.second = requestAnimationFrame(() => {
           historyFrames.current = {};
@@ -533,6 +535,11 @@ export default function BaseChat({
     [sessionId, loadingHistory, readyHistorySessionId]
   );
   const showHistoryLoading = loadingHistory || (hasHistory && readyHistorySessionId !== sessionId);
+
+  useLayoutEffect(() => {
+    if (isActiveSession && sessionLoaded && !showHistoryLoading)
+      finishSessionLoadTiming(sessionId, 'visible_commit', { messages: messages.length });
+  }, [sessionId, sessionLoaded, showHistoryLoading, messages.length, isActiveSession]);
 
   // Auto-scroll when messages are loaded (for session resuming)
   const handleRenderingComplete = React.useCallback(() => {

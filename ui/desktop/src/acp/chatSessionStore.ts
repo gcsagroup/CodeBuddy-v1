@@ -1,4 +1,5 @@
 import { petTaskFromSnapshot } from '../pets/petTaskAdapter';
+import { recordSessionReplay, traceSessionReplayComplete } from './sessionLoadTiming';
 import { useEffect, useState } from 'react';
 import type { GooseSessionNotification_unstable } from '@aaif/goose-sdk';
 import type { RequestPermissionRequest, SessionNotification } from '@agentclientprotocol/sdk';
@@ -314,7 +315,9 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
         ? ChatState.Compacting
         : ChatState.Streaming
       : ChatState.Idle;
-    return notify(sessionId, entry);
+    const snapshot = notify(sessionId, entry);
+    traceSessionReplayComplete(sessionId, snapshot.messages.length);
+    return snapshot;
   };
 
   const failSessionLoad: AcpChatSessionActions['failSessionLoad'] = (
@@ -644,6 +647,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     notification
   ) => {
     const entry = getOrCreateEntry(notification.sessionId);
+    const replayStarted = entry.sessionReplayActive ? globalThis.performance.now() : undefined;
     if (shouldIgnoreAcpNotificationForSealedTurn(entry, notification)) {
       return snapshotFromEntry(entry);
     }
@@ -728,7 +732,9 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       )
         entry.chatState = ChatState.Idle;
     }
-    return notify(notification.sessionId, entry);
+    const snapshot = notify(notification.sessionId, entry);
+    if (replayStarted !== undefined) recordSessionReplay(notification.sessionId, replayStarted);
+    return snapshot;
   };
 
   const applyAcpGooseSessionNotification: AcpChatSessionActions['applyAcpGooseSessionNotification'] =
@@ -907,12 +913,19 @@ export function useAcpChatSessionSnapshot(sessionId: string): AcpChatSessionSnap
   }));
 
   useEffect(() => {
+    const initialSnapshot = acpChatSessionStoreInternal.getSnapshot(sessionId);
     setSnapshotState({
       sessionId,
-      snapshot: acpChatSessionStoreInternal.getSnapshot(sessionId),
+      snapshot: initialSnapshot,
     });
 
+    // History is covered by the loading view. Apply every update to the store,
+    // but render its first loading state and final snapshot rather than every token.
+    let replayLoading = initialSnapshot?.chatState === ChatState.LoadingConversation;
     return acpChatSessionStoreInternal.subscribe(sessionId, (snapshot) => {
+      const loading = snapshot.chatState === ChatState.LoadingConversation;
+      if (loading && replayLoading) return;
+      replayLoading = loading;
       setSnapshotState({ sessionId, snapshot });
     });
   }, [sessionId]);

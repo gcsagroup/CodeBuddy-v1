@@ -4,6 +4,7 @@ import SessionListView from './SessionListView';
 import { useNavigation } from '../../hooks/useNavigation';
 import { isCodeProUnifiedModeEnabled } from '../../codepro/unifiedMode';
 import { resolveSessionWorkspaceMode } from '../../acp/sessions';
+import { beginSessionLoadTiming } from '../../acp/sessionLoadTiming';
 
 const SessionsView: React.FC = () => {
   const setView = useNavigation();
@@ -15,6 +16,7 @@ const SessionsView: React.FC = () => {
 
   const handleSelectSession = useCallback(
     async (sessionId: string) => {
+      beginSessionLoadTiming(sessionId, 'history');
       setView('pair', {
         disableAnimation: true,
         resumeSessionId: sessionId,

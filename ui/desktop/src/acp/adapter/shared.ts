@@ -41,12 +41,26 @@ export const DEFAULT_VISIBLE_MESSAGE_METADATA: Message['metadata'] = {
 const publishedMessages = new WeakMap<AdapterState, Message[]>();
 
 // The adapter still owns mutable input. Publish isolated snapshots, retaining
-// unchanged messages for a known single-message text/thought update.
-export function messagesChange(state: AdapterState, changed?: Message): AcpChatStateChange[] {
+// unchanged messages for a known single-message change. Only a caller that
+// inserted exactly one message may supply the insertion hint.
+export function messagesChange(
+  state: AdapterState,
+  changed?: Message,
+  inserted = false
+): AcpChatStateChange[] {
   const previous = publishedMessages.get(state);
   const index = changed ? state.messages.indexOf(changed) : -1;
   let messages: Message[];
-  if (previous && previous.length === state.messages.length && index >= 0 && changed) {
+  if (
+    inserted &&
+    previous &&
+    previous.length + 1 === state.messages.length &&
+    index >= 0 &&
+    changed
+  ) {
+    messages = previous.slice();
+    messages.splice(index, 0, cloneMessage(changed));
+  } else if (previous && previous.length === state.messages.length && index >= 0 && changed) {
     messages = previous.slice();
     messages[index] = cloneMessage(changed);
   } else {

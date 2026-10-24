@@ -18,12 +18,13 @@ export function handleAcpSessionNotification(
   signal?: globalThis.AbortSignal
 ): Promise<void> {
   if (applySubagentViewNotification(notification, signal)) return Promise.resolve();
-  const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
-    ?.session?.name;
   const updatedName =
     notification.update.sessionUpdate === 'session_info_update'
       ? notification.update.title
       : undefined;
+  const sessionNameBeforeNotification = updatedName
+    ? acpChatSessionStore.getSnapshot(notification.sessionId)?.session?.name
+    : undefined;
   acpChatSessionActions.applyAcpSessionNotification(notification);
   const update = notification.update;
   if (update.sessionUpdate === 'session_info_update' && update._meta?.['codebuddy/questions'])

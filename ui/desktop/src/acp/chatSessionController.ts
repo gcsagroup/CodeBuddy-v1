@@ -1,3 +1,8 @@
+import {
+  ensureSessionLoadTiming,
+  finishSessionLoadTiming,
+  traceSessionLoad,
+} from './sessionLoadTiming';
 import { v7 as uuidv7 } from 'uuid';
 import type { GooseExtension } from '@aaif/goose-sdk';
 import { AppEvents } from '../constants/events';
@@ -252,8 +257,10 @@ async function createSession(
 }
 
 async function loadSession(sessionId: string, options: AcpLoadSessionOptions = {}): Promise<void> {
+  ensureSessionLoadTiming(sessionId);
   const cached = acpChatSessionStore.getSnapshot(sessionId);
   if (cached?.session) {
+    traceSessionLoad(sessionId, 'cache_hit', { messages: cached.messages.length });
     restoreAcpPermissionRequestsForSession(sessionId);
     window.dispatchEvent(
       new CustomEvent(AppEvents.SESSION_EXTENSIONS_LOADED, { detail: { sessionId } })
@@ -296,6 +303,8 @@ async function loadSessionFromServer(
   sessionId: string,
   options: AcpLoadSessionOptions = {}
 ): Promise<void> {
+  ensureSessionLoadTiming(sessionId);
+  traceSessionLoad(sessionId, 'load_start');
   if (!isAcpSessionLoadInFlight(sessionId)) {
     acpChatSessionActions.startSessionLoad(sessionId);
   }
@@ -315,6 +324,7 @@ async function loadSessionFromServer(
     } catch (error) {
       if (error instanceof CodeProWorkspaceReconfirmationRequiredError) {
         acpChatSessionActions.requireWorkspaceReconfirmation(sessionId, error.request);
+        finishSessionLoadTiming(sessionId, 'workspace_reconfirmation');
         return;
       }
       const retryDelay = SESSION_LOAD_RETRY_DELAYS_MS[attempt];
@@ -330,6 +340,7 @@ async function loadSessionFromServer(
 
       console.error('Failed to load ACP session:', error);
       acpChatSessionActions.failSessionLoad(sessionId, errorMessage(error));
+      finishSessionLoadTiming(sessionId, 'failed');
       return;
     }
   }

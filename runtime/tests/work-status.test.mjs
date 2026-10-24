@@ -4,15 +4,24 @@ import { workStatusUpdates } from '../work-status.mjs';
 
 test('model transport publishes bounded public waiting phases without diagnostic internals', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
-  for (const [phase, expected] of [['start','preparing'], ['request_created','connecting'], ['request_sent','waiting'], ['response_headers','receiving']]) {
+  for (const [phase, expected] of [['start','preparing'], ['request_created','connecting'], ['request_sent','waiting']]) {
     const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase, status: 200, timings: [{ private: 'diagnostic' }], requestId: 'internal-request' });
     assert.equal(update.status.data.model_request_phase, expected);
     assert.equal(update.status.data.phase, 'model');
     assert.doesNotMatch(JSON.stringify(update), /diagnostic|internal-request|timings/);
   }
+  assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 200 }), [], 'headers alone must not change the waiting label or restart its clock');
   assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 401 })[0].status.data.model_request_phase, undefined);
   project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });
   assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_sent' })[0].status.data.phase, 'children');
+});
+
+test('only actual model content ends waiting after successful response headers', () => {
+  for (const phase of ['first_tool_arguments', 'first_text', 'first_reasoning']) {
+    const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+    assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 200 })[0].status.data.model_request_phase, 'waiting');
+    assert.equal(project({ type: 'model_diagnostic', sessionId: 'parent', phase })[0].status.data.model_request_phase, 'receiving');
+  }
 });
 
 test('tool argument streaming is reported as preparation, never tool execution or completion', () => {

@@ -15,6 +15,14 @@ export function workspaceLinkPath(value: string): string | undefined {
       return decodeURIComponent(url.pathname).replace(/^\/([a-z]:\/)/i, '$1');
     }
     if (/^(?:[a-z]:[\\/]|\/(?!\/))/i.test(value)) return decodeURI(value);
+    if (!value || /^(?:[\\/]|[a-z][a-z0-9+.-]*:)/i.test(value)) return undefined;
+    const relative = new URL(value, 'file:///workspace/');
+    if (relative.hostname || relative.search || relative.hash) return undefined;
+    const filePath = decodeURIComponent(value);
+    if (/^(?:[\\/]|[a-z][a-z0-9+.-]*:)/i.test(filePath)) return undefined;
+    // Resolve against the session workspace through the existing main-process
+    // path guard, never against the packaged renderer's file:// location.
+    return filePath;
   } catch {
     /* Incomplete or malformed Markdown URLs are not file targets. */
   }

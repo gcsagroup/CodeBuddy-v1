@@ -782,3 +782,35 @@ it('routes legacy file image syntax and local links to the scoped right panel wi
     window.removeEventListener('codebuddy:open-workspace-file', opened);
   }
 });
+
+it.each([false, true])('opens workspace-relative links while preserving web and URL boundaries (streaming=%s)', (animateIncoming) => {
+  const opened = vi.fn();
+  const previousElectron = window.electron;
+  const external = vi.fn();
+  window.electron = { ...previousElectron, openExternal: external };
+  window.addEventListener('codebuddy:open-workspace-file', opened);
+  try {
+    const view = renderWithIntl(
+      <MarkdownContent
+        sessionId="relative-files"
+        animateIncoming={animateIncoming}
+        content={'[Source](acceptance/maximum.cjs)\n\n[Unicode](./acceptance/%E4%B8%AD%E6%96%87%20%23.cjs)\n\n[Web](https://example.com/docs)\n\n[Network](//server/share/file.cjs)\n\n[Encoded network](%2F%2Fserver/share/file.cjs)\n\n[Anchor](#section)\n\n[Query](file.cjs?download=1)'}
+      />
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'Source' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Unicode' }));
+    expect(opened.mock.calls.map(([event]) => event.detail)).toEqual([
+      { sessionId: 'relative-files', filePath: 'acceptance/maximum.cjs' },
+      { sessionId: 'relative-files', filePath: './acceptance/中文 #.cjs' },
+    ]);
+    fireEvent.click(screen.getByRole('link', { name: 'Web' }));
+    expect(external).toHaveBeenCalledWith('https://example.com/docs');
+    for (const href of ['//server/share/file.cjs', '%2F%2Fserver/share/file.cjs', '#section', 'file.cjs?download=1']) {
+      fireEvent.click(view.container.querySelector(`a[href="${href}"]`)!);
+    }
+    expect(opened).toHaveBeenCalledTimes(2);
+  } finally {
+    window.removeEventListener('codebuddy:open-workspace-file', opened);
+    window.electron = previousElectron;
+  }
+});

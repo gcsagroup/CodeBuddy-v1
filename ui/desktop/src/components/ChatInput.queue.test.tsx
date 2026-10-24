@@ -82,6 +82,7 @@ function setup(
   pendingProps: {
     messages?: Message[];
     onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
+    onSubmissionAccepted?: () => void;
   } = {}
 ) {
   const onStop = vi.fn();
@@ -229,6 +230,49 @@ describe('compact queue presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it.each(['accepted', 'rejected', 'uncertain', 'switched'] as const)(
+    'resumes reading only for an accepted explicit send in the same view: %s',
+    async (outcome) => {
+      const pending = deferred<void>();
+      let receipt!: MessageSubmissionLifecycle;
+      const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+        receipt = lifecycle!;
+        return pending.promise;
+      });
+      const follow = vi.fn();
+      const view = setup(submit, undefined, false, false, { onSubmissionAccepted: follow });
+      view.changeState(ChatState.Idle);
+      const input = screen.getByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'explicit new message' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+      expect(follow).not.toHaveBeenCalled();
+      if (outcome === 'switched') view.changeSession('another-session');
+      act(() => {
+        if (outcome === 'rejected') receipt.onRejectedBeforeAcceptance();
+        else if (outcome === 'uncertain') receipt.onDeliveryUncertain?.();
+        else {
+          receipt.onAccepted();
+          receipt.onAccepted();
+        }
+      });
+      expect(follow).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
+      await act(async () => pending.resolve());
+    }
+  );
+
+  it('keeps reading position when an automatically queued message is accepted', async () => {
+    const follow = vi.fn();
+    const submit = vi.fn((_input: UserInput, receipt?: MessageSubmissionLifecycle) =>
+      receipt?.onAccepted()
+    );
+    const view = setup(submit, undefined, false, false, { onSubmissionAccepted: follow });
+    await queue('automatic delivery must not scroll');
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(follow).not.toHaveBeenCalled();
+  });
+
   it('clears the received draft before the turn finishes and leaves later input intact', async () => {
     const pending = deferred<void>();
     let lifecycle!: MessageSubmissionLifecycle;

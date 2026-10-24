@@ -204,6 +204,7 @@ interface ChatInputProps {
   placeholder?: string;
   sessionId: string | null;
   handleSubmit: (input: UserInput, lifecycle?: MessageSubmissionLifecycle) => Promise<void> | void;
+  onSubmissionAccepted?: () => void;
   chatState: ChatState;
   onStop?: () => void;
   onSteerQueuedMessage?: (input: UserInput) => Promise<boolean>;
@@ -259,6 +260,7 @@ export default function ChatInput({
   placeholder,
   sessionId,
   handleSubmit,
+  onSubmissionAccepted,
   chatState = ChatState.Idle,
   onStop,
   onPendingMessageChange,
@@ -1290,6 +1292,7 @@ export default function ChatInput({
                 setGoalRefresh((value) => value + 1);
                 clearCommand();
                 release();
+                if (queueSessionIdRef.current === sessionId) onSubmissionAccepted?.();
               },
               onRejectedBeforeAcceptance: () => setCommandNotice(composerCommandFailure(intl)),
             });
@@ -1347,6 +1350,9 @@ export default function ChatInput({
               setIsInGlobalHistory(false);
               setHasUserTyped(false);
             }
+            // An explicit send resumes this viewport; automatic queued delivery
+            // and unrelated session events must leave the reader in control.
+            if (queueSessionIdRef.current === sessionId) onSubmissionAccepted?.();
           },
           onRejectedBeforeAcceptance: () => {
             clearPendingDraft();
@@ -1396,6 +1402,7 @@ export default function ChatInput({
       allDroppedFiles,
       handleSubmit,
       clearInputState,
+      onSubmissionAccepted,
       setLocalDroppedFiles,
     ]
   );

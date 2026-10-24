@@ -365,6 +365,7 @@ export default function BaseChat({
   );
 
   const recipe = session?.recipe as Recipe | null | undefined;
+  const handleUserSubmissionAccepted = useCallback(() => scrollRef.current?.scrollToBottom(), []);
 
   const chatInputSubmit = useMemo(
     () =>
@@ -961,6 +962,7 @@ export default function BaseChat({
                 inputRef={chatInputRef}
                 sessionId={sessionId}
                 handleSubmit={chatInputSubmit}
+                onSubmissionAccepted={handleUserSubmissionAccepted}
                 chatState={loadingHistory ? ChatState.LoadingConversation : chatState}
                 onStop={stopStreaming}
                 onPendingMessageChange={onPendingMessageChange}

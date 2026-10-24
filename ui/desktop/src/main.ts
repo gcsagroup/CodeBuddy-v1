@@ -1468,6 +1468,18 @@ const createChat = async (
   mainWindow.webContents.session.setSpellCheckerLanguages(['en-US', 'en-GB']);
   mainWindow.webContents.on('context-menu', (_event, params) => {
     const menu = new Menu();
+    if (params.mediaType === 'image' && params.hasImageContents) {
+      menu.append(new MenuItem({
+        label: nativeT('Copy image', '复制图片', '複製圖片'),
+        click: () => mainWindow.webContents.copyImageAt(params.x, params.y),
+      }));
+      menu.append(new MenuItem({
+        label: nativeT('Save image as…', '图片另存为…', '圖片另存為…'),
+        click: () => mainWindow.webContents.downloadURL(params.srcURL),
+      }));
+      if (params.selectionText || params.isEditable)
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
     const hasSpellingSuggestions = params.dictionarySuggestions.length > 0 || params.misspelledWord;
 
     if (hasSpellingSuggestions) {

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { applyPermissionRequest } from '../acp/adapter/permissions';
 import type { AdapterState } from '../acp/adapter/shared';
 import { IntlTestWrapper } from '../i18n/test-utils';
-import ToolConfirmation from './ToolCallConfirmation';
+import ToolConfirmation, { ToolApprovalTarget } from './ToolCallConfirmation';
 import {
   cancelAcpPermissionRequestsForSession,
   requestAcpPermission,
@@ -13,6 +13,56 @@ import {
 afterEach(() => {
   for (const sessionId of ['session-memory', 'session-invalid-memory'])
     cancelAcpPermissionRequestsForSession(sessionId);
+});
+
+it.each([
+  ['open', 'Open page'],
+  ['observe', 'Read page'],
+  ['click', 'Click page element'],
+  ['type', 'Enter text on page'],
+  ['key', 'Send key to page'],
+  ['screenshot', 'Capture page'],
+  ['console', 'Read page console'],
+  ['close', 'Close page'],
+])('shows the actual browser action and target before approving %s', (operation, label) => {
+  render(
+    <ToolApprovalTarget
+      toolName="browser_control"
+      argumentsValue={{
+        operation,
+        url: 'https://example.com/文档?q=1&x=2',
+        id: 'test-tab',
+        node: 7,
+        text: '<button>fixture text</button>',
+        key: 'Enter',
+        token: 'must-not-appear',
+      }}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByRole('heading', { name: label })).toBeVisible();
+  expect(screen.getByText('https://example.com/文档?q=1&x=2')).toBeVisible();
+  expect(screen.getByText('Tab test-tab')).toBeVisible();
+  expect(screen.getByText('Element 7')).toBeVisible();
+  expect(screen.queryByText('must-not-appear')).not.toBeInTheDocument();
+  expect(screen.queryAllByRole('button')).toHaveLength(0);
+  expect(screen.queryByText('<button>fixture text</button>') !== null).toBe(operation === 'type');
+  expect(screen.queryByText('Enter') !== null).toBe(operation === 'key');
+});
+
+it('reports a missing browser target without repairing malformed model arguments', () => {
+  render(
+    <ToolApprovalTarget
+      toolName="browser_control"
+      argumentsValue={{
+        operation: 'observe',
+        'id\\"': 'a malformed field is not a tab id',
+      }}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(screen.getByText('Target not provided')).toBeVisible();
+  expect(screen.queryByText('a malformed field is not a tab id')).not.toBeInTheDocument();
 });
 
 function pendingMemoryPermission(sessionId: string, toolCallId: string) {

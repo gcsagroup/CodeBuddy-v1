@@ -3,6 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { formatToolAction, webSearchDetails } from './toolActionPresentation';
 
 const intl = createIntl({ locale: 'en', messages: {} });
+
+it('uses the same browser operation name in approvals and progress without inventing execution', () => {
+  expect(
+    formatToolAction(intl, 'browser_control', { operation: 'observe' }, undefined, 'name')
+  ).toBe('Read page');
+  expect(formatToolAction(intl, 'browser_control', { operation: 'observe' }, 'running')).toBe(
+    'Read page · in progress'
+  );
+  expect(
+    formatToolAction(
+      intl,
+      'browser_control',
+      { operation: 'observe', __inputPreview: true },
+      'running'
+    )
+  ).toBe('Preparing operation parameters · Read page');
+  expect(
+    formatToolAction(intl, 'browser_control', { operation: 'invented' }, undefined, 'name')
+  ).toBe('Browser action');
+});
 describe('live file generation', () => {
   it('uses an extension display title only as a fallback and never treats argument prose as a name', () => {
     expect(

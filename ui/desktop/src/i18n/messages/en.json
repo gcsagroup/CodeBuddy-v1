@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click page element} type{Enter text on page} key{Send key to page} screenshot{Capture page} console{Read page console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Element {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Tab {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Target not provided"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

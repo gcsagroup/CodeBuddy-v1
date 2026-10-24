@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Mở trang} observe {Đọc trang} click {Nhấp vào phần tử trên trang} type {Nhập văn bản trên trang} key {Gửi phím đến trang} screenshot {Chụp trang} console {Đọc bảng điều khiển của trang} close {Đóng trang} other {Thao tác trình duyệt}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Phần tử {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Thẻ {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Chưa cung cấp đối tượng"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

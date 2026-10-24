@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Sayfayı aç} observe {Sayfayı oku} click {Sayfa öğesine tıkla} type {Sayfaya metin gir} key {Sayfaya tuş gönder} screenshot {Sayfanın görüntüsünü al} console {Sayfa konsolunu oku} close {Sayfayı kapat} other {Tarayıcı işlemi}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Öğe {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Sekme {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Hedef belirtilmedi"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

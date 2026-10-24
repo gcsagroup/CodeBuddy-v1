@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Открыть страницу} observe {Прочитать страницу} click {Нажать элемент страницы} type {Ввести текст на странице} key {Отправить клавишу странице} screenshot {Сделать снимок страницы} console {Прочитать консоль страницы} close {Закрыть страницу} other {Действие браузера}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Элемент {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Вкладка {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Цель не указана"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

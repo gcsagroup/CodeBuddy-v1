@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Buka halaman} observe {Baca halaman} click {Klik elemen halaman} type {Masukkan teks di halaman} key {Kirim tombol ke halaman} screenshot {Ambil gambar halaman} console {Baca konsol halaman} close {Tutup halaman} other {Tindakan browser}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Elemen {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Tab {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Target belum ditentukan"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Abrir página} observe {Leer página} click {Hacer clic en un elemento de la página} type {Introducir texto en la página} key {Enviar una tecla a la página} screenshot {Capturar la página} console {Leer la consola de la página} close {Cerrar página} other {Acción del navegador}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Elemento {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Pestaña {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "No se ha indicado el destino"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

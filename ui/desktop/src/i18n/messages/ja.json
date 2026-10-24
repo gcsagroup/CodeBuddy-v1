@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {ページを開く} observe {ページを読み取る} click {ページの要素をクリックする} type {ページに文字を入力する} key {ページにキーを送信する} screenshot {ページを撮影する} console {ページのコンソールを読み取る} close {ページを閉じる} other {ブラウザー操作}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "要素 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "タブ {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "操作対象が指定されていません"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

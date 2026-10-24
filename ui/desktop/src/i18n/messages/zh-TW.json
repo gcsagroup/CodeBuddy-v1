@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {開啟網頁} observe {讀取網頁} click {點選網頁元素} type {在網頁中輸入文字} key {向網頁傳送按鍵} screenshot {擷取網頁} console {讀取網頁主控台} close {關閉網頁} other {瀏覽器操作}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "元素 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "分頁 {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "未提供操作對象"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "預期遠端提交"
   },

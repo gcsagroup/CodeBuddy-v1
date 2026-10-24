@@ -62,6 +62,12 @@ const i18n = defineMessages({
   },
   command: { id: 'codeProActivity.command', defaultMessage: 'Command' },
   path: { id: 'codeProActivity.path', defaultMessage: 'Path' },
+  browserTab: { id: 'toolConfirmation.browserTab', defaultMessage: 'Tab {id}' },
+  browserNode: { id: 'toolConfirmation.browserNode', defaultMessage: 'Element {node}' },
+  browserTargetMissing: {
+    id: 'toolConfirmation.browserTargetMissing',
+    defaultMessage: 'Target not provided',
+  },
   taskWorkspaceGrant: {
     id: 'toolConfirmation.taskWorkspaceGrant',
     defaultMessage:
@@ -117,6 +123,31 @@ export function ToolApprovalTarget({
 }) {
   const intl = useIntl();
   const target = approvalTarget(toolName, argumentsValue);
+  if (toolName.split(/__|::/).pop() === 'browser_control') {
+    const { operation, url, path, id, node, text, key } = argumentsValue;
+    const hasTarget =
+      operation === 'open'
+        ? [url, path].some((value) => typeof value === 'string' && value.trim())
+        : typeof id === 'string' && id.trim();
+    return (
+      <section className="mt-3 min-w-0">
+        <h3 className="text-xs font-medium text-text-secondary">
+          {formatToolAction(intl, toolName, argumentsValue, undefined, 'name')}
+        </h3>
+        <div className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap break-all text-sm text-text-primary">
+          {!hasTarget && <p>{intl.formatMessage(i18n.browserTargetMissing)}</p>}
+          {typeof url === 'string' && <p>{url}</p>}
+          {typeof path === 'string' && <p>{path}</p>}
+          {typeof id === 'string' && <p>{intl.formatMessage(i18n.browserTab, { id })}</p>}
+          {Number.isSafeInteger(node) && Number(node) > 0 && (
+            <p>{intl.formatMessage(i18n.browserNode, { node: Number(node) })}</p>
+          )}
+          {operation === 'type' && typeof text === 'string' && <pre>{text}</pre>}
+          {operation === 'key' && typeof key === 'string' && <pre>{key}</pre>}
+        </div>
+      </section>
+    );
+  }
   if (!target) return null;
   return (
     <section className="mt-3">

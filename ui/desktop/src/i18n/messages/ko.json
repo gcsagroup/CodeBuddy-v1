@@ -8441,6 +8441,18 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {페이지 열기} observe {페이지 읽기} click {페이지 요소 클릭} type {페이지에 텍스트 입력} key {페이지에 키 보내기} screenshot {페이지 캡처} console {페이지 콘솔 읽기} close {페이지 닫기} other {브라우저 작업}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "요소 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "탭 {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "대상이 지정되지 않았습니다"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },

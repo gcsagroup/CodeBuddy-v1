@@ -29,6 +29,11 @@ const messages = defineMessages({
   webSearch: { id: 'toolAction.webSearch', defaultMessage: 'Search the web' },
   webSearchRunning: { id: 'toolAction.webSearchRunning', defaultMessage: 'Searching the web' },
   webSearchDone: { id: 'toolAction.webSearchDone', defaultMessage: 'Searched the web' },
+  browserAction: {
+    id: 'toolConfirmation.browserAction',
+    defaultMessage:
+      '{operation, select, open {Open page} observe {Read page} click {Click page element} type {Enter text on page} key {Send key to page} screenshot {Capture page} console {Read page console} close {Close page} other {Browser action}}',
+  },
   tree: { id: 'toolAction.tree', defaultMessage: 'List files' },
   shell: { id: 'toolAction.shell', defaultMessage: 'Run command' },
   observe: { id: 'toolAction.observe', defaultMessage: 'Observe desktop' },
@@ -200,6 +205,9 @@ export function formatToolAction(
     if (typeof path === 'string') target = path.split(/[\\/]/).filter(Boolean).pop() ?? '';
   };
   switch (name) {
+    case 'browser_control':
+      action = 'browserAction';
+      break;
     case 'subagent_browser':
       action = 'sourceResearch';
       break;
@@ -390,7 +398,11 @@ export function formatToolAction(
         : snakeToTitleCase(name);
     return presentation === 'name' ? label : intl.formatMessage(messages.other, { name: label });
   }
-  if (presentation === 'name') return intl.formatMessage(messages[action]);
+  const fields =
+    action === 'browserAction'
+      ? { operation: typeof args.operation === 'string' ? args.operation : 'other' }
+      : undefined;
+  if (presentation === 'name') return intl.formatMessage(messages[action], fields);
   const compactTarget = target.replace(/\s+/g, ' ').trim();
   const visibleTarget =
     compactTarget.length > 80 ? compactTarget.slice(0, 77) + '…' : compactTarget;
@@ -409,7 +421,7 @@ export function formatToolAction(
       });
     }
     return intl.formatMessage(messages.generating, {
-      target: ` · ${[intl.formatMessage(messages[action]), visibleTarget].filter(Boolean).join(' ')}`,
+      target: ` · ${[intl.formatMessage(messages[action], fields), visibleTarget].filter(Boolean).join(' ')}`,
     });
   }
   if (state === 'completed') {
@@ -418,7 +430,9 @@ export function formatToolAction(
     else if (action === 'edit') action = 'editDone';
     else if (action === 'shell') action = 'shellDone';
   }
-  const label = [intl.formatMessage(messages[action]), visibleTarget].filter(Boolean).join(' ');
+  const label = [intl.formatMessage(messages[action], fields), visibleTarget]
+    .filter(Boolean)
+    .join(' ');
   return state === 'running' ? intl.formatMessage(messages.running, { action: label }) : label;
 }
 

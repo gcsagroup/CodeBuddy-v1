@@ -19,7 +19,12 @@ test.beforeAll(async () => {
   });
   await server.listen();
   browser = await chromium.launch({
-    channel: process.platform === 'win32' ? 'msedge' : process.platform === 'darwin' ? 'chrome' : undefined,
+    channel:
+      process.platform === 'win32'
+        ? 'msedge'
+        : process.platform === 'darwin'
+          ? 'chrome'
+          : undefined,
   });
   page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
 });
@@ -54,6 +59,75 @@ test('automatic thought collapse keeps the final result in view without reserved
     })
     .toBe(true);
 });
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`settling a turn preserves the reader and releases removed content space (${reducedMotion})`, async () => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(
+      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?auto-fold&turn-group`
+    );
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+    await settle();
+    const viewport = page.locator('[data-radix-scroll-area-viewport]');
+    await page.getByText('Final verified result', { exact: true }).hover();
+    await page.mouse.wheel(0, -120);
+    await expect(page.getByRole('status')).toHaveText('Reading history');
+    await settle();
+    const reading = page.locator('.codepro-thinking-record').last().getByRole('button');
+    const before = (await reading.boundingBox())!;
+    await page.getByRole('button', { name: 'Finish run', exact: true }).click();
+    await settle();
+    await expect(page.getByRole('button', { name: 'Turn work', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    await expect(reading).toBeVisible();
+    expect(Math.abs((await reading.boundingBox())!.y - before.y)).toBeLessThanOrEqual(2);
+    await expect(page.getByRole('status')).toHaveText('Reading history');
+    await page.getByRole('button', { name: 'Remove work', exact: true }).click();
+    await expect
+      .poll(() =>
+        viewport.evaluate((v) => {
+          const content = v.firstElementChild!.firstElementChild as HTMLElement;
+          const end = content.firstElementChild!.getBoundingClientRect().bottom;
+          return {
+            reserved: content.style.minHeight,
+            visible: end > v.getBoundingClientRect().top,
+          };
+        })
+      )
+      .toEqual({ reserved: '', visible: true });
+    await expect(page.getByRole('status')).toHaveText('Reading history');
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+    await expect(page.getByRole('status')).toHaveText('Following output');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  });
+
+  test(`following a turn still folds its history and retains the final answer (${reducedMotion})`, async () => {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(
+      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?auto-fold&turn-group`
+    );
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+    await settle();
+    await page.getByRole('button', { name: 'Finish run', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Turn work', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    const viewport = page.locator('[data-radix-scroll-area-viewport]');
+    await expect
+      .poll(async () => {
+        const v = (await viewport.boundingBox())!;
+        const answer = (await page
+          .getByText('Final verified result', { exact: true })
+          .boundingBox())!;
+        return answer.y >= v.y && answer.y + answer.height <= v.y + v.height;
+      })
+      .toBe(true);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+  });
+}
 
 test('latest indicator measures visible bottom independently of disclosure reading mode', async () => {
   await openFixture();

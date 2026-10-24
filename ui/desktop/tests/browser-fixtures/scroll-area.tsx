@@ -33,20 +33,39 @@ import { showExtensionLoadResults } from '../../src/utils/extensionErrorUtils';
 function AutoFoldFixture() {
   const area = useRef<ScrollAreaHandle>(null);
   const [running, setRunning] = useState(true);
+  const [hidden, setHidden] = useState(false);
+  const [following, setFollowing] = useState(true);
+  const turnGroup = new URLSearchParams(window.location.search).has('turn-group');
+  const thoughts = [0, 1, 2].map((id) => (
+    <ThinkingContent
+      key={id}
+      isExpanded={running}
+      content={Array.from({ length: 30 }, (_, n) => `Reasoning ${id}-${n}\n\n`).join('')}
+    />
+  ));
   return (
     <IntlTestWrapper>
       <main style={{ padding: 24, width: 850 }}>
         <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
         <button onClick={() => setRunning(false)}>Finish run</button>
-        <ScrollArea ref={area} autoScroll style={{ height: 520 }}>
+        <button onClick={() => setHidden(true)}>Remove work</button>
+        <span role="status">{following ? 'Following output' : 'Reading history'}</span>
+        <ScrollArea ref={area} autoScroll onScrollChange={setFollowing} style={{ height: 520 }}>
           <div style={{ height: 900 }}>Earlier conversation</div>
-          {[0, 1, 2].map((id) => (
-            <ThinkingContent
-              key={id}
-              isExpanded={running}
-              content={Array.from({ length: 30 }, (_, n) => `Reasoning ${id}-${n}\n\n`).join('')}
-            />
-          ))}
+          {!hidden &&
+            (turnGroup ? (
+              <ToolCallExpandable
+                compact
+                label="Turn work"
+                scrollable={false}
+                collapsible={!running}
+                collapseOnSettle={!running}
+              >
+                {thoughts}
+              </ToolCallExpandable>
+            ) : (
+              thoughts
+            ))}
           <p>Final verified result</p>
         </ScrollArea>
       </main>

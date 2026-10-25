@@ -2,6 +2,8 @@
 
 [简体中文](2026-10-23-desktop-delivery.zh-CN.md) · [English](2026-10-23-desktop-delivery.en.md)
 
+> 憑據更正：下方雙預置連線段落是已撤回的歷史候選方案。共享雲端 Key 與分發匯入已移除，目前原始碼不內建 Ollama 憑據，新使用者須自行配置。請勿依歷史段落恢復共享憑據。近期實作與驗證見[桌面互動開發說明](2026-10-25-desktop-ux-and-history.zh-TW.md)。
+
 > 本文保留開發階段的時間順序紀錄；「待重建」「Mac LAN 待確認」屬於當時狀態。後續重建及限定範圍的安裝版驗收已完成，最新結果、限制與 Git 提交見[合併交接](2026-10-23-merge-handoff.zh-TW.md)。本機 Ollama 與 Ollama Cloud 的驗收範圍不同。
 
 Windows 來源為 `D:\CodeBuddy-v1`、`main d43fcbbd0ec85afcb073cb74b14e835752a26e20` 加既有與本批未提交變更。接手時已有 278 條變更，未建立分支、提交或推送。Mac 位於 `/Users/erjinyi/Desktop/work/CodeBuddy-v1`，以 檔案 SHA256 快照與同步回執辨識來源，不能以舊 HEAD 代表候選內容。

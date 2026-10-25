@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Önceliği yeniden sıralamak için mesajları sürükleyin"
+  "messageQueue.continueSending": {
+    "defaultMessage": "İletiler korundu. Hazır olduğunuzda gönderin."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Sırayı genişlet"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# mesaj {status}} other{# mesaj {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Mesaj Sırası"
-  },
   "messageQueue.next": {
     "defaultMessage": "Sonraki"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Duraklatıldı"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Sıra Duraklatıldı"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Kuyruk duraklatıldı. Geçerli görevi kontrol edin, ardından mesaj göndermek için “Şimdi gönder”i kullanın."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Kuyruk duraklatıldı. Geçerli görevi kontrol edin, ardından mesaj göndermek için “Şimdi gönder”i kullanın."
+  "messageQueue.pending": {
+    "defaultMessage": "Gönderilmeyi bekliyor"
   },
   "messageQueue.queued": {
     "defaultMessage": "sıraya alınmış"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "Kaydet"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Tümünü şimdi gönder"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Bu mesajı şimdi gönder"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Mevcut işlemeyi durdurun ve bu mesajı hemen gönderin"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Bekleyen tüm iletileri şimdi birlikte gönder"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Geçerli işlemi durdur ve bekleyen tüm iletileri birlikte gönder"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "beklemek"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {Sayfayı aç} observe {Sayfayı oku} click {Sayfa öğesine tıkla} type {Sayfaya metin gir} key {Sayfaya tuş gönder} screenshot {Sayfanın görüntüsünü al} console {Sayfa konsolunu oku} close {Sayfayı kapat} other {Tarayıcı işlemi}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Öğe {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Sekme {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Hedef belirtilmedi"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

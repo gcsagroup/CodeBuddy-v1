@@ -31,6 +31,17 @@ async function copyRuntimeSources(runtime, destination) {
   }
 }
 
+async function stageWindowsToolRuntime(runtime, destination) {
+  // The tool-only MSVC binary must also work without a machine-wide VC redist.
+  // Reuse the release DLL already supplied by the native Python payload.
+  const python = path.join(runtime, 'py/dependencies/python');
+  const tools = path.join(destination, 'runtime/tools');
+  await fs.mkdir(path.join(tools, 'bin'), { recursive: true });
+  await fs.mkdir(path.join(tools, 'licenses'), { recursive: true });
+  await fs.copyFile(path.join(python, 'vcruntime140.dll'), path.join(tools, 'bin/vcruntime140.dll'));
+  await fs.copyFile(path.join(python, 'LICENSE.txt'), path.join(tools, 'licenses/python-windows-LICENSE.txt'));
+}
+
 async function stageHarness(repoRoot, destination, options = {}) {
   const target = distributionTarget();
   if (Number(process.versions.node.split('.')[0]) < 24)
@@ -124,6 +135,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
     for (const binary of ['codebuddy-tools.exe', 'qwen-computer-use.exe']) {
       await copy(path.join(runtime, 'tools/bin', binary), path.join(destination, 'runtime/tools/bin', binary));
     }
+    await stageWindowsToolRuntime(runtime, destination);
   } else {
     const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
     for (const file of Object.values(macArtifactFiles))
@@ -152,7 +164,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await fs.writeFile(path.join(destination, 'manifest.json'), JSON.stringify({ schemaVersion: 1, engine: 'deepseek-harness', nodeVersion: process.versions.node, createdAt: new Date().toISOString(), sourceDigest, runtimeDependencies: [...roots].sort(), adapterDependencies, files }, null, 2));
   return { destination, sourceDigest, files: files.length };
 }
-module.exports = { stageHarness, distributionTarget, assertOfficeTarget, copyRuntimeSources };
+module.exports = { stageHarness, distributionTarget, assertOfficeTarget, copyRuntimeSources, stageWindowsToolRuntime };
 if (require.main === module) {
   stageHarness(path.resolve(__dirname, '..'), path.resolve(process.argv[2])).then(result => console.log(JSON.stringify(result))).catch(error => { console.error(error); process.exitCode = 1; });
 }

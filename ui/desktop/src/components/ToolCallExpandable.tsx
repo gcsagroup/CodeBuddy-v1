@@ -70,7 +70,7 @@ export function ToolCallExpandable({
   const wasSettled = useRef(collapseOnSettle);
 
   useEffect(() => {
-    if (collapseOnSettle && !wasSettled.current) {
+    if (collapseOnSettle && !wasSettled.current && chatFollowing && expandedState !== true) {
       setExpanded(false);
       if (storageKey) {
         try {
@@ -81,7 +81,7 @@ export function ToolCallExpandable({
       }
     }
     wasSettled.current = collapseOnSettle;
-  }, [collapseOnSettle, storageKey]);
+  }, [collapseOnSettle, storageKey, chatFollowing, expandedState]);
 
   useEffect(() => {
     // Scrollbar dragging and keyboard navigation need not reach this element.

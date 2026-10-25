@@ -80,6 +80,9 @@ import {
 } from "./session-extensions.mjs";
 
 const prefix = "_goose/unstable/";
+const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
+  'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
+  'readonlyHistory', 'userSetName', 'archivedAt'];
 
 // Both model calls and direct UI calls project the original MCP receipt.
 function toolResultUpdate(event, metadata) {
@@ -215,6 +218,43 @@ function replayTranscript(session) {
     return [{ ...update, messageId: [...occurrences.values()][offset] }];
   });
   return { updates, usageUpdates };
+}
+
+// History needs the assembled text, whereas live delivery keeps every delta.
+// Merge only adjacent assistant text/thought chunks with identical envelopes.
+// User chunks retain their echo/deduplication semantics; tools and all other
+// records remain exact ordering boundaries. The stored journal is never edited.
+function* replayTextChunks(updates) {
+  // Bound newly assembled frames; an already-large original stays unchanged.
+  const maxTextCharacters = 64 * 1024;
+  let head, signature, texts, textCharacters = 0;
+  const assembled = () => texts.length === 1 ? head
+    : { ...head, content: { ...head.content, text: texts.join('') } };
+  for (const update of updates) {
+    const id = update.messageId ?? update._meta?.goose?.messageId;
+    const eligible = typeof id === 'string' && id.length > 0 &&
+      ['agent_message_chunk', 'agent_thought_chunk'].includes(update.sessionUpdate) &&
+      update.content?.type === 'text' && typeof update.content.text === 'string';
+    let nextSignature;
+    if (eligible) {
+      const { content, ...envelope } = update;
+      const { text: _text, ...attributes } = content;
+      nextSignature = JSON.stringify([envelope, attributes]);
+    }
+    if (head && nextSignature !== undefined && nextSignature === signature &&
+        textCharacters + update.content.text.length <= maxTextCharacters) {
+      texts.push(update.content.text);
+      textCharacters += update.content.text.length;
+      continue;
+    }
+    if (head) yield assembled();
+    head = eligible ? update : undefined;
+    signature = nextSignature;
+    texts = eligible ? [update.content.text] : [];
+    textCharacters = eligible ? update.content.text.length : 0;
+    if (!eligible) yield update;
+  }
+  if (head) yield assembled();
 }
 
 export class Compat {
@@ -1396,9 +1436,7 @@ export class Compat {
       // Sidebar refresh needs metadata; only explicit full-text searches need
       // transcript content. Both paths select one consistent committed snapshot.
       const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], query ? undefined : {
-        sessionFields: ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
-          'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
-          'readonlyHistory', 'userSetName', 'archivedAt'],
+        sessionFields: sessionInfoFields,
       });
       const sessions = state.sessions.filter(
           (s) =>
@@ -1420,97 +1458,175 @@ export class Compat {
       };
     }
     if (method === "session/load") {
-      const s = this.session(p.sessionId);
-      if (s.type === "code_pro" && !s.readonlyHistory) {
-        if (p._meta?.workspaceLeaseId)
-          await this.workspaces.consumeLease(
-            { leaseId: p._meta.workspaceLeaseId, cwd: s.cwd, sessionId: s.id },
-            connection,
-          );
-        else {
-          try {
-            await this.workspaces.validateSession(s.id, s.cwd);
-          } catch {
-            throw invalid(
-              "CodePro workspace must be re-confirmed before this session can be resumed",
+      const started = performance.now(),
+        phases = {};
+      let previous = started,
+        completed = false,
+        updateCount = 0,
+        dispatchedUpdates = 0;
+      const checkpoint = (name) => {
+        const now = performance.now();
+        phases[name] = Math.round(now - previous);
+        previous = now;
+      };
+      try {
+        const s = this.session(p.sessionId);
+        checkpoint("readSessionMs");
+        if (s.type === "code_pro" && !s.readonlyHistory) {
+          if (p._meta?.workspaceLeaseId)
+            await this.workspaces.consumeLease(
+              {
+                leaseId: p._meta.workspaceLeaseId,
+                cwd: s.cwd,
+                sessionId: s.id,
+              },
+              connection,
             );
+          else {
+            try {
+              await this.workspaces.validateSession(s.id, s.cwd);
+            } catch {
+              throw invalid(
+                "CodePro workspace must be re-confirmed before this session can be resumed",
+              );
+            }
           }
         }
-      }
-      const liveReplay = this.active.get(s.id)?.replay;
-      // Journal projection is committed at turn end. Include already-published
-      // live updates until that same turn has reached the persisted high water mark.
-      const includeLive = liveReplay && !Object.values(s.transcriptTurns ?? {}).some(turn => turn.turnId === liveReplay.turnId);
-      const transcript = replayTranscript(
-        s.legacyHistory
-          ? {
-              ...s,
-              updates: updatesFromConversation(
-                await loadLegacyConversation(
-                  this.store.directory,
-                  s.legacyHistory,
+        checkpoint("workspaceMs");
+        const liveReplay = this.active.get(s.id)?.replay;
+        // Journal projection is committed at turn end. Include already-published
+        // live updates until that same turn has reached the persisted high water mark.
+        const includeLive =
+          liveReplay &&
+          !Object.values(s.transcriptTurns ?? {}).some(
+            (turn) => turn.turnId === liveReplay.turnId,
+          );
+        const transcript = replayTranscript(
+          s.legacyHistory
+            ? {
+                ...s,
+                updates: updatesFromConversation(
+                  await loadLegacyConversation(
+                    this.store.directory,
+                    s.legacyHistory,
+                  ),
+                  s.createdAt,
                 ),
-                s.createdAt,
-              ),
-            }
-          : includeLive ? { ...s, updates: [...(s.updates ?? []), ...liveReplay.users, ...liveReplay.updates], usageUpdates: [...(s.usageUpdates ?? []), ...liveReplay.usageUpdates] } : s,
-      );
-      // Live schedule broadcasts can arrive while the client awaits validation.
-      // Mark the exact replay boundary; the synchronous transcript below already
-      // includes those published deltas. This presentation marker is not saved.
-      connection.notify("session/update", {
-        sessionId: s.id,
-        update: { sessionUpdate: "session_info_update", _meta: { goose: { transcriptReplayStarted: true } } },
-      });
-      for (const update of transcript.updates)
-        connection.notify("session/update", { sessionId: s.id, update });
-      for (const update of transcript.usageUpdates)
-        connection.notify("_goose/unstable/session/update", {
-          sessionId: s.id,
-          update,
-        });
-      const unfinished = unfinishedCompactions(transcript.usageUpdates);
-      if (unfinished.length && !this.active.has(s.id) && !s.readonlyHistory) {
-        const history = await this.driver.history(s.id);
-        for (const update of recoveredCompactionUpdates(unfinished, history.events))
-          connection.notify("_goose/unstable/session/update", { sessionId: s.id, update });
-      }
-      const snapshot = this.runs.latest(s.id);
-      if (snapshot) {
+              }
+            : includeLive
+              ? {
+                  ...s,
+                  updates: [
+                    ...(s.updates ?? []),
+                    ...liveReplay.users,
+                    ...liveReplay.updates,
+                  ],
+                  usageUpdates: [
+                    ...(s.usageUpdates ?? []),
+                    ...liveReplay.usageUpdates,
+                  ],
+                }
+              : s,
+        );
+        updateCount =
+          transcript.updates.length + transcript.usageUpdates.length;
+        checkpoint("projectionMs");
+        // Reset the renderer at the replay boundary after asynchronous validation.
+        // Live updates already represented by this transcript must not be rendered twice.
         connection.notify("session/update", {
           sessionId: s.id,
-          update: {
-            sessionUpdate: "session_info_update",
-            // The latest run is retained for inspection after its Harness turn
-            // ends. Only a live operation may reopen the renderer's stream.
-            _meta: { goose: { activeRunId: this.active.has(s.id) ? snapshot.runId : null } },
-          },
+          update: { sessionUpdate: "session_info_update", _meta: { goose: { transcriptReplayStarted: true } } },
         });
-        connection.notify(prefix + "codepro/run/update", { snapshot });
-        connection.notify(prefix + "session/update", {
-          sessionId: s.id,
-          update: {
-            sessionUpdate: "status_message",
-            status: {
-              type: "progress",
-              message: "Task plan",
-              data: this.runs.planContext(snapshot),
+        for (const update of replayTextChunks(transcript.updates)) {
+          connection.notify("session/update", { sessionId: s.id, update });
+          dispatchedUpdates++;
+        }
+        for (const update of transcript.usageUpdates)
+          connection.notify("_goose/unstable/session/update", {
+            sessionId: s.id,
+            update,
+          });
+        checkpoint("dispatchMs");
+        const unfinished = unfinishedCompactions(transcript.usageUpdates);
+        if (unfinished.length && !this.active.has(s.id) && !s.readonlyHistory) {
+          const history = await this.driver.history(s.id);
+          for (const update of recoveredCompactionUpdates(
+            unfinished,
+            history.events,
+          ))
+            connection.notify("_goose/unstable/session/update", {
+              sessionId: s.id,
+              update,
+            });
+        }
+        const snapshot = this.runs.latest(s.id);
+        if (snapshot) {
+          connection.notify("session/update", {
+            sessionId: s.id,
+            update: {
+              sessionUpdate: "session_info_update",
+              // The latest run is retained for inspection after its Harness turn
+              // ends. Only a live operation may reopen the renderer's stream.
+              _meta: {
+                goose: {
+                  activeRunId: this.active.has(s.id) ? snapshot.runId : null,
+                },
+              },
             },
+          });
+          connection.notify(prefix + "codepro/run/update", { snapshot });
+          connection.notify(prefix + "session/update", {
+            sessionId: s.id,
+            update: {
+              sessionUpdate: "status_message",
+              status: {
+                type: "progress",
+                message: "Task plan",
+                data: this.runs.planContext(snapshot),
+              },
+            },
+          });
+        }
+        checkpoint("recoveryAndRunMs");
+        if (!s.readonlyHistory && this.driver.questions)
+          connection.notify(
+            "session/update",
+            questionNotification(s.id, await this.driver.questions(s.id)),
+          );
+        checkpoint("questionsMs");
+        const loadedModes = s.readonlyHistory
+          ? { ...modes, currentModeId: "read-only" }
+          : await this.permissionModes(s);
+        checkpoint("permissionsMs");
+        const configOptions = this.options(s);
+        checkpoint("optionsMs");
+        const extensionResults = await this.extensionResults(s);
+        checkpoint("extensionsMs");
+        completed = true;
+        return {
+          modes: loadedModes,
+          configOptions,
+          _meta: {
+            workingDir: s.cwd,
+            extensionResults,
+            recipe: s.recipe ?? null,
+            userRecipeValues: s.userRecipeValues ?? null,
           },
-        });
+        };
+      } finally {
+        console.info(
+          "[Session load timing]",
+          JSON.stringify({
+          sessionId: p.sessionId,
+            at_ms: Date.now(),
+            completed,
+            updateCount,
+          dispatchedUpdates,
+            phases,
+            elapsedMs: Math.round(performance.now() - started),
+          }),
+        );
       }
-      if (!s.readonlyHistory && this.driver.questions)
-        connection.notify('session/update', questionNotification(s.id, await this.driver.questions(s.id)));
-      return {
-        modes: s.readonlyHistory ? { ...modes, currentModeId: 'read-only' } : await this.permissionModes(s),
-        configOptions: this.options(s),
-        _meta: {
-          workingDir: s.cwd,
-          extensionResults: await this.extensionResults(s),
-          recipe: s.recipe ?? null,
-          userRecipeValues: s.userRecipeValues ?? null,
-        },
-      };
     }
     if (method === "session/prompt") return this.prompt(p, connection);
     if (method === prefix + 'session/questions/answer') {
@@ -2009,7 +2125,7 @@ export class Compat {
         };
       }
       case "session/info":
-        return { session: this.info(this.session(p.sessionId)) };
+        return { session: this.info(this.session(p.sessionId, { fields: sessionInfoFields })) };
       case "session/rename":
       case "session/archive":
       case "session/unarchive": {

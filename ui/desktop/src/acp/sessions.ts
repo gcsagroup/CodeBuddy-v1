@@ -16,6 +16,7 @@ import { errorMessage } from '../utils/conversionUtils';
 import { canForkSession } from '../utils/sessionCapabilities';
 import { parseSessionMode } from '../utils/sessionMode';
 import { AppEvents } from '../constants/events';
+import { traceSessionLoad } from './sessionLoadTiming';
 
 // CurrentModeUpdate is the existing store's authority. Do not change the
 // global preference or optimistically claim a session permission change.
@@ -292,6 +293,7 @@ async function loadAcpSession(
 ): Promise<AcpLoadSessionResult> {
   const client = await getAcpClient();
   const initialSessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
+  traceSessionLoad(sessionId, 'initial_metadata');
   const initialSessionInfo = initialSessionInfoResponse.session;
   let response: LoadSessionResponse;
   try {
@@ -303,6 +305,7 @@ async function loadAcpSession(
         ? { _meta: { workspaceLeaseId: options.workspaceLeaseId } }
         : {}),
     });
+    traceSessionLoad(sessionId, 'replay_response');
   } catch (error) {
     if (
       (sessionInfoMeta(initialSessionInfo).sessionType === 'code_pro' ||
@@ -321,6 +324,8 @@ async function loadAcpSession(
   }
   // Loading can populate missing provider/model metadata.
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
+
+  traceSessionLoad(sessionId, 'final_metadata');
 
   return {
     sessionInfo: sessionInfoResponse.session,
@@ -353,7 +358,8 @@ export async function acpNewSession(
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
-  if (recipe?.initialPermissionPreset) meta.initialPermissionPreset = recipe.initialPermissionPreset;
+  if (recipe?.initialPermissionPreset)
+    meta.initialPermissionPreset = recipe.initialPermissionPreset;
   if (gooseExtensions.length > 0) {
     meta.enabledExtensions = gooseExtensions;
   }

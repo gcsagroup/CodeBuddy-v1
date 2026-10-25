@@ -2,6 +2,8 @@
 
 [简体中文](2026-10-23-desktop-delivery.zh-CN.md) · [繁體中文](2026-10-23-desktop-delivery.zh-TW.md)
 
+> Credential correction: the dual-preset/shared-cloud-key section below describes a withdrawn historical candidate. Shared cloud credentials and their distribution bootstrap have been removed. Current source does not bundle an Ollama key; users configure their own credentials. Do not restore the historical mechanism. See the [current development notes](2026-10-25-desktop-ux-and-history.en.md).
+
 > This document retains chronological development notes. “Rebuild pending” and “Mac LAN pending” describe earlier states. Rebuilding and scoped installed-product acceptance subsequently completed; see the [merge handoff](2026-10-23-merge-handoff.en.md) for current results, limits and Git commits. Local Ollama and Ollama Cloud have different acceptance scope.
 
 Source: `D:\CodeBuddy-v1`, branch `main`, revision `d43fcbbd0ec85afcb073cb74b14e835752a26e20`, plus existing and current uncommitted changes. There were 278 dirty entries at handoff. No branch, commit or push was created. The Mac checkout at `/Users/erjinyi/Desktop/work/CodeBuddy-v1` is identified by a verified SHA256 file snapshot, rather than its older Git HEAD.

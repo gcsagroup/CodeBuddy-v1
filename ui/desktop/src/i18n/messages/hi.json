@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "प्राथमिकता को पुन: व्यवस्थित करने के लिए संदेशों को खींचें"
+  "messageQueue.continueSending": {
+    "defaultMessage": "संदेश सुरक्षित हैं। तैयार होने पर अभी भेजें।"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "कतार का विस्तार करें"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# संदेश {status}} other{# संदेश {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "संदेश कतार"
-  },
   "messageQueue.next": {
     "defaultMessage": "अगला"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "रुका हुआ"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "कतार रोक दी गई"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "कतार रुकी हुई है। मौजूदा कार्य की जाँच करें, फिर संदेश भेजने के लिए “अभी भेजें” चुनें।"
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "कतार रुकी हुई है। मौजूदा कार्य की जाँच करें, फिर संदेश भेजने के लिए “अभी भेजें” चुनें।"
+  "messageQueue.pending": {
+    "defaultMessage": "भेजने की प्रतीक्षा में"
   },
   "messageQueue.queued": {
     "defaultMessage": "पंक्तिबद्ध"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "सहेजें"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "अभी सभी भेजें"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "यह संदेश अभी भेजें"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "वर्तमान प्रोसेसिंग बंद करें और यह संदेश अभी भेजें"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "सभी प्रतीक्षारत संदेश अभी एक साथ भेजें"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "वर्तमान कार्य रोकें और सभी प्रतीक्षारत संदेश एक साथ भेजें"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "इंतज़ार कर रहा हूँ"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {पृष्ठ खोलें} observe {पृष्ठ पढ़ें} click {पृष्ठ के तत्व पर क्लिक करें} type {पृष्ठ पर पाठ दर्ज करें} key {पृष्ठ पर कुंजी भेजें} screenshot {पृष्ठ का चित्र लें} console {पृष्ठ का कंसोल पढ़ें} close {पृष्ठ बंद करें} other {ब्राउज़र कार्रवाई}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "तत्व {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "टैब {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "लक्ष्य नहीं दिया गया"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

@@ -7,6 +7,13 @@ import { spawnSync } from 'node:child_process';
 
 const stage = path.resolve(process.argv[2]);
 await assert.rejects(access(path.join(stage, 'runtime/distribution-credentials.json')), { code: 'ENOENT' });
+if (process.platform === 'win32') {
+  // A successful tool call on a development PC can silently borrow System32's
+  // VC runtime. Require the app-local copy before testing native execution.
+  assert.deepEqual(await readFile(path.join(stage, 'runtime/tools/bin/vcruntime140.dll')),
+    await readFile(path.join(stage, 'runtime/py/dependencies/python/vcruntime140.dll')));
+  await access(path.join(stage, 'runtime/tools/licenses/python-windows-LICENSE.txt'));
+}
 // A signed .app must remain immutable during post-sign verification.
 const evidence = await mkdtemp(path.join(process.argv[3] ? path.resolve(process.argv[3]) : path.dirname(stage), 'service-check-'));
 const { createCompatServer } = await import(pathToFileURL(path.join(stage, 'runtime/server.mjs')));

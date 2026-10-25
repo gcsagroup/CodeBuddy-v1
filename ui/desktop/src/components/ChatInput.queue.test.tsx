@@ -82,6 +82,7 @@ function setup(
   pendingProps: {
     messages?: Message[];
     onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
+    onSubmissionAccepted?: () => void;
   } = {}
 ) {
   const onStop = vi.fn();
@@ -145,10 +146,46 @@ async function queue(text: string) {
   await screen.findByText(text);
 }
 
-const sendNow = () => screen.getByTitle('Stop current processing and send this message now');
+const sendNow = () => screen.getByRole('button', { name: /^Send (?:all )?now$/ });
 
 describe('compact queue presentation', () => {
   const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };
+  it('shows one waiting message directly without an expand control', () => {
+    render(
+      <MessageQueue queuedMessages={[item]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText(item.content)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
+    expect(screen.queryByText('Queue Paused')).toBeNull();
+  });
+  it('leaves editing when its message is removed and collapses the last remaining entry', async () => {
+    const editing = { current: null as string | null };
+    const remove = vi.fn();
+    const props = {
+      onRemoveMessage: remove,
+      onClearQueue: vi.fn(),
+      onStopAndSend: vi.fn(),
+      onEditMessage: vi.fn(),
+      editingMessageIdRef: editing,
+    };
+    const second = { ...item, id: 'second', content: 'Remaining message' };
+    const view = render(<MessageQueue {...props} queuedMessages={[item, second]} />, {
+      wrapper: IntlTestWrapper,
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
+    await userEvent.click(screen.getByText(item.content));
+    expect(sendNow()).toBeDisabled();
+    expect(editing.current).toBe(item.id);
+    await userEvent.click(screen.getAllByTitle('Remove this message from queue')[0]);
+    expect(remove).toHaveBeenCalledWith(item.id);
+    view.rerender(<MessageQueue {...props} queuedMessages={[second]} />);
+    await waitFor(() => expect(editing.current).toBeNull());
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Expand queue' })).toBeNull();
+    expect(screen.getByText(second.content)).toBeVisible();
+    expect(sendNow()).toBeEnabled();
+  });
   it('keeps the next message and send action compact and expands only on request', async () => {
     const send = vi.fn();
     render(
@@ -162,16 +199,18 @@ describe('compact queue presentation', () => {
     );
     expect(screen.queryByText('Message Queue')).toBeNull();
     expect(screen.getByRole('button', { name: 'Expand queue' })).toBeVisible();
-    expect(screen.getByText('+1')).toBeVisible();
-    const action = screen.getAllByRole('button', { name: 'Send now' })[0];
-    expect(action).toHaveAttribute('title', 'Stop current processing and send this message now');
+    expect(screen.getByText('2 messages queued')).toBeVisible();
+    const action = screen.getByRole('button', { name: 'Send all now' });
+    expect(action).toHaveAttribute('title', 'Send all waiting messages together now');
     await userEvent.click(action);
     expect(send).toHaveBeenCalledOnce();
-    expect(send).toHaveBeenCalledWith('first');
+    expect(send).toHaveBeenCalledWith();
     expect(screen.queryByText('Message Queue')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Expand queue' }));
-    expect(screen.getByText('Message Queue')).toBeVisible();
+    expect(screen.getByText('2 messages queued')).toBeVisible();
     expect(screen.getByText('Second queued request')).toBeVisible();
+    expect(screen.queryByText('Queue Paused')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Send all now' })).toHaveLength(1);
   });
 
   it('keeps cancellation feedback inline without flashing a paused banner or delivery warning', () => {
@@ -195,7 +234,7 @@ describe('compact queue presentation', () => {
         blockedReason="Waiting for cancellation"
       />
     );
-    expect(screen.queryByText('Queue Paused')).toBeNull();
+    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
     expect(screen.queryByText('Paused')).toBeNull();
     expect(
       screen.queryByText('Sending result unknown. Check the conversation before retrying.')
@@ -221,6 +260,7 @@ describe('compact queue presentation', () => {
       screen.getByText('Sending result unknown. Check the conversation before retrying.')
     ).toBeVisible();
     expect(screen.getByRole('button', { name: 'Send now' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send now' })).toHaveAttribute('aria-busy', 'false');
     expect(screen.getByRole('button', { name: 'Confirmed sent: remove' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Confirmed not sent: queue again' }));
     expect(confirmNotSent).toHaveBeenCalledOnce();
@@ -229,6 +269,167 @@ describe('compact queue presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it('snapshots all waiting messages for Send now, admits once after cancellation, then resumes later ordinary input', async () => {
+    const pending = deferred<void>();
+    let lifecycle!: MessageSubmissionLifecycle;
+    const submit = vi.fn((_input: UserInput, callbacks?: MessageSubmissionLifecycle) => {
+      lifecycle = callbacks!;
+      return pending.promise;
+    });
+    const view = setup(submit);
+    await queue('first supplement');
+    await queue('second supplement');
+    view.changeBlocked(true);
+    await userEvent.click(sendNow());
+    expect(view.onStop).toHaveBeenCalledOnce();
+    expect(submit).not.toHaveBeenCalled();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
+      expect.objectContaining({ content: 'first supplement\n\nsecond supplement' }),
+    ]);
+    await queue('arrived after the click');
+    view.changeState(ChatState.Idle);
+    expect(submit).not.toHaveBeenCalled();
+    view.changeBlocked(false);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0].msg).toBe('first supplement\n\nsecond supplement');
+    act(() => lifecycle.onAccepted());
+    view.changeState(ChatState.Streaming);
+    await act(async () => pending.resolve());
+    expect(submit).toHaveBeenCalledOnce();
+    submit.mockImplementation(async (_input, callbacks) => callbacks?.onAccepted());
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls[1][0].msg).toBe('arrived after the click');
+  });
+
+  it('preserves merged text and image order after rejection and reload without automatically retrying', async () => {
+    const first = { data: 'Zmlyc3Q=', mimeType: 'image/png' };
+    const second = { data: 'c2Vjb25k', mimeType: 'image/png' };
+    new QueuedMessageStorage(localStorage, 'queue-test').read();
+    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
+    storage.read();
+    storage.write([
+      { id: 'a', content: 'image A', timestamp: 1, images: [first] },
+      { id: 'b', content: 'image B', timestamp: 2, images: [second] },
+    ]);
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onRejectedBeforeAcceptance()
+    );
+    const view = setup(submit);
+    await userEvent.click(sendNow());
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0]).toMatchObject({
+      msg: 'image A\n\nimage B',
+      images: [first, second],
+    });
+    await screen.findByText('Messages kept. Send now when you are ready.');
+    view.unmount();
+    const restored = setup(submit);
+    restored.changeState(ChatState.Idle);
+    expect(submit).toHaveBeenCalledOnce();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
+      expect.objectContaining({
+        content: 'image A\n\nimage B',
+        images: [first, second],
+        delivery: 'pending',
+      }),
+    ]);
+  });
+
+  it('never includes an unknown delivery in an explicit batch or automatically replays it afterwards', async () => {
+    const storage = new QueuedMessageStorage(localStorage, 'queue-test');
+    storage.read();
+    storage.write([
+      {
+        id: 'unknown',
+        content: 'possibly already sent',
+        timestamp: 1,
+        images: [],
+        delivery: 'submitting',
+      },
+      { id: 'a', content: 'waiting A', timestamp: 2, images: [] },
+      { id: 'b', content: 'waiting B', timestamp: 3, images: [] },
+    ]);
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onAccepted()
+    );
+    const view = setup(submit);
+    await userEvent.click(sendNow());
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0].msg).toBe('waiting A\n\nwaiting B');
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
+      expect.objectContaining({
+        id: 'unknown',
+        content: 'possibly already sent',
+        delivery: 'submitting',
+      }),
+    ]);
+    expect(
+      screen.getByText('Sending result unknown. Check the conversation before retrying.')
+    ).toBeVisible();
+  });
+
+  it('a second explicit Stop revokes the pending Send now without losing its text', async () => {
+    const submit = vi.fn();
+    const view = setup(submit, undefined, false, true);
+    await queue('supplement A');
+    await queue('supplement B');
+    view.changeBlocked(true);
+    await userEvent.click(sendNow());
+    await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
+    view.changeState(ChatState.Idle);
+    view.changeBlocked(false);
+    expect(submit).not.toHaveBeenCalled();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
+      expect.objectContaining({ content: 'supplement A\n\nsupplement B' }),
+    ]);
+  });
+
+  it.each(['accepted', 'rejected', 'uncertain', 'switched'] as const)(
+    'resumes reading only for an accepted explicit send in the same view: %s',
+    async (outcome) => {
+      const pending = deferred<void>();
+      let receipt!: MessageSubmissionLifecycle;
+      const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => {
+        receipt = lifecycle!;
+        return pending.promise;
+      });
+      const follow = vi.fn();
+      const view = setup(submit, undefined, false, false, { onSubmissionAccepted: follow });
+      view.changeState(ChatState.Idle);
+      const input = screen.getByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'explicit new message' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+      expect(follow).not.toHaveBeenCalled();
+      if (outcome === 'switched') view.changeSession('another-session');
+      act(() => {
+        if (outcome === 'rejected') receipt.onRejectedBeforeAcceptance();
+        else if (outcome === 'uncertain') receipt.onDeliveryUncertain?.();
+        else {
+          receipt.onAccepted();
+          receipt.onAccepted();
+        }
+      });
+      expect(follow).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
+      await act(async () => pending.resolve());
+    }
+  );
+
+  it('keeps reading position when an automatically queued message is accepted', async () => {
+    const follow = vi.fn();
+    const submit = vi.fn((_input: UserInput, receipt?: MessageSubmissionLifecycle) =>
+      receipt?.onAccepted()
+    );
+    const view = setup(submit, undefined, false, false, { onSubmissionAccepted: follow });
+    await queue('automatic delivery must not scroll');
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(follow).not.toHaveBeenCalled();
+  });
+
   it('clears the received draft before the turn finishes and leaves later input intact', async () => {
     const pending = deferred<void>();
     let lifecycle!: MessageSubmissionLifecycle;
@@ -386,7 +587,7 @@ describe('ChatInput queue delivery', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Stop$/ }));
     expect(view.onStop).toHaveBeenCalledOnce();
     view.changeState(ChatState.Idle);
-    await screen.findByText('Queue Paused');
+    await screen.findByText('Messages kept. Send now when you are ready.');
     expect(submit).not.toHaveBeenCalled();
     expect(screen.getByText('preserve pending request')).toBeVisible();
     await userEvent.click(sendNow());
@@ -531,7 +732,7 @@ describe('ChatInput queue delivery', () => {
     const restored = setup(submit, undefined, false, true);
     restored.changeState(ChatState.Idle);
     await screen.findByText('survive renderer reload');
-    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(screen.getByText('Messages kept. Send now when you are ready.')).toBeVisible();
     expect(submit).not.toHaveBeenCalled();
   });
 
@@ -693,7 +894,11 @@ describe('ChatInput queue delivery', () => {
       const view = setup(submit);
       await queue('retry me');
       view.changeState(ChatState.Idle);
-      await screen.findByText('Queue Paused');
+      await screen.findByText(
+        failure === 'reject callback'
+          ? 'Messages kept. Send now when you are ready.'
+          : 'Sending result unknown. Check the conversation before retrying.'
+      );
       expect(screen.getByText('retry me')).toBeVisible();
       expect(submit).toHaveBeenCalledOnce();
       submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
@@ -722,7 +927,7 @@ describe('ChatInput queue delivery', () => {
     await queue('rejected head');
     await queue('editable second');
     view.changeState(ChatState.Idle);
-    await screen.findByText('Queue Paused');
+    await screen.findByText('Messages kept. Send now when you are ready.');
     expect(submit).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByText('editable second'));
     const editor = screen
@@ -734,7 +939,7 @@ describe('ChatInput queue delivery', () => {
       await new Promise((resolve) => setTimeout(resolve, 150));
     });
     expect(submit).toHaveBeenCalledOnce();
-    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(screen.getByText('Messages kept. Send now when you are ready.')).toBeVisible();
     expect(screen.getByText('rejected head')).toBeVisible();
     expect(screen.getByText('edited second')).toBeVisible();
   });
@@ -887,7 +1092,7 @@ describe('ChatInput queue delivery', () => {
     view.changeState(ChatState.Idle);
     await userEvent.click(sendNow());
     await userEvent.click(sendNow());
-    expect(view.onStop).toHaveBeenCalledTimes(2);
+    expect(view.onStop).toHaveBeenCalledOnce();
     expect(submit).not.toHaveBeenCalled();
     view.changeBlocked(false);
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
@@ -965,7 +1170,7 @@ describe('ChatInput queue delivery', () => {
     expect(view.onStop).toHaveBeenCalledOnce();
     expect(submit).toHaveBeenCalledOnce();
     await userEvent.click(sendNow());
-    expect(view.onStop).toHaveBeenCalledTimes(2);
+    expect(view.onStop).toHaveBeenCalledOnce();
     view.changeState(ChatState.Idle);
     view.changeBlocked(false);
     expect(submit).toHaveBeenCalledOnce();
@@ -989,9 +1194,7 @@ describe('ChatInput queue delivery', () => {
     view.changeState(ChatState.Streaming);
     view.changeBlocked(true);
     await queue('explicit replacement');
-    await userEvent.click(
-      screen.getAllByTitle('Stop current processing and send this message now')[1]
-    );
+    await userEvent.click(sendNow());
     expect(view.onStop).toHaveBeenCalledOnce();
     view.changeState(ChatState.Idle);
     act(() => firstLifecycle.onRejectedBeforeAcceptance());
@@ -1005,7 +1208,7 @@ describe('ChatInput queue delivery', () => {
       'explicit replacement',
     ]);
     expect(screen.getByText('unacknowledged original')).toBeVisible();
-    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(screen.getByText('Messages kept. Send now when you are ready.')).toBeVisible();
     expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([
       expect.objectContaining({ content: 'unacknowledged original', delivery: 'pending' }),
     ]);
@@ -1043,7 +1246,7 @@ describe('ChatInput queue delivery', () => {
     expect(view.onStop).not.toHaveBeenCalled();
 
     view.changeState(ChatState.Idle);
-    expect(screen.queryByText('Queue Paused')).toBeNull();
+    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
     expect(submit).toHaveBeenCalledOnce();
   });
 
@@ -1082,7 +1285,7 @@ describe('ChatInput queue delivery', () => {
     act(() => firstLifecycle.onAccepted());
     await act(async () => firstSubmission.resolve());
     expect(screen.getByText('session B queued')).toBeVisible();
-    expect(screen.queryByText('Queue Paused')).toBeNull();
+    expect(screen.queryByText('Messages kept. Send now when you are ready.')).toBeNull();
 
     await userEvent.click(sendNow());
     await waitFor(() => expect(screen.queryByText('session B queued')).toBeNull());
@@ -1107,7 +1310,7 @@ describe('ChatInput queue delivery', () => {
     initial.unmount();
     const restored = setup(submit);
     restored.changeState(ChatState.Idle);
-    expect(screen.getByText('Queue Paused')).toBeVisible();
+    expect(screen.getByText('Messages kept. Send now when you are ready.')).toBeVisible();
     expect(submit).toHaveBeenCalledOnce();
     submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
     expect(

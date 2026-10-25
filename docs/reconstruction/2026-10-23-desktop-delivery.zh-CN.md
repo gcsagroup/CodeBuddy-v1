@@ -2,6 +2,8 @@
 
 [繁體中文](2026-10-23-desktop-delivery.zh-TW.md) · [English](2026-10-23-desktop-delivery.en.md)
 
+> 凭据更正：下文“双预置连接补充”描述的是已撤回的历史候选方案。共享云端 Key 及其分发导入已移除，当前源码不内置 Ollama 凭据；新用户须自行配置。请勿按该历史段落恢复共享凭据。近期实现与验证见[桌面交互开发说明](2026-10-25-desktop-ux-and-history.zh-CN.md)。
+
 > 本文保留开发阶段的时间顺序记录；其中“待重建”“Mac LAN 待确认”等为当时状态。后续重建与限定范围的安装版验收已完成，最新状态、限制和 Git 提交交接见[合并交接](2026-10-23-merge-handoff.zh-CN.md)。本地 Ollama 与 Ollama Cloud 的验收范围不同。
 
 ## 源码与范围

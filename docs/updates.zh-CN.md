@@ -4,7 +4,7 @@
 
 ## 用户流程
 
-1. 安装支持更新的版本（本批交付目标为 1.43.13）。旧版 1.43.9 关闭了更新入口，首次需要手动覆盖安装；1.43.12 仅作内部升级夹具。
+1. 安装支持更新的版本（本批交付目标为 1.43.14）。旧版 1.43.9 关闭了更新入口，首次需要手动覆盖安装；1.43.12 仅作内部升级夹具。
 2. 在账号设置连接自己的 GitHub 账号，该账号需要读取私有仓库 `erjinyi-bool/CodeBuddy-v1` 的权限。
 3. 在常规设置的更新区选择正式版或预览版，点击检查、下载，再点击重启更新。正式版频道忽略 GitHub 的预发布版本。
 4. 保存编辑中的文件，结束任务并关闭终端后重启。更新只替换应用，沿用原安装路径、数据目录、聊天、配置与工作区。不要先卸载或删除数据目录。
@@ -18,7 +18,7 @@ Windows 使用当前 Inno EXE；Mac 使用由同一签名身份签名的 `.app` 
 每次更新必须增加 `ui/desktop/package.json` 的语义版本。发布标签使用 `codebuddy-<版本>` 或 `codebuddy-<版本>-<批次>`。同一 Release 上传平台包和 `codebuddy-update.json`，通过已有 Node 生成清单：
 
 ```text
-node scripts/create-update-manifest.cjs 1.43.13 codebuddy-update.json win32:x64:CodeBuddy-1.43.13.exe darwin:arm64:CodeBuddy-1.43.13.zip
+node scripts/create-update-manifest.cjs 1.43.14 codebuddy-update.json win32:x64:CodeBuddy-1.43.14.exe darwin:arm64:CodeBuddy-1.43.14.zip
 ```
 
 先保持草稿，完整上传并核对远端文件大小与 SHA-256 后再发布。缺少清单的历史 Release 不参与更新；替换已发布包应使用新版本和新 Release。预览测试发布为 prerelease，正式验收后才发布正式频道。仓库凭据和共享模型 Key 都不放入安装包。
@@ -32,3 +32,5 @@ Electron 主进程负责账号核验、版本、下载和完整性状态；Harne
 Windows 更新助手会先确认自身启动，再确认接手安装，应用收到回执后才退出。早期内部预览存在助手启动缺陷，已撤回；这些版本需要手动覆盖安装本版。验收使用含助手修复的内部 1.43.12 夹具升级到 1.43.13。Mac 自动升级验收按用户要求暂停，本批更新清单仅发布 Windows x64。
 
 使用前需安装 GitHub CLI，并使用有仓库读取权限的个人账号登录。Windows 更新助手使用系统 PowerShell 自带模块，避免继承 PowerShell 7 模块路径导致校验失败；助手在应用退出前验证安装包，在安装前再次校验。
+
+从 1.43.14 起默认选择测试版频道，检查更新会包含预发布版本；仍可手动切换正式版。该默认值同时应用于界面、主进程和未指定频道的调用入口。

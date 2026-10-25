@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { beginSessionLoadTiming } from '../acp/sessionLoadTiming';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useChatContext } from '../contexts/ChatContext';
 import { getSessionDisplayName } from '../sessions';
@@ -219,6 +220,7 @@ export function useNavigationSessions() {
 
   const handleSessionClick = useCallback(
     (sessionId: string) => {
+      beginSessionLoadTiming(sessionId, 'sidebar');
       const pairPath = workspaceMode === 'codepro' ? '/codepro/pair' : '/pair';
       navigate(`${pairPath}?resumeSessionId=${sessionId}`);
     },

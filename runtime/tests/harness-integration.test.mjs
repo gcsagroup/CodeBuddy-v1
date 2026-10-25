@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { statefulMcp } from '../harness/test/fixtures/stateful-mcp.mjs';
+import { projectChatUpdates } from './helpers/renderer-projection.mjs';
 
 const secret = 'harness-integration-loopback-only';
 const ext = name => `_goose/unstable/${name}`;
@@ -290,7 +291,8 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     const loaded = await client.request('session/load', { sessionId: retainedSession, cwd: root, mcpServers: [] });
     assert.equal(loaded.modes.currentModeId, 'read-only');
     const replay = updates(retainedSession).filter(update => update.sessionUpdate === 'agent_message_chunk');
-    assert.deepEqual(replay, before);
+    assert.deepEqual([...new Set(replay.map(update => update.messageId))], [...new Set(before.map(update => update.messageId))], 'message identities and their order must survive restart');
+    assert.deepEqual(await projectChatUpdates(replay), await projectChatUpdates(before), 'replay may assemble text frames, but every rendered message and its metadata must be identical');
     assert.equal((await prompt(retainedSession, 'bridge_fixture_chat after_restart')).stopReason, 'end_turn');
     const request = model.requests.at(-1);
     assert.match(JSON.stringify(request.messages), /bridge_fixture_write approved/);

@@ -2,7 +2,7 @@
 
 [简体中文](../../README.md) · [繁體中文](GITHUB_OVERVIEW_ZH_TW.md) · English
 
-CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The version is recorded in [desktop package metadata](../../ui/desktop/package.json). Acceptance results apply to the specific build recorded in the delivery notes; a successful build does not establish every workflow as verified.
+CodeBuddy is a desktop AI development assistant for project analysis, code changes, commands, Git review, memory, skills and MCP tools. The application version is defined in [ui/desktop/package.json](../../ui/desktop/package.json). See the [desktop UX development notes](../../docs/reconstruction/2026-10-25-desktop-ux-and-history.en.md) for image actions, history loading, scrolling, queued input and validation scope. Build, automated-test and real-product results are separate and do not establish universal workflow or platform acceptance.
 
 ## Start from source
 
@@ -24,7 +24,7 @@ node scripts/build-harness-windows.cjs --installer=inno
 
 The installer is `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`. It uses existing Inno Setup 6.7+ and the Simplified Chinese translation; see the [build instructions](../../README.md). The Squirrel compatibility path remains available with `--installer=squirrel`. The default data directory is `~/.CodeBuddy`; older data directories are not imported or overwritten automatically.
 
-Installation and removal show the current operation and component above the progress bar. Full technical details remain in diagnostic logs.
+The installer shows the current operation and component directly above its progress bar. Internal paths and file-level details remain in diagnostic logs; there is no expandable details panel. See the [installer UI guide](../../docs/windows-installer-ui.en.md).
 
 Prepare `runtime/py` and `runtime/office` using the [Office builder](../../scripts/office-builder/README.md) before first packaging. Preparation downloads dependencies; ordinary packaging copies and verifies existing files. The package includes Node and the required runtime payload. Project-specific development toolchains remain project prerequisites.
 
@@ -35,6 +35,8 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 ```
 
 When replacing an artifact, update and verify its size and SHA256 in the provenance record and `runtime/builtin-artifacts.mjs`. Runtime dependencies are pinned in `runtime/harness/package-lock.json`.
+
+Windows staging copies release `vcruntime140.dll` and its upstream license from the prepared Python payload beside the native tools. Missing payload fails the build; nothing is downloaded or installed. Stage verification compares the DLL with its source so a developer machine's system runtime cannot hide a missing dependency.
 
 `node scripts/build-harness-windows.cjs <stage-directory> --make-only` resumes packaging only when the existing application and stage match the same source. Use `--finalize-only` when NuGet completed but Squirrel finalization stopped; archive identity is checked first. Source changes require a fresh build and stage.
 

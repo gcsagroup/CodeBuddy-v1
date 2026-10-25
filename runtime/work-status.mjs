@@ -79,7 +79,8 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
         phase = children.size ? 'children' : 'model';
         if (!children.size) { toolInput = event.preview; modelRequestPhase = 'receiving'; }
       } else if (event.type === 'model_diagnostic') {
-        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'receiving', first_tool_arguments: 'receiving', first_text: 'receiving', first_reasoning: 'receiving' })[event.phase];
+        // HTTP headers acknowledge the connection, not a model output token.
+        modelRequestPhase = ({ start: 'preparing', request_created: 'connecting', request_sent: 'waiting', response_headers: 'waiting', first_tool_arguments: 'receiving', first_text: 'receiving', first_reasoning: 'receiving' })[event.phase];
         if (event.phase === 'first_tool_arguments' && !children.size)
           message = '正在生成工具调用参数';
         if (event.phase === 'response_headers' && !(event.status >= 200 && event.status < 300)) modelRequestPhase = undefined;

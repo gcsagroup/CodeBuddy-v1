@@ -9,6 +9,52 @@ import {
 
 const SESSION_ID = 'session-1';
 
+it('retains immutable history across append, anchored insertion and a later thought delta', () => {
+  const adapter = createAcpSessionNotificationAdapter();
+  const publish = (update: SessionNotification['update']) => {
+    const change = adapter.apply(acpUpdate(update)).find((c) => c.type === 'messages');
+    if (!change || change.type !== 'messages') throw new Error('Expected messages');
+    return change.messages;
+  };
+  const first = publish({
+    sessionUpdate: 'user_message_chunk',
+    messageId: 'u',
+    content: { type: 'text', text: 'question' },
+  });
+  const second = publish({
+    sessionUpdate: 'agent_message_chunk',
+    messageId: 'a',
+    content: { type: 'text', text: 'answer' },
+  });
+  expect(second[0]).toBe(first[0]);
+  expect(first).toHaveLength(1);
+  const inserted = publish({
+    sessionUpdate: 'user_message_chunk',
+    messageId: 'steer',
+    content: { type: 'text', text: 'follow-up' },
+    _meta: { goose: { presentation: { afterMessageId: 'u' } } },
+  });
+  expect(inserted.map((m) => m.id)).toEqual(['u', 'steer', 'a']);
+  expect(inserted[0]).toBe(second[0]);
+  expect(inserted[2]).toBe(second[1]);
+  const thought = publish({
+    sessionUpdate: 'agent_thought_chunk',
+    messageId: 't',
+    content: { type: 'text', text: 'first' },
+  });
+  const continued = publish({
+    sessionUpdate: 'agent_thought_chunk',
+    messageId: 't',
+    content: { type: 'text', text: ' second' },
+  });
+  expect(thought[3].content).toEqual([{ type: 'thinking', thinking: 'first', signature: '' }]);
+  expect(continued[3].content).toEqual([
+    { type: 'thinking', thinking: 'first second', signature: '' },
+  ]);
+  expect(continued[0]).toBe(inserted[0]);
+  expect(continued[2]).toBe(inserted[2]);
+});
+
 function acpUpdate(update: SessionNotification['update']): SessionNotification {
   return {
     sessionId: SESSION_ID,

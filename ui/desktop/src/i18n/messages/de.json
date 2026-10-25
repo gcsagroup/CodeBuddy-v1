@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Nachrichten ziehen, um die Priorität neu zu ordnen"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Nachrichten bleiben erhalten. Senden Sie sie, sobald Sie bereit sind."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Warteschlange ausklappen"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# Nachricht {status}} other{# Nachrichten {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Nachrichtenwarteschlange"
-  },
   "messageQueue.next": {
     "defaultMessage": "Weiter"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Angehalten"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Warteschlange angehalten"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Warteschlange pausiert. Prüfe die aktuelle Aufgabe und sende dann eine Nachricht mit „Jetzt senden“."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Warteschlange pausiert. Prüfe die aktuelle Aufgabe und sende dann eine Nachricht mit „Jetzt senden“."
+  "messageQueue.pending": {
+    "defaultMessage": "Wartet auf Versand"
   },
   "messageQueue.queued": {
     "defaultMessage": "in der Warteschlange"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "Speichern"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Alle jetzt senden"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Diese Nachricht jetzt senden"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Aktuelle Verarbeitung stoppen und diese Nachricht jetzt senden"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Alle wartenden Nachrichten jetzt zusammen senden"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Aktuelle Verarbeitung stoppen und alle wartenden Nachrichten zusammen senden"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "wartet"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {Seite öffnen} observe {Seite lesen} click {Seitenelement anklicken} type {Text auf der Seite eingeben} key {Taste an die Seite senden} screenshot {Seitenaufnahme erstellen} console {Seitenkonsole lesen} close {Seite schließen} other {Browseraktion}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Element {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Tab {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Kein Ziel angegeben"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

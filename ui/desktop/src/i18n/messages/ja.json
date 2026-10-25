@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "メッセージをドラッグして優先順位を並べ替え"
+  "messageQueue.continueSending": {
+    "defaultMessage": "メッセージは保持されています。準備ができたら送信してください。"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "キューを展開"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 件のメッセージ（{status}）} other{# 件のメッセージ（{status}）}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "メッセージキュー"
-  },
   "messageQueue.next": {
     "defaultMessage": "次"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "一時停止中"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "キューを一時停止中"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "キューは一時停止中です。現在のタスクを確認してから、「今すぐ送信」でメッセージを送信してください。"
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "キューは一時停止中です。現在のタスクを確認してから、「今すぐ送信」でメッセージを送信してください。"
+  "messageQueue.pending": {
+    "defaultMessage": "送信待ち"
   },
   "messageQueue.queued": {
     "defaultMessage": "キュー内"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "すべて今すぐ送信"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "このメッセージを今すぐ送信"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "現在の処理を停止して、このメッセージを今すぐ送信"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "送信待ちのメッセージをまとめて送信"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "現在の処理を停止し、送信待ちのメッセージをまとめて送信"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "待機中"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {ページを開く} observe {ページを読み取る} click {ページの要素をクリックする} type {ページに文字を入力する} key {ページにキーを送信する} screenshot {ページを撮影する} console {ページのコンソールを読み取る} close {ページを閉じる} other {ブラウザー操作}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "要素 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "タブ {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "操作対象が指定されていません"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

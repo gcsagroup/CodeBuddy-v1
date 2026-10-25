@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "确认已发送：移除"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "拖动消息以调整优先级"
+  "messageQueue.continueSending": {
+    "defaultMessage": "消息已保留，点击立即发送可继续。"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "展开队列"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 条消息 {status}} other{# 条消息 {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "消息队列"
-  },
   "messageQueue.next": {
     "defaultMessage": "下一条"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "已暂停"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "队列已暂停"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
+  "messageQueue.pending": {
+    "defaultMessage": "待发送"
   },
   "messageQueue.queued": {
     "defaultMessage": "已排队"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "全部立即发送"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "立即发送"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "停止当前任务后发送此消息"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "将所有待发送消息一并发送"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "停止并发送"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "停止当前任务，将所有待发送消息一并发送"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一窗口已修改此队列。为避免覆盖，已暂停发送和保存。请保持本窗口打开并核对两边的待发消息。"
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "发送结果尚不确定，请先核对对话中的记录，再决定是否重试。"
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "等待中"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "正在等待停止确认，队列中的消息尚未发送。"
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "浏览器操作"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation, select, open {打开网页} observe {读取网页} click {点击元素} type {输入文本} key {按键} screenshot {截取网页} console {读取控制台} close {关闭网页} other {浏览器操作}}"
+    "defaultMessage": "{operation, select, open {打开网页} observe {读取网页} click {点击网页元素} type {在网页中输入文字} key {向网页发送按键} screenshot {截取网页} console {读取网页控制台} close {关闭网页} other {浏览器操作}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "页面元素 {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "元素 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "标签页 {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "未提供操作对象"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "预期远端提交"

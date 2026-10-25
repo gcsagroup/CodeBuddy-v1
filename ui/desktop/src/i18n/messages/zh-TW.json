@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "確認已傳送：移除"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "拖曳訊息以重新排序優先順序"
+  "messageQueue.continueSending": {
+    "defaultMessage": "訊息已保留，點選立即傳送即可繼續。"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "展開佇列"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 則訊息 {status}} other{# 則訊息 {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "訊息佇列"
-  },
   "messageQueue.next": {
     "defaultMessage": "下一個"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "已暫停"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "佇列已暫停"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「停止並傳送」傳送訊息。"
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "佇列已暫停。請先檢查目前任務，再用「停止並傳送」傳送訊息。"
+  "messageQueue.pending": {
+    "defaultMessage": "待傳送"
   },
   "messageQueue.queued": {
     "defaultMessage": "已排入佇列"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "儲存"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "全部立即傳送"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "立即傳送"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "停止目前任務後傳送此訊息"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "將所有待傳送訊息一併傳送"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "停止並傳送"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "停止目前任務，將所有待傳送訊息一併傳送"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一視窗已修改此佇列。為避免覆寫，已暫停傳送與儲存。請保持本視窗開啟並核對兩邊的待傳訊息。"
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "傳送結果尚不確定，請先核對對話中的紀錄，再決定是否重試。"
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "等待中"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "正在等待停止確認，佇列中的訊息尚未傳送。"
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "瀏覽器操作"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation, select, open {開啟網頁} observe {讀取網頁} click {點擊元素} type {輸入文字} key {按鍵} screenshot {擷取網頁} console {讀取主控台} close {關閉網頁} other {瀏覽器操作}}"
+    "defaultMessage": "{operation, select, open {開啟網頁} observe {讀取網頁} click {點選網頁元素} type {在網頁中輸入文字} key {向網頁傳送按鍵} screenshot {擷取網頁} console {讀取網頁主控台} close {關閉網頁} other {瀏覽器操作}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "頁面元素 {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "元素 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "分頁 {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "未提供操作對象"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "預期遠端提交"

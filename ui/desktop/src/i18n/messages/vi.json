@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Kéo tin nhắn để sắp xếp lại mức ưu tiên"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Tin nhắn được giữ lại. Gửi khi bạn sẵn sàng."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Mở rộng hàng đợi"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# tin nhắn {status}} other{# tin nhắn {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Hàng đợi tin nhắn"
-  },
   "messageQueue.next": {
     "defaultMessage": "Tiếp theo"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Đã tạm dừng"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Hàng đợi đã tạm dừng"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Hàng đợi đã tạm dừng. Kiểm tra tác vụ hiện tại, rồi dùng “Gửi ngay” để gửi tin nhắn."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Hàng đợi đã tạm dừng. Kiểm tra tác vụ hiện tại, rồi dùng “Gửi ngay” để gửi tin nhắn."
+  "messageQueue.pending": {
+    "defaultMessage": "Chờ gửi"
   },
   "messageQueue.queued": {
     "defaultMessage": "đã xếp hàng"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "Lưu"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Gửi tất cả ngay"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Gửi tin nhắn này ngay"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Dừng xử lý hiện tại và gửi tin nhắn này ngay"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Gửi cùng lúc tất cả tin nhắn đang chờ"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Dừng tác vụ hiện tại và gửi cùng lúc tất cả tin nhắn đang chờ"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "đang chờ"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {Mở trang} observe {Đọc trang} click {Nhấp vào phần tử trên trang} type {Nhập văn bản trên trang} key {Gửi phím đến trang} screenshot {Chụp trang} console {Đọc bảng điều khiển của trang} close {Đóng trang} other {Thao tác trình duyệt}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Phần tử {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Thẻ {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Chưa cung cấp đối tượng"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

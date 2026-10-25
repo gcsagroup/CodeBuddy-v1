@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import userEvent from '@testing-library/user-event';
 import { ToolCallExpandable } from './ToolCallExpandable';
+import { ScrollFollowingContext } from './ui/scroll-follow-context';
 
 function renderExpandable(props: Partial<ComponentProps<typeof ToolCallExpandable>> = {}) {
   return render(
@@ -15,6 +16,22 @@ function renderExpandable(props: Partial<ComponentProps<typeof ToolCallExpandabl
 }
 
 describe('ToolCallExpandable', () => {
+  it('keeps live work open when settlement arrives while the reader is inspecting it', () => {
+    const viewFor = (settled: boolean) => (
+      <ScrollFollowingContext.Provider value={false}>
+        <ToolCallExpandable label="reading work" collapsible={settled} collapseOnSettle={settled}>
+          <p>Current reading position</p>
+        </ToolCallExpandable>
+      </ScrollFollowingContext.Provider>
+    );
+    const view = render(viewFor(false));
+    view.rerender(viewFor(true));
+    expect(screen.getByRole('button', { name: 'reading work' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    expect(screen.getByText('Current reading position')).toBeVisible();
+  });
   it('keeps an independent header action outside the disclosure buttons and keyboard accessible', async () => {
     const user = userEvent.setup();
     let opened = 0;

@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Seret mesej untuk menyusun semula keutamaan"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Mesej disimpan. Hantar sekarang apabila anda bersedia."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Kembangkan baris gilir"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# mesej {status}} other{# mesej {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Baris Gilir Mesej"
-  },
   "messageQueue.next": {
     "defaultMessage": "Seterusnya"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Dijeda"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Baris Gilir Dijeda"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Baris gilir dijeda. Semak tugas semasa, kemudian gunakan “Hantar sekarang” untuk menghantar mesej."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Baris gilir dijeda. Semak tugas semasa, kemudian gunakan “Hantar sekarang” untuk menghantar mesej."
+  "messageQueue.pending": {
+    "defaultMessage": "Menunggu dihantar"
   },
   "messageQueue.queued": {
     "defaultMessage": "dalam baris gilir"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "Simpan"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Hantar semua sekarang"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Hantar mesej ini sekarang"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Hentikan pemprosesan semasa dan hantar mesej ini sekarang"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Hantar semua mesej menunggu bersama-sama sekarang"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Hentikan pemprosesan semasa dan hantar semua mesej menunggu bersama-sama"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "menunggu"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {Buka halaman} observe {Baca halaman} click {Klik elemen halaman} type {Masukkan teks pada halaman} key {Hantar kekunci ke halaman} screenshot {Tangkap halaman} console {Baca konsol halaman} close {Tutup halaman} other {Tindakan pelayar}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Elemen {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Tab {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Sasaran tidak diberikan"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

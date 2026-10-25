@@ -2012,6 +2012,56 @@ describe('acpChatSessionStore', () => {
 describe('useAcpChatSessionSnapshot', () => {
   const sessionId = 'hook-session-1';
 
+  it.each(['complete', 'fail'])(
+    'applies every history chunk while rendering only load boundaries: %s',
+    (outcome) => {
+      const { result } = renderHook(() => useAcpChatSessionSnapshot(sessionId));
+      act(() => {
+        acpChatSessionActions.startSessionLoad(sessionId);
+      });
+      const loadingSnapshot = result.current;
+      for (const text of ['first ', 'second']) {
+        act(() => {
+          acpChatSessionActions.applyAcpSessionNotification({
+            sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              messageId: 'history-answer',
+              content: { type: 'text', text },
+            },
+          });
+        });
+      }
+      expect(result.current).toBe(loadingSnapshot);
+      expect(result.current?.chatState).toBe(ChatState.LoadingConversation);
+      expect(acpChatSessionStore.getSnapshot(sessionId)?.messages[0].content).toEqual([
+        { type: 'text', text: 'first second' },
+      ]);
+      act(() => {
+        if (outcome === 'complete')
+          acpChatSessionActions.finishSessionLoad(sessionId, { id: sessionId } as Session);
+        else acpChatSessionActions.failSessionLoad(sessionId, 'connection interrupted');
+      });
+      expect(result.current?.messages[0].content).toEqual([{ type: 'text', text: 'first second' }]);
+      expect(result.current?.chatState).toBe(ChatState.Idle);
+      if (outcome === 'fail')
+        expect(result.current?.sessionLoadError).toBe('connection interrupted');
+      act(() => {
+        acpChatSessionActions.applyAcpSessionNotification({
+          sessionId,
+          update: {
+            sessionUpdate: 'agent_message_chunk',
+            messageId: 'history-answer',
+            content: { type: 'text', text: ' live' },
+          },
+        });
+      });
+      expect(result.current?.messages[0].content).toEqual([
+        { type: 'text', text: 'first second live' },
+      ]);
+    }
+  );
+
   afterEach(() => {
     acpChatSessionActions.deleteSnapshot(sessionId);
   });

@@ -96,7 +96,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         ? end.getBoundingClientRect().bottom -
           (viewport.getBoundingClientRect().top + viewport.clientHeight)
         : viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
-      const atBottom = distance <= 2;
+      const atBottom = distance <= 2 && distance >= -viewport.clientHeight;
       if (lastBottomRef.current !== atBottom) {
         lastBottomRef.current = atBottom;
         onBottomChange?.(atBottom);
@@ -418,6 +418,9 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         });
       });
       observer.observe(content);
+      // Reserved reading space can keep the outer box unchanged while a folded
+      // or removed child disappears. Its natural size must also wake restoration.
+      if (naturalContentRef.current) observer.observe(naturalContentRef.current);
       return () => {
         observer.disconnect();
         if (frame !== undefined) cancelAnimationFrame(frame);

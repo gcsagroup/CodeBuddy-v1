@@ -4352,8 +4352,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "메시지를 드래그하여 우선순위를 재정렬하세요"
+  "messageQueue.continueSending": {
+    "defaultMessage": "메시지가 보관되어 있습니다. 준비되면 전송하세요."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "대기열 확장"
@@ -4361,23 +4361,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{#개 메시지 {status}} other{#개 메시지 {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "메시지 대기열"
-  },
   "messageQueue.next": {
     "defaultMessage": "다음"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "일시중지됨"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "대기열이 일시중지되었습니다."
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "대기열이 일시 중지되었습니다. 현재 작업을 확인한 후 “지금 보내기”로 메시지를 보내세요."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "대기열이 일시 중지되었습니다. 현재 작업을 확인한 후 “지금 보내기”로 메시지를 보내세요."
+  "messageQueue.pending": {
+    "defaultMessage": "전송 대기"
   },
   "messageQueue.queued": {
     "defaultMessage": "대기 중"
@@ -4391,14 +4379,17 @@
   "messageQueue.save": {
     "defaultMessage": "저장"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "모두 지금 전송"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "지금 이 메시지 보내기"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "현재 처리를 중지하고 이 메시지 지금 보내기"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "대기 중인 모든 메시지를 지금 함께 전송"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "현재 작업을 중지하고 대기 중인 모든 메시지를 함께 전송"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4408,9 +4399,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "대기 중"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8483,14 +8471,17 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
-  "toolConfirmation.browser": {
-    "defaultMessage": "Browser action"
-  },
   "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+    "defaultMessage": "{operation, select, open {페이지 열기} observe {페이지 읽기} click {페이지 요소 클릭} type {페이지에 텍스트 입력} key {페이지에 키 보내기} screenshot {페이지 캡처} console {페이지 콘솔 읽기} close {페이지 닫기} other {브라우저 작업}}"
   },
-  "toolConfirmation.browserElement": {
-    "defaultMessage": "Page element {node}"
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "요소 {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "탭 {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "대상이 지정되지 않았습니다"
   },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"

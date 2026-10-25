@@ -62,13 +62,12 @@ const i18n = defineMessages({
   },
   command: { id: 'codeProActivity.command', defaultMessage: 'Command' },
   path: { id: 'codeProActivity.path', defaultMessage: 'Path' },
-  browser: { id: 'toolConfirmation.browser', defaultMessage: 'Browser action' },
-  browserAction: {
-    id: 'toolConfirmation.browserAction',
-    defaultMessage:
-      '{operation, select, open {Open page} observe {Read page} click {Click element} type {Enter text} key {Press key} screenshot {Capture page} console {Read console} close {Close page} other {Browser action}}',
+  browserTab: { id: 'toolConfirmation.browserTab', defaultMessage: 'Tab {id}' },
+  browserNode: { id: 'toolConfirmation.browserNode', defaultMessage: 'Element {node}' },
+  browserTargetMissing: {
+    id: 'toolConfirmation.browserTargetMissing',
+    defaultMessage: 'Target not provided',
   },
-  browserElement: { id: 'toolConfirmation.browserElement', defaultMessage: 'Page element {node}' },
   taskWorkspaceGrant: {
     id: 'toolConfirmation.taskWorkspaceGrant',
     defaultMessage:
@@ -123,36 +122,40 @@ export function ToolApprovalTarget({
   argumentsValue: Record<string, unknown>;
 }) {
   const intl = useIntl();
-  if (toolName === 'browser_control') {
-    const { operation, node, key, url, htmlPath, path } = argumentsValue;
-    let location: string | undefined;
+  const target = approvalTarget(toolName, argumentsValue);
+  if (toolName.split(/__|::/).pop() === 'browser_control') {
+    const { operation, url, path, htmlPath, id, node, text, key } = argumentsValue;
+    const localPath = typeof path === 'string' ? path : htmlPath;
+    let displayUrl: string | undefined;
     if (typeof url === 'string') {
       try {
         const parsed = new URL(url);
-        location = `${parsed.origin}${parsed.pathname}`;
-      } catch {
-        /* Malformed URLs are rejected by the tool, not interpreted here. */
-      }
-    } else if (typeof path === 'string') location = path;
-    else if (typeof htmlPath === 'string') location = htmlPath;
+        displayUrl = `${parsed.origin}${parsed.pathname}`;
+      } catch { /* Invalid URLs are rejected by the tool. */ }
+    }
+    const hasTarget =
+      operation === 'open'
+        ? [url, localPath].some((value) => typeof value === 'string' && value.trim())
+        : typeof id === 'string' && id.trim();
     return (
-      <section className="mt-3 rounded-xl border border-border-primary bg-background-secondary p-3">
+      <section className="mt-3 min-w-0">
         <h3 className="text-xs font-medium text-text-secondary">
-          {intl.formatMessage(i18n.browser)}
+          {formatToolAction(intl, toolName, argumentsValue, undefined, 'name')}
         </h3>
-        <p className="mt-1 text-sm text-text-primary">
-          {intl.formatMessage(i18n.browserAction, {
-            operation: typeof operation === 'string' ? operation : '',
-          })}
-          {Number.isSafeInteger(node) &&
-            ` · ${intl.formatMessage(i18n.browserElement, { node: Number(node) })}`}
-          {operation === 'key' && typeof key === 'string' && ` · ${key}`}
-        </p>
-        {location && <p className="mt-1 break-all text-sm text-text-secondary">{location}</p>}
+        <div className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap break-all text-sm text-text-primary">
+          {!hasTarget && <p>{intl.formatMessage(i18n.browserTargetMissing)}</p>}
+          {displayUrl && <p>{displayUrl}</p>}
+          {typeof localPath === 'string' && <p>{localPath}</p>}
+          {typeof id === 'string' && <p>{intl.formatMessage(i18n.browserTab, { id })}</p>}
+          {Number.isSafeInteger(node) && Number(node) > 0 && (
+            <p>{intl.formatMessage(i18n.browserNode, { node: Number(node) })}</p>
+          )}
+          {operation === 'type' && typeof text === 'string' && <pre>{text}</pre>}
+          {operation === 'key' && typeof key === 'string' && <pre>{key}</pre>}
+        </div>
       </section>
     );
   }
-  const target = approvalTarget(toolName, argumentsValue);
   if (!target) return null;
   return (
     <section className="mt-3">

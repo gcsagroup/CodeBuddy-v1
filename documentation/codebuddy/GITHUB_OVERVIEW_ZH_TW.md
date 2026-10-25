@@ -2,7 +2,7 @@
 
 [简体中文](../../README.md) · 繁體中文 · [English](GITHUB_OVERVIEW_EN.md)
 
-CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令執行、Git 審查、記憶、技能與 MCP 工具。版本以[桌面套件中繼資料](../../ui/desktop/package.json)為準；驗收結果以對應交付紀錄為準，建構成功不代表所有功能均已完成實際驗收。
+CodeBuddy 是桌面 AI 開發助手，整合專案分析、程式修改、命令執行、Git 審查、記憶、技能與 MCP 工具。應用版本以 [ui/desktop/package.json](../../ui/desktop/package.json) 為準；圖片操作、歷史載入、捲動、插話與驗證範圍見[桌面互動開發說明](../../docs/reconstruction/2026-10-25-desktop-ux-and-history.zh-TW.md)。建構、自動測試與實際產品驗收分開記錄，不代表所有流程或平台均通過。
 
 ## 原始碼啟動
 
@@ -24,7 +24,7 @@ node scripts/build-harness-windows.cjs --installer=inno
 
 安裝程式為 `ui/desktop/out/make/inno.windows/x64/CodeBuddy-Setup.exe`，使用既有 Inno Setup 6.7+ 與簡體中文語言檔，詳見[建構說明](../../README.md)。舊 Squirrel 相容入口仍可使用 `--installer=squirrel`。預設資料目錄為 `~/.CodeBuddy`，啟動不會自動匯入或覆寫舊資料目錄。
 
-安裝及解除安裝頁在進度條上方顯示目前操作與元件；完整技術細節保留於診斷日誌。
+安裝頁在進度條上方直接顯示目前操作與元件，內部路徑及檔案細節保留在診斷日誌，不提供展開詳情面板。詳見[安裝器介面說明](../../docs/windows-installer-ui.zh-TW.md)。
 
 首次封裝前依 [Office 建構器說明](../../scripts/office-builder/README.md) 準備 `runtime/py` 與 `runtime/office`。準備步驟會下載依賴；正常封裝僅複製及驗證已有檔案。包內包含 Node 與所需執行載荷；專案開發工具鏈仍依專案需求準備。
 
@@ -35,6 +35,8 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 ```
 
 替換工具產物時，同步核對來源紀錄及 `runtime/builtin-artifacts.mjs` 的大小與 SHA256。執行依賴鎖定於 `runtime/harness/package-lock.json`。
+
+Windows 暫存從已準備的 Python 載荷複製正式版 `vcruntime140.dll` 與上游授權至工具旁，避免依賴開發機的系統 VC 執行階段。缺少檔案即建構失敗，不自動下載或安裝；暫存驗證會核對副本與原載荷一致。
 
 `node scripts/build-harness-windows.cjs <stage-directory> --make-only` 僅用於同一批原始碼、完整應用與相符暫存目錄。NuGet 已完成而 Squirrel 封裝中斷時可用 `--finalize-only`，先驗證封裝身分。原始碼變更後須重新建構並使用新暫存目錄。
 

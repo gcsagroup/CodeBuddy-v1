@@ -41,7 +41,8 @@ test('sidebar metadata excludes transcript payloads while body search, archive a
     s.schedules = [{sessions:['scheduled']}];
   });
   const snapshots = [];
-  const observed = {...store, read(keys, options) {const value=store.read(keys,options); snapshots.push(value); return value;}};
+  const observed = {...store, read(keys, options) {const value=store.read(keys,options); snapshots.push(value); return value;},
+    readSession(id, options) { const value=store.readSession(id,options); snapshots.push(value); return value; }};
   const compat = new Compat(observed, {});
   await compat.runs.create({sessionId:'current',runId:'run',sourceMessageId:'u',goal:'hello',executionOwner:'harness'});
   snapshots.length = 0;
@@ -52,6 +53,10 @@ test('sidebar metadata excludes transcript payloads while body search, archive a
   assert.equal(listed.sessions.find(s => s.sessionId==='imported')._meta.userSetName, true);
   assert.equal(listed.sessions.find(s => s.sessionId==='scheduled')._meta.sessionType, 'scheduled');
   assert.equal(listed.sessions.find(s => s.sessionId==='current')._meta.activeRunId, 'run');
+  snapshots.length = 0;
+  const info = await compat.request('_goose/unstable/session/info', {sessionId:'current'});
+  assert.deepEqual(info.session, listed.sessions.find(s => s.sessionId==='current'));
+  assert.equal(Object.hasOwn(snapshots[0], 'updates'), false, 'opening metadata must not clone transcript chunks');
   const found = await compat.request('session/list', {_meta:{query:'unique-in-body',includeArchived:true,types:['code_pro']}});
   assert.equal(found.sessions.length, 4, 'explicit search still reads historical message bodies');
   assert.deepEqual((await compat.request('session/list',{cwd:'D:\\other'})).sessions, []);

@@ -1,131 +1,21 @@
 # @aaif/goose-sdk
 
-TypeScript client library for the Goose Agent Client Protocol (ACP).
+## 简体中文
 
-This package provides:
-- TypeScript types and Zod validators for Goose ACP extension methods
-- A client for communicating with the Goose ACP server
+CodeBuddy 桌面使用的 ACP TypeScript 客户端、类型及 Zod 校验器。兼容协议保存在 `schema/`，通过 `generate-schema.ts` 生成 `src/generated/`；不再从旧 Rust Agent 导出协议。
 
-## Installation
+在此目录使用已有依赖执行：
 
-```bash
-npm install @aaif/goose-sdk
-```
+- `pnpm run build`：生成协议类型并编译 TypeScript。
+- `pnpm run build:ts`：仅编译已有源码。
+- `pnpm test` 与 `pnpm run typecheck:test`：SDK 测试及测试代码类型检查。
 
-The native `goose` binaries are distributed as optional dependencies
-and will be automatically installed for your platform.
+桌面启动和安装包构建见[仓库说明](../../README.md)。`@aaif/goose-sdk/node` 的原生二进制解析器及 `ui/goose-binary` 可选工作区包仍用于兼容；它们不代表当前 CodeBuddy 以旧 Rust CLI 启动。旧 CLI 构建和上游 npm 发布流程已移除。
 
-## Development
+## 繁體中文
 
-### Prerequisites
+本套件提供 CodeBuddy 桌面使用的 ACP 客戶端、型別與 Zod 校驗器。`generate-schema.ts` 從 `schema/` 產生型別，不依賴舊 Rust Agent。於本目錄以既有依賴執行上述建構與測試命令。原生二進位解析器及可選工作區套件仍保留相容性；桌面啟動使用 Harness，舊 CLI 建構與上游 npm 發布流程已移除。
 
-- Node.js 18+
-- Rust toolchain
-- (Optional) Cross-compilation toolchains for building all platforms
+## English
 
-### Building
-
-```bash
-# Build everything (schema + TypeScript)
-npm run build
-
-# Build just the schema (requires Rust)
-npm run build:schema
-
-# Build just the TypeScript
-npm run build:ts
-
-# Build native binary for current platform
-npm run build:native
-
-# Build native binaries for all platforms
-npm run build:native:all
-```
-
-### Local Development with npm link
-
-To use this package locally in another project (e.g., `@aaif/goose`):
-
-```bash
-# In ui/sdk
-npm run build
-npm link
-
-# In ui/text (or another project)
-npm link @aaif/goose-sdk
-```
-
-### Schema Generation
-
-The TypeScript types are generated from the preserved compatibility contracts in `ui/sdk/schema`. Harness implements the desktop protocol; generation no longer requires the retired Rust Agent.
-The build process:
-
-1. Builds the `generate-acp-schema` Rust binary
-2. Runs it to generate `acp-schema.json` and `acp-meta.json`
-3. Uses `@hey-api/openapi-ts` to generate TypeScript types and Zod validators
-4. Generates a typed client in `src/generated/client.gen.ts`
-
-To regenerate schemas after changing Rust types:
-
-```bash
-npm run build:schema
-```
-
-## Native Binary Packages
-
-Platform-specific npm packages for the `goose` binary are located in
-`ui/goose-binary/`:
-
-| Package | Platform |
-|---------|----------|
-| `@aaif/goose-binary-darwin-arm64` | macOS Apple Silicon |
-| `@aaif/goose-binary-darwin-x64` | macOS Intel |
-| `@aaif/goose-binary-linux-arm64` | Linux ARM64 |
-| `@aaif/goose-binary-linux-x64` | Linux x64 |
-| `@aaif/goose-binary-win32-x64` | Windows x64 |
-
-These are published separately from `@aaif/goose-sdk`.
-
-### Building Native Binaries
-
-```bash
-# Build for current platform
-npm run build:native
-
-# Build for all platforms (requires cross-compilation toolchains)
-npm run build:native:all
-
-# Build for specific platform(s)
-npx tsx scripts/build-native.ts darwin-arm64 linux-x64
-```
-
-## Publishing
-
-Publishing is handled by GitHub Actions. See `.github/workflows/publish-npm.yml`.
-
-For manual publishing:
-
-```bash
-# From repository root
-./ui/scripts/publish.sh --real
-```
-
-This will:
-1. Build and publish `@aaif/goose-sdk`
-2. Publish all native binary packages
-3. Publish `@aaif/goose` (which depends on the above)
-
-## Usage
-
-```typescript
-import { GooseClient } from "@aaif/goose-sdk";
-
-const client = new GooseClient({
-  // ... configuration
-});
-
-// Use the client
-const result = await client.someMethod({ ... });
-```
-
-See the [main documentation](../../README.md) for more details.
+This package provides the ACP TypeScript client, types and Zod validators used by CodeBuddy Desktop. `generate-schema.ts` reads compatibility contracts from `schema/` and writes `src/generated/`; it does not build the retired Rust Agent. Run the build and test commands above from this directory with existing dependencies. The `@aaif/goose-sdk/node` binary resolver and optional workspace packages remain for compatibility. CodeBuddy Desktop starts Harness. Retired CLI build and upstream npm publishing instructions have been removed.

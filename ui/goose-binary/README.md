@@ -1,59 +1,15 @@
-# Native Binary Packages for goose
+# 原生二进制兼容包 / Native binary compatibility packages
 
-This directory contains the npm package scaffolding for distributing the
-`goose` Rust binary as platform-specific npm packages.
+## 简体中文
 
-## Packages
+此目录保留 `@aaif/goose-binary-*` 平台包声明。`ui/sdk/package.json` 的可选依赖及 `ui/sdk/src/resolve-binary.ts` 仍引用这些包，因此它们尚不属于无引用文件。当前 CodeBuddy 桌面使用 Harness，不通过这些包启动旧 Rust CLI。
 
-| Package | Platform |
-|---------|----------|
-| `@aaif/goose-binary-darwin-arm64` | macOS Apple Silicon |
-| `@aaif/goose-binary-darwin-x64` | macOS Intel |
-| `@aaif/goose-binary-linux-arm64` | Linux ARM64 |
-| `@aaif/goose-binary-linux-x64` | Linux x64 |
-| `@aaif/goose-binary-win32-x64` | Windows x64 |
+旧 CLI 编译与上游 npm 发布脚本已移除。安装包使用[仓库说明](../../README.md)中的 Harness 构建入口。删除这些兼容包需要同时迁移 SDK 的公开 Node 入口、TUI 和工作区锁文件，不能单独删除目录。
 
-## Building
+## 繁體中文
 
-From the repository root:
+本目錄保留平台套件宣告，仍由 SDK 可選依賴及原生二進位解析器引用。目前桌面使用 Harness。舊 CLI 編譯與上游 npm 發布腳本已移除。移除這些相容套件需同時遷移 SDK 公開 Node 入口、TUI 及工作區鎖定檔。
 
-```bash
-# Build for current platform only
-cd ui/sdk
-npm run build:native
+## English
 
-# Build for all platforms (requires cross-compilation toolchains)
-npm run build:native:all
-
-# Build for specific platform(s)
-npx tsx scripts/build-native.ts darwin-arm64 linux-x64
-```
-
-The built binaries are placed into `ui/goose-binary/goose-binary-{platform}/bin/`.
-These directories are git-ignored.
-
-Linux native binaries are built with local inference Vulkan support. Linux build
-hosts need Vulkan headers and `glslc`; Linux runtime hosts need the Vulkan loader
-package, such as `libvulkan1` on Debian/Ubuntu or `vulkan-loader` on RPM-based
-distributions.
-
-## Publishing
-
-Publishing is handled by GitHub Actions. See `.github/workflows/publish-npm.yml`.
-
-For manual publishing:
-
-```bash
-# From repository root
-./ui/scripts/publish.sh --real
-```
-
-This will publish all native packages along with `@aaif/goose-sdk` and `@aaif/goose`.
-
-## Usage
-
-These packages are installed as optional dependencies by `@aaif/goose` (the TUI).
-The appropriate package for the user's platform is automatically selected during
-installation.
-
-See `ui/text/scripts/postinstall.mjs` for how the binary path is resolved.
+These platform package manifests remain referenced by SDK optional dependencies and its native binary resolver. CodeBuddy Desktop uses Harness. Retired CLI compilation and upstream npm publishing scripts have been removed. Removing these compatibility packages requires coordinated migration of the SDK public Node entry point, TUI and workspace lockfile. Use the repository's Harness build instructions for desktop packaging.

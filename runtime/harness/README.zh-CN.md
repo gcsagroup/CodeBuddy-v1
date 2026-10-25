@@ -1,6 +1,6 @@
 # CodeBuddy Harness 运行时
 
-远程 MCP 通过官方 `agent-preset-registry` 的长期作用域和租约跨会话复用；配置一致时仅首次连接，配置变化隔离新修订，既有会话保留原连接。最多保留 8 组可复用配置，仍被租用的旧修订由 Harness 继续保留。stdio 保持会话/工作目录隔离。工具列表变化会同步继承工具限制，执行仍逐会话审批；详见[设计与真实窗口验收](../../docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md)。
+远程 MCP 通过官方 `agent-preset-registry` 的长期作用域和租约跨会话复用；配置一致时仅首次连接，配置变化隔离新修订，既有会话保留原连接。最多保留 8 组可复用配置，仍被租用的旧修订由 Harness 继续保留。stdio 保持会话/工作目录隔离。工具列表变化会同步继承工具限制，执行仍逐会话审批；详见设计与真实窗口验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md`）。
 
 长目标由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目标 CAS、自动续轮、轮数上限和暂停。`prompt` 在原生目标 active + armed 时保持打开，等待官方续轮结束；普通无目标会话正常结束。返回值的 `goal` 为官方 GoalView。Stop 取消本次执行并 disarm；重启保持 disarmed，不自行重放工作。显式暂停目标的恢复使用结构化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立权限和事件承载再调用官方 resume。`getGoal` 只读；`controlGoal` 支持 pause，以及已承载执行中的 resume；空闲时直接 resume 被拒绝。
 

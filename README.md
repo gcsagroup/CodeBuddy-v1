@@ -12,7 +12,7 @@
 
 ## 当前版本
 
-CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。当前候选版本为 `1.43.5`；安装包与验收状态以[本批交付记录](docs/reconstruction/2026-10-16-frontend-merge.zh-CN.md)为准，源码构建成功不代表所有功能均已完成真实验收。
+CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准；开发和功能说明见[文档索引](docs/README.zh-CN.md)。安装包与验收结果必须对应具体源码版本，源码构建成功不代表所有功能均已完成真实验收。
 
 Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。安装版首次启动空数据目录时预置 `http://192.168.9.101:8001` 的局域网模型连接，用户仍可在设置中添加自己的模型；已有配置不被覆盖。详见[安装版默认模型](docs/installation-model-defaults.zh-CN.md)。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
 
@@ -58,7 +58,7 @@ cargo build --offline -p goose-mcp --features rustls-tls --bin codebuddy-tools -
 
 同批源码、同一暂存目录且应用已完整构建时，才可使用 `node scripts/build-harness-windows.cjs <stage-directory> --make-only` 接续安装包生成。NuGet 已完成、仅 Squirrel 封装中断时可使用 `--finalize-only`；脚本先验证 NuGet 内应用与当前产物一致。源码变更后必须重新构建，不复用旧暂存目录。
 
-第三方组件的许可证、版权及来源记录保留在对应许可文件与 `runtime/harness/PROVENANCE.json`。开发交接与逐批验收记录见 [重构记录](docs/reconstruction)，历史记录中的版本名与测试结论仅适用于当时产物。
+第三方组件的许可证、版权及来源记录保留在对应许可文件与 `runtime/harness/PROVENANCE.json`。当前文档与近期交接见[文档索引](docs/README.zh-CN.md)。旧架构文档、早期验收流水及上游文档站已移入 Git 历史；历史记录中的版本名与测试结论仅适用于当时产物。
 
 ## 功能
 
@@ -142,9 +142,7 @@ Pop-Location
 **磁盘空间下降**：Rust target、前端依赖和打包产物占用空间较大。
 停止构建后再检查可再生成目录；保留源码、会话和未验收证据。
 
-**没有安装包**：可直接从源码启动，也可查看
-[Windows Actions](https://github.com/erjinyi-bool/CodeBuddy-v1/actions/workflows/codebuddy-windows.yml)
-中成功任务实际提供的工件。仓库不承诺每次提交都有已签名的正式安装包。
+**没有安装包**：可按上文从源码启动或使用本地构建入口生成安装包。GitHub Release 中的文件以具体发布内容为准；仓库不承诺每次提交都有已签名的正式安装包。
 
 ## 开发与测试
 

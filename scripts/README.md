@@ -1,83 +1,21 @@
-# Goose Benchmark Scripts
+# CodeBuddy 脚本入口
 
-This directory contains scripts for running and analyzing Goose benchmarks.
+在仓库根目录执行，使用已有依赖；完整准备步骤见 [README](../README.md)。
 
-## run-benchmarks.sh
+| 用途 | 命令 |
+| --- | --- |
+| Windows 源码预览 | `.\start-preview.ps1` |
+| Windows Inno 安装包 | `node scripts/build-harness-windows.cjs --installer=inno` |
+| macOS 构建 | 按 [Mac 说明](../docs/macos.zh-CN.md)执行 `scripts/build-harness-macos.cjs` |
+| 启动器回归 | `node --test scripts/start-harness-preview.test.cjs scripts/root-pnpm-launcher.test.cjs` |
+| Office 环境准备 | [Office 构建器](office-builder/README.md) |
 
-This script runs Goose benchmarks across multiple provider:model pairs and analyzes the results.
+`stage-harness-distribution.cjs` 与 `verify-harness-stage.mjs` 由打包入口调用。`accept-*`、`inspect-*` 和 `preview-*` 是验收辅助脚本，使用前检查目标、profile 和副作用。旧 CLI 基准、下载和发布脚本已移除；历史内容可从 Git 恢复。
 
-### Prerequisites
+## 繁體中文
 
-- Goose CLI must be built or installed
-- `jq` command-line tool for JSON processing (optional, but recommended for result analysis)
+從倉庫根目錄使用既有依賴執行上述命令。Windows 以 `start-preview.ps1` 啟動，安裝包由 Harness 建構入口產生；macOS 參閱[平台說明](../docs/macos.zh-TW.md)。Office 準備涉及下載，詳見其說明。驗收輔助腳本須先確認目標、隔離 profile 與副作用。舊 CLI 基準、下載及發布腳本保留於 Git 歷史。
 
-### Usage
+## English
 
-```bash
-./scripts/run-benchmarks.sh [options]
-```
-
-#### Options
-
-- `-p, --provider-models`: Comma-separated list of provider:model pairs (e.g., 'openai:gpt-4o,anthropic:claude-sonnet-4')
-- `-s, --suites`: Comma-separated list of benchmark suites to run (e.g., 'core,small_models')
-- `-o, --output-dir`: Directory to store benchmark results (default: './benchmark-results')
-- `-d, --debug`: Use debug build instead of release build
-- `-h, --help`: Show help message
-
-#### Examples
-
-```bash
-# Run with release build (default)
-./scripts/run-benchmarks.sh --provider-models 'openai:gpt-4o,anthropic:claude-sonnet-4' --suites 'core,small_models'
-
-# Run with debug build
-./scripts/run-benchmarks.sh --provider-models 'openai:gpt-4o' --suites 'core' --debug
-```
-
-### How It Works
-
-The script:
-1. Parses the provider:model pairs and benchmark suites
-2. Determines whether to use the debug or release binary
-3. For each provider:model pair:
-   - Sets the `GOOSE_PROVIDER` and `GOOSE_MODEL` environment variables
-   - Runs the benchmark with the specified suites
-   - Analyzes the results for failures
-4. Generates a summary of all benchmark runs
-
-### Output
-
-The script creates the following files in the output directory:
-
-- `summary.md`: A summary of all benchmark results
-- `{provider}-{model}.json`: Raw JSON output from each benchmark run
-- `{provider}-{model}-analysis.txt`: Analysis of each benchmark run
-
-### Exit Codes
-
-- `0`: All benchmarks completed successfully
-- `1`: One or more benchmarks failed
-
-## parse-benchmark-results.sh
-
-This script analyzes a single benchmark JSON result file and identifies any failures.
-
-### Usage
-
-```bash
-./scripts/parse-benchmark-results.sh path/to/benchmark-results.json
-```
-
-### Output
-
-The script outputs an analysis of the benchmark results to stdout, including:
-
-- Basic information about the benchmark run
-- Results for each evaluation in each suite
-- Summary of passed and failed metrics
-
-### Exit Codes
-
-- `0`: All metrics passed successfully
-- `1`: One or more metrics failed
+Run the commands above from the repository root with existing dependencies. Windows preview starts through `start-preview.ps1`; packaging uses the Harness build entry points. Follow the [macOS guide](../docs/macos.en.md) on a Mac. Office preparation downloads dependencies; consult its guide first. Review targets, isolated profiles and side effects before running acceptance helpers. Retired CLI benchmark, download and release scripts remain available in Git history.

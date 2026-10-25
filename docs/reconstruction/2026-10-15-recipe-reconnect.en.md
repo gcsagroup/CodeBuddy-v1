@@ -1,9 +1,0 @@
-# Recipe form disconnect and reconnect repair
-
-Scope: D:\CodeBuddy-v1 without Git metadata. Changes: acpConnection.ts, recipeParamRequests.ts and their two test files. No branch, commit, push or dependency installation. Harness execution and completion ownership remain unchanged.
-
-A real isolated Electron reproduction terminated exactly the socket waiting for recipe parameters. The backend ended the request, but the obsolete form remained visible. The regression first failed2/passed11. Each connection now owns an AbortController; its forms consume that signal. Close, reset, system-resume replacement and initialization failure cancel only that connection's forms. Submission/cancellation removes the listener. No protocol/persistence additions or replay of obsolete submissions.
-
-Four affected test files passed40/40,exit0; TypeScript and targeted ESLint finally exited0. An initial AbortSignal lint error was fixed using the existing AbortController signal type. Actual fault replay dismissed the form; a fresh UI run created session883f0412-04ba-45a8-a95b-4df839cc7afc and returned the exact RECONNECTED marker, with no tools and Harness completed/harness_turn. Session count31→32 proves only the successful attempt persisted.
-
-The local test wrapper terminated only the form socket; it did not mutate page state or user network settings. Evidence: recipe-disconnect-ui-receipt.json and recipe-disconnect-*.png. The fault wrapper is stopped; ordinary preview runtime3720/desktop12528/exec56226 is running. User runtime20048 remains untouched and4 schedules are paused. Prior preview Ctrl+C exits were1, intentional interruptions, not passed tests. Backend unchanged:reuse367/367. Actual UI exercised transport loss; whole-machine sleep was not exercised, although the resume cleanup path has unit coverage.

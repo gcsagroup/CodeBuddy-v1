@@ -24,6 +24,10 @@ export async function toolEnabled(session, settings, name, resolved) {
     resolved ?? (await resolveSessionExtensions(session, settings));
   snapshot.assertCurrent(session);
   const entries = snapshot.selected;
+  // Discovery only exposes schemas already registered in this session. It serves
+  // every extension; disabling developer must not strand Git or MCP tools.
+  if (name === "search_mcp_tools")
+    return entries.length > 0 || snapshot.mcpServers.length > 0;
   if (["read_mcp_resource", "list_mcp_resources"].includes(name))
     return (
       entries.some(

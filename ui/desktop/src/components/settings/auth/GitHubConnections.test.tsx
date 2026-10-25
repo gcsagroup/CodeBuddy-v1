@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getConfiguredExtensions, testConfigExtension } from '../../../acp/extensions';
 import { IntlTestWrapper } from '../../../i18n/test-utils';
 import GitHubConnections from './GitHubConnections';
+import { connectGitHubMcp } from '../../../acp/diagnostics';
+vi.mock('../../../acp/diagnostics', () => ({ connectGitHubMcp: vi.fn() }));
 vi.mock('../../../acp/extensions', () => ({
   getConfiguredExtensions: vi.fn(),
   testConfigExtension: vi.fn(),
@@ -14,6 +16,7 @@ function renderConnections() {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(connectGitHubMcp).mockResolvedValue({ success: true });
   window.electron.githubCliStatus = vi.fn().mockResolvedValue({ state: 'disconnected' });
   window.electron.githubCliLogout = vi.fn().mockResolvedValue({ state: 'disconnected' });
   window.electron.githubCliLoginStart = vi.fn().mockResolvedValue({
@@ -47,6 +50,35 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe('GitHubConnections', () => {
+  it('connects the signed-in account only after an explicit click and trusts the real verification result', async () => {
+    vi.mocked(window.electron.githubCliStatus).mockResolvedValue({
+      state: 'connected',
+      login: 'octocat',
+    });
+    vi.mocked(testConfigExtension).mockResolvedValue({
+      success: false,
+      latencyMs: 1,
+      tools: [],
+      resourceCount: 0,
+      supportsResources: false,
+    });
+    vi.mocked(connectGitHubMcp)
+      .mockResolvedValueOnce({ success: false, code: 'connection_failed' })
+      .mockResolvedValueOnce({ success: true });
+    renderConnections();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled()
+    );
+    expect(connectGitHubMcp).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'GitHub connection was not completed'
+    );
+    expect(screen.queryByText('GitHub: connected')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
+    await screen.findByText('GitHub: connected');
+    expect(connectGitHubMcp).toHaveBeenNthCalledWith(2, 'octocat');
+  });
   it('confirms logout, prevents duplicate requests, refreshes the account and permits login again', async () => {
     vi.mocked(window.electron.githubCliStatus).mockResolvedValue({
       state: 'connected',
@@ -60,6 +92,8 @@ describe('GitHubConnections', () => {
     );
     renderConnections();
     await screen.findByText('GitHub account: octocat');
+    await screen.findByText('Advanced account options');
+    fireEvent.click(screen.getByText('Advanced account options'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     const dialog = screen.getByRole('dialog');
@@ -74,7 +108,7 @@ describe('GitHubConnections', () => {
     await act(async () => finish({ state: 'disconnected' }));
     expect(window.electron.githubCliLogout).toHaveBeenCalledExactlyOnceWith('octocat');
     expect(screen.getByText('No GitHub CLI account is signed in.')).toBeInTheDocument();
-    expect(screen.getByText('GitHub MCP: connection verified')).toBeInTheDocument();
+    expect(screen.getByText('GitHub: connected')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
     expect(await screen.findByText('ABCD-EFGH')).toBeInTheDocument();
   });
@@ -85,6 +119,8 @@ describe('GitHubConnections', () => {
     });
     vi.mocked(window.electron.githubCliLogout).mockRejectedValue(new Error('failed'));
     renderConnections();
+    await screen.findByText('Advanced account options');
+    fireEvent.click(screen.getByText('Advanced account options'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sign out' }));
@@ -102,6 +138,8 @@ describe('GitHubConnections', () => {
       value: undefined,
     });
     renderConnections();
+    await screen.findByText('Advanced account options');
+    fireEvent.click(screen.getByText('Advanced account options'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sign out' }));
@@ -123,7 +161,7 @@ describe('GitHubConnections', () => {
     expect(
       screen.queryByText('Connection check failed. Check your network or sign in again.')
     ).not.toBeInTheDocument();
-    expect(await screen.findByText('GitHub MCP: connection verified')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub: connected')).toBeInTheDocument();
   });
   it('detects a new preload calling an old main process', async () => {
     vi.mocked(window.electron.githubCliStatus).mockRejectedValueOnce(
@@ -141,26 +179,14 @@ describe('GitHubConnections', () => {
   });
 
   it.each([
-    [
-      'zh-CN',
-      '检查连接',
-      '连接 GitHub',
-      '连接检查失败，请检查网络或重新登录。',
-      'GitHub MCP：连接验证成功',
-    ],
-    [
-      'zh-TW',
-      '檢查連線',
-      '連線 GitHub',
-      '連線檢查失敗，請檢查網路或重新登入。',
-      'GitHub MCP：連線驗證成功',
-    ],
+    ['zh-CN', '检查连接', '连接 GitHub', '连接检查失败，请检查网络或重新登录。', 'GitHub：已连接'],
+    ['zh-TW', '檢查連線', '連線 GitHub', '連線檢查失敗，請檢查網路或重新登入。', 'GitHub：已連線'],
     [
       'en',
       'Check connection',
       'Connect GitHub',
       'Connection check failed. Check your network or sign in again.',
-      'GitHub MCP: connection verified',
+      'GitHub: connected',
     ],
   ])(
     'uses the real %s catalog for connection results and actions',
@@ -183,23 +209,23 @@ describe('GitHubConnections', () => {
 
   it('recognizes existing MCP credentials while independently offering account login', async () => {
     renderConnections();
-    expect(await screen.findByText('GitHub MCP: connection verified')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub: connected')).toBeInTheDocument();
     expect(screen.getByText('No GitHub CLI account is signed in.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled();
   });
   it('rechecks actual state and replaces a stale success with an error', async () => {
     renderConnections();
-    await screen.findByText('GitHub MCP: connection verified');
+    await screen.findByText('GitHub: connected');
     vi.mocked(testConfigExtension).mockRejectedValueOnce(new Error('network'));
     fireEvent.click(screen.getByRole('button', { name: 'Check connection' }));
     expect(
-      await screen.findByText('GitHub MCP: connection failed. Check its credentials in Toolbox.')
+      await screen.findByText('GitHub: connection failed. Check the network and reconnect.')
     ).toBeInTheDocument();
-    expect(screen.queryByText('GitHub MCP: connection verified')).not.toBeInTheDocument();
+    expect(screen.queryByText('GitHub: connected')).not.toBeInTheDocument();
   });
   it('opens the official page and cancels the active flow on unmount', async () => {
     const view = renderConnections();
-    await screen.findByText('GitHub MCP: connection verified');
+    await screen.findByText('GitHub: connected');
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
     expect(await screen.findByText('ABCD-EFGH')).toBeInTheDocument();
     expect(window.electron.openExternal).toHaveBeenCalledWith('https://github.com/login/device');
@@ -219,6 +245,8 @@ describe('GitHubConnections', () => {
     await act(async () => vi.advanceTimersByTimeAsync(2000));
     expect(screen.getByText('GitHub account: octocat')).toBeInTheDocument();
     expect(screen.queryByText('ABCD-EFGH')).not.toBeInTheDocument();
+    expect(connectGitHubMcp).toHaveBeenCalledExactlyOnceWith('octocat');
+    expect(screen.getByText('GitHub: connected')).toBeInTheDocument();
   });
   it('offers installation only when the CLI is actually missing', async () => {
     vi.mocked(window.electron.githubCliStatus).mockResolvedValueOnce({ state: 'unavailable' });
@@ -227,6 +255,24 @@ describe('GitHubConnections', () => {
       expect(screen.getByRole('button', { name: 'Get GitHub CLI' })).toBeEnabled()
     );
     expect(window.electron.githubCliLoginStart).not.toHaveBeenCalled();
+  });
+  it('keeps account sign-in distinct from a failed final connection and offers a single retry', async () => {
+    vi.useFakeTimers();
+    vi.mocked(connectGitHubMcp).mockResolvedValue({ success: false, code: 'connection_failed' });
+    renderConnections();
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
+    await act(async () => undefined);
+    vi.mocked(window.electron.githubCliLoginPoll).mockResolvedValueOnce({
+      state: 'connected',
+      login: 'octocat',
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(connectGitHubMcp).toHaveBeenCalledExactlyOnceWith('octocat');
+    expect(screen.getByText('GitHub account: octocat')).toBeVisible();
+    expect(screen.queryByText('GitHub: connected')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent('GitHub connection was not completed');
+    expect(screen.getAllByRole('button', { name: 'Connect GitHub' })).toHaveLength(1);
   });
 });
 
@@ -240,7 +286,7 @@ describe('independent bounded connection checks', () => {
     await act(async () => vi.advanceTimersByTimeAsync(25_000));
     expect(screen.getByRole('button', { name: 'Check connection' })).toBeEnabled();
     expect(
-      screen.getByText('GitHub MCP: connection failed. Check its credentials in Toolbox.')
+      screen.getByText('GitHub: connection failed. Check the network and reconnect.')
     ).toBeVisible();
     expect(screen.getByText('No GitHub CLI account is signed in.')).toBeVisible();
   });

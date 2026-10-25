@@ -1,4 +1,5 @@
 vi.mock('./GitHubConnections', () => ({ default: () => <div>GitHub connection checks</div> }));
+vi.mock('./RepositoryConnections', () => ({ default: () => <div>GitHub connection checks</div> }));
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, type RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -62,7 +63,7 @@ describe('AuthSettingsSection', () => {
   it('renders GitHub authentication before provider credentials', async () => {
     renderWithIntl(<AuthSettingsSection />);
 
-    const github = await screen.findByText('GitHub');
+    const github = await screen.findByText('Code repositories');
     const providers = screen.getByText('Provider Credentials');
     expect(
       github.compareDocumentPosition(providers) & Node.DOCUMENT_POSITION_FOLLOWING

@@ -1,14 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { buildToolboxModel } from './toolboxModel';
+import { buildToolboxModel, groupRepositoryTools } from './toolboxModel';
+
+it('groups repository controls without changing configuration identities or absorbing custom GitHub endpoints', () => {
+  const original = buildToolboxModel({
+    skills: [],
+    apps: [],
+    extensions: [
+      { type: 'platform', name: 'git', enabled: false },
+      { type: 'stdio', name: 'local_git', enabled: true, cmd: 'node', args: [] },
+      {
+        type: 'streamable_http',
+        name: 'github_official',
+        configKey: 'github_official',
+        enabled: false,
+        uri: 'https://api.githubcopilot.com/mcp/',
+      },
+      {
+        type: 'streamable_http',
+        name: 'github_official',
+        configKey: 'custom',
+        enabled: true,
+        uri: 'https://example.invalid/mcp',
+      },
+    ],
+  });
+  const grouped = groupRepositoryTools(original);
+  expect(grouped.capabilities).toHaveLength(1);
+  expect(grouped.capabilities[0].repositoryMembers?.map((item) => item.id)).toEqual([
+    'external:github_official',
+    'external:local_git',
+  ]);
+  expect(grouped.capabilities[0].actions).toEqual(['inspect']);
+  expect(grouped.external.map((item) => item.id)).toEqual(['external:custom']);
+  expect(original.external).toHaveLength(3);
+  expect(original.capabilities).toHaveLength(0);
+});
 
 describe('buildToolboxModel', () => {
   it('shows one external Git entry when full Git MCP is configured', () => {
-    const model = buildToolboxModel({skills: [], apps: [], extensions: [
-      {type: 'platform', name: 'git', enabled: false},
-      {type: 'stdio', name: 'local_git', enabled: true, cmd: 'node', args: []},
-    ]});
+    const model = buildToolboxModel({
+      skills: [],
+      apps: [],
+      extensions: [
+        { type: 'platform', name: 'git', enabled: false },
+        { type: 'stdio', name: 'local_git', enabled: true, cmd: 'node', args: [] },
+      ],
+    });
     expect(model.capabilities).toHaveLength(0);
-    expect(model.external.map(item => item.id)).toEqual(['external:local_git']);
+    expect(model.external.map((item) => item.id)).toEqual(['external:local_git']);
   });
 
   it('omits a retired tutorial from older backends without claiming enabled tools are verified', () => {

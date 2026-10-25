@@ -311,12 +311,16 @@ test("actual ACP recipe startup renders user parameters, selects model/tools and
     "end_turn",
   );
   assert.equal(context.driver.prompts.length, 1);
+  const beforeReplay = context.client.notifications.length;
   const reloaded = await context.client.request("session/load", {
     sessionId: created.sessionId,
     cwd: context.root,
     mcpServers: [],
   });
   assert.equal(reloaded._meta.recipe.prompt, "Build Multi module");
+  const replay = context.client.notifications.slice(beforeReplay).filter(n => n.method === 'session/update');
+  assert.equal(replay[0].params.update._meta.goose.transcriptReplayStarted, true);
+  assert.equal(replay[1].params.update.sessionUpdate, 'user_message_chunk');
   assert.equal(reloaded._meta.recipe.settings.max_turns, 7);
 });
 

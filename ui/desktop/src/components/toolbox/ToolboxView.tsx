@@ -29,6 +29,9 @@ import { useConfig } from '../ConfigContext';
 import { applySkillChange, previewSkillChange, type ManagedSkill } from '../../acp/skillManagement';
 import { localizeToolboxItem } from './toolboxLocalization';
 import { capabilityExample } from './capabilityExamples';
+import { groupRepositoryTools } from './toolboxModel';
+import RepositoryConnections from '../settings/auth/RepositoryConnections';
+import { selectNativeText } from '../../utils/nativeLocalization';
 
 const EMPTY_MODEL: ToolboxModel = { capabilities: [], methods: [], apps: [], external: [] };
 type VisibleToolboxSection = Extract<
@@ -229,12 +232,14 @@ function ItemCard({
                   {intl.formatMessage(i18n.required)}
                 </span>
               )}
-              <span
-                aria-live="polite"
-                className="rounded-md bg-background-tertiary px-1.5 py-0.5 text-[11px] text-text-secondary"
-              >
-                {intl.formatMessage(displayedStatus)}
-              </span>
+              {!item.repositoryMembers && (
+                <span
+                  aria-live="polite"
+                  className="rounded-md bg-background-tertiary px-1.5 py-0.5 text-[11px] text-text-secondary"
+                >
+                  {intl.formatMessage(displayedStatus)}
+                </span>
+              )}
             </div>
             <p className="mt-2 line-clamp-2 text-sm leading-5 text-text-secondary">
               {item.description}
@@ -396,6 +401,8 @@ export default function ToolboxView() {
   const [controlledMcpAdd, setControlledMcpAdd] = useState(false);
   const [selectedBuiltIn, setSelectedBuiltIn] = useState<ToolboxItem>();
   const [togglingId, setTogglingId] = useState<string>();
+  const [repositoryOpen, setRepositoryOpen] = useState(false);
+  const model = useMemo(() => groupRepositoryTools(result.model), [result.model]);
 
   const refresh = useCallback(async () => {
     const version = ++refreshVersion.current;
@@ -434,18 +441,25 @@ export default function ToolboxView() {
     const normalized = query.trim().toLocaleLowerCase();
     const sectionItems =
       selectedSection === 'all'
-        ? [...result.model.capabilities, ...result.model.methods, ...result.model.external]
-        : result.model[selectedSection];
+        ? [...model.capabilities, ...model.methods, ...model.external]
+        : selectedSection === 'external'
+          ? [
+              ...model.external,
+              ...model.capabilities.filter((item) =>
+                item.repositoryMembers?.some((member) => member.kind === 'external')
+              ),
+            ]
+          : model[selectedSection];
     return sectionItems
       .map((item) => ({ original: item, display: localizeToolboxItem(item, intl) }))
       .filter(({ original, display }) =>
-        `${original.id} ${original.reference?.key ?? ''} ${original.reference?.value ?? ''} ${original.name} ${original.description} ${display.name} ${display.description}`
+        `${original.id} ${original.repositoryMembers?.map((member) => `${member.id} ${member.name}`).join(' ') ?? ''} ${original.reference?.key ?? ''} ${original.reference?.value ?? ''} ${original.name} ${original.description} ${display.name} ${display.description}`
           .toLocaleLowerCase()
           .includes(normalized)
       )
       .map(({ display }) => display)
       .sort((a, b) => a.name.localeCompare(b.name, intl.locale));
-  }, [query, result.model, selectedSection, intl]);
+  }, [query, model, selectedSection, intl]);
   const hasUnfilteredItems =
     selectedSection === 'all'
       ? result.model.capabilities.length +
@@ -467,6 +481,10 @@ export default function ToolboxView() {
   );
 
   const openItem = (item: ToolboxItem) => {
+    if (item.repositoryMembers) {
+      setRepositoryOpen(true);
+      return;
+    }
     if (item.kind === 'builtin') {
       setSelectedBuiltIn(item);
       return;
@@ -482,20 +500,21 @@ export default function ToolboxView() {
   };
   useEffect(() => {
     if (!requestedItem || loading || openedItem.current === requestedItem) return;
-    const item = [
-      ...result.model.capabilities,
-      ...result.model.methods,
-      ...result.model.external,
-    ].find((entry) => entry.id === requestedItem);
+    const item = [...model.capabilities, ...model.methods, ...model.external].find(
+      (entry) =>
+        entry.id === requestedItem ||
+        entry.repositoryMembers?.some((member) => member.id === requestedItem)
+    );
     if (!item) return;
     openedItem.current = requestedItem;
-    if (item.kind === 'builtin') setSelectedBuiltIn(localizeToolboxItem(item, intl));
+    if (item.repositoryMembers) setRepositoryOpen(true);
+    else if (item.kind === 'builtin') setSelectedBuiltIn(localizeToolboxItem(item, intl));
     else if (item.kind === 'external') setControlledMcpKey(item.reference?.value ?? item.name);
     else {
       const skill = managedSkillFor(item);
       if (skill) setSkillRequest({ type: 'detail', skill });
     }
-  }, [requestedItem, loading, result.model, intl]);
+  }, [requestedItem, loading, model, intl]);
 
   const toggleItem = async (item: ToolboxItem) => {
     if (item.locked || togglingId) return;
@@ -751,6 +770,34 @@ export default function ToolboxView() {
             item={selectedBuiltIn}
             onClose={() => setSelectedBuiltIn(undefined)}
           />
+          {repositoryOpen && (
+            <Dialog
+              open
+              onOpenChange={(open) => {
+                if (!open) {
+                  setRepositoryOpen(false);
+                  void refresh();
+                }
+              }}
+            >
+              <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {selectNativeText(intl.locale, 'Code repositories', '代码仓库', '程式碼儲存庫')}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {selectNativeText(
+                      intl.locale,
+                      'Manage local Git and your GitHub connection.',
+                      '统一管理本地 Git 和 GitHub 连接。',
+                      '統一管理本機 Git 與 GitHub 連線。'
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <RepositoryConnections />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
     </MainPanelLayout>

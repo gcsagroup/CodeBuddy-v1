@@ -128,11 +128,19 @@ test("unstaging an unborn repository preserves working bytes and unrelated index
   f.git("add", "--", f.file, "other.txt");
   await writeFile(path.join(f.cwd, f.file), "edited after staging\n");
   const other = f.git("ls-files", "--stage", "--", "other.txt");
-  assert.deepEqual(await f.call("git_unstage", { paths: [f.file] }), { unstaged_paths: [f.file] });
+  assert.deepEqual(await f.call("git_unstage", { paths: [f.file] }), {
+    unstaged_paths: [f.file],
+  });
   assert.equal(f.git("ls-files", "--", f.file), "");
   assert.equal(f.git("ls-files", "--stage", "--", "other.txt"), other);
-  assert.equal(await readFile(path.join(f.cwd, f.file), "utf8"), "edited after staging\n");
-  assert.equal(await readFile(path.join(f.cwd, "other.txt"), "utf8"), "keep staged\n");
+  assert.equal(
+    await readFile(path.join(f.cwd, f.file), "utf8"),
+    "edited after staging\n",
+  );
+  assert.equal(
+    await readFile(path.join(f.cwd, "other.txt"), "utf8"),
+    "keep staged\n",
+  );
   assert.throws(() => f.git("rev-parse", "--verify", "HEAD"));
 });
 
@@ -194,13 +202,12 @@ test("original renderer parses five real local Git write receipts; commit contai
       .map((tool) => tool.name),
     GIT_WRITE_TOOL_NAMES,
   );
-  assert.equal(createGitReader(f.cwd).tools.length, 8);
+  assert.equal(
+    createGitReader(f.cwd).tools.length,
+    GIT_TOOL_NAMES.length - GIT_WRITE_TOOL_NAMES.length,
+  );
   assert.ok(
-    !f.tools.some((tool) =>
-      ["git_push", "git_pull", "git_conflict_abort"].includes(
-        tool.name,
-      ),
-    ),
+    createGitReader(f.cwd).tools.every((tool) => tool.annotations.readOnlyHint),
   );
 });
 
@@ -495,53 +502,106 @@ test("actual child processes receive fixed argv, no shell and only Git runtime e
   assert.equal(f.git("show", ":argv;literal.txt"), "literal filename\n");
 });
 
-
-test('restore preview uses the existing renderer contract and preserves staging and unrelated files', async t => {
+test("restore preview uses the existing renderer contract and preserves staging and unrelated files", async (t) => {
   const f = await fixture(t);
-  await writeFile(path.join(f.cwd, f.file), 'staged revision\n'); f.git('add', '--', f.file);
-  await writeFile(path.join(f.cwd, f.file), 'discard this working change\n');
-  await writeFile(path.join(f.cwd, 'keep.txt'), 'untracked bytes\n');
-  const index = f.git('ls-files', '--stage', '-z');
+  await writeFile(path.join(f.cwd, f.file), "staged revision\n");
+  f.git("add", "--", f.file);
+  await writeFile(path.join(f.cwd, f.file), "discard this working change\n");
+  await writeFile(path.join(f.cwd, "keep.txt"), "untracked bytes\n");
+  const index = f.git("ls-files", "--stage", "-z");
   const ui = await renderer(t, f);
-  const preview = await ui.previewGitRestore('isolated-fixture', [f.file]);
-  assert.deepEqual(preview.blockedReasons, []); assert.deepEqual(preview.changedPaths, [f.file]);
+  const preview = await ui.previewGitRestore("isolated-fixture", [f.file]);
+  assert.deepEqual(preview.blockedReasons, []);
+  assert.deepEqual(preview.changedPaths, [f.file]);
   assert.match(preview.diff, /discard this working change/);
-  const result = await ui.restoreGitPaths('isolated-fixture', preview);
+  const result = await ui.restoreGitPaths("isolated-fixture", preview);
   assert.deepEqual(result.restoredPaths, [f.file]);
-  assert.equal(await readFile(path.join(f.cwd, f.file), 'utf8'), 'staged revision\n');
-  assert.equal(f.git('ls-files', '--stage', '-z'), index);
-  assert.equal(await readFile(path.join(f.cwd, 'keep.txt'), 'utf8'), 'untracked bytes\n');
+  assert.equal(
+    await readFile(path.join(f.cwd, f.file), "utf8"),
+    "staged revision\n",
+  );
+  assert.equal(f.git("ls-files", "--stage", "-z"), index);
+  assert.equal(
+    await readFile(path.join(f.cwd, "keep.txt"), "utf8"),
+    "untracked bytes\n",
+  );
 });
 
-test('restore rejects stale binary previews, changed index and cross-workspace tokens without touching bytes', async t => {
+test("restore rejects stale binary previews, changed index and cross-workspace tokens without touching bytes", async (t) => {
   const f = await fixture(t);
-  const initial = Buffer.from([0,1,2,3]); await writeFile(path.join(f.cwd,f.file), initial);
-  const p = await f.call('git_restore_preview', { paths: [f.file] });
-  const changed = Buffer.from([0,1,2,4]); await writeFile(path.join(f.cwd,f.file), changed);
-  await assert.rejects(f.call('git_restore', { paths: [f.file], preflight_id: p.preflight_id }), /stale/i);
-  assert.deepEqual(await readFile(path.join(f.cwd,f.file)), changed);
-  const p2 = await f.call('git_restore_preview', { paths: [f.file] });
-  f.git('add', '--', f.file); await writeFile(path.join(f.cwd,f.file), initial);
-  await assert.rejects(f.call('git_restore', { paths: [f.file], preflight_id: p2.preflight_id }), /stale/i);
-  await mkdir(path.join(f.cwd,'subdir'));
-  const childTool = gitTools(path.join(f.cwd,'subdir')).find(t => t.name === 'git_restore');
-  const p3 = await f.call('git_restore_preview', { paths: [f.file] });
-  await assert.rejects(childTool.execute({ paths: [f.file], preflight_id: p3.preflight_id }), /stale/i);
-  assert.deepEqual(await readFile(path.join(f.cwd,f.file)), initial);
+  const initial = Buffer.from([0, 1, 2, 3]);
+  await writeFile(path.join(f.cwd, f.file), initial);
+  const p = await f.call("git_restore_preview", { paths: [f.file] });
+  const changed = Buffer.from([0, 1, 2, 4]);
+  await writeFile(path.join(f.cwd, f.file), changed);
+  await assert.rejects(
+    f.call("git_restore", { paths: [f.file], preflight_id: p.preflight_id }),
+    /stale/i,
+  );
+  assert.deepEqual(await readFile(path.join(f.cwd, f.file)), changed);
+  const p2 = await f.call("git_restore_preview", { paths: [f.file] });
+  f.git("add", "--", f.file);
+  await writeFile(path.join(f.cwd, f.file), initial);
+  await assert.rejects(
+    f.call("git_restore", { paths: [f.file], preflight_id: p2.preflight_id }),
+    /stale/i,
+  );
+  await mkdir(path.join(f.cwd, "subdir"));
+  const childTool = gitTools(path.join(f.cwd, "subdir")).find(
+    (t) => t.name === "git_restore",
+  );
+  const p3 = await f.call("git_restore_preview", { paths: [f.file] });
+  await assert.rejects(
+    childTool.execute({ paths: [f.file], preflight_id: p3.preflight_id }),
+    /stale/i,
+  );
+  assert.deepEqual(await readFile(path.join(f.cwd, f.file)), initial);
 });
 
-test('restore preview blocks untracked and conflict paths and refuses path escapes', async t => {
+test("restore preview blocks untracked and conflict paths and refuses path escapes", async (t) => {
   const f = await fixture(t, { initialCommit: false });
-  const p = await f.call('git_restore_preview', { paths: [f.file] });
+  const p = await f.call("git_restore_preview", { paths: [f.file] });
   assert.ok(p.blocked_reasons.length > 0);
-  await assert.rejects(f.call('git_restore', { paths: [f.file], preflight_id: p.preflight_id }), /blocked/i);
-  await assert.rejects(f.call('git_restore_preview', { paths: ['../outside'] }));
-  f.git('add','--',f.file);
-  const oid=f.git('rev-parse', ':'+f.file).trim();
-  const input='0 '+ '0'.repeat(40)+'\t'+f.file+'\n100644 '+oid+' 1\t'+f.file+'\n100644 '+oid+' 2\t'+f.file+'\n100644 '+oid+' 3\t'+f.file+'\n';
-  execFileSync('git',['update-index','--index-info'],{cwd:f.cwd,input,windowsHide:true});
-  const conflict=await f.call('git_restore_preview',{paths:[f.file]});
-  assert.ok(conflict.blocked_reasons.some(x=>/conflict/i.test(x)));
-  await assert.rejects(f.call('git_restore',{paths:[f.file],preflight_id:conflict.preflight_id}),/blocked/i);
-  assert.equal(await readFile(path.join(f.cwd,f.file),'utf8'),'baseline\n');
+  await assert.rejects(
+    f.call("git_restore", { paths: [f.file], preflight_id: p.preflight_id }),
+    /blocked/i,
+  );
+  await assert.rejects(
+    f.call("git_restore_preview", { paths: ["../outside"] }),
+  );
+  f.git("add", "--", f.file);
+  const oid = f.git("rev-parse", ":" + f.file).trim();
+  const input =
+    "0 " +
+    "0".repeat(40) +
+    "\t" +
+    f.file +
+    "\n100644 " +
+    oid +
+    " 1\t" +
+    f.file +
+    "\n100644 " +
+    oid +
+    " 2\t" +
+    f.file +
+    "\n100644 " +
+    oid +
+    " 3\t" +
+    f.file +
+    "\n";
+  execFileSync("git", ["update-index", "--index-info"], {
+    cwd: f.cwd,
+    input,
+    windowsHide: true,
+  });
+  const conflict = await f.call("git_restore_preview", { paths: [f.file] });
+  assert.ok(conflict.blocked_reasons.some((x) => /conflict/i.test(x)));
+  await assert.rejects(
+    f.call("git_restore", {
+      paths: [f.file],
+      preflight_id: conflict.preflight_id,
+    }),
+    /blocked/i,
+  );
+  assert.equal(await readFile(path.join(f.cwd, f.file), "utf8"), "baseline\n");
 });

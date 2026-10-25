@@ -26,6 +26,7 @@ export interface GooseMessageMeta {
   created?: number;
   steer?: boolean;
   presentation?: Message['metadata']['presentation'];
+  transcriptReplayStarted?: boolean;
 }
 
 export interface ToolIdentity {
@@ -85,6 +86,7 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
       goose.presentation.afterMessageId.length <= 2048
         ? { afterMessageId: goose.presentation.afterMessageId }
         : undefined,
+    transcriptReplayStarted: goose.transcriptReplayStarted === true ? true : undefined,
   };
 }
 
@@ -101,6 +103,11 @@ export function getGooseActiveRunId(update: { _meta?: unknown }): string | null 
   return typeof goose.activeRunId === 'string' || goose.activeRunId === null
     ? goose.activeRunId
     : undefined;
+}
+
+export function hasDirectToolOrigin(meta: unknown): boolean {
+  if (!isRecord(meta)) return false;
+  return isRecord(meta.goose) && meta.goose.directToolCall === true;
 }
 
 export function rawInputToArguments(rawInput: unknown): Record<string, unknown> {

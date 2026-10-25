@@ -39,7 +39,7 @@ test('desktop package identity matches the CodeBuddy distribution metadata', () 
   assert.equal(distro.executableName, 'CodeBuddy');
   assert.equal(distro.protocol, 'codebuddy');
   assert.equal(distro.backendProfileDirectoryName, 'backend');
-  assert.equal(distro.updatesEnabled, false);
+  assert.equal(distro.updatesEnabled, true);
   assert.equal(distro.telemetryUiEnabled, false);
 
   assert.equal(packageJson.name, distro.packageName);
@@ -143,7 +143,7 @@ test('the workspace SDK build does not require a separately installed npm comman
 test('desktop sources consume the CodeBuddy distribution metadata', () => {
   const forgeConfig = readDesktopFile('forge.config.ts');
   const updatesConfig = readDesktopFile(path.join('src', 'updates.ts'));
-  const githubUpdater = readDesktopFile(path.join('src', 'utils', 'githubUpdater.ts'));
+  const githubUpdater = readDesktopFile(path.join('src', 'update', 'githubRelease.ts'));
   const indexHtml = readDesktopFile('index.html');
 
   assert.match(forgeConfig, /require\(['"]\.\/codebuddy\.distro\.json['"]\)/);
@@ -155,7 +155,7 @@ test('desktop sources consume the CodeBuddy distribution metadata', () => {
   assert.match(updatesConfig, /UPDATES_ENABLED\s*=\s*distro\.updatesEnabled/);
   assert.match(updatesConfig, /TELEMETRY_UI_ENABLED\s*=\s*distro\.telemetryUiEnabled/);
   assert.doesNotMatch(githubUpdater, /aaif-goose/);
-  assert.match(githubUpdater, /if\s*\(!this\.owner\s*\|\|\s*!this\.repo\)/);
+  assert.match(githubUpdater, /erjinyi-bool\/CodeBuddy-v1/);
   assert.match(indexHtml, /<title>CodeBuddy<\/title>/);
 
   const mainProcess = readDesktopFile(path.join('src', 'main.ts'));
@@ -321,6 +321,7 @@ test('the Simplified Chinese catalog contains no question-mark encoding damage',
 test('renderer JSX has no hard-coded English UI labels outside technical values', () => {
   const allowedTechnicalValues = new Set([
     'CodeBuddy',
+    'GitHub',
     'https://example.com',
     'CodeBuddy',
     'Aa',

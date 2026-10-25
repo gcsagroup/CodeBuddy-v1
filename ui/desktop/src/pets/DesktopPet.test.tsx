@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { IpcRendererEvent } from 'electron';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import DesktopPet from './DesktopPet';
 import type { PetSnapshot } from './petTypes';
 
@@ -30,6 +30,50 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+it('plays a blocked reaction once, retains the badge, and rearms only on a new failure', async () => {
+  const blocked = {
+    sessionId: 'blocked',
+    state: 'blocked',
+    title: 'Failed chat',
+    terminalId: 'failure-1',
+  };
+  request.mockResolvedValue({ ...snapshot, task: blocked });
+  await act(async () => {
+    render(<DesktopPet />);
+  });
+  const changed = vi
+    .mocked(window.electron.on)
+    .mock.calls.find(([event]) => event === 'pet-changed')![1];
+  const publish = (task: typeof blocked) =>
+    act(() => {
+      changed({} as IpcRendererEvent, { ...snapshot, task });
+    });
+  expect(screen.getByRole('img', { name: 'failed' })).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(800);
+  });
+  publish({ ...blocked, title: 'Updated title' });
+  act(() => {
+    vi.advanceTimersByTime(250);
+  });
+  expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
+  expect(screen.getByText('Blocked · click to view')).toBeInTheDocument();
+  publish({ ...blocked });
+  act(() => {
+    vi.advanceTimersByTime(10000);
+  });
+  expect(screen.getByRole('img', { name: 'idle' })).toBeInTheDocument();
+  publish({ ...blocked, state: 'working' });
+  expect(screen.getByRole('img', { name: 'working' })).toBeInTheDocument();
+  publish(blocked);
+  expect(screen.getByRole('img', { name: 'failed' })).toBeInTheDocument();
+  act(() => {
+    vi.advanceTimersByTime(1050);
+  });
+  publish({ ...blocked, terminalId: 'failure-2' });
+  expect(screen.getByRole('img', { name: 'failed' })).toBeInTheDocument();
 });
 
 it('observes a global cursor beyond 500 pixels even when an idle task remains', async () => {

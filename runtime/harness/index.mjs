@@ -741,13 +741,16 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       ...template,
       model: !template.model || template.model.error ? template.model : await configureProvider(template.model.provider, template.model.model),
     })));
-    await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !names.has(server.serverName)).map(server => server.serverName));
+    const connectableNames = new Set(mcpServers.filter(server => !server.configurationError).map(server => server.serverName));
+    await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !connectableNames.has(server.serverName)).map(server => server.serverName));
     imageApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
-    const connections = [];
-    const remoteServers = mcpServers.filter(server => server.transport === 'streamable-http');
+    const connections = mcpServers.filter(server => server.configurationError).map(server => ({
+      serverName: server.serverName, status: 'error', error: server.configurationError,
+    }));
+    const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
     let binding = mcpBindings.get(agent);
     const fiber = agent.ctx.isolate('compaction').plugin({
@@ -831,7 +834,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         // leases and session-scoped stdio processes; admit the loop after both.
         const [lease, statuses] = await Promise.all([
           mcpPresets.acquire(remoteServers).then(value => (shared = value)),
-          Promise.all(mcpServers.filter(server => server.transport !== 'streamable-http').map(async server => {
+          Promise.all(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http').map(async server => {
           const started = performance.now();
           const connection = scoped.plugin(mcpPlugin, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true });
           try {

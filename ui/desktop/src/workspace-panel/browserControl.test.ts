@@ -1,6 +1,34 @@
 import { it, expect, vi } from 'vitest';
 import type { WebContents } from 'electron';
 import { BrowserController } from './browserControl';
+it('keeps search results and unnamed controls after empty layout nodes without falsely reporting truncation', async () => {
+  const send = vi.fn(async () => ({
+    nodes: [
+      ...Array.from({ length: 600 }, (_, i) => ({
+        backendDOMNodeId: i + 1,
+        role: { value: 'generic' },
+        name: { value: '' },
+      })),
+      { backendDOMNodeId: 601, role: { value: 'link' }, name: { value: 'Official documentation' } },
+      { backendDOMNodeId: 602, role: { value: 'checkbox' }, name: { value: '' } },
+    ],
+  }));
+  const wc = {
+    on: vi.fn(),
+    isDestroyed: () => false,
+    getURL: () => 'http://localhost/',
+    getTitle: () => 'Search',
+    debugger: { isAttached: () => true, sendCommand: send },
+  } as unknown as WebContents;
+  const result = await new BrowserController(wc).run({ operation: 'observe' });
+  expect(result).toMatchObject({
+    truncated: false,
+    nodes: [
+      { node: 601, role: 'link', name: 'Official documentation' },
+      { node: 602, role: 'checkbox', name: '' },
+    ],
+  });
+});
 it('requires observed nodes, clears them after navigation, and distinguishes dispatch from verification', async () => {
   const events = new Map<string, (...args: unknown[]) => void>();
   const send = vi.fn(async (method: string) =>
@@ -18,6 +46,7 @@ it('requires observed nodes, clears them after navigation, and distinguishes dis
     debugger: { isAttached: () => true, sendCommand: send },
   } as unknown as WebContents;
   const control = new BrowserController(wc);
+  await expect(control.run({ operation: 'type', text: 'hello' })).rejects.toThrow('type requires');
   await expect(control.run({ operation: 'type', node: 12, text: 'hello' })).rejects.toThrow(
     'Observe'
   );

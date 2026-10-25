@@ -25,7 +25,7 @@ test('keeps qualification working directories out of shell argument escaping', (
     'utf8'
   );
 
-  assert.match(packageJson.scripts['start-gui'], /electron-forge start$/u);
+  assert.equal(packageJson.scripts['start-gui'], 'node ../../scripts/start-harness-preview.cjs');
   assert.doesNotMatch(fixtureSource, /pnpm run start-gui --/u);
   assert.match(fixtureSource, /environment\.GOOSE_WORKING_DIR = options\.workingDirectory/u);
 });

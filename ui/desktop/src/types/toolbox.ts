@@ -13,6 +13,8 @@ export interface ToolboxUsage {
 }
 
 export interface ToolboxItem {
+  /** UI grouping only; members retain their existing configuration identities. */
+  repositoryMembers?: ToolboxItem[];
   id: string;
   kind: ToolboxKind;
   source: ToolboxSource;

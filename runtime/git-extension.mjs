@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, realpath } from "node:fs/promises";
+import { lstat, realpath, readFile, readlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -17,6 +17,8 @@ export const GIT_READ_TOOL_NAMES = Object.freeze([
   "git_branches",
   "git_diff",
   "git_restore_preview",
+  "git_push_preview",
+  "git_conflict_abort_preview",
 ]);
 export const GIT_WRITE_TOOL_NAMES = Object.freeze([
   "git_stage",
@@ -25,6 +27,10 @@ export const GIT_WRITE_TOOL_NAMES = Object.freeze([
   "git_branch_create",
   "git_branch_switch",
   "git_restore",
+  "git_pull",
+  "git_push",
+  "git_conflict_continue",
+  "git_conflict_abort",
 ]);
 export const GIT_TOOL_NAMES = Object.freeze([
   ...GIT_READ_TOOL_NAMES,
@@ -51,6 +57,27 @@ const branchSchema = {
   required: ["name"],
   additionalProperties: false,
 };
+const remoteSchema = {
+  type: "object",
+  properties: {
+    remote: { type: "string", minLength: 1 },
+    branch: { type: "string", minLength: 1 },
+  },
+  required: ["remote", "branch"],
+  additionalProperties: false,
+};
+const operationSchema = {
+  type: "object",
+  properties: {
+    operation: {
+      type: "string",
+      enum: ["merge", "rebase", "cherry_pick", "revert"],
+    },
+  },
+  required: ["operation"],
+  additionalProperties: false,
+};
+const preflightField = { type: "string", pattern: "^[0-9a-f]{64}$" };
 const commitSchema = {
   type: "object",
   properties: { message: { type: "string", minLength: 1, maxLength: 4096 } },
@@ -597,7 +624,13 @@ function createGitAdapter(
     }
     return files;
   }
-  async function requireNoExternalFilters(root, files, signal, targetBranch) {
+  async function requireNoExternalFilters(
+    root,
+    files,
+    signal,
+    targetBranch,
+    targetRef,
+  ) {
     const externalFilters = configuredFilters.filter(
       (key) => !key.endsWith(".required"),
     );
@@ -634,23 +667,17 @@ function createGitAdapter(
         ).stdout;
     let usesExternalFilter =
       currentPaths.length && (await usesFilter(currentPaths));
-    if (!usesExternalFilter && targetBranch) {
+    const source =
+      targetRef ?? (targetBranch ? `refs/heads/${targetBranch}` : null);
+    if (!usesExternalFilter && source) {
       const targetPaths = (
         await git(
-          [
-            "ls-tree",
-            "--full-tree",
-            "-r",
-            "--name-only",
-            "-z",
-            `refs/heads/${targetBranch}`,
-          ],
+          ["ls-tree", "--full-tree", "-r", "--name-only", "-z", source],
           { directory: root, signal },
         )
       ).stdout;
       usesExternalFilter =
-        targetPaths.length &&
-        (await usesFilter(targetPaths, `refs/heads/${targetBranch}`));
+        targetPaths.length && (await usesFilter(targetPaths, source));
     }
     if (!usesExternalFilter) return;
     throw Error(
@@ -661,24 +688,48 @@ function createGitAdapter(
     const files = await selectedPaths(root, args, signal);
     await requireNoExternalFilters(root, files, signal);
     const options = { directory: root, signal };
-    const fullDiff = (await git([
-      "diff", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", "--", ...files,
-    ], options)).stdout;
-    const index = (await git(["ls-files", "--stage", "-z", "--", ...files], options)).stdout;
-    const entries = index.toString("utf8").split("\0").filter(Boolean).map(row => {
-      const tab = row.indexOf("\t");
-      const [mode, oid, stage] = row.slice(0, tab).split(" ");
-      return { path: row.slice(tab + 1), mode, oid, stage };
-    });
-    const changed = (await git(["diff", "--name-only", "-z", "--", ...files], options))
-      .stdout.toString("utf8").split("\0").filter(Boolean);
+    const fullDiff = (
+      await git(
+        [
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--binary",
+          "--full-index",
+          "--",
+          ...files,
+        ],
+        options,
+      )
+    ).stdout;
+    const index = (
+      await git(["ls-files", "--stage", "-z", "--", ...files], options)
+    ).stdout;
+    const entries = index
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean)
+      .map((row) => {
+        const tab = row.indexOf("\t");
+        const [mode, oid, stage] = row.slice(0, tab).split(" ");
+        return { path: row.slice(tab + 1), mode, oid, stage };
+      });
+    const changed = (
+      await git(["diff", "--name-only", "-z", "--", ...files], options)
+    ).stdout
+      .toString("utf8")
+      .split("\0")
+      .filter(Boolean);
     const blocked = [];
-    if (!changed.length) blocked.push("No tracked working-tree changes to restore");
+    if (!changed.length)
+      blocked.push("No tracked working-tree changes to restore");
     for (const file of files) {
-      const rows = entries.filter(e => e.path === file.replaceAll("\\", "/"));
-      if (!rows.length) blocked.push(`Untracked or missing index path: ${file}`);
-      if (rows.some(e => e.stage !== "0")) blocked.push(`Use the conflict workflow for: ${file}`);
-      if (rows.some(e => !["100644", "100755", "120000"].includes(e.mode)))
+      const rows = entries.filter((e) => e.path === file.replaceAll("\\", "/"));
+      if (!rows.length)
+        blocked.push(`Untracked or missing index path: ${file}`);
+      if (rows.some((e) => e.stage !== "0"))
+        blocked.push(`Use the conflict workflow for: ${file}`);
+      if (rows.some((e) => !["100644", "100755", "120000"].includes(e.mode)))
         blocked.push(`Unsupported index entry: ${file}`);
     }
     const displayed = boundedDiff("working_tree", fullDiff);
@@ -692,7 +743,9 @@ function createGitAdapter(
     // Bind the full binary diff and source index, not only the truncated UI text.
     const preflight_id = createHash("sha256")
       .update(JSON.stringify([root, await realpath(cwd), preview]))
-      .update(index).update(fullDiff).digest("hex");
+      .update(index)
+      .update(fullDiff)
+      .digest("hex");
     return { ...preview, preflight_id };
   }
   async function currentBranch(root, signal) {
@@ -703,17 +756,458 @@ function createGitAdapter(
     if (exitCode) throw Error("A checked-out local branch is required");
     return stdout.toString("utf8").trim();
   }
+  const oid = async (root, signal, ref = "HEAD") =>
+    (
+      await git(
+        ["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`],
+        { directory: root, signal },
+      )
+    ).stdout
+      .toString("utf8")
+      .trim();
+  const fingerprint = (...values) =>
+    createHash("sha256").update(JSON.stringify(values)).digest("hex");
+  async function remoteTarget(root, args, signal, push) {
+    if (
+      typeof args.remote !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(args.remote) ||
+      typeof args.branch !== "string" ||
+      !args.branch ||
+      args.branch.startsWith("-") ||
+      args.branch.length > 200
+    )
+      throw new TypeError("Select a configured remote and a valid branch");
+    const options = { directory: root, signal };
+    await git(["check-ref-format", `refs/heads/${args.branch}`], options);
+    const urls = (
+      await git(
+        [
+          "remote",
+          "get-url",
+          ...(push ? ["--push"] : []),
+          "--all",
+          args.remote,
+        ],
+        options,
+      )
+    ).stdout
+      .toString("utf8")
+      .trim()
+      .split(/\r?\n/);
+    if (urls.length !== 1) throw Error("Select a remote with one destination");
+    const destination = urls[0];
+    // Reject helper protocols and embedded credentials instead of displaying or executing them.
+    if (
+      !destination ||
+      /[\r\n\0]/.test(destination) ||
+      destination.includes("::")
+    )
+      throw Error("Unsupported remote destination");
+    if (/^[a-z]+:\/\//i.test(destination)) {
+      const url = new URL(destination);
+      if (
+        !["https:", "http:", "ssh:", "file:"].includes(url.protocol) ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        (["https:", "http:"].includes(url.protocol) && url.username)
+      )
+        throw Error(
+          "Remote destination must not embed credentials or helper options",
+        );
+    } else if (
+      !path.isAbsolute(destination) &&
+      !/^[\w.-]+@[\w.-]+:[^\s]+$/.test(destination)
+    ) {
+      throw Error(
+        "Use an absolute local remote path or a supported remote URL",
+      );
+    }
+    return { remote: args.remote, branch: args.branch, destination };
+  }
+  async function remoteHead(root, target, signal) {
+    const result = await git(
+      [
+        "ls-remote",
+        "--refs",
+        target.destination,
+        `refs/heads/${target.branch}`,
+      ],
+      { directory: root, signal },
+    );
+    const rows = result.stdout
+      .toString("utf8")
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean);
+    if (!rows.length) return null;
+    const [id, ref] = rows[0].split("\t");
+    if (
+      rows.length !== 1 ||
+      !/^[0-9a-f]{40,64}$/.test(id) ||
+      ref !== `refs/heads/${target.branch}`
+    )
+      throw Error("Invalid remote branch receipt");
+    return id;
+  }
+  async function preparePush(root, args, signal) {
+    assertArguments(args, ["remote", "branch"]);
+    const target = await remoteTarget(root, args, signal, true),
+      options = { directory: root, signal };
+    const branch = await currentBranch(root, signal),
+      head = await oid(root, signal),
+      remote = await remoteHead(root, target, signal);
+    const blocked = [];
+    if ((await conflicts(root, signal)).operation !== "none")
+      blocked.push("Finish or abort the current Git operation first");
+    let baseKnown = false;
+    if (remote) {
+      baseKnown =
+        (
+          await git(["cat-file", "-e", `${remote}^{commit}`], {
+            ...options,
+            allowedExitCodes: [1, 128],
+          })
+        ).exitCode === 0;
+      if (!baseKnown)
+        blocked.push("Remote changed; fetch or pull before reviewing the push");
+      else if (
+        (
+          await git(["merge-base", "--is-ancestor", remote, head], {
+            ...options,
+            allowedExitCodes: [1],
+          })
+        ).exitCode
+      )
+        blocked.push(
+          "Push would not fast-forward the remote; reconcile the branches first",
+        );
+    }
+    const range = remote && baseKnown ? `${remote}..${head}` : head;
+    const commits = (
+      await git(["log", "--format=%H%x00%s", "-z", range, "--"], options)
+    ).stdout
+      .toString("utf8")
+      .split("\0");
+    const outgoing = [];
+    for (let i = 0; i + 1 < commits.length; i += 2)
+      outgoing.push({ id: commits[i], subject: commits[i + 1] });
+    const changed = [
+      ...new Set(
+        (
+          await git(
+            ["log", "--format=", "--name-only", "-z", range, "--"],
+            options,
+          )
+        ).stdout
+          .toString("utf8")
+          .split("\0")
+          .filter(Boolean),
+      ),
+    ];
+    const sensitive = changed.filter((file) =>
+      /(^|\/)(\.env(?:\.(?!example$|sample$)[^/]+)?|id_rsa|id_ed25519|distribution-credentials\.json)$/.test(
+        file,
+      ),
+    );
+    if (sensitive.length)
+      blocked.push(
+        "Outgoing history contains credential paths; remove them before pushing",
+      );
+    const preview = {
+      remote: target.remote,
+      remote_destination: target.destination,
+      branch: target.branch,
+      head,
+      outgoing_commit_count: outgoing.length,
+      outgoing_commits: outgoing.slice(0, 100),
+      changed_paths: changed.slice(0, 1000),
+      paths_truncated: changed.length > 1000,
+      sensitive_paths: sensitive,
+      blocked_reasons: blocked,
+    };
+    return {
+      ...preview,
+      preflight_id: fingerprint(
+        root,
+        await realpath(cwd),
+        branch,
+        remote,
+        preview,
+        commits,
+        changed,
+      ),
+    };
+  }
+  async function prepareAbort(root, signal) {
+    const options = { directory: root, signal },
+      state = await status(root, signal),
+      conflict = await conflicts(root, signal);
+    const head = await oid(root, signal);
+    const working = (
+      await git(
+        ["diff", "--no-ext-diff", "--no-textconv", "--binary", "--full-index"],
+        options,
+      )
+    ).stdout;
+    const staged = (
+      await git(
+        [
+          "diff",
+          "--cached",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--binary",
+          "--full-index",
+        ],
+        options,
+      )
+    ).stdout;
+    const index = (await git(["ls-files", "--stage", "-z"], options)).stdout;
+    const bytes = [];
+    for (const entry of state.entries) {
+      if (entry.index_status === "?" && entry.worktree_status === "?") continue;
+      const file = path.join(root, entry.path);
+      try {
+        const stat = await lstat(file);
+        bytes.push([
+          entry.path,
+          stat.isSymbolicLink()
+            ? await readlink(file)
+            : stat.isFile()
+              ? (await readFile(file)).toString("base64")
+              : "directory",
+        ]);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        bytes.push([entry.path, "missing"]);
+      }
+    }
+    const directory = (
+      await git(["rev-parse", "--absolute-git-dir"], options)
+    ).stdout
+      .toString("utf8")
+      .trim();
+    const metadata = [];
+    for (const name of [
+      "MERGE_HEAD",
+      "ORIG_HEAD",
+      "CHERRY_PICK_HEAD",
+      "REVERT_HEAD",
+      "rebase-merge/head-name",
+      "rebase-merge/onto",
+      "rebase-merge/git-rebase-todo",
+      "rebase-apply/next",
+      "sequencer/todo",
+    ]) {
+      try {
+        metadata.push([
+          name,
+          (await readFile(path.join(directory, name))).toString("base64"),
+        ]);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+    const w = boundedDiff("working_tree", working),
+      s = boundedDiff("staged", staged);
+    const preview = {
+      operation: conflict.operation,
+      head,
+      changed_paths: state.entries.map((e) => e.path),
+      conflicted_paths: conflict.conflicts.map((e) => e.path),
+      working_diff: w.text,
+      working_diff_truncated: w.truncated,
+      staged_diff: s.text,
+      staged_diff_truncated: s.truncated,
+      blocked_reasons: ["merge", "rebase", "cherry_pick", "revert"].includes(
+        conflict.operation,
+      )
+        ? []
+        : ["No supported Git operation is in progress"],
+    };
+    return {
+      ...preview,
+      preflight_id: fingerprint(
+        root,
+        await realpath(cwd),
+        preview,
+        index.toString("base64"),
+        working.toString("base64"),
+        staged.toString("base64"),
+        bytes,
+        metadata,
+      ),
+    };
+  }
+  async function remoteMutation(root, name, args, signal) {
+    const options = { directory: root, signal };
+    if (name === "git_push") {
+      assertArguments(args, ["remote", "branch", "preflight_id"]);
+      const preview = await preparePush(
+        root,
+        { remote: args.remote, branch: args.branch },
+        signal,
+      );
+      if (preview.blocked_reasons.length)
+        throw Error(`Git push blocked: ${preview.blocked_reasons.join("; ")}`);
+      if (preview.preflight_id !== args.preflight_id)
+        throw Error(
+          "Git push preview is stale; review current commits and destination again",
+        );
+      const branch = await currentBranch(root, signal);
+      await git(
+        [
+          "-c",
+          `remote.${args.remote}.mirror=false`,
+          "-c",
+          "push.followTags=false",
+          "push",
+          "--porcelain",
+          "--recurse-submodules=no",
+          "--set-upstream",
+          args.remote,
+          `refs/heads/${branch}:refs/heads/${args.branch}`,
+        ],
+        options,
+      );
+      return {
+        operation: "push",
+        remote: args.remote,
+        branch: args.branch,
+        status: "pushed",
+      };
+    }
+    assertArguments(args, ["remote", "branch"]);
+    const target = await remoteTarget(root, args, signal, false);
+    await currentBranch(root, signal);
+    if (
+      (await status(root, signal)).entries.length ||
+      (await conflicts(root, signal)).operation !== "none"
+    )
+      throw Error("Commit or restore local changes before pulling");
+    await requireNoExternalFilters(root, null, signal);
+    const tracking = `refs/remotes/${args.remote}/${args.branch}`;
+    await git(
+      [
+        "fetch",
+        "--no-tags",
+        "--no-recurse-submodules",
+        target.destination,
+        `+refs/heads/${args.branch}:${tracking}`,
+      ],
+      options,
+    );
+    await requireNoExternalFilters(root, null, signal, null, tracking);
+    // Fetch records the remote state even when a divergent local branch rejects the merge.
+    await git(["merge", "--ff-only", "--no-edit", tracking], options);
+    return {
+      operation: "pull",
+      remote: args.remote,
+      branch: args.branch,
+      status: "pulled",
+    };
+  }
+  async function conflictMutation(root, name, args, signal) {
+    assertArguments(
+      args,
+      name === "git_conflict_abort"
+        ? ["operation", "preflight_id"]
+        : ["operation"],
+    );
+    if (!["merge", "rebase", "cherry_pick", "revert"].includes(args.operation))
+      throw new TypeError("Invalid Git conflict operation");
+    const current = await conflicts(root, signal),
+      options = { directory: root, signal };
+    if (current.operation !== args.operation)
+      throw Error("Git operation changed; refresh the repository");
+    if (name === "git_conflict_abort") {
+      const preview = await prepareAbort(root, signal);
+      if (
+        preview.blocked_reasons.length ||
+        preview.preflight_id !== args.preflight_id
+      )
+        throw Error(
+          "Git abort preview is stale; preview current changes again",
+        );
+    } else {
+      if (current.has_conflicts)
+        throw Error(
+          "Resolve and stage all conflicting files before continuing",
+        );
+      const signing = await git(
+        ["config", "--bool", "--get", "commit.gpgsign"],
+        { ...options, allowedExitCodes: [1] },
+      );
+      if (signing.stdout.toString("utf8").trim() === "true")
+        throw Error("Use the configured commit-signing workflow to continue");
+      await requireNoExternalFilters(root, null, signal);
+      if (args.operation === "rebase") {
+        const dir = (
+          await git(["rev-parse", "--absolute-git-dir"], options)
+        ).stdout
+          .toString("utf8")
+          .trim();
+        try {
+          const todo = await readFile(
+            path.join(dir, "rebase-merge/git-rebase-todo"),
+            "utf8",
+          );
+          if (
+            todo.split(/\r?\n/).some((line) => /^(exec|x)\s/.test(line.trim()))
+          )
+            throw Error(
+              "Continue this scripted rebase in its original workflow",
+            );
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+      }
+    }
+    const operation =
+      args.operation === "cherry_pick" ? "cherry-pick" : args.operation;
+    await git(
+      [
+        "-c",
+        "core.editor=true",
+        operation,
+        name === "git_conflict_abort" ? "--abort" : "--continue",
+      ],
+      options,
+    );
+    return {
+      operation: args.operation,
+      status: name === "git_conflict_abort" ? "aborted" : "continued",
+      head: await oid(root, signal),
+    };
+  }
   async function mutate(root, name, args, signal) {
+    if (["git_push", "git_pull"].includes(name))
+      return remoteMutation(root, name, args, signal);
+    if (["git_conflict_continue", "git_conflict_abort"].includes(name))
+      return conflictMutation(root, name, args, signal);
     if (name === "git_restore") {
       assertArguments(args, ["paths", "preflight_id"]);
-      if (typeof args.preflight_id !== "string" || !/^[0-9a-f]{64}$/.test(args.preflight_id))
-        throw new TypeError("Run git_restore_preview before confirming a restore");
+      if (
+        typeof args.preflight_id !== "string" ||
+        !/^[0-9a-f]{64}$/.test(args.preflight_id)
+      )
+        throw new TypeError(
+          "Run git_restore_preview before confirming a restore",
+        );
       const preview = await prepareRestore(root, { paths: args.paths }, signal);
       if (preview.blocked_reasons.length)
-        throw Error(`Git restore blocked: ${preview.blocked_reasons.join("; ")}`);
+        throw Error(
+          `Git restore blocked: ${preview.blocked_reasons.join("; ")}`,
+        );
       if (preview.preflight_id !== args.preflight_id)
-        throw Error("Git restore preview is stale; preview current contents again");
-      await git(["restore", "--worktree", "--", ...preview.paths], { directory: root, signal });
+        throw Error(
+          "Git restore preview is stale; preview current contents again",
+        );
+      await git(["restore", "--worktree", "--", ...preview.paths], {
+        directory: root,
+        signal,
+      });
       return { restored_paths: preview.changed_paths };
     }
     if (name === "git_stage" || name === "git_unstage") {
@@ -730,12 +1224,15 @@ function createGitAdapter(
       });
       // With no HEAD, unstaging means removing only selected index entries.
       // --cached preserves even files edited after staging; never remove disk files.
-      await git(head.exitCode
-        ? ["rm", "--cached", "--force", "--ignore-unmatch", "--", ...files]
-        : ["restore", "--staged", "--", ...files], {
-        directory: root,
-        signal,
-      });
+      await git(
+        head.exitCode
+          ? ["rm", "--cached", "--force", "--ignore-unmatch", "--", ...files]
+          : ["restore", "--staged", "--", ...files],
+        {
+          directory: root,
+          signal,
+        },
+      );
       return { unstaged_paths: files };
     }
     if (name === "git_branch_create" || name === "git_branch_switch") {
@@ -835,7 +1332,10 @@ function createGitAdapter(
     };
   }
   async function execute(name, args, signal) {
-    if (!["git_diff", "git_restore_preview"].includes(name) && !GIT_WRITE_TOOL_NAMES.includes(name))
+    if (
+      !["git_diff", "git_restore_preview", "git_push_preview"].includes(name) &&
+      !GIT_WRITE_TOOL_NAMES.includes(name)
+    )
       assertArguments(args, []);
     if (name === "git_runtime_status")
       return {
@@ -874,7 +1374,11 @@ function createGitAdapter(
       if (name === "git_conflicts") return conflicts(root, signal);
       if (name === "git_branches") return branches(root, signal);
       if (name === "git_diff") return diff(root, args, signal);
-      if (name === "git_restore_preview") return prepareRestore(root, args, signal);
+      if (name === "git_restore_preview")
+        return prepareRestore(root, args, signal);
+      if (name === "git_push_preview") return preparePush(root, args, signal);
+      if (name === "git_conflict_abort_preview")
+        return prepareAbort(root, signal);
       const [state, conflictState, branchState, working, staged] =
         await Promise.all([
           status(root, signal),
@@ -893,6 +1397,18 @@ function createGitAdapter(
     });
   }
   const descriptions = {
+    git_push_preview:
+      "Inspect the configured remote and outgoing commits without pushing. Review the destination and content-bound preflight_id before approval.",
+    git_push:
+      "Push only the reviewed branch after approval of a current git_push_preview. Never force-push or push tags.",
+    git_pull:
+      "Fetch the selected remote branch and fast-forward the current clean branch only. Reject divergence without replacing local commits.",
+    git_conflict_abort_preview:
+      "Preview the current Git operation and working/index changes before explicitly aborting. No files are changed.",
+    git_conflict_abort:
+      "Abort only the current previewed Git operation after approval. Reject stale content and operation identity.",
+    git_conflict_continue:
+      "Continue the matching merge, rebase, cherry-pick or revert after all conflicts are resolved and staged.",
     git_runtime_status:
       "Detect the installed Git executable and official installation page.",
     github_runtime_status:
@@ -923,13 +1439,32 @@ function createGitAdapter(
       "Switch to an existing local branch without forcing or discarding local changes.",
   };
   const schemas = {
+    git_push_preview: remoteSchema,
+    git_push: {
+      ...remoteSchema,
+      properties: { ...remoteSchema.properties, preflight_id: preflightField },
+      required: ["remote", "branch", "preflight_id"],
+    },
+    git_pull: remoteSchema,
+    git_conflict_continue: operationSchema,
+    git_conflict_abort: {
+      ...operationSchema,
+      properties: {
+        ...operationSchema.properties,
+        preflight_id: preflightField,
+      },
+      required: ["operation", "preflight_id"],
+    },
     git_diff: diffSchema,
     git_stage: pathsSchema,
     git_unstage: pathsSchema,
     git_restore_preview: pathsSchema,
     git_restore: {
       ...pathsSchema,
-      properties: { ...pathsSchema.properties, preflight_id: { type: "string", pattern: "^[0-9a-f]{64}$" } },
+      properties: {
+        ...pathsSchema.properties,
+        preflight_id: { type: "string", pattern: "^[0-9a-f]{64}$" },
+      },
       required: ["paths", "preflight_id"],
     },
     git_commit: commitSchema,

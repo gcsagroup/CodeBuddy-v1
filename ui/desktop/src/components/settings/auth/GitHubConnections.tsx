@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, ExternalLink, Loader2, LogOut, RefreshCw } from 'lucide-react';
 import { getConfiguredExtensions, testConfigExtension } from '../../../acp/extensions';
 import { GITHUB_VERIFICATION_URI } from '../../../github/githubCliTypes';
@@ -6,6 +6,8 @@ import type { GitHubCliChallenge, GitHubCliStatus } from '../../../github/github
 import { defineMessages, useIntl } from '../../../i18n';
 import { Button } from '../../ui/button';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
+import { connectGitHubMcp } from '../../../acp/diagnostics';
+import { selectNativeText } from '../../../utils/nativeLocalization';
 
 const messages = defineMessages({
   restartRequired: {
@@ -99,8 +101,20 @@ function isMissingLoginHandler(error: unknown): boolean {
   );
 }
 
-export default function GitHubConnections({ allowLogin }: { allowLogin: boolean }) {
+export default function GitHubConnections({
+  allowLogin,
+  onConnected,
+  onBusyChange,
+}: {
+  allowLogin: boolean;
+  onConnected?: () => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const intl = useIntl();
+  const t = (en: string, cn: string, tw: string) => selectNativeText(intl.locale, en, cn, tw);
+  const [connectingMcp, setConnectingMcp] = useState(false);
+  const [mcpConnectError, setMcpConnectError] = useState<string | null>(null);
+  const mcpConnectPending = useRef(false);
   const [status, setStatus] = useState<GitHubCliStatus | null>(null);
   const [mcp, setMcp] = useState<McpState | null>(null);
   const [checking, setChecking] = useState(false);
@@ -115,8 +129,48 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
   const mounted = useRef(false);
   const flow = useRef<string | null>(null);
   const generation = useRef(0);
+  useEffect(() => {
+    onBusyChange?.(checking || starting || signingOut || connectingMcp || !!challenge);
+    return () => onBusyChange?.(false);
+  }, [checking, starting, signingOut, connectingMcp, challenge, onBusyChange]);
+  const connectAccount = useCallback(
+    async (login: string | undefined) => {
+      if (mcpConnectPending.current || !login) return;
+      mcpConnectPending.current = true;
+      setConnectingMcp(true);
+      setMcp(null);
+      setMcpConnectError(null);
+      // Invalidate an older check before its result can replace this action's receipt.
+      ++generation.current;
+      try {
+        const result = await connectGitHubMcp(login);
+        if (mounted.current) {
+          if (result.success) {
+            setMcp('connected');
+            onConnected?.();
+          } else {
+            setMcp('failed');
+            setMcpConnectError(result.code ?? 'connection_failed');
+          }
+        }
+      } catch {
+        if (mounted.current) {
+          setMcp('failed');
+          setMcpConnectError('connection_failed');
+        }
+      } finally {
+        mcpConnectPending.current = false;
+        if (mounted.current) {
+          setConnectingMcp(false);
+          setChecking(false);
+          setCheckingAccount(false);
+        }
+      }
+    },
+    [onConnected]
+  );
   const check = async () => {
-    if (logoutPending.current) return;
+    if (logoutPending.current || mcpConnectPending.current) return;
     const current = ++generation.current;
     setChecking(true);
     setCheckingAccount(true);
@@ -189,6 +243,9 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
           return;
         }
         setStatus({ state: 'connected', login: result.login });
+        // This login was explicitly started by Connect GitHub. Finish the same
+        // connection flow without requiring a second credentials setup step.
+        await connectAccount(result.login);
       } catch {
         if (!disposed && flow.current === challenge.flowId) {
           void window.electron.githubCliLoginCancel(challenge.flowId).catch(() => undefined);
@@ -203,7 +260,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
       disposed = true;
       clearTimeout(timer);
     };
-  }, [challenge]);
+  }, [challenge, connectAccount]);
   const start = async () => {
     if (!hasLoginBridge()) {
       setStatus({ state: 'restart_required' });
@@ -243,7 +300,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
       });
   };
   const logout = async () => {
-    if (!logoutAccount || logoutPending.current) return;
+    if (!logoutAccount || logoutPending.current || mcpConnectPending.current) return;
     if (typeof window.electron.githubCliLogout !== 'function') {
       setStatus({ state: 'restart_required' });
       setLogoutAccount(null);
@@ -290,18 +347,62 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
         )}
         {mcp && (
           <p className="mt-1 text-text-secondary">
-            {intl.formatMessage(
-              mcp === 'connected'
-                ? messages.mcpConnected
-                : mcp === 'off'
-                  ? messages.mcpOff
-                  : mcp === 'missing'
-                    ? messages.mcpMissing
-                    : messages.mcpFailed
-            )}
+            {mcp === 'connected'
+              ? t('GitHub: connected', 'GitHub：已连接', 'GitHub：已連線')
+              : mcp === 'off'
+                ? t('GitHub: disabled', 'GitHub：已停用', 'GitHub：已停用')
+                : mcp === 'missing'
+                  ? t('GitHub: not connected', 'GitHub：未连接', 'GitHub：未連線')
+                  : t(
+                      'GitHub: connection failed. Check the network and reconnect.',
+                      'GitHub：连接失败，请检查网络后重新连接。',
+                      'GitHub：連線失敗，請檢查網路後重新連線。'
+                    )}
           </p>
         )}
       </div>
+      {allowLogin && status?.state === 'connected' && mcp !== 'connected' && !challenge && (
+        <div className="space-y-2">
+          <p className="text-xs text-text-secondary">
+            {t(
+              'Connect with your signed-in account. Its credential is verified and stored encrypted on this computer.',
+              '使用已登录账号连接，验证后将凭据加密保存在本机。',
+              '使用已登入帳號連線，驗證後將憑據加密儲存在本機。'
+            )}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={checking || connectingMcp || signingOut || starting}
+            onClick={() => void connectAccount(status.login)}
+          >
+            {connectingMcp
+              ? t('Connecting…', '连接中…', '連線中…')
+              : t('Connect GitHub', '连接 GitHub', '連線 GitHub')}
+          </Button>
+          {mcpConnectError && (
+            <p role="alert" className="text-sm text-red-600">
+              {mcpConnectError === 'account_changed'
+                ? t(
+                    'The account changed. Check the connection and try again.',
+                    '账号已变化，请检查连接后重试。',
+                    '帳號已變更，請檢查連線後重試。'
+                  )
+                : mcpConnectError === 'endpoint_changed'
+                  ? t(
+                      'This extension uses a custom endpoint. Configure it in Toolbox.',
+                      '此扩展使用自定义地址，请在工具箱配置。',
+                      '此擴充功能使用自訂位址，請在工具箱設定。'
+                    )
+                  : t(
+                      'GitHub connection was not completed. Check network access and account permissions, then retry.',
+                      'GitHub 连接未完成，请检查网络和账号权限后重试。',
+                      'GitHub 連線未完成，請檢查網路與帳號權限後重試。'
+                    )}
+            </p>
+          )}
+        </div>
+      )}
       {challenge ? (
         <div className="space-y-2">
           <p>{intl.formatMessage(messages.instructions)}</p>
@@ -335,25 +436,37 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
           <Button
             size="sm"
             variant="outline"
-            disabled={checking || starting || signingOut}
+            disabled={checking || starting || signingOut || connectingMcp}
             onClick={() => void check()}
           >
             <RefreshCw className="h-4 w-4" />
             {intl.formatMessage(checking ? messages.checking : messages.check)}
           </Button>
           {status?.state === 'connected' && status.login && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={checking || starting || signingOut}
-              onClick={() => {
-                setLogoutFailed(false);
-                setLogoutAccount(status.login!);
-              }}
-            >
-              <LogOut className="h-4 w-4" />
-              {intl.formatMessage(messages.logout)}
-            </Button>
+            <details className="w-full text-xs text-text-secondary">
+              <summary className="cursor-pointer py-2">
+                {t('Advanced account options', '高级账号选项', '進階帳號選項')}
+              </summary>
+              <p className="mb-2">
+                {t(
+                  'The CLI account is shared with other tools. Signing out here leaves CodeBuddy’s saved connection credential unchanged.',
+                  'CLI 账号与其他工具共享。在此退出不会删除 CodeBuddy 已保存的连接凭据。',
+                  'CLI 帳號與其他工具共用。在此登出不會刪除 CodeBuddy 已儲存的連線憑據。'
+                )}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={checking || starting || signingOut || connectingMcp}
+                onClick={() => {
+                  setLogoutFailed(false);
+                  setLogoutAccount(status.login!);
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                {intl.formatMessage(messages.logout)}
+              </Button>
+            </details>
           )}
           {allowLogin &&
             status?.state !== 'connected' &&
@@ -361,7 +474,7 @@ export default function GitHubConnections({ allowLogin }: { allowLogin: boolean 
             status?.state !== 'restart_required' && (
               <Button
                 size="sm"
-                disabled={!status || checkingAccount || starting || signingOut}
+                disabled={!status || checkingAccount || starting || signingOut || connectingMcp}
                 onClick={() => void start()}
               >
                 {starting && <Loader2 className="h-4 w-4 animate-spin" />}

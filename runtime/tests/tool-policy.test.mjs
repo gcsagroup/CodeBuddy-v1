@@ -34,3 +34,17 @@ test('unknown tools and disabled project memory do not inherit developer permiss
   assert.equal(await toolEnabled({ extensions: ['developer'] }, settings, 'git_status'), false);
   assert.equal(await toolEnabled({ extensions: ['developer'] }, settings, 'mcp__other__read'), false);
 });
+
+test('Git-only sessions can discover tools without re-enabling developer or unselected extensions', async () => {
+  const entries = [
+    { configKey:'developer', enabled:false, extension:{type:'builtin',name:'developer'} },
+    { configKey:'git', enabled:true, extension:{type:'builtin',name:'git'} },
+  ];
+  const settings={extensions:async()=>entries}, session={extensions:['git']};
+  assert.equal(await toolEnabled(session,settings,'search_mcp_tools'),true);
+  assert.equal(await toolEnabled(session,settings,'git_status'),true);
+  assert.equal(await toolEnabled(session,settings,'write'),false);
+  assert.equal(await toolEnabled(session,settings,'mcp__other__read'),false);
+  entries[1].enabled=false;
+  assert.equal(await toolEnabled(session,settings,'search_mcp_tools'),false);
+});

@@ -6,6 +6,7 @@ import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { contextUpdates, unfinishedCompactions, recoveredCompactionUpdates } from "./context-updates.mjs";
 import { workStatusUpdates } from "./work-status.mjs";
+import { connectGithubMcp } from './github-mcp.mjs';
 import {
   invalid,
   requireString,
@@ -70,6 +71,7 @@ import {
   activeMcpServers,
   sessionMcpServers,
   harnessMcpServer,
+  prepareHarnessMcpServer,
   extensionName,
   extensionConfigKey,
   resolveSessionExtensions,
@@ -719,7 +721,7 @@ export class Compat {
     const mcpServers = await Promise.all(
       extensions
         .filter((e) => e.extension.type === "mcp")
-        .map((e) => harnessMcpServer(e.extension, state, s.cwd)),
+        .map((e) => prepareHarnessMcpServer(e.extension, state, s.cwd)),
     );
     for (const entry of extensions)
       if (isBuiltinMcp(entry.extension))
@@ -732,7 +734,7 @@ export class Compat {
     for (const server of resolvedExtensions.mcpServers)
       if (!mcpServers.some((e) => e.serverName === server.name))
         mcpServers.push(
-          await harnessMcpServer({ type: "mcp", server }, state, s.cwd),
+          await prepareHarnessMcpServer({ type: "mcp", server }, state, s.cwd),
         );
     const memoryInstructions =
       this.driver.memory &&
@@ -1117,9 +1119,12 @@ export class Compat {
       const snapshot = await this.settings.extensionSnapshot();
       const servers = await Promise.all(snapshot.entries
         .filter(e => e.extension.type === 'mcp' && !e.extension.server?.command)
-        .map(e => harnessMcpServer(e.extension, state, this.store.directory)));
+        .map(e => prepareHarnessMcpServer(e.extension, state, this.store.directory)));
       snapshot.assertCurrent();
-      if (!this.closing && servers.length) return await this.driver.warmMcpServers?.(servers) ?? [];
+      const ready = servers.filter(server => !server.configurationError);
+      const errors = servers.filter(server => server.configurationError).map(server => ({ serverName: server.serverName, status: 'error' }));
+      if (!this.closing && ready.length) return [...errors, ...(await this.driver.warmMcpServers?.(ready) ?? [])];
+      if (errors.length) return errors;
       return [];
     };
     // Metadata and connection discovery only: no model generation, session,
@@ -1450,6 +1455,13 @@ export class Compat {
             }
           : includeLive ? { ...s, updates: [...(s.updates ?? []), ...liveReplay.users, ...liveReplay.updates], usageUpdates: [...(s.usageUpdates ?? []), ...liveReplay.usageUpdates] } : s,
       );
+      // Live schedule broadcasts can arrive while the client awaits validation.
+      // Mark the exact replay boundary; the synchronous transcript below already
+      // includes those published deltas. This presentation marker is not saved.
+      connection.notify("session/update", {
+        sessionId: s.id,
+        update: { sessionUpdate: "session_info_update", _meta: { goose: { transcriptReplayStarted: true } } },
+      });
       for (const update of transcript.updates)
         connection.notify("session/update", { sessionId: s.id, update });
       for (const update of transcript.usageUpdates)
@@ -1662,6 +1674,12 @@ export class Compat {
     const settingsResult = await this.settings.request(name, p);
     if (settingsResult !== undefined) return settingsResult;
     switch (name) {
+      case 'github/mcp/connect': {
+        if (this.githubMcpConnecting) return { success: false, code: 'busy' };
+        this.githubMcpConnecting = true;
+        try { return await connectGithubMcp(this, p.login); }
+        finally { this.githubMcpConnecting = false; }
+      }
       case "session/working-dir/update": {
         const s = this.session(p.sessionId);
         if (s.readonlyHistory) throw invalid("Imported history is read-only");

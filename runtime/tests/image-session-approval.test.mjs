@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -15,7 +15,7 @@ import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-')));
   const requests = [], questions = [], calls = [];
   const fetchImpl = async (url, options) => {
     requests.push(url);
@@ -146,7 +146,7 @@ test('image once, cancellation, explicit policy and tool replacement keep their 
 });
 
 test('real ACP image approval offers session scope and reuses it for changed parameters and later turns', { timeout: 30000 }, async t => {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-acp-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-acp-')));
   const dataDir = join(root, 'host'), cwd = join(root, 'project');
   const questions = [], submissions = [], results = [], failures = [];
   let latestJob;

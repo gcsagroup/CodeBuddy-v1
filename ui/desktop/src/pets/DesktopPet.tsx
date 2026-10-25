@@ -137,6 +137,22 @@ export default function DesktopPet() {
   const alpha = useRef<Uint8ClampedArray | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const release = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pet =
+    snapshot?.pets.find((p) => p.id === snapshot.preferences.selectedId) || snapshot?.pets[0];
+  const blockedTaskKey =
+    snapshot?.task?.state === 'blocked'
+      ? JSON.stringify([snapshot.task.sessionId, snapshot.task.terminalId ?? null])
+      : null;
+  const petFps = pet?.fps;
+  const [settledBlockedTask, setSettledBlockedTask] = useState<string | null>(null);
+  useEffect(() => {
+    setSettledBlockedTask(null);
+    if (!blockedTaskKey || !petFps) return;
+    // Failure is a brief reaction; the task badge retains the blocked state.
+    // Repeated snapshots and cursor updates must not restart the reaction.
+    const timer = setTimeout(() => setSettledBlockedTask(blockedTaskKey), 6000 / petFps);
+    return () => clearTimeout(timer);
+  }, [blockedTaskKey, petFps]);
   const onAlphaMap = useCallback((value: Uint8ClampedArray) => {
     alpha.current = value;
   }, []);
@@ -289,8 +305,6 @@ export default function DesktopPet() {
     return () => clearTimeout(timeout);
   }, [cursor.x, cursor.y]);
   if (!snapshot) return null;
-  const pet =
-    snapshot.pets.find((p) => p.id === snapshot.preferences.selectedId) || snapshot.pets[0];
   if (!pet) return null;
   const task = snapshot.task;
   const tasks = snapshot.tasks ?? (task ? [task] : []);
@@ -299,7 +313,9 @@ export default function DesktopPet() {
     task?.state === 'input'
       ? 'waiting'
       : task?.state === 'blocked'
-        ? 'failed'
+        ? settledBlockedTask === blockedTaskKey
+          ? 'idle'
+          : 'failed'
         : task?.state === 'completed'
           ? 'review'
           : task?.state === 'working'

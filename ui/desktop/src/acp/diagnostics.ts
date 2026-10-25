@@ -12,3 +12,18 @@ export async function getDiagnosticsReport(
   });
   return response.report as DiagnosticsReport;
 }
+
+export async function connectGitHubMcp(
+  login: string
+): Promise<{ success: boolean; code?: string }> {
+  const client = await getAcpClient();
+  const result = (await client.extMethod('_goose/unstable/github/mcp/connect', { login })) as {
+    success?: unknown;
+    code?: unknown;
+  };
+  if (typeof result?.success !== 'boolean') throw new Error('Invalid GitHub connection result');
+  return {
+    success: result.success,
+    code: typeof result.code === 'string' ? result.code : undefined,
+  };
+}

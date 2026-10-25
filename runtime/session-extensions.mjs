@@ -4,6 +4,7 @@ import { invalid } from "./providers.mjs";
 import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 
 const changedSnapshot = Symbol("extension snapshot changed");
+const missingEnvironment = Symbol("extension environment missing");
 
 // The host can prepare again before execution when startup synchronizes bundled
 // extensions. Keep this internal marker separate from credential/validation errors.
@@ -194,8 +195,11 @@ export async function harnessMcpServer(
   const expand = (value) =>
     String(value).replace(pattern, (_, braced, simple) => {
       const key = braced ?? simple;
-      if (!Object.hasOwn(resolved, key))
-        throw invalid("Configure extension environment variable: " + key);
+      if (!Object.hasOwn(resolved, key)) {
+        const error = invalid("Configure extension environment variable: " + key);
+        Object.defineProperty(error, missingEnvironment, { value: key });
+        throw error;
+      }
       return resolved[key];
     });
   if (server.command)
@@ -228,13 +232,29 @@ export async function harnessMcpServer(
     throw invalid(
       "HTTP extension URL must use HTTP(S) without embedded credentials",
     );
-  return {
-    serverName: server.name,
-    toolCallTimeoutMs,
-    transport: "streamable-http",
-    url,
-    headers: Object.fromEntries(
-      (server.headers ?? []).map((h) => [h.name, expand(h.value)]),
-    ),
-  };
+  const headers = Object.fromEntries(
+    (server.headers ?? []).map((h) => [h.name, expand(h.value)]),
+  );
+  if (server.name === 'github_official' && url === 'https://api.githubcopilot.com/mcp/') {
+    // GitHub's optional form deferral does not execute the approved operation.
+    // Use its documented direct-write mode; Harness still owns every approval.
+    // Apply at transport preparation so existing encrypted profiles also work.
+    const key = Object.keys(headers).find(name => name.toLowerCase() === 'x-mcp-features') ?? 'X-MCP-Features';
+    const features = new Set((headers[key] ?? '').split(',').map(value => value.trim()).filter(Boolean));
+    features.add('mcp_apps_disable_form_deferral');
+    headers[key] = [...features].join(',');
+  }
+  return { serverName: server.name, toolCallTimeoutMs, transport: "streamable-http", url, headers };
+}
+
+// Session preparation reports an unavailable extension through the existing
+// connection-status channel. Explicit connection tests remain strict.
+export async function prepareHarnessMcpServer(extension, state, cwd) {
+  try {
+    return await harnessMcpServer(extension, state, cwd);
+  } catch (error) {
+    if (typeof error?.[missingEnvironment] !== 'string') throw error;
+    return { serverName: extension.server.name, configurationError: error.message,
+      missingEnvironmentVariable: error[missingEnvironment] };
+  }
 }

@@ -22,6 +22,7 @@ import {
 import { createHarnessDriver } from "../harness/index.mjs";
 import { openStore } from "../store.mjs";
 import { commonQueryMetadata, COMMON_QUERY_KEY } from "../common-query-settings.mjs";
+import { builtinArtifacts } from '../builtin-artifacts.mjs';
 
 const nativeArtifactsPrepared = process.platform === 'win32' && process.arch === 'x64' ||
   process.platform === 'darwin' && ['arm64', 'x64'].includes(process.arch) &&
@@ -132,7 +133,10 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
     ),
   );
   assert.equal(provenance.artifacts.length, 2);
-  assert.equal(provenance.artifacts.find(artifact => artifact.name === "codebuddy-tools").rebuiltForThisRevision, true);
+  const toolsArtifact = provenance.artifacts.find(artifact => artifact.name === "codebuddy-tools");
+  const pinnedTools = (await builtinArtifacts()).tools;
+  assert.equal(toolsArtifact.sha256, pinnedTools.sha256);
+  assert.equal(toolsArtifact.bytes, pinnedTools.bytes);
   assert.equal(provenance.artifacts.find(artifact => artifact.name === "qwen-computer-use").rebuiltForThisRevision, false);
   assert.deepEqual(provenance.artifacts.map((row) => row.license).sort(), [
     "Apache-2.0",

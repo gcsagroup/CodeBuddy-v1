@@ -14,6 +14,9 @@ import { buildToolboxModel } from './toolboxModel';
 import { applySkillChange, previewSkillChange } from '../../acp/skillManagement';
 
 const configContext = vi.hoisted(() => ({ setExtensionEnabled: vi.fn() }));
+vi.mock('../settings/auth/RepositoryConnections', () => ({
+  default: () => <div>Local Git controls and GitHub account connection</div>,
+}));
 
 vi.mock('../../acp/toolbox', () => ({ loadToolbox: vi.fn() }));
 vi.mock('../../acp/extensions', () => ({ testConfigExtension: vi.fn() }));
@@ -74,6 +77,33 @@ function CurrentPath() {
 
 describe('ToolboxView', () => {
   beforeEach(() => vi.clearAllMocks());
+  it.each(['builtin:git', 'external:github_official', 'builtin:repository'])(
+    'opens the unified controls from the %s link without changing settings',
+    async (id) => {
+      vi.mocked(loadToolbox).mockResolvedValue({
+        model: buildToolboxModel({
+          skills: [],
+          apps: [],
+          extensions: [
+            { type: 'platform', name: 'git', enabled: false },
+            {
+              type: 'streamable_http',
+              name: 'github_official',
+              enabled: true,
+              uri: 'https://api.githubcopilot.com/mcp/',
+            },
+          ],
+        }),
+        errors: {},
+        warnings: [],
+      });
+      renderView(`/toolbox?section=external&item=${encodeURIComponent(id)}`);
+      expect(await screen.findByRole('dialog')).toHaveTextContent(
+        'Local Git controls and GitHub account connection'
+      );
+      expect(configContext.setExtensionEnabled).not.toHaveBeenCalled();
+    }
+  );
 
   it('separates tools, instruction skills and remote services without hiding their controls', async () => {
     vi.mocked(loadToolbox).mockResolvedValue({
@@ -106,18 +136,22 @@ describe('ToolboxView', () => {
     renderView();
     const tools = await screen.findByRole('region', { name: 'Built-in capabilities' });
     expect(within(tools).getByRole('button', { name: 'Computer control' })).toBeVisible();
-    expect(within(tools).getByRole('button', { name: 'Local Git' })).toBeVisible();
+    expect(within(tools).getByRole('button', { name: 'Code repositories' })).toBeVisible();
     expect(
       within(tools).getByRole('switch', { name: 'Enable Computer control' })
     ).not.toBeChecked();
     const skills = screen.getByRole('region', { name: 'Skills' });
     expect(within(skills).getByRole('button', { name: 'Desktop operation guide' })).toBeVisible();
     expect(within(skills).queryByRole('switch')).toBeNull();
-    expect(
-      within(screen.getByRole('region', { name: 'External MCP' })).getByRole('button', {
-        name: 'GitHub',
-      })
-    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'GitHub' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Local Git' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Code repositories' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'Local Git controls and GitHub account connection'
+    );
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' })
+    );
     await userEvent.type(screen.getByPlaceholderText('Search tools'), 'computer-use');
     expect(screen.getByRole('button', { name: 'Desktop operation guide' })).toBeVisible();
     expect(screen.queryByRole('region', { name: 'External MCP' })).toBeNull();

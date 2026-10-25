@@ -60,6 +60,10 @@ const i18n = defineMessages({
     id: 'parameterInputModal.selectFileFailed',
     defaultMessage: 'Could not select a file. Try again or enter its full path.',
   },
+  parameterRequired: {
+    id: 'providerConfigurationModal.parameterRequired',
+    defaultMessage: '{paramName} is required',
+  },
 });
 
 interface ParameterInputModalProps {
@@ -130,7 +134,9 @@ const ParameterInputModal: React.FC<ParameterInputModalProps> = ({
     requiredParams.forEach((param) => {
       const value = inputValues[param.key]?.trim();
       if (!value) {
-        errors[param.key] = `${param.description || param.key} is required`;
+        errors[param.key] = intl.formatMessage(i18n.parameterRequired, {
+          paramName: param.description || param.key,
+        });
       }
     });
 

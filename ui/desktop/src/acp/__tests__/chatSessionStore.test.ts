@@ -1083,6 +1083,34 @@ describe('acpChatSessionStore', () => {
     }
   );
 
+  it('replaces deltas received before the authoritative replay boundary without duplicating or reordering them', () => {
+    const id = sessionId('schedule-replay-race');
+    acpChatSessionActions.startSessionLoad(id);
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(id, 'answer', 'Hello')
+    );
+    const boundary: SessionNotification = {
+      sessionId: id,
+      update: { sessionUpdate: 'session_info_update', _meta: { goose: { transcriptReplayStarted: true } } },
+    };
+    acpChatSessionActions.applyAcpSessionNotification(boundary);
+    acpChatSessionActions.applyAcpSessionNotification({
+      sessionId: id,
+      update: { sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'Run report' }, messageId: 'user' },
+    });
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(id, 'answer', 'Hello')
+    );
+    acpChatSessionActions.applyAcpSessionNotification(
+      agentMessageChunkNotification(id, 'answer', ' world')
+    );
+    const restored = acpChatSessionActions.finishSessionLoad(id, session(id));
+    expect(restored.messages.map((item) => item.id)).toEqual(['user', 'answer']);
+    expect(restored.messages[1].content).toContainEqual({ type: 'text', text: 'Hello world' });
+    // Late markers outside an explicit history load never erase live messages.
+    expect(acpChatSessionActions.applyAcpSessionNotification(boundary).messages).toEqual(restored.messages);
+  });
+
   it('does not reposition a live terminal after a failed history load', () => {
     const currentSessionId = sessionId('failed-load-terminal-order');
     const completed = completedSkippedTurnTerminalNotification(currentSessionId, 'run-1');

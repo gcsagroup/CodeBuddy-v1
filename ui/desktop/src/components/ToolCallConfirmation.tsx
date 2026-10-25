@@ -62,6 +62,13 @@ const i18n = defineMessages({
   },
   command: { id: 'codeProActivity.command', defaultMessage: 'Command' },
   path: { id: 'codeProActivity.path', defaultMessage: 'Path' },
+  browser: { id: 'toolConfirmation.browser', defaultMessage: 'Browser action' },
+  browserAction: {
+    id: 'toolConfirmation.browserAction',
+    defaultMessage:
+      '{operation, select, open {Open page} observe {Read page} click {Click element} type {Enter text} key {Press key} screenshot {Capture page} console {Read console} close {Close page} other {Browser action}}',
+  },
+  browserElement: { id: 'toolConfirmation.browserElement', defaultMessage: 'Page element {node}' },
   taskWorkspaceGrant: {
     id: 'toolConfirmation.taskWorkspaceGrant',
     defaultMessage:
@@ -116,6 +123,35 @@ export function ToolApprovalTarget({
   argumentsValue: Record<string, unknown>;
 }) {
   const intl = useIntl();
+  if (toolName === 'browser_control') {
+    const { operation, node, key, url, htmlPath, path } = argumentsValue;
+    let location: string | undefined;
+    if (typeof url === 'string') {
+      try {
+        const parsed = new URL(url);
+        location = `${parsed.origin}${parsed.pathname}`;
+      } catch {
+        /* Malformed URLs are rejected by the tool, not interpreted here. */
+      }
+    } else if (typeof path === 'string') location = path;
+    else if (typeof htmlPath === 'string') location = htmlPath;
+    return (
+      <section className="mt-3 rounded-xl border border-border-primary bg-background-secondary p-3">
+        <h3 className="text-xs font-medium text-text-secondary">
+          {intl.formatMessage(i18n.browser)}
+        </h3>
+        <p className="mt-1 text-sm text-text-primary">
+          {intl.formatMessage(i18n.browserAction, {
+            operation: typeof operation === 'string' ? operation : '',
+          })}
+          {Number.isSafeInteger(node) &&
+            ` · ${intl.formatMessage(i18n.browserElement, { node: Number(node) })}`}
+          {operation === 'key' && typeof key === 'string' && ` · ${key}`}
+        </p>
+        {location && <p className="mt-1 break-all text-sm text-text-secondary">{location}</p>}
+      </section>
+    );
+  }
   const target = approvalTarget(toolName, argumentsValue);
   if (!target) return null;
   return (

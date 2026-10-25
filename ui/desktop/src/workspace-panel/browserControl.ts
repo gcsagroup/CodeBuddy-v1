@@ -33,10 +33,34 @@ export class BrowserController {
     if (!debug.isAttached()) debug.attach('1.3');
     if (input.operation === 'observe') {
       const result = await debug.sendCommand('Accessibility.getFullAXTree');
-      const nodes = result.nodes
+      const meaningful = result.nodes
         .filter(
           (n: { ignored: boolean; backendDOMNodeId?: number }) => !n.ignored && n.backendDOMNodeId
         )
+        .filter(
+          (n: {
+            name?: { value: unknown };
+            value?: { value: unknown };
+            role?: { value: string };
+          }) =>
+            String(n.name?.value ?? '').trim() ||
+            String(n.value?.value ?? '').trim() ||
+            [
+              'RootWebArea',
+              'textbox',
+              'searchbox',
+              'combobox',
+              'checkbox',
+              'radio',
+              'button',
+              'link',
+              'slider',
+              'spinbutton',
+            ].includes(n.role?.value ?? '')
+        );
+      // Empty layout containers otherwise exhaust the budget before search
+      // results and form controls. Keep unnamed controls because they still act.
+      const nodes = meaningful
         .slice(0, 400)
         .map(
           (n: {
@@ -44,11 +68,26 @@ export class BrowserController {
             role?: { value: string };
             name?: { value: string };
             value?: { value: string };
+            properties?: { name: string; value: { value: unknown } }[];
           }) => ({
             node: n.backendDOMNodeId,
             role: n.role?.value,
             name: n.name ? String(n.name.value).slice(0, 1000) : undefined,
             value: n.value ? String(n.value.value).slice(0, 2000) : undefined,
+            // Form controls need their actual state to verify a click; a label
+            // alone cannot distinguish an unchecked box from a checked one.
+            ...Object.fromEntries(
+              (n.properties ?? [])
+                .filter((p) =>
+                  ['checked', 'selected', 'disabled', 'required', 'expanded'].includes(p.name)
+                )
+                .filter(
+                  (p) =>
+                    typeof p.value.value === 'boolean' ||
+                    ['true', 'false', 'mixed'].includes(String(p.value.value))
+                )
+                .map((p) => [p.name, p.value.value])
+            ),
           })
         );
       this.nodes = new Set(nodes.map((n: { node: number }) => n.node));
@@ -56,11 +95,15 @@ export class BrowserController {
         url: this.wc.getURL(),
         title: this.wc.getTitle(),
         nodes,
-        truncated: result.nodes.length > 400,
+        truncated: meaningful.length > 400,
       };
     }
     if (['click', 'type'].includes(input.operation)) {
-      if (!Number.isInteger(input.node) || !this.nodes.has(input.node!))
+      if (!Number.isInteger(input.node) || input.node! < 1)
+        throw new Error(
+          `${input.operation} requires a positive integer node from observe, even when the element is focused.`
+        );
+      if (!this.nodes.has(input.node!))
         throw new Error('Observe this tab first and use a returned node');
       if (input.operation === 'type') {
         if (typeof input.text !== 'string' || input.text.length > 20000)
@@ -68,6 +111,12 @@ export class BrowserController {
         await debug.sendCommand('DOM.focus', { backendNodeId: input.node });
         await debug.sendCommand('Input.insertText', { text: input.text });
       } else {
+        const { node } = await debug.sendCommand('DOM.describeNode', { backendNodeId: input.node });
+        if (node.localName === 'option') {
+          throw new Error(
+            'Native select options have no clickable page box. Click the owning combobox, use key ArrowDown/ArrowUp and Enter, then observe its value. Do not retry clicking this option.'
+          );
+        }
         await debug.sendCommand('DOM.scrollIntoViewIfNeeded', { backendNodeId: input.node });
         const { model } = await debug.sendCommand('DOM.getBoxModel', { backendNodeId: input.node });
         const q = model.content as number[];
@@ -81,7 +130,9 @@ export class BrowserController {
           const hit = await debug.sendCommand('Runtime.callFunctionOn', {
             objectId: object.objectId,
             functionDeclaration:
-              'function(x, y) { const hit = this.ownerDocument.elementFromPoint(x, y); return this === hit || this.contains(hit); }',
+              // Document hit testing returns a shadow host rather than its inner
+              // button. Check every containing root so overlays still reject.
+              'function(x, y) { let target = this; while (target) { const root = target.getRootNode(); const hit = root.elementFromPoint?.(x, y); if (target !== hit && !target.contains(hit)) return false; target = root.host; } return true; }',
             arguments: [{ value: x }, { value: y }],
             returnByValue: true,
           });

@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
+import { statefulMcp } from '../harness/test/fixtures/stateful-mcp.mjs';
 
 const secret = 'harness-integration-loopback-only';
 const ext = name => `_goose/unstable/${name}`;
@@ -81,7 +82,7 @@ async function fixtureServer(root) {
       return;
     }
     const lastUser = request.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('bridge_fixture_'));
-    const prompt = JSON.stringify(request.messages[lastUser]?.content);
+    const prompt = JSON.stringify(request.messages[lastUser]?.content) ?? '';
     if (prompt.includes('bridge_fixture_error')) {
       res.writeHead(400, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'controlled bridge provider failure', type: 'invalid_request_error' } }));
@@ -117,6 +118,44 @@ async function fixtureServer(root) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   return { requests, url: `http://127.0.0.1:${server.address().port}`, async close() { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); } };
 }
+
+test('missing MCP credentials preserve normal chat and recover after configuration without reusing old tools', { timeout: 60000 }, async t => {
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-missing-mcp-')));
+  const model = await fixtureServer(root), remote = await statefulMcp(t);
+  const app = await createCompatServer({ dataDir: path.join(root, 'data'), secret });
+  const client = await connect(await app.listen(0));
+  t.after(async () => { client.close(); await app.close(); await model.close(); });
+  await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  const provider = await client.request(ext('providers/custom/create'), {
+    engine: 'openai_compatible', displayName: 'Missing MCP fixture', apiUrl: model.url,
+    requiresAuth: false, models: ['bridge-model'], supportsStreaming: true, headers: {},
+  });
+  await client.request(ext('defaults/save'), { providerId: provider.providerId, modelId: 'bridge-model' });
+  const extension = { type: 'mcp', envKeys: ['CODEBUDDY_GITHUB_MCP_TOKEN'], server: {
+    name: 'github_official', type: 'http', url: `${remote.baseUrl}/mcp`,
+    headers: [{ name: 'Authorization', value: 'Bearer ${CODEBUDDY_GITHUB_MCP_TOKEN}' }],
+  } };
+  await client.request(ext('config/extensions/add'), { extension, enabled: true });
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [], _meta: { enabledExtensions: ['github_official'] } });
+  const prompt = () => client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: '你好' }] });
+  const load = () => client.request('session/load', { sessionId, cwd: root, mcpServers: [] });
+  const expectedError = { name: 'github_official', success: false, error: 'Configure extension environment variable: CODEBUDDY_GITHUB_MCP_TOKEN' };
+  assert.equal((await prompt()).stopReason, 'end_turn');
+  assert.ok(client.notifications.some(msg => msg.params?.update?.content?.text === 'Harness bridge '));
+  assert.deepEqual((await load())._meta.extensionResults, [expectedError]);
+  assert.equal(remote.initializations(), 0, 'missing credentials must not reach the network');
+  await client.request(ext('config/upsert'), { key: 'CODEBUDDY_GITHUB_MCP_TOKEN', value: 'isolated-fixture-token' });
+  assert.equal((await prompt()).stopReason, 'end_turn');
+  assert.deepEqual((await load())._meta.extensionResults, [{ name: 'github_official', success: true }]);
+  assert.ok(remote.wire.some(item => item.authorization === 'Bearer isolated-fixture-token'));
+  const count = remote.initializations();
+  await client.request(ext('config/remove'), { key: 'CODEBUDDY_GITHUB_MCP_TOKEN' });
+  assert.equal((await prompt()).stopReason, 'end_turn');
+  assert.deepEqual((await load())._meta.extensionResults, [expectedError]);
+  const tools = await client.request(ext('tools/list'), { sessionId });
+  assert.ok(!tools.tools.some(tool => tool.name.startsWith('mcp__github_official__')));
+  assert.equal(remote.initializations(), count);
+});
 
 test('ACP facade runs official Harness with permissions, cancellation and restart persistence', async t => {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-harness-acp-')));

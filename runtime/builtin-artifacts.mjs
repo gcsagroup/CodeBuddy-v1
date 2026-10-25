@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const toolRoot = fileURLToPath(new URL('./tools/', import.meta.url));
 const windowsArtifacts = {
-  tools: { file: 'codebuddy-tools.exe', bytes: 21821440, sha256: '0018705b8dff04f3fa5407b2ef31ef8cd5c26321cae42d095ac44184aed2cc50' },
+  tools: { file: 'codebuddy-tools.exe', bytes: 21777920, sha256: 'c04d51c3d42b6fa75c5ef0523d9a69dbba568bc015c3275aa4322f5ff9d740f2' },
   computer: { file: 'qwen-computer-use.exe', bytes: 4736000, sha256: '5b08525ee3825d611a4ef643badbdf15dd55e95816e4f5f15fd06dbe30c5f9b8' },
 };
 export const macArtifactFiles = Object.freeze({

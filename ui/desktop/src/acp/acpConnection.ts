@@ -16,6 +16,7 @@ import { requestAcpPermission } from './permissionRequests';
 import { requestAcpRecipeParams } from './recipeParamRequests';
 import { requestSkillManagementConfirmation } from './skillConfirmationRequests';
 import { controlWorkspaceBrowser } from '../workspace-panel/browserControlClient';
+import { hasDirectToolOrigin } from './adapter/shared';
 import {
   applyCodeProRunNotification,
   applyCodeProRunSnapshot,
@@ -234,7 +235,7 @@ async function openControlConnection(generation: number): Promise<AcpConnection>
 
   const stream = createWebSocketStream(wsUrl);
   const pendingRequests = new AbortController();
-  const client = new GooseClient(createClientCallbacks(pendingRequests.signal), stream);
+  const client = new GooseClient(createClientCallbacks(pendingRequests.signal, true), stream);
 
   try {
     const initializeResponse = await initializeAcpClient(client);
@@ -322,7 +323,10 @@ function delay(delayMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
-function createClientCallbacks(signal: AbortController['signal']): () => GooseClientCallbacks {
+function createClientCallbacks(
+  signal: AbortController['signal'],
+  controlOnly = false
+): () => GooseClientCallbacks {
   return () => ({
     extMethod: async (method, params) => {
       if (method === '_codebuddy/browser/control') return controlWorkspaceBrowser(params, signal);
@@ -334,8 +338,15 @@ function createClientCallbacks(signal: AbortController['signal']): () => GooseCl
     // connection must never leave an obsolete form offering a dead submit.
     unstable_sessionRecipeRequestParams: (request) => requestAcpRecipeParams(request, signal),
     unstable_skillsManageRequestConfirmation: requestSkillManagementConfirmation,
-    sessionUpdate: (notification) => handleAcpSessionNotification(notification, signal),
-    unstable_sessionUpdate: handleAcpGooseSessionNotification,
+    // Background schedules broadcast to both transports. Only the chat
+    // transport projects them; direct Git/tool calls reply on the control one.
+    sessionUpdate: async (notification) => {
+      if (!controlOnly || hasDirectToolOrigin(notification.update._meta))
+        await handleAcpSessionNotification(notification, signal);
+    },
+    unstable_sessionUpdate: async (notification) => {
+      if (!controlOnly) await handleAcpGooseSessionNotification(notification);
+    },
     unstable_codeproRunUpdate: async (notification) => {
       try {
         applyCodeProRunNotification(notification);

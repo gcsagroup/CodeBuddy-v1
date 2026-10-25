@@ -19,6 +19,39 @@ function sortItems(items: ToolboxItem[]): ToolboxItem[] {
 const REQUIRED_PLATFORM_EXTENSION_KEYS = new Set(['developer', 'extensionmanager']);
 const RETIRED_SKILL_NAMES = new Set(['goose-doc-guide']);
 
+export function groupRepositoryTools(model: ToolboxModel): ToolboxModel {
+  const members = [...model.capabilities, ...model.external].filter((item) => {
+    const extension = item.extensionSource;
+    if (!extension) return false;
+    return (
+      ((extension.type === 'builtin' || extension.type === 'platform') &&
+        extension.name === 'git') ||
+      (extension.type === 'stdio' && extension.name === 'local_git') ||
+      (extension.type === 'streamable_http' &&
+        extension.name === 'github_official' &&
+        extension.uri === 'https://api.githubcopilot.com/mcp/')
+    );
+  });
+  if (!members.length) return model;
+  return {
+    ...model,
+    capabilities: [
+      ...model.capabilities.filter((item) => !members.includes(item)),
+      {
+        id: 'builtin:repository',
+        kind: 'builtin',
+        source: 'extension',
+        name: 'Code repositories',
+        description: 'Local Git, GitHub repositories, pull requests, issues and Actions.',
+        status: 'configured',
+        actions: ['inspect'],
+        repositoryMembers: members,
+      },
+    ],
+    external: model.external.filter((item) => !members.includes(item)),
+  };
+}
+
 export function buildToolboxModel(sources: ToolboxSources): ToolboxModel {
   const usageById = new Map(
     (sources.usage ?? []).map((usage) => [`${usage.kind}:${usage.capabilityId}`, usage])

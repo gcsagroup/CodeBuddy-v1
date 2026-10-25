@@ -137,6 +137,41 @@ describe('ACP connection ownership', () => {
     expect(transport.createWebSocketStream).toHaveBeenCalledTimes(2);
   });
 
+  it('projects background chat broadcasts once while preserving direct control-tool receipts', async () => {
+    const { getAcpClient, getAcpControlClient } = await import('../acpConnection');
+    const { acpChatSessionStore } = await import('../chatSessionStore');
+    await getAcpClient();
+    await getAcpControlClient();
+    const notification = {
+      sessionId: 'scheduled-report',
+      update: {
+        sessionUpdate: 'agent_message_chunk' as const,
+        messageId: 'report-message',
+        content: { type: 'text' as const, text: '订单合计 140.00' },
+      },
+    };
+    // Scheduled runs broadcast to both sockets in the same renderer.
+    for (const client of sdk.instances) await client.callbacks.sessionUpdate!(notification);
+    expect(acpChatSessionStore.getSnapshot('scheduled-report')?.messages[0].content).toEqual([
+      { type: 'text', text: '订单合计 140.00' },
+    ]);
+    await sdk.instances[1].callbacks.sessionUpdate!({
+      sessionId: 'scheduled-report',
+      update: {
+        sessionUpdate: 'tool_call',
+        toolCallId: 'direct-git-call',
+        title: 'git_commit',
+        kind: 'execute',
+        status: 'in_progress',
+        rawInput: {},
+        _meta: { goose: { directToolCall: true, messageId: 'direct-tool:direct-git-call' } },
+      },
+    });
+    expect(
+      acpChatSessionStore.getSnapshot('scheduled-report')?.messages.flatMap((m) => m.content)
+    ).toContainEqual(expect.objectContaining({ type: 'toolRequest', id: 'direct-git-call' }));
+  });
+
   it('automatically reconnects after close and shares the result between callers', async () => {
     const { getAcpClient } = await import('../acpConnection');
     const firstClient = await getAcpClient();

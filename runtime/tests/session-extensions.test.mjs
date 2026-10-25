@@ -10,8 +10,19 @@ import {
   selectedExtensions,
   sessionMcpServers,
   harnessMcpServer,
+  prepareHarnessMcpServer,
 } from "../session-extensions.mjs";
 import { recipeExtensions } from "../recipe-execution.mjs";
+
+test('official GitHub writes use host approvals instead of a deferred MCP form, including existing profiles', async () => {
+  const extension={type:'mcp',server:{name:'github_official',type:'http',url:'https://api.githubcopilot.com/mcp/',headers:[{name:'x-mcp-features',value:'remote_mcp_ui_apps'}]}};
+  const prepared=await harnessMcpServer(extension,{},process.cwd());
+  assert.equal(prepared.headers['x-mcp-features'],'remote_mcp_ui_apps,mcp_apps_disable_form_deferral');
+  assert.equal(prepared.headers['X-MCP-Features'],undefined);
+  assert.equal(extension.server.headers[0].value,'remote_mcp_ui_apps','transport adaptation does not rewrite stored configuration');
+  const custom=await harnessMcpServer({...extension,server:{...extension.server,url:'https://example.invalid/mcp'}},{},process.cwd());
+  assert.equal(custom.headers['x-mcp-features'],'remote_mcp_ui_apps');
+});
 
 test("actual renderer object selections load enabled tools and never store cleartext MCP credentials", async (t) => {
   const directory = await mkdtemp(
@@ -89,6 +100,14 @@ test("MCP environment interpolation fails on missing configuration and expands r
     process.cwd(),
   );
   assert.equal(result.headers.Authorization, "Bearer fixture");
+  assert.deepEqual(await prepareHarnessMcpServer(extension, { config: {} }, process.cwd()), {
+    serverName: 'fixture', configurationError: 'Configure extension environment variable: TOKEN', missingEnvironmentVariable: 'TOKEN',
+  });
+  assert.deepEqual(await prepareHarnessMcpServer(extension, { config: { TOKEN: { value: 'fixture' } } }, process.cwd()), result);
+  await assert.rejects(prepareHarnessMcpServer({ ...extension, server: { ...extension.server, url: 'file:///private' } },
+    { config: { TOKEN: { value: 'fixture' } } }, process.cwd()), /HTTP extension URL/);
+  await assert.rejects(prepareHarnessMcpServer(extension,
+    { config: { TOKEN: { secret: { kind: 'invalid-fixture-secret' } } } }, process.cwd()), /Unknown credential format/);
 });
 
 test("HTTP recipe environment resolves URL and headers once, preserves inline precedence and stays protected at rest", async (t) => {

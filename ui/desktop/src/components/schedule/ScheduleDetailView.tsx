@@ -173,6 +173,7 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isRunPending, setIsRunPending] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -245,7 +246,9 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
 
   const handleRunNow = async () => {
     if (!scheduleId) return;
-    setIsActionLoading(true);
+    // The run request resolves only at completion. Keep inspection and
+    // cancellation available while it is pending.
+    setIsRunPending(true);
     try {
       const result = await acpRunScheduleNow(scheduleId);
       trackScheduleRunNow(true);
@@ -265,7 +268,7 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
         msg: errorMsg,
       });
     } finally {
-      setIsActionLoading(false);
+      setIsRunPending(false);
     }
   };
 
@@ -485,7 +488,7 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
             <div className="flex flex-col md:flex-row gap-2">
               <Button
                 onClick={handleRunNow}
-                disabled={isActionLoading || scheduleDetails?.currentlyRunning}
+                disabled={isRunPending || isActionLoading || scheduleDetails?.currentlyRunning}
                 className="w-full md:w-auto"
               >
                 {intl.formatMessage(i18n.runScheduleNow)}
@@ -497,7 +500,7 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
                     onClick={() => setIsModalOpen(true)}
                     variant="outline"
                     className="w-full md:w-auto flex items-center gap-2 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    disabled={isActionLoading}
+                    disabled={isRunPending || isActionLoading}
                   >
                     <Edit className="w-4 h-4" />
                     {intl.formatMessage(i18n.editSchedule)}
@@ -510,7 +513,7 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
                         ? 'text-green-600 dark:text-green-400 border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
                         : 'text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'
                     }`}
-                    disabled={isActionLoading}
+                    disabled={isRunPending || isActionLoading}
                   >
                     {scheduleDetails.paused ? (
                       <>

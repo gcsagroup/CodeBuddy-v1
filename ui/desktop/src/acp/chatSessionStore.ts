@@ -17,7 +17,12 @@ import {
 } from './sessionNotificationAdapter';
 import type { ElicitationStatus } from './adapter/elicitations';
 import type { CodeProWorkspaceReconfirmationRequest } from '../codepro/resumeCodeProSession';
-import { cloneMessage, getGooseActiveRunId, getGooseMessageMeta } from './adapter/shared';
+import {
+  cloneMessage,
+  getGooseActiveRunId,
+  getGooseMessageMeta,
+  hasDirectToolOrigin,
+} from './adapter/shared';
 import type { AcpElicitationRequest } from './elicitationRequests';
 import {
   createCancelledToolTurnTerminalMessage,
@@ -644,6 +649,14 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     notification
   ) => {
     const entry = getOrCreateEntry(notification.sessionId);
+    if (
+      entry.sessionReplayActive &&
+      notification.update.sessionUpdate === 'session_info_update' &&
+      getGooseMessageMeta(notification.update).transcriptReplayStarted
+    ) {
+      resetReplayState(entry);
+      return notify(notification.sessionId, entry);
+    }
     if (shouldIgnoreAcpNotificationForSealedTurn(entry, notification)) {
       return snapshotFromEntry(entry);
     }
@@ -1107,17 +1120,6 @@ function shouldIgnoreAcpNotificationForSealedTurn(
 
   const activeRunId = getGooseActiveRunId(notification.update);
   return activeRunId !== undefined && activeRunId !== null;
-}
-
-function hasDirectToolOrigin(meta: unknown): boolean {
-  if (!meta || typeof meta !== 'object' || !('goose' in meta)) return false;
-  const goose = meta.goose;
-  return (
-    !!goose &&
-    typeof goose === 'object' &&
-    'directToolCall' in goose &&
-    goose.directToolCall === true
-  );
 }
 
 function isCurrentPromptActivity(entry: StoreEntry, notification: SessionNotification): boolean {

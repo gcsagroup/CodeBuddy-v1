@@ -10,6 +10,8 @@ test('browser tool binds host session/workspace and validates before dispatch', 
   const tool = browserTool({ sessionId: 'session-a', cwd: '/workspace', request: (...args) => { calls.push(args); return {id:'tab',url:'http://127.0.0.1:1234/index.html'}; } });
   await assert.rejects(tool.execute({operation:'open',url:'http://localhost',path:'index.html'}));
   await assert.rejects(tool.execute({operation:'click',node:1}));
+  await assert.rejects(tool.execute({operation:'type',id:'tab',text:'search'}), /type requires.*node/);
+  await assert.rejects(tool.execute({operation:'click',id:'tab',node:0}), /click requires.*node/);
   assert.equal(calls.length,0);
   await tool.execute({operation:'open',path:'index.html'});
   assert.equal(calls[0][0],BROWSER_METHOD);

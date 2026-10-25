@@ -72,6 +72,38 @@ describe('ToolConfirmation', () => {
     expect(screen.queryByText(/qwen_computer|secondary_action/)).not.toBeInTheDocument();
   });
 
+  it.each(['path', 'htmlPath'])('shows the local browser preview target from %s', (field) => {
+    renderPermissionRequest({
+      sessionId: 'session-browser-local',
+      options: [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }],
+      toolCall: {
+        toolCallId: 'local-preview',
+        title: 'browser_control',
+        rawInput: { operation: 'open', [field]: 'reports/orders.html' },
+      },
+    });
+    expect(screen.getByText('reports/orders.html')).toBeInTheDocument();
+  });
+  it('explains a browser approval without disclosing URL credentials or form values', () => {
+    renderPermissionRequest({
+      sessionId: 'session-browser',
+      options: [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }],
+      toolCall: {
+        toolCallId: 'browser-approval',
+        title: 'browser_control',
+        rawInput: {
+          operation: 'open',
+          url: 'https://name:secret@example.com/form?token=private#secret',
+          text: 'private-form-value',
+        },
+      },
+    });
+    expect(screen.getByText('Open page')).toBeInTheDocument();
+    expect(screen.getByText('https://example.com/form')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('secret');
+    expect(document.body.textContent).not.toContain('private');
+  });
+
   it('discloses the actual workspace covered by a durable task-level file grant', () => {
     renderPermissionRequest({
       sessionId: 'session-task-grant',

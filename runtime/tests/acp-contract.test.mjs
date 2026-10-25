@@ -1025,7 +1025,7 @@ test("legacy saved transcripts replay in stored order without rewriting ids or t
     { notify: (method, params) => notifications.push({ method, params }) },
   );
   assert.deepEqual(
-    notifications.map((event) => event.params.update),
+    notifications.filter((event) => event.params.update.sessionUpdate !== 'session_info_update').map((event) => event.params.update),
     legacyUpdates,
   );
   assert.equal(JSON.stringify(state), before);
@@ -1195,8 +1195,9 @@ test("legacy cross-turn assistant collisions replay as separate messages with st
       [messages[3].id, 20],
     ],
   );
+  const replayedContent = notifications.filter(event => event.method === 'session/update' && event.params.update.sessionUpdate !== 'session_info_update');
   for (let index = 0; index < updates.length; index += 1) {
-    const update = notifications[index].params.update;
+    const update = replayedContent[index].params.update;
     assert.equal(
       update._meta.goose.created,
       updates[index]._meta.goose.created,

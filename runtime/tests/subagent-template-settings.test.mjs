@@ -36,7 +36,7 @@ test('template config ACP validates atomically, persists selections and resolves
 });
 
 test('retired generic model choices no longer override new children and stale connections do not block settings', async t => {
-  const store = await openStore(await mkdtemp(join(tmpdir(), 'codebuddy-retired-generic-')));
+  const store = await openStore(await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-retired-generic-'))));
   const legacy = { version: 1, models: { generic: { providerId: 'removed', modelId: 'legacy-model' } } };
   await store.update(state => { state.config.subagentTemplates = { value: legacy }; });
   const compat = new Compat(store, { close: async () => {}, listTools: async () => [] });
@@ -47,7 +47,7 @@ test('retired generic model choices no longer override new children and stale co
 });
 
 test('subagent limits persist without permissions or execution state and invalid edits are atomic', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-subagent-limits-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-subagent-limits-')));
   const store = await openStore(root);
   const compat = new Compat(store, { close: async () => {} });
   await compat.initialize(); t.after(() => compat.close());
@@ -68,7 +68,7 @@ test('subagent limits persist without permissions or execution state and invalid
 });
 
 test('custom template edits validate atomically without storing execution state or granting permissions', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'codebuddy-custom-templates-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-custom-templates-')));
   const store = await openStore(root);
   await store.update(state => { state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', requiresAuth: false }]; });
   const compat = new Compat(store, { close: async () => {}, listTools: async () => [] });

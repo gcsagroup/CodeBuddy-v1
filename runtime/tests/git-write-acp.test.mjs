@@ -32,7 +32,8 @@ async function connect(url) {
   });
   let sequence = 0;
   const pending = new Map(),
-    permissions = [], notifications = [];
+    permissions = [],
+    notifications = [];
   socket.addEventListener("message", ({ data }) => {
     const message = JSON.parse(String(data));
     if (message.method === "session/request_permission") {
@@ -47,7 +48,11 @@ async function connect(url) {
       return;
     }
     const waiter = pending.get(message.id);
-    if (!waiter) { if (message.method === 'session/update') notifications.push(message.params); return; }
+    if (!waiter) {
+      if (message.method === "session/update")
+        notifications.push(message.params);
+      return;
+    }
     clearTimeout(waiter.timer);
     pending.delete(message.id);
     message.error
@@ -148,6 +153,9 @@ test(
     await writeFile(path.join(cwd, "file.txt"), "original\n");
     git("add", "--", "file.txt");
     git("commit", "-m", "Isolated ACP baseline");
+    const remote = path.join(root, "remote.git");
+    git("init", "--bare", "--initial-branch=main", remote);
+    git("remote", "add", "origin", remote);
     await writeFile(path.join(cwd, "file.txt"), "changed\n");
     await new Promise((resolve) => model.listen(0, "127.0.0.1", resolve));
     app = await createCompatServer({
@@ -186,8 +194,13 @@ test(
         enabledExtensions: [{ type: "builtin", name: "git" }],
       },
     });
-    await client.request("session/set_mode", { sessionId, modeId: "workspace-write" });
-    const setupModelRequests = modelRequests.filter(request => request.body).length;
+    await client.request("session/set_mode", {
+      sessionId,
+      modeId: "workspace-write",
+    });
+    const setupModelRequests = modelRequests.filter(
+      (request) => request.body,
+    ).length;
     const toolList = await client.request(ext("tools/list"), {
       sessionId,
       extensionName: "git",
@@ -216,7 +229,13 @@ test(
     for (const name of GIT_READ_TOOL_NAMES) {
       const result = await call(
         name,
-        name === "git_diff" ? { scope: "working_tree" } : name === "git_restore_preview" ? { paths: ["file.txt"] } : {},
+        name === "git_diff"
+          ? { scope: "working_tree" }
+          : name === "git_restore_preview"
+            ? { paths: ["file.txt"] }
+            : name === "git_push_preview"
+              ? { remote: "origin", branch: "main" }
+              : {},
       );
       assert.equal(result.isError, false, name);
       if (name === "github_runtime_status")
@@ -231,7 +250,15 @@ test(
       0,
       "opening/polling the panel and previewing changes does not ask for read approvals",
     );
-    assert.equal(client.notifications.filter(n => n.update._meta?.goose?.directToolCall).length, 0);
+    assert.equal(
+      client.notifications.filter((n) => n.update._meta?.goose?.directToolCall)
+        .length,
+      0,
+    );
+    const discovery = await call('search_mcp_tools', {names:['git_status','git_push']});
+    assert.equal(discovery.isError,false,'Git-only sessions must discover tools through the actual ACP host');
+    assert.deepEqual(discovery.structuredContent.tools.map(tool=>tool.name).sort(),['git_push','git_status']);
+    assert.equal(client.permissions.length,0,'schema discovery does not require operation approval');
     await permission(GIT_WRITE_TOOL_NAMES, "ask_before");
     const writes = [
       ["git_stage", { paths: ["file.txt"] }],
@@ -250,9 +277,19 @@ test(
       assert.equal(client.permissions.at(-1).toolCall.title, name);
       assert.equal(client.permissions.at(-1)._meta.goose.directToolCall, true);
       const callId = client.permissions.at(-1).toolCall.toolCallId;
-      assert.deepEqual(client.notifications.filter(n => n.update.toolCallId === callId).map(n => [n.update.sessionUpdate, n.update.status, n.update._meta.goose.directToolCall]), [
-        ['tool_call', 'in_progress', true], ['tool_call_update', 'completed', true],
-      ]);
+      assert.deepEqual(
+        client.notifications
+          .filter((n) => n.update.toolCallId === callId)
+          .map((n) => [
+            n.update.sessionUpdate,
+            n.update.status,
+            n.update._meta.goose.directToolCall,
+          ]),
+        [
+          ["tool_call", "in_progress", true],
+          ["tool_call_update", "completed", true],
+        ],
+      );
     }
     assert.equal(
       (await call("git_stage", { paths: ["file.txt"] })).isError,
@@ -268,13 +305,47 @@ test(
       JSON.parse(committed.content[0].text).commit,
       git("rev-parse", "HEAD").trim(),
     );
-    await writeFile(path.join(cwd, "file.txt"), "discard this previewed change\n");
-    const preview = (await call("git_restore_preview", { paths: ["file.txt"] })).structuredContent;
+    await writeFile(
+      path.join(cwd, "file.txt"),
+      "discard this previewed change\n",
+    );
+    const preview = (await call("git_restore_preview", { paths: ["file.txt"] }))
+      .structuredContent;
     const beforeRestore = client.permissions.length;
-    assert.equal((await call("git_restore", { paths: preview.paths, preflight_id: preview.preflight_id })).isError, false);
-    assert.equal(client.permissions.length, beforeRestore + 1, "restore requires actual ACP approval");
+    assert.equal(
+      (
+        await call("git_restore", {
+          paths: preview.paths,
+          preflight_id: preview.preflight_id,
+        })
+      ).isError,
+      false,
+    );
+    assert.equal(
+      client.permissions.length,
+      beforeRestore + 1,
+      "restore requires actual ACP approval",
+    );
     assert.equal(client.permissions.at(-1).toolCall.title, "git_restore");
-    assert.equal(await readFile(path.join(cwd, "file.txt"), "utf8"), "changed\n");
+    assert.equal(
+      await readFile(path.join(cwd, "file.txt"), "utf8"),
+      "changed\n",
+    );
+    const pushTarget = { remote: "origin", branch: "main" };
+    const pushPreview = (await call("git_push_preview", pushTarget))
+      .structuredContent;
+    for (const [name, args] of [
+      ["git_push", { ...pushTarget, preflight_id: pushPreview.preflight_id }],
+      ["git_pull", pushTarget],
+    ]) {
+      const approvals = client.permissions.length;
+      assert.equal((await call(name, args)).isError, false, name);
+      assert.equal(
+        client.permissions.length,
+        approvals + 1,
+        `${name} requires ACP approval`,
+      );
+    }
     await writeFile(path.join(cwd, "file.txt"), "must remain uncommitted\n");
     await permission(
       [...GIT_WRITE_TOOL_NAMES, ...GIT_READ_TOOL_NAMES],
@@ -286,7 +357,17 @@ test(
     for (const [name, args] of [
       ...writes,
       ["git_commit", { message: "Denied commit" }],
-      ["git_restore", { paths: preview.paths, preflight_id: preview.preflight_id }],
+      [
+        "git_restore",
+        { paths: preview.paths, preflight_id: preview.preflight_id },
+      ],
+      ["git_push", { ...pushTarget, preflight_id: pushPreview.preflight_id }],
+      ["git_pull", pushTarget],
+      ["git_conflict_continue", { operation: "merge" }],
+      [
+        "git_conflict_abort",
+        { operation: "merge", preflight_id: "0".repeat(64) },
+      ],
     ])
       assert.equal((await call(name, args)).isError, true, name);
     for (const name of GIT_READ_TOOL_NAMES)
@@ -335,7 +416,10 @@ test(
       sessionId,
       extensionName: "git",
     });
-    assert.equal(restored.tools.length, 14);
+    assert.equal(
+      restored.tools.length,
+      GIT_READ_TOOL_NAMES.length + GIT_WRITE_TOOL_NAMES.length,
+    );
     assert.equal((await call("git_status")).isError, false);
     assert.equal(
       (await call("git_stage", { paths: ["file.txt"] })).isError,
@@ -344,7 +428,7 @@ test(
     );
     assert.equal(client.permissions.length, beforeDenied);
     assert.equal(
-      modelRequests.filter(request => request.body).length,
+      modelRequests.filter((request) => request.body).length,
       setupModelRequests,
       "host tool execution adds no model completions after provider validation (capacity discovery is read-only)",
     );

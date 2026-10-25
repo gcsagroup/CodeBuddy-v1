@@ -10,15 +10,14 @@
       "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "0018705b8dff04f3fa5407b2ef31ef8cd5c26321cae42d095ac44184aed2cc50",
-      "bytes": 21821440,
+      "sha256": "c04d51c3d42b6fa75c5ef0523d9a69dbba568bc015c3275aa4322f5ff9d740f2",
+      "bytes": 21777920,
       "sourcePath": "target/debug/codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-10-23T09:25:28.000Z",
-      "sourceBaselineRevision": "927d6772619737ddbbc814b41db55dd94ccac9cc",
-      "integrationMergeParent": "09b02190f771c12ca747aa3e30065fe4e44c36c7",
+      "sourceModifiedAt": "2026-10-20T01:18:35.166039+00:00",
+      "sourceBaselineRevision": "6e5ebfb20531caccdd21de304cf4c94d3e473cc3",
       "sourceBaselineIncludesUncommittedChanges": true,
-      "rebuiltForThisRevision": true,
-      "buildLog": "../tools-build.log",
+      "rebuiltForThisRevision": false,
+      "buildLog": ".preview-evidence/integration-20261024/rust-build.log",
       "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
@@ -37,7 +36,8 @@
           "commonqueries"
         ]
       ],
-      "sourceManifest": "docs/reconstruction/2026-10-23-integration-validation.zh-CN.md"
+      "sourceManifest": ".preview-evidence/integration-20261024/tool-source-manifest.json",
+      "buildValidatedForThisRevision": true
     },
     {
       "name": "qwen-computer-use",

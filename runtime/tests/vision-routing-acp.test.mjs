@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, readdir } from 'node:fs/promises';
+import { mkdtemp, readdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -32,7 +32,7 @@ async function connect(url) {
 }
 
 test('ACP vision settings reach official image model while frozen renderer and restarted history keep original images', { timeout: 60_000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-vision-acp-')), requests = [], errors = [], slowStarted = Promise.withResolvers();
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-vision-acp-'))), requests = [], errors = [], slowStarted = Promise.withResolvers();
   const server = createServer(async (req, res) => {
     try {
       if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision', 'slow'].map(id => ({ id, input_modalities: id === 'main' ? ['text'] : ['text', 'image'] })) })); return; }
@@ -90,7 +90,7 @@ test('ACP vision settings reach official image model while frozen renderer and r
 });
 
 test('ACP computer screenshot uses saved auxiliary settings; renderer retains original image and tool status', { timeout: 60_000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-tool-vision-acp-')), requests = [], calls = [];
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-tool-vision-acp-'))), requests = [], calls = [];
   const image = { type: 'image', mimeType: 'image/png', data: (await sharp({ create: { width: 20, height: 20, channels: 3, background: 'blue' } }).png().toBuffer()).toString('base64') };
   const server = createServer(async (req, res) => {
     if (req.url.endsWith('/models')) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: ['main', 'vision'].map(id => ({ id, input_modalities: id === 'vision' ? ['text', 'image'] : ['text'] })) })); return; }

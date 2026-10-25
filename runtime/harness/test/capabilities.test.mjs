@@ -691,12 +691,16 @@ test('step limit is a resumable bound and never successful task completion', asy
 });
 
 test('manual compaction uses official summarization and preserves transcript evidence', async () => {
-  const created = await session({ autoCompact: false });
+  const created = await session({ autoCompact: false, thinkingEffort: 'high' });
   for (let n = 0; n < 3; n++) await driver.prompt(created.sessionId, `fixture_large ${n}`);
   const beforeHistory = await driver.history(created.sessionId);
   const beforeUsage = await driver.contextUsage(created.sessionId);
   const events = [];
+  const previousRequestCount = requests.length;
   const result = await driver.compact(created.sessionId, { onEvent: event => events.push(event) });
+  assert.equal(requests.length, previousRequestCount + 1, 'compatibility dispatches one model request');
+  assert.equal(requests.at(-1).reasoning_effort, 'high', 'summary keeps the routed template control');
+  assert.equal(requests.at(-1).max_completion_tokens ?? requests.at(-1).max_tokens, 4096, 'reasoning and the complete checkpoint share a larger output budget');
   assert.ok(result && result.shadowedSeqs.length > 0, JSON.stringify(result));
   const afterHistory = await driver.history(created.sessionId);
   assert.deepEqual(afterHistory.events.slice(0, beforeHistory.events.length), beforeHistory.events);

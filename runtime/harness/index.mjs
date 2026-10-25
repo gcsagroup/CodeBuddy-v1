@@ -8,7 +8,7 @@ import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
-import compactionPlugin from './compaction.mjs';
+import compactionPlugin, { installCompactionRequestCompatibility } from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
@@ -344,6 +344,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   ctx.on('agent/status', ({ agent, status }) => { if (status === 'idle') settleRun(agent); });
   ctx.on('goal/activation-changed', ({ sessionId }) => settleRun(ctx.agents.get(sessionId)));
   ctx.on('goal/changed', ({ agent }) => settleRun(agent));
+  ctx.effect(() => installCompactionRequestCompatibility(ctx,
+    agent => settingsFor(agent)?.thinkingEffort), 'CodeBuddy compaction request compatibility');
   ctx.effect(() => observeModelTransport(ctx, event => {
     const run = runFor(ctx.agents.get(event.sessionId));
     emit(run, event);
@@ -825,7 +827,9 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
-          headroomTokens: 1024, maxTokens: 1024, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
+          // The summary shares the conversation's reasoning mode for cache
+          // reuse, so its cap must fit both thinking and the complete checkpoint.
+          headroomTokens: 1024, maxTokens: 4096, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
           auto: settings.autoCompact !== false,
         });
         await compactFiber;

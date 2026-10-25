@@ -15,7 +15,7 @@ test('live stream updates survive SDK parsing; one multi-step turn compacts repe
   const server=http.createServer(async(req,res)=>{
     let raw='';for await(const p of req)raw+=p;
     const body=JSON.parse(raw);
-    const summary=(body.max_tokens??body.max_completion_tokens)===1024;
+    const summary=(body.max_tokens??body.max_completion_tokens)===4096;
     res.writeHead(200,{'content-type':'text/event-stream'});
     const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'live',object:'chat.completion.chunk',created:1,model:body.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
     if(summary){summaries++;emit({content:'Goal: complete eight fixture steps. Preserve API A and requirement B. Continue remaining steps.'});emit({},'stop');}

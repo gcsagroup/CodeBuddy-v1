@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Arrastra los mensajes para reordenar la prioridad"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Los mensajes se conservan. Envíalos cuando estés listo."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Expandir la cola"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# mensaje {status}} other{# mensajes {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Cola de mensajes"
-  },
   "messageQueue.next": {
     "defaultMessage": "Siguiente"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Pausado"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Cola pausada"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Cola en pausa. Revisa la tarea actual y usa «Enviar ahora» para enviar un mensaje."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Cola en pausa. Revisa la tarea actual y usa «Enviar ahora» para enviar un mensaje."
+  "messageQueue.pending": {
+    "defaultMessage": "Pendiente de envío"
   },
   "messageQueue.queued": {
     "defaultMessage": "en cola"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "Guardar"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Enviar todas ahora"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Enviar este mensaje ahora"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Detener el procesamiento actual y enviar este mensaje ahora"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Enviar juntas todas las notas pendientes"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Detener el procesamiento actual y enviar juntos todos los mensajes pendientes"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "esperando"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8825,6 +8813,9 @@
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
   },
+  "workStatus.waitingHint": {
+    "defaultMessage": "El servicio del modelo aún no ha devuelto contenido. Puedes seguir esperando o detener esta solicitud."
+  },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
   },
@@ -9154,8 +9145,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "El servicio del modelo aún no ha devuelto contenido. Puedes seguir esperando o detener esta solicitud."
   }
 }

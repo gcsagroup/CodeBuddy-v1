@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Seret pesan untuk mengatur ulang prioritas"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Pesan tetap tersimpan. Kirim sekarang saat Anda siap."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Perluas antrean"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# pesan {status}} other{# pesan {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Antrean Pesan"
-  },
   "messageQueue.next": {
     "defaultMessage": "Berikutnya"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Dijeda"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Antrean Dijeda"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Antrean dijeda. Periksa tugas saat ini, lalu gunakan “Kirim sekarang” untuk mengirim pesan."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Antrean dijeda. Periksa tugas saat ini, lalu gunakan “Kirim sekarang” untuk mengirim pesan."
+  "messageQueue.pending": {
+    "defaultMessage": "Menunggu dikirim"
   },
   "messageQueue.queued": {
     "defaultMessage": "diantrekan"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "Simpan"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Kirim semua sekarang"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Kirim pesan ini sekarang"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Hentikan pemrosesan saat ini dan kirim pesan ini sekarang"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Kirim semua pesan tertunda sekaligus sekarang"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Hentikan proses saat ini dan kirim semua pesan tertunda sekaligus"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "menunggu"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8825,6 +8813,9 @@
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
   },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Layanan model belum mengembalikan konten. Anda dapat terus menunggu atau menghentikan permintaan ini."
+  },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
   },
@@ -9154,8 +9145,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Layanan model belum mengembalikan konten. Anda dapat terus menunggu atau menghentikan permintaan ini."
   }
 }

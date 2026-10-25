@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Kéo tin nhắn để sắp xếp lại mức ưu tiên"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Tin nhắn được giữ lại. Gửi khi bạn sẵn sàng."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Mở rộng hàng đợi"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# tin nhắn {status}} other{# tin nhắn {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Hàng đợi tin nhắn"
-  },
   "messageQueue.next": {
     "defaultMessage": "Tiếp theo"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Đã tạm dừng"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Hàng đợi đã tạm dừng"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Hàng đợi đã tạm dừng. Kiểm tra tác vụ hiện tại, rồi dùng “Gửi ngay” để gửi tin nhắn."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Hàng đợi đã tạm dừng. Kiểm tra tác vụ hiện tại, rồi dùng “Gửi ngay” để gửi tin nhắn."
+  "messageQueue.pending": {
+    "defaultMessage": "Chờ gửi"
   },
   "messageQueue.queued": {
     "defaultMessage": "đã xếp hàng"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "Lưu"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Gửi tất cả ngay"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Gửi tin nhắn này ngay"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Dừng xử lý hiện tại và gửi tin nhắn này ngay"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Gửi cùng lúc tất cả tin nhắn đang chờ"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Dừng tác vụ hiện tại và gửi cùng lúc tất cả tin nhắn đang chờ"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "đang chờ"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8825,6 +8813,9 @@
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
   },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
+  },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
   },
@@ -9154,8 +9145,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
   }
 }

@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Перетащите сообщения, чтобы изменить приоритет"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Сообщения сохранены. Отправьте их, когда будете готовы."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Развернуть очередь"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count, plural, one {# сообщение {status}} few {# сообщения {status}} many {# сообщений {status}} other {# сообщения {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Очередь сообщений"
-  },
   "messageQueue.next": {
     "defaultMessage": "Далее"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "На паузе"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Очередь приостановлена"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Очередь приостановлена. Проверьте текущую задачу, затем отправьте сообщение с помощью «Отправить сейчас»."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Очередь приостановлена. Проверьте текущую задачу, затем отправьте сообщение с помощью «Отправить сейчас»."
+  "messageQueue.pending": {
+    "defaultMessage": "Ожидает отправки"
   },
   "messageQueue.queued": {
     "defaultMessage": "в очереди"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "Сохранить"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Отправить всё сейчас"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Отправить это сообщение сейчас"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Остановить текущую обработку и отправить это сообщение сейчас"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Отправить все ожидающие сообщения вместе"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Остановить текущую работу и отправить все ожидающие сообщения вместе"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "ожидание"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
@@ -8825,6 +8813,9 @@
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
   },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
+  },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
   },
@@ -9154,8 +9145,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
   }
 }

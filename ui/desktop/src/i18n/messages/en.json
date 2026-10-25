@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "Confirmed sent: remove"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "Drag messages to reorder priority"
+  "messageQueue.continueSending": {
+    "defaultMessage": "Messages kept. Send now when you are ready."
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Expand queue"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# message {status}} other{# messages {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "Message Queue"
-  },
   "messageQueue.next": {
     "defaultMessage": "Next"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "Paused"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "Queue Paused"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "Queue paused. Review the current task, then use \"Send Now\" to send a message."
+  "messageQueue.pending": {
+    "defaultMessage": "Waiting to send"
   },
   "messageQueue.queued": {
     "defaultMessage": "queued"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "Save"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "Send all now"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "Send now"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Stop current processing and send this message now"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "Send all waiting messages together now"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "Stop and send"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "Stop current processing and send all waiting messages together"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "waiting"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."

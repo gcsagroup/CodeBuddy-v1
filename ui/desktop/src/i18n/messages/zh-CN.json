@@ -4358,8 +4358,8 @@
   "messageQueue.confirmSent": {
     "defaultMessage": "确认已发送：移除"
   },
-  "messageQueue.dragToReorder": {
-    "defaultMessage": "拖动消息以调整优先级"
+  "messageQueue.continueSending": {
+    "defaultMessage": "消息已保留，点击立即发送可继续。"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "展开队列"
@@ -4367,23 +4367,11 @@
   "messageQueue.messageCount": {
     "defaultMessage": "{count,plural,one{# 条消息 {status}} other{# 条消息 {status}}}"
   },
-  "messageQueue.messageQueue": {
-    "defaultMessage": "消息队列"
-  },
   "messageQueue.next": {
     "defaultMessage": "下一条"
   },
-  "messageQueue.paused": {
-    "defaultMessage": "已暂停"
-  },
-  "messageQueue.queuePaused": {
-    "defaultMessage": "队列已暂停"
-  },
-  "messageQueue.queuePausedCompact": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
-  },
-  "messageQueue.queuePausedExpanded": {
-    "defaultMessage": "队列已暂停。请先检查当前任务，再用“停止并发送”发送消息。"
+  "messageQueue.pending": {
+    "defaultMessage": "待发送"
   },
   "messageQueue.queued": {
     "defaultMessage": "已排队"
@@ -4397,14 +4385,17 @@
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
+  "messageQueue.sendAllNow": {
+    "defaultMessage": "全部立即发送"
+  },
   "messageQueue.sendNow": {
     "defaultMessage": "立即发送"
   },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "停止当前任务后发送此消息"
+  "messageQueue.sendTogether": {
+    "defaultMessage": "将所有待发送消息一并发送"
   },
-  "messageQueue.stopAndSendLabel": {
-    "defaultMessage": "停止并发送"
+  "messageQueue.stopAndSend": {
+    "defaultMessage": "停止当前任务，将所有待发送消息一并发送"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一窗口已修改此队列。为避免覆盖，已暂停发送和保存。请保持本窗口打开并核对两边的待发消息。"
@@ -4414,9 +4405,6 @@
   },
   "messageQueue.verifyDelivery": {
     "defaultMessage": "发送结果尚不确定，请先核对对话中的记录，再决定是否重试。"
-  },
-  "messageQueue.waiting": {
-    "defaultMessage": "等待中"
   },
   "messageQueue.waitingForCancellation": {
     "defaultMessage": "正在等待停止确认，队列中的消息尚未发送。"
@@ -8825,6 +8813,9 @@
   "workStatus.toolResult": {
     "defaultMessage": "正在整理工具结果"
   },
+  "workStatus.waitingHint": {
+    "defaultMessage": "模型服务还未返回内容，你可以继续等待，也可以停止本次请求。"
+  },
   "workspaceChanges.all": {
     "defaultMessage": "全部轮次"
   },
@@ -9154,8 +9145,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切换器"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "模型服务还未返回内容，你可以继续等待，也可以停止本次请求。"
   }
 }

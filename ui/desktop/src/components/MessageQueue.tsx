@@ -1,103 +1,43 @@
-import React, { useState } from 'react';
-import {
-  X,
-  Clock,
-  Send,
-  GripVertical,
-  Zap,
-  Sparkles,
-  LoaderCircle,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Send, GripVertical, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from './ui/button';
-import { ImageData } from '../types/message';
+import type { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
 
 const i18n = defineMessages({
-  paused: {
-    id: 'messageQueue.paused',
-    defaultMessage: 'Paused',
+  pending: { id: 'messageQueue.pending', defaultMessage: 'Waiting to send' },
+  sendNow: { id: 'messageQueue.sendNow', defaultMessage: 'Send now' },
+  sendAllNow: { id: 'messageQueue.sendAllNow', defaultMessage: 'Send all now' },
+  sendTogether: {
+    id: 'messageQueue.sendTogether',
+    defaultMessage: 'Send all waiting messages together now',
   },
-  next: {
-    id: 'messageQueue.next',
-    defaultMessage: 'Next',
-  },
-  sendNow: {
-    id: 'messageQueue.sendNow',
-    defaultMessage: 'Send now',
-  },
-  expandQueue: {
-    id: 'messageQueue.expandQueue',
-    defaultMessage: 'Expand queue',
-  },
-  queuePausedCompact: {
-    id: 'messageQueue.queuePausedCompact',
-    defaultMessage: 'Queue paused. Review the current task, then use "Send Now" to send a message.',
-  },
-  queuePaused: {
-    id: 'messageQueue.queuePaused',
-    defaultMessage: 'Queue Paused',
-  },
-  messageQueue: {
-    id: 'messageQueue.messageQueue',
-    defaultMessage: 'Message Queue',
+  expandQueue: { id: 'messageQueue.expandQueue', defaultMessage: 'Expand queue' },
+  collapseQueue: { id: 'messageQueue.collapseQueue', defaultMessage: 'Collapse queue' },
+  continueSending: {
+    id: 'messageQueue.continueSending',
+    defaultMessage: 'Messages kept. Send now when you are ready.',
   },
   messageCount: {
     id: 'messageQueue.messageCount',
     defaultMessage: '{count, plural, one {# message} other {# messages}} {status}',
   },
-  waiting: {
-    id: 'messageQueue.waiting',
-    defaultMessage: 'waiting',
-  },
-  queued: {
-    id: 'messageQueue.queued',
-    defaultMessage: 'queued',
-  },
-  clearAll: {
-    id: 'messageQueue.clearAll',
-    defaultMessage: 'Clear All',
-  },
-  collapseQueue: {
-    id: 'messageQueue.collapseQueue',
-    defaultMessage: 'Collapse queue',
-  },
-  queuePausedExpanded: {
-    id: 'messageQueue.queuePausedExpanded',
-    defaultMessage: 'Queue paused. Review the current task, then use "Send Now" to send a message.',
-  },
-  save: {
-    id: 'messageQueue.save',
-    defaultMessage: 'Save',
-  },
-  cancel: {
-    id: 'messageQueue.cancel',
-    defaultMessage: 'Cancel',
-  },
-  clickToEdit: {
-    id: 'messageQueue.clickToEdit',
-    defaultMessage: '{content} (Click to edit)',
-  },
+  queued: { id: 'messageQueue.queued', defaultMessage: 'queued' },
+  clearAll: { id: 'messageQueue.clearAll', defaultMessage: 'Clear All' },
+  save: { id: 'messageQueue.save', defaultMessage: 'Save' },
+  cancel: { id: 'messageQueue.cancel', defaultMessage: 'Cancel' },
+  clickToEdit: { id: 'messageQueue.clickToEdit', defaultMessage: '{content} (Click to edit)' },
   cannotSendWhileEditing: {
     id: 'messageQueue.cannotSendWhileEditing',
     defaultMessage: 'Cannot send while editing',
   },
-  stopAndSendLabel: {
-    id: 'messageQueue.stopAndSendLabel',
-    defaultMessage: 'Stop and send',
-  },
   stopAndSend: {
     id: 'messageQueue.stopAndSend',
-    defaultMessage: 'Stop current processing and send this message now',
+    defaultMessage: 'Stop current processing and send all waiting messages together',
   },
   removeFromQueue: {
     id: 'messageQueue.removeFromQueue',
     defaultMessage: 'Remove this message from queue',
-  },
-  dragToReorder: {
-    id: 'messageQueue.dragToReorder',
-    defaultMessage: 'Drag messages to reorder priority',
   },
 });
 
@@ -115,7 +55,7 @@ interface MessageQueueProps {
   queuedMessages: QueuedMessage[];
   onRemoveMessage: (id: string) => void;
   onClearQueue: () => void;
-  onStopAndSend?: (messageId: string) => void;
+  onStopAndSend?: () => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onTriggerQueueProcessing?: () => void;
   editingMessageIdRef?: React.MutableRefObject<string | null>;
@@ -124,6 +64,7 @@ interface MessageQueueProps {
   waitingMessageId?: string | null;
   className?: string;
   isPaused?: boolean;
+  isBusy?: boolean;
   blockedReason?: string;
 }
 
@@ -141,247 +82,241 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   waitingMessageId,
   className = '',
   isPaused = false,
+  isBusy = false,
   blockedReason,
 }) => {
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
-  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
-  const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState<string>('');
-  const isSendingMessage = (messageId: string) =>
-    (sendingMessageIds?.has(messageId) ?? false) ||
-    queuedMessages.some((message) => message.id === messageId && message.delivery === 'submitting');
-
-  if (queuedMessages.length === 0) {
-    return null;
-  }
-
-  const handleDragStart = (e: React.DragEvent, messageId: string) => {
-    if (isSendingMessage(messageId)) {
-      e.preventDefault();
-      return;
+  const [editContent, setEditContent] = useState('');
+  useEffect(() => {
+    if (queuedMessages.length < 2) setIsExpanded(false);
+  }, [queuedMessages.length]);
+  useEffect(() => {
+    if (editingMessage && !queuedMessages.some((message) => message.id === editingMessage)) {
+      setEditingMessage(null);
+      setEditContent('');
+      if (editingMessageIdRef?.current === editingMessage) editingMessageIdRef.current = null;
     }
+  }, [queuedMessages, editingMessage, editingMessageIdRef]);
+  if (queuedMessages.length === 0) return null;
 
-    setDraggedItem(messageId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', messageId);
-  };
-
-  const handleDragOver = (e: React.DragEvent, messageId: string) => {
-    if (isSendingMessage(messageId)) {
-      return;
-    }
-
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverItem(messageId);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverItem(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetMessageId: string) => {
-    e.preventDefault();
-
-    if (!draggedItem || !onReorderMessages || isSendingMessage(targetMessageId)) return;
-
-    const draggedIndex = queuedMessages.findIndex((msg) => msg.id === draggedItem);
-    const targetIndex = queuedMessages.findIndex((msg) => msg.id === targetMessageId);
-
-    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
-      setDraggedItem(null);
-      setDragOverItem(null);
-      return;
-    }
-
-    const newMessages = [...queuedMessages];
-    const [removed] = newMessages.splice(draggedIndex, 1);
-    newMessages.splice(targetIndex, 0, removed);
-
-    onReorderMessages(newMessages);
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
-    setDragOverItem(null);
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    if (diff < 60000) return 'now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-    return `${Math.floor(diff / 3600000)}h`;
-  };
-
-  const hasSendingMessages = queuedMessages.some((message) => isSendingMessage(message.id));
+  const isSending = (message: QueuedMessage) =>
+    Boolean(sendingMessageIds?.has(message.id) || message.delivery === 'submitting');
   const hasUncertainDelivery = queuedMessages.some(
     (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
   );
+  const pendingCount = queuedMessages.filter((message) => !isSending(message)).length;
+  // Unknown delivery must keep its reconciliation controls visible, so it
+  // must not advertise a collapsed list while already showing every entry.
+  const canExpand = queuedMessages.length > 1 && !hasUncertainDelivery;
+  const expanded = canExpand && isExpanded;
+  const showList = expanded || hasUncertainDelivery || editingMessage !== null;
+  const waiting = Boolean(waitingMessageId);
   const nextMessage = queuedMessages[0];
-  const waiting = waitingMessageId === nextMessage.id;
+  const hasSending = queuedMessages.some(isSending);
+  const hasActiveSubmission = queuedMessages.some((message) => sendingMessageIds?.has(message.id));
+  const finishEditing = (save: boolean) => {
+    if (save && editingMessage) onEditMessage?.(editingMessage, editContent);
+    setEditingMessage(null);
+    if (editingMessageIdRef) editingMessageIdRef.current = null;
+    setEditContent('');
+    onTriggerQueueProcessing?.();
+  };
+  const edit = (message: QueuedMessage) => {
+    if (isSending(message) || !onEditMessage) return;
+    if (editingMessageIdRef) editingMessageIdRef.current = message.id;
+    setEditContent(message.content);
+    setEditingMessage(message.id);
+  };
 
-  // Keep the normal queue in one line. Uncertain delivery keeps its existing
-  // confirmation controls visible, even when the user has not expanded the list.
-  if (!isExpanded && !hasUncertainDelivery) {
-    return (
-      <div className={`relative ${className}`}>
-        <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
-          <span
-            className={`size-1.5 shrink-0 rounded-full ${isPaused && !waiting ? 'bg-amber-500' : 'bg-blue-500'}`}
-            aria-hidden="true"
-          />
+  return (
+    <div className={`relative ${className}`}>
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs text-text-secondary">
+        {canExpand ? (
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 text-left text-text-secondary hover:text-text-primary"
-            aria-label={intl.formatMessage(i18n.expandQueue)}
-            aria-expanded={false}
-            title={blockedReason ?? nextMessage.content}
-            onClick={() => setIsExpanded(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-text-primary"
+            aria-label={intl.formatMessage(expanded ? i18n.collapseQueue : i18n.expandQueue)}
+            aria-expanded={expanded}
+            title={nextMessage.content}
+            onClick={() => setIsExpanded(!expanded)}
           >
             <span className="shrink-0">
-              {intl.formatMessage(isPaused && !waiting ? i18n.paused : i18n.next)}
+              {intl.formatMessage(i18n.messageCount, {
+                count: queuedMessages.length,
+                status: intl.formatMessage(i18n.queued),
+              })}
             </span>
-            <span className="min-w-0 truncate">{nextMessage.content}</span>
-            {queuedMessages.length > 1 && (
-              <span className="shrink-0">+{queuedMessages.length - 1}</span>
+            {!showList && <span className="min-w-0 truncate">{nextMessage.content}</span>}
+            {expanded ? (
+              <ChevronUp className="size-3 shrink-0" />
+            ) : (
+              <ChevronDown className="size-3 shrink-0" />
             )}
-            <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
           </button>
-          {onStopAndSend && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 shrink-0 gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
-              title={intl.formatMessage(i18n.stopAndSend)}
-              disabled={isSendingMessage(nextMessage.id)}
-              onClick={() => onStopAndSend(nextMessage.id)}
-            >
-              <span>{intl.formatMessage(i18n.sendNow)}</span>
-              {waiting || isSendingMessage(nextMessage.id) ? (
-                <LoaderCircle className="size-3 animate-spin" aria-label={blockedReason} />
-              ) : (
-                <Send className="size-3" aria-hidden="true" />
-              )}
-            </Button>
-          )}
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="shrink-0">
+              {queuedMessages.length > 1
+                ? intl.formatMessage(i18n.messageCount, {
+                    count: queuedMessages.length,
+                    status: intl.formatMessage(i18n.queued),
+                  })
+                : intl.formatMessage(i18n.pending)}
+            </span>
+            {!showList && (
+              <button
+                type="button"
+                className="min-w-0 truncate text-left hover:text-text-primary"
+                title={intl.formatMessage(i18n.clickToEdit, { content: nextMessage.content })}
+                onClick={() => edit(nextMessage)}
+              >
+                {nextMessage.content}
+              </button>
+            )}
+          </div>
+        )}
+        {onStopAndSend && (
           <Button
             variant="ghost"
             size="sm"
-            className="size-6 shrink-0 p-0 text-text-secondary hover:text-text-primary"
+            className="h-7 shrink-0 gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
+            title={intl.formatMessage(
+              editingMessage
+                ? i18n.cannotSendWhileEditing
+                : isBusy
+                  ? i18n.stopAndSend
+                  : i18n.sendTogether
+            )}
+            disabled={Boolean(editingMessage) || pendingCount === 0 || waiting}
+            aria-label={intl.formatMessage(pendingCount > 1 ? i18n.sendAllNow : i18n.sendNow)}
+            aria-busy={waiting || hasActiveSubmission}
+            onClick={() => onStopAndSend()}
+          >
+            {intl.formatMessage(pendingCount > 1 ? i18n.sendAllNow : i18n.sendNow)}
+            {waiting || hasActiveSubmission ? (
+              <LoaderCircle className="size-3 animate-spin" aria-label={blockedReason} />
+            ) : (
+              <Send className="size-3" aria-hidden="true" />
+            )}
+          </Button>
+        )}
+        {!showList && !canExpand && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-6 shrink-0 p-0 text-text-secondary"
             title={intl.formatMessage(i18n.removeFromQueue)}
-            disabled={isSendingMessage(nextMessage.id)}
+            disabled={isSending(nextMessage)}
             onClick={() => onRemoveMessage(nextMessage.id)}
           >
             <X className="size-3" />
           </Button>
-        </div>
+        )}
+        {expanded && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 px-2 text-xs text-text-secondary"
+            disabled={hasSending}
+            onClick={onClearQueue}
+          >
+            {intl.formatMessage(i18n.clearAll)}
+          </Button>
+        )}
       </div>
-    );
-  }
-
-  return (
-    <div className={`relative ${className}`}>
-      {/* Expanded Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-background border-b border-border/30">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            {isPaused ? (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <Sparkles className="w-4 h-4 text-info" />
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">
-              {isPaused
-                ? intl.formatMessage(i18n.queuePaused)
-                : intl.formatMessage(i18n.messageQueue)}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {intl.formatMessage(i18n.messageCount, {
-                count: queuedMessages.length,
-                status: isPaused
-                  ? intl.formatMessage(i18n.waiting)
-                  : intl.formatMessage(i18n.queued),
-              })}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!hasUncertainDelivery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              title={intl.formatMessage(i18n.collapseQueue)}
-              onClick={() => setIsExpanded(false)}
-            >
-              <ChevronUp className="size-4" />
-            </Button>
-          )}
-          {queuedMessages.length > 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearQueue}
-              disabled={hasSendingMessages}
-              className="text-xs h-7 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              {intl.formatMessage(i18n.clearAll)}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {blockedReason && (
-        <div role="status" className="px-4 py-2 text-sm text-text-secondary">
-          {blockedReason}
-        </div>
+      {(blockedReason || (isPaused && !waiting && !hasUncertainDelivery)) && (
+        <p role="status" className="px-3 pb-2 text-xs text-text-secondary">
+          {blockedReason ?? intl.formatMessage(i18n.continueSending)}
+        </p>
       )}
-
-      {/* Status Banner for Paused State */}
-      {isPaused && (
-        <div className="px-4 py-2 bg-amber-50/80 dark:bg-amber-900/20 border-b border-amber-200/50 dark:border-amber-800/50">
-          <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
-            <Zap className="w-4 h-4" />
-            <span>{intl.formatMessage(i18n.queuePausedExpanded)}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Message Bubbles */}
-      <div className="p-4 space-y-3 bg-background max-h-80 overflow-y-auto">
-        {queuedMessages.map((message, index) => {
-          const isSending = isSendingMessage(message.id);
-          const isEditing = editingMessage === message.id;
-          return (
+      {showList && (
+        <div className="max-h-72 overflow-y-auto px-3 pb-2">
+          {queuedMessages.map((message) => (
             <div
               key={message.id}
-              className="group relative"
-              draggable={Boolean(onReorderMessages && !isSending)}
-              onDragStart={(e) => handleDragStart(e, message.id)}
-              onDragOver={(e) => handleDragOver(e, message.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, message.id)}
-              onDragEnd={handleDragEnd}
-              onMouseEnter={() => setHoveredMessage(message.id)}
-              onMouseLeave={() => setHoveredMessage(null)}
+              className="group py-2 text-sm text-text-primary"
+              draggable={Boolean(onReorderMessages && !isSending(message) && !editingMessage)}
+              onDragStart={(event) => {
+                setDraggedItem(message.id);
+                event.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(event) => {
+                if (!isSending(message) && draggedItem) event.preventDefault();
+              }}
+              onDragEnd={() => setDraggedItem(null)}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (!draggedItem || !onReorderMessages || isSending(message)) return;
+                const from = queuedMessages.findIndex((item) => item.id === draggedItem);
+                const to = queuedMessages.findIndex((item) => item.id === message.id);
+                if (from >= 0 && to >= 0 && from !== to) {
+                  const reordered = [...queuedMessages];
+                  const [moved] = reordered.splice(from, 1);
+                  reordered.splice(to, 0, moved);
+                  onReorderMessages(reordered);
+                }
+                setDraggedItem(null);
+              }}
             >
+              <div className="flex items-start gap-2">
+                {onReorderMessages && !isSending(message) && (
+                  <GripVertical className="mt-1 size-3 shrink-0 cursor-grab text-text-secondary opacity-0 group-hover:opacity-70" />
+                )}
+                {editingMessage === message.id ? (
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <textarea
+                      autoFocus
+                      rows={3}
+                      className="w-full resize-y rounded-md border border-border-primary bg-background-primary px-2 py-1 text-sm"
+                      value={editContent}
+                      onChange={(event) => setEditContent(event.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => finishEditing(true)}
+                      >
+                        {intl.formatMessage(i18n.save)}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => finishEditing(false)}
+                      >
+                        {intl.formatMessage(i18n.cancel)}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isSending(message)}
+                    className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left leading-5"
+                    title={intl.formatMessage(i18n.clickToEdit, { content: message.content })}
+                    onClick={() => edit(message)}
+                  >
+                    {message.content}
+                  </button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-6 shrink-0 p-0 text-text-secondary"
+                  title={intl.formatMessage(i18n.removeFromQueue)}
+                  disabled={isSending(message)}
+                  onClick={() => onRemoveMessage(message.id)}
+                >
+                  <X className="size-3" />
+                </Button>
+              </div>
               {message.delivery === 'submitting' && !sendingMessageIds?.has(message.id) && (
-                <div className="p-2 text-sm" role="status">
+                <div className="mt-2 space-y-2 text-xs text-text-secondary" role="status">
                   <p>
                     {intl.formatMessage({
                       id: 'messageQueue.verifyDelivery',
@@ -389,204 +324,31 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                         'Sending result unknown. Check the conversation before retrying.',
                     })}
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => onRemoveMessage(message.id)}>
-                    {intl.formatMessage({
-                      id: 'messageQueue.confirmSent',
-                      defaultMessage: 'Confirmed sent: remove',
-                    })}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onConfirmNotSent?.(message.id)}
-                  >
-                    {intl.formatMessage({
-                      id: 'messageQueue.confirmNotSent',
-                      defaultMessage: 'Confirmed not sent: queue again',
-                    })}
-                  </Button>
-                </div>
-              )}
-              {/* Main message bubble */}
-              <div
-                className={`relative flex items-center gap-3 rounded-xl px-4 py-3 border transition-all duration-300 ease-out ${
-                  draggedItem === message.id
-                    ? 'bg-info/20 border-info opacity-60 scale-105 shadow-lg rotate-2'
-                    : dragOverItem === message.id
-                      ? 'bg-green-100/80 border-green-400 shadow-lg dark:bg-green-950/50 dark:border-green-600 scale-102'
-                      : hoveredMessage === message.id
-                        ? 'bg-muted/90 border-border shadow-md scale-101'
-                        : 'bg-muted/60 hover:bg-muted/80 border-border/60 hover:border-border dark:border-border/60 dark:hover:border-border'
-                } ${isSending ? 'opacity-60' : ''} backdrop-blur-sm`}
-              >
-                {/* Priority indicator */}
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-colors ${
-                      index === 0
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-
-                  {/* Drag handle */}
-                  {onReorderMessages && !isSending && (
-                    <div
-                      className={`opacity-0 group-hover:opacity-60 hover:opacity-100 transition-all duration-200 cursor-grab active:cursor-grabbing ${
-                        hoveredMessage === message.id ? 'opacity-40' : ''
-                      }`}
-                    >
-                      <GripVertical className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Message content */}
-                <div className="flex-1 min-w-0">
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        disabled={isSending}
-                        className="w-full text-sm bg-background border border-border rounded-md px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                        rows={Math.min(Math.ceil(editContent.length / 60), 4)}
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isSending}
-                          onClick={() => {
-                            if (isSending) return;
-                            if (onEditMessage) {
-                              onEditMessage(message.id, editContent);
-                            }
-                            setEditingMessage(null);
-                            if (editingMessageIdRef) editingMessageIdRef.current = null;
-                            // Trigger queue processing if system is ready
-                            if (onTriggerQueueProcessing) {
-                              setTimeout(onTriggerQueueProcessing, 100);
-                            }
-                            setEditContent('');
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
-                          {intl.formatMessage(i18n.save)}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingMessage(null);
-                            if (editingMessageIdRef) editingMessageIdRef.current = null;
-                            // Trigger queue processing if system is ready
-                            if (onTriggerQueueProcessing) {
-                              setTimeout(onTriggerQueueProcessing, 100);
-                            }
-                            setEditContent('');
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
-                          {intl.formatMessage(i18n.cancel)}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p
-                      className={`text-sm text-foreground leading-relaxed rounded px-1 py-0.5 transition-colors ${
-                        isSending ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-muted/30'
-                      }`}
-                      title={intl.formatMessage(i18n.clickToEdit, { content: message.content })}
-                      onClick={() => {
-                        if (isSending) return;
-                        setEditingMessage(message.id);
-                        if (editingMessageIdRef) editingMessageIdRef.current = message.id;
-                        setEditContent(message.content);
-                      }}
-                    >
-                      {message.content.length > 80
-                        ? `${message.content.substring(0, 80)}...`
-                        : message.content}
-                    </p>
-                  )}
-                </div>
-
-                {/* Right side actions */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {formatTimestamp(message.timestamp)}
-                  </span>
-
-                  {/* Send Now button - inline */}
-                  {onStopAndSend && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onStopAndSend(message.id)}
-                      disabled={isEditing || isSending}
-                      className={`h-7 px-2 gap-1 rounded-full transition-all duration-200 ${
-                        isEditing || isSending
-                          ? 'opacity-30 cursor-not-allowed'
-                          : 'hover:bg-muted/50'
-                      }`}
-                      title={
-                        isEditing
-                          ? intl.formatMessage(i18n.cannotSendWhileEditing)
-                          : intl.formatMessage(i18n.stopAndSend)
-                      }
-                    >
-                      <span>{intl.formatMessage(i18n.sendNow)}</span>
-                      {waitingMessageId === message.id ? (
-                        <LoaderCircle className="w-3 h-3 animate-spin" aria-label={blockedReason} />
-                      ) : (
-                        <Send className="w-3 h-3" />
-                      )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onRemoveMessage(message.id)}>
+                      {intl.formatMessage({
+                        id: 'messageQueue.confirmSent',
+                        defaultMessage: 'Confirmed sent: remove',
+                      })}
                     </Button>
-                  )}
-
-                  {/* Remove button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isSending}
-                    onClick={() => onRemoveMessage(message.id)}
-                    className="opacity-60 hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive rounded-full"
-                    title={intl.formatMessage(i18n.removeFromQueue)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Drop indicator with enhanced visuals */}
-              {dragOverItem === message.id && draggedItem !== message.id && (
-                <div className="absolute inset-0 border-2 border-green-400 rounded-xl pointer-events-none animate-pulse bg-green-100/20 dark:bg-green-900/20" />
-              )}
-
-              {/* Next up indicator */}
-              {index === 0 && !isPaused && (
-                <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium shadow-md">
-                  {intl.formatMessage(i18n.next)}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onConfirmNotSent?.(message.id)}
+                    >
+                      {intl.formatMessage({
+                        id: 'messageQueue.confirmNotSent',
+                        defaultMessage: 'Confirmed not sent: queue again',
+                      })}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Drag instructions */}
-      {onReorderMessages && queuedMessages.length > 1 && (
-        <div className="px-4 pb-3 text-xs text-muted-foreground flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
-          <GripVertical className="w-3 h-3" />
-          <span>{intl.formatMessage(i18n.dragToReorder)}</span>
+          ))}
         </div>
       )}
     </div>
   );
 };
-
 export default MessageQueue;

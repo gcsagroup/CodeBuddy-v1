@@ -81,15 +81,6 @@ interface PastedImage {
   error?: string;
 }
 
-const moveQueuedMessageToFront = (
-  messages: QueuedMessage[],
-  messageId: string
-): QueuedMessage[] => {
-  const selectedMessage = messages.find((msg) => msg.id === messageId);
-  if (!selectedMessage) return messages;
-  return [selectedMessage, ...messages.filter((msg) => msg.id !== messageId)];
-};
-
 const removeQueuedMessage = (messages: QueuedMessage[], messageId: string): QueuedMessage[] =>
   messages.filter((msg) => msg.id !== messageId);
 
@@ -362,6 +353,7 @@ export default function ChatInput({
   );
   const editingMessageIdRef = useRef<string | null>(null);
   const sendAfterStopMessageIdRef = useRef<string | null>(null);
+  const sendAfterStopPauseRemainingRef = useRef(false);
   const [sendAfterStopMessageId, setSendAfterStopMessageId] = useState<string | null>(null);
   const cancellationRequestedForQueueRef = useRef(false);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
@@ -408,6 +400,7 @@ export default function ChatInput({
     queuePausedRef.current = restored.length > 0 || queueStorageFailedRef.current;
     editingMessageIdRef.current = null;
     sendAfterStopMessageIdRef.current = null;
+    sendAfterStopPauseRemainingRef.current = false;
     setSendAfterStopMessageId(null);
     cancellationRequestedForQueueRef.current = false;
     sendNowInFlightMessageIdsRef.current = new Set();
@@ -464,6 +457,7 @@ export default function ChatInput({
   const clearPendingSendAfterStop = useCallback((messageId?: string) => {
     if (!messageId || sendAfterStopMessageIdRef.current === messageId) {
       sendAfterStopMessageIdRef.current = null;
+      sendAfterStopPauseRemainingRef.current = false;
       setSendAfterStopMessageId(null);
       cancellationRequestedForQueueRef.current = false;
     }
@@ -472,6 +466,7 @@ export default function ChatInput({
   const clearQueueState = useCallback(() => {
     queuePausedRef.current = false;
     sendAfterStopMessageIdRef.current = null;
+    sendAfterStopPauseRemainingRef.current = false;
     setSendAfterStopMessageId(null);
     cancellationRequestedForQueueRef.current = false;
   }, []);
@@ -654,7 +649,9 @@ export default function ChatInput({
       : queuedMessages[0];
     if (!message || editingMessageIdRef.current === message.id) return;
     if (queuePausedRef.current && !pendingId) return;
-    void submitQueuedMessage(message, Boolean(pendingId));
+    const keepPaused = Boolean(pendingId && sendAfterStopPauseRemainingRef.current);
+    if (pendingId && !keepPaused) queuePausedRef.current = false;
+    void submitQueuedMessage(message, keepPaused);
   }, [
     isLoading,
     queueProcessingBlocked,
@@ -1765,23 +1762,56 @@ export default function ChatInput({
     );
   };
 
-  const handleStopAndSend = async (messageId: string) => {
-    const messageToSend = queuedMessagesRef.current.find((msg) => msg.id === messageId);
-    if (!messageToSend || messageToSend.delivery === 'submitting' || queueStorageFailedRef.current)
-      return;
+  const handleStopAndSend = async () => {
     if (
-      editingMessageIdRef.current === messageId ||
-      sendNowInFlightMessageIdsRef.current.has(messageId)
+      queueStorageFailedRef.current ||
+      editingMessageIdRef.current ||
+      sendAfterStopMessageIdRef.current
     )
       return;
-    if ((!isLoading || canSubmitQueuedMessageWhileLoading) && !queueProcessingBlocked) {
-      await submitQueuedMessage(messageToSend, false, canSubmitQueuedMessageWhileLoading);
+    // Freeze only known-unsent input at the click. An unconfirmed delivery is
+    // never replayed, and later additions remain ordinary follow-ups.
+    const pending = queuedMessagesRef.current.filter(
+      (message) =>
+        message.delivery !== 'submitting' && !sendNowInFlightMessageIdsRef.current.has(message.id)
+    );
+    if (!pending.length) return;
+    const messageToSend: QueuedMessage =
+      pending.length === 1
+        ? pending[0]
+        : {
+            ...pending[0],
+            content: pending.map((message) => message.content).join('\n\n'),
+            images: pending.flatMap((message) => message.images),
+          };
+    const messageId = messageToSend.id;
+    const mergedIds = new Set(pending.map((message) => message.id));
+    const keepOtherMessagesPaused = queuedMessagesRef.current.some(
+      (message) => !mergedIds.has(message.id)
+    );
+    setQueuedMessages((previous) => [
+      messageToSend,
+      ...previous.filter((message) => !mergedIds.has(message.id)),
+    ]);
+    if (queueStorageFailedRef.current) return;
+    if (
+      (!isLoading || canSubmitQueuedMessageWhileLoading) &&
+      !queueProcessingBlocked &&
+      sendNowInFlightMessageIdsRef.current.size === 0
+    ) {
+      if (!keepOtherMessagesPaused) queuePausedRef.current = false;
+      await submitQueuedMessage(
+        messageToSend,
+        keepOtherMessagesPaused,
+        canSubmitQueuedMessageWhileLoading
+      );
       return;
     }
 
     // Cancel is a request, not permission to overlap session/prompt calls. The
     // existing queue effect sends only after both display and transport settle.
     sendAfterStopMessageIdRef.current = messageId;
+    sendAfterStopPauseRemainingRef.current = keepOtherMessagesPaused;
     setSendAfterStopMessageId(messageId);
     cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
     pauseRemainingQueue();
@@ -1793,7 +1823,7 @@ export default function ChatInput({
       }
     }
     setQueuedMessages((prev) =>
-      moveQueuedMessageToFront(prev, messageId).map(({ presentation, ...item }) => ({
+      prev.map(({ presentation, ...item }) => ({
         ...item,
         ...(item.id === messageId && onPendingMessageChange && anchor
           ? { presentation: presentation ?? { afterMessageId: anchor } }
@@ -1808,6 +1838,7 @@ export default function ChatInput({
   };
 
   const handleStop = () => {
+    clearPendingSendAfterStop();
     if (pauseQueueOnStop && queuedMessages.length > 0) {
       pauseRemainingQueue();
     }
@@ -1893,6 +1924,7 @@ export default function ChatInput({
           sendingMessageIds={sendNowInFlightMessageIds}
           waitingMessageId={sendAfterStopMessageId}
           isPaused={queuePausedRef.current}
+          isBusy={isLoading || queueProcessingBlocked}
           blockedReason={
             queueProcessingBlocked
               ? intl.formatMessage(

@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Se connecter à un serveur CodeBuddy exécuté ailleurs (nécessite le redémarrage de l'application)"
   },
-  "githubAuth.description": {
-    "defaultMessage": "Connectez GitHub pour les actions sur les dépôts et les demandes de tirage."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Terminé avec un résultat neutre"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Ce que nous collectons :"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Charger les messages précédents ({remaining} restants)"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "CodeBuddy téléchargera la mise à jour en arrière-plan et l'installera lors de votre prochaine fermeture ou redémarrage."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Les téléchargements automatiques sont désactivés via la variable d'environnement CODEBUDDY_DISABLE_AUTO_DOWNLOAD."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "Le téléchargement automatique est désactivé. Cliquez sur « Télécharger maintenant » pour télécharger manuellement."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "Aucune installation manuelle n'est nécessaire."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "Rechercher des mises à jour"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "Recherche de mises à jour..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "Version actuelle"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "Désactiver les téléchargements automatiques des mises à jour"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "Lorsque cette option est activée, CodeBuddy vous informera des nouvelles versions mais ne les téléchargera pas automatiquement."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "Télécharger maintenant"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "Mise à jour téléchargée et prête à être installée !"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "Téléchargement de la mise à jour... {percent} %"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "Téléchargement de la mise à jour..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "Installer et redémarrer"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "Cliquez sur « Installer et redémarrer » pour mettre à jour maintenant."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "Vous utilisez la dernière version !"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "Chargement..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "Après le téléchargement, vous devrez installer la mise à jour manuellement."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "Installation manuelle requise pour cette méthode de mise à jour."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ La mise à jour est prête. Redémarrez CodeBuddy pour terminer son installation, ou quittez lorsque vous avez terminé."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ La mise à jour est prête ! Cliquez sur « Installer et redémarrer » pour obtenir les instructions d'installation."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(à jour)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "Mise à jour disponible !"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} disponible"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "La version {version} est disponible"
-  },
   "userMessage.cancel": {
     "defaultMessage": "Annuler"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Le service du modèle n’a pas encore renvoyé de contenu. Vous pouvez continuer à attendre ou arrêter cette requête."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Le service du modèle n’a pas encore renvoyé de contenu. Vous pouvez continuer à attendre ou arrêter cette requête."
   }
 }

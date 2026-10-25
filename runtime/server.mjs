@@ -106,6 +106,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
     await compat.initialize();
     appProxy = await createMcpAppProxy({ secret });
     let stopping = false;
+    let pendingRequests = 0;
     const server = http.createServer((req, res) => {
       if (stopping) {
         res.writeHead(503, { Connection: 'close' });
@@ -242,15 +243,16 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           return;
         }
         try {
+          if (stopping) throw Object.assign(Error('Runtime is preparing to update'), { code: -32000 });
           if (!initialized && msg.method !== "initialize")
             throw Object.assign(Error("Initialize the ACP connection first"), {
               code: -32002,
             });
-          const result = await compat.request(
-            msg.method,
-            msg.params ?? {},
-            connection,
-          );
+          let result;
+          pendingRequests++;
+          try {
+            result = await compat.request(msg.method, msg.params ?? {}, connection);
+          } finally { pendingRequests--; }
           if (msg.method === "initialize") initialized = true;
           if (Object.hasOwn(msg, "id"))
             send({ jsonrpc: "2.0", id: msg.id, result });
@@ -282,7 +284,21 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       });
     });
     let closePromise;
-    return {
+    const service = {
+      async closeForUpdate() {
+        const reserved = await compat.schedules.reserveShutdownIfIdle(() => {
+          if (stopping || pendingRequests || compat.active.size || compat.initializing.size ||
+            compat.routing.size || compat.sessionMutations.size || compat.reviewExecutions.size ||
+            compat.schedules?.active.size) return false;
+          // Request admission and scheduler admission close in one synchronous
+          // step, after any already admitted schedule has finished starting.
+          stopping = true;
+          return true;
+        });
+        if (!reserved) return false;
+        await service.close();
+        return true;
+      },
       async listen(port = 0, host = "127.0.0.1") {
         if (host !== "127.0.0.1" && host !== "::1")
           throw Error("Preview backend must bind to loopback");
@@ -318,6 +334,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         })());
       },
     };
+    return service;
   } catch (error) {
     try {
       await compat?.close();

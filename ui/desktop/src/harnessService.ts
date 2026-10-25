@@ -76,6 +76,24 @@ export async function startHarnessService(options: {
       engine: 'deepseek-harness', startedAt: new Date().toISOString(), ...ready,
       resourcesPath: root, sourceDigest: manifest.sourceDigest,
     }, null, 2));
-    return { ...ready, secret, close };
+    const closeForUpdate = async () => {
+      if (exited || stopping || !child.connected) throw new Error('运行服务状态异常，请重启应用后再更新。');
+      stopping = true;
+      try {
+        const allowed = await new Promise<boolean>((resolve, reject) => {
+          const timer = setTimeout(() => { child.off('message', receive); reject(new Error('等待任务保存超时，请稍后重试。')); }, 30000);
+          const receive = (message: unknown) => {
+            if (!message || typeof message !== 'object' || !('type' in message) || message.type !== 'update-prepared') return;
+            clearTimeout(timer); child.off('message', receive);
+            resolve('ready' in message && message.ready === true);
+          };
+          child.on('message', receive);
+          child.send({ type: 'prepare-update' });
+        });
+        if (!allowed) throw new Error('仍有任务或设置操作正在执行，请等待完成后再更新。');
+        await exit;
+      } catch (error) { stopping = false; throw error; }
+    };
+    return { ...ready, secret, close, closeForUpdate };
   } catch (error) { await close(); throw error; }
 }

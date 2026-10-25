@@ -5,6 +5,6 @@
   "executableName": "CodeBuddy",
   "protocol": "codebuddy",
   "backendProfileDirectoryName": "backend",
-  "updatesEnabled": false,
+  "updatesEnabled": true,
   "telemetryUiEnabled": false
 }

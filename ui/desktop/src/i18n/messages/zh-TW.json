@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "連線至在其他位置執行的 CodeBuddy 伺服器（需要重新啟動應用程式）"
   },
-  "githubAuth.description": {
-    "defaultMessage": "連接 GitHub，以執行儲存庫和提取要求操作。"
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub 帳戶"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "以中性結果完成"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "我們收集的內容："
+  },
+  "productUpdate.available": {
+    "defaultMessage": "發現新版本 {version}。"
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "取消下載"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "更新頻道"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "檢查更新"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "正在檢查更新…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "目前頻道沒有適用於此裝置的更新版本。"
+  },
+  "productUpdate.download": {
+    "defaultMessage": "下載更新"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "正在下載並驗證… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "更新請求失敗，請重試。"
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "使用已連線的 GitHub 帳號檢查更新。"
+  },
+  "productUpdate.install": {
+    "defaultMessage": "重新啟動並更新"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "正在準備重新啟動更新…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "測試版"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "更新已準備好。聊天記錄、設定與工作區會保留。"
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "正式版"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "目前版本：{version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "載入較早訊息（剩餘 {remaining} 則）"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "瀏覽器操作"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {開啟網頁} observe {讀取網頁} click {點擊元素} type {輸入文字} key {按鍵} screenshot {擷取網頁} console {讀取主控台} close {關閉網頁} other {瀏覽器操作}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "頁面元素 {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "預期遠端提交"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "已成功使用 {count} 次"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "CodeBuddy 會在背景下載更新，並於您下次結束或重新啟動時安裝。"
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "已透過 CODEBUDDY_DISABLE_AUTO_DOWNLOAD 環境變數停用自動下載。"
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "已停用自動下載。請點選「立即下載」以手動下載。"
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "無需手動安裝。"
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "檢查更新"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "正在檢查更新..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "目前版本"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "停用自動下載更新"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "啟用後，CodeBuddy 會通知您有新版本，但不會自動下載。"
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "立即下載"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "更新已下載完成並可供安裝！"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "正在下載更新... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "正在下載更新..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "安裝並重新啟動"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "請點選「安裝並重新啟動」以立即更新。"
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "您執行的是最新版本！"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "載入中..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "下載後，您需要手動安裝更新。"
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "此更新方式需要手動安裝。"
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ 更新已就緒。重新啟動 CodeBuddy 即可完成安裝，或在您完成後結束。"
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ 更新已就緒！請點選「安裝並重新啟動」以取得安裝指示。"
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "（為最新版本）"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "有可用的更新！"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ 有可用的 {version}"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "{version} 版本已可使用"
-  },
   "userMessage.cancel": {
     "defaultMessage": "取消"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "正在整理工具結果"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
   },
   "workspaceChanges.all": {
     "defaultMessage": "全部輪次"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
   }
 }

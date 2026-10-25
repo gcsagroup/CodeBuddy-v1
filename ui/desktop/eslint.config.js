@@ -88,6 +88,7 @@ module.exports = [
         Response: 'readonly',
         ReadableStream: 'readonly',
         AbortController: 'readonly',
+        AbortSignal: 'readonly',
         RequestCredentials: 'readonly',
         HeadersInit: 'readonly',
         KeyboardEvent: 'readonly',

@@ -189,12 +189,13 @@ type ElectronAPI = {
   openExternal: (url: string) => Promise<void>;
   // Update-related functions
   getVersion: () => string;
-  checkForUpdates: () => Promise<{ updateInfo: unknown; error: string | null }>;
-  downloadUpdate: () => Promise<{ success: boolean; error: string | null }>;
-  installUpdate: () => void;
+  checkForUpdates: (channel?: import('./update/types').UpdateChannel) => Promise<import('./update/types').UpdateState>;
+  downloadUpdate: () => Promise<import('./update/types').UpdateState>;
+  installUpdate: () => Promise<import('./update/types').UpdateState>;
+  cancelUpdate: () => Promise<void>;
   restartApp: () => void;
-  onUpdaterEvent: (callback: (event: UpdaterEvent) => void) => void;
-  getUpdateState: () => Promise<{ updateAvailable: boolean; latestVersion?: string } | null>;
+  onUpdaterEvent: (callback: (event: UpdaterEvent) => void) => () => void;
+  getUpdateState: () => Promise<import('./update/types').UpdateState>;
   isUsingGitHubFallback: () => Promise<boolean>;
   getAutoDownloadDisabled: () => Promise<boolean>;
   // Recipe warning functions
@@ -347,22 +348,25 @@ const electronAPI: ElectronAPI = {
   getVersion: (): string => {
     return config.GOOSE_VERSION || ipcRenderer.sendSync('get-app-version') || '';
   },
-  checkForUpdates: (): Promise<{ updateInfo: unknown; error: string | null }> => {
-    return ipcRenderer.invoke('check-for-updates');
+  checkForUpdates: (channel = 'preview') => {
+    return ipcRenderer.invoke('check-for-updates', channel);
   },
-  downloadUpdate: (): Promise<{ success: boolean; error: string | null }> => {
+  downloadUpdate: () => {
     return ipcRenderer.invoke('download-update');
   },
-  installUpdate: (): void => {
-    ipcRenderer.invoke('install-update');
+  installUpdate: () => {
+    return ipcRenderer.invoke('install-update');
   },
+  cancelUpdate: () => ipcRenderer.invoke('cancel-update'),
   restartApp: (): void => {
     ipcRenderer.send('restart-app');
   },
-  onUpdaterEvent: (callback: (event: UpdaterEvent) => void): void => {
-    ipcRenderer.on('updater-event', (_event, data) => callback(data));
+  onUpdaterEvent: (callback: (event: UpdaterEvent) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: UpdaterEvent) => callback(data);
+    ipcRenderer.on('updater-event', listener);
+    return () => ipcRenderer.removeListener('updater-event', listener);
   },
-  getUpdateState: (): Promise<{ updateAvailable: boolean; latestVersion?: string } | null> => {
+  getUpdateState: () => {
     return ipcRenderer.invoke('get-update-state');
   },
   isUsingGitHubFallback: (): Promise<boolean> => {

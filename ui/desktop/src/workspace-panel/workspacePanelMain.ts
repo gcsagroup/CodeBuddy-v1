@@ -47,6 +47,7 @@ interface BrowserState {
   error?: string;
   controller: BrowserController;
   preview?: Awaited<ReturnType<typeof createWorkspacePreview>>;
+  bounds?: { x: number; y: number; width: number; height: number } | null;
 }
 interface Owner {
   id: number;
@@ -54,8 +55,18 @@ interface Owner {
   roots: Map<string, string>;
   terminals: Map<string, TerminalState>;
   browsers: Map<string, BrowserState>;
+  repositionBrowsers?: () => void;
 }
 const owners = new Map<number, Owner>();
+let updatePending = false;
+export function hasWorkspaceTerminals(): boolean {
+  return [...owners.values()].some(owner => [...owner.terminals.values()].some(terminal => !terminal.exited));
+}
+export function reserveWorkspaceUpdate(): () => void {
+  if (updatePending || hasWorkspaceTerminals()) throw new Error('请先关闭终端，再重启更新。');
+  updatePending = true;
+  return () => { updatePending = false; };
+}
 const mediaFiles = new PanelMediaRegistry();
 const mediaSessions = new WeakSet<Session>();
 protocol.registerSchemesAsPrivileged([
@@ -102,6 +113,10 @@ export function registerWorkspaceMediaSession(session: Session) {
 }
 
 function dispose(owner: Owner) {
+  if (owner.repositionBrowsers) {
+    owner.win.removeListener('resize', owner.repositionBrowsers);
+    owner.win.removeListener('restore', owner.repositionBrowsers);
+  }
   mediaFiles.revoke(owner.id);
   for (const terminal of owner.terminals.values()) {
     if (!terminal.exited) {
@@ -138,6 +153,11 @@ function ownerFor(event: IpcMainInvokeEvent): Owner {
     owners.set(event.sender.id, owner);
     registerWorkspaceMediaSession(event.sender.session);
     const current = owner;
+    current.repositionBrowsers = () => {
+      for (const browser of current.browsers.values()) positionBrowser(current, browser);
+    };
+    win.on('resize', current.repositionBrowsers);
+    win.on('restore', current.repositionBrowsers);
     win.once('closed', () => dispose(current));
     win.webContents.on('render-process-gone', () => dispose(current));
     win.webContents.on('did-start-navigation', (_e, _url, inPlace, mainFrame) => {
@@ -145,6 +165,26 @@ function ownerFor(event: IpcMainInvokeEvent): Owner {
     });
   }
   return owner;
+}
+
+function positionBrowser(owner: Owner, browser: BrowserState) {
+  if (browser.view.webContents.isDestroyed() || owner.win.isDestroyed()) return;
+  const b = browser.bounds;
+  if (!b) {
+    browser.view.setVisible(false);
+    return;
+  }
+  // Windows reports the minimized window's tiny content size while the renderer
+  // retains its previous layout. Keep that layout and reapply it on restore.
+  if (owner.win.isMinimized()) return;
+  const [w, h] = owner.win.getContentSize();
+  const zoom = owner.win.webContents.getZoomFactor();
+  const x = Math.max(0, Math.min(w, Math.round(b.x * zoom))),
+    y = Math.max(0, Math.min(h, Math.round(b.y * zoom)));
+  const width = Math.max(0, Math.min(w - x, Math.round(b.width * zoom))),
+    height = Math.max(0, Math.min(h - y, Math.round(b.height * zoom)));
+  browser.view.setBounds({ x, y, width, height });
+  browser.view.setVisible(width > 0 && height > 0);
 }
 
 async function bindScope(owner: Owner, scope: PanelScope) {
@@ -187,7 +227,9 @@ function terminalFor(owner: Owner, id: string, scope: string) {
 function browserFor(owner: Owner, id: string, scope: string) {
   const browser = owner.browsers.get(id);
   if (!browser || browser.scope !== scope || browser.view.webContents.isDestroyed())
-    throw new Error('Browser does not belong to this session');
+    throw new Error(
+      'Browser does not belong to this session. Use an ID returned by a successful open; a failed open provides no usable tab. Do not guess IDs.'
+    );
   return browser;
 }
 
@@ -199,11 +241,12 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       if (request.operation === 'open') {
         if (Boolean(request.url) === Boolean(request.htmlPath))
           throw new Error('Specify one URL or HTML path');
-        const preview = request.htmlPath
-          ? await createWorkspacePreview(root, request.htmlPath)
-          : undefined;
+        let preview: Awaited<ReturnType<typeof createWorkspacePreview>> | undefined;
         let id: string | undefined;
         try {
+          preview = request.htmlPath
+            ? await createWorkspacePreview(root, request.htmlPath)
+            : undefined;
           const url = preview?.url ?? panelUrl(request.url!);
           const created = await dispatch(owner, { scope: request.scope, action: 'browser-create' });
           id = created.id!;
@@ -218,7 +261,9 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
         } catch (error) {
           preview?.close();
           if (id) await dispatch(owner, { scope: request.scope, action: 'browser-close', id });
-          throw error;
+          throw new Error(
+            `Browser open failed; no usable tab ID was returned. Any partially created tab was closed. Do not guess a tab ID. Local previews require HTML; use file read for Markdown or other text documents. ${error instanceof Error ? error.message : String(error)}`
+          );
         }
       }
       const browser = browserFor(owner, request.id!, scope);
@@ -252,6 +297,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
         document: await savePanelFile(root, request.path, request.content, request.version),
       };
     case 'terminal-create': {
+      if (updatePending) throw new Error('应用正在准备更新，请在重启后打开终端。');
       if (owner.terminals.size >= 16)
         throw new Error('Close a terminal before opening another (limit: 16)');
       // Keep the native module external to Vite; resolve it from the installed application.
@@ -399,21 +445,19 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     case 'browser-bounds': {
       const browser = browserFor(owner, request.id, scope);
       if (!request.bounds) {
+        browser.bounds = null;
         browser.view.setVisible(false);
         return {};
       }
+      if (!Object.values(request.bounds).every(Number.isFinite))
+        throw new Error('Invalid browser bounds');
       for (const other of owner.browsers.values())
-        if (other !== browser) other.view.setVisible(false);
-      const b = request.bounds,
-        [w, h] = owner.win.getContentSize();
-      if (!Object.values(b).every(Number.isFinite)) throw new Error('Invalid browser bounds');
-      const zoom = owner.win.webContents.getZoomFactor();
-      const x = Math.max(0, Math.min(w, Math.round(b.x * zoom))),
-        y = Math.max(0, Math.min(h, Math.round(b.y * zoom)));
-      const width = Math.max(0, Math.min(w - x, Math.round(b.width * zoom))),
-        height = Math.max(0, Math.min(h - y, Math.round(b.height * zoom)));
-      browser.view.setBounds({ x, y, width, height });
-      browser.view.setVisible(width > 0 && height > 0);
+        if (other !== browser) {
+          other.bounds = null;
+          other.view.setVisible(false);
+        }
+      browser.bounds = request.bounds;
+      positionBrowser(owner, browser);
       return {};
     }
     case 'browser-close': {

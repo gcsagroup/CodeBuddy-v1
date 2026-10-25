@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Sambung ke pelayan CodeBuddy yang berjalan di tempat lain (memerlukan memulakan semula aplikasi)"
   },
-  "githubAuth.description": {
-    "defaultMessage": "Sambungkan GitHub untuk tindakan repositori dan pull request."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Selesai secara neutral"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Apa yang kami kumpul:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Muat mesej terdahulu ({remaining} berbaki)"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "CodeBuddy akan memuat turun kemas kini di latar belakang dan memasangnya pada kali seterusnya anda keluar atau mula semula."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Muat turun automatik dilumpuhkan melalui pemboleh ubah persekitaran CODEBUDDY_DISABLE_AUTO_DOWNLOAD."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "Muat turun automatik dilumpuhkan. Klik \"Muat Turun Sekarang\" untuk memuat turun secara manual."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "Tiada pemasangan manual diperlukan."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "Semak Kemas Kini"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "Menyemak kemas kini..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "Versi semasa"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "Lumpuhkan muat turun kemas kini automatik"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "Apabila didayakan, CodeBuddy akan memberitahu anda tentang versi baharu tetapi tidak akan memuat turunnya secara automatik."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "Muat Turun Sekarang"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "Kemas kini dimuat turun dan sedia untuk dipasang!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "Memuat turun kemas kini... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "Memuat turun kemas kini..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "Pasang & Mula Semula"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "Klik \"Pasang & Mula Semula\" untuk mengemas kini sekarang."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "Anda sedang menjalankan versi terkini!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "Memuatkan..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "Selepas muat turun, anda perlu memasang kemas kini secara manual."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "Pemasangan manual diperlukan untuk kaedah kemas kini ini."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ Kemas kini sudah sedia. Mula semula CodeBuddy untuk menyelesaikan pemasangannya, atau keluar apabila anda selesai."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ Kemas kini sudah sedia! Klik \"Pasang & Mula Semula\" untuk arahan pemasangan."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(terkini)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "Kemas kini tersedia!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} tersedia"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "Versi {version} tersedia"
-  },
   "userMessage.cancel": {
     "defaultMessage": "Batal"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Perkhidmatan model belum mengembalikan kandungan. Anda boleh terus menunggu atau menghentikan permintaan ini."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Perkhidmatan model belum mengembalikan kandungan. Anda boleh terus menunggu atau menghentikan permintaan ini."
   }
 }

@@ -1,6 +1,16 @@
 
 # CodePro 事实权威与模块职责
 
+## 2026-10-25 已批准：桌面更新
+
+Electron 主进程的 `update/` 持有更新频道、GitHub Release 与文件身份、下载状态和安装调度。用户自己的 GitHub CLI 登录提供瞬时凭据；不使用 GitHub MCP 凭据、不复制到设置或安装包，不向 renderer 或 CDN 转发 Token。renderer 只发起检查、下载、取消和确认安装，消费主进程状态。Windows Inno 负责安装目录中的程序更新，Mac Squirrel.Mac 负责签名应用替换；更新器不迁移、清空聊天、配置、工作区或凭据。
+
+Harness 仍持有任务与持久化权威。安装前由运行服务检查在途请求、任务、初始化和调度工作；空闲才同时阻止新请求及调度并 flush/close，忙时返回拒绝且保留已下载更新。桌面负责终端与用户保存确认，安装成功后由新版启动确认实际版本。正式频道不接收预发布，源码预览不执行安装。
+
+繁體：Electron 主程序管理更新與暫時 GitHub CLI 憑據；介面只消費狀態。Harness 在空閒時封鎖新工作並儲存關閉；Inno 與 Squirrel.Mac 負責程式升級，不變更聊天、設定或工作區。
+
+English: Electron owns release selection, transient CLI credentials, downloads and installation. Harness alone determines idle readiness, fences new work and flushes state before shutdown. Inno and Squirrel.Mac replace application files; the updater does not migrate or delete conversations, configuration, credentials or workspaces. The renderer receives state, never tokens.
+
 ## 2026-10-23 已批准：子 Agent 完整只读会话展示
 
 DSH alpha2 的原生会话日志、父子 catalog 和 session controller 持有子会话身份、历史与实时 assistant stream。CodeBuddy 只通过原生 `subagent` 地址的 `follow` 观察已验证的父子关系，不使用普通 session 地址激活子 Agent，不改变调度、停止、恢复、审批与完成语义。兼容层按连接管理只读观察订阅；断开或关闭面板只取消观察，不取消子任务。切换或 fork 后旧根地址失效，不能向新聊天发布旧子会话内容。
@@ -12,6 +22,19 @@ DSH alpha2 的原生会话日志、父子 catalog 和 session controller 持有�
 桌面 locale 作为可选的当前语言提示随 prompt 传入，兼容层只传递规范化语言代码，原生 scoped system prompt 为主子 Agent 设置默认回复及委派语言。用户明确要求其他语言仍优先；历史记录、代码和原始工具输出不翻译，模型实际遵循情况需单独验收。此提示不持有执行状态或权限，也不替换现有持久化设置。
 
 繁體：子會話使用原生唯讀 follow，關閉僅停止觀察；完整顯示公開記錄，權限與執行仍由 Harness 持有。English: Native read-only child follow owns synchronization; closing a viewer never stops or resumes execution, and display projections cannot authorize actions.
+## 2026-10-23 已批准：显式 GitHub MCP 连接
+
+用户明确点击“连接 GitHub”后，runtime 核对 GitHub CLI 当前账号，仅对固定官方 MCP 地址验证凭据，验证成功且配置未变化时原子保存加密凭据与启用状态。新登录在浏览器授权完成后继续同一次连接流程；打开页面和检查状态不复制凭据。CLI/系统凭据库继续持有登录凭据，CodeBuddy store 持有独立加密副本；退出 CLI 不删除该副本。凭据不返回界面、不进入诊断或日志，失败不覆盖已有配置。安装包不携带此凭据。
+
+工具箱与账号设置复用“代码仓库”连接界面，仅在显示层合并本地 Git 与官方 GitHub。原配置身份、执行职责和会话选择不变；两个启用开关分别影响新任务默认配置，已有聊天保留其选择。旧详情链接转入统一界面，自定义远端地址仍保留独立配置。启用状态不等于 Git 命令已验证成功。
+
+繁體：工具箱與帳號設定共用「程式碼儲存庫」介面；新登入在明確授權後繼續驗證 GitHub。保留原設定身分與執行權責，啟用開關只變更新任務預設，既有聊天選擇不變；自訂遠端不併入官方連線。
+
+English: Toolbox and account settings share Code repositories controls. An explicitly started sign-in continues into GitHub verification. Grouping changes presentation only; configuration identities and execution owners remain unchanged. Toggles affect new-task defaults, existing chats retain their selection, and custom endpoints retain separate controls. Enabled does not imply verified Git command execution.
+
+繁體：明確連線 GitHub MCP 時，核對 CLI 帳號與固定官方位址，驗證成功且設定未變才儲存獨立加密副本；登出 CLI 不刪除此副本，憑據不回傳介面、不納入安裝包。
+
+English: Explicit GitHub MCP connection verifies the current CLI account and fixed official endpoint before atomically saving a separate encrypted credential copy. CLI logout leaves that copy unchanged. Credentials never reach the renderer, diagnostics, logs, or distribution packages. Harness retains execution and terminal-state authority.
 
 ## 2026-10-22 已批准：双入口浏览器控制
 
@@ -172,7 +195,7 @@ English: native children inherit the parent's actual model and effort; the Host 
 
 ## 2026-10-16 修复：GitHub 账户设置沿用官方 CLI
 
-GitHub 账户授权、登录和凭据继续由现有 GitHub CLI 负责，Electron IPC 仅提供受限状态/设备流程/登出适配；移除旧 Rust OAuth 卡片调用，不恢复旧核心。`gh auth status` 的结构化验证结果是账户事实来源，MCP 独立连接配置不由账户卡片自动修改。Harness Agent 的执行、审批、完成所有权不变。见[修复验收](../../docs/reconstruction/2026-10-16-github-account-fix.zh-CN.md)。
+GitHub 账户授权、登录和凭据继续由现有 GitHub CLI 负责，Electron IPC 仅提供受限状态/设备流程/登出适配；移除旧 Rust OAuth 卡片调用，不恢复旧核心。`gh auth status` 的结构化验证结果是账户事实来源，MCP 独立连接配置不由账户卡片自动修改。Harness Agent 的执行、审批、完成所有权不变。见修复验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-16-github-account-fix.zh-CN.md`）。
 
 繁體：帳戶由官方 CLI 驗證和管理，MCP 連線獨立，移除舊 OAuth 呼叫。English: the existing official CLI owns account authentication; MCP configuration remains independent and retired OAuth UI calls are removed.
 
@@ -180,7 +203,7 @@ GitHub 账户授权、登录和凭据继续由现有 GitHub CLI 负责，Electro
 
 用户批准将旧 DOCX/XLSX 能力迁移到现有 Harness `dsh-skill-office`、`dsh-tool-workspace-dependencies` 和原生 shell。Rust 的 `docx_tool`、`xlsx_tool` 注册、实现及专属依赖删除，不新增同名 Python 编辑服务。工具箱按注册技能身份将 Word、Excel、PowerPoint 归入 Office 文档组，技能详情及覆盖顺序仍由原注册表决定。`computercontroller` 的配置键保持，以兼容现有启用状态及保留的 PDF、网页保存、缓存；不迁移权限、不改写旧对话工具回执、不重放历史动作。已完成的历史可查看，恢复后的调用使用当前工具清单；硬编码旧工具名称的外部配方需按迁移文档修改。
 
-公网文本读取优先复用上游 `web_fetch`；锁定版本不提供等价的二进制保存和私网抓取，旧 `web_scrape` 暂保留这些独有用途。外部 MCP 配置与凭据保留，安全 MCP 本批按用户要求不测试。迁移边界与同事合并步骤见 [Office 工具合并记录](../../docs/reconstruction/2026-10-16-office-consolidation.zh-CN.md)。
+公网文本读取优先复用上游 `web_fetch`；锁定版本不提供等价的二进制保存和私网抓取，旧 `web_scrape` 暂保留这些独有用途。外部 MCP 配置与凭据保留，安全 MCP 本批按用户要求不测试。迁移边界与同事合并步骤见 Office 工具合并记录（历史文件，见 Git 历史：`docs/reconstruction/2026-10-16-office-consolidation.zh-CN.md`）。
 
 繁體：舊 DOCX/XLSX 實作移除，Office 由 Harness 技能與原生 shell 執行；保留 PDF、網頁檔案、快取及原配置鍵。歷史不重播，權限不擴張。English: Harness Office skills and native shell replace the retired Rust DOCX/XLSX tools. PDF, web-file saving, cache and the existing configuration key remain. Historical actions are not replayed and permissions are not broadened.
 
@@ -216,7 +239,7 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 本日夜间补充：上下文计量、压缩范围、摘要事务与重试归官方 `tokenMeter` / `compaction-basic`；`runtime/context-updates.mjs` 只转换现有 UI 通知，当前占用不得与累计账单混同。压缩不等于长期记忆，摘要不证明需求无损；多次压缩后的独立验收另留证。MCP 截图按实际执行 Agent 的图像能力原生准入，缺能力时复用 `VisionRouting` 的零工具辅助观察；原始工具回执归 MCP，视觉失败不得重放已执行动作。
 
-锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径仅略过官方已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要；不重新选区，不拦截手动压缩或超限恢复。升级官方依赖时复查并在官方修复后撤除此补丁。回归与实际证据见[夜间跟踪](../../docs/reconstruction/overnight-acceptance.zh-CN.md)。
+锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径仅略过官方已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要；不重新选区，不拦截手动压缩或超限恢复。升级官方依赖时复查并在官方修复后撤除此补丁。回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
 
 **繁體補充**：上下文計量及壓縮由 Harness 持有，CodeBuddy 只投影現有通知。摘要不是無損記憶；反覆壓縮另驗。MCP 圖片優先交實際執行模型，缺能力時輔助視覺只觀察，保留原始回執且不重放動作。
 
@@ -224,7 +247,7 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 **繁體補丁界線**：薄子類只延後普通壓力下的單一既有 checkpoint；不另選範圍，不攔截手動或超限恢復，官方修復後撤除。 **English patch boundary:** the thin subclass defers only an upstream-selected singleton checkpoint under normal pressure. Manual and overflow recovery remain unchanged; remove this guard after an upstream fix.
 
-本日追加的远程 MCP 复用授权：长期组合、作用域租约、修订保留和回收由官方 `agent-preset-registry` / `dsh-scope` 持有；CodeBuddy 仅按完整配置选择组合、投影状态和维持每会话权限/Apps 适配。stdio 保留工作目录与会话边界。详见[复用验收](../../docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md)。
+本日追加的远程 MCP 复用授权：长期组合、作用域租约、修订保留和回收由官方 `agent-preset-registry` / `dsh-scope` 持有；CodeBuddy 仅按完整配置选择组合、投影状态和维持每会话权限/Apps 适配。stdio 保留工作目录与会话边界。详见复用验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md`）。
 
 **繁體補充**：遠端 MCP 長期組合、作用域租約及修訂回收由 Harness 持有；CodeBuddy 選擇設定組合並維持每會話權限與 Apps 適配。stdio 保留工作目錄與會話邊界。
 
@@ -238,11 +261,11 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 **English revision summary:** This revision applies only to the new Harness runtime. Official Harness owns execution, scheduling, goals and continuation; CodeBuddy adapts presentation, permissions and settings. Native completion is distinct from independently verified tests. Historical events and uncertain effects remain intact.
 
-实施、替代方案、锁定版本/许可证与验证边界：[简体中文](../../docs/reconstruction/2026-10-14-harness-authority.zh-CN.md) · [繁體中文](../../docs/reconstruction/2026-10-14-harness-authority.zh-TW.md) · [English](../../docs/reconstruction/2026-10-14-harness-authority.en.md)。当前仅自动夹具已验，最终产品证据单独记录，不由权威地图宣布产品通过。
+实施、替代方案、锁定版本/许可证与验证边界：简体中文（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-harness-authority.zh-CN.md`） · 繁體中文（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-harness-authority.zh-TW.md`） · English（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-harness-authority.en.md`）。当前仅自动夹具已验，最终产品证据单独记录，不由权威地图宣布产品通过。
 
 ## 2026-10-12 已批准：常用只读查询与每轮时间
 
-新版接线：runtime store 仍持有查询设置；独立 commonqueries MCP 每次消费宿主生成的请求元数据，不持有第二份设置。Harness 主导调用、审批及完成，原 Rust 查询实现只提供结构化工具回执。繁體：設定由 runtime store 持有，每次經宿主 MCP 中繼資料傳入，無設定副本。 English: the runtime store owns query settings; host MCP metadata carries them per call, with no mirrored state. 详见[接线边界与验收](../../docs/reconstruction/2026-10-15-common-queries.zh-CN.md)。
+新版接线：runtime store 仍持有查询设置；独立 commonqueries MCP 每次消费宿主生成的请求元数据，不持有第二份设置。Harness 主导调用、审批及完成，原 Rust 查询实现只提供结构化工具回执。繁體：設定由 runtime store 持有，每次經宿主 MCP 中繼資料傳入，無設定副本。 English: the runtime store owns query settings; host MCP metadata carries them per call, with no mirrored state. 详见接线边界与验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-15-common-queries.zh-CN.md`）。
 
 用户批准 COMMON_QUERY_TOOLS_PLAN 三语方案的开发与测试。现有平台工具注册与执行边界负责 `time_now`、`location_resolve`、`weather_get` 的结构化回执；时钟来源是执行主机，指定时区只影响展示，不作为实际地点证据。城市由用户参数或设置中的默认查询城市提供，地理编码返回候选，模型负责追问歧义。天气与数据时间来自供应商；宿主标记缓存、过期、限流及缺值，查询时间不提升为观测时间。
 

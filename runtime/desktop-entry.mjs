@@ -15,7 +15,14 @@ const stop = () => closing ??= service.close().then(() => {
   if (process.connected) process.send?.({ type: 'stopped' }, () => {});
   process.exit(0);
 });
-process.on('message', data => { if (data?.type === 'shutdown') void stop(); });
+process.on('message', data => {
+  if (data?.type === 'shutdown') void stop();
+  if (data?.type === 'prepare-update') {
+    void service.closeForUpdate().then(ready => {
+      process.send?.({ type: 'update-prepared', ready }, () => { if (ready) process.exit(0); });
+    }).catch(() => process.send?.({ type: 'update-prepared', ready: false }));
+  }
+});
 process.on('disconnect', () => void stop());
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);

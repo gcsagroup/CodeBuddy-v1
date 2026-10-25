@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Подключиться к серверу CodeBuddy, запущенному в другом месте (требуется перезапуск приложения)"
   },
-  "githubAuth.description": {
-    "defaultMessage": "Подключите GitHub для работы с репозиториями и запросами на вытягивание."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Завершено с нейтральным результатом"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Что мы собираем:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Загрузить предыдущие сообщения (осталось: {remaining})"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "Обновление будет автоматически скачано в фоновом режиме."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Автоматическая загрузка отключена через переменную окружения CODEBUDDY_DISABLE_AUTO_DOWNLOAD."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "Автоматическая загрузка отключена. Нажмите «Скачать сейчас», чтобы загрузить вручную."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "Обновление будет установлено автоматически при выходе из приложения."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "Проверить обновления"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "Проверка обновлений..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "Текущая версия"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "Отключить автоматическую загрузку обновлений"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "Когда включено, CodeBuddy будет уведомлять о новых версиях, но не будет загружать их автоматически."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "Скачать сейчас"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "Обновление скачано и готово к установке!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "Скачивание обновления... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "Скачивание обновления..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "Установить и перезапустить"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "Или нажмите «Установить и перезапустить», чтобы обновиться сейчас."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "У вас установлена последняя версия!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "Загрузка..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "После скачивания нужно будет установить обновление вручную."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "Для этого способа обновления требуется ручная установка."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ Обновление готово! Оно будет установлено при выходе из CodeBuddy."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ Обновление готово! Нажмите «Установить и перезапустить», чтобы получить инструкции по установке."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(актуально)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "Доступно обновление!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ доступна {version}"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "Доступна версия {version}"
-  },
   "userMessage.cancel": {
     "defaultMessage": "Отмена"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
   }
 }

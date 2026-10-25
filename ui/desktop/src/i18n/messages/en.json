@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Connect to an ACP-compatible backend running elsewhere."
   },
-  "githubAuth.description": {
-    "defaultMessage": "Connect GitHub for repository and pull request actions."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "CI completed neutrally"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "What we collect:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Load earlier messages ({remaining} remaining)"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8641,81 +8692,6 @@
   },
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
-  "updateSection.autoDownload": {
-    "defaultMessage": "CodeBuddy will download the update in the background and install it the next time you quit or restart."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Automatic downloads are disabled via the CODEBUDDY_DISABLE_AUTO_DOWNLOAD environment variable."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "Automatic download is disabled. Click \"Download Now\" to download manually."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "No manual install is needed."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "Check for Updates"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "Checking for updates..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "Current version"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "Disable automatic update downloads"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "When enabled, CodeBuddy will notify you of new versions but will not download them automatically."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "Download Now"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "Update downloaded and ready to install!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "Downloading update... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "Downloading update..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "Install & Restart"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "Click \"Install & Restart\" to update now."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "You are running the latest version!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "Loading..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "After download, you'll need to manually install the update."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "Manual installation required for this update method."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ Update is ready. Restart CodeBuddy to finish installing it, or quit when you're done."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ Update is ready! Click \"Install & Restart\" for installation instructions."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(up to date)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "Update available!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} available"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "Version {version} is available"
   },
   "userMessage.cancel": {
     "defaultMessage": "Cancel"

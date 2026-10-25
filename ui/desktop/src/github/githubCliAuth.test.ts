@@ -2,7 +2,12 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
-import { GitHubCliLogin, githubCliLogout, githubCliStatus } from './githubCliAuth';
+import {
+  GitHubCliLogin,
+  githubCliLogout,
+  githubCliStatus,
+  githubUpdateCredential,
+} from './githubCliAuth';
 vi.mock('node:child_process', () => {
   const mock = { execFile: vi.fn(), spawn: vi.fn() };
   return { ...mock, default: mock };
@@ -33,6 +38,28 @@ describe('GitHub CLI account connection', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
+  });
+  it('reads update credentials for the active account without changing its configuration', async () => {
+    commandResults([
+      'gh',
+      '{"hosts":{"github.com":[{"active":true,"state":"success","login":"octocat"}]}}',
+      'fixture-only-token\n',
+    ]);
+    expect(await githubUpdateCredential()).toEqual({
+      login: 'octocat',
+      token: 'fixture-only-token',
+    });
+    expect(vi.mocked(execFile).mock.calls[2][1]).toEqual([
+      'auth',
+      'token',
+      '--hostname',
+      'github.com',
+      '--user',
+      'octocat',
+    ]);
+    commandResults(['gh', '{"hosts":{}}']);
+    await expect(githubUpdateCredential()).rejects.toThrow('GitHub');
+    expect(execFile).toHaveBeenCalledTimes(5);
   });
   it('signs out only the confirmed account and reads the resulting state', async () => {
     commandResults([

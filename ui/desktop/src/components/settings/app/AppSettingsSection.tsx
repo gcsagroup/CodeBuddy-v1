@@ -185,7 +185,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   const [showPricing, setShowPricing] = useState(true);
   const [language, setLanguage] = useState<LanguageSetting>(defaultSettings.language);
   const updateSectionRef = useRef<HTMLDivElement>(null);
-  const shouldShowUpdates = !window.appConfig.get('GOOSE_VERSION');
+  const shouldShowUpdates = UPDATES_ENABLED;
 
   useEffect(() => {
     setIsMacOS(window.electron.platform === 'darwin');

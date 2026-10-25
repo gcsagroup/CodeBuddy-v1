@@ -88,6 +88,29 @@ describe('packaged Harness service', () => {
     await expect(startHarnessService(f.options)).rejects.toThrow();
     expect(mock.spawn).toHaveBeenCalledTimes(1);
   });
+  it('retains a busy runtime and waits for its acknowledged flush and exit before updating', async () => {
+    const f = fixture();
+    const service = await startHarnessService(f.options);
+    f.child.send.mockImplementation(() => {
+      globalThis.queueMicrotask(() => f.child.emit('message', { type: 'update-prepared', ready: false }));
+    });
+    await expect(service.closeForUpdate()).rejects.toThrow('仍有任务');
+    expect(f.child.kill).not.toHaveBeenCalled();
+    f.child.send.mockImplementation(() => {
+      globalThis.queueMicrotask(() => f.child.emit('message', { type: 'update-prepared', ready: true }));
+    });
+    let finished = false;
+    const closing = service.closeForUpdate().then(() => {
+      finished = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(finished).toBe(false);
+    f.child.emit('exit', 0);
+    await closing;
+    expect(finished).toBe(true);
+    expect(f.options.onUnexpectedExit).not.toHaveBeenCalled();
+    expect(f.child.kill).not.toHaveBeenCalled();
+  });
   it('drains child output after a log write failure so disk errors do not stall the service', async () => {
     const f = fixture();
     fs.mkdirSync(path.join(f.options.home, 'logs/harness/runtime.log'), { recursive: true });

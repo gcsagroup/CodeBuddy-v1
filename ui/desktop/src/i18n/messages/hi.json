@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "कहीं और चल रहे CodeBuddy सर्वर से कनेक्ट करें (ऐप पुनरारंभ की आवश्यकता है)"
   },
-  "githubAuth.description": {
-    "defaultMessage": "रिपॉज़िटरी और पुल अनुरोध कार्रवाइयों के लिए GitHub कनेक्ट करें।"
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "तटस्थ रूप से पूर्ण"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "हम क्या एकत्र करते हैं:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "पिछले संदेश लोड करें ({remaining} शेष)"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "अपडेट बैकग्राउंड में अपने आप डाउनलोड हो जाएगा."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "स्वचालित डाउनलोड CODEBUDDY_DISABLE_AUTO_DOWNLOAD पर्यावरण चर के माध्यम से अक्षम हैं।"
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "स्वचालित डाउनलोड अक्षम है। मैन्युअल रूप से डाउनलोड करने के लिए \"अभी डाउनलोड करें\" पर क्लिक करें।"
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "जब आप ऐप छोड़ देंगे तो अपडेट अपने आप इंस्टॉल हो जाएगा।"
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "अद्यतनों के लिए जाँच करें"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "अपडेट की जांच की जा रही है..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "वर्तमान संस्करण"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "स्वचालित अपडेट डाउनलोड अक्षम करें"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "सक्षम होने पर, CodeBuddy आपको नई संस्करणों की सूचना देगा लेकिन उन्हें स्वचालित रूप से डाउनलोड नहीं करेगा।"
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "अभी डाउनलोड करें"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "अपडेट डाउनलोड हो गया है और इंस्टॉल करने के लिए तैयार है!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "अपडेट डाउनलोड हो रहा है... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "अपडेट डाउनलोड हो रहा है..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "स्थापित करें और पुनः प्रारंभ करें"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "या अभी अपडेट करने के लिए \"इंस्टॉल करें और पुनरारंभ करें\" पर क्लिक करें।"
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "आप नवीनतम संस्करण चला रहे हैं!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "लोड हो रहा है..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "डाउनलोड करने के बाद, आपको अपडेट को मैन्युअल रूप से इंस्टॉल करना होगा।"
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "इस अद्यतन विधि के लिए मैन्युअल स्थापना आवश्यक है."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ अपडेट तैयार है! जब आप CodeBuddy छोड़ देंगे तो यह इंस्टॉल हो जाएगा।"
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ अपडेट तैयार है! इंस्टॉलेशन निर्देशों के लिए \"इंस्टॉल करें और पुनरारंभ करें\" पर क्लिक करें।"
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(अप टू डेट)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "उपलब्ध अद्यतन!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} उपलब्ध"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "संस्करण {version} उपलब्ध है"
-  },
   "userMessage.cancel": {
     "defaultMessage": "रद्द करें"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "मॉडल सेवा ने अभी तक कोई सामग्री नहीं भेजी है। आप प्रतीक्षा जारी रख सकते हैं या इस अनुरोध को रोक सकते हैं।"
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "मॉडल सेवा ने अभी तक कोई सामग्री नहीं भेजी है। आप प्रतीक्षा जारी रख सकते हैं या इस अनुरोध को रोक सकते हैं।"
   }
 }

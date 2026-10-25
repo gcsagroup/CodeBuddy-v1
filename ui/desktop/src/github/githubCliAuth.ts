@@ -35,6 +35,18 @@ function run(args: string[]): Promise<string> {
     );
   });
 }
+// Update downloads use the user's existing account without copying its token
+// into product settings, IPC responses, logs, or the distribution package.
+export async function githubUpdateCredential(): Promise<{ login: string; token: string }> {
+  const status = await githubCliStatus();
+  if (status.state !== 'connected' || !status.login)
+    throw new Error('请先在“账号与凭据”连接 GitHub，再检查更新。');
+  const token = (
+    await run(['auth', 'token', '--hostname', 'github.com', '--user', status.login])
+  ).trim();
+  if (!token || /\s/.test(token)) throw new Error('GitHub 登录已过期，请重新连接。');
+  return { login: status.login, token };
+}
 export function parseDeviceCode(output: string): string | undefined {
   return /First copy your one-time code: ([A-Z0-9]{4}-[A-Z0-9]{4})(?:\r?\n|$)/.exec(output)?.[1];
 }

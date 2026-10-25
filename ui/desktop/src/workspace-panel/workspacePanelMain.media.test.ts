@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
   shell: {},
   WebContentsView: vi.fn(),
 }));
-import { registerWorkspaceMediaSession, registerWorkspacePanel } from './workspacePanelMain';
+import { registerWorkspaceMediaSession, registerWorkspacePanel, reserveWorkspaceUpdate } from './workspacePanelMain';
 
 it('serves verified files through the actual protocol handler with valid seek responses and owner revocation', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-media-protocol-'));
@@ -36,6 +36,13 @@ it('serves verified files through the actual protocol handler with valid seek re
     hooks.from.mockReturnValue(win);
     registerWorkspacePanel();
     const ipc = hooks.ipc.mock.calls.find(([name]) => name === 'workspace-panel')![1];
+    const releaseUpdate = reserveWorkspaceUpdate();
+    try {
+      await expect(ipc({ sender: wc, senderFrame: wc.mainFrame }, {
+        scope: { sessionId: 'one', root }, action: 'terminal-create',
+      })).rejects.toThrow('准备更新');
+      expect(() => reserveWorkspaceUpdate()).toThrow();
+    } finally { releaseUpdate(); }
     const reply = await ipc(
       { sender: wc, senderFrame: wc.mainFrame },
       {

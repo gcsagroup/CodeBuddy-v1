@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "Kết nối tới một máy chủ CodeBuddy đang chạy ở nơi khác (cần khởi động lại ứng dụng)"
   },
-  "githubAuth.description": {
-    "defaultMessage": "Kết nối GitHub để thao tác với kho lưu trữ và pull request."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "Hoàn tất với kết quả trung lập"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Những gì chúng tôi thu thập:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "Tải tin nhắn trước đó (còn {remaining})"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "CodeBuddy sẽ tải bản cập nhật ở chế độ nền và cài đặt vào lần tiếp theo khi bạn thoát hoặc khởi động lại."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "Tải xuống tự động đã bị tắt thông qua biến môi trường CODEBUDDY_DISABLE_AUTO_DOWNLOAD."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "Tải xuống tự động đã bị tắt. Nhấp vào \"Tải ngay\" để tải xuống theo cách thủ công."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "Không cần cài đặt thủ công."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "Kiểm tra bản cập nhật"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "Đang kiểm tra bản cập nhật..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "Phiên bản hiện tại"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "Tắt tải xuống cập nhật tự động"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "Khi được bật, CodeBuddy sẽ thông báo cho bạn về các phiên bản mới nhưng sẽ không tự động tải xuống."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "Tải ngay"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "Bản cập nhật đã được tải về và sẵn sàng cài đặt!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "Đang tải bản cập nhật... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "Đang tải bản cập nhật..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "Cài đặt & khởi động lại"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "Nhấp vào \"Cài đặt & khởi động lại\" để cập nhật ngay."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "Bạn đang chạy phiên bản mới nhất!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "Đang tải..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "Sau khi tải xuống, bạn sẽ cần cài đặt bản cập nhật theo cách thủ công."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "Cần cài đặt thủ công cho phương thức cập nhật này."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ Bản cập nhật đã sẵn sàng. Khởi động lại CodeBuddy để hoàn tất cài đặt, hoặc thoát khi bạn đã xong."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ Bản cập nhật đã sẵn sàng! Nhấp vào \"Cài đặt & khởi động lại\" để xem hướng dẫn cài đặt."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(đã cập nhật)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "Có bản cập nhật!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} có sẵn"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "Đã có phiên bản {version}"
-  },
   "userMessage.cancel": {
     "defaultMessage": "Hủy"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
   }
 }

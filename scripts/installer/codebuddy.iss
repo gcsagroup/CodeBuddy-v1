@@ -108,6 +108,12 @@ var
 
 procedure ApplyShortcutChoices;
 begin
+  { Upgrade retains existing shortcut choices; it does not create new ones. }
+  if ExpandConstant('{param:CODEBUDDYUPDATE|0}') <> '0' then
+  begin
+    DesktopShortcut.Checked := FileExists(ExpandConstant('{autodesktop}\CodeBuddy.lnk'));
+    StartMenuShortcut.Checked := FileExists(ExpandConstant('{autoprograms}\CodeBuddy.lnk'));
+  end;
   if DesktopShortcut.Checked and not FileCopy(
     ExpandConstant('{app}\resources\CodeBuddy.lnk'),
     ExpandConstant('{autodesktop}\CodeBuddy.lnk'), False) then

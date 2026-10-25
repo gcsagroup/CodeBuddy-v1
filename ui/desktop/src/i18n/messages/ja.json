@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "別の場所で実行中の CodeBuddy サーバーに接続します（アプリの再起動が必要）"
   },
-  "githubAuth.description": {
-    "defaultMessage": "リポジトリとプルリクエストの操作のために GitHub を接続します。"
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "ニュートラルで完了"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "収集する内容:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "以前のメッセージを読み込む（残り{remaining}件）"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "アップデートはバックグラウンドで自動的にダウンロードされます。"
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "自動ダウンロードは CODEBUDDY_DISABLE_AUTO_DOWNLOAD 環境変数によって無効になっています。"
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "自動ダウンロードは無効です。手動でダウンロードするには「今すぐダウンロード」をクリックしてください。"
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "アプリを終了すると、アップデートが自動的にインストールされます。"
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "アップデートを確認"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "アップデートを確認中..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "現在のバージョン"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "アップデートの自動ダウンロードを無効にする"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "有効にすると、CodeBuddy は新しいバージョンを通知しますが、自動的にはダウンロードしません。"
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "今すぐダウンロード"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "アップデートのダウンロードが完了し、インストールの準備ができました！"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "アップデートをダウンロード中... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "アップデートをダウンロード中..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "インストールして再起動"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "今すぐアップデートするには「インストールして再起動」をクリックしてください。"
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "最新バージョンを使用しています！"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "読み込み中..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "ダウンロード後、アップデートを手動でインストールする必要があります。"
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "このアップデート方法では、手動インストールが必要です。"
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ アップデートの準備ができました！CodeBuddyを終了するとインストールされます。"
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ アップデートの準備ができました！インストール手順を表示するには「インストールして再起動」をクリックしてください。"
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "(最新)"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "アップデートがあります！"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} が利用可能"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "バージョン {version} が利用可能です"
-  },
   "userMessage.cancel": {
     "defaultMessage": "キャンセル"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "モデルサービスからまだ内容が返されていません。このまま待つか、今回のリクエストを停止できます。"
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "モデルサービスからまだ内容が返されていません。このまま待つか、今回のリクエストを停止できます。"
   }
 }

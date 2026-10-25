@@ -114,6 +114,16 @@ export class ScheduleService {
     return result;
   }
 
+  reserveShutdownIfIdle(reserveRuntime) {
+    // Join the same queue as beginRun: a run whose state is still being saved
+    // must become visible before an update may claim an idle scheduler.
+    return this.serial(() => {
+      if (this.closed || this.active.size || !reserveRuntime()) return false;
+      this.closed = true;
+      return true;
+    });
+  }
+
   handles(method) {
     return (
       (actions.has(method.slice(prefix.length)) && method.startsWith(prefix)) ||

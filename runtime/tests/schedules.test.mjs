@@ -69,6 +69,31 @@ async function fixture(t, options = {}) {
   };
 }
 
+test("update waits for admitted schedule startup and refuses to interrupt its run", async (t) => {
+  const entered = deferred(), releaseWrite = deferred(), releaseRun = deferred();
+  const { call, store, scheduler } = await fixture(t, {
+    async run() { await releaseRun.promise; return { status: "cancelled" }; },
+  });
+  await call("create", { id: "upgrade-race", recipe, cron: "0 * * * *" });
+  const update = store.update.bind(store);
+  store.update = async (...args) => { entered.resolve(); await releaseWrite.promise; return update(...args); };
+  const starting = scheduler.beginRun("upgrade-race");
+  await entered.promise;
+  let reserved = false;
+  const closing = scheduler.reserveShutdownIfIdle(() => { reserved = true; return true; });
+  releaseWrite.resolve();
+  const active = await starting;
+  assert.equal(await closing, false);
+  assert.equal(reserved, false);
+  assert.equal(active.controller.signal.aborted, false);
+  releaseRun.resolve();
+  await active.done;
+  assert.equal(await scheduler.reserveShutdownIfIdle(() => false), false);
+  assert.equal(scheduler.closed, false);
+  assert.equal(await scheduler.reserveShutdownIfIdle(() => true), true);
+  await assert.rejects(scheduler.beginRun("upgrade-race"), /closed/);
+});
+
 test("scheduled recipes reject unconnected advanced fields before saving while preserving a real turn limit", async (t) => {
   const { call, store } = await fixture(t);
   for (const extra of [

@@ -2816,12 +2816,6 @@
   "externalBackendSection.useExternalServerDescription": {
     "defaultMessage": "다른 곳에서 실행 중인 CodeBuddy 서버에 연결합니다. 앱을 다시 시작해야 합니다."
   },
-  "githubAuth.description": {
-    "defaultMessage": "저장소 및 풀 리퀘스트 작업을 위해 GitHub를 연결합니다."
-  },
-  "githubAuth.title": {
-    "defaultMessage": "GitHub"
-  },
   "githubCi.aggregate.neutral": {
     "defaultMessage": "중립으로 완료됨"
   },
@@ -5401,6 +5395,54 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "수집하는 항목:"
+  },
+  "productUpdate.available": {
+    "defaultMessage": "Version {version} is available."
+  },
+  "productUpdate.cancel": {
+    "defaultMessage": "Cancel download"
+  },
+  "productUpdate.channel": {
+    "defaultMessage": "Update channel"
+  },
+  "productUpdate.check": {
+    "defaultMessage": "Check for updates"
+  },
+  "productUpdate.checking": {
+    "defaultMessage": "Checking for updates…"
+  },
+  "productUpdate.current": {
+    "defaultMessage": "No newer compatible release is available in this channel."
+  },
+  "productUpdate.download": {
+    "defaultMessage": "Download update"
+  },
+  "productUpdate.downloading": {
+    "defaultMessage": "Downloading and verifying… {percent}%"
+  },
+  "productUpdate.failed": {
+    "defaultMessage": "Update request failed. Please try again."
+  },
+  "productUpdate.idle": {
+    "defaultMessage": "Use your connected GitHub account to check for updates."
+  },
+  "productUpdate.install": {
+    "defaultMessage": "Restart and update"
+  },
+  "productUpdate.installing": {
+    "defaultMessage": "Preparing to restart and update…"
+  },
+  "productUpdate.preview": {
+    "defaultMessage": "Preview releases"
+  },
+  "productUpdate.ready": {
+    "defaultMessage": "Ready to update. Chats, settings and workspaces will be retained."
+  },
+  "productUpdate.stable": {
+    "defaultMessage": "Stable releases"
+  },
+  "productUpdate.version": {
+    "defaultMessage": "Current version: {version}"
   },
   "progressiveMessageList.loadEarlierMessages": {
     "defaultMessage": "이전 메시지 불러오기 ({remaining}개 남음)"
@@ -8441,6 +8483,15 @@
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
+  "toolConfirmation.browser": {
+    "defaultMessage": "Browser action"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click element} type{Enter text} key{Press key} screenshot{Capture page} console{Read console} close{Close page} other{Browser action}}"
+  },
+  "toolConfirmation.browserElement": {
+    "defaultMessage": "Page element {node}"
+  },
   "toolConfirmation.expectedRemoteTip": {
     "defaultMessage": "Expected remote tip"
   },
@@ -8642,81 +8693,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "updateSection.autoDownload": {
-    "defaultMessage": "업데이트는 백그라운드에서 자동으로 다운로드됩니다."
-  },
-  "updateSection.autoDownloadDisabledByEnv": {
-    "defaultMessage": "자동 다운로드는 CODEBUDDY_DISABLE_AUTO_DOWNLOAD 환경 변수를 통해 비활성화되어 있습니다."
-  },
-  "updateSection.autoDownloadDisabledNote": {
-    "defaultMessage": "자동 다운로드가 비활성화되어 있습니다. 수동으로 다운로드하려면 \"지금 다운로드\"를 클릭하세요."
-  },
-  "updateSection.autoInstallNote": {
-    "defaultMessage": "앱을 종료하면 업데이트가 자동으로 설치됩니다."
-  },
-  "updateSection.checkForUpdates": {
-    "defaultMessage": "업데이트 확인"
-  },
-  "updateSection.checking": {
-    "defaultMessage": "업데이트 확인 중..."
-  },
-  "updateSection.currentVersion": {
-    "defaultMessage": "현재 버전"
-  },
-  "updateSection.disableAutoDownload": {
-    "defaultMessage": "자동 업데이트 다운로드 비활성화"
-  },
-  "updateSection.disableAutoDownloadDesc": {
-    "defaultMessage": "활성화하면 CodeBuddy가 새 버전을 알려주지만 자동으로 다운로드하지는 않습니다."
-  },
-  "updateSection.downloadNow": {
-    "defaultMessage": "지금 다운로드"
-  },
-  "updateSection.downloadReady": {
-    "defaultMessage": "업데이트가 다운로드되었으며 설치 준비가 완료되었습니다!"
-  },
-  "updateSection.downloadingProgress": {
-    "defaultMessage": "업데이트 다운로드 중... {percent}%"
-  },
-  "updateSection.downloadingUpdate": {
-    "defaultMessage": "업데이트 다운로드 중..."
-  },
-  "updateSection.installAndRestart": {
-    "defaultMessage": "설치 및 다시 시작"
-  },
-  "updateSection.installNowHint": {
-    "defaultMessage": "또는 지금 업데이트하려면 \"설치 및 다시 시작\"을 클릭하세요."
-  },
-  "updateSection.latestVersion": {
-    "defaultMessage": "최신 버전을 사용 중입니다!"
-  },
-  "updateSection.loading": {
-    "defaultMessage": "로드 중..."
-  },
-  "updateSection.manualInstallNote": {
-    "defaultMessage": "다운로드한 후에는 업데이트를 수동으로 설치해야 합니다."
-  },
-  "updateSection.manualInstallRequired": {
-    "defaultMessage": "이 업데이트 방법에는 수동 설치가 필요합니다."
-  },
-  "updateSection.readyInstallAuto": {
-    "defaultMessage": "✓ 업데이트가 준비되었습니다! CodeBuddy 종료 시 설치됩니다."
-  },
-  "updateSection.readyInstallManual": {
-    "defaultMessage": "✓ 업데이트가 준비되었습니다! 설치 지침을 보려면 \"설치 및 다시 시작\"을 클릭하세요."
-  },
-  "updateSection.upToDate": {
-    "defaultMessage": "최신 상태"
-  },
-  "updateSection.updateAvailable": {
-    "defaultMessage": "업데이트가 있습니다!"
-  },
-  "updateSection.versionAvailable": {
-    "defaultMessage": "→ {version} 사용 가능"
-  },
-  "updateSection.versionIsAvailable": {
-    "defaultMessage": "버전 {version}을 사용할 수 있습니다."
-  },
   "userMessage.cancel": {
     "defaultMessage": "취소"
   },
@@ -8812,6 +8788,9 @@
   },
   "workStatus.toolResult": {
     "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "모델 서비스에서 아직 콘텐츠를 반환하지 않았습니다. 계속 기다리거나 이 요청을 중지할 수 있습니다."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9142,8 +9121,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "모델 서비스에서 아직 콘텐츠를 반환하지 않았습니다. 계속 기다리거나 이 요청을 중지할 수 있습니다."
   }
 }

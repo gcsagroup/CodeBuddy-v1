@@ -1,5 +1,6 @@
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerGitHubCliAuth } from './github/githubCliMain';
+import { registerProductUpdates } from './update/main';
 import { startHarnessService } from './harnessService';
 import { showMacUninstall } from './storage/macosUninstall';
 import { locationFile, readDataRoot, assertNoMigration } from '../../../runtime/storage-management.cjs';
@@ -7,6 +8,8 @@ import { readFileResponse } from './storage/readFileResponse';
 import {
   registerWorkspacePanel,
   registerWorkspaceMediaSession,
+  hasWorkspaceTerminals,
+  reserveWorkspaceUpdate,
 } from './workspace-panel/workspacePanelMain';
 import type { OpenDialogOptions, OpenDialogReturnValue, Session } from 'electron';
 import {
@@ -2703,17 +2706,15 @@ async function appMain() {
 
   await configureProxy();
 
-  {
-    // Preserve the IPC surface without reaching the legacy release channel.
-    const previewUpdateError = 'Updates are disabled for this CodeBuddy preview.';
-    ipcMain.handle('check-for-updates', () => ({ updateInfo: null, error: previewUpdateError }));
-    ipcMain.handle('download-update', () => ({ success: false, error: previewUpdateError }));
-    ipcMain.handle('install-update', () => ({ success: false, error: previewUpdateError }));
-    ipcMain.handle('get-current-version', () => app.getVersion());
-    ipcMain.handle('get-update-state', () => null);
-    ipcMain.handle('is-using-github-fallback', () => false);
-    ipcMain.handle('get-auto-download-disabled', () => true);
-  }
+  registerProductUpdates({
+    hasTerminals: hasWorkspaceTerminals,
+    reserveTerminals: reserveWorkspaceUpdate,
+    closeForUpdate: async () => {
+      if (!packagedHarnessService) throw new Error('请使用安装版执行升级。');
+      await packagedHarnessService.closeForUpdate();
+      harnessQuitFinished = true;
+    },
+  });
 
   // Handle microphone permission requests
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {

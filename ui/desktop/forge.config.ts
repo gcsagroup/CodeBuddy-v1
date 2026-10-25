@@ -90,6 +90,9 @@ let cfg = {
   // macOS Info.plist extensions for drag-and-drop support
   extendInfo: {
     LSMinimumSystemVersion: '14.0',
+    // Squirrel reads already authenticated and verified ZIP bytes through a
+    // loopback-only feed. Public update traffic continues to require HTTPS.
+    NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
     // Document types for drag-and-drop support onto dock icon
     CFBundleDocumentTypes: [
       {

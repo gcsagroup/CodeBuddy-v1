@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { createCompatServer } from '../server.mjs';
+import { openStore } from '../store.mjs';
 
 test('shutdown rejects reconnects while native cleanup is still running', { timeout: 10000 }, async () => {
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
@@ -21,4 +22,26 @@ test('shutdown rejects reconnects while native cleanup is still running', { time
     opened = await new Promise(resolve => { ws.once('open', () => resolve(true)); ws.once('error', () => resolve(false)); });
   } finally { ws.terminate(); release.resolve(); await closing; }
   assert.equal(opened, false, 'the desktop reconnect loop must not keep a closing runtime alive');
+});
+
+test('idle update shutdown flushes and preserves conversations and configuration across restart', { timeout: 15000 }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'harness-update-preserve-'));
+  const store = await openStore(directory);
+  await store.update(state => {
+    state.preferences = { language: 'zh-CN', customValue: '配置保留' };
+    state.config = { userSetting: '保持原样' };
+    state.sessions.push({ id: 'preserved-history', title: '升级前的聊天', messages: [{ role: 'user', content: '不要丢失这条历史' }], readonlyHistory: true });
+  });
+  await store.flush();
+  const driver = { async close() {} };
+  const server = await createCompatServer({ dataDir: directory, secret: 'isolated-upgrade-fixture', driver });
+  await server.listen(0, '127.0.0.1');
+  assert.equal(await server.closeForUpdate(), true);
+  const reopened = await openStore(directory);
+  assert.equal(reopened.read().sessions.find(s => s.id === 'preserved-history').messages[0].content, '不要丢失这条历史');
+  assert.deepEqual(reopened.read().preferences, { language: 'zh-CN', customValue: '配置保留' });
+  assert.equal(reopened.read().config.userSetting, '保持原样');
+  const restarted = await createCompatServer({ dataDir: directory, secret: 'isolated-upgrade-fixture', driver });
+  await restarted.listen(0, '127.0.0.1');
+  await restarted.close();
 });

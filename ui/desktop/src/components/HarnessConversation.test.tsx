@@ -212,38 +212,51 @@ describe('Harness conversation presentation', () => {
     expect(JSON.stringify(trace)).toBe(original);
   });
 
-  it('closes an actively read process once at the answer boundary and allows reopening it', () => {
-    const trace = [
-      user(),
-      prose('Preparing the files.'),
-      requestMessage(write('a')),
-      responseMessage(receipt('a')),
-    ];
-    const view = render(
-      <ScrollFollowingContext.Provider value={false}>
-        {show(trace, true)}
-      </ScrollFollowingContext.Provider>,
-      { wrapper: IntlTestWrapper }
-    );
-    const finished = [...trace, prose('The saved result.'), terminal()];
-    view.rerender(
-      <ScrollFollowingContext.Provider value={false}>
-        {show(finished)}
-      </ScrollFollowingContext.Provider>
-    );
-    expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
-    const history = view.container.querySelector('.codepro-turn-history button')!;
-    expect(history).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(history);
-    expect(screen.getByText('Preparing the files.')).toBeVisible();
-    view.rerender(
-      <ScrollFollowingContext.Provider value={false}>
-        {show([...finished])}
-      </ScrollFollowingContext.Provider>
-    );
-    expect(history).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('The saved result.')).toBeVisible();
-  });
+  it.each([true, false])(
+    'preserves reading at the answer boundary (following=%s) and allows toggling history',
+    async (following) => {
+      const trace = [
+        user(),
+        prose('Preparing the files.'),
+        requestMessage(write('a')),
+        responseMessage(receipt('a')),
+      ];
+      const view = render(
+        <ScrollFollowingContext.Provider value={following}>
+          {show(trace, true)}
+        </ScrollFollowingContext.Provider>,
+        { wrapper: IntlTestWrapper }
+      );
+      const finished = [...trace, prose('The saved result.'), terminal()];
+      view.rerender(
+        <ScrollFollowingContext.Provider value={following}>
+          {show(finished)}
+        </ScrollFollowingContext.Provider>
+      );
+      await waitFor(() =>
+        expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
+          'aria-expanded',
+          String(!following)
+        )
+      );
+      const history = view.container.querySelector('.codepro-turn-history button')!;
+      if (!following) {
+        expect(screen.getByText('Preparing the files.')).toBeVisible();
+        fireEvent.click(history);
+      }
+      expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
+      expect(history).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(history);
+      expect(screen.getByText('Preparing the files.')).toBeVisible();
+      view.rerender(
+        <ScrollFollowingContext.Provider value={following}>
+          {show([...finished])}
+        </ScrollFollowingContext.Provider>
+      );
+      expect(history).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('The saved result.')).toBeVisible();
+    }
+  );
 
   it('keeps a live thought visible until its native interrupted receipt arrives', () => {
     const thought: Message = {

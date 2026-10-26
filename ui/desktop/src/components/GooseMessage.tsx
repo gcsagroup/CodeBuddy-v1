@@ -41,11 +41,12 @@ import {
 import {
   formatCodeProSummaryStatus,
   formatCodeProTerminalVerdict,
+  type CodeProTerminalVerdict,
 } from './codepro/codeProPresentation';
 
 type CodeProTerminalPresentation = {
   summaryStatus: 'completed' | 'failed' | 'paused' | 'cancelled';
-  verdict: 'PASS' | 'NOT_RUN' | 'FAIL' | 'BLOCKED' | 'WAITING_FOR_USER';
+  verdict: CodeProTerminalVerdict;
 };
 
 export function shouldSuppressProviderThinking(suppressProviderThinking: boolean): boolean {
@@ -118,7 +119,12 @@ export function codeProTerminalPresentation(
     case 'skipped':
       return { summaryStatus: 'completed', verdict: 'NOT_RUN' };
     case 'failed':
-      return { summaryStatus: 'failed', verdict: 'FAIL' };
+      return {
+        summaryStatus: 'failed',
+        verdict: terminal.report.verification_summary?.some((entry) => entry.verdict === 'failed')
+          ? 'FAIL'
+          : 'INCOMPLETE',
+      };
     case 'cancelled':
       return { summaryStatus: 'cancelled', verdict: 'BLOCKED' };
     case 'waiting_for_user':
@@ -135,7 +141,7 @@ export function codeProTerminalPresentation(
     case 'completed':
       return undefined;
     case 'failed':
-      return { summaryStatus: 'failed', verdict: 'FAIL' };
+      return { summaryStatus: 'failed', verdict: 'INCOMPLETE' };
     case 'cancelled':
       return { summaryStatus: 'cancelled', verdict: 'BLOCKED' };
     case 'interrupted':

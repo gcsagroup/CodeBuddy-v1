@@ -130,6 +130,46 @@ test('only native failure and retry facts announce reconnection, and final failu
   assert.doesNotMatch(JSON.stringify(failed), /PRIVATE_AUTH_DETAIL|重新连接/);
 });
 
+test('reasoning-only recovery reports received content and only announces a stop at native termination', () => {
+  const project = workStatusUpdates({ sessionId: 'parent' });
+  const diagnostic = (sessionId, phase, extra = {}) => project({ type: 'model_diagnostic', sessionId, phase, ...extra });
+  const native = (type, data) => project({ type: 'harness_event', sessionId: 'parent', event: { type, data } });
+  const failure = { code: 'EMPTY_RESPONSE', message: 'PRIVATE_MODEL_OUTPUT' };
+  const counts = { status: 200, reasoningDeltaChars: 517, textDeltaChars: 0, toolCallBlocks: 0 };
+  diagnostic('parent', 'end', counts);
+  const retry = native('llm/retry', { retry: 1, maxRetries: 5, failure })[0].status;
+  assert.equal(retry.type, 'progress');
+  assert.match(retry.message, /正在重试模型请求（1\/5）.*只返回了思考内容/);
+  assert.doesNotMatch(retry.message, /本轮已停止|测试失败|PRIVATE_MODEL_OUTPUT/);
+  diagnostic('child', 'end', { ...counts, textDeltaChars: 100 });
+  const terminal = native('turn/end', { reason: { kind: 'error', error: failure } })[0].status;
+  assert.equal(terminal.type, 'notice');
+  assert.match(terminal.message, /只返回了思考内容.*本轮已停止.*切换模型/);
+  assert.doesNotMatch(JSON.stringify(terminal), /PRIVATE_MODEL_OUTPUT|DeltaChars|517|测试失败/);
+  diagnostic('parent', 'start');
+  const later = native('turn/end', { reason: { kind: 'error', error: failure } })[0].status;
+  assert.doesNotMatch(later.message, /只返回了思考内容/, 'Do not reuse a prior attempt observation');
+});
+
+test('empty response wording never infers reasoning-only output from missing or contrary observations', () => {
+  for (const observation of [
+    {},
+    { reasoningDeltaChars: 0, textDeltaChars: 0, toolCallBlocks: 0 },
+    { reasoningDeltaChars: 100 },
+    { reasoningDeltaChars: 100, textDeltaChars: 10, toolCallBlocks: 0 },
+    { reasoningDeltaChars: 100, textDeltaChars: 0, toolCallBlocks: 1 },
+    { reasoningDeltaChars: 100, textDeltaChars: 0, toolCallBlocks: 0, cancelled: true },
+  ]) {
+    const project = workStatusUpdates({ sessionId: 'parent' });
+    project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', ...observation });
+    const [result] = project({ type: 'harness_event', sessionId: 'parent', event: {
+      type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'EMPTY_RESPONSE' } } },
+    } });
+    assert.doesNotMatch(result.status.message, /只返回了思考内容/);
+    assert.match(result.status.message, /没有返回正文或有效工具调用/);
+  }
+});
+
 test('rate limits and unknown errors do not get invented network causes', () => {
   const project = workStatusUpdates({ sessionId: 'parent' });
   project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', status: 429 });

@@ -200,6 +200,77 @@ describe('direct model selection', () => {
     resolve(true);
     await waitFor(() => expect(view.changed).toHaveBeenCalledTimes(1));
   });
+  it('keeps a late failure visible after closing and reopening the menu, then retries the same selection', async () => {
+    let fail!: (value: boolean) => void;
+    mocks.change.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        fail = resolve;
+      })
+    );
+    const user = userEvent.setup(),
+      view = setup();
+    const trigger = screen.getByRole('button', { name: 'Select or change model' });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('button', { name: 'model-B' }));
+    expect(trigger).toHaveAttribute('aria-busy', 'true');
+    await user.click(document.body);
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
+    await act(async () => fail(false));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Switch failed');
+    expect(view.changed).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Switch failed' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not switch models');
+    expect(await screen.findByRole('button', { name: 'model-A' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(view.changed).toHaveBeenCalledExactlyOnceWith({ model: 'model-B', provider: 'p' })
+    );
+    expect(mocks.change).toHaveBeenCalledTimes(2);
+    expect(mocks.change.mock.calls[1].slice(0, 2)).toEqual(mocks.change.mock.calls[0].slice(0, 2));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-busy', 'false');
+  });
+  it('shows the safe server diagnostic and allows choosing a different model after a failed switch', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('p', ['model-A', 'model-B', 'model-C']),
+    ]);
+    mocks.change.mockImplementationOnce(async (_session, _model, options) => {
+      options.onError(
+        'The model service could not be reached. Check its address and connection, then retry.'
+      );
+      return false;
+    });
+    const user = userEvent.setup(),
+      view = setup();
+    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await user.click(await screen.findByRole('button', { name: 'model-B' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The model service could not be reached'
+    );
+    await user.click(screen.getByRole('button', { name: 'model-C' }));
+    await waitFor(() =>
+      expect(view.changed).toHaveBeenCalledExactlyOnceWith({ model: 'model-C', provider: 'p' })
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('does not publish a switch after the picker has unmounted', async () => {
+    let resolve!: (value: boolean) => void;
+    mocks.change.mockReturnValueOnce(
+      new Promise<boolean>((yes) => {
+        resolve = yes;
+      })
+    );
+    const user = userEvent.setup(),
+      view = setup();
+    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await user.click(await screen.findByRole('button', { name: 'model-B' }));
+    view.unmount();
+    await act(async () => resolve(true));
+    expect(view.changed).not.toHaveBeenCalled();
+  });
   it('reports model-list load failure and retries without using stale choices', async () => {
     vi.mocked(acpListProviderDetails)
       .mockRejectedValueOnce(new Error('private path'))

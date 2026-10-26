@@ -187,6 +187,33 @@ describe('ProviderGrid custom provider lifecycle', () => {
     expect(screen.queryByText('Choose model for custom_new_gateway')).not.toBeInTheDocument();
   });
 
+  it('numbers default names against all connections and preserves a user-entered name', async () => {
+    const user = userEvent.setup();
+    const providers = ['Custom connection', ' custom CONNECTION 2 ', 'Local Ollama'].map(
+      (name, index) => ({
+        ...customProvider,
+        name: `custom-${index}`,
+        metadata: { ...customProvider.metadata, display_name: name },
+      })
+    );
+    render(<ProviderGrid providers={providers} isOnboarding={false} compactConnectionSetup />, {
+      wrapper: IntlTestWrapper,
+    });
+    await user.type(screen.getByTestId('provider-search-input'), 'not-a-match');
+    await user.click(screen.getByTestId('add-custom-provider-card'));
+    const name = screen.getByRole('textbox', { name: 'Display Name' });
+    expect(name).toHaveValue('Custom connection 3');
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
+    expect(name).toHaveValue('Local Ollama 2');
+    await user.clear(name);
+    await user.type(name, 'My chosen name');
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
+    expect(name).toHaveValue('My chosen name');
+    expect(providerApi.create).not.toHaveBeenCalled();
+  });
+
   it('deletes an inactive custom connection after the explicit confirmation', async () => {
     const user = userEvent.setup();
     const refreshProviders = vi.fn();

@@ -41,6 +41,7 @@ function ChangeModelHarness({
 }) {
   const { changeModel } = useModelAndProvider();
   const [result, setResult] = useState('pending');
+  const [error, setError] = useState('');
   const requestedModel = {
     name: 'reasoner',
     provider: 'ollama_cloud',
@@ -50,14 +51,17 @@ function ChangeModelHarness({
     <>
       <button
         onClick={() => {
-          void changeModel(sessionId, requestedModel, { updateDefaults }).then((changed) => {
-            setResult(String(changed));
-          });
+          void changeModel(sessionId, requestedModel, { updateDefaults, onError: setError }).then(
+            (changed) => {
+              setResult(String(changed));
+            }
+          );
         }}
       >
         change model
       </button>
       <output aria-label="change result">{result}</output>
+      <p aria-label="change error">{error}</p>
     </>
   );
 }
@@ -103,11 +107,10 @@ describe('ModelAndProviderContext changeModel failure boundary', () => {
       await user.click(screen.getByRole('button', { name: 'change model' }));
 
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('false'));
-      expect(mocks.toastError).toHaveBeenCalledWith({
-        title: 'ollama_cloud/reasoner failed',
-        msg: 'Unable to switch models. Try again.',
-        traceback: 'The model change could not be completed.',
-      });
+      expect(screen.getByLabelText('change error')).toHaveTextContent(
+        'Unable to switch models. Try again.'
+      );
+      expect(mocks.toastError).not.toHaveBeenCalled();
       expect(mocks.toastSuccess).not.toHaveBeenCalled();
       expect(error).toHaveBeenCalledWith(`Unable to change model during the ${phase} step.`);
 
@@ -138,10 +141,10 @@ describe('ModelAndProviderContext changeModel failure boundary', () => {
     );
     await userEvent.setup().click(screen.getByRole('button', { name: 'change model' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('false'));
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      expect.objectContaining({ msg: expect.stringContaining(expected) })
-    );
-    expect(JSON.stringify(mocks.toastError.mock.calls)).not.toContain('private token');
+    expect(screen.getByLabelText('change error')).toHaveTextContent(expected);
+    expect(screen.getByLabelText('change error')).not.toHaveTextContent('private token');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
     expect(mocks.acpSaveDefaults).not.toHaveBeenCalled();
     expect(mocks.setSessionMetadata).not.toHaveBeenCalled();
   });
@@ -165,6 +168,23 @@ describe('ModelAndProviderContext changeModel failure boundary', () => {
       null
     );
     expect(mocks.acpSaveDefaults).toHaveBeenCalledWith('ollama_cloud', 'reasoner');
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('change error')).toBeEmptyDOMElement();
+  });
+
+  it('changes only the active session without success or error toasts', async () => {
+    render(
+      <ModelAndProviderProvider>
+        <ChangeModelHarness sessionId="session-1" />
+      </ModelAndProviderProvider>,
+      { wrapper: IntlTestWrapper }
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'change model' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('true'));
+    expect(mocks.acpSaveDefaults).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
   it('rolls the session back when shared default persistence fails after session mutation', async () => {

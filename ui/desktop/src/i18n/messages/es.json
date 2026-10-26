@@ -2153,6 +2153,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Conexión personalizada"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "¿Seguro que quieres eliminar este proveedor personalizado? Esto eliminará de forma permanente el proveedor y su API key almacenada. Esta acción no se puede deshacer."
   },
@@ -4514,26 +4517,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} falló"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Modelo cambiado"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Seleccionar modelo"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Modelos cambiados correctamente: usando {model} de {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Proveedor desconocido en la configuración: revisa tu config.yaml"
@@ -4900,6 +4891,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Error al cambiar"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"

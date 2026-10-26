@@ -35,6 +35,10 @@ const i18n = defineMessages({
     id: 'modelsBottomBar.switchFailed',
     defaultMessage: 'Could not switch models. Try again.',
   },
+  switchFailedLabel: {
+    id: 'modelsBottomBar.switchFailedLabel',
+    defaultMessage: 'Switch failed',
+  },
 });
 type Selection = { provider: string; model: string; providerName: string };
 const identity = (selection: { provider: string; model: string }) =>
@@ -80,7 +84,10 @@ export default function ModelsBottomBar({
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [switchError, setSwitchError] = useState('');
+  const [switchError, setSwitchError] = useState<{
+    message: string;
+    selection: Selection;
+  } | null>(null);
   const [retry, setRetry] = useState(0);
   const [detail, setDetail] = useState<Selection | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -176,7 +183,6 @@ export default function ModelsBottomBar({
     let active = true;
     setLoading(true);
     setLoadError(false);
-    setSwitchError('');
     void acpListProviderDetails()
       .then((all) => {
         if (!active) return;
@@ -198,6 +204,7 @@ export default function ModelsBottomBar({
   }, [open, retry]);
   useEffect(() => {
     setOpen(false);
+    setSwitchError(null);
   }, [sessionId]);
   useEffect(() => {
     if (!open) {
@@ -219,7 +226,7 @@ export default function ModelsBottomBar({
     const requestedSession = sessionId;
     inFlight.current = true;
     setSwitching(identity(selection));
-    setSwitchError('');
+    setSwitchError(null);
     try {
       let message = '';
       const model: Model = {
@@ -232,18 +239,18 @@ export default function ModelsBottomBar({
           message = value;
         },
       });
-      if (currentSession.current !== requestedSession) return;
+      if (!mounted.current || currentSession.current !== requestedSession) return;
       if (!applied) {
-        setSwitchError(message || intl.formatMessage(i18n.switchFailed));
+        setSwitchError({ message: message || intl.formatMessage(i18n.switchFailed), selection });
         return;
       }
       onModelChanged({ model: selection.model, provider: selection.provider });
     } catch {
-      if (currentSession.current === requestedSession)
-        setSwitchError(intl.formatMessage(i18n.switchFailed));
+      if (mounted.current && currentSession.current === requestedSession)
+        setSwitchError({ message: intl.formatMessage(i18n.switchFailed), selection });
     } finally {
       inFlight.current = false;
-      setSwitching(null);
+      if (mounted.current) setSwitching(null);
     }
   };
   const manage = () => {
@@ -261,9 +268,10 @@ export default function ModelsBottomBar({
             aria-label={intl.formatMessage(i18n.choose)}
             title={intl.formatMessage(i18n.choose)}
             disabled={loadingSession}
+            aria-busy={!!switching}
             className="flex min-w-0 max-w-full items-center gap-1 text-xs text-text-primary/70 hover:text-text-primary disabled:opacity-60"
           >
-            {loadingSession ? (
+            {loadingSession || switching ? (
               <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
             ) : (
               <Bot className="size-4 shrink-0" aria-hidden="true" />
@@ -467,13 +475,35 @@ export default function ModelsBottomBar({
               </Popover.Root>
             )}
             {switchError && (
-              <p role="alert" className="px-3 pt-2 text-xs text-text-danger">
-                {switchError}
-              </p>
+              <div className="flex items-start gap-2 px-3 pb-1 pt-2 text-xs text-text-secondary">
+                <p role="alert" className="min-w-0 flex-1 break-words">
+                  {switchError.message}
+                </p>
+                <button
+                  type="button"
+                  disabled={!!switching}
+                  onClick={() => void choose(switchError.selection)}
+                  className="shrink-0 underline underline-offset-2 disabled:opacity-60"
+                >
+                  {intl.formatMessage(i18n.retry)}
+                </button>
+              </div>
             )}
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
+      {!open && switchError && (
+        <span role="alert" className="ml-2 flex min-w-0 items-center text-xs text-text-secondary">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            title={switchError.message}
+            className="flex min-w-0 items-center gap-1 underline underline-offset-2"
+          >
+            {intl.formatMessage(i18n.switchFailedLabel)}
+          </button>
+        </span>
+      )}
     </div>
   );
 }

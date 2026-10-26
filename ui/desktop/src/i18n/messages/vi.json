@@ -2153,6 +2153,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Kết nối tùy chỉnh"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bạn có chắc chắn muốn xóa nhà cung cấp tùy chỉnh này không? Thao tác này sẽ xóa vĩnh viễn nhà cung cấp và khóa API đã lưu trữ của nó. Hành động này không thể hoàn tác."
   },
@@ -4514,26 +4517,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} thất bại"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Đã thay đổi mô hình"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Chọn mô hình"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Đã chuyển đổi mô hình thành công -- đang sử dụng {model} từ {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Nhà cung cấp không xác định trong cấu hình -- vui lòng kiểm tra config.yaml của bạn"
@@ -4900,6 +4891,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Chuyển đổi thất bại"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"

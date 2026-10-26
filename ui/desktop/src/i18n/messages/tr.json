@@ -2153,6 +2153,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Özel bağlantı"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bu özel sağlayıcıyı silmek istediğinizden emin misiniz? Bu, sağlayıcıyı ve depolanan API anahtarını kalıcı olarak kaldıracaktır. Bu eylem geri alınamaz."
   },
@@ -4514,26 +4517,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} başarısız oldu"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Model değiştirildi"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Modeli Seçin"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "{provider}'den {model} kullanılarak modeller başarıyla değiştirildi"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Config'de bilinmeyen sağlayıcı -- lütfen config.yaml dosyanızı inceleyin"
@@ -4900,6 +4891,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Geçiş başarısız"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"

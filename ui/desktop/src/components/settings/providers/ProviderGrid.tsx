@@ -363,6 +363,7 @@ function ProviderCards({
             }
             isActiveProvider={isActiveProvider}
             compactSetup={Boolean(compactConnectionSetup)}
+            existingProviderNames={providers.map((provider) => provider.metadata.display_name)}
             discoverModels={(data) => acpDiscoverCustomProviderModels(data, editingProvider?.id)}
           />
         </DialogContent>

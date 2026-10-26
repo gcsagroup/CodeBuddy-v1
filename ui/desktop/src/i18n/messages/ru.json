@@ -2153,6 +2153,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Пользовательское подключение"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Удалить этого пользовательского провайдера? Провайдер и сохраненный API-ключ будут удалены навсегда. Это действие нельзя отменить."
   },
@@ -4514,26 +4517,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} не удалось"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Модель изменена"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Выбрать модель"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Модель успешно переключена -- используется {model} от {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Неизвестный провайдер в конфигурации -- проверьте config.yaml"
@@ -4900,6 +4891,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Не удалось переключить"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"

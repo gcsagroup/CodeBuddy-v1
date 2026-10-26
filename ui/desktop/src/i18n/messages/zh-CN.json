@@ -2153,6 +2153,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "自定义 OpenAI 端点"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "自定义连接"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "确定要删除此自定义提供商吗？这会永久移除提供商及其保存的 API 密钥，此操作无法撤销。"
   },
@@ -4514,26 +4517,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "模型服务返回了无效响应，请检查提供商地址与 API 兼容性。"
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} 失败"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "无法切换模型，请重试。"
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "模型切换未能完成。"
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "模型已切换"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "服务已不再提供此模型，请刷新模型列表并选择可用模型。"
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "选择模型"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "模型切换成功 —— 正在使用 {provider} 的 {model}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "配置中存在未知提供商 —— 请检查你的 config.yaml"
@@ -4900,6 +4891,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "模型切换失败，请重试。"
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "切换失败"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "正在切换模型…"

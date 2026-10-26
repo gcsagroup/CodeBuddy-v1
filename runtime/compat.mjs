@@ -803,7 +803,8 @@ export class Compat {
         basePrompt,
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
-        ...(s.recipe?.instructions ? [s.recipe.instructions] : []),
+        // Keep the recipe identifiable as the current task among generic guidance.
+        ...(s.recipe?.instructions ? [`## Current task instructions\n${s.recipe.instructions}`] : []),
         ...(s.type === "code_pro" ? [codeproInstructions] : []),
       ].join("\n\n"),
       ...(s.temperature != null ? { temperature: s.temperature } : {}),

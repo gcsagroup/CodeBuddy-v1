@@ -14,6 +14,7 @@ import test from "node:test";
 import { createCompatServer } from "../server.mjs";
 import { permissionDriver } from './fixtures/permission-driver.mjs';
 import { workspaceIdentity } from "../workspaces.mjs";
+import { codeproInstructions } from "../task-tools.mjs";
 import * as schemas from "../../ui/sdk/dist/generated/zod.gen.js";
 
 const secret = "isolated-library-acp-test-secret";
@@ -221,7 +222,8 @@ async function fixture(
   };
 }
 
-test("actual ACP recipe startup renders user parameters, selects model/tools and protects extension secrets in session state", async (t) => {
+for (const workspaceMode of ["code", "codepro"])
+test(`actual ACP recipe startup renders task instructions and parameters, selects model/tools and protects secrets (${workspaceMode})`, async (t) => {
   const context = await fixture(t, {
     onRequest: async (name, params) => {
       assert.equal(name, method("session/recipe/request-params"));
@@ -261,11 +263,20 @@ test("actual ACP recipe startup renders user parameters, selects model/tools and
   const { deeplink } = await context.client.request(method("recipes/encode"), {
     recipe,
   });
+  const cwd = workspaceMode === "codepro" ? path.join(context.root, "recipe-workspace") : context.root;
+  const lease = workspaceMode === "codepro"
+    ? await context.client.request(method("workspace/lease/acquire"), {
+        requestedPath: cwd,
+        expectedState: "missing",
+        expectedIdentity: workspaceIdentity(cwd),
+      })
+    : null;
   const created = await context.client.request("session/new", {
-    cwd: context.root,
+    cwd,
     mcpServers: [],
     _meta: {
-      workspaceMode: "code",
+      workspaceMode,
+      ...(lease ? { workspaceLeaseId: lease.leaseId } : {}),
       recipeDeeplink: deeplink,
       enabledExtensions: [{ type: "builtin", name: "developer" }],
     },
@@ -286,8 +297,9 @@ test("actual ACP recipe startup renders user parameters, selects model/tools and
   assert.equal(loaded.options.mcpServers[0].url, "http://127.0.0.1:1/mcp");
   assert.match(
     loaded.options.systemPrompt,
-    /Recipe instructions for Multi module/u,
+    /## Current task instructions\nRecipe instructions for Multi module/u,
   );
+  if (workspaceMode === "codepro") assert.ok(loaded.options.systemPrompt.includes(codeproInstructions));
   assert.equal(
     loaded.options.mcpServers[0].headers.Authorization,
     "Bearer isolated-recipe-extension-secret",
@@ -314,7 +326,7 @@ test("actual ACP recipe startup renders user parameters, selects model/tools and
   const beforeReplay = context.client.notifications.length;
   const reloaded = await context.client.request("session/load", {
     sessionId: created.sessionId,
-    cwd: context.root,
+    cwd,
     mcpServers: [],
   });
   assert.equal(reloaded._meta.recipe.prompt, "Build Multi module");

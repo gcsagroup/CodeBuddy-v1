@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { workflowCandidates } from './comfyui-workflows.mjs';
+import { workflowCandidates, videoDuration } from './comfyui-workflows.mjs';
 
 export const fallbackProperties = {
   node_types: { type: 'array', maxItems: 24, items: { type: 'string' }, description: 'For inspect: request installed node schemas needed to compose a fallback.' },
@@ -17,7 +17,7 @@ function choices(schema) {
   if (schema?.[0] === 'COMBO' && Array.isArray(schema[1]?.options)) return schema[1].options;
   return undefined;
 }
-function missingDependencies(graph, info) {
+export function missingDependencies(graph, info) {
   const missing = [];
   for (const [id, node] of Object.entries(graph)) {
     const definition = info[node.class_type];
@@ -54,8 +54,7 @@ export function inspectWorkflows(info, kind, mode, referenceCount, nodeTypes = [
     schemas: Object.fromEntries(nodeTypes.map(type => [type, info[type] ?? null])),
   };
 }
-export function prepareFallback(input, kind, references, id, info) {
-  const catalog = inspectWorkflows(info, kind, input.mode, references.length);
+export function prepareFallback(input, kind, references, id, info, catalog = inspectWorkflows(info, kind, input.mode, references.length)) {
   if (!catalog.creation_allowed) throw new Error('An existing workflow has available dependencies. Reuse it; fallback creation is disabled.');
   if (input.workflow_id) throw new Error('Choose either workflow_id or fallback_workflow');
   const source = input.fallback_workflow;
@@ -64,10 +63,14 @@ export function prepareFallback(input, kind, references, id, info) {
   const parameters = {};
   for (const key of ['width', 'height', 'seed', 'duration_seconds']) {
     if (input[key] === undefined) continue;
-    const min = key === 'seed' ? 0 : key === 'duration_seconds' ? 1 : 256;
-    const max = key === 'seed' ? Number.MAX_SAFE_INTEGER : key === 'duration_seconds' ? 15 : kind === 'image' ? 2048 : 1344;
+    if (key === 'duration_seconds') {
+      if (kind !== 'video') throw new Error('duration_seconds requires video');
+      parameters.$duration_seconds = videoDuration(input[key]);
+      continue;
+    }
+    const min = key === 'seed' ? 0 : 256;
+    const max = key === 'seed' ? Number.MAX_SAFE_INTEGER : kind === 'image' ? 2048 : 1344;
     if (!Number.isSafeInteger(input[key]) || input[key] < min || input[key] > max || (['width', 'height'].includes(key) && input[key] % 32)) throw new Error(`Invalid fallback parameter: ${key}`);
-    if (key === 'duration_seconds' && kind !== 'video') throw new Error('duration_seconds requires video');
     parameters[`$${key}`] = input[key];
   }
   const graph = structuredClone(source), outputs = [], usedReferences = new Set(), boundParameters = new Set();

@@ -4,7 +4,7 @@ import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Message } from '../types/message';
 import GooseMessage from './GooseMessage';
 
-function terminal(status: 'interrupted' | 'cancelled', text = ''): Message {
+function terminal(status: 'interrupted' | 'cancelled' | 'failed', text = ''): Message {
   return {
     id: 'terminal',
     role: 'assistant',
@@ -51,6 +51,12 @@ function show(message: Message) {
 }
 
 describe('handoff versus an unexplained interruption', () => {
+  it('does not invent a test failure when a model request fails without verification', () => {
+    show(terminal('failed'));
+    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    expect(screen.getByText('Not completed')).toBeInTheDocument();
+    expect(screen.queryByText('Tests failed')).not.toBeInTheDocument();
+  });
   it('renders the terminal handoff once, without a second host explanation', () => {
     const summary = '缺少真实订单文件，因此没有完成实跑核对。补齐文件后可以继续。';
     show(terminal('interrupted', summary));

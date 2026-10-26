@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { invalid, requireString } from './providers.mjs';
+import { registerToolSessionApproval } from './tool-session-approval.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const fingerprint = record => hash(JSON.stringify([record.id, record.status, record.content, record.updatedAt]));
@@ -123,6 +124,6 @@ export class ProjectMemory {
     });
   }
   tools(session) {
-    return [{ name: 'project_memory', description: 'Recall approved project memory, or propose a new candidate memory for user review. Candidate/disabled/expired records are never recalled.', inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['recall', 'retain'] }, query: { type: 'string' }, subject: { type: 'string' }, content: { type: 'string' }, reason: { type: 'string' } }, required: ['action'], additionalProperties: false }, execute: args => args.action === 'recall' ? this.recall(session.cwd, args.query).then(records => ({ records })) : this.retain(session.cwd, { ...args, sourceRef: `session:${session.id}` }) }];
+    return [registerToolSessionApproval({ name: 'project_memory', description: 'Recall approved project memory, or propose a new candidate memory for user review. Candidate/disabled/expired records are never recalled.', inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['recall', 'retain'] }, query: { type: 'string' }, subject: { type: 'string' }, content: { type: 'string' }, reason: { type: 'string' } }, required: ['action'], additionalProperties: false }, execute: args => args.action === 'recall' ? this.recall(session.cwd, args.query).then(records => ({ records })) : this.retain(session.cwd, { ...args, sourceRef: `session:${session.id}` }) }, { key: JSON.stringify(['project_memory', session.id, path.resolve(session.cwd)]), dependencies: [this] })];
   }
 }

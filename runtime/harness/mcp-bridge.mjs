@@ -5,7 +5,7 @@ import { StreamableHTTPClientTransport, SdkHttpError, specTypeSchemas } from '@m
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { Config as UpstreamConfig, createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client';
 import Schema from '@deepseek-ai/schemastery';
-import { DEFAULT_MCP_TIMEOUT_MS } from '../mcp-settings.mjs';
+import { DEFAULT_MCP_TIMEOUT_MS, MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
 import { McpTaskClient } from './mcp-tasks.mjs';
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess';
 import { scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope';
@@ -65,6 +65,18 @@ export function getMcpSessionApproval(ctx, agent, name) {
     }
   }
 }
+export function getMcpResourceSessionApproval(ctx, agent, name, server) {
+  if (!MCP_RESOURCE_TOOL_NAMES.includes(name)) return undefined;
+  const definition = ctx.tools.get(name, agent);
+  for (const key of [...scopeChainOf(agent), ctx.root]) {
+    const entry = scopes.get(key)?.get(server);
+    if (!entry) continue;
+    const binding = entry.resourceApprovals.get(name);
+    // Resolve the nearest provider, never fall through to another connection
+    // with the same name. Shared resource tools still bind each server separately.
+    return binding && binding.definition === definition && binding.live() ? binding : undefined;
+  }
+}
 /** Consume an exact invocation receipt; policies and canonical failures remain authoritative. */
 export function takeMcpResultMetadata(exec, result) {
   const receipt = receipts.get(exec.token); receipts.delete(exec.token);
@@ -78,24 +90,34 @@ export async function apply(ctx, config) {
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
   if (registry.has(config.serverName)) throw Error(`MCP server ${config.serverName} is already registered in this scope`);
-  const entry = { tools: new Map(), approvals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
+  const entry = { tools: new Map(), approvals: new Map(), snapshots: new Map(), resourceDefinitions: new Map(), resourceApprovals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
   const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
   let disposed = false, generation, stopping, retryTimer, failures = 0, connectedAt, instructions = '', sync = Promise.resolve(), attempt = Promise.resolve();
   let registrations = [];
-  function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); entry.approvals.clear(); }
+  function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); entry.approvals.clear(); entry.snapshots.clear(); }
   const live = current => !disposed && generation === current && current.ready;
   async function synchronize(current) {
     const next = sync.then(async () => {
       if (disposed || generation !== current || current.down) return;
       const response = current.client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await current.client.listTools(undefined, { cacheMode: 'refresh', timeout });
       if (disposed || generation !== current || current.down) return;
-      const definitions = new Map(), metadata = new Map(), approvals = new Map();
+      const definitions = new Map(), metadata = new Map(), approvals = new Map(), snapshots = new Map();
       for (const tool of response.tools) {
         const name = publicName(config.serverName, tool.name), mcpApp = appMetadata(config.serverName, tool);
         if ((allowedTools !== null && !allowedTools.includes(name)) || deniedTools.includes(name)) continue;
         if (definitions.has(name)) throw Error(`Duplicate MCP tool: ${tool.name}`);
+        // An unrelated list update must not revoke an unchanged tool's grant.
+        // Reconnects and any definition/metadata change still get a new identity.
+        const previous = entry.snapshots.get(name);
+        if (previous?.current === current && isDeepStrictEqual(previous.source, tool)) {
+          definitions.set(name, previous.definition);
+          metadata.set(name, entry.tools.get(name));
+          if (entry.approvals.has(name)) approvals.set(name, entry.approvals.get(name));
+          snapshots.set(name, previous);
+          continue;
+        }
         const definition = createMcpToolDefinition(ctx, {
           name, rawName: tool.name, description: tool.description ?? '', inputSchema: tool.inputSchema,
           outputSchema: tool.outputSchema,
@@ -132,6 +154,7 @@ export async function apply(ctx, config) {
           return projected;
         };
         definitions.set(name, definition);
+        snapshots.set(name, { current, source: clone(tool), definition });
         metadata.set(name, { ...(tool._meta ? { _meta: clone(tool._meta) } : {}), ...(tool.outputSchema ? { outputSchema: clone(tool.outputSchema) } : {}), ...(mcpApp ? { mcpApp } : {}), extensionName: config.serverName, rawName: tool.name });
         // This only offers an explicit user choice; annotations never auto-grant.
         if (tool.annotations?.destructiveHint !== true) approvals.set(name, {
@@ -140,7 +163,7 @@ export async function apply(ctx, config) {
         });
       }
       clearTools();
-      try { for (const definition of definitions.values()) registrations.push(ctx.tools.register(definition)); entry.tools = metadata; entry.approvals = approvals; }
+      try { for (const definition of definitions.values()) registrations.push(ctx.tools.register(definition)); entry.tools = metadata; entry.approvals = approvals; entry.snapshots = snapshots; }
       catch (error) { clearTools(); throw error; }
     });
     sync = next.catch(() => {}); return next;
@@ -202,6 +225,10 @@ export async function apply(ctx, config) {
       await synchronize(current);
       if (disposed || current.closed) throw Error('MCP connection closed during tool discovery');
       current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution; entry.status = 'ready';
+      entry.resourceApprovals = new Map([...entry.resourceDefinitions].map(([name, definition]) => [name, {
+        definition, identity: Object.freeze({}), live: () => live(current),
+        extensionSource: config.transport === 'streamable-http' ? 'external_http' : 'external_stdio',
+      }]));
     } catch (error) {
       current.connecting = false;
       if (await closeGeneration(current)) disconnected(current);
@@ -220,7 +247,7 @@ export async function apply(ctx, config) {
   }
   ctx.effect(() => dispose, 'codebuddy-mcp.connection');
   ctx.on('internal/plugin', fiber => fiber === ctx.fiber && fiber.uid === null ? dispose() : undefined, { global: true });
-  const resourcesAllowed = ['list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']
+  const resourcesAllowed = MCP_RESOURCE_TOOL_NAMES
     .some(name => (allowedTools === null || allowedTools.includes(name)) && !deniedTools.includes(name));
   if (resourcesAllowed) ctx.inject(['mcpResources'], inner => { inner.mcpResources.register(config.serverName, { async request(request, exec) {
     const current = generation;
@@ -230,7 +257,13 @@ export async function apply(ctx, config) {
     if (request.method === 'resources/templates/list') return current.client.getServerCapabilities()?.resources === undefined ? { resourceTemplates: [] } : current.client.listResourceTemplates(request.cursor === undefined ? undefined : { cursor: request.cursor }, options);
     if (request.method === 'resources/read') return current.client.readResource({ uri: request.uri }, options);
     throw Error('Unsupported MCP resource operation');
-  } }); });
+  } });
+    for (const name of MCP_RESOURCE_TOOL_NAMES) {
+      if ((allowedTools !== null && !allowedTools.includes(name)) || deniedTools.includes(name)) continue;
+      const definition = inner.tools.get(name, owner);
+      if (definition) entry.resourceDefinitions.set(name, definition);
+    }
+  });
   ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false, text: () => instructions }); });
   attempt = connect(true);
   try { await attempt; } catch (error) { await dispose(); throw error; }

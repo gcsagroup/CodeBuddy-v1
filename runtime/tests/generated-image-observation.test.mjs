@@ -1,3 +1,4 @@
+import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -36,6 +37,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const fetchImpl = async (url, options) => {
+    const catalogResponse = savedFixtureResponse(url); if (catalogResponse) return catalogResponse;
     if (url.endsWith('/prompt')) { submissions.push(options.body); return Response.json({ prompt_id: jobId }); }
     if (url.includes('/history/')) {
       // ComfyUI keys history by the output node in the graph actually submitted.

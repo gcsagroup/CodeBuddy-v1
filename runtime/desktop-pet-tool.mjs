@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from 
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerToolSessionApproval } from './tool-session-approval.mjs';
 
 export const PET_TOOL_NAME = 'create_desktop_pet';
 const states = ['idle', 'wave', 'jump', 'working', 'waiting', 'failed', 'review', 'look'];
@@ -30,7 +31,7 @@ function runAssembler(args, signal) {
   });
 }
 export function desktopPetTool({ cwd, directory = process.env.CODEBUDDY_PET_DIRECTORY, assemble = runAssembler }) {
-  return {
+  return registerToolSessionApproval({
     name: PET_TOOL_NAME,
     description: 'Create a custom animated desktop pet / 自定义桌面宠物. Prepare image requirements, then assemble generated pose images into a validated preview package. Uses the main Agent and its available image tools; never changes the selected pet.',
     inputSchema: { type: 'object', properties: {
@@ -47,7 +48,7 @@ export function desktopPetTool({ cwd, directory = process.env.CODEBUDDY_PET_DIRE
     }, required: ['operation'], additionalProperties: false },
     async execute(input, { signal } = {}) {
       if (!directory || !path.isAbsolute(directory)) throw new Error('Desktop pet library is not connected. Start creation from the desktop app.');
-      if (input.operation === 'prepare') return { status: 'needs_images', instructions: `${instructions} In CodeBuddy, load generate_image with search_mcp_tools to use the configured ComfyUI service. For a named existing character, obtain and visually inspect original reference images first; web search text alone is not a visual reference. If no reliable image is available, ask the user for one rather than inventing appearance. Prefer approved generate_image workflows and pass the original reference_images to qwen_edit. If required template dependencies are missing, call generate_image inspect and follow its creation_allowed result to compose a fallback using installed nodes/models; never bypass the tool with scripts or download dependencies. For an original character, generate a first draft from the user brief. Show the draft and ask the user to confirm likeness BEFORE producing the eight animation states; do not treat a successful image job as user approval. After confirmation, reuse that approved image as reference_images for every 3-column by 2-row pose grid. Preserve face, hair, clothing and colors; vary only pose/expression unless requested. Submit each job once; poll status by job_id until completed, and pass the returned local paths to assemble.`, workspace: cwd, states, automaticallySelected: false };
+      if (input.operation === 'prepare') return { status: 'needs_images', instructions: `${instructions} In CodeBuddy, load generate_image with search_mcp_tools to use the configured ComfyUI service. For a named existing character, obtain and visually inspect original reference images first; web search text alone is not a visual reference. If no reliable image is available, ask the user for one rather than inventing appearance. Call generate_image inspect to discover server-saved workflows, select a compatible saved workflow_id, and pass the original reference_images for image editing. Follow the host creation_allowed result before composing any fallback with installed nodes/models; never bypass the tool with scripts or download dependencies. For an original character, generate a first draft from the user brief. Show the draft and ask the user to confirm likeness BEFORE producing the eight animation states; do not treat a successful image job as user approval. After confirmation, reuse that approved image as reference_images for every 3-column by 2-row pose grid. Preserve face, hair, clothing and colors; vary only pose/expression unless requested. Submit each job once; poll status by job_id until completed, and pass the returned local paths to assemble.`, workspace: cwd, states, automaticallySelected: false };
       if (input.operation !== 'assemble') throw new Error('Unknown pet operation');
       if (!/^[a-z][a-z0-9-]{0,47}$/.test(input.id ?? '') || ['buddy','red-panda','cream-cat','white-fox'].includes(input.id)) throw new Error('Use a new non-reserved pet ID');
       if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 80 || typeof input.description !== 'string' || input.description.length > 500) throw new Error('Pet name and description are required');
@@ -75,5 +76,5 @@ export function desktopPetTool({ cwd, directory = process.env.CODEBUDDY_PET_DIRE
         await rm(staging, { recursive: true, force: true });
       }
     },
-  };
+  }, { key: JSON.stringify([PET_TOOL_NAME, path.resolve(cwd), directory]), dependencies: [assemble] });
 }

@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
+export function videoDuration(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0)
+    throw new Error('duration_seconds must be a finite positive number');
+  return value;
+}
+
 // User-exported graphs are immutable templates. Only the named scalar slots below
 // are writable. Conditional fallback graphs are checked separately against the server inventory.
 const definitions = {
@@ -66,7 +72,7 @@ export function approvedWorkflow(input, references, id, kind) {
   spec.referenceNodes.forEach((node, i) => slot(node, 'image', references[i] ?? references[0]));
   if (input.duration_seconds !== undefined) {
     if (!spec.durationNode) throw new Error('duration_seconds requires a video workflow');
-    slot(spec.durationNode, 'value', integer(input.duration_seconds, 1, 15));
+    slot(spec.durationNode, 'value', videoDuration(input.duration_seconds));
   }
   if (input.width !== undefined || input.height !== undefined) {
     const limit = kind === 'image' ? 2048 : 1344;

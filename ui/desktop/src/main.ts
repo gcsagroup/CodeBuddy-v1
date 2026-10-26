@@ -1,4 +1,5 @@
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
+import { registerTrayLifecycle } from './utils/trayLifecycle';
 import { registerGitHubCliAuth } from './github/githubCliMain';
 import { registerProductUpdates } from './update/main';
 import { startHarnessService } from './harnessService';
@@ -1680,9 +1681,10 @@ const createChat = async (
   windowMap.set(windowId, mainWindow);
 
   // Handle window closure
+  attachTrayLifecycle(mainWindow);
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
-    if (windowMap.size === 0 && (process.platform !== 'darwin' || !tray)) app.quit();
+    if (windowMap.size === 0 && !tray) app.quit();
 
     pendingInitialMessages.delete(windowId);
     pendingDeepLinks.delete(windowId);
@@ -1785,6 +1787,11 @@ const createLauncher = () => {
 
 // Track tray instance
 let tray: Tray | null = null;
+const attachTrayLifecycle = registerTrayLifecycle(
+  app,
+  () => !!tray && !tray.isDestroyed(),
+  process.platform
+);
 
 const destroyTray = () => {
   if (tray) {
@@ -1864,6 +1871,7 @@ const showWindow = async () => {
       win.show();
     }
 
+    if (win.isMinimized()) win.restore();
     win.focus();
   });
 };
@@ -3526,11 +3534,4 @@ app.on('will-quit', async () => {
   windowPowerSaveBlockers.clear();
 
   globalShortcut.unregisterAll();
-});
-
-app.on('window-all-closed', () => {
-  // Only quit if we're not on macOS or don't have a tray icon
-  if (process.platform !== 'darwin' || !tray) {
-    app.quit();
-  }
 });

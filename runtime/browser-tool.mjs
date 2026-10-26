@@ -1,6 +1,8 @@
+import path from 'node:path';
+import { registerToolSessionApproval } from './tool-session-approval.mjs';
 export const BROWSER_METHOD = '_codebuddy/browser/control';
-export function browserTool({ sessionId, cwd, request }) {
-  return {
+export function browserTool({ sessionId, cwd, request, requestOwner = request }) {
+  return registerToolSessionApproval({
     name: 'browser_control',
     description: 'Open and control the right-side embedded browser / 右侧浏览器 from this conversation. Local previews support HTML only, not Markdown, CSV or other document files; use the file read tool to verify those documents. For a workspace HTML file, call open with path (no shell server needed); this starts a local preview and selects its browser tab. Creating an HTML file alone does not open it. After a successful open, use the returned id with observe or screenshot to verify the page before reporting it displayed. A failed open returns no usable tab ID: do not guess an ID or attempt a screenshot of a failed preview. Also supports HTTP(S) URLs, accessible nodes, click, type, key and console. Available to the main agent; delegation is not required. Separate from Playwright MCP. Preview URLs are local, not public deployments.',
     inputSchema: { type: 'object', properties: {
@@ -25,5 +27,5 @@ export function browserTool({ sessionId, cwd, request }) {
         throw new Error('Browser open did not return a loaded tab and preview URL. Do not report it as opened.');
       return reply;
     },
-  };
+  }, { key: JSON.stringify(['browser_control', sessionId, path.resolve(cwd)]), dependencies: [requestOwner] });
 }

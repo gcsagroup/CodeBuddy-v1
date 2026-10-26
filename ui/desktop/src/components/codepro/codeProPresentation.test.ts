@@ -21,6 +21,7 @@ const zhIntl = createIntl({
     'codeProPresentation.activityVerb.command': '运行',
     'codeProPresentation.activityVerb.strategy': '选择策略',
     'codeProPresentation.taskStatus.running': '运行中',
+    'codeProPresentation.taskStatus.notCompleted': '未完成',
     'codeProPresentation.taskStatus.notDynamicallyTested': '未运行动态验证',
     'codeProPresentation.summaryStatus.paused': '需要你确认',
     'codeProPresentation.verification.passed': '测试通过',
@@ -125,6 +126,7 @@ describe('CodePro locale presentation', () => {
   it('presents terminal verdicts as plain language instead of internal status codes', () => {
     expect(formatCodeProTerminalVerdict(zhIntl, 'PASS')).toBe('测试通过');
     expect(formatCodeProTerminalVerdict(zhIntl, 'FAIL')).toBe('测试失败');
+    expect(formatCodeProTerminalVerdict(zhIntl, 'INCOMPLETE')).toBe('未完成');
     expect(formatCodeProTerminalVerdict(zhIntl, 'NOT_RUN')).toBe('未运行动态验证');
     expect(formatCodeProTerminalVerdict(zhIntl, 'BLOCKED')).toBe('需要你确认');
     expect(formatCodeProTerminalVerdict(enIntl, 'WAITING_FOR_USER')).toBe('Needs your input');

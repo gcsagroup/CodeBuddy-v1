@@ -71,7 +71,7 @@ describe('codeProTerminalPresentation', () => {
   it.each([
     ['completed', 'completed', 'NOT_RUN'],
     ['skipped', 'completed', 'NOT_RUN'],
-    ['failed', 'failed', 'FAIL'],
+    ['failed', 'failed', 'INCOMPLETE'],
     ['paused', 'paused', 'BLOCKED'],
     ['waiting_for_user', 'paused', 'WAITING_FOR_USER'],
     ['cancelled', 'cancelled', 'BLOCKED'],
@@ -95,6 +95,35 @@ describe('codeProTerminalPresentation', () => {
       summaryStatus: 'paused',
       verdict: 'BLOCKED',
     });
+  });
+
+  it('requires failed verification evidence before displaying tests failed', () => {
+    expect(codeProTerminalPresentation({ status: 'failed' })).toEqual({
+      summaryStatus: 'failed',
+      verdict: 'INCOMPLETE',
+    });
+    for (const verification of ['passed', 'failed', 'unavailable'] as const) {
+      expect(
+        codeProTerminalPresentation({
+          status: 'failed',
+          report: {
+            outcome: 'failed',
+            verification_summary: [
+              {
+                task_id: 'test',
+                verdict: verification,
+                command: 'node --test',
+                exit_code: verification === 'failed' ? 1 : null,
+                evidence_ref: 'receipt',
+              },
+            ],
+          },
+        })
+      ).toEqual({
+        summaryStatus: 'failed',
+        verdict: verification === 'failed' ? 'FAIL' : 'INCOMPLETE',
+      });
+    }
   });
 
   it.each([

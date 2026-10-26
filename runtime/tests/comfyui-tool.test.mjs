@@ -1,3 +1,4 @@
+import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, realpath } from 'node:fs/promises';
@@ -19,6 +20,7 @@ async function fixture(t, saveNode = '461') {
   const png = await readFile(new URL('../../ui/desktop/src/pets/assets/red-panda/sprites.png', import.meta.url));
   const calls = []; let state = 'queued';
   const fetchImpl = async (url, options) => {
+    const catalogResponse = savedFixtureResponse(url); if (catalogResponse) return catalogResponse;
     calls.push({ url, ...options });
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.includes('/upload/image')) return Response.json({ name: 'reference.png', subfolder: 'input', type: 'input' });
@@ -66,6 +68,7 @@ test('low disk space prevents submission; completed remote output can be downloa
   assert.equal(result.status, 'completed');
   assert.deepEqual(await readFile(result.images[0].path), f.png);
   assert.equal(f.calls.filter(x => x.url.endsWith('/prompt')).length, 1);
+  assert.equal(JSON.parse(f.calls.find(x => x.url.endsWith('/prompt')).body).extra_data.preview_method, 'none');
 });
 
 test('real PNG result survives tool recreation, routes by prompt ID, and repeated submit does not enqueue twice', async t => {
@@ -113,7 +116,7 @@ test('invalid inputs, outside reference and bad server image never publish an im
 });
 test('server failures and ambiguous submission stay truthful; cancellation targets only this prompt', async t => {
   const f = await fixture(t);
-  const uncertain = comfyuiTool({ ...f.options, fetchImpl: async () => { throw new Error('Connection lost'); } });
+  const uncertain = comfyuiTool({ ...f.options, fetchImpl: async (url, options) => { if (url.endsWith('/prompt')) throw new Error('Connection lost'); return f.options.fetchImpl(url, options); } });
   assert.equal((await uncertain.execute(generate)).status, 'submission_unknown');
   assert.equal((await uncertain.execute(generate)).status, 'submission_unknown');
   f.state('running');
@@ -176,7 +179,7 @@ test('preview catalog returns durable receipts while a service observation is st
   try {
     const snapshot = await slow.jobs();
     assert.equal(snapshot[0].status, 'queued');
-    assert.equal(snapshot[0].workflow.id, 'qwen_image');
+    assert.equal(snapshot[0].workflow.id, 'saved:qwen_image.json');
     assert.equal(observed, true);
   } finally { release(); }
   await slow.execute({ operation: 'status', job_id: id });

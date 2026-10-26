@@ -12,13 +12,17 @@ function requestFailureMessage(failure, observation) {
   if (codes.some(code => ['UND_ERR_CONNECT_TIMEOUT', 'ETIMEDOUT'].includes(code))) return '连接模型服务超时，原因尚未确认';
   if (codes.includes('UND_ERR_HEADERS_TIMEOUT')) return '等待模型服务响应超时，原因尚未确认';
   if (codes.includes('UND_ERR_BODY_TIMEOUT')) return '接收模型响应超时，原因尚未确认';
+  if (failure?.code === 'EMPTY_RESPONSE') {
+    return observation?.reasoningDeltaChars > 0 && observation.textDeltaChars === 0 && observation.toolCallBlocks === 0
+      ? '模型只返回了思考内容，没有返回正文或有效工具调用'
+      : '模型响应已结束，但没有返回正文或有效工具调用';
+  }
   return ({
     AUTH: '模型服务未通过身份验证',
     RATE_LIMIT: '模型服务报告请求受限',
     QUOTA: '模型服务报告额度不足',
     TIMEOUT: '模型请求超时，原因尚未确认',
     TRANSPORT: '模型连接发生错误，原因尚未确认',
-    EMPTY_RESPONSE: '模型响应已结束，但没有返回可用内容',
     CONTEXT_WINDOW_EXCEEDED: '模型服务报告上下文超出限制',
   })[failure?.code] ?? '请求失败，具体原因尚未确认';
 }
@@ -36,7 +40,11 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     if (event.type === 'model_diagnostic' && event.sessionId) {
       if (event.phase === 'start') observations.delete(event.sessionId);
       else if (event.phase === 'end' && !event.cancelled)
-        observations.set(event.sessionId, { status: event.status, transportCodes: event.transportCodes });
+        observations.set(event.sessionId, {
+          status: event.status, transportCodes: event.transportCodes,
+          textDeltaChars: event.textDeltaChars, reasoningDeltaChars: event.reasoningDeltaChars,
+          toolCallBlocks: event.toolCallBlocks,
+        });
     }
     const native = event.type === 'harness_event' ? event.event : undefined;
     const retryStarted = (event.type === 'model_diagnostic' && event.phase === 'start') || native?.type === 'llm/retry-started';
@@ -59,7 +67,11 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
       retryMessages.set(event.sessionId, message);
     } else if (native?.type === 'turn/end' && native.data?.reason?.kind === 'error') {
       message = requestFailureMessage(native.data.reason.error, observations.get(event.sessionId));
-      if (event.sessionId === sessionId) { phase = 'model'; type = 'notice'; }
+      if (event.sessionId === sessionId) {
+        phase = 'model'; type = 'notice';
+        if (native.data.reason.error?.code === 'EMPTY_RESPONSE')
+          message += '。本轮已停止，可重试或切换模型；若持续出现，请检查模型服务的输出格式。';
+      }
       else { children.delete(event.sessionId); phase = children.size ? 'children' : 'child_result'; message = `子任务：${message}；等待主 Agent 处理`; }
     } else if (event.type === 'subagent_start' && event.sessionId === sessionId) {
       children.add(event.childSessionId);

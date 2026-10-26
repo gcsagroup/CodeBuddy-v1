@@ -6,25 +6,9 @@ export function mediaStreamKey(dataDir, sessionId, kind, jobId) {
   return JSON.stringify([dataDir, sessionId, kind, jobId]);
 }
 export function consumeMediaEvent(state, bytes, binary, promptId) {
-  if (binary) {
-    if (bytes.length < 9 || bytes.length > 2 * 1024 * 1024) return;
-    const type = bytes.readUInt32BE(0);
-    let offset = 8;
-    if (type === 4) {
-      const length = bytes.readUInt32BE(4);
-      if (length > 8192 || 8 + length >= bytes.length) return;
-      let meta; try { meta = JSON.parse(bytes.toString('utf8', 8, 8 + length)); } catch { return; }
-      if (meta.prompt_id !== promptId) return;
-      offset += length;
-    } else if (type !== 1 || !state.node) return;
-    const data = bytes.subarray(offset);
-    const mime = data[0] === 255 && data[1] === 216 ? 'image/jpeg'
-      : data.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'image/png' : null;
-    if (!mime) return;
-    state.preview = `data:${mime};base64,${data.toString('base64')}`;
-    state.previewAt = Date.now();
-    return;
-  }
+  // Older/in-flight jobs or custom nodes may still send image frames. Do not
+  // retain, encode or forward them; the UI uses a local waiting animation.
+  if (binary) return;
   let event; try { event = JSON.parse(bytes.toString()); } catch { return; }
   const data = event.data;
   if (!data || data.prompt_id !== promptId) return;
@@ -49,7 +33,7 @@ export async function watchMedia(key, server, job, { Socket = WebSocket } = {}) 
   entry.ready = new Promise(resolve => {
     const timer = setTimeout(resolve, 1500); timer.unref?.();
     const done = () => { clearTimeout(timer); resolve(); };
-    socket.on('open', () => { state.connected = true; socket.send(JSON.stringify({ type: 'feature_flags', data: { supports_preview_metadata: true } })); done(); });
+    socket.on('open', () => { state.connected = true; done(); });
     socket.on('error', done);
     socket.on('close', () => { state.connected = false; done(); if (streams.get(key) === entry) streams.delete(key); });
   });

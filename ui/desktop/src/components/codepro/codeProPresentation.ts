@@ -201,7 +201,14 @@ export function formatCodeProVerificationOutcome(
   return formatCodeProTaskStatus(intl, status);
 }
 
-export type CodeProTerminalVerdict = 'PASS' | 'NOT_RUN' | 'FAIL' | 'BLOCKED' | 'WAITING_FOR_USER';
+// Display-only distinctions; native terminal status and retry contracts stay unchanged.
+export type CodeProTerminalVerdict =
+  | 'PASS'
+  | 'NOT_RUN'
+  | 'FAIL'
+  | 'INCOMPLETE'
+  | 'BLOCKED'
+  | 'WAITING_FOR_USER';
 
 export function formatCodeProTerminalVerdict(
   intl: IntlShape,
@@ -212,6 +219,8 @@ export function formatCodeProTerminalVerdict(
       return formatCodeProVerificationOutcome(intl, 'passed', 'passed');
     case 'FAIL':
       return formatCodeProVerificationOutcome(intl, 'failed', 'failed');
+    case 'INCOMPLETE':
+      return formatCodeProTaskStatus(intl, 'failed');
     case 'NOT_RUN':
       return formatCodeProTaskStatus(intl, 'skipped');
     case 'BLOCKED':

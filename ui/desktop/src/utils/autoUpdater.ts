@@ -10,6 +10,7 @@ import {
 import * as path from 'node:path';
 import log from './logger';
 import { trayIconFileName } from './appIcons';
+import { applicationWindows } from '../pets/petMain';
 
 // Tray presentation only. Product update execution lives in update/main.ts.
 let trayRef: Tray | null = null;
@@ -75,7 +76,7 @@ export function updateTrayMenu(hasUpdate: boolean) {
     {
       label: 'Show Window',
       click: async () => {
-        const windows = BrowserWindow.getAllWindows();
+        const windows = applicationWindows();
         if (windows.length === 0) {
           log.info('No windows are open, creating a new one...');
           // Emit event to create new window (handled in main.ts)
@@ -103,6 +104,7 @@ export function updateTrayMenu(hasUpdate: boolean) {
             win.show();
           }
 
+          if (win.isMinimized()) win.restore();
           win.focus();
         });
       },

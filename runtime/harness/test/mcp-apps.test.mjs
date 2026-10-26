@@ -7,6 +7,9 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { Compat } from '../../compat.mjs';
+import { openStore } from '../../store.mjs';
+import { SafetyPolicy } from '../../safety-policy.mjs';
 
 const resourceMeta = { ui: { prefersBorder: true, csp: { connectDomains: ['https://api.example.test'] } } };
 const hiddenMeta = { privateUiState: 'HOST_ONLY_NOT_MODEL_VISIBLE' };
@@ -25,9 +28,10 @@ async function fixture(t) {
       calls.push(msg); headers.push(req.headers.authorization); let result;
       if (msg.method === 'initialize' && controls.rejectInitialize) { res.writeHead(503).end(); return; }
       if (msg.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: { listChanged: true }, resources: {} }, serverInfo: { name: 'apps-fixture', version: '1' } };
-      else if (msg.method === 'tools/list') result = { tools: [{ name: controls.toolName, description: 'Read chart values', inputSchema: { type: 'object', properties: {} }, ...(controls.noApp ? {} : { _meta: { ui: { resourceUri: resource.uri } } }) }] };
+      else if (msg.method === 'tools/list') result = { tools: [{ name: controls.toolName, description: 'Read chart values', inputSchema: { type: 'object', properties: {} }, ...(controls.noApp ? {} : { _meta: { ui: { resourceUri: resource.uri } } }) }, ...(controls.extraTool ? [{ name: 'extra', description: 'An independent tool', inputSchema: { type: 'object', properties: {} } }] : [])] };
       else if (msg.method === 'tools/call') result = { content: [{ type: 'text', text: 'chart values' }], structuredContent: { values: [3, 8] }, _meta: hiddenMeta };
       else if (msg.method === 'resources/list') result = { resources: [resource] };
+      else if (msg.method === 'resources/templates/list') result = { resourceTemplates: [] };
       else if (msg.method === 'resources/read') {
         if (msg.params.uri === 'ui://fixture/wait') { held.set('resource', res); req.on('close', () => held.delete('resource')); return; }
         result = { contents: [{ uri: resource.uri, mimeType: resource.mimeType, blob: Buffer.from('<h1>中文图表</h1>').toString('base64'), _meta: resourceMeta }], _meta: { resourceReceipt: 'real-wire' } };
@@ -51,6 +55,46 @@ async function fixture(t) {
   return { root, driver, calls, models, held, session, mcp, headers, controls, provider, streams };
 }
 async function until(predicate) { for (let i = 0; i < 100 && !predicate(); i++) await delay(20); assert.ok(predicate(), 'fixture reached expected phase'); }
+
+test('MCP resource approvals are reusable per live server and operation, including template discovery', async t => {
+  const { root, driver, session, mcp, calls } = await fixture(t);
+  const servers = [mcp, { ...mcp, serverName: 'other' }];
+  const id = await session({ mcpServers: servers });
+  const store = await openStore(path.join(root, 'approval-host'));
+  const s = { id, cwd: root, extensions: [], mcpServers: servers.map(server => ({ name: server.serverName, url: server.url })) };
+  await store.update(state => state.sessions.push(s));
+  const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) });
+  const questions = [];
+  let choice = 'allow_always';
+  const invoke = (name, server = 'chart', extras = {}) => driver.callTool(id, name, { server, ...(name === 'read_mcp_resource' ? { uri: resource.uri } : {}), ...extras }, {
+    onToolPolicy: call => host.toolPolicy(s, call, call.signal),
+    onPermission: call => host.approveTool(s, call, { async ask(_method, params) {
+      questions.push(params);
+      assert.ok(params.options.some(option => option.optionId === 'allow_always'), 'All three resource operations must offer session approval');
+      return { outcome: { outcome: 'selected', optionId: choice } };
+    } }, call.signal),
+  });
+  for (const name of ['list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']) {
+    const before = questions.length;
+    const first = await invoke(name);
+    assert.equal(first.isError, false, JSON.stringify(first));
+    assert.equal((await invoke(name)).isError, false);
+    assert.equal(questions.length, before + 1);
+    await driver.configureSession(id, { mcpServers: servers });
+    assert.equal((await invoke(name)).isError, false);
+    assert.equal(questions.length, before + 1, 'Equivalent next-turn configuration preserves the resource grant');
+  }
+  choice = 'reject_once';
+  const before = calls.filter(call => call.method === 'resources/read').length;
+  assert.equal((await invoke('read_mcp_resource', 'other')).isError, true);
+  assert.equal(calls.filter(call => call.method === 'resources/read').length, before, 'Another server requires its own approval before dispatch');
+  await driver.configureSession(id, { mcpServers: [{ ...mcp, headers: { authorization: 'Bearer changed-fixture' } }] });
+  assert.equal((await invoke('read_mcp_resource')).isError, true, 'A replacement connection cannot inherit the grant');
+  await store.update(state => { state.sessions[0].mcpServers = [{ name: 'other', url: mcp.url }]; });
+  const asked = questions.length;
+  assert.equal((await invoke('list_mcp_resource_templates')).isError, true);
+  assert.equal(questions.length, asked, 'Disabling the target blocks template discovery even while another server is enabled');
+});
 
 test('single official MCP connection preserves exact tool metadata for direct and model calls, without exposing UI-only data to model', async t => {
   const { driver, session, calls, models } = await fixture(t), id = await session();
@@ -161,6 +205,37 @@ test('failed shared startup is not cached and later new sessions recover without
   assert.equal((await driver.callTool(next, 'mcp__chart__chart', {}, { onPermission: async () => true })).isError, false);
   await driver.configureSession(first, { mcpServers: [mcp] });
   assert.equal((await driver.extensionStatus(first))[0].status, 'ready');
+});
+
+test('unrelated MCP list refresh preserves an existing session grant, changed metadata revokes it', async t => {
+  const { root, driver, session, controls, streams } = await fixture(t);
+  controls.liveNotifications = true;
+  const id = await session();
+  const store = await openStore(path.join(root, 'approval-store'));
+  const s = { id, cwd: root, type: 'code_pro', workspaceBinding: 'writable_project', mcpServers: [{ name: 'chart', type: 'http', url: 'http://fixture' }] };
+  await store.update(state => state.sessions.push(s));
+  const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) });
+  let asked = 0;
+  const invoke = () => driver.callTool(id, 'mcp__chart__chart', {}, {
+    onToolPolicy: call => host.toolPolicy(s, call, call.signal),
+    onPermission: call => host.approveTool(s, call, { async ask() {
+      asked++; return { outcome: { outcome: 'selected', optionId: 'allow_always' } };
+    } }, call.signal),
+  });
+  assert.equal((await invoke()).isError, false);
+  assert.equal(asked, 1);
+  await until(() => streams.size > 0);
+  const refresh = () => { for (const stream of streams) stream.write(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })}\n\n`); };
+  controls.extraTool = true; refresh();
+  for (let i = 0; i < 100; i++) { if ((await driver.listTools(id)).some(tool => tool.name === 'mcp__chart__extra')) break; await delay(20); }
+  assert.ok((await driver.listTools(id)).some(tool => tool.name === 'mcp__chart__extra'));
+  assert.equal((await invoke()).isError, false);
+  assert.equal(asked, 1, 'An unrelated added tool must not erase the unchanged tool grant');
+  controls.noApp = true; refresh();
+  for (let i = 0; i < 100; i++) { if (!(await driver.listTools(id)).find(tool => tool.name === 'mcp__chart__chart').mcpApp) break; await delay(20); }
+  assert.equal((await driver.listTools(id)).find(tool => tool.name === 'mcp__chart__chart').mcpApp, undefined);
+  assert.equal((await invoke()).isError, false);
+  assert.equal(asked, 2, 'Changed tool metadata requires a fresh explicit grant');
 });
 
 test('shared MCP tool-list changes reach every restricted session without reconnecting or exposing disabled native tools', async t => {

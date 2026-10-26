@@ -4,6 +4,7 @@ import {
   extensionName,
 } from "./session-extensions.mjs";
 import { GIT_TOOL_NAMES } from "./git-extension.mjs";
+import { MCP_RESOURCE_TOOL_NAMES } from './mcp-settings.mjs';
 
 export function publicToolName(name) {
   if (name.startsWith("mcp__")) return name.slice(5);
@@ -28,7 +29,7 @@ export async function toolEnabled(session, settings, name, resolved) {
   // every extension; disabling developer must not strand Git or MCP tools.
   if (name === "search_mcp_tools")
     return entries.length > 0 || snapshot.mcpServers.length > 0;
-  if (["read_mcp_resource", "list_mcp_resources"].includes(name))
+  if (MCP_RESOURCE_TOOL_NAMES.includes(name))
     return (
       entries.some(
         (e) =>

@@ -7,7 +7,7 @@ export function browserTool({ sessionId, cwd, request }) {
       operation: { type: 'string', enum: ['open', 'observe', 'click', 'type', 'key', 'screenshot', 'console', 'close'] },
       id: { type: 'string', description: 'Tab ID returned by a successful open; required except open. Never guess an ID after open fails.' },
       url: { type: 'string' }, path: { type: 'string', description: 'Workspace HTML path instead of URL.' },
-      node: { type: 'integer', minimum: 1, description: 'Required for BOTH click and type: backend node ID from latest observation. Focusing an element does not replace this argument. For a native select, click the combobox then use ArrowDown/ArrowUp and Enter; option nodes are not directly clickable. Observe the value after selection.' },
+      node: { type: 'integer', minimum: 1, description: 'Required for BOTH click and type: backend node ID from latest observation. Focusing an element does not replace this argument. Click buttons, links or form controls, not their StaticText children. For a native select, click the desired option node directly; keyboard popup navigation is platform dependent. Observe the value after selection.' },
       text: { type: 'string', maxLength: 20000, description: 'Insert text, without clearing or submitting.' },
       key: { type: 'string', enum: ['Enter', 'Tab', 'Escape', 'Backspace', 'ArrowDown', 'ArrowUp'] },
     }, required: ['operation'], additionalProperties: false },

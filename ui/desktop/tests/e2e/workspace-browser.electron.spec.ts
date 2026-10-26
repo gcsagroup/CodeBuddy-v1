@@ -39,7 +39,8 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
       `<meta charset="utf-8"><title>本机预览验收</title>
       <label>姓名<input aria-label="姓名"></label>
       <label><input type="checkbox">同意本地验收</label>
-      <label>版本<select><option>基础版</option><option>专业版</option></select></label>
+      <label>版本<select oninput="document.querySelector('#selected-input').textContent='input:'+this.value" onchange="document.querySelector('#selected-change').textContent='change:'+this.value"><option>基础版</option><option>专业版</option><option disabled>停用版</option></select></label>
+      <output id="selected-input"></output><output id="selected-change"></output>
       <button onclick="document.querySelector('output').textContent='你好，'+document.querySelector('input').value">验证</button><output></output>
       <div id="shadow-host"></div>
       <script>
@@ -110,6 +111,12 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     expect(observed.title).toBe('本机预览验收');
     const name = observed.nodes.find((n: any) => n.role === 'textbox' && n.name === '姓名').node;
     const verify = observed.nodes.find((n: any) => n.role === 'button' && n.name === '验证').node;
+    const verifyText = observed.nodes.find(
+      (n: any) => n.role === 'StaticText' && n.name === '验证'
+    ).node;
+    await expect(call({ operation: 'click', id, node: verifyText })).rejects.toThrow(
+      'text node, not an element'
+    );
     await call({ operation: 'type', id, node: name, text: '浏览器测试' });
     await call({ operation: 'click', id, node: verify });
     observed = (await call({ operation: 'observe', id })).result;
@@ -119,17 +126,17 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     await call({ operation: 'click', id, node: consent.node });
     observed = (await call({ operation: 'observe', id })).result;
     expect(observed.nodes.find((n: any) => n.role === 'checkbox').checked).toBe('true');
-    const version = observed.nodes.find((n: any) => n.role === 'combobox');
     const pro = observed.nodes.find((n: any) => n.role === 'option' && n.name === '专业版');
-    await expect(call({ operation: 'click', id, node: pro.node })).rejects.toThrow(
-      'owning combobox'
-    );
-    await call({ operation: 'click', id, node: version.node });
-    await call({ operation: 'key', id, key: 'ArrowDown' });
-    await call({ operation: 'key', id, key: 'Enter' });
+    const disabled = observed.nodes.find((n: any) => n.role === 'option' && n.name === '停用版');
+    await expect(call({ operation: 'click', id, node: disabled.node })).rejects.toThrow('disabled');
+    await call({ operation: 'click', id, node: pro.node });
     observed = (await call({ operation: 'observe', id })).result;
     expect(observed.nodes.find((n: any) => n.role === 'combobox').value).toBe('专业版');
-    const shadowSearch = observed.nodes.find((n: any) => n.role === 'button' && n.name === '影子搜索');
+    expect(JSON.stringify(observed)).toContain('input:专业版');
+    expect(JSON.stringify(observed)).toContain('change:专业版');
+    const shadowSearch = observed.nodes.find(
+      (n: any) => n.role === 'button' && n.name === '影子搜索'
+    );
     await call({ operation: 'click', id, node: shadowSearch.node });
     observed = (await call({ operation: 'observe', id })).result;
     expect(JSON.stringify(observed)).toContain('影子搜索成功');
@@ -141,7 +148,10 @@ test('native embedded browser observes, types, clicks, rejects covered targets a
     ).node;
     await call({ operation: 'click', id, node: cover });
     await expect(call({ operation: 'click', id, node: verify })).rejects.toThrow('covered');
-    await expect(call({ operation: 'click', id, node: shadowSearch.node })).rejects.toThrow('covered');
+    await expect(call({ operation: 'click', id, node: pro.node })).rejects.toThrow('covered');
+    await expect(call({ operation: 'click', id, node: shadowSearch.node })).rejects.toThrow(
+      'covered'
+    );
     const screenshot = (await call({ operation: 'screenshot', id })).result.content[0];
     expect(screenshot.mimeType).toBe('image/png');
     expect(Buffer.from(screenshot.data, 'base64').length).toBeGreaterThan(100);

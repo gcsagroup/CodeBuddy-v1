@@ -112,49 +112,30 @@ export class BrowserController {
         await debug.sendCommand('Input.insertText', { text: input.text });
       } else {
         const { node } = await debug.sendCommand('DOM.describeNode', { backendNodeId: input.node });
-        if (node.localName === 'option') {
+        if (node.nodeType !== 1) {
           throw new Error(
-            'Native select options have no clickable page box. Click the owning combobox, use key ArrowDown/ArrowUp and Enter, then observe its value. Do not retry clicking this option.'
+            'Target is a text node, not an element. Choose the observed button, link or form control that performs the intended action; do not retry this text node.'
           );
         }
-        await debug.sendCommand('DOM.scrollIntoViewIfNeeded', { backendNodeId: input.node });
-        const { model } = await debug.sendCommand('DOM.getBoxModel', { backendNodeId: input.node });
-        const q = model.content as number[];
-        const x = (q[0] + q[2] + q[4] + q[6]) / 4,
-          y = (q[1] + q[3] + q[5] + q[7]) / 4;
-        // A fresh hit test prevents a newly opened overlay from receiving this click.
-        const { object } = await debug.sendCommand('DOM.resolveNode', {
-          backendNodeId: input.node,
-        });
-        try {
-          const hit = await debug.sendCommand('Runtime.callFunctionOn', {
-            objectId: object.objectId,
-            functionDeclaration:
-              // Document hit testing returns a shadow host rather than its inner
-              // button. Check every containing root so overlays still reject.
-              'function(x, y) { let target = this; while (target) { const root = target.getRootNode(); const hit = root.elementFromPoint?.(x, y); if (target !== hit && !target.contains(hit)) return false; target = root.host; } return true; }',
-            arguments: [{ value: x }, { value: y }],
-            returnByValue: true,
+        if (node.localName === 'option') {
+          await this.selectOption(input.node!);
+        } else {
+          const { x, y } = await this.clickPoint(input.node!);
+          await debug.sendCommand('Input.dispatchMouseEvent', {
+            type: 'mousePressed',
+            x,
+            y,
+            button: 'left',
+            clickCount: 1,
           });
-          if (hit.result?.value !== true)
-            throw new Error('Target is covered or outside the viewport. Observe the page again.');
-        } finally {
-          await debug.sendCommand('Runtime.releaseObject', { objectId: object.objectId });
+          await debug.sendCommand('Input.dispatchMouseEvent', {
+            type: 'mouseReleased',
+            x,
+            y,
+            button: 'left',
+            clickCount: 1,
+          });
         }
-        await debug.sendCommand('Input.dispatchMouseEvent', {
-          type: 'mousePressed',
-          x,
-          y,
-          button: 'left',
-          clickCount: 1,
-        });
-        await debug.sendCommand('Input.dispatchMouseEvent', {
-          type: 'mouseReleased',
-          x,
-          y,
-          button: 'left',
-          clickCount: 1,
-        });
       }
       return {
         dispatched: true,
@@ -189,5 +170,73 @@ export class BrowserController {
       return { dispatched: true, verified: false };
     }
     throw new Error('Unsupported browser operation');
+  }
+
+  private async clickPoint(backendNodeId: number) {
+    const debug = this.wc.debugger;
+    await debug.sendCommand('DOM.scrollIntoViewIfNeeded', { backendNodeId });
+    const { model } = await debug.sendCommand('DOM.getBoxModel', { backendNodeId });
+    const q = model.content as number[];
+    const x = (q[0] + q[2] + q[4] + q[6]) / 4;
+    const y = (q[1] + q[3] + q[5] + q[7]) / 4;
+    const { object } = await debug.sendCommand('DOM.resolveNode', { backendNodeId });
+    try {
+      const hit = await debug.sendCommand('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        // Check every containing shadow root so an outer overlay still rejects.
+        functionDeclaration:
+          'function(x, y) { let target = this; while (target) { const root = target.getRootNode(); const hit = root.elementFromPoint?.(x, y); if (target !== hit && !target.contains(hit)) return false; target = root.host; } return true; }',
+        arguments: [{ value: x }, { value: y }],
+        returnByValue: true,
+      });
+      if (hit.result?.value !== true)
+        throw new Error('Target is covered or outside the viewport. Observe the page again.');
+      return { x, y };
+    } finally {
+      await debug.sendCommand('Runtime.releaseObject', { objectId: object.objectId });
+    }
+  }
+
+  private async selectOption(backendNodeId: number) {
+    const debug = this.wc.debugger;
+    const { object } = await debug.sendCommand('DOM.resolveNode', { backendNodeId });
+    let selectId: string | undefined;
+    try {
+      const owner = await debug.sendCommand('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        functionDeclaration: 'function() { return this.closest("select"); }',
+      });
+      selectId = owner.result?.objectId;
+      if (!selectId) throw new Error('Option has no owning select. Observe the page again.');
+      const { node } = await debug.sendCommand('DOM.describeNode', { objectId: selectId });
+      await this.clickPoint(node.backendNodeId);
+      // macOS native select menus are outside the renderer's CDP keyboard path.
+      // Select the exact observed option and emit the standard form events, as
+      // browser automation selectOption does; never infer a value from its label.
+      const result = await debug.sendCommand('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        functionDeclaration: `function(select) {
+          if (!this.isConnected || this.closest('select') !== select)
+            return 'Option changed. Observe the page again.';
+          if (select.matches(':disabled') || this.disabled || this.parentElement?.matches('optgroup:disabled'))
+            return 'Option or select is disabled.';
+          select.focus();
+          if (select.multiple) this.selected = true;
+          else select.selectedIndex = this.index;
+          select.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return null;
+        }`,
+        arguments: [{ objectId: selectId }],
+        returnByValue: true,
+      });
+      if (result.exceptionDetails)
+        throw new Error('Option selection failed. Observe the page again.');
+      if (result.result?.value !== null)
+        throw new Error(result.result?.value || 'Option selection returned no result.');
+    } finally {
+      if (selectId) await debug.sendCommand('Runtime.releaseObject', { objectId: selectId });
+      await debug.sendCommand('Runtime.releaseObject', { objectId: object.objectId });
+    }
   }
 }

@@ -95,7 +95,7 @@
     "name": "github_official",
     "display_name": "GitHub",
     "description": "GitHub repositories, pull requests, issues and CI.",
-    "enabled": false,
+    "enabled": true,
     "type": "streamable_http",
     "uri": "https://api.githubcopilot.com/mcp/",
     "headers": {

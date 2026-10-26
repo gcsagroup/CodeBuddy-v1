@@ -3099,7 +3099,7 @@
     "defaultMessage": "复制验证码"
   },
   "githubConnections.disconnected": {
-    "defaultMessage": "尚未登录 GitHub CLI 账户。"
+    "defaultMessage": "登录后即可使用 GitHub。"
   },
   "githubConnections.dismiss": {
     "defaultMessage": "取消"

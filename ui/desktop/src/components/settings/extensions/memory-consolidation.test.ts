@@ -75,7 +75,7 @@ it('offers GitHub separately from local Git and preserves existing authenticated
     headers: { Authorization: 'Bearer ${CODEBUDDY_GITHUB_MCP_TOKEN}' },
     env_keys: ['CODEBUDDY_GITHUB_MCP_TOKEN'],
   });
-  expect(github![2]).toBe(false);
+  expect(github![2]).toBe(true);
   add.mockClear();
   await syncBundledExtensions([{ ...github![1], enabled: true }] as FixedExtensionEntry[], add);
   expect(add.mock.calls.some(([name]) => name === 'github_official')).toBe(false);

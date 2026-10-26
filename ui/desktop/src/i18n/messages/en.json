@@ -3099,7 +3099,7 @@
     "defaultMessage": "Copy code"
   },
   "githubConnections.disconnected": {
-    "defaultMessage": "No GitHub CLI account is signed in."
+    "defaultMessage": "Sign in to use GitHub."
   },
   "githubConnections.dismiss": {
     "defaultMessage": "Cancel"

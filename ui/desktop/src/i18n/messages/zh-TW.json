@@ -3099,7 +3099,7 @@
     "defaultMessage": "複製驗證碼"
   },
   "githubConnections.disconnected": {
-    "defaultMessage": "尚未登入 GitHub CLI 帳戶。"
+    "defaultMessage": "登入後即可使用 GitHub。"
   },
   "githubConnections.dismiss": {
     "defaultMessage": "取消"

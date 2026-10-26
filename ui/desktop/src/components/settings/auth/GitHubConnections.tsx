@@ -21,7 +21,7 @@ const messages = defineMessages({
   connected: { id: 'githubConnections.connected', defaultMessage: 'GitHub account: {login}' },
   disconnected: {
     id: 'githubConnections.disconnected',
-    defaultMessage: 'No GitHub CLI account is signed in.',
+    defaultMessage: 'Sign in to use GitHub.',
   },
   unavailable: {
     id: 'githubConnections.unavailable',
@@ -169,49 +169,64 @@ export default function GitHubConnections({
     },
     [onConnected]
   );
-  const check = async () => {
-    if (logoutPending.current || mcpConnectPending.current) return;
-    const current = ++generation.current;
-    setChecking(true);
-    setCheckingAccount(true);
-    const apply = () => mounted.current && generation.current === current;
-    await Promise.all([
-      (async () => {
-        let next: GitHubCliStatus;
-        try {
-          next = hasLoginBridge()
-            ? await connectionCheck(window.electron.githubCliStatus())
-            : { state: 'restart_required' };
-        } catch (error) {
-          next = { state: isMissingLoginHandler(error) ? 'restart_required' : 'check_failed' };
-        }
-        if (apply()) {
-          setStatus(next);
-          setCheckingAccount(false);
-        }
-      })(),
-      (async () => {
-        let next: McpState;
-        try {
-          const { extensions } = await connectionCheck(getConfiguredExtensions());
-          const github = extensions.find(
-            (entry) => entry.configKey === 'github_official' || entry.name === 'github_official'
-          );
-          next = !github
-            ? 'missing'
-            : !github.enabled
-              ? 'off'
-              : (await connectionCheck(testConfigExtension(github))).success
-                ? 'connected'
-                : 'failed';
-        } catch {
-          next = 'failed';
-        }
-        if (apply()) setMcp(next);
-      })(),
-    ]);
-    if (apply()) setChecking(false);
-  };
+  const check = useCallback(
+    async (forceConnect = false) => {
+      if (logoutPending.current || mcpConnectPending.current) return;
+      const current = ++generation.current;
+      setChecking(true);
+      setCheckingAccount(true);
+      const apply = () => mounted.current && generation.current === current;
+      let account: GitHubCliStatus | undefined;
+      let reconnect = false;
+      await Promise.all([
+        (async () => {
+          let next: GitHubCliStatus;
+          try {
+            next = hasLoginBridge()
+              ? await connectionCheck(window.electron.githubCliStatus())
+              : { state: 'restart_required' };
+          } catch (error) {
+            next = { state: isMissingLoginHandler(error) ? 'restart_required' : 'check_failed' };
+          }
+          if (apply()) {
+            account = next;
+            setStatus(next);
+            setCheckingAccount(false);
+          }
+        })(),
+        (async () => {
+          let next: McpState;
+          try {
+            const { extensions } = await connectionCheck(getConfiguredExtensions());
+            const github = extensions.find(
+              (entry) => entry.configKey === 'github_official' || entry.name === 'github_official'
+            );
+            reconnect =
+              !!github?.enabled &&
+              github.type === 'streamable_http' &&
+              github.uri === 'https://api.githubcopilot.com/mcp/';
+            next = !github
+              ? 'missing'
+              : !github.enabled
+                ? 'off'
+                : (await connectionCheck(testConfigExtension(github))).success
+                  ? 'connected'
+                  : 'failed';
+          } catch {
+            next = 'failed';
+          }
+          if (apply()) setMcp(next);
+          if (next === 'connected') reconnect = false;
+        })(),
+      ]);
+      if (apply() && allowLogin && (reconnect || forceConnect) && account?.state === 'connected') {
+        await connectAccount(account.login);
+        return;
+      }
+      if (apply()) setChecking(false);
+    },
+    [allowLogin, connectAccount]
+  );
   useEffect(() => {
     mounted.current = true;
     void check();
@@ -222,7 +237,7 @@ export default function GitHubConnections({
       flow.current = null;
     };
     // Connections are checked on entry and on explicit refresh.
-  }, []);
+  }, [check]);
   useEffect(() => {
     if (!challenge) return;
     let disposed = false;
@@ -345,64 +360,70 @@ export default function GitHubConnections({
             )}
           </p>
         )}
-        {mcp && (
-          <p className="mt-1 text-text-secondary">
-            {mcp === 'connected'
-              ? t('GitHub: connected', 'GitHub：已连接', 'GitHub：已連線')
-              : mcp === 'off'
-                ? t('GitHub: disabled', 'GitHub：已停用', 'GitHub：已停用')
-                : mcp === 'missing'
-                  ? t('GitHub: not connected', 'GitHub：未连接', 'GitHub：未連線')
-                  : t(
-                      'GitHub: connection failed. Check the network and reconnect.',
-                      'GitHub：连接失败，请检查网络后重新连接。',
-                      'GitHub：連線失敗，請檢查網路後重新連線。'
-                    )}
+        {checking || connectingMcp ? (
+          <p role="status" className="mt-1 text-text-secondary">
+            {t('Connecting…', '连接中…', '連線中…')}
           </p>
+        ) : (
+          mcp &&
+          !mcpConnectError &&
+          (mcp === 'connected' || status?.state === 'connected') && (
+            <p className="mt-1 text-text-secondary">
+              {mcp === 'connected'
+                ? t('GitHub: connected', 'GitHub：已连接', 'GitHub：已連線')
+                : mcp === 'off'
+                  ? t('GitHub: not connected', 'GitHub：未连接', 'GitHub：未連線')
+                  : mcp === 'missing'
+                    ? t('GitHub: not connected', 'GitHub：未连接', 'GitHub：未連線')
+                    : t(
+                        'GitHub: connection failed. Check the network and reconnect.',
+                        'GitHub：连接失败，请检查网络后重新连接。',
+                        'GitHub：連線失敗，請檢查網路後重新連線。'
+                      )}
+            </p>
+          )
         )}
       </div>
-      {allowLogin && status?.state === 'connected' && mcp !== 'connected' && !challenge && (
-        <div className="space-y-2">
-          <p className="text-xs text-text-secondary">
-            {t(
-              'Connect with your signed-in account. Its credential is verified and stored encrypted on this computer.',
-              '使用已登录账号连接，验证后将凭据加密保存在本机。',
-              '使用已登入帳號連線，驗證後將憑據加密儲存在本機。'
-            )}
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={checking || connectingMcp || signingOut || starting}
-            onClick={() => void connectAccount(status.login)}
-          >
-            {connectingMcp
-              ? t('Connecting…', '连接中…', '連線中…')
-              : t('Connect GitHub', '连接 GitHub', '連線 GitHub')}
-          </Button>
-          {mcpConnectError && (
-            <p role="alert" className="text-sm text-red-600">
-              {mcpConnectError === 'account_changed'
-                ? t(
-                    'The account changed. Check the connection and try again.',
-                    '账号已变化，请检查连接后重试。',
-                    '帳號已變更，請檢查連線後重試。'
-                  )
-                : mcpConnectError === 'endpoint_changed'
+      {allowLogin &&
+        status?.state === 'connected' &&
+        mcp !== 'connected' &&
+        !challenge &&
+        !checking &&
+        !connectingMcp && (
+          <div className="space-y-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={checking || connectingMcp || signingOut || starting}
+              onClick={() => void check(true)}
+            >
+              {connectingMcp
+                ? t('Connecting…', '连接中…', '連線中…')
+                : t('Connect GitHub', '连接 GitHub', '連線 GitHub')}
+            </Button>
+            {mcpConnectError && (
+              <p role="alert" className="text-sm text-red-600">
+                {mcpConnectError === 'account_changed'
                   ? t(
-                      'This extension uses a custom endpoint. Configure it in Toolbox.',
-                      '此扩展使用自定义地址，请在工具箱配置。',
-                      '此擴充功能使用自訂位址，請在工具箱設定。'
+                      'The account changed. Check the connection and try again.',
+                      '账号已变化，请检查连接后重试。',
+                      '帳號已變更，請檢查連線後重試。'
                     )
-                  : t(
-                      'GitHub connection was not completed. Check network access and account permissions, then retry.',
-                      'GitHub 连接未完成，请检查网络和账号权限后重试。',
-                      'GitHub 連線未完成，請檢查網路與帳號權限後重試。'
-                    )}
-            </p>
-          )}
-        </div>
-      )}
+                  : mcpConnectError === 'endpoint_changed'
+                    ? t(
+                        'This extension uses a custom endpoint. Configure it in Toolbox.',
+                        '此扩展使用自定义地址，请在工具箱配置。',
+                        '此擴充功能使用自訂位址，請在工具箱設定。'
+                      )
+                    : t(
+                        'GitHub connection was not completed. Check network access and account permissions, then retry.',
+                        'GitHub 连接未完成，请检查网络和账号权限后重试。',
+                        'GitHub 連線未完成，請檢查網路與帳號權限後重試。'
+                      )}
+              </p>
+            )}
+          </div>
+        )}
       {challenge ? (
         <div className="space-y-2">
           <p>{intl.formatMessage(messages.instructions)}</p>
@@ -433,40 +454,30 @@ export default function GitHubConnections({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={checking || starting || signingOut || connectingMcp}
-            onClick={() => void check()}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {intl.formatMessage(checking ? messages.checking : messages.check)}
-          </Button>
+          {status?.state === 'check_failed' && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={checking || starting || signingOut || connectingMcp}
+              onClick={() => void check()}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {intl.formatMessage(checking ? messages.checking : messages.check)}
+            </Button>
+          )}
           {status?.state === 'connected' && status.login && (
-            <details className="w-full text-xs text-text-secondary">
-              <summary className="cursor-pointer py-2">
-                {t('Advanced account options', '高级账号选项', '進階帳號選項')}
-              </summary>
-              <p className="mb-2">
-                {t(
-                  'The CLI account is shared with other tools. Signing out here leaves CodeBuddy’s saved connection credential unchanged.',
-                  'CLI 账号与其他工具共享。在此退出不会删除 CodeBuddy 已保存的连接凭据。',
-                  'CLI 帳號與其他工具共用。在此登出不會刪除 CodeBuddy 已儲存的連線憑據。'
-                )}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={checking || starting || signingOut || connectingMcp}
-                onClick={() => {
-                  setLogoutFailed(false);
-                  setLogoutAccount(status.login!);
-                }}
-              >
-                <LogOut className="h-4 w-4" />
-                {intl.formatMessage(messages.logout)}
-              </Button>
-            </details>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={checking || starting || signingOut || connectingMcp}
+              onClick={() => {
+                setLogoutFailed(false);
+                setLogoutAccount(status.login!);
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              {intl.formatMessage(messages.logout)}
+            </Button>
           )}
           {allowLogin &&
             status?.state !== 'connected' &&

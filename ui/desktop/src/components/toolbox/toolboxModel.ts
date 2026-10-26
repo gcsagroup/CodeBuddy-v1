@@ -35,8 +35,9 @@ export function groupRepositoryTools(model: ToolboxModel): ToolboxModel {
   if (!members.length) return model;
   return {
     ...model,
-    capabilities: [
-      ...model.capabilities.filter((item) => !members.includes(item)),
+    capabilities: model.capabilities.filter((item) => !members.includes(item)),
+    methods: [
+      ...model.methods,
       {
         id: 'builtin:repository',
         kind: 'builtin',

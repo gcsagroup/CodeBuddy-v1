@@ -16,9 +16,9 @@ export default function GitHubAuthCard() {
         <CardDescription>
           {selectNativeText(
             intl.locale,
-            'Manage local Git and your GitHub connection.',
-            '统一管理本地 Git 和 GitHub 连接。',
-            '統一管理本機 Git 與 GitHub 連線。'
+            'Local Git is built in. Sign in to manage GitHub repositories.',
+            '已内置本地 Git，登录后可管理 GitHub 仓库。',
+            '已內建本機 Git，登入後可管理 GitHub 儲存庫。'
           )}
         </CardDescription>
       </CardHeader>

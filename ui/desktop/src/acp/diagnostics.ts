@@ -13,9 +13,17 @@ export async function getDiagnosticsReport(
   return response.report as DiagnosticsReport;
 }
 
-export async function connectGitHubMcp(
-  login: string
-): Promise<{ success: boolean; code?: string }> {
+const githubConnections = new Map<string, Promise<{ success: boolean; code?: string }>>();
+
+export function connectGitHubMcp(login: string): Promise<{ success: boolean; code?: string }> {
+  const pending = githubConnections.get(login);
+  if (pending) return pending;
+  const operation = connectAccount(login).finally(() => githubConnections.delete(login));
+  githubConnections.set(login, operation);
+  return operation;
+}
+
+async function connectAccount(login: string): Promise<{ success: boolean; code?: string }> {
   const client = await getAcpClient();
   const result = (await client.extMethod('_goose/unstable/github/mcp/connect', { login })) as {
     success?: unknown;

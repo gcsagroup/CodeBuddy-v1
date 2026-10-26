@@ -11,6 +11,7 @@ import {
 import { pruneDeprecatedBundledExtensions, syncBundledExtensions } from './settings/extensions';
 import { enableManagedCapabilities } from './settings/extensions/managed-capabilities';
 import { consolidateGitExtensions } from './settings/extensions/bundled-extensions';
+import { connectGitHubMcp } from '../acp/diagnostics';
 import { nameToKey } from './settings/extensions/utils';
 import type { ExtensionConfig } from '../types/extensions';
 import type { ProviderDetails } from '../types/providers';
@@ -188,6 +189,9 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
       try {
         const extensionsResponse = await getConfiguredExtensions();
         let extensions = extensionsResponse.extensions;
+        const newGitHubConnection = !extensions.some(
+          (entry) => (entry.configKey ?? entry.name) === 'github_official'
+        );
 
         // Always sync bundled extensions from bundled-extensions.json
         // This ensures:
@@ -219,11 +223,26 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
 
         setExtensionsList(extensions);
         setExtensionWarnings(extensionsResponse.warnings || []);
+        // Fresh installs can reuse the user's existing login. Never replace an
+        // existing connection, custom endpoint or explicit disabled preference.
+        if (newGitHubConnection && typeof window.electron.githubCliStatus === 'function') {
+          void window.electron
+            .githubCliStatus()
+            .then(async (account) => {
+              if (account.state === 'connected' && account.login) {
+                const result = await connectGitHubMcp(account.login);
+                if (result.success) await refreshExtensions();
+              }
+            })
+            .catch(() => {
+              // Sign-in/retry stays available in the shared account panel.
+            });
+        }
       } catch (error) {
         console.error('Failed to load extensions:', error);
       }
     })();
-  }, []);
+  }, [refreshExtensions]);
 
   const contextValue = useMemo(() => {
     return {

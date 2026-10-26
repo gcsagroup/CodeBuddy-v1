@@ -25,12 +25,13 @@ it('groups repository controls without changing configuration identities or abso
     ],
   });
   const grouped = groupRepositoryTools(original);
-  expect(grouped.capabilities).toHaveLength(1);
-  expect(grouped.capabilities[0].repositoryMembers?.map((item) => item.id)).toEqual([
+  expect(grouped.capabilities).toHaveLength(0);
+  expect(grouped.methods).toHaveLength(1);
+  expect(grouped.methods[0].repositoryMembers?.map((item) => item.id)).toEqual([
     'external:github_official',
     'external:local_git',
   ]);
-  expect(grouped.capabilities[0].actions).toEqual(['inspect']);
+  expect(grouped.methods[0].actions).toEqual(['inspect']);
   expect(grouped.external.map((item) => item.id)).toEqual(['external:custom']);
   expect(original.external).toHaveLength(3);
   expect(original.capabilities).toHaveLength(0);

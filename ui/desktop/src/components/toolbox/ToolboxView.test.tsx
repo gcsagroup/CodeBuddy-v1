@@ -136,11 +136,12 @@ describe('ToolboxView', () => {
     renderView();
     const tools = await screen.findByRole('region', { name: 'Built-in capabilities' });
     expect(within(tools).getByRole('button', { name: 'Computer control' })).toBeVisible();
-    expect(within(tools).getByRole('button', { name: 'Code repositories' })).toBeVisible();
+    expect(within(tools).queryByRole('button', { name: 'Code repositories' })).toBeNull();
     expect(
       within(tools).getByRole('switch', { name: 'Enable Computer control' })
     ).not.toBeChecked();
     const skills = screen.getByRole('region', { name: 'Skills' });
+    expect(within(skills).getByRole('button', { name: 'Code repositories' })).toBeVisible();
     expect(within(skills).getByRole('button', { name: 'Desktop operation guide' })).toBeVisible();
     expect(within(skills).queryByRole('switch')).toBeNull();
     expect(screen.queryByRole('button', { name: 'GitHub' })).toBeNull();

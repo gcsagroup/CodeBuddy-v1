@@ -442,14 +442,7 @@ export default function ToolboxView() {
     const sectionItems =
       selectedSection === 'all'
         ? [...model.capabilities, ...model.methods, ...model.external]
-        : selectedSection === 'external'
-          ? [
-              ...model.external,
-              ...model.capabilities.filter((item) =>
-                item.repositoryMembers?.some((member) => member.kind === 'external')
-              ),
-            ]
-          : model[selectedSection];
+        : model[selectedSection];
     return sectionItems
       .map((item) => ({ original: item, display: localizeToolboxItem(item, intl) }))
       .filter(({ original, display }) =>
@@ -466,8 +459,8 @@ export default function ToolboxView() {
           result.model.methods.length +
           result.model.external.length >
         0
-      : result.model[selectedSection].length > 0;
-  const builtInSkills = items.filter(isBuiltInSkill);
+      : model[selectedSection].length > 0;
+  const builtInSkills = items.filter((item) => item.repositoryMembers || isBuiltInSkill(item));
   const installedSkills = items.filter((item) => item.kind === 'skill' && !isBuiltInSkill(item));
   const joinHeading = (scope: string, noun: string) =>
     /^(zh|ja|ko)(-|$)/i.test(intl.locale) ? `${scope}${noun}` : `${scope} ${noun}`;
@@ -687,10 +680,9 @@ export default function ToolboxView() {
             selectedSection === 'all' ? (
               <div className="space-y-7">
                 {(['capabilities', 'methods', 'external'] as const).map((section) => {
-                  const kind = { capabilities: 'builtin', methods: 'skill', external: 'external' }[
-                    section
-                  ];
-                  const entries = items.filter((item) => item.kind === kind);
+                  const entries = items.filter((item) =>
+                    model[section].some((member) => member.id === item.id)
+                  );
                   return (
                     entries.length > 0 && (
                       <section key={section} aria-label={intl.formatMessage(i18n[section])}>
@@ -788,9 +780,9 @@ export default function ToolboxView() {
                   <DialogDescription>
                     {selectNativeText(
                       intl.locale,
-                      'Manage local Git and your GitHub connection.',
-                      '统一管理本地 Git 和 GitHub 连接。',
-                      '統一管理本機 Git 與 GitHub 連線。'
+                      'Local Git is built in. Sign in to manage GitHub repositories.',
+                      '已内置本地 Git，登录后可管理 GitHub 仓库。',
+                      '已內建本機 Git，登入後可管理 GitHub 儲存庫。'
                     )}
                   </DialogDescription>
                 </DialogHeader>

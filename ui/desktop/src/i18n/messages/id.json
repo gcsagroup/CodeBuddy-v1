@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Dokumen ini tidak dapat dipratinjau. Muat ulang atau buka di aplikasi bawaan."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Beberapa font tidak tersedia. Tata letak pratinjau mungkin berbeda dari aslinya."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Padatkan sekarang"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Gagal membaca berkas gambar"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Anda dapat melampirkan hingga {count} gambar per pesan."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Root yang dapat ditulis"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Tambahkan ke obrolan"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Salin isi file"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Salin jalur file"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Salin gambar"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Salin tautan"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Unduh salinan"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Tindakan tautan tidak dapat diselesaikan. Coba lagi."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Buka di browser default"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Buka file"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Buka gambar di tab baru"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Buka di tab baru"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Putar video"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Tampilkan dalam folder"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Simpan sebagai…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Simpan tautan sebagai…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Perbesar"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Perkecil"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Sesuaikan ke jendela"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Tutup tab lain"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Tutup tab di sebelah kanan"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Buka di VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Tindakan berkas gagal diselesaikan. Coba lagi. Membuka berkas kode memerlukan VS Code."
   }
 }

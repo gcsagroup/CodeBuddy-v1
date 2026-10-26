@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "無法預覽此文件，請重新整理後重試，或在預設應用程式中開啟。"
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "部分字型無法使用，預覽版面配置可能與原始檔案不同。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "立即壓縮"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "無法讀取影像檔案"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "每則訊息最多可新增 {count} 張圖片。"
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "可寫入根目錄"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "新增至聊天"
+  },
   "workspacePanel.address": {
     "defaultMessage": "網頁位址"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "關閉此終端機並結束其中執行的命令？"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "複製檔案內容"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "複製檔案路徑"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "複製圖片"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "複製連結"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "放棄此檔案尚未儲存的修改？"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "此文件可在對應應用程式中開啟。"
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "下載副本"
   },
   "workspacePanel.edit": {
     "defaultMessage": "編輯"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "開啟位址"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "無法完成連結操作，請重試。"
+  },
   "workspacePanel.loading": {
     "defaultMessage": "載入中"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "開啟工作區面板"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "在預設瀏覽器中開啟"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "在預設應用程式中開啟"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "開啟檔案"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "在新分頁中開啟圖片"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "在新分頁中開啟"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "工作區"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "播放影片"
   },
   "workspacePanel.preview": {
     "defaultMessage": "預覽"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "請重新啟動 CodeBuddy，以使用檔案開啟功能。"
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "在資料夾中顯示"
+  },
   "workspacePanel.running": {
     "defaultMessage": "執行中"
   },
   "workspacePanel.save": {
     "defaultMessage": "儲存檔案 ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "另存新檔…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "連結另存新檔…"
   },
   "workspacePanel.search": {
     "defaultMessage": "搜尋檔名"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "放大"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "縮小"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "符合視窗"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "關閉其他分頁"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "關閉右側分頁"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "在 VS Code 中開啟"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "無法完成檔案操作，請重試。開啟程式碼檔案需要安裝 VS Code。"
   }
 }

@@ -1,0 +1,16 @@
+.codebuddy-document {
+  --dsw-font: inherit;
+  --dsw-alias-label-primary: var(--text-primary);
+  --dsw-alias-label-secondary: var(--text-secondary);
+  --dsw-radius-md: 6px;
+  --dsw-alias-background-primary: var(--background-primary);
+  --dsw-alias-bg-document-preview: #eef0f3;
+  --dsw-alias-bg-skeleton: #e1e4e8;
+  --dsw-alias-bg-document-selection: #60a5fa66;
+  --dsw-alias-label-document-preview: #343a40;
+  --dsw-elevation-prominent: 0 1px 5px #0002;
+  --dsw-alias-state-warn-label: #986800;
+  --dsw-alias-state-warn-tertiary: #fff4d6;
+  --dsw-radius-sm: 4px;
+}
+.dark .codebuddy-document { --dsw-alias-bg-document-preview: #151515; --dsw-alias-bg-skeleton: #303030; --dsw-alias-label-document-preview: #f1f1f1; }

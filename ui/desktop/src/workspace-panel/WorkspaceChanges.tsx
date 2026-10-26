@@ -10,6 +10,7 @@ import {
 } from '../components/codepro/conversationChanges';
 import { FileChangeCount, FileChangeDiff } from '../components/codepro/CodeProFileChange';
 import { openConversationChange } from './conversationChangePanel';
+import { openWorkspaceFile } from './workspaceFilePanel';
 import { useConversationChangeMessages } from './WorkspaceSubagents';
 
 export const changeMessages = defineMessages({
@@ -210,6 +211,15 @@ export function WorkspaceChanges({
                         type="button"
                         className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-background-secondary"
                         title={entry.path}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openWorkspaceFile({
+                            sessionId,
+                            filePath: entry.path,
+                            action: 'file-menu',
+                          });
+                        }}
                         onClick={() =>
                           openConversationChange({
                             sessionId,

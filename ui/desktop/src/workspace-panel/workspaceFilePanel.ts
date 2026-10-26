@@ -1,10 +1,26 @@
+import type { PanelFileMenuChoice } from './workspacePanelTypes';
+
 export const OPEN_WORKSPACE_FILE = 'codebuddy:open-workspace-file';
 export interface WorkspaceFileTarget {
   sessionId: string;
   filePath: string;
+  action?: PanelFileMenuChoice | 'file-menu';
+  menuKind?: 'link' | 'image' | 'video';
 }
 export function openWorkspaceFile(target: WorkspaceFileTarget): void {
   window.dispatchEvent(new CustomEvent(OPEN_WORKSPACE_FILE, { detail: target }));
+}
+
+export const ATTACH_WORKSPACE_IMAGE = 'codebuddy:attach-workspace-image';
+export interface WorkspaceImageAttachment {
+  sessionId: string;
+  name: string;
+  dataUrl: string;
+}
+export const OPEN_WORKSPACE_WEB = 'codebuddy:open-workspace-web';
+export interface WorkspaceWebTarget {
+  sessionId: string;
+  url: string;
 }
 
 export function workspaceLinkPath(value: string): string | undefined {

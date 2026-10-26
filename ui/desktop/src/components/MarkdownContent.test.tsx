@@ -783,34 +783,167 @@ it('routes legacy file image syntax and local links to the scoped right panel wi
   }
 });
 
-it.each([false, true])('opens workspace-relative links while preserving web and URL boundaries (streaming=%s)', (animateIncoming) => {
-  const opened = vi.fn();
-  const previousElectron = window.electron;
-  const external = vi.fn();
-  window.electron = { ...previousElectron, openExternal: external };
-  window.addEventListener('codebuddy:open-workspace-file', opened);
-  try {
-    const view = renderWithIntl(
-      <MarkdownContent
-        sessionId="relative-files"
-        animateIncoming={animateIncoming}
-        content={'[Source](acceptance/maximum.cjs)\n\n[Unicode](./acceptance/%E4%B8%AD%E6%96%87%20%23.cjs)\n\n[Web](https://example.com/docs)\n\n[Network](//server/share/file.cjs)\n\n[Encoded network](%2F%2Fserver/share/file.cjs)\n\n[Anchor](#section)\n\n[Query](file.cjs?download=1)'}
-      />
-    );
-    fireEvent.click(screen.getByRole('link', { name: 'Source' }));
-    fireEvent.click(screen.getByRole('link', { name: 'Unicode' }));
-    expect(opened.mock.calls.map(([event]) => event.detail)).toEqual([
-      { sessionId: 'relative-files', filePath: 'acceptance/maximum.cjs' },
-      { sessionId: 'relative-files', filePath: './acceptance/中文 #.cjs' },
-    ]);
-    fireEvent.click(screen.getByRole('link', { name: 'Web' }));
-    expect(external).toHaveBeenCalledWith('https://example.com/docs');
-    for (const href of ['//server/share/file.cjs', '%2F%2Fserver/share/file.cjs', '#section', 'file.cjs?download=1']) {
-      fireEvent.click(view.container.querySelector(`a[href="${href}"]`)!);
+it.each([false, true])(
+  'offers scoped actions on local image links (streaming=%s)',
+  (animateIncoming) => {
+    const opened = vi.fn();
+    const oldMenu = window.electron.webLinkMenu;
+    window.electron.webLinkMenu = vi.fn().mockResolvedValue({ action: null });
+    window.addEventListener('codebuddy:open-workspace-file', opened);
+    try {
+      renderWithIntl(
+        <MarkdownContent
+          sessionId="media-menu"
+          animateIncoming={animateIncoming}
+          content={
+            '![Sunshine](generated-images/sun%20shine.png)\n\n[Local image](generated-images/other.png)\n\n[Web](https://example.com)'
+          }
+        />
+      );
+      const image = screen.getByRole('button', { name: 'Sunshine' });
+      fireEvent.click(image);
+      expect(opened.mock.lastCall?.[0].detail).toEqual({
+        sessionId: 'media-menu',
+        filePath: 'generated-images/sun shine.png',
+      });
+      fireEvent.click(image, { ctrlKey: true });
+      expect(opened.mock.lastCall?.[0].detail.action).toBe('open-external');
+      fireEvent.contextMenu(image);
+      expect(opened.mock.lastCall?.[0].detail).toEqual({
+        sessionId: 'media-menu',
+        filePath: 'generated-images/sun shine.png',
+        action: 'file-menu',
+      });
+      const link = screen.getByRole('link', { name: /Local\s*image/ });
+      fireEvent.contextMenu(link);
+      expect(opened.mock.lastCall?.[0].detail).toEqual({
+        sessionId: 'media-menu',
+        filePath: 'generated-images/other.png',
+        action: 'file-menu',
+      });
+      fireEvent.click(link, { metaKey: true });
+      expect(opened.mock.lastCall?.[0].detail.action).toBe('open-external');
+      opened.mockClear();
+      fireEvent.contextMenu(screen.getByRole('link', { name: 'Web' }));
+      expect(opened).not.toHaveBeenCalled();
+      expect(window.electron.webLinkMenu).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'https://example.com', allowPreview: true })
+      );
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-file', opened);
+      window.electron.webLinkMenu = oldMenu;
     }
-    expect(opened).toHaveBeenCalledTimes(2);
+  }
+);
+
+it('opens HTTP links in a workspace browser only after selecting that web-menu action', async () => {
+  const oldMenu = window.electron.webLinkMenu;
+  const opened = vi.fn();
+  window.addEventListener('codebuddy:open-workspace-web', opened);
+  const menu = vi
+    .fn()
+    .mockResolvedValueOnce({ action: null })
+    .mockResolvedValueOnce({ action: 'preview' })
+    .mockRejectedValueOnce(new Error('offline'));
+  window.electron.webLinkMenu = menu;
+  try {
+    renderWithIntl(
+      <MarkdownContent sessionId="web-menu" content="[Web](https://example.com/docs?q=one#top)" />
+    );
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Web' }));
+    await waitFor(() => expect(menu).toHaveBeenCalledOnce());
+    expect(opened).not.toHaveBeenCalled();
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Web' }));
+    await waitFor(() => expect(opened).toHaveBeenCalledOnce());
+    expect(opened.mock.lastCall?.[0].detail).toEqual({
+      sessionId: 'web-menu',
+      url: 'https://example.com/docs?q=one#top',
+    });
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Web' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not complete the link action. Please try again.'
+    );
   } finally {
-    window.removeEventListener('codebuddy:open-workspace-file', opened);
-    window.electron = previousElectron;
+    window.removeEventListener('codebuddy:open-workspace-web', opened);
+    window.electron.webLinkMenu = oldMenu;
   }
 });
+
+it.each([false, true])(
+  'opens web links in the side panel on left click and in the default browser on modified click (streaming=%s)',
+  (animateIncoming) => {
+    const opened = vi.fn();
+    const external = vi.fn();
+    const previous = window.electron.openExternal;
+    window.electron.openExternal = external;
+    window.addEventListener('codebuddy:open-workspace-web', opened);
+    try {
+      renderWithIntl(
+        <MarkdownContent
+          sessionId="web-click"
+          animateIncoming={animateIncoming}
+          content="[Web](https://example.com/docs?q=one#top)"
+        />
+      );
+      const link = screen.getByRole('link', { name: 'Web' });
+      fireEvent.click(link);
+      expect(opened.mock.lastCall?.[0].detail).toEqual({
+        sessionId: 'web-click',
+        url: 'https://example.com/docs?q=one#top',
+      });
+      expect(external).not.toHaveBeenCalled();
+      for (const modifier of [{ ctrlKey: true }, { metaKey: true }])
+        fireEvent.click(link, modifier);
+      expect(opened).toHaveBeenCalledOnce();
+      expect(external).toHaveBeenCalledTimes(2);
+      expect(external).toHaveBeenCalledWith('https://example.com/docs?q=one#top');
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-web', opened);
+      window.electron.openExternal = previous;
+    }
+  }
+);
+
+it.each([false, true])(
+  'opens workspace-relative links while preserving web and URL boundaries (streaming=%s)',
+  (animateIncoming) => {
+    const opened = vi.fn();
+    const previousElectron = window.electron;
+    const external = vi.fn();
+    window.electron = { ...previousElectron, openExternal: external };
+    window.addEventListener('codebuddy:open-workspace-file', opened);
+    try {
+      const view = renderWithIntl(
+        <MarkdownContent
+          sessionId="relative-files"
+          animateIncoming={animateIncoming}
+          content={
+            '[Source](acceptance/maximum.cjs)\n\n[Unicode](./acceptance/%E4%B8%AD%E6%96%87%20%23.cjs)\n\n[Web](https://example.com/docs)\n\n[Network](//server/share/file.cjs)\n\n[Encoded network](%2F%2Fserver/share/file.cjs)\n\n[Anchor](#section)\n\n[Query](file.cjs?download=1)'
+          }
+        />
+      );
+      fireEvent.click(screen.getByRole('link', { name: 'Source' }));
+      fireEvent.click(screen.getByRole('link', { name: 'Unicode' }));
+      expect(opened.mock.calls.map(([event]) => event.detail)).toEqual([
+        { sessionId: 'relative-files', filePath: 'acceptance/maximum.cjs' },
+        { sessionId: 'relative-files', filePath: './acceptance/中文 #.cjs' },
+      ]);
+      fireEvent.click(screen.getByRole('link', { name: 'Web' }));
+      expect(external).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('link', { name: 'Web' }), { ctrlKey: true });
+      expect(external).toHaveBeenCalledWith('https://example.com/docs');
+      for (const href of [
+        '//server/share/file.cjs',
+        '%2F%2Fserver/share/file.cjs',
+        '#section',
+        'file.cjs?download=1',
+      ]) {
+        fireEvent.click(view.container.querySelector(`a[href="${href}"]`)!);
+      }
+      expect(opened).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-file', opened);
+      window.electron = previousElectron;
+    }
+  }
+);

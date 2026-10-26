@@ -12,6 +12,8 @@ import { getSessionGoal, pauseSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from '../workspace-panel/goalPanel';
 import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import type { ToolboxItem } from '../types/toolbox';
+import * as conversion from '../utils/conversionUtils';
+import { ATTACH_WORKSPACE_IMAGE } from '../workspace-panel/workspaceFilePanel';
 
 const selection = vi.hoisted(() => ({ item: null as ToolboxItem | null }));
 vi.mock('../acp/session-extensions', () => ({
@@ -147,6 +149,88 @@ async function queue(text: string) {
 }
 
 const sendNow = () => screen.getByRole('button', { name: /^Send (?:all )?now$/ });
+
+describe('workspace images added to the composer', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      }
+    );
+    vi.mocked(getSessionExtensions).mockResolvedValue([]);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+  it('keeps the image as a draft until Send and never transfers it into another session', async () => {
+    const normalize = vi
+      .spyOn(conversion, 'compressImageDataUrl')
+      .mockResolvedValue('data:image/png;base64,aGVsbG8=');
+    const submit = vi.fn();
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    try {
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(ATTACH_WORKSPACE_IMAGE, {
+            detail: {
+              sessionId: 'foreign',
+              name: 'sun.png',
+              dataUrl: 'data:image/png;base64,aGVsbG8=',
+            },
+          })
+        );
+      });
+      expect(normalize).not.toHaveBeenCalled();
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent(ATTACH_WORKSPACE_IMAGE, {
+            detail: {
+              sessionId: 'queue-test',
+              name: 'sun.png',
+              dataUrl: 'data:image/png;base64,aGVsbG8=',
+            },
+          })
+        );
+      });
+      expect(screen.getByRole('button', { name: 'Remove image' })).toBeVisible();
+      expect(submit).not.toHaveBeenCalled();
+      view.changeSession('new-session');
+      expect(screen.queryByRole('button', { name: 'Remove image' })).toBeNull();
+      expect(submit).not.toHaveBeenCalled();
+    } finally {
+      normalize.mockRestore();
+    }
+  });
+  it('enforces the existing image limit even when menu actions arrive before a render', async () => {
+    const normalize = vi
+      .spyOn(conversion, 'compressImageDataUrl')
+      .mockResolvedValue('data:image/png;base64,aGVsbG8=');
+    const submit = vi.fn();
+    setup(submit);
+    try {
+      await act(async () => {
+        for (let i = 0; i < 11; i++)
+          window.dispatchEvent(
+            new CustomEvent(ATTACH_WORKSPACE_IMAGE, {
+              detail: {
+                sessionId: 'queue-test',
+                name: 'sun.png',
+                dataUrl: 'data:image/png;base64,aGVsbG8=',
+              },
+            })
+          );
+      });
+      expect(screen.getAllByRole('button', { name: 'Remove image' })).toHaveLength(10);
+      expect(screen.getByText('You can attach up to 10 images to one message.')).toBeVisible();
+      expect(submit).not.toHaveBeenCalled();
+    } finally {
+      normalize.mockRestore();
+    }
+  });
+});
 
 describe('compact queue presentation', () => {
   const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };

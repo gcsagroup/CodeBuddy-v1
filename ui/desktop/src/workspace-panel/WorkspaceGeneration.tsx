@@ -160,7 +160,11 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
       )}
       {job.status === 'completed' ? (
         media ? (
-          <WorkspaceMedia media={media} title={file ?? job.job_id} />
+          <WorkspaceMedia
+            media={media}
+            title={file ?? job.job_id}
+            target={file ? { sessionId: scope.sessionId, filePath: file } : undefined}
+          />
         ) : (
           <p>
             {error

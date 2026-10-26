@@ -45,3 +45,16 @@
 在 ui/desktop 运行 pnpm exec vitest run src/workspace-panel --maxWorkers=1，5 个测试文件、30 项通过；pnpm exec tsc --noEmit、修改组件的 ESLint、pnpm run i18n:compile 均退出 0。当前 main / 00a6656df 含未提交改动的真实 Electron 开发版已验证代码高亮、行号、目录折叠和换行；真实终端执行 Write-Output 与 Get-Location；真实地址栏导航至公开示例网页并取得实际网页内容、标题和可见状态。开发热更新期间的重载不计作验收成功，稳定后重新执行。
 
 本地截图和结果在 D:/CodeBuddy/.cargo/panel-*-refresh.png、panel-browser-content.png、panel-refresh-acceptance.json，不提交仓库。本次未重新生成安装包，未提交或推送 GitHub；深色主题支持已实现，未单独执行深色主题的真实交互验收。
+
+## 2026-10-26 文件操作与文档阅读
+
+本节说明当前实现，前面的构建身份与验收记录仅适用于各自日期。
+
+- 本地文件链接左键在右侧打开；Ctrl/Cmd+左键调用主进程的外部打开。代码文件（包括 Python、JavaScript 和 TypeScript）使用 VS Code 的文件 URI，避免操作系统把脚本当程序执行。Markdown、普通文本和 CSV 保留用户的默认应用。文档、图片和视频使用相应系统应用；可执行程序与快捷方式不因此获得打开权限。
+- 图片本身左键进入放大弹层，保留图片专用右键操作；文件链接和网页链接使用各自菜单。弹层没有实色底板，显示实际百分比及一个适配按钮。尺寸观察在弹层节点挂载后建立，首次打开、缩放和窗口变化使用同一尺寸来源。
+- PDF、DOCX、PPTX 在侧栏阅读、选择文字和缩放；XLSX 使用上游只读表格，支持工作表切换和单元格查看。Office 文件不在这里编辑或保存。Markdown 继续使用已有预览、编辑、版本校验和保存流程。
+- 主进程负责会话范围、真实路径和版本化限量读取。`runtime/document-preview.mjs` 使用官方 OfficeToPdf 服务负责转换、排队、缓存与取消。Renderer 仅消费返回的字节；关闭或刷新会取消相应请求。原文件不被转换器覆盖。
+
+渲染适配在 `ui/desktop/scripts/dsh-document-preview-assets.mjs`，锁定上游 `0.2.1-alpha.2`；不匹配时要求审查，而不是静默套用旧适配。原始 PDF.js 和表格渲染逻辑保持上游实现。PDF.js 6.3.289 使用的 `Math.sumPrecise` 在 Electron 41 中缺失，会在内嵌字体解析时产生错误回退。适配器在 PDF 主线程和 worker 中按需安装标准兼容实现；算法来自 MIT 许可的 core-js，许可保留在两个构建输出中。不要改成普通 `reduce`，也不要降低字体安全限制。将来升级运行时时，先验证主线程与 worker 都原生支持该 API，并重跑字体、精度与渲染回归，再考虑移除兼容实现。
+
+相关验证：仓库根目录运行 `node --test ui/desktop/scripts/dsh-document-preview-assets.test.mjs`；桌面目录使用现有 `test:run`、`typecheck` 和 `i18n:check`。隔离渲染可以检验实际引擎和组件，不能代替当前 CodeBuddy 窗口的完整产品验收。修改主进程或 Vite 适配插件后，使用标准预览入口重启再验收，不只依据热更新或编译完成判定新功能已加载。

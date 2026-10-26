@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Impossible de prévisualiser ce document. Rechargez-le ou ouvrez-le dans l’application par défaut."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Certaines polices sont indisponibles. La mise en page de l’aperçu peut différer de l’original."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Compacter maintenant"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Échec de la lecture du fichier image"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Vous pouvez joindre jusqu’à {count} images par message."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Racine accessible en écriture"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Ajouter à la conversation"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Copier le contenu du fichier"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Copier le chemin du fichier"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Copier l’image"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Copier le lien"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Télécharger une copie"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Impossible de terminer l’action sur le lien. Réessayez."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Ouvrir dans le navigateur par défaut"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Ouvrir le fichier"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Ouvrir l’image dans un nouvel onglet"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Ouvrir dans un nouvel onglet"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Lire la vidéo"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Afficher dans le dossier"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Enregistrer sous…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Enregistrer le lien sous…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Agrandir"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Réduire"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Adapter à la fenêtre"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Fermer les autres onglets"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Fermer les onglets à droite"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Ouvrir dans VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Impossible de terminer cette action. Réessayez. VS Code est nécessaire pour ouvrir les fichiers de code."
   }
 }

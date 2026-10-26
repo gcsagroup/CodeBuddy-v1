@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Dokumen ini tidak dapat dipratonton. Muat semula atau buka dalam aplikasi lalai."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Sesetengah fon tidak tersedia. Susun atur pratonton mungkin berbeza daripada asal."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Padatkan sekarang"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Gagal membaca fail imej"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Anda boleh melampirkan sehingga {count} imej bagi setiap mesej."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Akar boleh tulis"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Tambah ke sembang"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Salin kandungan fail"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Salin laluan fail"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Salin imej"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Salin pautan"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Muat turun salinan"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Tindakan pautan tidak dapat diselesaikan. Cuba lagi."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Buka dalam pelayar lalai"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Buka fail"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Buka imej dalam tab baharu"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Buka dalam tab baharu"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Mainkan video"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Tunjukkan dalam folder"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Simpan sebagai…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Simpan pautan sebagai…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Zum masuk"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Zum keluar"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Muat pada tetingkap"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Tutup tab lain"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Tutup tab di sebelah kanan"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Buka dalam VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Tindakan fail tidak dapat diselesaikan. Cuba lagi. Membuka fail kod memerlukan VS Code."
   }
 }

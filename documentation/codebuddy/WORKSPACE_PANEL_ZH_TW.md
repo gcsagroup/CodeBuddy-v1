@@ -52,3 +52,13 @@ pnpm exec eslint src/workspace-panel src/components/Layout/AppLayout.tsx src/pre
 於 ui/desktop 執行 pnpm exec vitest run src/workspace-panel --maxWorkers=1，5 個測試檔案、30 項通過；pnpm exec tsc --noEmit、變更元件的 ESLint、pnpm run i18n:compile 均以 0 結束。真實 Electron 開發版（main / 00a6656df 加未提交變更）已驗證程式碼預覽、目錄折疊及換行，真實終端 Write-Output 與 Get-Location，以及網址列開啟公開範例網頁並取得實際內容、標題及可見狀態。熱更新重新載入期間的結果不計入成功，待穩定後重測。
 
 本機證據位於 D:/CodeBuddy/.cargo/panel-*-refresh.png、panel-browser-content.png、panel-refresh-acceptance.json，不納入版本控制。尚未重建安裝包，未提交或推送 GitHub；深色主題已實作，尚未單獨進行深色主題真實互動驗收。
+
+## 2026-10-26 檔案操作與文件閱讀
+
+以上建構與驗收記錄僅適用於各自日期。目前本機檔案連結左鍵在側欄開啟，Ctrl/Cmd+左鍵由主行程處理外部開啟。程式碼檔案以 VS Code 檔案 URI 開啟，避免執行腳本；Markdown、一般文字及 CSV 保留使用者的預設應用。圖片本身左鍵進入透明底板的放大彈層，顯示實際縮放百分比與一個適配按鈕；圖片、檔案連結及網頁連結各有自己的右鍵選單。尺寸觀察於彈層節點掛載後建立。
+
+PDF、DOCX、PPTX 可在側欄閱讀、選取文字及縮放；XLSX 使用上游唯讀表格。Office 原始檔案不在這裡編輯或儲存。主行程保留會話、真實路徑、版本與限量讀取檢查；官方 OfficeToPdf 服務負責轉換、排隊、快取及取消。關閉或重新整理會取消對應請求，不覆寫原檔。
+
+適配器鎖定上游 0.2.1-alpha.2，版本不符須重新審查。PDF.js 6.3.289 需要 Electron 41 尚未提供的 Math.sumPrecise，因此會在內嵌字型解析時錯誤回退。適配器在 PDF 主執行緒與 worker 中按需安裝源自 core-js 的標準相容實作，保留 MIT 授權；不改上游繪製演算法，不以普通 reduce 或降低字型安全限制替代。升級執行環境後，須確認兩個環境均原生支援該 API 並通過精度、字型及繪製回歸，才考慮移除相容實作。
+
+相容回歸：根目錄執行 `node --test ui/desktop/scripts/dsh-document-preview-assets.test.mjs`，搭配桌面既有 test:run、typecheck、i18n:check。隔離繪製測試不代表完整產品驗收；主行程或 Vite 適配變更後，須由標準預覽入口重新啟動再驗收。

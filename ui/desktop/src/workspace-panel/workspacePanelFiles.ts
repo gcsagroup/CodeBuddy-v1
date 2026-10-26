@@ -7,7 +7,7 @@ const LIMIT = 2 * 1024 * 1024;
 const version = (data: Buffer) => createHash('sha256').update(data).digest('hex');
 const writes = new Map<string, Promise<unknown>>();
 
-export function panelMedia(file: string, size: number): PanelMedia | undefined {
+export function panelMediaType(file: string): PanelMedia | undefined {
   const types: Record<string, string> = {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
@@ -21,9 +21,16 @@ export function panelMedia(file: string, size: number): PanelMedia | undefined {
   const mimeType = types[path.extname(file).toLowerCase()];
   if (!mimeType) return undefined;
   const kind = mimeType.startsWith('image/') ? 'image' : 'video';
+  return { kind, mimeType, url: '' };
+}
+
+export function panelMedia(file: string, size: number): PanelMedia | undefined {
+  const media = panelMediaType(file);
+  if (!media) return undefined;
+  const { kind } = media;
   const limit = (kind === 'image' ? 32 : 128) * 1024 * 1024;
   if (size > limit) throw new Error('Media exceeds the preview size limit');
-  return { kind, mimeType, url: '' };
+  return media;
 }
 
 export function inside(root: string, file: string): boolean {
@@ -65,6 +72,68 @@ export async function listPanelFiles(root: string, requested: string) {
 }
 
 const externalDocuments = new Set(['.docx', '.xlsx', '.pptx', '.pdf']);
+// Ordinary text/data files retain the user's OS association. Code goes to an
+// explicit editor, because script associations can execute instead of display.
+const externalText = new Set([
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.jsonc',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.log',
+  '.csv',
+]);
+const editorText = new Set([
+  '.py',
+  '.pyw',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.ps1',
+  '.sh',
+  '.bash',
+  '.bat',
+  '.cmd',
+  '.vbs',
+  '.rb',
+  '.pl',
+  '.ts',
+  '.tsx',
+  '.rs',
+  '.go',
+  '.java',
+  '.c',
+  '.h',
+  '.cpp',
+  '.hpp',
+  '.css',
+  '.scss',
+  '.vue',
+]);
+
+export function isPanelEditorFile(file: string): boolean {
+  const extension = path.extname(file).toLowerCase();
+  return editorText.has(extension);
+}
+
+export function canOpenPanelFileExternally(file: string): boolean {
+  const extension = path.extname(file).toLowerCase();
+  return (
+    externalDocuments.has(extension) ||
+    externalText.has(extension) ||
+    isPanelEditorFile(file) ||
+    !!panelMediaType(file)
+  );
+}
+
+export function isPanelDocument(file: string): boolean {
+  return externalDocuments.has(path.extname(file).toLowerCase());
+}
 
 export async function inspectPanelFile(root: string, requested: string): Promise<PanelFileInfo> {
   const realRoot = await fs.realpath(root);
@@ -79,11 +148,13 @@ export async function inspectPanelFile(root: string, requested: string): Promise
   };
 }
 
-export async function externalPanelDocument(root: string, requested: string): Promise<string> {
+export async function externalPanelFile(root: string, requested: string): Promise<string> {
   const file = await panelPath(root, requested);
   const stat = await fs.stat(file);
-  if (!stat.isFile() || !externalDocuments.has(path.extname(file).toLowerCase()))
-    throw new Error('External opening supports document files only');
+  if (!stat.isFile() || !canOpenPanelFileExternally(file))
+    throw new Error(
+      'This file type cannot be opened safely through its OS association. Preview it in CodeBuddy instead.'
+    );
   return file;
 }
 

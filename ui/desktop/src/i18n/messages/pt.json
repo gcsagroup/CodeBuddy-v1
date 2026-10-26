@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Não foi possível visualizar este documento. Recarregue-o ou abra-o no aplicativo padrão."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Algumas fontes não estão disponíveis. O layout da prévia pode ser diferente do original."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Compactar agora"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Falha ao ler o ficheiro de imagem"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Você pode anexar até {count} imagens por mensagem."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Raiz gravável"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Adicionar ao chat"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Copiar conteúdo do arquivo"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Copiar caminho do arquivo"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Copiar imagem"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Copiar link"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Baixar uma cópia"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Não foi possível concluir a ação do link. Tente novamente."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Abrir no navegador padrão"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Abrir arquivo"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Abrir imagem em nova guia"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Abrir em nova guia"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Reproduzir vídeo"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Mostrar na pasta"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Salvar como…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Salvar link como…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Ampliar"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Reduzir"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Ajustar à janela"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Fechar outras abas"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Fechar abas à direita"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Abrir no VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Não foi possível concluir a ação do arquivo. Tente novamente. É necessário o VS Code para abrir arquivos de código."
   }
 }

@@ -1,8 +1,63 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspaceGeneration, type MediaJob } from './WorkspaceGeneration';
 const scope = { sessionId: 'session-a', root: 'D:/fixture' };
+beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    }
+  );
+});
+afterEach(() => vi.unstubAllGlobals());
+it('distinguishes image pixels from a file link and routes plain and Ctrl clicks', async () => {
+  const opened = vi.fn();
+  window.addEventListener('codebuddy:open-workspace-file', opened);
+  window.electron.workspacePanel = vi.fn().mockResolvedValue({
+    document: {
+      path: 'sun.png',
+      media: { kind: 'image', mimeType: 'image/png', url: 'codebuddy-media://preview/sun' },
+    },
+  });
+  try {
+    render(
+      <WorkspaceGeneration
+        scope={scope}
+        jobs={[
+          {
+            job_id: 'sun',
+            kind: 'image',
+            created_at: new Date().toISOString(),
+            status: 'completed',
+            images: [{ path: 'sun.png' }],
+            live: {},
+          },
+        ]}
+        disconnected={false}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    const image = await screen.findByRole('img');
+    fireEvent.contextMenu(image);
+    expect(opened.mock.lastCall?.[0].detail).toEqual({
+      sessionId: scope.sessionId,
+      filePath: 'sun.png',
+      action: 'file-menu',
+      menuKind: 'image',
+    });
+    fireEvent.click(image);
+    expect(screen.getByRole('dialog')).toBeVisible();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(image, { ctrlKey: true });
+    expect(opened.mock.lastCall?.[0].detail.action).toBe('open-external');
+  } finally {
+    window.removeEventListener('codebuddy:open-workspace-file', opened);
+  }
+});
 it('shows live node progress and replaces the preview frame with a playable completed file', async () => {
   const job: MediaJob = {
     job_id: 'job-a',

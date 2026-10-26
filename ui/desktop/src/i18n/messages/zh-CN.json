@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "无法预览此文档，请刷新重试，或在默认应用中打开。"
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "部分字体不可用，预览版式可能与原文件不同。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "立即压缩"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "读取图片文件失败"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "每条消息最多可添加 {count} 张图片。"
   },
   "chatInput.listening": {
     "defaultMessage": "正在聆听"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "可写根目录"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "添加到聊天"
+  },
   "workspacePanel.address": {
     "defaultMessage": "网页地址"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "关闭此终端并结束其中运行的命令？"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "复制文件内容"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "复制文件路径"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "复制图片"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "复制链接"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "放弃此文件尚未保存的修改？"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "此文档可在对应应用中打开。"
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "下载副本"
   },
   "workspacePanel.edit": {
     "defaultMessage": "编辑"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "打开地址"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "未能完成链接操作，请重试。"
+  },
   "workspacePanel.loading": {
     "defaultMessage": "加载中"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "打开工作区面板"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "在默认浏览器中打开"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "在默认应用中打开"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "打开文件"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "在新标签页中打开图像"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "在新标签页中打开"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "工作区"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "播放视频"
   },
   "workspacePanel.preview": {
     "defaultMessage": "预览"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "请重启 CodeBuddy，以使用文件打开功能。"
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "在文件夹中显示"
+  },
   "workspacePanel.running": {
     "defaultMessage": "运行中"
   },
   "workspacePanel.save": {
     "defaultMessage": "保存文件 ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "另存为…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "链接另存为…"
   },
   "workspacePanel.search": {
     "defaultMessage": "搜索文件名"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切换器"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "放大"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "缩小"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "适应窗口"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "关闭其他标签页"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "关闭右侧标签页"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "在 VS Code 中打开"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "无法完成文件操作，请重试。打开代码文件需要安装 VS Code。"
   }
 }

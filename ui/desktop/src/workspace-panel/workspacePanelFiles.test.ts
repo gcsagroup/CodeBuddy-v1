@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   listPanelFiles,
   inspectPanelFile,
-  externalPanelDocument,
+  externalPanelFile,
   panelPath,
   panelUrl,
   readPanelFile,
@@ -28,11 +28,11 @@ describe('workspace files using real filesystem data', () => {
       size: 3 * 1024 * 1024,
       openExternally: true,
     });
-    expect(await externalPanelDocument(root, 'report.docx')).toBe(
+    expect(await externalPanelFile(root, 'report.docx')).toBe(
       await fs.realpath(path.join(root, 'report.docx'))
     );
-    await fs.writeFile(path.join(root, 'run.ps1'), 'Write-Output hello');
-    await expect(externalPanelDocument(root, 'run.ps1')).rejects.toThrow('document files only');
+    await fs.writeFile(path.join(root, 'run.exe'), 'not executed');
+    await expect(externalPanelFile(root, 'run.exe')).rejects.toThrow('OS association');
     await expect(inspectPanelFile(root, 'missing.docx')).rejects.toThrow();
     await expect(inspectPanelFile(root, '../outside.docx')).rejects.toThrow('outside');
     await expect(inspectPanelFile(root, '.')).rejects.toThrow('regular file');
@@ -44,7 +44,7 @@ describe('workspace files using real filesystem data', () => {
         path.join(root, 'linked'),
         process.platform === 'win32' ? 'junction' : 'dir'
       );
-      await expect(externalPanelDocument(root, 'linked/report.docx')).rejects.toThrow('outside');
+      await expect(externalPanelFile(root, 'linked/report.docx')).rejects.toThrow('outside');
     } finally {
       await fs.rm(outside, { recursive: true, force: true });
     }

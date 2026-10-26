@@ -19,6 +19,7 @@ import {
 } from '../acp/permissionRequests';
 import { openSubagentConversation } from '../workspace-panel/subagentPanel';
 import { openConversationChange } from '../workspace-panel/conversationChangePanel';
+import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
 import { ToolCallArguments, ToolCallArgumentValue } from './ToolCallArguments';
 import MarkdownContent from './MarkdownContent';
 import {
@@ -815,6 +816,11 @@ function ToolCallView({
         'min-w-0 truncate rounded py-1 text-left font-mono text-xs text-text-secondary underline decoration-current/30 underline-offset-2 hover:text-text-primary focus-visible:outline focus-visible:outline-2',
         compact ? 'px-0' : 'mx-1 px-1'
       )}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openWorkspaceFile({ sessionId: sessionId!, filePath: filePath!, action: 'file-menu' });
+      }}
       onClick={() =>
         openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
       }

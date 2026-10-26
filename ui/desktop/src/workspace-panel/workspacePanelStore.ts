@@ -1,5 +1,6 @@
 import type { PanelDocument, PanelFileInfo, PanelScope } from './workspacePanelTypes';
 import type { LongTermGoal } from '../acp/goals';
+import type { DocumentView } from './dshDocumentRenderer';
 export type WorkbenchTab =
   | { id: string; kind: 'goal'; title: string; goal: LongTermGoal; draft: string }
   | {
@@ -10,7 +11,7 @@ export type WorkbenchTab =
       draft: string;
       preview: boolean;
     }
-  | { id: string; kind: 'file-info'; title: string; file: PanelFileInfo }
+  | { id: string; kind: 'file-info'; title: string; file: PanelFileInfo; view?: DocumentView }
   | { id: string; kind: 'terminal' | 'browser'; title: string }
   | {
       id: string;

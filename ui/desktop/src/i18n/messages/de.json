@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Dieses Dokument konnte nicht angezeigt werden. Laden Sie es erneut oder öffnen Sie es in der Standardanwendung."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Einige Schriftarten sind nicht verfügbar. Das Vorschau-Layout kann vom Original abweichen."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Jetzt verdichten"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Bilddatei konnte nicht gelesen werden"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Pro Nachricht können bis zu {count} Bilder angehängt werden."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -8903,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Beschreibbarer Stamm"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Zum Chat hinzufügen"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Dateiinhalt kopieren"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Dateipfad kopieren"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Bild kopieren"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Link kopieren"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Kopie herunterladen"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8969,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Die Link-Aktion ist fehlgeschlagen. Bitte erneut versuchen."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8984,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Im Standardbrowser öffnen"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Datei öffnen"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Bild in neuem Tab öffnen"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "In neuem Tab öffnen"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Video abspielen"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9011,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Im Ordner anzeigen"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Speichern unter…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Link speichern unter…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9106,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Vergrößern"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Verkleinern"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "An Fenster anpassen"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Andere Tabs schließen"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Tabs rechts schließen"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "In VS Code öffnen"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Die Dateiaktion konnte nicht abgeschlossen werden. Bitte erneut versuchen. Zum Öffnen von Codedateien ist VS Code erforderlich."
   }
 }

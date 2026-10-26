@@ -5418,13 +5418,13 @@
     "defaultMessage": "重新啟動並更新"
   },
   "productUpdate.installing": {
-    "defaultMessage": "正在準備重新啟動更新…"
+    "defaultMessage": "正在準備更新，確認後將停止工作並儲存記錄，請稍候…"
   },
   "productUpdate.preview": {
     "defaultMessage": "測試版"
   },
   "productUpdate.ready": {
-    "defaultMessage": "更新已準備好。聊天記錄、設定與工作區會保留。"
+    "defaultMessage": "更新已下載，可繼續工作或選擇重新啟動更新。重新啟動會停止目前工作，已儲存的聊天、設定與檔案會保留。"
   },
   "productUpdate.stable": {
     "defaultMessage": "正式版"

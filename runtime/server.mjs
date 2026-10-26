@@ -107,6 +107,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
     appProxy = await createMcpAppProxy({ secret });
     let stopping = false;
     let pendingRequests = 0;
+    let shutdownRequestError;
+    const requestDrain = new Set();
     const server = http.createServer((req, res) => {
       if (stopping) {
         res.writeHead(503, { Connection: 'close' });
@@ -181,7 +183,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         notify: (method, params) => send({ jsonrpc: "2.0", method, params }),
         ask: (method, params, signal) =>
           new Promise((resolve, reject) => {
-            if (signal?.aborted) return reject(Error("Cancelled"));
+            if (signal?.aborted) return reject(new DOMException("Cancelled", "AbortError"));
             const id = "server-" + randomUUID();
             const done = (error, result) => {
               clearTimeout(timer);
@@ -189,7 +191,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
               pending.delete(id);
               error ? reject(error) : resolve(result);
             };
-            const abort = () => done(Error("Cancelled"));
+            const abort = () => done(new DOMException("Cancelled", "AbortError"));
             // Human decisions do not expire into consent or rejection. Native
             // question waits cancel their own signal; approval waits for the
             // user, an explicit stop, or connection teardown.
@@ -252,7 +254,18 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           pendingRequests++;
           try {
             result = await compat.request(msg.method, msg.params ?? {}, connection);
-          } finally { pendingRequests--; }
+          } catch (error) {
+            // In-flight finalizers can fail while persisting their last result.
+            // A disconnected renderer cannot report that failure to the updater.
+            if (stopping && error.name !== 'AbortError') shutdownRequestError ??= error;
+            throw error;
+          } finally {
+            pendingRequests--;
+            if (!pendingRequests) {
+              for (const resolve of requestDrain) resolve();
+              requestDrain.clear();
+            }
+          }
           if (msg.method === "initialize") initialized = true;
           if (Object.hasOwn(msg, "id"))
             send({ jsonrpc: "2.0", id: msg.id, result });
@@ -278,14 +291,20 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       ws.on("close", () => {
         compat.disconnect(connection);
         for (const done of [...pending.values()])
-          done(Error("Client disconnected"));
+          done(new DOMException("Client disconnected", "AbortError"));
         for (const active of compat.active.values())
           if (active.connection === connection) active.controller.abort();
       });
     });
     let closePromise;
     const service = {
-      async closeForUpdate() {
+      async closeForUpdate({ stopTasks = false } = {}) {
+        // Only the main-process confirmation may request interruption. Keep the
+        // idle-only path for callers which have not obtained that consent.
+        if (stopTasks) {
+          await service.close();
+          return true;
+        }
         const reserved = await compat.schedules.reserveShutdownIfIdle(() => {
           if (stopping || pendingRequests || compat.active.size || compat.initializing.size ||
             compat.routing.size || compat.sessionMutations.size || compat.reviewExecutions.size ||
@@ -317,7 +336,10 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           stopping = true;
           for (const ws of wss.clients) ws.terminate();
           try {
-            await compat.close();
+            await compat.close({ drainRequests: async () => {
+              if (pendingRequests) await new Promise(resolve => requestDrain.add(resolve));
+              if (shutdownRequestError) throw shutdownRequestError;
+            } });
           } finally {
             try {
               await appProxy.close();

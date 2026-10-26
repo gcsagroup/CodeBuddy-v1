@@ -1,15 +1,15 @@
 
 # CodePro 事实权威与模块职责
 
-## 2026-10-25 已批准：桌面更新
+## 2026-10-26 已批准：桌面更新与确认后停止任务
 
 Electron 主进程的 `update/` 持有更新频道、GitHub Release 与文件身份、下载状态和安装调度。用户自己的 GitHub CLI 登录提供瞬时凭据；不使用 GitHub MCP 凭据、不复制到设置或安装包，不向 renderer 或 CDN 转发 Token。renderer 只发起检查、下载、取消和确认安装，消费主进程状态。Windows Inno 负责安装目录中的程序更新，Mac Squirrel.Mac 负责签名应用替换；更新器不迁移、清空聊天、配置、工作区或凭据。
 
-Harness 仍持有任务与持久化权威。安装前由运行服务检查在途请求、任务、初始化和调度工作；空闲才同时阻止新请求及调度并 flush/close，忙时返回拒绝且保留已下载更新。桌面负责终端与用户保存确认，安装成功后由新版启动确认实际版本。正式频道不接收预发布，源码预览不执行安装。
+Harness 仍持有任务与持久化权威。下载不要求任务空闲；桌面明确提示重启会停止对话和自动任务、关闭终端，并保留已保存的数据。选择“稍后”不停止工作。用户确认后，运行服务阻止新请求及调度，调用原生取消、等待任务和已接收的设置请求收尾，再 flush/close；桌面收到保存确认及正常退出后才交给安装器。停止或保存失败不启动安装，也不以超时强制终止代替保存成功。原有未确认调用仍使用空闲检查。被中断的工作不由更新器自动续跑，调度后续运行继续遵循原有配置。桌面阻止新终端，已有终端按应用退出生命周期关闭。安装成功后由新版启动确认实际版本。正式频道不接收预发布，源码预览不执行安装。
 
-繁體：Electron 主程序管理更新與暫時 GitHub CLI 憑據；介面只消費狀態。Harness 在空閒時封鎖新工作並儲存關閉；Inno 與 Squirrel.Mac 負責程式升級，不變更聊天、設定或工作區。
+繁體：下載不受執行中的工作阻擋。使用者確認中斷後，Harness 封鎖新工作與排程、取消執行、等待已接收請求並儲存關閉；停止或儲存失敗不安裝。稍後更新不停止工作，中斷工作不自動續跑，後續排程仍依原設定。Electron 管理確認、終端與更新；Inno 與 Squirrel.Mac 負責程式升級，不變更聊天、設定或工作區。
 
-English: Electron owns release selection, transient CLI credentials, downloads and installation. Harness alone determines idle readiness, fences new work and flushes state before shutdown. Inno and Squirrel.Mac replace application files; the updater does not migrate or delete conversations, configuration, credentials or workspaces. The renderer receives state, never tokens.
+English: Electron owns release selection, transient CLI credentials, downloads, confirmation and installation. Downloading does not require idle tasks. After explicit interruption consent, Harness fences new work and schedules, cancels tasks, drains admitted requests and flushes before acknowledging shutdown. Installation requires that acknowledgement and a clean exit, never a timeout or forced kill. Choosing Later does not stop work. Interrupted attempts are not resumed by the updater; future scheduled runs follow existing settings. Inno and Squirrel.Mac replace application files without deleting conversations, configuration, credentials or workspaces. The renderer receives state, never tokens.
 
 ## 2026-10-23 已批准：子 Agent 完整只读会话展示
 
@@ -22,7 +22,15 @@ DSH alpha2 的原生会话日志、父子 catalog 和 session controller 持有�
 桌面 locale 作为可选的当前语言提示随 prompt 传入，兼容层只传递规范化语言代码，原生 scoped system prompt 为主子 Agent 设置默认回复及委派语言。用户明确要求其他语言仍优先；历史记录、代码和原始工具输出不翻译，模型实际遵循情况需单独验收。此提示不持有执行状态或权限，也不替换现有持久化设置。
 
 繁體：子會話使用原生唯讀 follow，關閉僅停止觀察；完整顯示公開記錄，權限與執行仍由 Harness 持有。English: Native read-only child follow owns synchronization; closing a viewer never stops or resumes execution, and display projections cannot authorize actions.
-## 2026-10-23 已批准：显式 GitHub MCP 连接
+## 2026-10-26 已批准：GitHub 默认连接与简化入口
+
+本节补充并覆盖下方 2026-10-23 的入口限制：首次配置默认启用官方 GitHub，已有本人 CLI 登录时自动调用同一凭据验证与加密保存流程；保留已有连接、自定义地址和明确停用选择。设置和工具箱共用简洁账号连接界面；代码仓库卡片展示在技能的内置技能区，展示分组不改变底层工具身份、配置或执行权威。未登录仍需用户完成自己的 GitHub 授权，安装包不包含共享 Token。并发连接合并为同一在途操作。
+
+繁體：首次設定預設啟用官方 GitHub，已有本人 CLI 登入時沿用同一驗證流程自動連線；保留既有連線、自訂位址與停用選擇。儲存庫卡片位於內建技能區，分組不改變工具身分與執行權責，安裝包不含共用 Token。
+
+English: Fresh configuration enables official GitHub and reuses the user's existing CLI login through the same verified encrypted-credential flow. Existing connections, custom endpoints and explicit opt-outs are retained. The repository card appears under built-in skills; grouping does not change tool identity or execution ownership. Concurrent connection requests share one operation. Packages contain no shared tokens.
+
+### 2026-10-23 原连接协议与所有权（入口由上节覆盖）
 
 用户明确点击“连接 GitHub”后，runtime 核对 GitHub CLI 当前账号，仅对固定官方 MCP 地址验证凭据，验证成功且配置未变化时原子保存加密凭据与启用状态。新登录在浏览器授权完成后继续同一次连接流程；打开页面和检查状态不复制凭据。CLI/系统凭据库继续持有登录凭据，CodeBuddy store 持有独立加密副本；退出 CLI 不删除该副本。凭据不返回界面、不进入诊断或日志，失败不覆盖已有配置。安装包不携带此凭据。
 

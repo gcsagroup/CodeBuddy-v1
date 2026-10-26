@@ -41,7 +41,9 @@ export async function startHarnessService(options: {
   });
   let stopping = false;
   let exited = false;
-  const exit = new Promise<void>(resolve => child.once('exit', () => {
+  let exitCode: number | null = null;
+  const exit = new Promise<void>(resolve => child.once('exit', (code) => {
+    exitCode = code;
     exited = true; output.end(resolve);
     if (!stopping) options.onUnexpectedExit();
   }));
@@ -81,17 +83,34 @@ export async function startHarnessService(options: {
       stopping = true;
       try {
         const allowed = await new Promise<boolean>((resolve, reject) => {
-          const timer = setTimeout(() => { child.off('message', receive); reject(new Error('等待任务保存超时，请稍后重试。')); }, 30000);
+          // Cancellation and durable writes can exceed 30 seconds. Never kill
+          // the service or proceed with installation on a timer alone.
+          const cleanup = () => {
+            child.off('message', receive);
+            child.off('exit', onExit);
+            child.off('disconnect', onDisconnect);
+          };
+          const fail = () => {
+            cleanup();
+            reject(new Error('运行服务在保存确认前断开，更新尚未安装。请重启应用后重试。'));
+          };
+          const onExit = () => fail();
+          const onDisconnect = () => fail();
           const receive = (message: unknown) => {
             if (!message || typeof message !== 'object' || !('type' in message) || message.type !== 'update-prepared') return;
-            clearTimeout(timer); child.off('message', receive);
+            cleanup();
             resolve('ready' in message && message.ready === true);
           };
           child.on('message', receive);
-          child.send({ type: 'prepare-update' });
+          child.once('exit', onExit);
+          child.once('disconnect', onDisconnect);
+          try {
+            child.send({ type: 'prepare-update', stopTasks: true }, error => { if (error) fail(); });
+          } catch { fail(); }
         });
-        if (!allowed) throw new Error('仍有任务或设置操作正在执行，请等待完成后再更新。');
+        if (!allowed) throw new Error('停止任务或保存记录失败，更新尚未安装。请重启应用后重试。');
         await exit;
+        if (exitCode !== 0) throw new Error('运行服务未正常退出，更新尚未安装。请重启应用后重试。');
       } catch (error) { stopping = false; throw error; }
     };
     return { ...ready, secret, close, closeForUpdate };

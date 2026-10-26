@@ -28,11 +28,11 @@ beforeEach(() => {
     downloadUpdate: vi.fn().mockResolvedValue({ ...idle, phase: 'ready', version: '1.43.11' }),
     installUpdate: vi
       .fn()
-      .mockResolvedValue({ ...idle, phase: 'ready', version: '1.43.11', error: '任务正在运行' }),
+      .mockResolvedValue({ ...idle, phase: 'ready', version: '1.43.11' }),
     cancelUpdate: vi.fn().mockResolvedValue(undefined),
   });
 });
-it('checks, downloads only on click, retains ready state when installation is blocked and unsubscribes', async () => {
+it('checks, downloads only on click and keeps a deferred update ready without an error', async () => {
   const view = render(<UpdateSection />);
   expect(screen.getByRole('combobox')).toHaveValue('preview');
   fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
@@ -40,7 +40,8 @@ it('checks, downloads only on click, retains ready state when installation is bl
   fireEvent.click(await screen.findByRole('button', { name: 'Download update' }));
   expect(window.electron.downloadUpdate).toHaveBeenCalledOnce();
   fireEvent.click(await screen.findByRole('button', { name: 'Restart and update' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('任务正在运行');
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Restarting will stop running tasks'));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Restart and update' })).toBeEnabled();
   view.unmount();
   expect(unsubscribe).toHaveBeenCalledOnce();

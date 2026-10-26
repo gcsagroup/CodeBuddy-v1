@@ -22,6 +22,27 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+test('shutdown cancels a running schedule, persists interruption and rejects subsequent starts', async t => {
+  const entered = deferred();
+  const { call, scheduler, store } = await fixture(t, { async run(_job, { signal, onSession }) {
+    await onSession('update-cancelled-run');
+    entered.resolve();
+    if (!signal.aborted) await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
+    return { status: 'cancelled', sessionId: 'update-cancelled-run' };
+  } });
+  await call('create', { id: 'update-job', recipe, cron: '* * * * *' });
+  const running = call('run-now', { scheduleId: 'update-job' });
+  await entered.promise;
+  await scheduler.close();
+  await running;
+  await assert.rejects(call('run-now', { scheduleId: 'update-job' }), /closed/);
+  const row = store.read().schedules[0];
+  assert.equal(row.lastOutcome, 'cancelled');
+  assert.equal(row.currentlyRunning, false);
+  assert.equal(row.paused, true);
+  assert.equal(row.attempts.at(-1).status, 'cancelled');
+});
+
 async function fixture(t, options = {}) {
   const root = await realpath(
     await mkdtemp(path.join(os.tmpdir(), "codebuddy-schedules-")),

@@ -567,7 +567,8 @@ for (const workspaceMode of ["code", "codepro"])
     assert.equal(context.driver.prompts.length, 0);
   });
 
-test("disconnecting an unanswered recipe form leaves no session or model work", async (t) => {
+for (const update of [false, true])
+test(`closing an unanswered recipe form leaves no session or model work (update: ${update})`, async (t) => {
   let arrived;
   const requested = new Promise((resolve) => {
     arrived = resolve;
@@ -611,9 +612,10 @@ test("disconnecting an unanswered recipe form leaves no session or model work", 
   });
   const rejected = assert.rejects(creation, /ACP closed/);
   await requested;
-  context.client.close();
+  if (!update) context.client.close();
+  const closing = update ? context.app.closeForUpdate({ stopTasks: true }) : context.app.close();
   await rejected;
-  await context.app.close();
+  await closing;
   assert.equal(context.driver.created.length, 0);
   assert.equal(context.modelRequests.length, initialModelRequests);
   const persisted = JSON.parse(

@@ -49,11 +49,10 @@ export function registerProductUpdates(options: {
       if (!app.isPackaged) throw new Error('源码预览仅支持检查更新，请在安装版中执行升级。');
       if (!['win32', 'darwin'].includes(process.platform))
         throw new Error('当前平台尚未支持自动更新。');
-      if (options.hasTerminals()) throw new Error('请先保存终端中的工作并关闭终端，再重启更新。');
       const t = (en: string, cn: string, tw: string) =>
         selectNativeText(app.getLocale(), en, cn, tw);
       const answer = await dialog.showMessageBox({
-        type: 'question',
+        type: 'warning',
         title: 'CodeBuddy',
         message: t(
           'Restart and update CodeBuddy?',
@@ -61,29 +60,35 @@ export function registerProductUpdates(options: {
           '重新啟動並更新 CodeBuddy？'
         ),
         detail: t(
-          'Save open files first. Chats, settings and workspaces will be retained. Running tasks must finish before updating.',
-          '请先保存打开的文件。聊天记录、配置和工作区会保留；正在执行的任务需完成后再更新。',
-          '請先儲存開啟的檔案。聊天記錄、設定與工作區會保留；執行中的工作需完成後再更新。'
-        ),
+          'Restarting stops running conversations and automation tasks and closes terminals. Save open files first. Saved chats, settings and workspace files will be retained. Interrupted work will not resume automatically; continue it from the conversation after restarting. Choose Later to keep working.',
+          '重启会停止正在执行的对话和自动任务，并关闭终端。请先保存打开的文件。已保存的聊天记录、配置和工作区文件会保留；被中断的工作不会自动续跑，更新后可回到对话继续。选择“稍后”可继续当前任务。',
+          '重新啟動會停止執行中的對話與自動工作，並關閉終端。請先儲存開啟的檔案。已儲存的聊天記錄、設定與工作區檔案會保留；中斷的工作不會自動繼續，更新後可回到對話繼續。選擇「稍後」可繼續目前工作。'
+        ) + (options.hasTerminals() ? '\n\n' + t(
+          'There are open terminals. Their running commands may be interrupted.',
+          '当前有打开的终端，其中正在运行的命令可能被中断。',
+          '目前有開啟的終端，其中執行中的命令可能被中斷。'
+        ) : ''),
         buttons: [
           t('Later', '稍后', '稍後'),
-          t('Restart and update', '重启并更新', '重新啟動並更新'),
+          t('Stop tasks and update', '停止任务并重启更新', '停止工作並重新啟動更新'),
         ],
         defaultId: 0,
         cancelId: 0,
       });
-      if (answer.response !== 1) throw new Error('已保留下载，稍后可以继续更新。');
+      if (answer.response !== 1) return false;
       const releaseTerminals = options.reserveTerminals();
       try {
         if (process.platform === 'win32') {
-          const install = await prepareWindowsInstall(candidate, file, directory);
+          let install: Awaited<ReturnType<typeof prepareWindowsInstall>> | undefined;
           let closed = false;
           try {
             await options.closeForUpdate();
             closed = true;
+            // Start the helper deadline only after task cancellation and saving.
+            install = await prepareWindowsInstall(candidate, file, directory);
             await install.commit();
           } catch (error) {
-            install.cancel();
+            install?.cancel();
             if (closed) {
               app.relaunch();
               app.quit();
@@ -95,7 +100,7 @@ export function registerProductUpdates(options: {
           await options.closeForUpdate();
           try {
             // Squirrel installs staged updates on ordinary application exit too.
-            // Hand it bytes only after explicit consent and the runtime idle fence.
+            // Hand it bytes only after consent, task settlement and durable saves.
             await mac.stage(candidate, file, globalThis.AbortSignal.timeout(5 * 60 * 1000));
             await mac.install();
           } catch (error) {
@@ -108,6 +113,7 @@ export function registerProductUpdates(options: {
         releaseTerminals();
         throw error;
       }
+      return undefined;
     },
   });
   ipcMain.handle('check-for-updates', async (_event, channel: UpdateChannel = 'preview') => {

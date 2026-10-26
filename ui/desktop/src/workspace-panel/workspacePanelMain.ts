@@ -63,7 +63,7 @@ export function hasWorkspaceTerminals(): boolean {
   return [...owners.values()].some(owner => [...owner.terminals.values()].some(terminal => !terminal.exited));
 }
 export function reserveWorkspaceUpdate(): () => void {
-  if (updatePending || hasWorkspaceTerminals()) throw new Error('请先关闭终端，再重启更新。');
+  if (updatePending) throw new Error('应用正在准备更新。');
   updatePending = true;
   return () => { updatePending = false; };
 }

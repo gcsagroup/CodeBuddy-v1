@@ -5418,13 +5418,13 @@
     "defaultMessage": "重启并更新"
   },
   "productUpdate.installing": {
-    "defaultMessage": "正在准备重启更新…"
+    "defaultMessage": "正在准备更新，确认后将停止任务并保存记录，请稍候…"
   },
   "productUpdate.preview": {
     "defaultMessage": "测试版"
   },
   "productUpdate.ready": {
-    "defaultMessage": "更新已准备好。聊天记录、配置和工作区会保留。"
+    "defaultMessage": "更新已下载，可继续工作或选择重启更新。重启会停止当前任务，已保存的聊天、配置和文件会保留。"
   },
   "productUpdate.stable": {
     "defaultMessage": "正式版"

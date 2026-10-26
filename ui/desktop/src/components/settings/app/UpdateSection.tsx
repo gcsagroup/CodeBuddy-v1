@@ -24,11 +24,11 @@ const messages = defineMessages({
   },
   ready: {
     id: 'productUpdate.ready',
-    defaultMessage: 'Ready to update. Chats, settings and workspaces will be retained.',
+    defaultMessage: 'Update downloaded. Keep working, or restart when ready. Restarting will stop running tasks; saved chats, settings and files will be retained.',
   },
   installing: {
     id: 'productUpdate.installing',
-    defaultMessage: 'Preparing to restart and update…',
+    defaultMessage: 'Preparing to update. After confirmation, stopping tasks and saving records may take a moment…',
   },
   current: {
     id: 'productUpdate.current',

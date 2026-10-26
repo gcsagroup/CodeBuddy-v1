@@ -1273,6 +1273,7 @@ export class Compat {
     });
   }
   async request(method, p = {}, connection) {
+    if (this.closing && method !== 'session/cancel') throw invalid('Runtime is shutting down');
     if (!p || typeof p !== "object" || Array.isArray(p))
       throw invalid("RPC params must be an object");
     if (
@@ -2325,6 +2326,7 @@ export class Compat {
     }
   }
   async prompt(p, connection) {
+    if (this.closing) throw invalid('Runtime is shutting down');
     const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
     const planMode = p._meta?.['codebuddy/plan'];
@@ -2936,20 +2938,30 @@ export class Compat {
     if (promptError) throw promptError;
     return { stopReason: result?.stopReason ?? "end_turn" };
   }
-  async close() {
+  async close({ drainRequests = async () => {} } = {}) {
+    this.closing = true;
+    // Fence scheduler admission before the first await; let its owner settle
+    // running attempts as cancelled while native conversation turns drain.
+    const schedulesClosed = this.schedules?.close();
+    schedulesClosed?.catch(() => {});
+    const active = [...this.active.entries()];
+    for (const [, turn] of active) {
+      turn.userRequestedStop = true;
+      turn.controller.abort();
+    }
     for (const views of this.subagentViews.values()) for (const controller of views.values()) controller.abort();
     this.subagentViews.clear();
     closeMediaStreams(this.store.directory);
-    this.closing = true;
     await this.transcription.close();
     await this.reviews.close();
-    const active = [...this.active.entries()];
-    for (const [, turn] of active) turn.controller.abort();
     await this.vision.close();
     await Promise.allSettled(active.map(([id]) => this.driver.cancel(id)));
     await Promise.allSettled(active.map(([, turn]) => turn.done));
     await Promise.allSettled(this.initializing.values());
-    await this.schedules?.close();
+    await schedulesClosed;
+    // Already admitted configuration/tool requests may still persist results.
+    // Do not flush or dispose their owners until those requests have settled.
+    await drainRequests();
     await Promise.allSettled(
       [...this.sessionMutations.values()].map((change) => change.done),
     );

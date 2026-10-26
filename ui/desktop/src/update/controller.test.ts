@@ -37,6 +37,7 @@ it('serializes checks/downloads, blocks installation on tampering and retains a 
   });
   const install = vi
     .fn()
+    .mockResolvedValueOnce(false)
     .mockRejectedValueOnce(new Error('task active'))
     .mockResolvedValue(undefined);
   const controller = new UpdateController({
@@ -61,13 +62,15 @@ it('serializes checks/downloads, blocks installation on tampering and retains a 
     await controller.download();
     expect(controller.state.phase).toBe('ready');
     await controller.install();
+    expect(controller.state).toMatchObject({ phase: 'ready', error: undefined });
+    await controller.install();
     expect(controller.state).toMatchObject({ phase: 'ready', error: 'task active' });
     await writeFile(file, Buffer.from('tampered!'));
     await controller.install();
-    expect(install).toHaveBeenCalledOnce();
+    expect(install).toHaveBeenCalledTimes(2);
     await writeFile(file, data);
     await controller.install();
-    expect(install).toHaveBeenCalledTimes(2);
+    expect(install).toHaveBeenCalledTimes(3);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

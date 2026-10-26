@@ -530,6 +530,7 @@ export class ScheduleService {
     );
     const started = [];
     for (const row of due) {
+      if (this.closed) break;
       const current = this.find(row.id);
       if (
         current.paused ||
@@ -541,6 +542,7 @@ export class ScheduleService {
         const active = await this.beginRun(row.id, true);
         if (active) started.push(active.id);
       } catch (error) {
+        if (this.closed) break;
         // A broken persisted rule or missing runner pauses this job instead of
         // becoming a tight retry loop. The failed occurrence remains visible.
         await this.store.update((state) => {
@@ -567,6 +569,8 @@ export class ScheduleService {
       active.controller.abort();
       if (active.sessionId && this.stop) await this.stop(active.sessionId);
     }
-    await Promise.allSettled(runs.map((active) => active.done));
+    const results = await Promise.allSettled(runs.map((active) => active.done));
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) throw failure.reason;
   }
 }

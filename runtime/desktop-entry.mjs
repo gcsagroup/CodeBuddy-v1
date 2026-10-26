@@ -18,7 +18,7 @@ const stop = () => closing ??= service.close().then(() => {
 process.on('message', data => {
   if (data?.type === 'shutdown') void stop();
   if (data?.type === 'prepare-update') {
-    void service.closeForUpdate().then(ready => {
+    void service.closeForUpdate({ stopTasks: data.stopTasks === true }).then(ready => {
       process.send?.({ type: 'update-prepared', ready }, () => { if (ready) process.exit(0); });
     }).catch(() => process.send?.({ type: 'update-prepared', ready: false }));
   }

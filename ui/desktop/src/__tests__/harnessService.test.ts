@@ -11,6 +11,7 @@ import { startHarnessService } from '../harnessService';
 
 const roots: string[] = [];
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
@@ -88,13 +89,14 @@ describe('packaged Harness service', () => {
     await expect(startHarnessService(f.options)).rejects.toThrow();
     expect(mock.spawn).toHaveBeenCalledTimes(1);
   });
-  it('retains a busy runtime and waits for its acknowledged flush and exit before updating', async () => {
+  it('reports saving failure and waits for acknowledged flush and clean exit before updating', async () => {
     const f = fixture();
     const service = await startHarnessService(f.options);
     f.child.send.mockImplementation(() => {
       globalThis.queueMicrotask(() => f.child.emit('message', { type: 'update-prepared', ready: false }));
     });
-    await expect(service.closeForUpdate()).rejects.toThrow('仍有任务');
+    await expect(service.closeForUpdate()).rejects.toThrow('保存记录失败');
+    expect(f.child.send).toHaveBeenCalledWith({ type: 'prepare-update', stopTasks: true }, expect.any(Function));
     expect(f.child.kill).not.toHaveBeenCalled();
     f.child.send.mockImplementation(() => {
       globalThis.queueMicrotask(() => f.child.emit('message', { type: 'update-prepared', ready: true }));
@@ -110,6 +112,44 @@ describe('packaged Harness service', () => {
     expect(finished).toBe(true);
     expect(f.options.onUnexpectedExit).not.toHaveBeenCalled();
     expect(f.child.kill).not.toHaveBeenCalled();
+  });
+  it.each(['exit', 'disconnect'])('rejects %s before persistence acknowledgement without force killing', async event => {
+    const f = fixture();
+    const service = await startHarnessService(f.options);
+    f.child.send.mockImplementation(() => {
+      globalThis.queueMicrotask(() => f.child.emit(event, 1));
+    });
+    await expect(service.closeForUpdate()).rejects.toThrow('保存确认前断开');
+    expect(f.child.kill).not.toHaveBeenCalled();
+    if (event === 'disconnect') f.child.emit('exit', 1);
+    await service.close();
+  });
+  it('does not authorize installation after an acknowledged but abnormal exit', async () => {
+    const f = fixture();
+    const service = await startHarnessService(f.options);
+    f.child.send.mockImplementation(() => {
+      globalThis.queueMicrotask(() => {
+        f.child.emit('message', { type: 'update-prepared', ready: true });
+        f.child.emit('exit', 1);
+      });
+    });
+    await expect(service.closeForUpdate()).rejects.toThrow('未正常退出');
+    expect(f.child.kill).not.toHaveBeenCalled();
+  });
+  it('waits beyond the former 30 second limit for task cancellation without killing the service', async () => {
+    const f = fixture();
+    const service = await startHarnessService(f.options);
+    f.child.send.mockImplementation(() => {});
+    vi.useFakeTimers();
+    let finished = false;
+    const updating = service.closeForUpdate().then(() => { finished = true; });
+    await vi.advanceTimersByTimeAsync(31000);
+    expect(finished).toBe(false);
+    expect(f.child.kill).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    f.child.emit('message', { type: 'update-prepared', ready: true });
+    f.child.emit('exit', 0);
+    await updating;
   });
   it('drains child output after a log write failure so disk errors do not stall the service', async () => {
     const f = fixture();

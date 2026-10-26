@@ -15,7 +15,7 @@ export class UpdateController {
       initialError?: string;
       source: GitHubReleaseSource;
       emit: (state: UpdateState) => void;
-      install: (candidate: UpdateCandidate, file: string) => Promise<void>;
+      install: (candidate: UpdateCandidate, file: string) => Promise<void | false>;
     }
   ) {
     this.state = {
@@ -97,9 +97,10 @@ export class UpdateController {
     this.publish({ phase: 'installing', error: undefined });
     try {
       await verifyUpdateFile(this.file, this.candidate.artifact);
-      await this.options.install(this.candidate, this.file);
+      if (await this.options.install(this.candidate, this.file) === false)
+        this.publish({ phase: 'ready', error: undefined });
     } catch (error) {
-      // A busy task or a declined dialog does not discard an already verified download.
+      // Failed shutdown or installation keeps the verified download available.
       this.publish({
         phase: 'ready',
         error: error instanceof Error ? error.message : '更新安装失败。',

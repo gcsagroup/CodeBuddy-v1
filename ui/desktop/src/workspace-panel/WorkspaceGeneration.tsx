@@ -4,6 +4,7 @@ import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
 import { WorkspaceMedia } from './WorkspaceMedia';
 import type { PanelMedia, PanelScope } from './workspacePanelTypes';
+import './WorkspaceGeneration.css';
 
 export const mediaText = (en: string, cn: string, tw: string) =>
   selectNativeText(currentLocale, en, cn, tw);
@@ -22,7 +23,6 @@ export interface MediaJob {
     node?: string;
     step?: number;
     total?: number;
-    preview?: string;
   };
   images?: { path: string }[];
   videos?: { path: string }[];
@@ -130,14 +130,10 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
     typeof live.step === 'number' && typeof live.total === 'number' && live.total > 0
       ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
       : undefined;
-  const preview =
-    typeof live.preview === 'string' && /^data:image\/(png|jpeg);base64,/.test(live.preview)
-      ? live.preview
-      : undefined;
   const status = statuses[job.status];
   const stage = stages[live.stage ?? live.node ?? ''];
   return (
-    <article className="rounded-xl border border-border-subtle p-4" data-job-id={job.job_id}>
+    <article className="rounded-xl border border-border-primary p-4" data-job-id={job.job_id}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <strong>
           {job.kind === 'video'
@@ -149,9 +145,9 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
           {status ? mediaText(...status) : job.status}
         </span>
       </div>
-      {job.workflow && <p className="mb-2 text-xs text-text-muted">{job.workflow.label}</p>}
+      {job.workflow && <p className="mb-2 text-xs text-text-secondary">{job.workflow.label}</p>}
       {active && (
-        <p className="mb-3 text-xs text-text-muted">
+        <p className="mb-3 text-xs text-text-secondary">
           {mediaText('Elapsed', '已等待', '已等待')}{' '}
           {Math.max(0, Math.floor((now - Date.parse(job.created_at)) / 1000))} s
           {typeof job.queue_position === 'number' &&
@@ -170,38 +166,43 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
         )
       ) : (
         <>
-          {stage && <p className="mb-2 text-sm">{mediaText(...stage)}</p>}
-          {progress !== undefined && (
-            <div className="mb-3">
-              <progress
-                aria-label={mediaText('Current node progress', '当前阶段进度', '目前階段進度')}
-                value={progress}
-                max={100}
-                className="w-full"
-              />
-              <p className="text-xs text-text-muted">
-                {live.step} / {live.total} · {progress}%
-              </p>
-            </div>
-          )}
-          {preview ? (
-            <img
-              className="max-h-96 w-full rounded object-contain"
-              src={preview}
-              alt={mediaText('Live generation preview', '生成中的实时预览', '生成中的即時預覽')}
-            />
-          ) : (
-            <p className="rounded-lg bg-background-muted p-8 text-center text-sm text-text-muted">
-              {mediaText(
-                'Waiting for the service to send a preview frame',
-                '等待生成服务返回预览画面',
-                '等待生成服務傳回預覽畫面'
+          {active && (
+            <>
+              {stage && <p className="mb-3 text-sm text-text-secondary">{mediaText(...stage)}</p>}
+              <div
+                className="generation-wait bg-background-secondary"
+                data-testid="generation-wait"
+                aria-label={mediaText('Waiting for generation', '等待生成结果', '等待生成結果')}
+              >
+                <div className="generation-wait-dots" aria-hidden="true" />
+                <div className="generation-wait-sweep" aria-hidden="true" />
+                <span
+                  className="generation-wait-badge bg-background-primary text-text-primary"
+                  role={progress === undefined ? undefined : 'progressbar'}
+                  aria-label={
+                    progress === undefined
+                      ? undefined
+                      : mediaText('Current node progress', '当前阶段进度', '目前階段進度')
+                  }
+                  aria-valuemin={progress === undefined ? undefined : 0}
+                  aria-valuemax={progress === undefined ? undefined : 100}
+                  aria-valuenow={progress}
+                >
+                  {progress === undefined
+                    ? mediaText('Please wait', '请稍候', '請稍候')
+                    : `${progress}%`}
+                </span>
+              </div>
+              {progress !== undefined && (
+                <p className="mt-2 text-xs text-text-secondary">
+                  {mediaText('Current stage', '当前阶段', '目前階段')} · {live.step} / {live.total}
+                </p>
               )}
-            </p>
+            </>
           )}
           {(!live.connected || job.observation_error) &&
             !['failed', 'cancelled'].includes(job.status) && (
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-xs text-text-secondary">
                 {mediaText(
                   'Reconnecting to progress updates; the job is not resubmitted.',
                   '正在恢复进度连接，任务不会重复提交。',
@@ -216,7 +217,9 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
           {job.error}
         </p>
       )}
-      <p className="mt-2 text-xs text-text-muted">{new Date(job.created_at).toLocaleString()}</p>
+      <p className="mt-2 text-xs text-text-secondary">
+        {new Date(job.created_at).toLocaleString()}
+      </p>
     </article>
   );
 }

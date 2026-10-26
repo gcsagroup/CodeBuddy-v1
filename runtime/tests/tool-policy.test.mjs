@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { publicToolName, harnessToolName, toolEnabled } from '../tool-policy.mjs';
+import { MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
+
+test('every resource operation follows selected MCP services without depending on developer tools', async () => {
+  const entry = { configKey: 'fixture', enabled: true, extension: { type: 'mcp', name: 'fixture' } };
+  const settings = { extensions: async () => [entry] }, session = { extensions: ['fixture'] };
+  for (const name of MCP_RESOURCE_TOOL_NAMES) assert.equal(await toolEnabled(session, settings, name), true, name);
+  entry.enabled = false;
+  for (const name of MCP_RESOURCE_TOOL_NAMES) assert.equal(await toolEnabled(session, settings, name), false, name);
+});
 
 test('UI tool names round trip for native, memory, CodePro, Git and MCP', () => {
   for (const name of ['write', 'project_memory', 'codebuddy_task', 'git_repository_snapshot', 'github_runtime_status', 'mcp__qwen_computer__click', 'mcp__fixture__echo']) assert.equal(harnessToolName(publicToolName(name)), name);

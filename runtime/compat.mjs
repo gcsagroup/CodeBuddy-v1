@@ -1,4 +1,5 @@
 import { closeMediaStreams } from './comfyui-live.mjs';
+import { MCP_RESOURCE_TOOL_NAMES } from './mcp-settings.mjs';
 import { questionForm, questionAnswer, questionNotification } from './user-questions.mjs';
 import { parseGoalRequest } from './goal-request.mjs';
 import { createHash, randomUUID } from "node:crypto";
@@ -873,7 +874,7 @@ export class Compat {
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
-        ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd,
+        ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd, requestOwner: this,
           request: (method, params, signal) => {
             const connection = this.active.get(s.id)?.connection;
             if (!connection?.ask) throw Error('Open this conversation in CodeBuddy desktop to control the embedded browser');
@@ -961,7 +962,7 @@ export class Compat {
     // Older injected settings have no revision contract; reread them each time.
     if (this.settings.extensionSnapshot) operation.snapshot = snapshot;
     if (!(await toolEnabled(current, this.settings, tool.name, snapshot))) return false;
-    if (["read_mcp_resource", "list_mcp_resources"].includes(tool.name)) {
+    if (MCP_RESOURCE_TOOL_NAMES.includes(tool.name)) {
       const names = [
         ...(await selectedExtensions(current, this.settings, snapshot)).map((e) =>
           extensionName(e.extension),

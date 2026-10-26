@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
@@ -17,7 +18,8 @@ import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { profileEntries } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
-import { imageToolApprovalScope } from '../comfyui-tool.mjs';
+import { toolSessionApprovalScope, sameToolSessionScope } from '../tool-session-approval.mjs';
+import { MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
@@ -65,6 +67,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const contextSources = new Map();
   const streamingMeters = new Map();
   const sessionScopes = new Map();
+  const stdioConnections = new WeakMap();
   const directCalls = new Map();
   const toolReceipts = new Map();
   const hostImageReceipts = new WeakMap();
@@ -73,8 +76,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const childOwners = new Map();
   const mcpBindings = new WeakMap();
   const approvalOwners = new WeakMap();
-  const imageApprovals = new WeakMap();
-  const imageDefinitions = new WeakMap();
+  const builtinApprovals = new WeakMap();
+  const builtinDefinitions = new WeakMap();
   const initialPermissions = new Map();
   const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
@@ -167,7 +170,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const webService = ctx.web[symbols.original];
   const webApprovals = new WeakMap();
   const nativeDefinitions = new WeakSet(ctx.tools.schemas().filter(tool =>
-    !['web_fetch', 'read_mcp_resource', 'list_mcp_resources'].includes(tool.name))
+    tool.name !== 'web_fetch' && !MCP_RESOURCE_TOOL_NAMES.includes(tool.name))
     .map(tool => ctx.tools.get(tool.name)).filter(Boolean));
   const directoryQuery = ctx.tools.get('working_directory');
   // Native control remains confined to direct ownership by SubagentService.
@@ -205,19 +208,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     };
   }
 
-  const sameImageScope = (a, b) => a && b && a.key === b.key &&
-    a.fetchImpl === b.fetchImpl && a.statfsImpl === b.statfsImpl;
-  async function imageSessionApproval(exec, rootAgent) {
+  async function builtinSessionApproval(exec, rootAgent) {
     const definition = ctx.tools.get(exec.name, exec.agent);
-    const image = definition && imageDefinitions.get(definition);
-    const binding = rootAgent && imageApprovals.get(rootAgent);
-    if (!image || !binding || !sameImageScope(image.scope, binding.scope) ||
-      imageToolApprovalScope(image.tool) !== image.scope || !(await image.scope.accepts(exec.arguments))) return undefined;
+    const registration = definition && builtinDefinitions.get(definition);
+    const binding = rootAgent && builtinApprovals.get(rootAgent)?.get(exec.name);
+    if (!registration || !binding || !sameToolSessionScope(registration.scope, binding.scope) ||
+      toolSessionApprovalScope(registration.tool) !== registration.scope || !(await registration.scope.accepts(exec.arguments))) return undefined;
     exec.signal.throwIfAborted();
     return {
       identity: binding.identity, extensionSource: 'builtin',
-      isCurrent: () => imageApprovals.get(rootAgent) === binding &&
-        ctx.tools.get(exec.name, exec.agent) === definition && imageToolApprovalScope(image.tool) === image.scope,
+      isCurrent: () => builtinApprovals.get(rootAgent)?.get(exec.name) === binding &&
+        ctx.tools.get(exec.name, exec.agent) === definition && toolSessionApprovalScope(registration.tool) === registration.scope,
     };
   }
 
@@ -388,8 +389,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   async function permissionCall(exec, active) {
     const definition = ctx.tools.get(exec.name, exec.agent);
     const rootAgent = ctx.agents.get(active.sessionId);
-    const mcpBinding = mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name);
-    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await imageSessionApproval(exec, rootAgent);
+    const currentMcpBinding = () => mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) ??
+      mcpPlugin.getMcpResourceSessionApproval(ctx, exec.agent, exec.name, exec.arguments.server);
+    const mcpBinding = currentMcpBinding();
+    const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await builtinSessionApproval(exec, rootAgent);
     let sessionApproval;
     if (binding && rootAgent) {
       let owner = approvalOwners.get(rootAgent);
@@ -397,8 +400,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       sessionApproval = {
         owner, tool: binding.identity, extensionSource: binding.extensionSource,
         ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
-        isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent &&
-          (mcpBinding ? mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) === binding : binding.isCurrent()),
+        isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent && approvalOwners.get(rootAgent) === owner &&
+          (mcpBinding ? currentMcpBinding() === binding : binding.isCurrent()),
       };
     }
     return {
@@ -692,6 +695,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     configurationQueues.set(sessionId, work.catch(() => {}));
     return work;
   }
+  async function releaseStdioConnections(agent) {
+    const connections = stdioConnections.get(agent);
+    stdioConnections.delete(agent);
+    if (connections) await Promise.all([...connections.values()].map(entry => entry.fiber.dispose()));
+  }
   async function applySessionOptions(sessionId, options, createdAgent) {
     const agent = createdAgent ?? await resolveAgent(sessionId);
     if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
@@ -729,11 +737,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     }
     if (settings.projectToolContext !== undefined && typeof settings.projectToolContext !== 'function')
       throw new TypeError('Host tool context projection must be a function');
-    const imageScope = (settings.tools ?? []).map(imageToolApprovalScope).find(Boolean);
-    const previousImage = imageApprovals.get(agent);
-    const imageBinding = imageScope
-      ? sameImageScope(imageScope, previousImage?.scope) ? previousImage : { scope: imageScope, identity: Object.freeze({}) }
-      : undefined;
+    const builtinBindings = new Map();
+    for (const tool of settings.tools ?? []) {
+      const scope = toolSessionApprovalScope(tool);
+      if (!scope) continue;
+      const previousBinding = builtinApprovals.get(agent)?.get(tool.name);
+      builtinBindings.set(tool.name, sameToolSessionScope(scope, previousBinding?.scope)
+        ? previousBinding : { scope, identity: Object.freeze({}) });
+    }
     const subagentModels = {};
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
@@ -745,7 +756,19 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     })));
     const connectableNames = new Set(mcpServers.filter(server => !server.configurationError).map(server => server.serverName));
     await mcpPresets.invalidate((previous.mcpServers ?? []).filter(server => server.transport === 'streamable-http' && !connectableNames.has(server.serverName)).map(server => server.serverName));
-    imageApprovals.delete(agent);
+    // Session-owned stdio processes outlive per-turn prompt/tool configuration.
+    // Keep only the same healthy connection; changed configuration/filtering
+    // disposes its live definitions and therefore its approval identity.
+    const stdioConfigs = new Map(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http')
+      .map(server => [server.serverName, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true }]));
+    let localConnections = stdioConnections.get(agent);
+    if (!localConnections) { localConnections = new Map(); stdioConnections.set(agent, localConnections); }
+    for (const [name, entry] of localConnections) {
+      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(agent, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
+      localConnections.delete(name);
+      await entry.fiber.dispose();
+    }
+    builtinApprovals.delete(agent);
     await sessionScopes.get(sessionId)?.dispose();
     sessionScopes.delete(sessionId);
     sessionSettings.delete(sessionId);
@@ -822,8 +845,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
           if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
             readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
           }
-          const imageScope = imageToolApprovalScope(tool);
-          if (imageScope) imageDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: imageScope });
+          const builtinScope = toolSessionApprovalScope(tool);
+          if (builtinScope) builtinDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: builtinScope });
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
@@ -839,11 +862,14 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
         const [lease, statuses] = await Promise.all([
           mcpPresets.acquire(remoteServers).then(value => (shared = value)),
           Promise.all(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http').map(async server => {
+          if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: 'ready' };
           const started = performance.now();
-          const connection = scoped.plugin(mcpPlugin, { ...server, ...(registrationFilter ? { allowedTools: registrationFilter.allow ?? null, deniedTools: registrationFilter.deny } : {}), failOnStartupError: true });
+          const config = stdioConfigs.get(server.serverName);
+          const connection = agent.ctx.plugin(mcpPlugin, config);
           try {
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
+            localConnections.set(server.serverName, { config: structuredClone(config), fiber: connection });
             return { serverName: server.serverName, status: 'ready' };
           } catch {
             await connection.dispose();
@@ -877,10 +903,10 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       },
     });
     try { await fiber; if (fiber.state !== 2) throw new Error('Session capability configuration failed'); }
-    catch (error) { await fiber.dispose(); throw error; }
+    catch (error) { await fiber.dispose(); await releaseStdioConnections(agent); throw error; }
     sessionScopes.set(sessionId, fiber);
     sessionSettings.set(sessionId, settings);
-    if (imageBinding) imageApprovals.set(agent, imageBinding);
+    builtinApprovals.set(agent, builtinBindings);
     const orderedConnections = mcpServers.map(server => connections.find(connection => connection.serverName === server.serverName));
     extensionStates.set(sessionId, orderedConnections);
     return { configured: true, extensions: orderedConnections };
@@ -1194,6 +1220,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       const agent = ctx.agents.get(sessionId);
       if (runs.has(sessionId) || (agent && agent.status !== 'idle') || [...directCalls.values()].some(call => call.sessionId === sessionId) || ctx.jobs.list(sessionId).some(job => ['running', 'stopping'].includes(job.status))) throw new Error('Wait for active session operations and background jobs before releasing capabilities');
       await sessionScopes.get(sessionId)?.dispose();
+      if (agent) await releaseStdioConnections(agent);
+      if (agent) { builtinApprovals.delete(agent); webApprovals.delete(agent); approvalOwners.delete(agent); }
       sessionScopes.delete(sessionId); sessionSettings.delete(sessionId); extensionStates.delete(sessionId);
     },
     async rename(sessionId, title) { return ctx.sessionController.rename({ sessionId, title }); },

@@ -39,6 +39,39 @@ describe('ToolApprovalButtons', () => {
     permissionRegistry.pending = true;
   });
 
+  it.each([
+    'generate_image',
+    'generate_video',
+    'browser_control',
+    'create_desktop_pet',
+    'project_memory',
+    'list_mcp_resources',
+    'list_mcp_resource_templates',
+    'read_mcp_resource',
+  ])('%s uses the shared session approval controls', async (toolName) => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: toolName,
+          toolName,
+          sessionId: 'media-approval',
+          authorizationScope: 'session',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        }}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Deny Once' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Allow this tool for this session' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
+      'media-approval',
+      toolName,
+      'always_allow'
+    );
+    expect(screen.getByText(/Tool allowed for this session/)).toBeVisible();
+  });
+
   it('collapses completed history after a real approval click without treating it as reading', async () => {
     resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
     const view = (live: boolean) => (

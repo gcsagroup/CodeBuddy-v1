@@ -10,7 +10,7 @@ function frame(prompt = id) {
   const head = Buffer.alloc(8); head.writeUInt32BE(4); head.writeUInt32BE(meta.length, 4);
   return Buffer.concat([head, meta, Buffer.from([255,216,255,217])]);
 }
-test('progress is prompt-scoped and invalid/oversized/foreign frames are rejected', () => {
+test('progress remains prompt-scoped and all preview frames are ignored', () => {
   const state = {};
   text(state, 'progress', { prompt_id: 'another', value: 5, max: 10 }); assert.equal(state.step, undefined);
   text(state, 'executing', { prompt_id: id, node: 'sample' });
@@ -18,11 +18,11 @@ test('progress is prompt-scoped and invalid/oversized/foreign frames are rejecte
   text(state, 'progress', { prompt_id: id, value: 30, max: 20 }); assert.equal(state.step, 5);
   consumeMediaEvent(state, frame('another'), true, id); assert.equal(state.preview, undefined);
   consumeMediaEvent(state, Buffer.alloc(3 * 1024 * 1024), true, id); assert.equal(state.preview, undefined);
-  consumeMediaEvent(state, frame(), true, id); assert.match(state.preview, /^data:image\/jpeg;base64,/);
+  consumeMediaEvent(state, frame(), true, id); assert.equal(state.preview, undefined); assert.equal(state.previewAt, undefined);
   text(state, 'executing', { prompt_id: id, node: 'decode' }); assert.equal(state.step, undefined);
   assert.equal(state.status, undefined); // Observation never invents completion.
 });
-test('real WebSocket connects before submission, negotiates previews, and releases/reconnects', async t => {
+test('real WebSocket receives progress without requesting previews and releases/reconnects', async t => {
   const server = new WebSocketServer({ port: 0, host: '127.0.0.1' }); await once(server, 'listening');
   t.after(() => { for (const client of server.clients) client.terminate(); server.close(); stopMedia('fixture'); });
   let clientId, flags;
@@ -35,8 +35,8 @@ test('real WebSocket connects before submission, negotiates previews, and releas
   const job = { job_id: id, prompt_id: id };
   await watchMedia('fixture', `http://127.0.0.1:${server.address().port}`, job);
   await new Promise(resolve => setTimeout(resolve, 30));
-  assert.equal(clientId, id); assert.equal(flags.data.supports_preview_metadata, true);
-  assert.equal(mediaObservation('fixture').step, 4); assert.ok(mediaObservation('fixture').preview);
+  assert.equal(clientId, id); assert.equal(flags, undefined);
+  assert.equal(mediaObservation('fixture').step, 4); assert.equal(mediaObservation('fixture').preview, undefined);
   stopMedia('fixture'); assert.equal(mediaObservation('fixture').connected, false);
   await watchMedia('fixture', `http://127.0.0.1:${server.address().port}`, job);
   assert.equal(mediaObservation('fixture').connected, true);

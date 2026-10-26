@@ -1,3 +1,4 @@
+import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath } from 'node:fs/promises';
@@ -6,6 +7,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { comfyuiTool } from '../comfyui-tool.mjs';
+import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 import { createConversationDriver } from '../conversation-driver.mjs';
 import { Compat } from '../compat.mjs';
@@ -14,11 +16,15 @@ import { SafetyPolicy } from '../safety-policy.mjs';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 
-async function fixture(t) {
+async function fixture(t, kind = 'image') {
+  const toolName = kind === 'video' ? 'generate_video' : 'generate_image';
+  const factory = kind === 'video' ? comfyuiVideoTool : comfyuiTool;
   const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-')));
   const requests = [], questions = [], calls = [];
   const fetchImpl = async (url, options) => {
+    const catalogResponse = savedFixtureResponse(url); if (catalogResponse) return catalogResponse;
     requests.push(url);
+    if (url.endsWith('/object_info')) return Response.json({ FixtureNode: { input: {}, output: [] } });
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: JSON.parse(options.body).prompt_id });
     if (url.includes('/history/')) return Response.json({});
     if (url.endsWith('/queue')) return Response.json({ queue_running: [], queue_pending: [] });
@@ -33,7 +39,7 @@ async function fixture(t) {
   });
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
   const f = { root, store, host, questions, requests, calls, choice: 'allow_always',
-    tool: (s, baseUrl = 'http://image.fixture') => comfyuiTool({ cwd: root, dataDir: root, sessionId: s.id, baseUrl, fetchImpl }),
+    tool: (s, baseUrl = 'http://image.fixture') => factory({ cwd: root, dataDir: root, sessionId: s.id, baseUrl, fetchImpl }),
     get driver() { return driver; },
     async session(nativeSessionId) {
       const s = { id: randomUUID(), ...(nativeSessionId ? { nativeSessionId } : {}), cwd: root, type: 'code_pro', workspaceBinding: 'writable_project' };
@@ -47,7 +53,7 @@ async function fixture(t) {
       await driver.createSession({ sessionId: s.id, cwd: root, provider, model: 'offline', options: { tools: [f.tool(s)] } });
     },
     invoke(s, args, { signal, answer } = {}) {
-      return driver.callTool(s.id, 'generate_image', args, {
+      return driver.callTool(s.id, toolName, { ...(kind === 'video' && args.operation === 'generate' ? { mode: 'text_to_video' } : {}), ...args }, {
         signal,
         onToolPolicy: call => { calls.push(call); return host.toolPolicy(s, call, call.signal); },
         onPermission: call => host.approveTool(s, call, { async ask(_method, params) {
@@ -61,8 +67,45 @@ async function fixture(t) {
   return f;
 }
 
-test('image session grant covers later calls and equivalent reconfiguration, but not another service or restart', { timeout: 30000 }, async t => {
-  const f = await fixture(t), s = await f.session(randomUUID());
+test('image and video grants stay independent when both tools share one service', { timeout: 30000 }, async t => {
+  const f = await fixture(t), s = await f.session();
+  const image = f.tool(s);
+  const video = comfyuiVideoTool({ cwd: f.root, dataDir: f.root, sessionId: s.id, baseUrl: 'http://image.fixture', fetchImpl: async () => {
+    throw Error('Rejected video must not contact the service');
+  } });
+  await f.driver.configureSession(s.id, { tools: [image, video] });
+  await f.generate(s);
+  const questions = [];
+  const result = await f.driver.callTool(s.id, 'generate_video', { operation: 'generate', mode: 'text_to_video', prompt: 'Fixture' }, {
+    onToolPolicy: call => f.host.toolPolicy(s, call, call.signal),
+    onPermission: call => f.host.approveTool(s, call, { async ask(_method, params) {
+      questions.push(params);
+      return { outcome: { outcome: 'selected', optionId: 'reject_once' } };
+    } }, call.signal),
+  });
+  assert.equal(result.isError, true);
+  assert.equal(questions.length, 1, 'Image approval never grants video access');
+  assert.ok(questions[0].options.some(option => option.optionId === 'allow_always'));
+  await f.generate(s);
+  assert.equal(f.questions.length, 1, 'Rejecting video preserves the independent image grant');
+});
+
+for (const kind of ['image', 'video']) {
+const toolName = kind === 'video' ? 'generate_video' : 'generate_image';
+
+test(kind + ' workflow inspection shares the service-bound tool grant', async t => {
+  const f = await fixture(t, kind), s = await f.session();
+  const inspect = () => f.invoke(s, { operation: 'inspect', ...(kind === 'video' ? { mode: 'text_to_video' } : {}) });
+  const first = await inspect();
+  assert.equal(first.isError, false, JSON.stringify(first));
+  assert.ok(f.questions[0].options.some(option => option.optionId === 'allow_always'));
+  await f.driver.configureSession(s.id, { tools: [f.tool(s)] });
+  assert.equal((await inspect()).isError, false);
+  assert.equal((await f.generate(s)).isError, false);
+  assert.equal(f.questions.length, 1, 'Inspect and generate share the explicit grant for this tool and service');
+});
+test(kind + ' session grant covers later calls and equivalent reconfiguration, but not another service or restart', { timeout: 30000 }, async t => {
+  const f = await fixture(t, kind), s = await f.session(randomUUID());
   const first = await f.generate(s);
   assert.equal(first.isError, false, JSON.stringify(first));
   assert.equal(f.questions[0]._meta.codepro.authorizationScope, 'session');
@@ -101,8 +144,8 @@ test('image session grant covers later calls and equivalent reconfiguration, but
   assert.equal((await f.generate(s)).isError, true, 'Restart must ask again even with the same session ID');
 });
 
-test('image once, cancellation, explicit policy and tool replacement keep their original approval boundaries', { timeout: 30000 }, async t => {
-  const f = await fixture(t), s = await f.session();
+test(kind + ' once, cancellation, explicit policy and tool replacement keep their original approval boundaries', { timeout: 30000 }, async t => {
+  const f = await fixture(t, kind), s = await f.session();
   f.choice = 'allow_once';
   await f.generate(s);
   await f.generate(s);
@@ -125,11 +168,11 @@ test('image once, cancellation, explicit policy and tool replacement keep their 
 
   f.choice = 'allow_always';
   await f.generate(s);
-  await f.store.update(state => { state.toolPermissions = { generate_image: 'never_allow' }; });
+  await f.store.update(state => { state.toolPermissions = { [toolName]: 'never_allow' }; });
   const beforeDeny = f.questions.length;
   assert.equal((await f.generate(s)).isError, true);
   assert.equal(f.questions.length, beforeDeny, 'A hard deny overrides the remembered grant');
-  await f.store.update(state => { state.toolPermissions = { generate_image: 'ask_before' }; });
+  await f.store.update(state => { state.toolPermissions = { [toolName]: 'ask_before' }; });
   f.choice = 'reject_once';
   assert.equal((await f.generate(s)).isError, true);
   assert.equal(f.questions.at(-1).options.some(option => option.optionId === 'allow_always'), false);
@@ -145,7 +188,7 @@ test('image once, cancellation, explicit policy and tool replacement keep their 
     'A same-name replacement cannot claim the image capability');
 });
 
-test('real ACP image approval offers session scope and reuses it for changed parameters and later turns', { timeout: 30000 }, async t => {
+test(kind + ' real ACP approval offers session scope and reuses it for changed parameters and later turns', { timeout: 30000 }, async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-acp-')));
   const dataDir = join(root, 'host'), cwd = join(root, 'project');
   const questions = [], submissions = [], results = [], failures = [];
@@ -153,6 +196,7 @@ test('real ACP image approval offers session scope and reuses it for changed par
   const remote = createServer(async (req, res) => {
     const json = value => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(value));
     try {
+      const catalog = savedFixtureResponse(req.url); if (catalog) return json(await catalog.json());
       if (req.url.endsWith('/models')) return json({ data: [{ id: 'fixture' }] });
       if (req.url.startsWith('/history/')) return json({ [req.url.split('/').at(-1)]: {
         status: { status_str: 'error', messages: [['execution_error', 'Isolated fixture: no real image generation']] },
@@ -165,14 +209,14 @@ test('real ACP image approval offers session scope and reuses it for changed par
       const user = body.messages.findLastIndex(message => message.role === 'user');
       const replies = body.messages.slice(user + 1).filter(message => message.role === 'tool');
       let tool;
-      if (replies.length === 0) tool = { name: 'search_mcp_tools', args: { names: ['generate_image'] } };
+      if (replies.length === 0) tool = { name: 'search_mcp_tools', args: { names: [toolName] } };
       if (replies.length === 1 || replies.length === 3) {
         latestJob = randomUUID();
-        tool = { name: 'generate_image', args: { operation: 'generate', request_id: latestJob,
+        tool = { name: toolName, args: { operation: 'generate', ...(kind === 'video' ? { mode: 'text_to_video' } : {}), request_id: latestJob,
           prompt: `Fixture subject ${submissions.length}`, width: replies.length === 1 ? 512 : 768,
           height: 512, seed: submissions.length, wait_seconds: 0 } };
       }
-      if (replies.length === 2) tool = { name: 'generate_image', args: { operation: 'status', job_id: latestJob, wait_seconds: 0 } };
+      if (replies.length === 2) tool = { name: toolName, args: { operation: 'status', job_id: latestJob, wait_seconds: 0 } };
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       const emit = (delta, finish_reason) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', model: 'fixture', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
       if (tool) emit({ role: 'assistant', tool_calls: [{ index: 0, id: randomUUID(), type: 'function', function: { name: tool.name, arguments: JSON.stringify(tool.args) } }] }, 'tool_calls');
@@ -223,3 +267,5 @@ test('real ACP image approval offers session scope and reuses it for changed par
   assert.equal(results.filter(result => result.status === 'completed').length, 6,
     'Six image calls complete; internal discovery is not published as a user operation');
 });
+
+}

@@ -1,27 +1,33 @@
+import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { setTimeout as delay } from 'node:timers/promises';
+import { once } from 'node:events';
+import { WebSocketServer } from 'ws';
+import { watchMedia, mediaStreamKey, mediaObservation, stopMedia } from '../comfyui-live.mjs';
 import { comfyuiVideoTool, comfyVideoWorkflow, inspectMp4 } from '../comfyui-video-tool.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 
 const id = '6f2c1cde-4707-4b12-87cd-a8b116b386ab';
 const input = { operation: 'generate', mode: 'text_to_video', prompt: 'A small rabbit waves beside a stream', duration_seconds: 5, request_id: id };
-function metadataFixture() {
+function metadataFixture(frames = 124, fps = 24) {
   const box = (type, data) => { const b = Buffer.alloc(8); b.writeUInt32BE(data.length + 8); b.write(type, 4); return Buffer.concat([b, data]); };
   const tkhd = Buffer.alloc(84); tkhd.writeUInt32BE(640 * 65536, 76); tkhd.writeUInt32BE(640 * 65536, 80);
-  const mdhd = Buffer.alloc(24); mdhd.writeUInt32BE(24, 12); mdhd.writeUInt32BE(124, 16);
+  const mdhd = Buffer.alloc(24); mdhd.writeUInt32BE(fps, 12); mdhd.writeUInt32BE(frames, 16);
   const hdlr = Buffer.alloc(24); hdlr.write('vide', 8);
   return Buffer.concat([box('ftyp', Buffer.from('isom0000')), box('moov', box('trak', Buffer.concat([box('tkhd', tkhd), box('mdia', Buffer.concat([box('mdhd', mdhd), box('hdlr', hdlr)]))]))), box('mdat', Buffer.from('fixture'))]);
 }
-async function fixture(t) {
+async function fixture(t, frames = 124) {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-video-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const cwd = path.join(root, 'workspace'); await mkdir(cwd);
   const calls = []; let state = 'queued';
-  const bytes = metadataFixture();
+  const bytes = metadataFixture(frames);
   const fetchImpl = async (url, options) => {
+    const catalogResponse = savedFixtureResponse(url); if (catalogResponse) return catalogResponse;
     calls.push({ url, ...options });
     if (url.endsWith('/prompt')) return Response.json({ prompt_id: id });
     if (url.endsWith('/upload/image')) return Response.json({ name: 'reference.png' });
@@ -45,8 +51,37 @@ test('approved video templates preserve original conditioning and frame-grid cal
   assert.deepEqual(image['105:104'].inputs.first_frame, ['114', 0]);
   assert.equal(image['114'].inputs.image, 'uploaded.png');
   assert.throws(() => comfyVideoWorkflow({ ...input, mode: 'image_to_video' }, [], id), /image_path/);
-  assert.throws(() => comfyVideoWorkflow({ ...input, duration_seconds: 100 }, [], id), /integer/);
+  assert.equal(comfyVideoWorkflow({ ...input, duration_seconds: 100 }, [], id)['140:133'].inputs.value, 100);
   assert.throws(() => comfyVideoWorkflow({ ...input, width: 1344, height: 1344 }, [], id), /resolution/);
+});
+
+test('requested long and fractional durations reach the saved workflow and publish completed MP4s', async t => {
+  for (const seconds of [20, 30, 60, 20.5]) {
+    const f = await fixture(t, seconds * 24);
+    const schema = f.tool.inputSchema.properties.duration_seconds;
+    assert.equal(schema.maximum, undefined);
+    assert.equal(schema.type, 'number');
+    const receipt = await f.tool.execute({ ...input, duration_seconds: seconds });
+    assert.equal(receipt.status, 'queued');
+    const submission = JSON.parse(f.calls.find(c => c.url.endsWith('/prompt')).body);
+    assert.equal(submission.prompt['140:133'].inputs.value, seconds);
+    assert.deepEqual(submission.prompt['140:131'].inputs.length, ['140:132', 1]);
+    f.state('completed');
+    const result = await f.tool.execute({ operation: 'status', job_id: id });
+    assert.equal(result.status, 'completed');
+    assert.equal(result.videos[0].duration_seconds, seconds);
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+  }
+});
+
+test('invalid duration is rejected before submission; malformed MP4 durations remain invalid', async t => {
+  const f = await fixture(t);
+  for (const seconds of [0, -1, NaN, Infinity, '30', null]) {
+    await assert.rejects(f.tool.execute({ ...input, duration_seconds: seconds }), /finite positive/);
+  }
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 0);
+  assert.throws(() => inspectMp4(metadataFixture(0)), /duration/);
+  assert.throws(() => inspectMp4(metadataFixture(720, 0)), /duration/);
 });
 
 test('receipt survives recreation, downloads MP4 only on completion, and cannot be queried by another session', async t => {
@@ -114,7 +149,7 @@ test('official Harness discovers and executes the video tool with the existing p
 test('live catalog is session-scoped and publishes completion once without resubmission', async t => {
   const f = await fixture(t);
   await f.tool.execute(input);
-  assert.equal(JSON.parse(f.calls.find(call => call.url.endsWith('/prompt')).body).extra_data.preview_method, 'auto');
+  assert.equal(JSON.parse(f.calls.find(call => call.url.endsWith('/prompt')).body).extra_data.preview_method, 'none');
   assert.deepEqual(await comfyuiVideoTool({ ...f.options, sessionId: 'other' }).jobs(), []);
   f.state('running');
   await f.tool.execute({ operation: 'status', job_id: id });
@@ -132,4 +167,112 @@ test('live catalog is session-scoped and publishes completion once without resub
   assert.ok((await readFile(completed[0].videos[0].path)).equals(f.bytes));
   assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
   assert.equal(f.calls.filter(call => call.url.includes('/view?')).length, 1);
+});
+
+test('background publication survives a download longer than 15 seconds without restarting it', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(input); f.state('completed');
+  let downloads = 0;
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: async (url, options) => {
+    if (url.includes('/view?')) {
+      downloads++;
+      await delay(16_000, undefined, { signal: options.signal });
+    }
+    return f.options.fetchImpl(url, options);
+  } });
+  assert.equal((await tool.jobs())[0].status, 'queued');
+  const result = await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(result.status, 'completed');
+  assert.equal(downloads, 1);
+  assert.deepEqual(await readFile(result.videos[0].path), f.bytes);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});
+
+test('Agent status carries prompt-scoped numeric progress without preview frames or false completion', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('running');
+  const key = mediaStreamKey(f.root, f.options.sessionId, 'video', id);
+  const server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+  await once(server, 'listening');
+  t.after(() => { stopMedia(key); for (const client of server.clients) client.terminate(); server.close(); });
+  server.on('connection', socket => {
+    socket.send(JSON.stringify({ type: 'progress', data: { prompt_id: id, node: '140:125', value: 4, max: 8 } }));
+    socket.send(Buffer.from('ignored-preview'));
+    socket.send(JSON.stringify({ type: 'progress', data: { prompt_id: 'other', value: 8, max: 8 } }));
+  });
+  await watchMedia(key, `http://127.0.0.1:${server.address().port}`, { job_id: id, prompt_id: id });
+  for (let i = 0; i < 50 && mediaObservation(key).step !== 4; i++) await delay(10);
+  const result = await f.tool.execute({ operation: 'status', job_id: id });
+  assert.equal(result.status, 'running');
+  assert.equal(result.progress.step, 4);
+  assert.equal(result.progress.total, 8);
+  assert.equal(result.progress.node, '140:125');
+  assert.equal(result.progress.connected, true);
+  assert.ok(result.progress.updatedAt > 0);
+  assert.equal(result.progress.preview, undefined);
+  assert.deepEqual(result.videos, []);
+  f.state('completed');
+  assert.equal((await f.tool.execute({ operation: 'status', job_id: id })).progress, null);
+});
+
+test('catalog recovers an ambiguous submission and clears its stale error without resubmitting', async t => {
+  const f = await fixture(t);
+  let submissions = 0;
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: (url, options) => {
+    if (url.endsWith('/prompt')) { submissions++; throw new Error('response connection lost'); }
+    return f.options.fetchImpl(url, options);
+  } });
+  const submitted = await tool.execute(input);
+  assert.equal(submitted.status, 'submission_unknown');
+  assert.match(submitted.error, /connection lost/);
+  f.state('running');
+  let observed;
+  for (let i = 0; i < 50; i++) {
+    [observed] = await tool.jobs();
+    if (observed.status === 'running') break;
+    await delay(20);
+  }
+  // Wait for any last background refresh before the fixture is removed.
+  await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(observed.status, 'running');
+  assert.equal(observed.error, null);
+  assert.equal(submissions, 1);
+});
+
+test('background observation does not race an in-flight submission receipt', async t => {
+  const f = await fixture(t);
+  const started = Promise.withResolvers(), release = Promise.withResolvers();
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: async (url, options) => {
+    if (url.endsWith('/prompt')) { started.resolve(); await release.promise; }
+    return f.options.fetchImpl(url, options);
+  } });
+  const pending = tool.execute(input);
+  await started.promise;
+  try {
+    assert.equal((await tool.jobs())[0].status, 'submission_unknown');
+    await delay(50);
+    assert.equal(f.calls.filter(c => c.url.includes('/history/') || c.url.endsWith('/queue')).length, 0);
+  } finally { release.resolve(); }
+  assert.equal((await pending).status, 'queued');
+  await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});
+
+test('interrupted output retrieval stays incomplete and recovers without another GPU submission', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('completed');
+  let downloads = 0;
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: (url, options) => {
+    if (url.includes('/view?') && ++downloads === 1) throw new Error('download connection lost');
+    return f.options.fetchImpl(url, options);
+  } });
+  await assert.rejects(tool.execute({ operation: 'status', job_id: id }), /download connection lost/);
+  const [before] = await tool.jobs();
+  assert.equal(before.observation_error, true);
+  assert.notEqual(before.status, 'completed');
+  assert.deepEqual(before.videos, []);
+  assert.equal((await tool.execute({ operation: 'status', job_id: id })).status, 'completed');
+  const [after] = await tool.jobs();
+  assert.equal(after.observation_error, false);
+  assert.equal(after.progress, null);
+  assert.equal(downloads, 2);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
 });

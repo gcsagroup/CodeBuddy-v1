@@ -1,5 +1,5 @@
 import { fallbackProperties } from './comfyui-fallback.mjs';
-import { approvedWorkflow, VIDEO_WORKFLOWS } from './comfyui-workflows.mjs';
+import { approvedWorkflow } from './comfyui-workflows.mjs';
 import { comfyuiMediaTool } from './comfyui-tool.mjs';
 
 export const VIDEO_TOOL_NAME = 'generate_video';
@@ -58,7 +58,7 @@ export function inspectMp4(bytes) {
     const duration = v1 ? Number(bytes.readBigUInt64BE(mdhd.start + 24)) : bytes.readUInt32BE(mdhd.start + 16);
     const width = bytes.readUInt32BE(tkhd.end - 8) / 65536, height = bytes.readUInt32BE(tkhd.end - 4) / 65536;
     const duration_seconds = duration / timescale;
-    if (!Number.isFinite(duration_seconds) || duration_seconds <= 0 || duration_seconds > 20 || width <= 0 || height <= 0 || width * height > 1344 * 768)
+    if (!Number.isFinite(duration_seconds) || duration_seconds <= 0 || width <= 0 || height <= 0 || width * height > 1344 * 768)
       throw new Error('Invalid MP4 video dimensions or duration');
     return { width, height, duration_seconds, mime_type: 'video/mp4' };
   }
@@ -68,18 +68,18 @@ export function inspectMp4(bytes) {
 export function comfyuiVideoTool(options) {
   return comfyuiMediaTool(options, {
     name: VIDEO_TOOL_NAME,
-    description: 'Generate video / 生视频、文生视频、图生视频 with the configured ComfyUI service. Bundled presets use MiniMax H3. Submit once, then poll status with the SAME job_id (wait_seconds=30) until completed. Returns a real local MP4 and a playable preview_url; audio depends on the selected workflow. Include the returned markdown link plus local path in your reply; never embed MP4 as an image. image_to_video takes one workspace PNG as its first frame; match width/height to its aspect ratio. Requested duration is 1–15 seconds; bundled presets use 24 fps with model frame-grid rounding. Never claim success before completed. reference_to_video accepts 1–2 original references. Prefer existing exported workflows. Use operation=inspect and node_types to check available dependencies and schemas. Only if creation_allowed=true may you submit fallback_workflow using installed nodes/models. Never use shell scripts or install/download dependencies. Omitted dimensions/duration preserve the selected template defaults.',
+    description: 'Generate video / 生视频、文生视频、图生视频 with the configured ComfyUI service. First inspect workflows saved on the configured ComfyUI server and select a compatible workflow_id. Submit once, then poll status with the SAME job_id (wait_seconds=30) until completed. Returns a real local MP4 and a playable preview_url; audio depends on the selected workflow. Include the returned markdown link plus local path in your reply; never embed MP4 as an image. image_to_video takes one workspace PNG as its first frame; match width/height to its aspect ratio. Honor the user-requested duration_seconds without a fixed application cap; binding depends on the saved graph and its frame-grid rounding. Do not shorten the request or assume published model durations are hard limits. Report server validation or resource errors accurately; never auto-retry by creating another workflow. Never claim success before completed. reference_to_video accepts 1–2 original references. Reuse server-saved workflows; do not substitute a bundled copy. Use operation=inspect and node_types to check available dependencies and schemas. Only if creation_allowed=true may you submit fallback_workflow using installed nodes/models. Never use shell scripts or install/download dependencies. Omitted dimensions/duration preserve the selected template defaults.',
     inputSchema: { type: 'object', properties: {
       operation: { type: 'string', enum: ['inspect', 'generate', 'status', 'cancel'] },
       mode: { type: 'string', enum: ['text_to_video', 'image_to_video', 'reference_to_video'] },
       ...fallbackProperties,
-      workflow_id: { type: 'string', enum: VIDEO_WORKFLOWS, description: 'Approved exported template. minimax_text uses 0.6 MP; minimax_text_detail uses 0.9 MP. Preserve template defaults unless the user requests dimensions/duration.' },
+      workflow_id: { type: 'string', description: 'Exact saved workflow ID from operation=inspect. Select a compatible server-saved workflow by user needs; preserve its saved defaults.' },
       reference_images: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' }, description: 'Workspace PNG reference images for reference_to_video.' },
       prompt: { type: 'string', minLength: 1, maxLength: 12000, description: 'Describe the scene, motion, camera and desired sound.' },
       image_path: { type: 'string', description: 'Workspace-local PNG first frame, required for image_to_video; omitted for text_to_video.' },
       width: { type: 'integer', minimum: 256, maximum: 1344, multipleOf: 32 },
       height: { type: 'integer', minimum: 256, maximum: 1344, multipleOf: 32 },
-      duration_seconds: { type: 'integer', minimum: 1, maximum: 15 },
+      duration_seconds: { type: 'number', exclusiveMinimum: 0, description: 'User-requested duration in seconds, including fractional seconds. No application duration cap. Bind the requested duration to the selected workflow; preserve its frame-grid rounding and fps. Report actual node/model rejection instead of silently shortening or replacing the workflow.' },
       seed: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
       request_id: { type: 'string', pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$', description: 'Optional UUID idempotency key. Omit to generate automatically.' },
       job_id: { type: 'string' }, wait_seconds: { type: 'integer', minimum: 0, maximum: 30 },

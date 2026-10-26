@@ -114,6 +114,7 @@ test('video fallback submits installed nodes and preserves server validation err
   let calls = 0, rejected = false;
   const tool = comfyuiVideoTool({ cwd: root, dataDir: root, sessionId: 'video', baseUrl: 'http://fixture.test', fetchImpl: async (url, options) => {
     if (url.endsWith('/object_info')) return Response.json(inventory());
+    if (url.includes('/userdata?')) return Response.json([]);
     assert.ok(url.endsWith('/prompt'));
     calls++;
     const graph = JSON.parse(options.body).prompt;
@@ -130,6 +131,21 @@ test('video fallback submits installed nodes and preserves server validation err
   assert.equal((await tool.execute(invalid)).status, 'failed'); assert.equal(calls, 2);
 });
 
+test('fallback seconds binding accepts long fractional durations without weakening validity checks', () => {
+  const spec = workflowCandidates('video', 'text_to_video', 0)[0];
+  const graph = spec.graph;
+  graph[spec.promptNode].inputs[spec.promptKey] = '$prompt';
+  graph[spec.durationNode].inputs.value = '$duration_seconds';
+  const args = { mode: 'text_to_video', prompt: 'Rabbit', duration_seconds: 30.5, fallback_workflow: graph };
+  const info = installedPresets('video', 'text_to_video');
+  info.SaveVideo.output_node = true;
+  const result = prepareFallback(args, 'video', [], id, info, { creation_allowed: true });
+  assert.equal(result.graph[spec.durationNode].inputs.value, 30.5);
+  assert.equal(graph[spec.durationNode].inputs.value, '$duration_seconds');
+  for (const value of [0, -5, Infinity, '30'])
+    assert.throws(() => prepareFallback({ ...args, duration_seconds: value }, 'video', [], id, info, { creation_allowed: true }), /finite positive/);
+});
+
 test('HTTP service and Harness preserve the fallback graph, receipt, completion and idempotency', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-fallback-'));
   const png = await readFile(new URL('../../ui/desktop/src/pets/assets/red-panda/sprites.png', import.meta.url));
@@ -139,7 +155,9 @@ test('HTTP service and Harness preserve the fallback graph, receipt, completion 
     if (req.url === '/object_info') {
       if (failInventory) { res.writeHead(503); res.end('{"error":"offline"}'); }
       else res.end(JSON.stringify(info));
-    } else if (req.url === '/prompt') {
+    } else if (req.url.startsWith('/userdata?')) res.end(JSON.stringify(info.UNETLoader ? ['existing.json'] : []));
+    else if (req.url.startsWith('/userdata/')) res.end(JSON.stringify(workflowCandidates('image','text_to_image',0)[0].graph));
+    else if (req.url === '/prompt') {
       const chunks = []; for await (const chunk of req) chunks.push(chunk);
       submitted.push(JSON.parse(Buffer.concat(chunks))); res.end(JSON.stringify({ prompt_id: id }));
     } else if (req.url.startsWith('/history/')) res.end(JSON.stringify(completed ? { [id]: { status: { completed: true }, outputs: { '7': { images: [{ filename: 'result.png', type: 'output' }] } } } } : {}));

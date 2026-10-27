@@ -210,7 +210,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.queryByText('Review the sources before answering.')).not.toBeInTheDocument();
     const thinking = screen.getByRole('button', { name: 'Reasoning details', pressed: false });
     fireEvent.click(thinking);
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Review the sources before answering.')).toBeVisible();
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
     expect(JSON.stringify(trace)).toBe(original);
@@ -396,7 +396,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.queryByText('Inspect stage 117')).not.toBeInTheDocument();
     fireEvent.click(view.container.querySelector('[data-process-group] button')!);
     fireEvent.click(screen.getByRole('button', { name: 'Reasoning details', pressed: false }));
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Inspect stage 117')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Load earlier messages/ })).not.toBeInTheDocument();
     act(() => {

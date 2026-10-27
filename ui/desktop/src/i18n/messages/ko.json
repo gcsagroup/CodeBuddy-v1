@@ -9190,5 +9190,41 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "모델 서비스에서 아직 콘텐츠를 반환하지 않았습니다. 계속 기다리거나 이 요청을 중지할 수 있습니다."
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
   }
 }

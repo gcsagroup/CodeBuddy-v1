@@ -5,6 +5,7 @@ import { invalid } from "./providers.mjs";
 import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 import { builtinArtifacts, verifiedBinary } from './builtin-artifacts.mjs';
 import { playwrightCli } from './harness/playwright-entry.mjs';
+import { registerMcpSessionApproval } from './tool-session-approval.mjs';
 
 const builtins = {
   playwright: {
@@ -239,7 +240,7 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
     if (extension.name === 'playwright_user') profileKeys.add('XDG_CONFIG_HOME');
     for (const key of Object.keys(env)) if (profileKeys.has(key.toUpperCase())) delete env[key];
   }
-  return {
+  const config = {
     serverName: extension.name,
     transport: "stdio",
     command,
@@ -249,6 +250,9 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
     toolCallTimeoutMs,
     failOnStartupError: true,
   };
+  return extension.name === 'qwen_computer'
+    ? registerMcpSessionApproval(config, { tools: entry.tools, business: { id: 'computer-use' } })
+    : config;
 }
 
 // Testing uses the exact same command, profile and MCP configuration as sessions.

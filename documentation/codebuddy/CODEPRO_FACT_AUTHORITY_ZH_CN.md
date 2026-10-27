@@ -1,6 +1,14 @@
 
 # CodePro 事实权威与模块职责
 
+## 2026-10-27 已批准：业务能力的会话授权
+
+电脑操作、图片生成和视频生成分别申请会话授权，不隐含彼此权限。受信工厂声明业务范围；内置电脑操作只绑定已校验的固定 MCP 驱动、连接及已登记工具定义，远端注解、同名自定义 MCP 和模型文字不能制造业务授权。当前电脑操作范围为桌面读取及鼠标键盘能力，不承诺按应用隔离或只读；不升级或替换驱动。媒体沿用现有服务、工作区、会话和任务记录绑定，不扩展文件访问、输出目录或取消范围。
+
+Harness 继续持有执行策略、审批请求、取消和审计。兼容层复用现有 owner 与工具身份授权存储，只有明确支持业务范围展示的客户端才能申请业务授权；旧客户端保留逐工具选择。每次调用仍先经过启用状态、明确禁止、逐次确认和安全检查；会话许可不能越过它们。同业务并发请求共享待决选择，允许一次仍只批准当前调用；工具重连、定义或范围配置变化，以及原生会话 owner 释放或进程重启使相关许可失效。renderer 只展示宿主提供的准确范围和返回选择，不保存执行授权。撤销后续访问不表示已经派发的输入被撤回，未知结果仍由原执行回执与后续观察核对。
+
+繁體：三種業務分別取得明示會話許可，沿用 Host 身分與既有安全檢查；舊客戶端仍逐工具詢問，不更換驅動、不承諾應用隔離。English: Computer use, image generation and video generation have independent explicit session grants. Trusted factories and live definitions own scope; Harness retains execution policy and approval audit. Older clients keep per-tool grants, and existing safety checks remain authoritative. No driver upgrade or app-isolation claim is introduced.
+
 ## 2026-10-26 已批准：桌面更新与确认后停止任务
 
 Electron 主进程的 `update/` 持有更新频道、GitHub Release 与文件身份、下载状态和安装调度。用户自己的 GitHub CLI 登录提供瞬时凭据；不使用 GitHub MCP 凭据、不复制到设置或安装包，不向 renderer 或 CDN 转发 Token。renderer 只发起检查、下载、取消和确认安装，消费主进程状态。Windows Inno 负责安装目录中的程序更新，Mac Squirrel.Mac 负责签名应用替换；更新器不迁移、清空聊天、配置、工作区或凭据。

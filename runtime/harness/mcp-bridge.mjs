@@ -11,6 +11,7 @@ import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess';
 import { scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
 
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
@@ -65,6 +66,32 @@ export function getMcpSessionApproval(ctx, agent, name) {
     }
   }
 }
+export function getMcpBusinessSessionApproval(ctx, agent, name, scope) {
+  if (!isMcpSessionApprovalScope(scope)) return undefined;
+  const definition = ctx.tools.get(name, agent);
+  for (const key of [...scopeChainOf(agent), ctx.root]) {
+    const registry = scopes.get(key);
+    if (!registry) continue;
+    for (const entry of registry.values()) {
+      const binding = entry.approvals.get(name);
+      if (!binding || binding.definition !== definition || !binding.live() || !scope.accepts(entry.config)) continue;
+      const members = scope.tools.map(raw => [publicName(entry.config.serverName, raw), raw])
+        .filter(([member]) => entry.approvals.has(member));
+      if (!members.some(([member]) => member === name)) return undefined;
+      const bindings = members.map(([member]) => entry.approvals.get(member));
+      let group = entry.businessApproval;
+      if (!group || group.scope.key !== scope.key || bindings.length !== group.bindings.length ||
+          bindings.some((value, index) => value !== group.bindings[index])) {
+        group = { scope, bindings, identity: Object.freeze({}),
+          presentation: Object.freeze({ ...scope.business, tools: members.map(([, raw]) => raw) }) };
+        entry.businessApproval = group;
+      }
+      return { identity: group.identity, presentation: group.presentation,
+        isCurrent: () => entry.businessApproval === group && binding.live() && scope.accepts(entry.config) &&
+          members.every(([member], index) => entry.approvals.get(member) === bindings[index]) };
+    }
+  }
+}
 export function getMcpResourceSessionApproval(ctx, agent, name, server) {
   if (!MCP_RESOURCE_TOOL_NAMES.includes(name)) return undefined;
   const definition = ctx.tools.get(name, agent);
@@ -90,7 +117,7 @@ export async function apply(ctx, config) {
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
   if (registry.has(config.serverName)) throw Error(`MCP server ${config.serverName} is already registered in this scope`);
-  const entry = { tools: new Map(), approvals: new Map(), snapshots: new Map(), resourceDefinitions: new Map(), resourceApprovals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
+  const entry = { config, tools: new Map(), approvals: new Map(), snapshots: new Map(), resourceDefinitions: new Map(), resourceApprovals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
   const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;

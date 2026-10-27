@@ -68,6 +68,35 @@ async function expectStillPending(promise: Promise<RequestPermissionResponse>): 
 }
 
 describe('ACP permission requests', () => {
+  it('requires a complete business scope before resolving the business-session option', async () => {
+    for (const valid of [false, true]) {
+      const request = permissionRequest('session-1', 'business-option');
+      request.options.push({
+        optionId: 'allow_business_session',
+        name: 'Allow computer use',
+        kind: 'allow_always',
+      });
+      request._meta = {
+        codepro: {
+          authorizationScope: 'session',
+          businessApproval: { id: 'computer-use', tools: valid ? ['click'] : [] },
+        },
+      };
+      const response = requestAcpPermission(request);
+      expect(resolveAcpPermissionRequest('session-1', 'business-option', 'always_allow')).toBe(
+        valid
+      );
+      if (valid)
+        await expect(response).resolves.toEqual({
+          outcome: { outcome: 'selected', optionId: 'allow_business_session' },
+        });
+      else {
+        await expectStillPending(response);
+        resolveAcpPermissionRequest('session-1', 'business-option', 'deny_once');
+        await response;
+      }
+    }
+  });
   it('restores only unanswered requests for the loaded session without granting permission', async () => {
     const request = permissionRequest('session-1', 'tool-1');
     const response = requestAcpPermission(request);
@@ -283,20 +312,23 @@ describe('ACP permission requests', () => {
     'subagent_coder',
     'subagent_tester',
     'subagent_reviewer',
-  ])('keeps a host approval request for native %s pending until explicitly answered', async (name) => {
-    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(nativeToolSnapshot(name));
-    const request = permissionRequest('session-1', 'tool-1');
-    request.toolCall.title = name;
-    const response = requestAcpPermission(request);
-    await expectStillPending(response);
-    expect(acpChatSessionActions.applyPermissionRequest).toHaveBeenCalledWith(request);
-    expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(true);
-    expect(resolveAcpPermissionRequest('session-1', 'tool-1', 'allow_once')).toBe(true);
-    await expect(response).resolves.toEqual({
-      outcome: { outcome: 'selected', optionId: 'allow-once' },
-    });
-    expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(false);
-  });
+  ])(
+    'keeps a host approval request for native %s pending until explicitly answered',
+    async (name) => {
+      vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(nativeToolSnapshot(name));
+      const request = permissionRequest('session-1', 'tool-1');
+      request.toolCall.title = name;
+      const response = requestAcpPermission(request);
+      await expectStillPending(response);
+      expect(acpChatSessionActions.applyPermissionRequest).toHaveBeenCalledWith(request);
+      expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(true);
+      expect(resolveAcpPermissionRequest('session-1', 'tool-1', 'allow_once')).toBe(true);
+      await expect(response).resolves.toEqual({
+        outcome: { outcome: 'selected', optionId: 'allow-once' },
+      });
+      expect(isAcpPermissionRequestPending('session-1', 'tool-1')).toBe(false);
+    }
+  );
 
   it.each([
     ['subagent', 'external_mcp', 'tool-1', 'subagent'],

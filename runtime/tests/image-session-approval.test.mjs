@@ -16,7 +16,7 @@ import { SafetyPolicy } from '../safety-policy.mjs';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 
-async function fixture(t, kind = 'image') {
+async function fixture(t, kind = 'image', modern = false) {
   const toolName = kind === 'video' ? 'generate_video' : 'generate_image';
   const factory = kind === 'video' ? comfyuiVideoTool : comfyuiTool;
   const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-')));
@@ -36,9 +36,11 @@ async function fixture(t, kind = 'image') {
   t.after(() => driver.close());
   const host = Object.assign(Object.create(Compat.prototype), {
     store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store),
+    businessApprovalClients: new WeakSet(),
   });
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
-  const f = { root, store, host, questions, requests, calls, choice: 'allow_always',
+  const sessionChoice = modern ? 'allow_business_session' : 'allow_always';
+  const f = { root, store, host, questions, requests, calls, sessionChoice, choice: sessionChoice,
     tool: (s, baseUrl = 'http://image.fixture') => factory({ cwd: root, dataDir: root, sessionId: s.id, baseUrl, fetchImpl }),
     get driver() { return driver; },
     async session(nativeSessionId) {
@@ -56,10 +58,14 @@ async function fixture(t, kind = 'image') {
       return driver.callTool(s.id, toolName, { ...(kind === 'video' && args.operation === 'generate' ? { mode: 'text_to_video' } : {}), ...args }, {
         signal,
         onToolPolicy: call => { calls.push(call); return host.toolPolicy(s, call, call.signal); },
-        onPermission: call => host.approveTool(s, call, { async ask(_method, params) {
+        onPermission: call => {
+          const connection = { async ask(_method, params) {
           questions.push(params);
           return answer ? answer(params) : { outcome: { outcome: 'selected', optionId: f.choice } };
-        } }, call.signal),
+          } };
+          if (modern) host.businessApprovalClients.add(connection);
+          return host.approveTool(s, call, connection, call.signal);
+        },
       });
     },
     generate(s, options) { return f.invoke(s, { operation: 'generate', prompt: 'Isolated fixture', request_id: randomUUID() }, options); },
@@ -68,7 +74,7 @@ async function fixture(t, kind = 'image') {
 }
 
 test('image and video grants stay independent when both tools share one service', { timeout: 30000 }, async t => {
-  const f = await fixture(t), s = await f.session();
+  const f = await fixture(t, 'image', true), s = await f.session();
   const image = f.tool(s);
   const video = comfyuiVideoTool({ cwd: f.root, dataDir: f.root, sessionId: s.id, baseUrl: 'http://image.fixture', fetchImpl: async () => {
     throw Error('Rejected video must not contact the service');
@@ -76,16 +82,19 @@ test('image and video grants stay independent when both tools share one service'
   await f.driver.configureSession(s.id, { tools: [image, video] });
   await f.generate(s);
   const questions = [];
+  const connection = { async ask(_method, params) {
+    questions.push(params);
+    return { outcome: { outcome: 'selected', optionId: 'reject_once' } };
+  } };
+  f.host.businessApprovalClients.add(connection);
   const result = await f.driver.callTool(s.id, 'generate_video', { operation: 'generate', mode: 'text_to_video', prompt: 'Fixture' }, {
     onToolPolicy: call => f.host.toolPolicy(s, call, call.signal),
-    onPermission: call => f.host.approveTool(s, call, { async ask(_method, params) {
-      questions.push(params);
-      return { outcome: { outcome: 'selected', optionId: 'reject_once' } };
-    } }, call.signal),
+    onPermission: call => f.host.approveTool(s, call, connection, call.signal),
   });
   assert.equal(result.isError, true);
   assert.equal(questions.length, 1, 'Image approval never grants video access');
-  assert.ok(questions[0].options.some(option => option.optionId === 'allow_always'));
+  assert.equal(questions[0]._meta.codepro.businessApproval.id, 'video-generation');
+  assert.ok(questions[0].options.some(option => option.optionId === f.sessionChoice));
   await f.generate(s);
   assert.equal(f.questions.length, 1, 'Rejecting video preserves the independent image grant');
 });
@@ -93,24 +102,26 @@ test('image and video grants stay independent when both tools share one service'
 for (const kind of ['image', 'video']) {
 const toolName = kind === 'video' ? 'generate_video' : 'generate_image';
 
-test(kind + ' workflow inspection shares the service-bound tool grant', async t => {
-  const f = await fixture(t, kind), s = await f.session();
+for (const modern of [false, true]) {
+const label = kind + (modern ? ' business' : ' legacy');
+test(label + ' workflow inspection shares the service-bound tool grant', async t => {
+  const f = await fixture(t, kind, modern), s = await f.session();
   const inspect = () => f.invoke(s, { operation: 'inspect', ...(kind === 'video' ? { mode: 'text_to_video' } : {}) });
   const first = await inspect();
   assert.equal(first.isError, false, JSON.stringify(first));
-  assert.ok(f.questions[0].options.some(option => option.optionId === 'allow_always'));
+  assert.ok(f.questions[0].options.some(option => option.optionId === f.sessionChoice));
   await f.driver.configureSession(s.id, { tools: [f.tool(s)] });
   assert.equal((await inspect()).isError, false);
   assert.equal((await f.generate(s)).isError, false);
   assert.equal(f.questions.length, 1, 'Inspect and generate share the explicit grant for this tool and service');
 });
-test(kind + ' session grant covers later calls and equivalent reconfiguration, but not another service or restart', { timeout: 30000 }, async t => {
-  const f = await fixture(t, kind), s = await f.session(randomUUID());
+test(label + ' session grant covers later calls and equivalent reconfiguration, but not another service or restart', { timeout: 30000 }, async t => {
+  const f = await fixture(t, kind, modern), s = await f.session(randomUUID());
   const first = await f.generate(s);
   assert.equal(first.isError, false, JSON.stringify(first));
   assert.equal(f.questions[0]._meta.codepro.authorizationScope, 'session');
   assert.equal(f.questions[0]._meta.codepro.extensionSource, 'builtin');
-  assert.ok(f.questions[0].options.some(option => option.optionId === 'allow_always'));
+  assert.ok(f.questions[0].options.some(option => option.optionId === f.sessionChoice));
   const oldCall = f.calls.at(-1);
   await f.driver.configureSession(s.id, { tools: [f.tool(s)] });
   assert.equal(oldCall.sessionApproval.isCurrent(), false, 'A replaced definition is never itself current');
@@ -128,24 +139,24 @@ test(kind + ' session grant covers later calls and equivalent reconfiguration, b
   const before = f.requests.length;
   assert.equal((await f.generate(s)).isError, true);
   assert.equal(f.requests.length, before, 'A replacement service is not contacted without approval');
-  f.choice = 'allow_always';
+  f.choice = f.sessionChoice;
   await f.generate(s);
   f.choice = 'reject_once';
   assert.equal((await f.invoke(s, { operation: 'status', job_id: first.value.job_id })).isError, true);
-  assert.equal(f.questions.at(-1).options.some(option => option.optionId === 'allow_always'), false,
+  assert.equal(f.questions.at(-1).options.some(option => option.kind === 'allow_always'), false,
     'A new-service grant does not cover old jobs on a different service');
 
   await f.driver.configureSession(s.id, { tools: [f.tool(s)] });
   assert.equal((await f.generate(s)).isError, true, 'Switching back does not resurrect a revoked grant');
-  f.choice = 'allow_always';
+  f.choice = f.sessionChoice;
   await f.generate(s);
   await f.restart(s);
   f.choice = 'reject_once';
   assert.equal((await f.generate(s)).isError, true, 'Restart must ask again even with the same session ID');
 });
 
-test(kind + ' once, cancellation, explicit policy and tool replacement keep their original approval boundaries', { timeout: 30000 }, async t => {
-  const f = await fixture(t, kind), s = await f.session();
+test(label + ' once, cancellation, explicit policy and tool replacement keep their original approval boundaries', { timeout: 30000 }, async t => {
+  const f = await fixture(t, kind, modern), s = await f.session();
   f.choice = 'allow_once';
   await f.generate(s);
   await f.generate(s);
@@ -155,7 +166,7 @@ test(kind + ' once, cancellation, explicit policy and tool replacement keep thei
   const controller = new AbortController(), beforeCancel = f.requests.length;
   const pending = f.generate(s, { signal: controller.signal, answer: async () => {
     waiting.resolve(); await release.promise;
-    return { outcome: { outcome: 'selected', optionId: 'allow_always' } };
+    return { outcome: { outcome: 'selected', optionId: f.sessionChoice } };
   } });
   await waiting.promise;
   controller.abort(new Error('Stop while approval is pending'));
@@ -166,7 +177,7 @@ test(kind + ' once, cancellation, explicit policy and tool replacement keep thei
   f.choice = 'reject_once';
   assert.equal((await f.generate(s)).isError, true, 'A late reply to a cancelled approval does not grant the next call');
 
-  f.choice = 'allow_always';
+  f.choice = f.sessionChoice;
   await f.generate(s);
   await f.store.update(state => { state.toolPermissions = { [toolName]: 'never_allow' }; });
   const beforeDeny = f.questions.length;
@@ -175,7 +186,7 @@ test(kind + ' once, cancellation, explicit policy and tool replacement keep thei
   await f.store.update(state => { state.toolPermissions = { [toolName]: 'ask_before' }; });
   f.choice = 'reject_once';
   assert.equal((await f.generate(s)).isError, true);
-  assert.equal(f.questions.at(-1).options.some(option => option.optionId === 'allow_always'), false);
+  assert.equal(f.questions.at(-1).options.some(option => option.kind === 'allow_always'), false);
   await f.store.update(state => { state.toolPermissions = {}; });
 
   await f.driver.configureSession(s.id, { tools: [] });
@@ -184,11 +195,12 @@ test(kind + ' once, cancellation, explicit policy and tool replacement keep thei
   const sameName = { ...f.tool(s), execute() { throw Error('Replacement must not execute'); } };
   await f.driver.configureSession(s.id, { tools: [sameName] });
   assert.equal((await f.generate(s)).isError, true);
-  assert.equal(f.questions.at(-1).options.some(option => option.optionId === 'allow_always'), false,
+  assert.equal(f.questions.at(-1).options.some(option => option.kind === 'allow_always'), false,
     'A same-name replacement cannot claim the image capability');
 });
+}
 
-test(kind + ' real ACP approval offers session scope and reuses it for changed parameters and later turns', { timeout: 30000 }, async t => {
+for (const modern of [false, true]) test(kind + ' real ACP ' + (modern ? 'business' : 'legacy') + ' approval reuses session scope across later turns', { timeout: 30000 }, async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-image-approval-acp-')));
   const dataDir = join(root, 'host'), cwd = join(root, 'project');
   const questions = [], submissions = [], results = [], failures = [];
@@ -242,7 +254,7 @@ test(kind + ' real ACP approval offers session scope and reuses it for changed p
     if (item) { pending.delete(message.id); message.error ? item.reject(Error(message.error.message)) : item.resolve(message.result); return; }
     if (message.method === 'session/request_permission') {
       questions.push(message.params);
-      ws.send(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: { outcome: { outcome: 'selected', optionId: 'allow_always' } } }));
+      ws.send(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: { outcome: { outcome: 'selected', optionId: modern ? 'allow_business_session' : 'allow_always' } } }));
     }
     if (message.method === 'session/update' && message.params.update?.sessionUpdate === 'tool_call_update') results.push(message.params.update);
   });
@@ -250,7 +262,7 @@ test(kind + ' real ACP approval offers session scope and reuses it for changed p
     const id = ++sequence; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
   });
   const ext = name => `_goose/unstable/${name}`;
-  await request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  await request('initialize', { protocolVersion: 1, clientCapabilities: modern ? { _meta: { goose: { businessSessionApproval: 1 } } } : {} });
   await request(ext('config/extensions/set-enabled'), { configKey: 'commonqueries', enabled: false });
   const { providerId } = await request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Isolated fixture', apiUrl: `${baseUrl}/v1`, requiresAuth: false, models: ['fixture'], headers: {}, supportsStreaming: true });
   await request(ext('defaults/save'), { providerId, modelId: 'fixture' });
@@ -264,6 +276,13 @@ test(kind + ' real ACP approval offers session scope and reuses it for changed p
   assert.equal(questions.length, 1, 'The actual transport asks only for the first explicit session grant');
   assert.equal(questions[0]._meta.codepro.authorizationScope, 'session');
   assert.ok(questions[0].options.some(option => option.kind === 'allow_always'));
+  if (modern) {
+    const business = questions[0]._meta.codepro.businessApproval;
+    assert.equal(business.id, kind === 'video' ? 'video-generation' : 'image-generation');
+    assert.equal(business.service, baseUrl);
+    assert.equal(business.workspace, cwd);
+    assert.equal(business.outputDirectory, join(cwd, kind === 'video' ? 'generated-videos' : 'generated-images'));
+  } else assert.equal(questions[0]._meta.codepro.businessApproval, undefined);
   assert.equal(results.filter(result => result.status === 'completed').length, 6,
     'Six image calls complete; internal discovery is not published as a user operation');
 });

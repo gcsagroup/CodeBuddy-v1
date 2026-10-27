@@ -45,6 +45,7 @@ import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
+import { mcpSessionApprovalScope } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
@@ -822,6 +823,7 @@ export class Compat {
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
       mcpServers,
+      mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
       mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
         const state = this.store.read(["modelRouting", "providers"]);
         return this.vision.prepareToolContent({
@@ -922,6 +924,11 @@ export class Compat {
     if (!grant) { grant = { allowed: false, pending: null }; tools.set(approval.tool, grant); }
     return grant;
   }
+  businessGrant(tool) {
+    const approval = tool.sessionApproval, business = approval?.business;
+    if (!business || !business.isCurrent()) return undefined;
+    return this.toolGrant({ sessionApproval: { ...approval, tool: business.identity } });
+  }
   async toolPolicy(s, tool, signal = tool.signal) {
     const extensions = {};
     const denied = () => !this.store.readSession(s.id) ||
@@ -940,7 +947,7 @@ export class Compat {
     const permission = permissions[publicToolName(tool.name)] ?? permissions[tool.name];
     if (safety.requiresApproval || permission === 'ask_before')
       return { kind: 'ask', reason: safety.explanation ?? 'The configured tool rule requires approval.' };
-    if (this.toolGrant(tool)?.allowed || permission === 'always_allow' ||
+    if (this.toolGrant(tool)?.allowed || this.businessGrant(tool)?.allowed || permission === 'always_allow' ||
       tool.nativeCapability || tool.readOnly || tool.delegationControl || tool.sandboxMode === 'danger-full-access')
       return { kind: 'allow' };
     // Remote MCP and host capabilities do not acquire file-sandbox protection
@@ -997,11 +1004,14 @@ export class Compat {
     if (blocked(currentPolicy())) return false;
     const approval = tool.sessionApproval;
     if (approval && !approval.isCurrent()) return false;
-    const grant = this.toolGrant(tool);
-    const reusable = Boolean(grant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
-    if (grant?.allowed && reusable) return true;
+    const toolGrant = this.toolGrant(tool), businessGrant = this.businessGrant(tool);
+    const reusable = Boolean(toolGrant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
+    if (reusable && (toolGrant?.allowed || businessGrant?.allowed)) return true;
+    const business = reusable && businessGrant && !directToolCall && this.businessApprovalClients?.has(connection)
+      ? approval.business : undefined;
+    const grant = business ? businessGrant : toolGrant;
 
-    // Parallel calls wait for the same tool's explicit choice, then recheck the
+    // Parallel calls wait for the same scope's explicit choice, then recheck the
     // owner. Allow-once still requires each later call to ask for itself.
     if (grant?.pending && reusable) {
       let cancel;
@@ -1023,7 +1033,9 @@ export class Compat {
           sessionId: s.id,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
-            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: approval.extensionSource, ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
+            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: business ? 'builtin' : approval.extensionSource,
+              ...(business ? { permissionClass: 'external_write', businessApproval: business.presentation } : {}),
+              ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
           },
           toolCall: {
             toolCallId: tool.id ?? randomUUID(),
@@ -1052,8 +1064,8 @@ export class Compat {
             ...(reusable
               ? [
                   {
-                    optionId: "allow_always",
-                    name: approval.targetOrigin
+                    optionId: business ? 'allow_business_session' : "allow_always",
+                    name: business ? `Allow ${business.presentation.id} for this session` : approval.targetOrigin
                       ? `Allow ${approval.targetOrigin} for this session`
                       : "Allow this tool for this session",
                     kind: "allow_always",
@@ -1072,10 +1084,12 @@ export class Compat {
       const option =
         reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
       if (approval && !approval.isCurrent()) return false;
-      if (option === "allow_always" && reusable) grant.allowed = true;
+      const scopeAllowed = reusable && currentPolicy().permission !== 'ask_before' &&
+        (business ? option === 'allow_business_session' && business.isCurrent() : option === 'allow_always');
+      if (scopeAllowed) grant.allowed = true;
       return (
         option === "allow_once" ||
-        (option === "allow_always" && reusable)
+        scopeAllowed
       );
     } finally {
       if (decision) { grant.pending = null; decision.resolve(); }
@@ -1307,7 +1321,11 @@ export class Compat {
       const [images, videos] = await Promise.all([comfyuiTool(options).jobs(), comfyuiVideoTool(options).jobs()]);
       return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
     }
-    if (method === "initialize")
+    if (method === "initialize") {
+      this.businessApprovalClients ??= new WeakSet();
+      if (connection && p.clientCapabilities?._meta?.goose?.businessSessionApproval === 1)
+        this.businessApprovalClients.add(connection);
+      else if (connection) this.businessApprovalClients.delete(connection);
       return {
         protocolVersion: 1,
         agentInfo: { name: "CodeBuddy", version: "0.1.0" },
@@ -1319,6 +1337,7 @@ export class Compat {
           _meta: { goose: { customNotifications: true } },
         },
       };
+    }
     if (method === "authenticate")
       throw unsupported(
         "ACP provider authentication; configure the model connection in settings",

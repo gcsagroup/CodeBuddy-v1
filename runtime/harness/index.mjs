@@ -217,6 +217,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     exec.signal.throwIfAborted();
     return {
       identity: binding.identity, extensionSource: 'builtin',
+      ...(registration.scope.business ? { business: {
+        identity: binding.identity, presentation: registration.scope.business,
+        isCurrent: () => builtinApprovals.get(rootAgent)?.get(exec.name) === binding &&
+          ctx.tools.get(exec.name, exec.agent) === definition && toolSessionApprovalScope(registration.tool) === registration.scope,
+      } } : {}),
       isCurrent: () => builtinApprovals.get(rootAgent)?.get(exec.name) === binding &&
         ctx.tools.get(exec.name, exec.agent) === definition && toolSessionApprovalScope(registration.tool) === registration.scope,
     };
@@ -393,12 +398,17 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
       mcpPlugin.getMcpResourceSessionApproval(ctx, exec.agent, exec.name, exec.arguments.server);
     const mcpBinding = currentMcpBinding();
     const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await builtinSessionApproval(exec, rootAgent);
+    const business = mcpBinding
+      ? (settingsFor(exec.agent)?.mcpApprovalScopes ?? []).map(scope =>
+        mcpPlugin.getMcpBusinessSessionApproval(ctx, exec.agent, exec.name, scope)).find(Boolean)
+      : binding?.business;
     let sessionApproval;
     if (binding && rootAgent) {
       let owner = approvalOwners.get(rootAgent);
       if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
       sessionApproval = {
         owner, tool: binding.identity, extensionSource: binding.extensionSource,
+        ...(business ? { business } : {}),
         ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
         isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent && approvalOwners.get(rootAgent) === owner &&
           (mcpBinding ? currentMcpBinding() === binding : binding.isCurrent()),

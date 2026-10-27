@@ -1,0 +1,121 @@
+CodeBuddy 汇报节奏调研与插件隔离验证
+2026-10-27，按用户最新反馈更新。产品源码基于 46ebc73，分支 codex/conversation-process-review-20261026。
+
+一、决定与范围
+
+先从最轻的 CU 沟通约定考虑：借鉴公开项目的固定提示与正反例，由主模型在原有生成中判断何时值得汇报。用户目前观察到频繁旁白主要出现在 CU，其他场景大体正常；这不是所有模型、所有任务的已证实统计结论。编码偶尔长静默需要观察，不据此全局增加提醒机制。
+
+不增加逐句评分调用、不截留或删除模型公开正文、不按秒数或工具次数催促、不设置“汇报之后才能调用工具”的门禁。长静默、连续无输出、重复未成功的计数只能帮助调查，不能直接证明卡死或成为本需求的自动干预条件。此前讨论过的异常阈值方案撤回，不作为实施计划。
+
+宿主仍负责权限、安全策略、协议有效性、取消、原生执行状态及真实回执；本决定不撤掉这些现有边界。前端可以按照已有结构化状态更新动作标题和折叠过程，但不能从正文推断任务成功、改变执行或伪造模型进度。提示本身也会影响输出，不能承诺对任务表现绝对零影响。
+
+本轮没有修改产品提示词、执行循环、权限机制或前端行为，没有安装或启用社区插件。之前留下的源码/配置已分别提交；调研与隔离验证不等于批准上线。
+
+二、最小候选提示，仅用于 CU 的后续对比
+
+电脑操作时，围绕用户目标简短沟通。普通的观察、点击、输入、滚动及核对由工具记录呈现，不逐项复述。
+当有值得用户知道的新发现、阶段结果、路线变化或实际障碍时，再用一两句说明发生了什么、有什么影响，以及必要的下一步。
+把同一个小目标下的相关操作合并沟通；保持事实准确，不重复计划，不展示内部推理。
+遇到反复尝试时，若已经确认新的限制或需要改变路线，说明该限制和下一步；不要为每次重试分别播报，也不要仅为填补沉默而写空泛进度。
+发出进度后继续自主工作，只有确实需要用户输入时才等待。沟通不是下一次操作的前置条件。
+
+正例（仅在原任务出现对应事实时使用）：
+- “三份简历都已核对。两位满足技术要求，其中一位到岗时间不符；我继续核对项目经历。”
+- “文件选择器没有暴露可操作的上传入口。我正在检查页面内的上传按钮，已填写内容会保留。”
+
+反例：
+- “现在截图。接下来点击简历。再截图确认。然后打开下一份。”
+- “我还在努力处理，请稍候。”（没有新事实，反复发送）
+
+这些是语义指导和示例，不是由宿主实现的分类器。不能把例子中的词语变成字符串匹配规则。本候选尚未接入产品，也没有被真实模型试验证明有效。
+
+三、可以直接参考什么
+
+1. ycfeng/pi-progress
+固定 revision a5a7c212fbf753d38b5acb5479f8a11377e80624。本轮通过 GitHub API 重新读取 extensions/prompt.ts 与 extensions/index.ts。
+它在 before_agent_start 追加固定沟通约定；要求有意义的新信息才更新，合并相关进度，普通工具不逐次播报，通常一两句，之后继续执行。所查入口没有定时催更或第二个价值判断模型。
+最适合作为本需求的规则参考。其完整提示还包含编码和最终答复要求，不需要整份照搬进 CU 技能，也不需要为几句话安装整包。
+https://github.com/ycfeng/pi-progress/blob/a5a7c212fbf753d38b5acb5479f8a11377e80624/extensions/prompt.ts
+https://github.com/ycfeng/pi-progress/blob/a5a7c212fbf753d38b5acb5479f8a11377e80624/extensions/index.ts
+
+2. Codex
+本轮重新打开官方 Codex Prompting Guide。它把中途公开说明与最终答复区分，讨论有用的简短更新，也明确提示不同模型版本的中途更新能力不同；旧版本不能照搬新版本的提示方式。特定版本的步数建议不作为 CodeBuddy 的通用规则或宿主门禁。
+之前核对的公开 CLI 提示 revision adfcac1a427ac70f6a1eabb85f836eb85341f995 要求合并相关操作、跳过琐碎读取旁白。公开提示、模型训练和协议共同影响体验；不能声称复制几句文字就能复制 Codex 桌面私有实现。
+https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide
+https://github.com/openai/codex/blob/adfcac1a427ac70f6a1eabb85f836eb85341f995/codex-rs/protocol/src/prompts/base_instructions/default.md
+
+3. Grok Build
+本轮重新读取 revision 2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8 的公开提示：中途更新简短低频，聚焦学到了什么、还有什么未知，以及下一步解决什么；避免重复计划和空泛播报。借鉴内容标准，不据此推断 Grok 网站的实现。
+https://github.com/xai-org/grok-build/blob/2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8/crates/codegen/xai-grok-agent/templates/prompt.md
+
+4. Claude、Pi、Gemini CLI（此前锁定证据的整合）
+Claude 官方资料描述特定模型的原生公开进度，不能将任意思考块直接公开；某些宿主提醒方案会追加模型输入，不符合此次选择。
+Pi 基础循环主要传递主模型输出，扩展可以加规则或状态组件；不应把第三方扩展当作核心默认能力。
+Gemini CLI 的 update_topic 由主模型选择调用并提供主题；独立的 loopDetectionService 解决异常循环，涉及额外模型和执行控制，不是普通汇报的价值评分器。
+https://platform.claude.com/docs/en/build-with-claude/thinking#progress-updates-between-tool-calls
+https://github.com/earendil-works/pi/blob/6c384aa30f619d7b28963f2bab24d8dacbe73cb6/packages/agent/src/agent-loop.ts
+https://github.com/google-gemini/gemini-cli/blob/363a13119a57354f469732577518b9d6b319d1d6/packages/core/src/prompts/snippets.ts
+https://github.com/google-gemini/gemini-cli/blob/363a13119a57354f469732577518b9d6b319d1d6/packages/core/src/services/loopDetectionService.ts
+
+没有在已检查的公开路径中找到通用且成熟的“逐句计算信息价值再放行”的实现。判断主要由主模型在既有生成中完成。离线评价可以检验效果，不代表在线需要人工标注或硬编码价值公式。
+
+四、本项目当前代码证据与未知
+
+runtime/harness/index.mjs 已通过官方 systemPrompt.section 注册会话语言等固定规则；mcp-bridge.mjs 也把 MCP 服务说明纳入提示。若以后实施最小 CU 约定，已有接入能力足够，无需增加执行核心或安装新的进度插件。
+本轮读取 runtime/harness/skills/computer-use/SKILL.md 与工具发现指引，没有发现要求每次点击前写公开旁白的条款。它们要求观察、操作、核验，这是操作安全要求；不应为了少说话而减少必要观察。
+尚未完整还原问题会话实际装配的全部提示（含连接时 MCP 服务说明、模型默认行为与用户配置），因此不能把频繁旁白的根因确认为这份技能，也不能确定加一段提示就能解决。
+
+五、新一轮 DSH 插件隔离验证
+
+本机官方 Harness 版本 0.2.1-alpha.2。下载固定 revision 的 28 份原始源码/说明/测试并逐文件核对 SHA-256。复用已有 Node 24.19.0 与 schemastery 3.18.5-alpha.1；未安装依赖、未授予兼容豁免、未改上游源文件、未连接真实会话或辅助模型。测试内阻断网络调用。
+来源哈希见 cadence-plugin-sources.json，结果摘要见 cadence-plugin-trial-summary.json。原始插件副本、测试夹具及日志保留在忽略的 .preview-data 中，不纳入产品。
+
+- Adamaik/dsh-progress-rules 0.2.1，revision bcfa76af2f3571817e666b57c726d2dc03c8a53a。
+  原始 9 项测试通过，退出码 0。enforce:false 时保留固定提示段，且不注册催促处理器；默认开启的每步静默计数与提醒不采用。可参考其使用官方提示注册接口的做法，CodeBuddy 不需要整包接入。
+  https://github.com/Adamaik/dsh-progress-rules/tree/bcfa76af2f3571817e666b57c726d2dc03c8a53a
+
+- S-AN-Shu/dsh-progress-narrator 0.4.3，revision c68c7b347e3ba3a4bba66f7257966a38a1e8649d。
+  原始 host/protocol/protocol-regression 三组共 29 项通过，退出码 0。会注入模型可见规则，要求特定进度前缀；可配置的计数/计时提醒与 DSH 原生 UI 绑定均超出此次最小选择。默认 maxNudgesPerTurn 为 0，不能把所有配置都描述成默认反复催更。即便默认不催更，也没有必要为简短约定引入前缀解析与整包 UI。
+  https://github.com/S-AN-Shu/dsh-progress-narrator/tree/c68c7b347e3ba3a4bba66f7257966a38a1e8649d
+
+- tastynoob/dsh-progress-summary 0.1.0，revision 81d931fc0205e6363b9157bcb6a5378bc260100c。
+  原始 narrator 策略 18 项通过，退出码 0。另用原类和模拟模型验证两项边界，均通过：持续输入 300 秒合成思考、没有工具边界时，辅助调用为 0；工具边界后的辅助请求包含合成思考标记。由此确认它既不能保证解决长连续思考静默，又会把思考片段发给额外模型。默认复用主模型路由，还涉及成本、并发和隐私边界，不建议真实 profile 试用。未运行默认会写入 harness home 日志的完整 wiring 路径。
+  https://github.com/tastynoob/dsh-progress-summary/tree/81d931fc0205e6363b9157bcb6a5378bc260100c
+
+- kermanx/dsh-progress-check 0.2.0，revision 8e6928affbfcc494049159794f604a18abde0200。
+  当前官方 evaluatePluginCompatibility 返回不兼容：声明要求 0.2.1-rc.2，现有为 alpha.2。未绕过检查、未运行、未为试验升级依赖。它也涉及辅助模型，不是此次最轻选择。
+  https://github.com/kermanx/dsh-progress-check/tree/8e6928affbfcc494049159794f604a18abde0200
+
+本轮实际通过总数为 58（9+29+18+2）。三款未报声明冲突，不能写成完整 Host/UI 已兼容；summary 没有声明 DSH peer 范围，声明检查的证明力尤其有限。
+初次本地启动因 Windows --import 路径未转 file URL 失败，修复后 host 测试又遇到本地解析 hook 递归。两次均属于试验夹具问题；保留失败日志，修正本地启动器后仅重跑受影响组。没有把这两次记成上游插件断言缺陷。
+
+六、此前试用与其他方案的保留结论
+
+dsh-compact-activity（e54c662f4b94747beb2458774489fa54308dfcc3）原始组件测试 36 项通过。它是针对 DSH DOM 的分组/折叠后处理，不产生模型语义汇报；CodeBuddy 自己持有 React 渲染，不整包复制 DOM 改写层。其本地展示页未获可视化验收，不记产品 PASS。
+dsh-progress-reporter（ecab516654191e7d1e1aa9e786729d6574930965）原始测试 8 项通过，但额外模拟观察到 startsRequestSeries 字段未透传；其旧 peer 与当前运行时也不兼容。不是已经证实线上错轮，但不适合接入。运行中注入提醒亦不符合用户最新选择。
+heartbeat 类会 followup/启动新轮；todo 通知只反映 todo；长任务 vault 增加状态工具与上下文；外部聊天桥接不是进度价值判断器。均不纳入本次范围。
+https://github.com/wallpap/dsh-compact-activity/tree/e54c662f4b94747beb2458774489fa54308dfcc3
+https://github.com/baiyuscc13724-max/dsh-progress-reporter/tree/ecab516654191e7d1e1aa9e786729d6574930965
+
+synth-laboratories/stack 的旁路 narrator 可参考事件差量、异步取消和发布隔离；其整体还含 steering 与自然语言控制推断，不整包采用。AG-UI 活动事件、MCP 工具 progress 可帮助展示已有事实，但不能替模型制造不存在的阶段总结。以上只是参考，不新增协议或第二套完成权威。
+https://github.com/synth-laboratories/stack/tree/980eab92ba7c1223829576d1fe624d92b1777006
+https://docs.ag-ui.com/concepts/events#activity-events
+https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress
+
+七、效果证据与后续顺序
+
+已有一轮编码对比每组仅一次、不足一分钟，两组均 5 段公开文字；独立产物断言合计 21/22 通过。没有证明旁白减少、长静默改善或任务质量零影响。不同 CU 任务曾分别为 10 次工具/7 段文字和 18 次工具/3 段文字（均含最终），任务不同，不能据次数推导因果。
+
+下一次若实施，仅比较“原始 CU 规则”和“一小段固定 CU 沟通约定”，不顺便改编码提示、工具能力、审批、模型参数或执行循环。采用匹配的多步资料核对、表单操作及需要改路线的任务；只在请求开始提供约定，运行中不插话。独立核验任务结果、权限/停止行为，再评价有用信息覆盖、琐碎复述、遗漏重要变化、耗时与用量。时间与次数只作诊断，不能变成在线门禁或宣称普适百分比。
+若效果不稳定，接受模型差异，继续离线调整少量示例或撤回提示；不自动升级成宿主催促/拦截方案。当前完成调研，不执行这一步产品改动或真实模型对比。
+
+八、提交与验证状态
+
+838bf44 保存先前会话 UI WIP；最近当前回归记录为 97 项通过 78、失败 19（detail-tests-current.json），不能用更早的全绿结果覆盖。先前类型检查还记录 HarnessConversation.test.tsx 两处 exact 选项错误，尚未在本轮修复；新命令闪跳、实际时间与 token 统计核对也仍是独立待办。
+46ebc73 保存此前已存在的“新 profile 默认启用电脑工具”配置与两项回归。实际运行 bundled-extensions.defaults.test.ts，2/2 通过，退出码 0；已有用户显式关闭选择应保留。此提交不等于全部会话 UI 已可发布。
+本轮只新增研究报告、来源哈希和隔离结果摘要。没有新产品构建、没有新 CU、没有新真实模型试验、没有 push/merge。
+
+实际隔离命令：node .preview-data/conversation-process-review-20261026/plugin-review-20261027/run-trials.mjs；修复本地夹具后仅重跑 node .preview-data/conversation-process-review-20261026/plugin-review-20261027/run-trials.mjs quiet-narrator-upstream-host-protocol。最后各受测组退出码均为 0。
+配置回归命令（ui/desktop）：pnpm.cmd --config.verify-deps-before-run=false run test:run src/components/settings/extensions/bundled-extensions.defaults.test.ts --reporter=json --outputFile=../../.preview-data/conversation-process-review-20261026/defaults-precommit-tests.json。
+
+本报告整合先前 RESEARCH、ROUND2、ROUND3、CADENCE_FOLLOWUP、CADENCE_REVIEW_ONLY、CADENCE_AUTOMATION_OWNERS、PLUGIN_TRIAL_RESULTS、CADENCE_AB_RESULTS 的有效结论。原始本地记录包含已被后续需求取代的方案，不整体复制为当前合同；本报告的最新范围与取舍优先。

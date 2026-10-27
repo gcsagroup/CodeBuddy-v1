@@ -1,0 +1,198 @@
+[
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "package.json",
+    "sha256": "6ee9536323b39a57c5e81d65cfeb8d888d8b769804fbc5bcde12145c475cf152",
+    "bytes": 2010
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "LICENSE",
+    "sha256": "59bf11d34a7641fdb9b9c4b0cbfb58d43c4830a6005d7cd7d2ee6f1688c12dab",
+    "bytes": 1516
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "README.md",
+    "sha256": "78e0007e8a599f0a95f55e62124474a49f4e0a8ea8c02c576abb5c51d1bb70fc",
+    "bytes": 12802
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "lib/index.js",
+    "sha256": "dd5adfd6b966f0d82fbe80dc5c5470c5f99c523340c0cb50a51712e03c137060",
+    "bytes": 8719
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "lib/config.js",
+    "sha256": "6f245f27c00e42fdf62920e4175dd3d91442206284a94563a030ae69e1f1322f",
+    "bytes": 3626
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "lib/state.js",
+    "sha256": "c9f5a212c07923220863affa2f89a608ad63d3590a84c1dd98c923600225960c",
+    "bytes": 10801
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "lib/protocol.js",
+    "sha256": "cbb82e6eec804b6dda560ddc0b2a264c01d1509bfa783fe090f95b84749186cb",
+    "bytes": 8256
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "lib/rules.js",
+    "sha256": "d3798ccd79ef2277e90158ee4c1e860aa52b575d907716711df68787214244c7",
+    "bytes": 3628
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "tests/host.test.mjs",
+    "sha256": "4d9c684b7d5745e2112ed896e67ea918b2a598b1a732c2d5d4d548b473bccc13",
+    "bytes": 7609
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "tests/protocol.test.mjs",
+    "sha256": "71b66a269bfed4d218906ed60389b9c372ead231fd46c78b525dbd9ea463d78e",
+    "bytes": 4836
+  },
+  {
+    "repo": "S-AN-Shu/dsh-progress-narrator",
+    "revision": "c68c7b347e3ba3a4bba66f7257966a38a1e8649d",
+    "file": "tests/protocol-regression.test.mjs",
+    "sha256": "40aee71b5d9efa72c114cb52950a54b69bf4455b4493ea0b5dab5fb936b630a9",
+    "bytes": 1235
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "package.json",
+    "sha256": "5475f1edaec16f5da520f8036a4fed60662222b0afba05acd6073f424cd4440a",
+    "bytes": 1669
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "LICENSE",
+    "sha256": "7dbce7c23c2e4026688acf2fd1193bbaee4b8066ba195df7b303597f6e7b4888",
+    "bytes": 1090
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "README.zh.md",
+    "sha256": "f109001e6fc7e1d0af6bdd1830ffb1bc776a1ee0d96fff270009aebe62085137",
+    "bytes": 9186
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "index.js",
+    "sha256": "95d2a844967b8b51fdaa8ea672f72de88d300e78df25c7f60c33955ffeca67bf",
+    "bytes": 28408
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "narrator.js",
+    "sha256": "0abf0306fe33b5cae13a531bd577d444b0428b2bcc6b0d5a7fbd5808d4a6127d",
+    "bytes": 14590
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "projection.js",
+    "sha256": "5c308f5aa439a5542bb99ed95fd6d6c48d934646d1cf33588654b3d53f5026f8",
+    "bytes": 3079
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "test/narrator.test.mjs",
+    "sha256": "c5a6d4da685769b4f14914e7ce04b767367d8a9a2abbc8f371f17e115249df5d",
+    "bytes": 9441
+  },
+  {
+    "repo": "tastynoob/dsh-progress-summary",
+    "revision": "81d931fc0205e6363b9157bcb6a5378bc260100c",
+    "file": "test/wiring.test.mjs",
+    "sha256": "290259f1d325a7184752aad4d388463b9f6dac8e2842cc83f17ee940a731c89d",
+    "bytes": 11323
+  },
+  {
+    "repo": "Adamaik/dsh-progress-rules",
+    "revision": "bcfa76af2f3571817e666b57c726d2dc03c8a53a",
+    "file": "package.json",
+    "sha256": "d43dff5d2eddc92a46685542c89a5cedb0cd3e4ec20ef4f8c0feb6d29e002141",
+    "bytes": 1103
+  },
+  {
+    "repo": "Adamaik/dsh-progress-rules",
+    "revision": "bcfa76af2f3571817e666b57c726d2dc03c8a53a",
+    "file": "LICENSE",
+    "sha256": "aa7bf25a94e7a1bb5d841cc987b07a957fc6b3bf81f6ba48cb5ba3af8b3829d0",
+    "bytes": 1064
+  },
+  {
+    "repo": "Adamaik/dsh-progress-rules",
+    "revision": "bcfa76af2f3571817e666b57c726d2dc03c8a53a",
+    "file": "README.zh.md",
+    "sha256": "8021446625ed9be19949eb6a75042a8e95596c385d186db94bc1f4122cb694d1",
+    "bytes": 4188
+  },
+  {
+    "repo": "Adamaik/dsh-progress-rules",
+    "revision": "bcfa76af2f3571817e666b57c726d2dc03c8a53a",
+    "file": "index.mjs",
+    "sha256": "007acaba02f893b0443cbd18a64e2a396a23419fae89a66d48676802511e0372",
+    "bytes": 4768
+  },
+  {
+    "repo": "Adamaik/dsh-progress-rules",
+    "revision": "bcfa76af2f3571817e666b57c726d2dc03c8a53a",
+    "file": "test.mjs",
+    "sha256": "63a04c88817835125b51226b728e9db531589416735c7d09507f66d3e9f08130",
+    "bytes": 4718
+  },
+  {
+    "repo": "kermanx/dsh-progress-check",
+    "revision": "8e6928affbfcc494049159794f604a18abde0200",
+    "file": "package.json",
+    "sha256": "b22e91e5c1edefe398ac5669525e3b4d025584eb69694630004890aa6e89ec3d",
+    "bytes": 7128
+  },
+  {
+    "repo": "kermanx/dsh-progress-check",
+    "revision": "8e6928affbfcc494049159794f604a18abde0200",
+    "file": "LICENSE",
+    "sha256": "1dd0a82ceb7a2bcc2c56808e8803ca947bd8856a8ed5ef197874eadfbdc45f33",
+    "bytes": 1064
+  },
+  {
+    "repo": "kermanx/dsh-progress-check",
+    "revision": "8e6928affbfcc494049159794f604a18abde0200",
+    "file": "README.md",
+    "sha256": "0dd606a82b7f860b244db2cc0acf1fb8a2cee3a6270bd0a885866394682a2a3d",
+    "bytes": 11316
+  },
+  {
+    "repo": "kermanx/dsh-progress-check",
+    "revision": "8e6928affbfcc494049159794f604a18abde0200",
+    "file": "src/prompt.ts",
+    "sha256": "7d340d76b2fb6fbbb22c3b39647cd07ea388bedb5001e8c2815ca406f35d9622",
+    "bytes": 6504
+  }
+]

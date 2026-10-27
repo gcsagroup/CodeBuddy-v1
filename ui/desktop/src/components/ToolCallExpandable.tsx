@@ -32,6 +32,9 @@ export interface ToolCallExpandableProps {
   // Keep the same content parent while live work becomes collapsible history.
   collapsible?: boolean;
   collapseOnSettle?: boolean;
+  resetOnSettle?: boolean;
+  autoExpandOnReading?: boolean;
+  live?: boolean;
 }
 
 function readExpansion(key?: string): boolean | null {
@@ -61,16 +64,27 @@ export function ToolCallExpandable({
   scrollable = true,
   collapsible = true,
   collapseOnSettle = false,
+  resetOnSettle = false,
+  autoExpandOnReading = true,
+  live = false,
 }: ToolCallExpandableProps) {
   const [expandedState, setExpanded] = useState<boolean | null>(() => readExpansion(storageKey));
-  const expanded = !collapsible || (expandedState === null ? isStartExpanded : expandedState);
+  const [readingLive, setReadingLive] = useState(false);
+  const expanded =
+    !collapsible || (expandedState === null ? isStartExpanded || readingLive : expandedState);
+  const hasOpened = useRef(expanded);
+  if (expanded) hasOpened.current = true;
   const viewport = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const chatFollowing = useContext(ScrollFollowingContext);
   const wasSettled = useRef(collapseOnSettle);
 
-  useEffect(() => {
-    if (collapseOnSettle && !wasSettled.current && chatFollowing && expandedState !== true) {
+  useLayoutEffect(() => {
+    if (
+      collapseOnSettle &&
+      !wasSettled.current &&
+      (resetOnSettle || (chatFollowing && expandedState !== true))
+    ) {
       setExpanded(false);
       if (storageKey) {
         try {
@@ -81,17 +95,20 @@ export function ToolCallExpandable({
       }
     }
     wasSettled.current = collapseOnSettle;
-  }, [collapseOnSettle, storageKey, chatFollowing, expandedState]);
+  }, [collapseOnSettle, resetOnSettle, storageKey, chatFollowing, expandedState]);
 
   useEffect(() => {
     // Scrollbar dragging and keyboard navigation need not reach this element.
     // Consume the scroll owner's choice instead of detecting those gestures again.
-    if (!collapsible && !chatFollowing) setExpanded(true);
-  }, [chatFollowing, collapsible]);
+    // Being away from the tail is temporary. It must not become a manual
+    // expansion that survives returning to the latest output.
+    if (chatFollowing || !autoExpandOnReading) setReadingLive(false);
+    else if (!collapsible || live) setReadingLive(true);
+  }, [chatFollowing, collapsible, live, autoExpandOnReading]);
   const retainReading = () => {
     // Reading live details is an explicit choice, not permission to hide them
     // when the next public block or answer arrives. Do not persist automatic state.
-    if (!collapsible) setExpanded(true);
+    if (!collapsible || live) setExpanded(true);
   };
   const retainReadingFromInteraction = (event: SyntheticEvent) => {
     // Approving a tool is part of execution, not a request to keep its history open.
@@ -101,15 +118,27 @@ export function ToolCallExpandable({
     ) {
       return;
     }
+    following.current = false;
     retainReading();
+  };
+  const updateReadingPosition = () => {
+    const element = viewport.current;
+    if (!element) return;
+    const selection = window.getSelection();
+    const selecting =
+      selection?.isCollapsed === false &&
+      !!selection.anchorNode &&
+      element.contains(selection.anchorNode);
+    following.current =
+      !selecting && element.scrollHeight - element.clientHeight - element.scrollTop <= 24;
   };
 
   useLayoutEffect(() => {
     // A growing live group stays at its latest operation unless the user is reading above.
-    if (scrollable && !collapsible && following.current && viewport.current) {
+    if (expanded && scrollable && (!collapsible || live) && following.current && viewport.current) {
       viewport.current.scrollTop = viewport.current.scrollHeight;
     }
-  }, [children, collapsible, scrollable]);
+  }, [children, collapsible, scrollable, live, expanded]);
 
   useEffect(() => {
     if (isForceExpand) setExpanded(true);
@@ -118,7 +147,7 @@ export function ToolCallExpandable({
   return (
     <Collapsible
       className={className}
-      data-live-operations={compact && groupHeading && !collapsible ? '' : undefined}
+      data-live-operations={compact && groupHeading && (!collapsible || live) ? '' : undefined}
       open={expanded}
       onOpenChange={(open) => {
         setExpanded(open);
@@ -134,6 +163,11 @@ export function ToolCallExpandable({
         }
       }}
     >
+      {!collapsible && groupHeading && (
+        <div className="codepro-group-heading min-h-6 py-0.5 text-sm text-text-secondary">
+          {label}
+        </div>
+      )}
       {collapsible && (
         <div
           className={
@@ -145,7 +179,7 @@ export function ToolCallExpandable({
               type="button"
               className={cn(
                 'group w-full flex justify-start gap-1.5 items-center pr-2 transition-colors rounded-[10px] text-left hover:bg-transparent dark:hover:bg-transparent hover:text-text-primary',
-                compact && 'codepro-record-trigger relative h-auto min-h-7 py-1 !px-0',
+                compact && 'codepro-record-trigger relative h-auto min-h-6 py-0.5 !px-0',
                 headerAction && 'w-auto shrink-0'
               )}
               variant="ghost"
@@ -206,30 +240,30 @@ export function ToolCallExpandable({
           )}
         </div>
       )}
-      <CollapsibleContent
-        className={cn(
-          compact && groupHeading && 'codepro-auto-disclosure',
-          collapsible && expandedState !== null && 'codepro-disclosure-content'
-        )}
-      >
+      <CollapsibleContent className={cn(hasOpened.current && 'codepro-disclosure-content')}>
         <div
           ref={viewport}
           tabIndex={compact && scrollable ? 0 : undefined}
           onPointerDownCapture={retainReadingFromInteraction}
+          onPointerUpCapture={updateReadingPosition}
           onFocusCapture={retainReadingFromInteraction}
           onWheelCapture={(event) => {
-            if (event.deltaY < 0) retainReading();
+            if (event.deltaY < 0) {
+              following.current = false;
+              retainReading();
+            }
           }}
-          onScroll={(event) => {
-            const element = event.currentTarget;
-            following.current =
-              element.scrollHeight - element.clientHeight - element.scrollTop <= 24;
-          }}
+          onScroll={updateReadingPosition}
           className={cn(
             compact && 'codepro-operation-details',
             compact &&
               scrollable &&
-              'my-1 max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border-primary bg-background-secondary/40 px-3 py-2 [scrollbar-width:thin] focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-primary',
+              'my-1 max-h-72 overflow-y-auto overscroll-x-contain overscroll-y-auto [scrollbar-width:thin] focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-primary',
+            compact &&
+              scrollable &&
+              (groupHeading
+                ? 'codepro-process-details bg-transparent px-0 py-0.5'
+                : 'rounded-lg border border-border-primary bg-background-secondary/40 px-3 py-2'),
             contentClassName
           )}
         >

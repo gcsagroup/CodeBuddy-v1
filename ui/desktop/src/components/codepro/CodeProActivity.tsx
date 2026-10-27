@@ -65,7 +65,7 @@ const i18n = defineMessages({
   },
   readGroup: {
     id: 'codeProActivity.readGroup',
-    defaultMessage: 'Read {count, plural, one {# file} other {# files}} · {status}',
+    defaultMessage: 'Read {count, plural, one {# file} other {# files}} {status}',
   },
   partialFailure: { id: 'codeProActivity.partialFailure', defaultMessage: 'Partially failed' },
   executionLog: { id: 'codeProActivity.executionLog', defaultMessage: 'Execution log' },
@@ -79,11 +79,11 @@ const i18n = defineMessages({
   },
   activityRunning: {
     id: 'codeProActivity.activityRunning',
-    defaultMessage: 'Working · {count, plural, one {# action} other {# actions}}',
+    defaultMessage: 'Working {count, plural, one {# action} other {# actions}}',
   },
   activityFinished: {
     id: 'codeProActivity.activityFinished',
-    defaultMessage: 'Operations recorded · {count, plural, one {# action} other {# actions}}',
+    defaultMessage: 'Operations recorded {count, plural, one {# action} other {# actions}}',
   },
   activityFailures: {
     id: 'codeProActivity.activityFailures',
@@ -237,7 +237,7 @@ const i18n = defineMessages({
   },
   testProgressAttemptCounts: {
     id: 'codeProActivity.testProgress.attemptCounts',
-    defaultMessage: 'Retry {retry} · repair {repair}',
+    defaultMessage: 'Retry {retry}, repair {repair}',
   },
   testProgressCancelling: {
     id: 'codeProActivity.testProgress.cancelling',

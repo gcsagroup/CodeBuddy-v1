@@ -26,6 +26,13 @@ function compactGroups() {
     .filter((element) => element.querySelector('.codepro-group-heading'));
 }
 
+function openProcess(group = compactGroups()[0]) {
+  const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
+  if (!toggle) throw new Error('Missing process disclosure');
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+  return toggle;
+}
+
 function message(index: number): Message {
   return {
     id: `message-${index}`,
@@ -202,22 +209,27 @@ it('keeps native lifecycle captions at the same disclosure level as ordinary wor
     <ProgressiveMessageList {...props} messages={messages} isStreamingMessage />,
     { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByRole('button', { name: 'Code review started working' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Code review ended' })).toBeVisible();
+  const process = openProcess();
+  const records = screen.getByRole('region', { name: 'Tool operation records' });
+  expect(
+    within(records).getByRole('button', { name: 'Code review started working' })
+  ).toBeVisible();
+  expect(within(records).getByRole('button', { name: 'Code review ended' })).toBeVisible();
   view.rerender(
     <ProgressiveMessageList {...props} messages={[...messages, terminalMessage('not_available')]} />
   );
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: 'Code review ended' })).toBeNull()
-  );
+  await waitFor(() => expect(process).toHaveAttribute('aria-expanded', 'false'));
   fireEvent.click(
-    within(view.container.querySelector('.codepro-turn-history') as HTMLElement).getByRole(
+    within(view.container.querySelector('[data-process-group]') as HTMLElement).getByRole(
       'button',
       { expanded: false }
     )
   );
-  expect(screen.getByRole('button', { name: 'Code review started working' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Code review ended' })).toBeVisible();
+  const completedRecords = screen.getByRole('region', { name: 'Tool operation records' });
+  expect(
+    within(completedRecords).getByRole('button', { name: 'Code review started working' })
+  ).toBeVisible();
+  expect(within(completedRecords).getByRole('button', { name: 'Code review ended' })).toBeVisible();
   expect(view.container.querySelectorAll('[data-subagent-avatar="native-child"]')).toHaveLength(2);
 });
 
@@ -320,15 +332,16 @@ describe('work / answer presentation boundary', () => {
       );
       await screen.findByText('Read was not approved.');
       expect(screen.queryByText('Completed 1 operations')).not.toBeInTheDocument();
-      const history = screen.getByRole('button', { name: 'Time spent 3 min 24 sec' });
-      expect(history).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(history);
-      const tool = screen.getByRole('button', {
-        name:
-          result === 'error'
-            ? /Read file README.md.*Unsuccessful/
-            : /Read file README.md.*Unknown status/,
-      });
+      openProcess();
+      const tool = within(screen.getByRole('region', { name: 'Tool operation records' })).getByRole(
+        'button',
+        {
+          name:
+            result === 'error'
+              ? /Read file README.md.*Unsuccessful/
+              : /Read file README.md.*Unknown status/,
+        }
+      );
       expect(tool).toBeVisible();
       expect(tool.querySelector('[data-tool-call-id="declined-read"]')).toHaveAttribute(
         'data-tool-phase',
@@ -385,14 +398,19 @@ describe('work / answer presentation boundary', () => {
       ];
       const view = render(show(trace, false), { wrapper: IntlTestWrapper });
       expect(await screen.findByText('Hello, how can I help?')).toBeVisible();
-      const history = screen.getByRole('button', { name: 'Time spent 3 min 24 sec' });
+      const history = view.container
+        .querySelector<HTMLElement>('.codepro-group-heading')!
+        .closest('button')!;
       expect(history).toHaveAttribute('aria-expanded', 'false');
       expect(
         screen.queryByText('Consider the greeting without any tools.')
       ).not.toBeInTheDocument();
       expect(screen.queryByText('Completed 0 operations')).not.toBeInTheDocument();
       fireEvent.click(history);
-      fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+      expect(
+        screen.queryByText('Consider the greeting without any tools.')
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Reasoning details', pressed: false }));
       expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
       view.rerender(
         show(
@@ -401,7 +419,7 @@ describe('work / answer presentation boundary', () => {
         )
       );
       expect(history).toHaveAttribute('aria-expanded', 'true');
-      expect(view.container.querySelector('.codepro-turn-history')).not.toBeNull();
+      expect(view.container.querySelector('[data-process-group]')).not.toBeNull();
       expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
       expect(screen.getByText('Hello, how can I help?')).toBeVisible();
     }
@@ -495,13 +513,11 @@ describe('work / answer presentation boundary', () => {
     />
   );
 
-  it('keeps live work visible, then folds it while the answer is still streaming', async () => {
+  it('folds the settled process while keeping both public replies visible during answer streaming', async () => {
     const view = render(show(work), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
     view.rerender(show([...work, boundary(), answer]));
-    await waitFor(() =>
-      expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
     expect(
       await screen.findByText(
         (_, element) =>
@@ -510,7 +526,7 @@ describe('work / answer presentation boundary', () => {
         { timeout: 3000 }
       )
     ).toBeVisible();
-    const toggle = view.container.querySelector('.codepro-turn-history button')!;
+    const toggle = view.container.querySelector('[data-process-group] button')!;
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
@@ -536,14 +552,12 @@ describe('work / answer presentation boundary', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('folds host-bound work even when it contains no tool calls', async () => {
+  it('keeps public replies outside disclosures even at a host answer boundary', async () => {
     const view = render(show([sourceUserMessage, stage, boundary(), answer]), {
       wrapper: IntlTestWrapper,
     });
-    expect(view.container.querySelector('.codepro-turn-history')).not.toBeNull();
-    await waitFor(() =>
-      expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument()
-    );
+    expect(view.container.querySelector('[data-process-group]')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
     expect(
       await screen.findByText(
         (_, element) =>
@@ -555,7 +569,7 @@ describe('work / answer presentation boundary', () => {
   });
 
   it.each(['cancelled', 'failed', 'interrupted'] as const)(
-    'folds work at a bound %s receipt, including before the first tool and during stream teardown',
+    'keeps public replies and a bound %s receipt visible before the first tool and during stream teardown',
     async (status) => {
       const terminal = terminalMessage('not_available');
       terminal.content = terminal.content.map((content) =>
@@ -566,13 +580,8 @@ describe('work / answer presentation boundary', () => {
       terminal.content.push({ type: 'text', text: 'Stopped here; verification is incomplete.' });
       const trace = [sourceUserMessage, stage, terminal];
       const view = render(show(trace), { wrapper: IntlTestWrapper });
-      expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
-        'aria-expanded',
-        'false'
-      );
-      await waitFor(() =>
-        expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument()
-      );
+      expect(view.container.querySelector('[data-process-group]')).toBeNull();
+      await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
       expect(
         await screen.findByText(
           (_, element) =>
@@ -584,13 +593,9 @@ describe('work / answer presentation boundary', () => {
       ).toBeVisible();
       // A real call before the terminal must not require a separate answer-phase event.
       view.rerender(show([...work, terminal]));
-      await waitFor(() =>
-        expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
       view.rerender(show(JSON.parse(JSON.stringify(trace)), false));
-      const toggle = view.container.querySelector('.codepro-turn-history button')!;
-      expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(toggle);
+      expect(view.container.querySelector('[data-process-group]')).toBeNull();
       expect(screen.getByText('Checking the saved changes.')).toBeVisible();
       expect(
         await screen.findByText(
@@ -675,7 +680,7 @@ describe('work / answer presentation boundary', () => {
   it('replays the same presentation without treating the boundary as a terminal', () => {
     const trace = JSON.parse(JSON.stringify([...work, boundary(), answer])) as Message[];
     const view = render(show(trace, false), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
+    expect(view.container.querySelector('[data-process-group] button')).toHaveAttribute(
       'aria-expanded',
       'false'
     );
@@ -739,18 +744,18 @@ describe('CodePro ordinary tool message presentation', () => {
         />
       );
       const view = render(show(false), { wrapper: IntlTestWrapper });
-      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
-        'aria-expanded',
-        'true'
-      );
-      view.rerender(show(true));
       expect(screen.getByRole('button', { name: 'Thinking' })).toHaveAttribute(
         'aria-expanded',
         'false'
       );
+      view.rerender(show(true));
+      expect(screen.queryByRole('button', { name: 'Thinking (updating)' })).toBeNull();
+      expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
       act(() => vi.advanceTimersByTime(1000));
+      expect(screen.queryByRole('button', { name: 'Thinking (updating)' })).toBeNull();
+      expect(screen.queryByText('Inspecting the requested project.')).not.toBeInTheDocument();
       expect(
-        screen.getByText('Generating app.js · 2 lines received — not saved yet')
+        screen.getByText('Generating app.js, 2 lines received — not saved yet')
       ).toBeVisible();
       expect(screen.queryByText('Wrote file app.js')).not.toBeInTheDocument();
     } finally {
@@ -770,6 +775,12 @@ describe('CodePro ordinary tool message presentation', () => {
         isUserMessage: (item: Message) => item.role === 'user',
       };
       const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
+      fireEvent.click(
+        within(view.container.querySelector('[data-process-group]') as HTMLElement).getByRole(
+          'button',
+          { expanded: false }
+        )
+      );
       const toggle = screen.getByRole('button', {
         name: 'Read file README.md Tool call completed',
       });
@@ -903,15 +914,13 @@ describe('CodePro ordinary tool message presentation', () => {
         />,
         { wrapper: IntlTestWrapper }
       );
-      const group = screen.getByRole('button', {
-        name: new RegExp(`^Task check records ${accepted ? 3 : 2}$`),
-      });
-      expect(group).toHaveAttribute('aria-expanded', 'false');
+      const group = compactGroups()[0].querySelector('.codepro-group-heading')!;
+      expect(group).toHaveTextContent('Failed');
       expect(group).not.toHaveTextContent('unsuccessful');
       expect(screen.queryByText(/Completed .*other operation/)).not.toBeInTheDocument();
-      fireEvent.click(group);
+      openProcess();
       const rejections = screen.getAllByRole('button', {
-        name: /Check delivery evidence\s*Not accepted · view details/,
+        name: /Check delivery evidence\s*Not accepted, view details/,
       });
       expect(rejections).toHaveLength(2);
       fireEvent.click(rejections[1]);
@@ -1016,11 +1025,12 @@ describe('CodePro ordinary tool message presentation', () => {
       toolTransportMessage(4, 'second-batch', 'request'),
     ];
     const view = render(renderTrace(records, ['second-batch']), { wrapper: IntlTestWrapper });
-    expect(screen.getAllByTestId('tool-message-group')).toHaveLength(1);
-    const toggle = screen.getByRole('button', { name: 'Work history 2 operations' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.click(toggle);
+    expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
+    const toggle = compactGroups()[0].querySelector('button')!;
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId('tool-message-group')).toHaveLength(1);
+    fireEvent.click(toggle);
     view.rerender(
       renderTrace(
         [
@@ -1032,7 +1042,9 @@ describe('CodePro ordinary tool message presentation', () => {
         ['second-batch']
       )
     );
-    await waitFor(() => expect(screen.getAllByTestId('tool-message-group')).toHaveLength(2));
+    await waitFor(() =>
+      expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2)
+    );
     expect(screen.getByText('message 3')).toBeVisible();
   });
 
@@ -1067,6 +1079,8 @@ describe('CodePro ordinary tool message presentation', () => {
       toolTransportMessage(5, 'read-two', 'request'),
     ];
     render(renderTrace(records, ['read-two']), { wrapper: IntlTestWrapper });
+    expect(compactGroups()).toHaveLength(1);
+    openProcess();
     expect(screen.getAllByTestId('tool-message-group')).toHaveLength(1);
   });
 
@@ -1091,6 +1105,10 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('Public progress stays visible.')).toBeNull();
     view.rerender(renderTrace([request], ['agent-status']));
     await waitFor(() =>
+      expect(view.container.querySelector('[data-process-group] button')).not.toBeNull()
+    );
+    openProcess();
+    await waitFor(() =>
       expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(1)
     );
     const failure: Message = {
@@ -1104,6 +1122,8 @@ describe('CodePro ordinary tool message presentation', () => {
       ],
     };
     view.rerender(renderTrace([request, failure]));
+    await screen.findByText('Public progress stays visible.');
+    openProcess();
     expect(view.container.querySelectorAll('.goose-message-tool')).toHaveLength(1);
     expect(screen.getByText('Public progress stays visible.')).toBeVisible();
   });
@@ -1208,7 +1228,7 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(compactGroups()[0].querySelector('button')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('keeps public stage text, failed calls and the active command outside folded history', () => {
+  it('keeps public stage text outside collapsed execution and retains failure details inside it', () => {
     const stage = {
       ...message(5),
       content: [
@@ -1261,8 +1281,15 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('private reasoning must not be shown')).not.toBeInTheDocument();
     expect(screen.queryByText('npm.cmd test')).not.toBeInTheDocument();
     expect(screen.queryByText('Permission rejected')).not.toBeInTheDocument();
+    const currentProcess = compactGroups()[1];
+    expect(currentProcess.querySelector('.codepro-group-heading')).toHaveTextContent('Failed');
+    openProcess(currentProcess);
     expect(screen.getByText('Unsuccessful')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /Run command/ }));
+    fireEvent.click(
+      within(screen.getByRole('region', { name: 'Tool operation records' })).getByRole('button', {
+        name: /Run command/,
+      })
+    );
     expect(screen.getByText('npm.cmd test')).toBeVisible();
     expect(
       screen.getByRole('button', { name: 'Completed 1 operation Read 1 file' })
@@ -1551,7 +1578,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    const timeline = screen.getByRole('button', { name: 'Operations recorded · 2 actions' });
+    const timeline = screen.getByRole('button', { name: 'Operations recorded 2 actions' });
     expect(timeline).toBeVisible();
     expect(timeline).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: 'Read' })).not.toBeInTheDocument();
@@ -1646,25 +1673,25 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    expect(screen.getByRole('button', { name: 'Operations recorded · 4 actions' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Operations recorded 4 actions' })).toBeVisible();
     expect(screen.queryByText('1 failed action')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Activity: Run pnpm test · Completed' })
+      screen.getByRole('button', { name: 'Activity: Run pnpm test Completed' })
     ).toBeVisible();
     expect(
       screen.getByRole('button', {
-        name: 'Activity: Change D:\\project\\src\\broken.ts · Failed',
+        name: 'Activity: Change D:\\project\\src\\broken.ts Failed',
       })
     ).toBeVisible();
     expect(screen.getByRole('region', { name: 'Execution log' })).toBeVisible();
     expect(
       screen.getAllByRole('button', {
-        name: 'Activity: Read D:\\project\\README.md · Completed',
+        name: 'Activity: Read D:\\project\\README.md Completed',
       })
     ).toHaveLength(1);
     expect(
       screen.getByRole('button', {
-        name: 'Activity: Read D:\\project\\src\\app.ts · Completed',
+        name: 'Activity: Read D:\\project\\src\\app.ts Completed',
       })
     ).toBeVisible();
   });
@@ -1696,12 +1723,12 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
     );
 
     const timeline = screen.getByRole('button', {
-      name: 'Activity: Run pnpm test --filter boundary · Completed',
+      name: 'Activity: Run pnpm test --filter boundary Completed',
     });
     expect(timeline).toBeVisible();
     expect(
       screen.getByRole('button', {
-        name: 'Activity: Run pnpm test --filter boundary · Completed',
+        name: 'Activity: Run pnpm test --filter boundary Completed',
       })
     ).toBeVisible();
   });
@@ -1762,12 +1789,18 @@ describe('tool cards across active-turn notification messages', () => {
       />
     );
     const view = render(card([old, user, current, notice], true), { wrapper: IntlTestWrapper });
+    expect(compactGroups()).toHaveLength(2);
+    for (const group of compactGroups()) {
+      expect(group.querySelector('button')).toHaveAttribute('aria-expanded', 'false');
+      openProcess(group);
+    }
     expect(
       screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
     ).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
-    ).toBeVisible();
+    expect(view.container.querySelector('[data-tool-call-id="old-call"]')).toHaveAttribute(
+      'data-tool-phase',
+      'unknown'
+    );
     view.rerender(card([old, user, current, notice, approval], true));
     expect(
       screen.getByRole('button', { name: /Read file current-fixture.txt.*Running/ })
@@ -1806,9 +1839,10 @@ describe('tool cards across active-turn notification messages', () => {
       expect(
         screen.getByRole('button', { name: /Read file current-fixture.txt.*Pending/ })
       ).toBeVisible();
-      expect(
-        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
-      ).toBeVisible();
+      expect(view.container.querySelector('[data-tool-call-id="old-call"]')).toHaveAttribute(
+        'data-tool-phase',
+        'unknown'
+      );
       act(() => {
         expect(
           resolveAcpPermissionRequest('native-display-turn', 'current-call', 'allow_once')
@@ -1826,6 +1860,9 @@ describe('tool cards across active-turn notification messages', () => {
       ).toBeVisible();
       const response = toolTransportMessage(6, 'current-call', 'response');
       view.rerender(card([old, user, current, notice, response], true));
+      const currentGroup = view.container.querySelectorAll<HTMLElement>('[data-process-group]')[1];
+      const currentHistory = within(currentGroup).getByRole('button', { expanded: false });
+      fireEvent.click(currentHistory);
       const settledTool = screen.getByRole('button', {
         name: 'Read file current-fixture.txt Tool call completed',
       });
@@ -1845,9 +1882,10 @@ describe('tool cards across active-turn notification messages', () => {
         screen.getByRole('button', { name: 'Read file current-fixture.txt Tool call completed' })
       ).toBeVisible();
       expect(screen.getByRole('button', { name: 'current-fixture.txt' })).toBeVisible();
-      expect(
-        screen.getByRole('button', { name: /Read file old-fixture.txt.*Unknown status/ })
-      ).toBeVisible();
+      expect(view.container.querySelector('[data-tool-call-id="old-call"]')).toHaveAttribute(
+        'data-tool-phase',
+        'unknown'
+      );
     } finally {
       act(() => cancelAcpPermissionRequestsForSession('native-display-turn'));
       await permissionResponse;

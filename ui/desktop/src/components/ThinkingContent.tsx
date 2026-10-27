@@ -13,7 +13,7 @@ const i18n = defineMessages({
   },
   thinkingLive: {
     id: 'thinkingContent.thinkingLive',
-    defaultMessage: 'Thinking · Updating',
+    defaultMessage: 'Thinking (updating)',
   },
 });
 
@@ -63,6 +63,8 @@ const ThinkingContent = memo(function ThinkingContent({
   const targetExpanded =
     manualToggle !== null ? manualToggle : (isExpanded && !idleFold) || retainReading;
   const [expanded, setExpanded] = useState(targetExpanded);
+  const hasOpened = useRef(expanded);
+  if (expanded) hasOpened.current = true;
   const header = useRef<HTMLButtonElement>(null);
   const holdLayoutAnchor = useContext(ScrollLayoutAnchorContext);
   const releaseAnchor = useRef<(() => void) | null>(null);
@@ -133,7 +135,7 @@ const ThinkingContent = memo(function ThinkingContent({
         <span>{intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking)}</span>
         <Expand size={3} isExpanded={expanded} />
       </CollapsibleTrigger>
-      <CollapsibleContent className="codepro-disclosure-content">
+      <CollapsibleContent className={hasOpened.current ? 'codepro-disclosure-content' : undefined}>
         <div
           ref={viewport}
           onPointerDownCapture={() => {

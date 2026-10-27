@@ -9,7 +9,7 @@ it('uses the same browser operation name in approvals and progress without inven
     formatToolAction(intl, 'browser_control', { operation: 'observe' }, undefined, 'name')
   ).toBe('Read page');
   expect(formatToolAction(intl, 'browser_control', { operation: 'observe' }, 'running')).toBe(
-    'Read page · in progress'
+    'Running: Read page'
   );
   expect(
     formatToolAction(
@@ -18,7 +18,7 @@ it('uses the same browser operation name in approvals and progress without inven
       { operation: 'observe', __inputPreview: true },
       'running'
     )
-  ).toBe('Preparing operation parameters · Read page');
+  ).toBe('Preparing operation parameters: Read page');
   expect(
     formatToolAction(intl, 'browser_control', { operation: 'invented' }, undefined, 'name')
   ).toBe('Browser action');
@@ -59,10 +59,10 @@ describe('live file generation', () => {
   it('counts received draft lines without claiming a write and drops draft wording for execution', () => {
     const args = { path: 'src/app.js', content: 'first\nsecond\n', __inputPreview: true };
     expect(formatToolAction(intl, 'write', args, 'running')).toBe(
-      'Generating app.js · 2 lines received — not saved yet'
+      'Generating app.js, 2 lines received — not saved yet'
     );
     expect(formatToolAction(intl, 'write', { ...args, __inputPreview: undefined }, 'running')).toBe(
-      'Write file app.js · in progress'
+      'Running: Write file app.js'
     );
     expect(formatToolAction(intl, 'write', args, 'completed')).toBe('Wrote file app.js');
   });
@@ -143,6 +143,6 @@ describe('web search presentation receipts', () => {
       queries: ['a real query'],
       sources: [{ title: 'Official source', url: 'https://example.test/docs' }],
     });
-    expect(formatToolAction(intl, 'search', {}, 'running')).toBe('Search · in progress');
+    expect(formatToolAction(intl, 'search', {}, 'running')).toBe('Running: Search');
   });
 });

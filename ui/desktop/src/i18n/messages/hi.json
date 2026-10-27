@@ -1,10 +1,4 @@
 {
-  "workspacePanel.documentPreviewFailed": {
-    "defaultMessage": "इस दस्तावेज़ का पूर्वावलोकन नहीं हो सका। इसे फिर से लोड करें या डिफ़ॉल्ट ऐप में खोलें।"
-  },
-  "workspacePanel.documentMissingFonts": {
-    "defaultMessage": "कुछ फ़ॉन्ट उपलब्ध नहीं हैं। पूर्वावलोकन का लेआउट मूल से भिन्न हो सकता है।"
-  },
   "alertBox.compactNow": {
     "defaultMessage": "अब संक्षिप्त करें"
   },
@@ -89,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "क्रेडेंशियल हटाएँ"
   },
+  "authSettings.deleted": {
+    "defaultMessage": "क्रेडेंशियल हटा दिया गया"
+  },
   "authSettings.deleteMessage": {
     "defaultMessage": "{provider} के लिए {name} क्रेडेंशियल हटाएं?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "क्रेडेंशियल हटाएँ"
-  },
-  "authSettings.deleted": {
-    "defaultMessage": "क्रेडेंशियल हटा दिया गया"
   },
   "authSettings.description": {
     "defaultMessage": "CodeBuddy द्वारा स्थानीय रूप से संग्रहीत प्रदाता क्रेडेंशियल प्रबंधित करें।"
@@ -122,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "पुन: प्राधिकृत करें"
   },
-  "authSettings.signIn": {
-    "defaultMessage": "साइन इन करें"
-  },
   "authSettings.signedIn": {
     "defaultMessage": "क्रेडेंशियल कॉन्फ़िगर किया गया"
+  },
+  "authSettings.signIn": {
+    "defaultMessage": "साइन इन करें"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "प्रदाता कैश"
@@ -170,6 +164,12 @@
   "baseChat.reconnecting": {
     "defaultMessage": "कनेक्शन टूट गया। फिर से कनेक्ट किया जा रहा है…"
   },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "नई चैट के लिए एक्सटेंशन"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "इस चैट सत्र के लिए एक्सटेंशन"
+  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "एक्सटेंशन अपडेट किया गया"
   },
@@ -178,12 +178,6 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "नई चैट में {name} सक्षम किया जाएगा"
-  },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "नई चैट के लिए एक्सटेंशन"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "इस चैट सत्र के लिए एक्सटेंशन"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "एक्सटेंशन प्रबंधित करें"
@@ -324,13 +318,13 @@
     "defaultMessage": "{count,plural,one{# failed action} other{# failed actions}}"
   },
   "codeProActivity.activityFinished": {
-    "defaultMessage": "{count,plural,one{Operations recorded · # action} other{Operations recorded · # actions}}"
+    "defaultMessage": "{count,plural,one{Operations recorded # action} other{Operations recorded # actions}}"
   },
   "codeProActivity.activityNeedsAttention": {
     "defaultMessage": "{count,plural,one{# action needs attention} other{# actions need attention}}"
   },
   "codeProActivity.activityRunning": {
-    "defaultMessage": "{count,plural,one{Working · # action} other{Working · # actions}}"
+    "defaultMessage": "{count,plural,one{Working # action} other{Working # actions}}"
   },
   "codeProActivity.agentTool": {
     "defaultMessage": "Agent tool"
@@ -447,7 +441,7 @@
     "defaultMessage": "Read actions"
   },
   "codeProActivity.readGroup": {
-    "defaultMessage": "{count,plural,one{Read # file · {status}} other{Read # files · {status}}}"
+    "defaultMessage": "{count,plural,one{Read # file {status}} other{Read # files {status}}}"
   },
   "codeProActivity.reason.credential": {
     "defaultMessage": "Credential material"
@@ -513,7 +507,7 @@
     "defaultMessage": "Task planning"
   },
   "codeProActivity.testProgress.attemptCounts": {
-    "defaultMessage": "Retry {retry} · repair {repair}"
+    "defaultMessage": "Retry {retry} repair {repair}"
   },
   "codeProActivity.testProgress.attempts": {
     "defaultMessage": "Attempts"
@@ -731,12 +725,6 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
-  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -751,6 +739,12 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
+  },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -809,14 +803,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
-  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
+  },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1077,7 +1071,7 @@
     "defaultMessage": "Unknown status"
   },
   "codeProPresentation.activitySummary": {
-    "defaultMessage": "{verb} {target} · {status}"
+    "defaultMessage": "{verb} {target} {status}"
   },
   "codeProPresentation.activityVerb.change": {
     "defaultMessage": "Change"
@@ -1125,7 +1119,7 @@
     "defaultMessage": "Not authorized by user"
   },
   "codeProPresentation.intentSummary": {
-    "defaultMessage": "{title} · {status}"
+    "defaultMessage": "{title} {status}"
   },
   "codeProPresentation.summaryStatus.cancelled": {
     "defaultMessage": "Stopped"
@@ -1547,23 +1541,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exportHint": {
-    "defaultMessage": "Download the current conversation as JSON"
-  },
   "composerCommands.exported": {
     "defaultMessage": "Conversation export started."
+  },
+  "composerCommands.exportHint": {
+    "defaultMessage": "Download the current conversation as JSON"
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1610,14 +1604,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
-  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
+  },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -1745,9 +1739,6 @@
   "confirmationModal.processing": {
     "defaultMessage": "प्रसंस्करण..."
   },
-  "conversation.turnCompleted": {
-    "defaultMessage": "Completed · {count} operations"
-  },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
   },
@@ -1759,6 +1750,9 @@
   },
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
+  },
+  "conversationFiles.fewerFiles": {
+    "defaultMessage": "कम फ़ाइलें दिखाएँ"
   },
   "conversationFiles.files": {
     "defaultMessage": "Files written in this conversation · {count}"
@@ -2108,11 +2102,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "अनुलग्नक"
   },
-  "customProviderForm.authHint": {
-    "defaultMessage": "Ollama जैसे स्थानीय एलएलएम को आमतौर पर API कुंजी की आवश्यकता नहीं होती है।"
-  },
   "customProviderForm.authentication": {
     "defaultMessage": "प्रमाणीकरण"
+  },
+  "customProviderForm.authHint": {
+    "defaultMessage": "Ollama जैसे स्थानीय एलएलएम को आमतौर पर API कुंजी की आवश्यकता नहीं होती है।"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "उपलब्ध मॉडल (अल्पविराम से अलग)"
@@ -2210,11 +2204,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadModels": {
-    "defaultMessage": "Load models"
-  },
   "customProviderForm.loadingModels": {
     "defaultMessage": "Loading models…"
+  },
+  "customProviderForm.loadModels": {
+    "defaultMessage": "Load models"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2231,9 +2225,6 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
-  },
   "customProviderForm.modelsLoaded": {
     "defaultMessage": "Models loaded. The selected model will be verified when you save."
   },
@@ -2242,6 +2233,9 @@
   },
   "customProviderForm.modelsRequired": {
     "defaultMessage": "कम से कम एक मॉडल आवश्यक है"
+  },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
   },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
@@ -2492,17 +2486,20 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "आपकी प्रतिक्रिया की प्रतीक्षा में ({timeRemaining} शेष)"
   },
+  "environmentBadge.dev": {
+    "defaultMessage": "देव"
+  },
   "envVarsSection.add": {
     "defaultMessage": "जोड़ें"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "वेरिएबल नाम और मान दोनों दर्ज किए जाने चाहिए"
   },
-  "envVarsSection.envVarsDescription": {
-    "defaultMessage": "पर्यावरण चर के लिए कुंजी-मान जोड़े जोड़ें। दोनों फ़ील्ड भरने के बाद जोड़ने के लिए \"+\" बटन पर क्लिक करें। मौजूदा गुप्त मानों को संशोधित करने के लिए संपादन बटन पर क्लिक करें।"
-  },
   "envVarsSection.environmentVariables": {
     "defaultMessage": "पर्यावरण चर"
+  },
+  "envVarsSection.envVarsDescription": {
+    "defaultMessage": "पर्यावरण चर के लिए कुंजी-मान जोड़े जोड़ें। दोनों फ़ील्ड भरने के बाद जोड़ने के लिए \"+\" बटन पर क्लिक करें। मौजूदा गुप्त मानों को संशोधित करने के लिए संपादन बटन पर क्लिक करें।"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "वेरिएबल नाम में रिक्त स्थान नहीं हो सकते"
@@ -2512,9 +2509,6 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "परिवर्तनीय नाम"
-  },
-  "environmentBadge.dev": {
-    "defaultMessage": "देव"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "एक त्रुटि पाई गई।"
@@ -2696,11 +2690,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testSucceeded": {
-    "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
-  },
   "extensionModal.testingConnection": {
     "defaultMessage": "Testing…"
+  },
+  "extensionModal.testSucceeded": {
+    "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "आपके पास एक्सटेंशन कॉन्फ़िगरेशन में सहेजे नहीं गए परिवर्तन हैं. क्या आप वाकई बिना सहेजे बंद करना चाहते हैं?"
@@ -2738,12 +2732,6 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "समयबाह्य"
-  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "कस्टम एक्सटेंशन जोड़ें"
   },
@@ -2773,6 +2761,12 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "एक्सटेंशन खोजें..."
+  },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "समयबाह्य"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "प्रमाणपत्र फ़िंगरप्रिंट (वैकल्पिक)"
@@ -3488,21 +3482,6 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "रोका गया"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count,plural,one{# टूल कार्रवाई सुरक्षित रखी गई।} other{# टूल कार्रवाइयाँ सुरक्षित रखी गईं।}}"
-  },
   "goosehintsModal.close": {
     "defaultMessage": "बंद करें"
   },
@@ -3565,6 +3544,21 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
+  },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "रोका गया"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count,plural,one{# टूल कार्रवाई सुरक्षित रखी गई।} other{# टूल कार्रवाइयाँ सुरक्षित रखी गईं।}}"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "पूछें CodeBuddy"
@@ -3674,11 +3668,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "हगिंग फेस में साइन इन करने में विफल: {error}"
   },
-  "huggingFaceSignInPrompt.signIn": {
-    "defaultMessage": "साइन इन करें"
-  },
   "huggingFaceSignInPrompt.signedIn": {
     "defaultMessage": "हगिंग फेस ने साइन इन किया"
+  },
+  "huggingFaceSignInPrompt.signIn": {
+    "defaultMessage": "साइन इन करें"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "साइन इन किया जा रहा है..."
@@ -3695,8 +3689,17 @@
   "imagePreview.clickToExpand": {
     "defaultMessage": "विस्तार करने के लिए क्लिक करें"
   },
+  "imagePreview.fit": {
+    "defaultMessage": "विंडो में फ़िट करें"
+  },
   "imagePreview.unableToLoad": {
     "defaultMessage": "छवि लोड करने में असमर्थ"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "ज़ूम इन"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "ज़ूम आउट"
   },
   "importRecipeForm.cancel": {
     "defaultMessage": "रद्द करें"
@@ -3713,14 +3716,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "अपेक्षित रेसिपी संरचना"
   },
+  "importRecipeForm.importing": {
+    "defaultMessage": "आयात किया जा रहा है..."
+  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "रेसिपी आयात करें"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "रेसिपी आयात करें"
-  },
-  "importRecipeForm.importing": {
-    "defaultMessage": "आयात किया जा रहा है..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "या"
@@ -3829,18 +3832,6 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "सबमिट करें"
-  },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "पूर्व-कॉन्फ़िगर मान जोड़ें"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "पैरामीटर नाम..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "पैरामीटर मान..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "पूर्व-कॉन्फ़िगर मान {key} हटाएं"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "विंडो को हमेशा शीर्ष पर टॉगल करें"
@@ -3986,6 +3977,18 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "नेविगेशन टॉगल करें"
   },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "पूर्व-कॉन्फ़िगर मान जोड़ें"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "पैरामीटर नाम..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "पैरामीटर मान..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "पूर्व-कॉन्फ़िगर मान {key} हटाएं"
+  },
   "launcher.placeholder": {
     "defaultMessage": "CodeBuddy से कुछ भी पूछें..."
   },
@@ -3993,10 +3996,10 @@
     "defaultMessage": "CodeBuddy बातचीत को संक्षिप्त कर रहा है..."
   },
   "loadingGoose.compactingElapsed": {
-    "defaultMessage": "Organizing conversation context · {seconds}s"
+    "defaultMessage": "Organizing conversation context {seconds}s"
   },
   "loadingGoose.elapsed": {
-    "defaultMessage": "{message} · {seconds}s elapsed"
+    "defaultMessage": "{message} {seconds}s elapsed"
   },
   "loadingGoose.idle": {
     "defaultMessage": "CodeBuddy इस पर काम कर रहा है..."
@@ -4031,17 +4034,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "डाउनलोड रद्द किया गया"
   },
-  "localInferenceSettings.downloadFailed": {
-    "defaultMessage": "डाउनलोड विफल रहा"
-  },
-  "localInferenceSettings.downloadProgress": {
-    "defaultMessage": "{downloaded} / {total} ({percent}%)"
-  },
   "localInferenceSettings.downloadedModels": {
     "defaultMessage": "डाउनलोड किए गए मॉडल"
   },
+  "localInferenceSettings.downloadFailed": {
+    "defaultMessage": "डाउनलोड विफल रहा"
+  },
   "localInferenceSettings.downloading": {
     "defaultMessage": "डाउनलोड हो रहा है"
+  },
+  "localInferenceSettings.downloadProgress": {
+    "defaultMessage": "{downloaded} / {total} ({percent}%)"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4127,14 +4130,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "उपलब्ध मॉडलों की जाँच की जा रही है..."
   },
+  "localModelPicker.downloading": {
+    "defaultMessage": "डाउनलोड हो रहा है {modelId}"
+  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "डाउनलोड करें {modelId} ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
-  },
-  "localModelPicker.downloading": {
-    "defaultMessage": "डाउनलोड हो रहा है {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "उपलब्ध मॉडल लोड करने में विफल. कृपया पुन: प्रयास करें।"
@@ -4451,11 +4454,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "गति"
   },
-  "messageUsageStats.tokenUnit": {
-    "defaultMessage": "tok"
-  },
   "messageUsageStats.tokensPerSecondUnit": {
     "defaultMessage": "tok/s"
+  },
+  "messageUsageStats.tokenUnit": {
+    "defaultMessage": "tok"
   },
   "messageUsageStats.total": {
     "defaultMessage": "कुल"
@@ -4492,30 +4495,6 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "परीक्षण"
-  },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
-  },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "स्वायत्त"
-  },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "टूल या एक्सटेंशन का उपयोग किए बिना चयनित प्रदाता से बातचीत करें।"
-  },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "केवल चैट करें"
-  },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
-  },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
-  },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
-  },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4645,6 +4624,90 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
+  },
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
+  },
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
+  },
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
+  },
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "मॉडल और कनेक्शन"
+  },
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  },
+  "modelsAndRuntime.context": {
+    "defaultMessage": "संदर्भ क्षमता"
+  },
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "सेवा की जानकारी न होने पर मॉडल की संदर्भ सीमा समायोजित करें।"
+  },
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "छवि और वीडियो निर्माण"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "छवि और वीडियो बनाने की सेवा कॉन्फ़िगर करें।"
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "उप-एजेंट"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "नाम, मॉडल और निर्देश के साथ पुनः उपयोग योग्य एजेंट बनाएं।"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "छवि की समझ"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "पहले मुख्य मॉडल का उपयोग करें, ज़रूरत पर बैकअप मॉडल लें।"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "मॉडल लोड हो रहा है..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "मॉडल का चयन करें"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "बदलाव विफल"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "प्रदाताओं को कॉन्फ़िगर करें"
@@ -4823,89 +4886,29 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "शीर्ष पी"
   },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
   },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "स्वायत्त"
   },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "टूल या एक्सटेंशन का उपयोग किए बिना चयनित प्रदाता से बातचीत करें।"
   },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "मॉडल और कनेक्शन"
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "केवल चैट करें"
   },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
   },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "संदर्भ क्षमता"
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
   },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "सेवा की जानकारी न होने पर मॉडल की संदर्भ सीमा समायोजित करें।"
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
   },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "छवि और वीडियो निर्माण"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "छवि और वीडियो बनाने की सेवा कॉन्फ़िगर करें।"
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "उप-एजेंट"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "नाम, मॉडल और निर्देश के साथ पुनः उपयोग योग्य एजेंट बनाएं।"
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "छवि की समझ"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "पहले मुख्य मॉडल का उपयोग करें, ज़रूरत पर बैकअप मॉडल लें।"
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "मॉडल लोड हो रहा है..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "मॉडल का चयन करें"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "बदलाव विफल"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "navigation.itemHome": {
     "defaultMessage": "नई चैट"
@@ -4994,11 +4997,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshUpgrade": {
-    "defaultMessage": "Update the app and backend together to refresh this project confirmation."
-  },
   "needsWorkspace.refreshing": {
     "defaultMessage": "Refreshing…"
+  },
+  "needsWorkspace.refreshUpgrade": {
+    "defaultMessage": "Update the app and backend together to refresh this project confirmation."
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5450,11 +5453,17 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "तर्क का विवरण"
+  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },
   "progressiveMessageList.toolRecordsRegion": {
     "defaultMessage": "Tool operation records"
+  },
+  "progressiveMessageList.turnProcessDuration": {
+    "defaultMessage": "इस चरण में: {minutes} मिनट {seconds} सेकंड"
   },
   "projectMemoryApproval.confidence": {
     "defaultMessage": "विश्वास स्तर"
@@ -5477,11 +5486,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "कोई नहीं"
   },
-  "projectMemoryApproval.noTtl": {
-    "defaultMessage": "कोई नहीं"
-  },
   "projectMemoryApproval.notMarked": {
     "defaultMessage": "चिह्नित नहीं (अविश्वसनीय)"
+  },
+  "projectMemoryApproval.noTtl": {
+    "defaultMessage": "कोई नहीं"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "परियोजना स्मृति सहेजने का अनुरोध"
@@ -5603,11 +5612,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "संपादित करें"
   },
-  "promptsSettings.editPromptTitle": {
-    "defaultMessage": "संपादित करें: {name}"
-  },
   "promptsSettings.editingLabel": {
     "defaultMessage": "संपादन: {name}"
+  },
+  "promptsSettings.editPromptTitle": {
+    "defaultMessage": "संपादित करें: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "प्रॉम्प्ट सामग्री दर्ज करें..."
@@ -5717,11 +5726,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "क्या आपके पास API कुंजी नहीं है?"
   },
-  "providerConfigForm.signInWith": {
-    "defaultMessage": "{providerName} के साथ साइन इन करें"
-  },
   "providerConfigForm.signingIn": {
     "defaultMessage": "साइन इन किया जा रहा है..."
+  },
+  "providerConfigForm.signInWith": {
+    "defaultMessage": "{providerName} के साथ साइन इन करें"
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "इस प्रदाता को CodeBuddy में एकीकृत करने के लिए अपनी API कुंजी जोड़ें"
@@ -5783,11 +5792,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "अधिक विवरण के लिए <link>दस्तावेज़ीकरण</link> देखें।"
   },
-  "providerConfigurationModal.signInWith": {
-    "defaultMessage": "{providerName} के साथ साइन इन करें"
-  },
   "providerConfigurationModal.signingIn": {
     "defaultMessage": "साइन इन किया जा रहा है..."
+  },
+  "providerConfigurationModal.signInWith": {
+    "defaultMessage": "{providerName} के साथ साइन इन करें"
   },
   "providerGrid.addProvider": {
     "defaultMessage": "प्रदाता जोड़ें"
@@ -6011,39 +6020,6 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "स्वचालित रूप से स्वरूपित किया जाएगा (लोअरकेस, रिक्त स्थान के लिए डैश)"
   },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "रद्द करें"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "विवरण:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "आप एक ऐसी रेसिपी को क्रियान्वित करने वाले हैं जिसे आपने पहले नहीं चलाया है।"
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "इस रेसिपी में छिपे हुए पात्र हैं जिन्हें आपकी सुरक्षा के लिए अनदेखा कर दिया जाएगा, क्योंकि उनका उपयोग दुर्भावनापूर्ण उद्देश्यों के लिए किया जा सकता है।"
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "निर्देश:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ नई रेसिपी चेतावनी"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "पकाने की विधि पूर्वावलोकन:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ सुरक्षा चेतावनी"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "शीर्षक:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "भरोसा करें और अमल करें"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "केवल तभी आगे बढ़ें जब आप इस रेसिपी के स्रोत पर भरोसा करते हों।"
-  },
   "recipesView.addSchedule": {
     "defaultMessage": "शेड्यूल जोड़ें"
   },
@@ -6197,14 +6173,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "शेड्यूल हटाएँ"
   },
+  "recipesView.runs": {
+    "defaultMessage": "चलता है {schedule}"
+  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
-  },
-  "recipesView.runs": {
-    "defaultMessage": "चलता है {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "सहेजें"
@@ -6274,6 +6250,39 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "YAML फ़ाइलें"
+  },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "विवरण:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "आप एक ऐसी रेसिपी को क्रियान्वित करने वाले हैं जिसे आपने पहले नहीं चलाया है।"
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "इस रेसिपी में छिपे हुए पात्र हैं जिन्हें आपकी सुरक्षा के लिए अनदेखा कर दिया जाएगा, क्योंकि उनका उपयोग दुर्भावनापूर्ण उद्देश्यों के लिए किया जा सकता है।"
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "निर्देश:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ नई रेसिपी चेतावनी"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "पकाने की विधि पूर्वावलोकन:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ सुरक्षा चेतावनी"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "शीर्षक:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "भरोसा करें और अमल करें"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "केवल तभी आगे बढ़ें जब आप इस रेसिपी के स्रोत पर भरोसा करते हों।"
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "प्रदाता और मॉडल रीसेट करें"
@@ -6380,11 +6389,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "क्रोन अभिव्यक्ति:"
   },
-  "scheduleDetailView.currentSession": {
-    "defaultMessage": "वर्तमान सत्र:"
-  },
   "scheduleDetailView.currentlyRunning": {
     "defaultMessage": "वर्तमान में चल रहा है"
+  },
+  "scheduleDetailView.currentSession": {
+    "defaultMessage": "वर्तमान सत्र:"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "निदेशक: {path}"
@@ -6443,12 +6452,6 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "इस शेड्यूल के लिए कोई सत्र नहीं मिला."
   },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "शेड्यूल रोकें"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "रोकें/रोकें त्रुटि"
-  },
   "scheduleDetailView.paused": {
     "defaultMessage": "रुका हुआ"
   },
@@ -6457,6 +6460,12 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "यह शेड्यूल रुका हुआ है और स्वचालित रूप से नहीं चलेगा. इसे मैन्युअल रूप से ट्रिगर करने के लिए \"रन शेड्यूल नाउ\" का उपयोग करें या स्वचालित निष्पादन को फिर से शुरू करने के लिए अनपॉज़ करें।"
+  },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "शेड्यूल रोकें"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "रोकें/रोकें त्रुटि"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "प्रक्रिया प्रारंभ:"
@@ -6503,17 +6512,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "सत्र आईडी: {id}"
   },
-  "scheduleDetailView.unpauseSchedule": {
-    "defaultMessage": "शेड्यूल को फिर से रोकें"
-  },
   "scheduleDetailView.unpausedMsg": {
     "defaultMessage": "रोका गया \"{id}\""
   },
-  "scheduleDetailView.updateScheduleError": {
-    "defaultMessage": "अद्यतन शेड्यूल त्रुटि"
+  "scheduleDetailView.unpauseSchedule": {
+    "defaultMessage": "शेड्यूल को फिर से रोकें"
   },
   "scheduleDetailView.updatedMsg": {
     "defaultMessage": "अपडेट किया गया \"{id}\""
+  },
+  "scheduleDetailView.updateScheduleError": {
+    "defaultMessage": "अद्यतन शेड्यूल त्रुटि"
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "शेड्यूल आईडी देखना: {id}"
@@ -6650,11 +6659,11 @@
   "schedulesView.pause": {
     "defaultMessage": "विराम"
   },
-  "schedulesView.pauseError": {
-    "defaultMessage": "शेड्यूल त्रुटि रोकें"
-  },
   "schedulesView.paused": {
     "defaultMessage": "रुका हुआ"
+  },
+  "schedulesView.pauseError": {
+    "defaultMessage": "शेड्यूल त्रुटि रोकें"
   },
   "schedulesView.refresh": {
     "defaultMessage": "ताज़ा करें"
@@ -6674,6 +6683,9 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "सफलतापूर्वक रोका गया शेड्यूल \"{id}\""
   },
+  "schedulesView.scheduler": {
+    "defaultMessage": "अनुसूचक"
+  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "शेड्यूल अनरोका"
   },
@@ -6685,9 +6697,6 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "सफलतापूर्वक अद्यतन शेड्यूल \"{id}\""
-  },
-  "schedulesView.scheduler": {
-    "defaultMessage": "अनुसूचक"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "शेड्यूल त्रुटि को रोकें"
@@ -6800,14 +6809,14 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copy text"
   },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Session duplicated"
+  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "Failed to duplicate session: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicate session"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Text value"
@@ -6827,6 +6836,9 @@
   "sessionActionsHeader.modelInteractionsTitle": {
     "defaultMessage": "Recent model interactions"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Session renamed"
+  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Failed to rename session: {error}"
   },
@@ -6838,9 +6850,6 @@
   },
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Rename Session"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Session renamed"
   },
   "sessionActionsHeader.save": {
     "defaultMessage": "Save"
@@ -6913,24 +6922,6 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "वर्कस्पेस अनुमतियाँ अभी सिंक नहीं हुई हैं।"
-  },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "इस सत्र में कोई संदेश नहीं है"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "कोई संदेश नहीं मिला"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "सत्र विवरण लोड करने में त्रुटि"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "पुनः प्रयास करें"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "आप"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7031,6 +7022,9 @@
   "sessions.import": {
     "defaultMessage": "आयात सत्र"
   },
+  "sessions.importing": {
+    "defaultMessage": "आयात किया जा रहा है..."
+  },
   "sessions.importNostr": {
     "defaultMessage": "लिंक आयात करें"
   },
@@ -7042,9 +7036,6 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "नोस्ट्र सत्र आयात करें"
-  },
-  "sessions.importing": {
-    "defaultMessage": "आयात किया जा रहा है..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "अधिक सत्र लोड हो रहे हैं..."
@@ -7070,38 +7061,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "एन्क्रिप्टेड नोस्ट्र शेयर लिंक"
   },
-  "sessions.toast.archiveFailed": {
-    "defaultMessage": "Failed to update session archive: {error}"
-  },
   "sessions.toast.archived": {
     "defaultMessage": "Session archived"
+  },
+  "sessions.toast.archiveFailed": {
+    "defaultMessage": "Failed to update session archive: {error}"
   },
   "sessions.toast.copied": {
     "defaultMessage": "क्लिपबोर्ड पर कॉपी किया गया"
   },
-  "sessions.toast.deleteFailed": {
-    "defaultMessage": "सत्र \"{name}\" हटाने में विफल: {error}"
-  },
   "sessions.toast.deleted": {
     "defaultMessage": "सत्र सफलतापूर्वक हटा दिया गया"
   },
-  "sessions.toast.duplicateFailed": {
-    "defaultMessage": "सत्र की नकल करने में विफल: {error}"
+  "sessions.toast.deleteFailed": {
+    "defaultMessage": "सत्र \"{name}\" हटाने में विफल: {error}"
   },
   "sessions.toast.duplicated": {
     "defaultMessage": "सत्र \"{name}\" सफलतापूर्वक दोहराया गया"
   },
-  "sessions.toast.exportFailed": {
-    "defaultMessage": "Failed to export session: {error}"
+  "sessions.toast.duplicateFailed": {
+    "defaultMessage": "सत्र की नकल करने में विफल: {error}"
   },
   "sessions.toast.exported": {
     "defaultMessage": "सत्र सफलतापूर्वक निर्यात किया गया"
   },
-  "sessions.toast.importFailed": {
-    "defaultMessage": "सत्र आयात करने में विफल: {error}"
+  "sessions.toast.exportFailed": {
+    "defaultMessage": "Failed to export session: {error}"
   },
   "sessions.toast.imported": {
     "defaultMessage": "सत्र सफलतापूर्वक आयात किया गया"
+  },
+  "sessions.toast.importFailed": {
+    "defaultMessage": "सत्र आयात करने में विफल: {error}"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "एन्क्रिप्टेड नोस्ट्र शेयर लिंक बनाया गया"
@@ -7112,11 +7103,29 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
+  "sessions.toast.updated": {
+    "defaultMessage": "सत्र विवरण सफलतापूर्वक अपडेट किया गया"
+  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "सत्र विवरण अद्यतन करने में विफल: {error}"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "सत्र विवरण सफलतापूर्वक अपडेट किया गया"
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "इस सत्र में कोई संदेश नहीं है"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "कोई संदेश नहीं मिला"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "सत्र विवरण लोड करने में त्रुटि"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "पुनः प्रयास करें"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "आप"
   },
   "settings.appearance.description": {
     "defaultMessage": "कॉन्फ़िगर करें कि CodeBuddy आपके सिस्टम पर कैसे दिखाई देता है"
@@ -7565,99 +7574,6 @@
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "आपकी मशीन पर स्थापित और खुला होना चाहिए, या आपको OLLAMA_HOST के लिए एक मान दर्ज करना होगा।"
   },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "मौजूदा जोड़ें"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "नई सबरेसिपी बनाएं"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "सबरेसिपी {name} हटाएं"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "सबरेसिपी ऐसी रेसिपी हैं जिन्हें निष्पादन के दौरान टूल की तरह कॉल किया जा सकता है। ये मल्टी-स्टेप वर्कफ़्लो और दोबारा इस्तेमाल होने वाले कंपोनेंट सक्षम करती हैं।"
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "डुप्लिकेट नाम"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "\"{name}\" नाम की सबरेसिपी पहले से मौजूद है। कृपया कोई अलग नाम इस्तेमाल करें।"
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "सबरेसिपी {name} संपादित करें"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "सबरेसिपी"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "पूर्व-कॉन्फ़िगर मान:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "अनुक्रमिक"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "सबरेसिपी जोड़ें"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "आवेदन करें"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "ब्राउज़ करें"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "रद्द करें"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "सबरेसिपी मोडल बंद करें"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "सबरेसिपी कॉन्फ़िगर करें"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "विवरण"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "यह सबरेसिपी क्या करती है इसका वैकल्पिक विवरण..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "अमान्य फ़ाइल"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "कृपया YAML file (.yaml या .yml) चुनें।"
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "टूल नाम उत्पन्न करने के लिए अद्वितीय पहचानकर्ता का उपयोग किया जाता है"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "नाम"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "उदाहरण के लिए, सुरक्षा_स्कैन"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "मौजूदा रेसिपी फ़ाइल ब्राउज़ करें या मैन्युअल रूप से पथ दर्ज करें"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "पथ"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "उदाहरण के लिए, ./subrecipes/security-analyse.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "पूर्व-कॉन्फ़िगर मान"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "वैकल्पिक पैरामीटर मान जो हमेशा सबरेसिपी को भेजे जाते हैं"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(कई सबरेसिपी इंस्टेंस को क्रम से चलाने के लिए बाध्य करता है)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "दोहराए जाने पर अनुक्रमिक"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "ऐसी सबरेसिपी कॉन्फ़िगर करें जिसे रेसिपी निष्पादन के दौरान टूल की तरह कॉल किया जा सके"
-  },
   "subagentLifecycle.end": {
     "defaultMessage": "समाप्त हुआ"
   },
@@ -7768,6 +7684,99 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "नया उप-एजेंट"
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "मौजूदा जोड़ें"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "नई सबरेसिपी बनाएं"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "सबरेसिपी {name} हटाएं"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "सबरेसिपी ऐसी रेसिपी हैं जिन्हें निष्पादन के दौरान टूल की तरह कॉल किया जा सकता है। ये मल्टी-स्टेप वर्कफ़्लो और दोबारा इस्तेमाल होने वाले कंपोनेंट सक्षम करती हैं।"
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "डुप्लिकेट नाम"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "\"{name}\" नाम की सबरेसिपी पहले से मौजूद है। कृपया कोई अलग नाम इस्तेमाल करें।"
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "सबरेसिपी {name} संपादित करें"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "सबरेसिपी"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "पूर्व-कॉन्फ़िगर मान:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "अनुक्रमिक"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "सबरेसिपी जोड़ें"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "आवेदन करें"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "ब्राउज़ करें"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "सबरेसिपी मोडल बंद करें"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "सबरेसिपी कॉन्फ़िगर करें"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "विवरण"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "यह सबरेसिपी क्या करती है इसका वैकल्पिक विवरण..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "अमान्य फ़ाइल"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "कृपया YAML file (.yaml या .yml) चुनें।"
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "टूल नाम उत्पन्न करने के लिए अद्वितीय पहचानकर्ता का उपयोग किया जाता है"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "नाम"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "उदाहरण के लिए, सुरक्षा_स्कैन"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "मौजूदा रेसिपी फ़ाइल ब्राउज़ करें या मैन्युअल रूप से पथ दर्ज करें"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "पथ"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "उदाहरण के लिए, ./subrecipes/security-analyse.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "पूर्व-कॉन्फ़िगर मान"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "वैकल्पिक पैरामीटर मान जो हमेशा सबरेसिपी को भेजे जाते हैं"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(कई सबरेसिपी इंस्टेंस को क्रम से चलाने के लिए बाध्य करता है)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "दोहराए जाने पर अनुक्रमिक"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "ऐसी सबरेसिपी कॉन्फ़िगर करें जिसे रेसिपी निष्पादन के दौरान टूल की तरह कॉल किया जा सके"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -7971,7 +7980,7 @@
     "defaultMessage": "Thinking"
   },
   "thinkingContent.thinkingLive": {
-    "defaultMessage": "Thinking · Updating"
+    "defaultMessage": "Thinking Updating"
   },
   "thinkingEffortPicker.budget": {
     "defaultMessage": "Current budget; model capacity unconfirmed"
@@ -8026,6 +8035,9 @@
   },
   "toasts.copyError": {
     "defaultMessage": "Copy error"
+  },
+  "toolAction.actionDone": {
+    "defaultMessage": "पूर्ण: {action}"
   },
   "toolAction.chart": {
     "defaultMessage": "Create a chart"
@@ -8100,7 +8112,7 @@
     "defaultMessage": "Preparing operation parameters{target}"
   },
   "toolAction.generatingFile": {
-    "defaultMessage": "{target} तैयार हो रहा है · {count} पंक्तियाँ प्राप्त हुईं — अभी सहेजा नहीं गया"
+    "defaultMessage": "{target} तैयार हो रहा है {count} पंक्तियाँ प्राप्त हुईं — अभी सहेजा नहीं गया"
   },
   "toolAction.generatingFileHeadline": {
     "defaultMessage": "Generating file contents{target}"
@@ -8157,7 +8169,7 @@
     "defaultMessage": "परिणाम दिखाएँ"
   },
   "toolAction.running": {
-    "defaultMessage": "{action} · in progress"
+    "defaultMessage": "{action} in progress"
   },
   "toolAction.screenshot": {
     "defaultMessage": "स्क्रीनशॉट लें"
@@ -8237,14 +8249,14 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "एक बार अनुमति दें"
-  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "एक बार अनुमति दी गई"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "एक बार अनुमति दें"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "हमेशा अनुमति दें"
@@ -8294,11 +8306,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.auditId": {
-    "defaultMessage": "Audit ID"
-  },
   "toolAudit.audited": {
     "defaultMessage": "Audited"
+  },
+  "toolAudit.auditId": {
+    "defaultMessage": "Audit ID"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8414,123 +8426,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "टूल कॉल का परिणाम"
   },
-  "toolCallStatusIndicator.toolStatus": {
-    "defaultMessage": "उपकरण स्थिति: {status}"
-  },
-  "toolCallWithResponse.activityCount": {
-    "defaultMessage": "गतिविधि ({count})"
-  },
-  "toolCallWithResponse.checkNotAccepted": {
-    "defaultMessage": "Not accepted · view details"
-  },
-  "toolCallWithResponse.checkResultScope": {
-    "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
-  },
-  "toolCallWithResponse.code": {
-    "defaultMessage": "कोड"
-  },
-  "toolCallWithResponse.loadingSpinner": {
-    "defaultMessage": "स्पिनर लोड हो रहा है"
-  },
-  "toolCallWithResponse.logs": {
-    "defaultMessage": "लॉग"
-  },
-  "toolCallWithResponse.modelPlan": {
-    "defaultMessage": "Model plan"
-  },
-  "toolCallWithResponse.output": {
-    "defaultMessage": "आउटपुट"
-  },
-  "toolCallWithResponse.searchQuery": {
-    "defaultMessage": "Query"
-  },
-  "toolCallWithResponse.searchResponse": {
-    "defaultMessage": "Search response"
-  },
-  "toolCallWithResponse.searchSources": {
-    "defaultMessage": "Sources"
-  },
-  "toolCallWithResponse.subagentBudget": {
-    "defaultMessage": "आंशिक परिणाम · सौंपे गए काम की सीमा पूरी हुई"
-  },
-  "toolCallWithResponse.subagentStarted": {
-    "defaultMessage": "Started {name}"
-  },
-  "toolCallWithResponse.subagentUnavailable": {
-    "defaultMessage": "आंशिक परिणाम · मॉडल सेवा उपलब्ध नहीं है"
-  },
-  "toolCallWithResponse.toolDetails": {
-    "defaultMessage": "उपकरण विवरण"
-  },
-  "toolCallWithResponse.toolResultAlt": {
-    "defaultMessage": "उपकरण परिणाम"
-  },
-  "toolCallWithResponse.viewSubagentSession": {
-    "defaultMessage": "सबएजेंट सत्र देखें"
-  },
-  "toolConfirmation.allowToolCallWithName": {
-    "defaultMessage": "{toolName} को अनुमति दें?"
-  },
-  "toolConfirmation.branch": {
-    "defaultMessage": "Branch"
-  },
-  "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation, select, open {पृष्ठ खोलें} observe {पृष्ठ पढ़ें} click {पृष्ठ के तत्व पर क्लिक करें} type {पृष्ठ पर पाठ दर्ज करें} key {पृष्ठ पर कुंजी भेजें} screenshot {पृष्ठ का चित्र लें} console {पृष्ठ का कंसोल पढ़ें} close {पृष्ठ बंद करें} other {ब्राउज़र कार्रवाई}}"
-  },
-  "toolConfirmation.browserNode": {
-    "defaultMessage": "तत्व {node}"
-  },
-  "toolConfirmation.browserTab": {
-    "defaultMessage": "टैब {id}"
-  },
-  "toolConfirmation.browserTargetMissing": {
-    "defaultMessage": "लक्ष्य नहीं दिया गया"
-  },
-  "toolConfirmation.expectedRemoteTip": {
-    "defaultMessage": "Expected remote tip"
-  },
-  "toolConfirmation.forcePushTitle": {
-    "defaultMessage": "Force push confirmation"
-  },
-  "toolConfirmation.forcePushWarning": {
-    "defaultMessage": "This operation rewrites the remote branch. Verify every value before allowing it."
-  },
-  "toolConfirmation.gooseWouldLikeToCallWithName": {
-    "defaultMessage": "CodeBuddy {toolName} को कॉल करना चाहेंगे। अनुमति दें?"
-  },
-  "toolConfirmation.localHead": {
-    "defaultMessage": "Local HEAD"
-  },
-  "toolConfirmation.localOnlyCommits": {
-    "defaultMessage": "Local-only commits"
-  },
-  "toolConfirmation.remote": {
-    "defaultMessage": "Remote"
-  },
-  "toolConfirmation.remoteOnlyCommits": {
-    "defaultMessage": "Remote commits to overwrite"
-  },
-  "toolConfirmation.risk": {
-    "defaultMessage": "Risk"
-  },
-  "toolConfirmation.riskValue": {
-    "defaultMessage": "{risk, select, read_only {Read only} workspace_write {Workspace write} external_write {Extension action (confirmation required)} high_risk {High risk} forbidden {Forbidden} other {Legacy / unknown risk}}"
-  },
-  "toolConfirmation.scope": {
-    "defaultMessage": "Scope"
-  },
-  "toolConfirmation.scopeValue": {
-    "defaultMessage": "{scope, select, task {This task} session {This session} global {Global} other {Unknown scope}}"
-  },
-  "toolConfirmation.source": {
-    "defaultMessage": "Source"
-  },
-  "toolConfirmation.sourceValue": {
-    "defaultMessage": "{source, select, platform {Platform extension} builtin {Built-in extension} external_stdio {External local extension} external_http {External network extension} frontend {Frontend tool} inline_python {Inline Python tool} other {Unknown source}}"
-  },
-  "toolConfirmation.taskWorkspaceGrant": {
-    "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
-  },
   "toolbox.addSkill": {
     "defaultMessage": "कौशल जोड़ें"
   },
@@ -8579,11 +8474,11 @@
   "toolbox.discoveryFailed": {
     "defaultMessage": "Tool discovery failed"
   },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
   "toolbox.enabledUnverified": {
     "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
   },
   "toolbox.externalHelp": {
     "defaultMessage": "GitHub रिपॉज़िटरी, इश्यू और पुल रिक्वेस्ट जैसी बाहरी सेवाओं के कनेक्शन।"
@@ -8687,6 +8582,123 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
+  "toolCallStatusIndicator.toolStatus": {
+    "defaultMessage": "उपकरण स्थिति: {status}"
+  },
+  "toolCallWithResponse.activityCount": {
+    "defaultMessage": "गतिविधि ({count})"
+  },
+  "toolCallWithResponse.checkNotAccepted": {
+    "defaultMessage": "Not accepted view details"
+  },
+  "toolCallWithResponse.checkResultScope": {
+    "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
+  },
+  "toolCallWithResponse.code": {
+    "defaultMessage": "कोड"
+  },
+  "toolCallWithResponse.loadingSpinner": {
+    "defaultMessage": "स्पिनर लोड हो रहा है"
+  },
+  "toolCallWithResponse.logs": {
+    "defaultMessage": "लॉग"
+  },
+  "toolCallWithResponse.modelPlan": {
+    "defaultMessage": "Model plan"
+  },
+  "toolCallWithResponse.output": {
+    "defaultMessage": "आउटपुट"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
+  "toolCallWithResponse.subagentBudget": {
+    "defaultMessage": "आंशिक परिणाम सौंपे गए काम की सीमा पूरी हुई"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
+  },
+  "toolCallWithResponse.subagentUnavailable": {
+    "defaultMessage": "आंशिक परिणाम मॉडल सेवा उपलब्ध नहीं है"
+  },
+  "toolCallWithResponse.toolDetails": {
+    "defaultMessage": "उपकरण विवरण"
+  },
+  "toolCallWithResponse.toolResultAlt": {
+    "defaultMessage": "उपकरण परिणाम"
+  },
+  "toolCallWithResponse.viewSubagentSession": {
+    "defaultMessage": "सबएजेंट सत्र देखें"
+  },
+  "toolConfirmation.allowToolCallWithName": {
+    "defaultMessage": "{toolName} को अनुमति दें?"
+  },
+  "toolConfirmation.branch": {
+    "defaultMessage": "Branch"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {पृष्ठ खोलें} observe {पृष्ठ पढ़ें} click {पृष्ठ के तत्व पर क्लिक करें} type {पृष्ठ पर पाठ दर्ज करें} key {पृष्ठ पर कुंजी भेजें} screenshot {पृष्ठ का चित्र लें} console {पृष्ठ का कंसोल पढ़ें} close {पृष्ठ बंद करें} other {ब्राउज़र कार्रवाई}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "तत्व {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "टैब {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "लक्ष्य नहीं दिया गया"
+  },
+  "toolConfirmation.expectedRemoteTip": {
+    "defaultMessage": "Expected remote tip"
+  },
+  "toolConfirmation.forcePushTitle": {
+    "defaultMessage": "Force push confirmation"
+  },
+  "toolConfirmation.forcePushWarning": {
+    "defaultMessage": "This operation rewrites the remote branch. Verify every value before allowing it."
+  },
+  "toolConfirmation.gooseWouldLikeToCallWithName": {
+    "defaultMessage": "CodeBuddy {toolName} को कॉल करना चाहेंगे। अनुमति दें?"
+  },
+  "toolConfirmation.localHead": {
+    "defaultMessage": "Local HEAD"
+  },
+  "toolConfirmation.localOnlyCommits": {
+    "defaultMessage": "Local-only commits"
+  },
+  "toolConfirmation.remote": {
+    "defaultMessage": "Remote"
+  },
+  "toolConfirmation.remoteOnlyCommits": {
+    "defaultMessage": "Remote commits to overwrite"
+  },
+  "toolConfirmation.risk": {
+    "defaultMessage": "Risk"
+  },
+  "toolConfirmation.riskValue": {
+    "defaultMessage": "{risk, select, read_only {Read only} workspace_write {Workspace write} external_write {Extension action (confirmation required)} high_risk {High risk} forbidden {Forbidden} other {Legacy / unknown risk}}"
+  },
+  "toolConfirmation.scope": {
+    "defaultMessage": "Scope"
+  },
+  "toolConfirmation.scopeValue": {
+    "defaultMessage": "{scope, select, task {This task} session {This session} global {Global} other {Unknown scope}}"
+  },
+  "toolConfirmation.source": {
+    "defaultMessage": "Source"
+  },
+  "toolConfirmation.sourceValue": {
+    "defaultMessage": "{source, select, platform {Platform extension} builtin {Built-in extension} external_stdio {External local extension} external_http {External network extension} frontend {Frontend tool} inline_python {Inline Python tool} other {Unknown source}}"
+  },
+  "toolConfirmation.taskWorkspaceGrant": {
+    "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
+  },
   "userMessage.cancel": {
     "defaultMessage": "रद्द करें"
   },
@@ -8737,54 +8749,6 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "पुष्टि की प्रतीक्षा में"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "मॉडल सेवा की प्रतीक्षा है"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "मॉडल सेवा ने अभी तक कोई सामग्री नहीं भेजी है। आप प्रतीक्षा जारी रख सकते हैं या इस अनुरोध को रोक सकते हैं।"
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -8912,11 +8876,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "लिखने योग्य रूट"
   },
-  "workspacePanel.addToChat": {
-    "defaultMessage": "चैट में जोड़ें"
-  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
+  },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "चैट में जोड़ें"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -8936,8 +8900,14 @@
   "workspacePanel.close": {
     "defaultMessage": "Close"
   },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "अन्य टैब बंद करें"
+  },
   "workspacePanel.closePanel": {
     "defaultMessage": "Collapse panel"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "दाईं ओर के टैब बंद करें"
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
@@ -8960,6 +8930,12 @@
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
   },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "कुछ फ़ॉन्ट उपलब्ध नहीं हैं। पूर्वावलोकन का लेआउट मूल से भिन्न हो सकता है।"
+  },
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "इस दस्तावेज़ का पूर्वावलोकन नहीं हो सका। इसे फिर से लोड करें या डिफ़ॉल्ट ऐप में खोलें।"
+  },
   "workspacePanel.downloadCopy": {
     "defaultMessage": "एक कॉपी डाउनलोड करें"
   },
@@ -8975,14 +8951,17 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "फ़ाइल की कार्रवाई पूरी नहीं हो सकी। फिर से कोशिश करें। कोड फ़ाइल खोलने के लिए VS Code आवश्यक है।"
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
+  },
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9019,6 +8998,9 @@
   },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "VS Code में खोलें"
   },
   "workspacePanel.openFile": {
     "defaultMessage": "फ़ाइल खोलें"
@@ -9161,25 +9143,52 @@
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
   },
-  "imagePreview.zoomIn": {
-    "defaultMessage": "ज़ूम इन"
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
   },
-  "imagePreview.zoomOut": {
-    "defaultMessage": "ज़ूम आउट"
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
   },
-  "imagePreview.fit": {
-    "defaultMessage": "विंडो में फ़िट करें"
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
   },
-  "workspacePanel.closeOtherTabs": {
-    "defaultMessage": "अन्य टैब बंद करें"
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
   },
-  "workspacePanel.closeRightTabs": {
-    "defaultMessage": "दाईं ओर के टैब बंद करें"
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "VS Code में खोलें"
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "फ़ाइल की कार्रवाई पूरी नहीं हो सकी। फिर से कोशिश करें। कोड फ़ाइल खोलने के लिए VS Code आवश्यक है।"
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "मॉडल सेवा की प्रतीक्षा है"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "मॉडल सेवा ने अभी तक कोई सामग्री नहीं भेजी है। आप प्रतीक्षा जारी रख सकते हैं या इस अनुरोध को रोक सकते हैं।"
   }
 }

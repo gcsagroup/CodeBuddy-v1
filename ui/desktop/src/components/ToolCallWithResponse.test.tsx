@@ -616,7 +616,7 @@ describe('internal task check presentation', () => {
         </IntlProvider>
       );
       const toggle = screen.getByRole('button', {
-        name: new RegExp(`${title}\\s*Not accepted · view details`),
+        name: new RegExp(`${title}\\s*Not accepted, view details`),
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByText('Failed')).not.toBeInTheDocument();
@@ -653,7 +653,7 @@ describe('internal task check presentation', () => {
       </IntlProvider>
     );
     expect(screen.getByText(label)).toBeVisible();
-    expect(screen.queryByText('Not accepted · view details')).not.toBeInTheDocument();
+    expect(screen.queryByText('Not accepted, view details')).not.toBeInTheDocument();
   });
 });
 

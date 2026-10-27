@@ -23,7 +23,11 @@ const i18n = defineMessages({
   },
   moreFiles: {
     id: 'conversationFiles.moreFiles',
-    defaultMessage: 'Show {count} more files',
+    defaultMessage: 'Show {count} remaining files',
+  },
+  fewerFiles: {
+    id: 'conversationFiles.fewerFiles',
+    defaultMessage: 'Show fewer files',
   },
   viewChanges: { id: 'conversationFiles.viewChanges', defaultMessage: 'View changes' },
   diffUnavailable: {
@@ -78,12 +82,14 @@ export function CodeProConversationFiles({
   };
   return (
     <Collapsible
+      data-disclosure-anchor=""
       open={expanded}
       onOpenChange={setExpanded}
       className="my-4 overflow-hidden rounded-xl border border-border-subtle"
     >
       <div className="flex items-center pr-3">
         <CollapsibleTrigger
+          data-disclosure-heading=""
           className="flex min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left text-text-primary"
           aria-label={title}
         >
@@ -168,13 +174,20 @@ export function CodeProConversationFiles({
             );
           })}
         </ul>
-        {!showAll && files.length > 3 && (
+        {files.length > 3 && (
           <button
             type="button"
-            className="flex w-full items-center gap-1.5 border-t border-border-subtle bg-background-secondary px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
-            onClick={() => setShowAll(true)}
+            className="flex w-full items-center gap-1.5 bg-transparent px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
+            aria-expanded={showAll}
+            onClick={() => setShowAll((all) => !all)}
           >
-            {intl.formatMessage(i18n.moreFiles, { count: files.length - 3 })}
+            {showAll
+              ? intl.formatMessage(i18n.fewerFiles)
+              : intl.formatMessage(i18n.moreFiles, { count: files.length - 3 })}
+            <ChevronRight
+              aria-hidden="true"
+              className={`h-4 w-4 shrink-0 ${showAll ? '-rotate-90' : 'rotate-90'}`}
+            />
           </button>
         )}
       </CollapsibleContent>

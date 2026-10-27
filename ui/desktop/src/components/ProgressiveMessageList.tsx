@@ -23,17 +23,29 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
+import { ChevronRight, Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
+import { computerActionTargets } from './computerActionTargets';
+import {
+  isAcpPermissionRequestPending,
+  subscribeAcpPermissionRequests,
+} from '../acp/permissionRequests';
 import { isPlanTool, isProgressTool, presentedToolCall } from './codepro/CodeProToolContent';
 import { isPlanContextMessage, planFromResponse } from '../types/codeproPlan';
 import { ToolCallExpandable } from './ToolCallExpandable';
 import { CodeProWorkStep } from './codepro/CodeProWorkStep';
-import { formatToolActionSummary, isTaskContractCheck } from './toolActionPresentation';
+import {
+  formatToolAction,
+  formatToolActionSummary,
+  isTaskContractCheck,
+} from './toolActionPresentation';
+import { ToolActivityIcon } from './ToolActivityIcon';
 import {
   CodeProActivity,
   CodeProActivityCard,
@@ -53,15 +65,19 @@ import {
   getToolRequests,
   getToolResponses,
   getAnyToolConfirmationData,
+  getPendingToolConfirmationIds,
   type Message,
   type NotificationEvent,
   type SystemNotificationContent,
   type UserInput,
   type ToolResponseMessageContent,
 } from '../types/message';
+import { messageContentParts, type MessageContentPart } from './messageContentParts';
+import { conversationUsage } from './conversationUsage';
 import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
 import { getResponsePhase } from '../types/responsePhase';
+import { parseSubagentLifecycle } from '../types/subagentLifecycle';
 import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
 import { collectConversationChanges } from './codepro/conversationChanges';
 import { useConversationChangeMessages } from '../workspace-panel/WorkspaceSubagents';
@@ -86,10 +102,6 @@ const i18n = defineMessages({
   turnRecord: {
     id: 'conversation.turnRecord',
     defaultMessage: 'Work history {count} operations',
-  },
-  turnCompleted: {
-    id: 'conversation.turnCompleted',
-    defaultMessage: 'Completed {count} operations',
   },
   turnDuration: {
     id: 'conversation.turnDuration',
@@ -120,6 +132,16 @@ const i18n = defineMessages({
     defaultMessage: 'Model changed: {previousModel} → {currentModel}',
   },
   stopped: { id: 'gooseMessage.turnStopped', defaultMessage: 'Stopped' },
+  thinking: { id: 'thinkingContent.thinking', defaultMessage: 'Thinking' },
+  thinkingLive: { id: 'thinkingContent.thinkingLive', defaultMessage: 'Thinking (updating)' },
+  thinkingDetails: {
+    id: 'progressiveMessageList.thinkingDetails',
+    defaultMessage: 'Reasoning details',
+  },
+  turnProcessDuration: {
+    id: 'progressiveMessageList.turnProcessDuration',
+    defaultMessage: 'This turn: {minutes} min {seconds} sec',
+  },
   loadEarlierMessages: {
     id: 'progressiveMessageList.loadEarlierMessages',
     defaultMessage: 'Load earlier messages ({remaining} remaining)',
@@ -334,6 +356,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     [props.messages]
   );
   const chains = useMemo(() => identifyConsecutiveToolCalls(props.messages), [props.messages]);
+  const computerTargets = useMemo(() => computerActionTargets(props.messages), [props.messages]);
   const presentation = useOrderedToolPresentation(visibleMessages, !!props.isStreamingMessage);
   const historyMessageCount = props.messages.length;
   const historySessionId = props.chat.sessionId;
@@ -362,9 +385,72 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         sourceMessages={props.messages}
         sharedToolResponses={responses}
         sharedToolChains={chains}
+        sharedComputerTargets={computerTargets}
         presentationPending={!props.renderMessage && presentation.pending}
       />
     </>
+  );
+}
+
+function ProcessDetails({
+  hasThinking,
+  children,
+}: {
+  hasThinking: boolean;
+  children: (showThinking: boolean) => React.ReactNode;
+}) {
+  const intl = useIntl();
+  const [showThinking, setShowThinking] = useState(false);
+  return (
+    <>
+      {hasThinking && (
+        <button
+          type="button"
+          aria-pressed={showThinking}
+          aria-expanded={showThinking}
+          className="mb-1 inline-flex items-center gap-1 self-start text-left text-xs text-text-secondary hover:text-text-primary"
+          onClick={() => setShowThinking((shown) => !shown)}
+        >
+          {intl.formatMessage(i18n.thinkingDetails)}
+          <ChevronRight
+            aria-hidden="true"
+            className={`h-3 w-3 shrink-0 transition-transform ${showThinking ? 'rotate-90' : ''}`}
+          />
+        </button>
+      )}
+      {children(showThinking)}
+    </>
+  );
+}
+
+function TurnProcessHistory({
+  settled,
+  label,
+  storageKey,
+  children,
+}: {
+  settled: boolean;
+  label: string;
+  storageKey: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div data-turn-process-summary={settled ? '' : undefined}>
+      <ToolCallExpandable
+        compact
+        groupHeading={settled}
+        label={label}
+        storageKey={storageKey}
+        collapsible={settled}
+        collapseOnSettle={settled}
+        resetOnSettle
+        autoExpandOnReading={false}
+        scrollable={false}
+        contentClassName={settled ? 'codepro-turn-history bg-transparent' : 'contents'}
+      >
+        {children}
+      </ToolCallExpandable>
+    </div>
   );
 }
 
@@ -401,12 +487,20 @@ function ProgressiveMessageListContent({
   presentationPending = false,
   sharedToolResponses,
   sharedToolChains,
+  sharedComputerTargets,
+  processSettled = false,
+  contentClip,
+  footer,
 }: ProgressiveMessageListProps & {
   renderRange?: readonly [number, number];
   sourceMessages?: Message[];
   presentationPending?: boolean;
   sharedToolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   sharedToolChains?: number[][];
+  sharedComputerTargets?: ReadonlyMap<string, string>;
+  processSettled?: boolean;
+  contentClip?: readonly [number, number, number];
+  footer?: { hidden?: boolean; usage?: import('../types/message').MessageUsage; created?: number };
 }) {
   const intl = useIntl();
   const [renderedCount, setRenderedCount] = useState(() => {
@@ -415,6 +509,23 @@ function ProgressiveMessageListContent({
       ? messages.length
       : Math.min(batchSize, messages.length);
   });
+  const livePermissionKey = useSyncExternalStore(
+    subscribeAcpPermissionRequests,
+    useCallback(
+      () =>
+        JSON.stringify(
+          sourceMessages
+            .flatMap(getToolRequests)
+            .filter((request) => isAcpPermissionRequestPending(chat.sessionId, request.id))
+            .map((request) => request.id)
+        ),
+      [sourceMessages, chat.sessionId]
+    )
+  );
+  const livePermissions = useMemo(
+    () => new Set<string>(JSON.parse(livePermissionKey)),
+    [livePermissionKey]
+  );
   const [isLoading, setIsLoading] = useState(
     () => !(foldTurns && !renderMessage) && messages.length > showLoadingThreshold
   );
@@ -689,27 +800,67 @@ function ProgressiveMessageListContent({
     const activePlanRequestId = planRunning
       ? acknowledgedPlans[acknowledgedPlans.length - 1]?.id
       : undefined;
-    const messagesToRender = messages.slice(renderStartIndex, renderEndIndex).map((message) => ({
-      ...message,
-      content: message.content.filter((content) => {
-        if (
-          compactTools &&
-          !renderMessage &&
-          content.type === 'toolRequest' &&
-          isPlanTool(presentedToolCall(content)?.name ?? '') &&
-          responses.has(content.id) &&
-          !!planFromResponse(responses.get(content.id)!)
-        )
-          return false;
-        return true;
-      }),
-    }));
-    const approvals = new Set(
-      messages.flatMap((item) => {
-        const confirmation = getAnyToolConfirmationData(item);
-        return confirmation ? [confirmation.id] : [];
-      })
+    const parts = new Map<Message, MessageContentPart & { index: number; footer: boolean }>();
+    const messagesToRender = messages
+      .slice(renderStartIndex, renderEndIndex)
+      .flatMap((message, offset) => {
+        const sourceRanges = renderMessage
+          ? [{ message, start: 0, end: message.content.length }]
+          : messageContentParts(message);
+        const ranges = sourceRanges.flatMap((range) => {
+          if (!contentClip || renderStartIndex + offset !== contentClip[0]) return [range];
+          const start = Math.max(range.start, contentClip[1]);
+          const end = Math.min(range.end, contentClip[2]);
+          return end > start ? [{ ...range, start, end }] : [];
+        });
+        const lastPublic = [...ranges]
+          .reverse()
+          .find((range) =>
+            message.content
+              .slice(range.start, range.end)
+              .some(
+                (content) =>
+                  content.type === 'image' || (content.type === 'text' && !!content.text.trim())
+              )
+          );
+        return ranges.map((range) => {
+          const projected = {
+            ...message,
+            content: message.content.slice(range.start, range.end).filter((content) => {
+              if (
+                !renderMessage &&
+                suppressProviderThinking &&
+                (content.type === 'thinking' || content.type === 'redactedThinking')
+              )
+                return false;
+              if (
+                compactTools &&
+                !renderMessage &&
+                content.type === 'toolRequest' &&
+                isPlanTool(presentedToolCall(content)?.name ?? '') &&
+                responses.has(content.id) &&
+                !!planFromResponse(responses.get(content.id)!)
+              )
+                return false;
+              return true;
+            }),
+          };
+          parts.set(projected, {
+            ...range,
+            index: renderStartIndex + offset,
+            footer: ranges.length === 1 || lastPublic === range,
+          });
+          return projected;
+        });
+      });
+    const approvals = getPendingToolConfirmationIds(sourceMessages);
+    const requestIds = new Set(
+      sourceMessages.flatMap(getToolRequests).map((request) => request.id)
     );
+    const lifecycleNotification = (item: Message) => {
+      const notification = getSystemNotification(item);
+      return notification && parseSubagentLifecycle(notification.data) ? notification : undefined;
+    };
     const isProcessToolMessage = (item: Message) => {
       if (
         !compactTools ||
@@ -720,6 +871,7 @@ function ProgressiveMessageListContent({
           (content) =>
             content.type === 'toolRequest' ||
             content.type === 'thinking' ||
+            content.type === 'redactedThinking' ||
             (content.type === 'text' && !content.text.trim())
         ) ||
         isRepresentedToolTransport(item)
@@ -730,26 +882,31 @@ function ProgressiveMessageListContent({
         return !!call && !isPlanTool(call.name) && !isProgressTool(call.name);
       });
     };
+    const successfulRequest = (request: ReturnType<typeof getToolRequests>[number]) => {
+      const response = responses.get(request.id);
+      const audit = parseToolAuditReceipt(response?.metadata?.toolAudit);
+      const call = presentedToolCall(request);
+      const outcome = call && computerToolOutcome(call.name, request.id, response);
+      return (
+        resolveToolLoadingStatus(response, false, request) === 'success' &&
+        (!audit || audit.outcome === 'success') &&
+        (!outcome || outcome === 'worked')
+      );
+    };
     const isFoldableToolMessage = (item: Message) => {
       if (!isProcessToolMessage(item)) return false;
       return getToolRequests(item).every((request) => {
-        const response = responses.get(request.id);
-        const audit = parseToolAuditReceipt(response?.metadata?.toolAudit);
         const call =
           request.toolCall.status === 'success' ? request.toolCall.value : request.toolCall;
         const name =
           call && typeof call === 'object' && 'name' in call && typeof call.name === 'string'
             ? call.name
             : '';
-        const outcome = computerToolOutcome(name, request.id, response);
-        const status = resolveToolLoadingStatus(response, false, request);
         return (
           !isPlanTool(name) &&
           !isProgressTool(name) &&
           !approvals.has(request.id) &&
-          (status === 'success' || status === 'error') &&
-          (!audit || audit.outcome === 'success' || audit.outcome === 'tool_error') &&
-          (!outcome || outcome === 'worked')
+          successfulRequest(request)
         );
       });
     };
@@ -757,29 +914,56 @@ function ProgressiveMessageListContent({
       item.metadata.userVisible &&
       item.role === 'assistant' &&
       item.content.length > 0 &&
-      item.content.some((content) => content.type === 'thinking') &&
+      item.content.some(
+        (content) => content.type === 'thinking' || content.type === 'redactedThinking'
+      ) &&
       item.content.every(
         (content) =>
-          content.type === 'thinking' || (content.type === 'text' && !content.text.trim())
+          content.type === 'thinking' ||
+          (content.type === 'text' && !content.text.trim()) ||
+          content.type === 'redactedThinking'
       );
-    const renderToolMessage = (item: Message) => (
-      <GooseMessage
-        activePlanRequestId={activePlanRequestId}
-        key={item.id ?? getToolRequests(item)[0]?.id ?? `tool-${item.created}`}
-        compactTools
-        sessionId={chat.sessionId}
-        message={item}
-        messages={sourceMessages}
-        toolResponses={sharedToolResponses}
-        toolChains={sharedToolChains}
-        suppressProviderThinking={suppressProviderThinking}
-        append={append}
-        toolCallNotifications={toolCallNotifications}
-        activeToolCallIds={isStreamingMessage ? (activeToolCallIds ?? []) : []}
-        thinkingActivity={isStreamingMessage ? thinkingActivity : undefined}
-        isStreaming={isStreamingMessage}
-      />
-    );
+    const renderToolMessage = (
+      item: Message,
+      showThinking = false,
+      hiddenToolRequestIds?: ReadonlySet<string>,
+      range?: readonly [number, number]
+    ) =>
+      lifecycleNotification(item) ? (
+        <Fragment key={item.id ?? item.created}>
+          {renderSystemNotification(lifecycleNotification(item)!, false)}
+        </Fragment>
+      ) : (
+        <GooseMessage
+          activePlanRequestId={activePlanRequestId}
+          key={`${item.id ?? getToolRequests(item)[0]?.id ?? `tool-${item.created}`}:${range?.[0] ?? parts.get(item)?.start ?? 0}`}
+          compactTools
+          sessionId={chat.sessionId}
+          message={parts.get(item)?.message ?? item}
+          contentRange={
+            range ??
+            (parts.has(item) &&
+            (parts.get(item)!.start > 0 ||
+              parts.get(item)!.end < parts.get(item)!.message.content.length)
+              ? [parts.get(item)!.start, parts.get(item)!.end]
+              : undefined)
+          }
+          groupedProcess
+          showGroupedThinking={showThinking}
+          hiddenToolRequestIds={hiddenToolRequestIds}
+          showMessageFooter={false}
+          messages={sourceMessages}
+          toolResponses={sharedToolResponses}
+          toolChains={sharedToolChains}
+          computerTargets={sharedComputerTargets}
+          suppressProviderThinking={suppressProviderThinking}
+          append={append}
+          toolCallNotifications={toolCallNotifications}
+          activeToolCallIds={isStreamingMessage ? (activeToolCallIds ?? []) : []}
+          thinkingActivity={isStreamingMessage ? thinkingActivity : undefined}
+          isStreaming={isStreamingMessage}
+        />
+      );
     const operationSummary = (group: Message[]) => {
       const requests = group.flatMap(getToolRequests);
       // Keep internal submissions out of artifact/action success and failure counts.
@@ -792,8 +976,7 @@ function ProgressiveMessageListContent({
       const successful = formatToolActionSummary(
         intl,
         operations.flatMap((request) => {
-          if (resolveToolLoadingStatus(responses.get(request.id), false, request) !== 'success')
-            return [];
+          if (!successfulRequest(request)) return [];
           const call = presentedToolCall(request);
           return call ? [call] : [];
         })
@@ -810,10 +993,15 @@ function ProgressiveMessageListContent({
     // explanation. Keep the original messages/order and tool safety boundaries.
     const collectProcess = (start: number) => {
       const group: Message[] = [];
-      let settled = !isStreamingMessage && !presentationPending;
+      let settled = processSettled || (!isStreamingMessage && !presentationPending);
+      let atPublicBoundary = false;
       for (let next = start; next < messagesToRender.length; next += 1) {
         const candidate = messagesToRender[next];
-        if (isProcessToolMessage(candidate) || isThinkingMessage(candidate)) {
+        if (
+          isProcessToolMessage(candidate) ||
+          isThinkingMessage(candidate) ||
+          lifecycleNotification(candidate)
+        ) {
           group.push(candidate);
           foldedIndices.add(next);
         } else if (
@@ -823,22 +1011,40 @@ function ProgressiveMessageListContent({
           isRepresentedToolTransport(candidate) ||
           candidate.content.length === 0 ||
           candidate.content.every((content) => content.type === 'text' && !content.text.trim()) ||
-          candidate.content.every((content) => content.type === 'toolResponse')
+          candidate.content.every((content) => content.type === 'toolResponse') ||
+          (getAnyToolConfirmationData(candidate) &&
+            requestIds.has(getAnyToolConfirmationData(candidate)!.id))
         ) {
           continue;
         } else {
-          // Public text and separate approval UI remain outside this process.
-          settled = true;
+          atPublicBoundary =
+            candidate.role === 'assistant' &&
+            (candidate.content.some(
+              (content) =>
+                (content.type === 'text' && !!content.text.trim()) || content.type === 'image'
+            ) ||
+              getToolRequests(candidate).some((request) => {
+                const call = presentedToolCall(request);
+                return call && (isProgressTool(call.name) || isPlanTool(call.name));
+              }));
+          // A control record stays visible, but an unbound old terminal cannot
+          // close current presentation. Public output can close settled details.
+          if (!getTurnTerminalRecord(candidate)) settled = true;
           break;
         }
       }
       // A public boundary cannot hide live, approval-blocked or unknown work.
-      settled &&= group.every((item) => isThinkingMessage(item) || isFoldableToolMessage(item));
-      return { group, settled };
+      settled &&= group.every(
+        (item) =>
+          isThinkingMessage(item) || lifecycleNotification(item) || isFoldableToolMessage(item)
+      );
+      return { group, settled, atPublicBoundary };
     };
+    const disclosedModels = new Set<Message>();
     const history = messagesToRender
       .map((message, localIndex) => {
-        const index = renderStartIndex + localIndex;
+        const part = parts.get(message);
+        const index = part?.index ?? renderStartIndex + localIndex;
         if (
           !message.metadata.userVisible ||
           isPlanContextMessage(message) ||
@@ -913,7 +1119,10 @@ function ProgressiveMessageListContent({
         if (
           compactTools &&
           message.content.every(
-            (content) => content.type === 'toolRequest' || content.type === 'thinking'
+            (content) =>
+              content.type === 'toolRequest' ||
+              content.type === 'thinking' ||
+              (content.type === 'text' && !content.text.trim())
           ) &&
           progressRequest &&
           progressCall &&
@@ -923,65 +1132,153 @@ function ProgressiveMessageListContent({
             'success' ||
             (!responses.has(progressRequest.id) && activeToolCallIds?.includes(progressRequest.id)))
         ) {
-          const { group, settled } = collectProcess(localIndex + 1);
-          const progressIndex = message.content.indexOf(progressRequest);
-          const beforeProgress = message.content.slice(0, progressIndex);
-          const afterProgress = message.content.slice(progressIndex + 1);
-          if (afterProgress.length > 0) {
-            group.unshift({ ...message, content: afterProgress });
-          }
           return (
-            <Fragment key={`step-${progressRequest.id}`}>
-              {beforeProgress.length > 0
-                ? renderToolMessage({ ...message, content: beforeProgress })
-                : null}
-              <CodeProWorkStep
-                key={`step-${progressRequest.id}`}
-                text={progressCall.arguments.text}
-                settled={settled}
-                operationCount={group.flatMap(getToolRequests).length}
-                storageKey={`step-${progressRequest.id}`}
-                summary={operationSummary(group)}
-                streaming={
-                  (presentationPending && localIndex === messagesToRender.length - 1) ||
-                  (!!isStreamingMessage &&
-                    !responses.has(progressRequest.id) &&
-                    !!activeToolCallIds?.includes(progressRequest.id))
-                }
-              >
-                {group.length > 0 ? group.map(renderToolMessage) : undefined}
-              </CodeProWorkStep>
-            </Fragment>
+            <CodeProWorkStep
+              key={`step-${progressRequest.id}`}
+              text={progressCall.arguments.text}
+              settled={false}
+              operationCount={0}
+              storageKey={`step-${progressRequest.id}`}
+              summary=""
+              streaming={
+                (presentationPending && localIndex === messagesToRender.length - 1) ||
+                (!!isStreamingMessage &&
+                  !responses.has(progressRequest.id) &&
+                  !!activeToolCallIds?.includes(progressRequest.id))
+              }
+            />
           );
         }
-        if (isProcessToolMessage(message) || isThinkingMessage(message)) {
-          const { group, settled } = collectProcess(localIndex);
+        if (
+          isProcessToolMessage(message) ||
+          isThinkingMessage(message) ||
+          lifecycleNotification(message)
+        ) {
+          const { group, settled, atPublicBoundary } = collectProcess(localIndex);
           const summary = operationSummary(group);
-          const operationCount = group.flatMap(getToolRequests).length;
           const awaitingApproval = group
             .flatMap(getToolRequests)
-            .some((request) => approvals.has(request.id) && !responses.has(request.id));
-          const identity = message.content.some((content) => content.type === 'thinking')
-            ? (message.id ?? requests[0]?.id ?? index)
-            : (requests[0]?.id ?? message.id ?? index);
+            .some(
+              (request) =>
+                livePermissions.has(request.id) &&
+                approvals.has(request.id) &&
+                !responses.has(request.id)
+            );
+          const pendingIds = new Set(
+            group
+              .flatMap(getToolRequests)
+              .filter(
+                (request) =>
+                  livePermissions.has(request.id) &&
+                  approvals.has(request.id) &&
+                  !responses.has(request.id)
+              )
+              .map((request) => request.id)
+          );
+          // A late reasoning block changes content, never the group's identity.
+          const groupIdentity = message.id ?? requests[0]?.id ?? index;
+          const identity = `${groupIdentity}:${part?.start ?? 0}`;
+          const attentionStates = group
+            .flatMap(getToolRequests)
+            .flatMap((request): ('failed' | 'unknown')[] => {
+              const response = responses.get(request.id);
+              const active =
+                !!isStreamingMessage && (activeToolCallIds?.includes(request.id) ?? true);
+              const status = resolveToolLoadingStatus(response, active, request);
+              const call = presentedToolCall(request);
+              const outcome = call && computerToolOutcome(call.name, request.id, response);
+              const audit = parseToolAuditReceipt(response?.metadata?.toolAudit);
+              if (status === 'error') return ['failed'];
+              return status === 'unknown' ||
+                (!!audit && audit.outcome !== 'success') ||
+                (!!outcome && outcome !== 'worked')
+                ? ['unknown']
+                : [];
+            });
+          const attention = attentionStates.includes('failed') ? 'failed' : attentionStates[0];
+          const groupRequests = group.flatMap(getToolRequests);
+          const activeRequest = [...groupRequests]
+            .reverse()
+            .find(
+              (request) =>
+                !responses.has(request.id) &&
+                (approvals.has(request.id) ||
+                  (!!isStreamingMessage && (activeToolCallIds?.includes(request.id) ?? true)))
+            );
+          const latestPart = group[group.length - 1];
+          const thinkingNow =
+            !activeRequest && !settled && isStreamingMessage && isThinkingMessage(latestPart);
+          const headlineRequest = activeRequest ?? groupRequests[groupRequests.length - 1];
+          const headlineCall = headlineRequest ? presentedToolCall(headlineRequest) : undefined;
+          const headlineStatus = headlineRequest
+            ? resolveToolLoadingStatus(
+                responses.get(headlineRequest.id),
+                !!activeRequest,
+                headlineRequest
+              )
+            : undefined;
+          const currentLabel =
+            !thinkingNow && headlineCall
+              ? formatToolAction(
+                  intl,
+                  headlineCall.name,
+                  headlineCall.arguments,
+                  headlineStatus === 'loading' && !awaitingApproval
+                    ? 'running'
+                    : headlineRequest && successfulRequest(headlineRequest)
+                      ? 'completed'
+                      : undefined,
+                  'detail',
+                  typeof headlineRequest?.metadata?.title === 'string'
+                    ? headlineRequest.metadata.title
+                    : undefined,
+                  headlineRequest ? sharedComputerTargets?.get(headlineRequest.id) : undefined
+                )
+              : lifecycleNotification(latestPart)?.msg ||
+                intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking);
+          const label = settled && summary ? summary : currentLabel;
           return (
             <div
               key={`tools-${identity}`}
               className="my-0.5 w-full max-w-[52rem]"
               data-testid="message-container"
+              data-process-group=""
             >
               <ToolCallExpandable
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable={false}
-                label={
-                  settled && summary
-                    ? summary
-                    : intl.formatMessage(i18n.turnRecord, { count: operationCount })
+                scrollable
+                label={label}
+                icon={
+                  thinkingNow ? (
+                    <ToolActivityIcon name="thinking" status="loading" />
+                  ) : !headlineCall ? (
+                    <Pencil aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <ToolActivityIcon
+                      name={headlineCall.name}
+                      status={
+                        awaitingApproval
+                          ? 'pending'
+                          : headlineStatus === 'loading'
+                            ? 'loading'
+                            : attention
+                              ? 'warning'
+                              : 'success'
+                      }
+                    />
+                  )
                 }
-                isStartExpanded={!settled}
-                collapsible={!awaitingApproval && operationCount > 1}
+                isStartExpanded={false}
+                collapseOnSettle={
+                  processSettled ||
+                  settled ||
+                  (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)))
+                }
+                resetOnSettle
+                autoExpandOnReading={false}
+                live={!settled && (isStreamingMessage || presentationPending)}
               >
                 <div
                   data-testid="tool-message-group"
@@ -990,11 +1287,35 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  {/* Keep the actions readable; only code and raw receipts need
-                      expanding. Public commentary remains outside this scroller. */}
-                  {group.map(renderToolMessage)}
+                  <ProcessDetails
+                    hasThinking={
+                      !suppressProviderThinking &&
+                      group.some((item) =>
+                        item.content.some((content) => content.type === 'thinking')
+                      )
+                    }
+                  >
+                    {(showThinking) =>
+                      group.map((item) => renderToolMessage(item, showThinking, pendingIds))
+                    }
+                  </ProcessDetails>
                 </div>
               </ToolCallExpandable>
+              {awaitingApproval && (
+                <div data-process-approval="">
+                  {group.flatMap((item) => {
+                    const source = parts.get(item)?.message ?? item;
+                    return source.content.flatMap((content, offset) =>
+                      content.type === 'toolRequest' &&
+                      pendingIds.has(content.id) &&
+                      offset >= (parts.get(item)?.start ?? 0) &&
+                      offset < (parts.get(item)?.end ?? source.content.length)
+                        ? [renderToolMessage(item, false, undefined, [offset, offset + 1])]
+                        : []
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         }
@@ -1154,10 +1475,12 @@ function ProgressiveMessageListContent({
         const showModelChangeDisclosure = Boolean(
           currentResolvedModel &&
           previousResolvedModel &&
-          currentResolvedModel !== previousResolvedModel
+          currentResolvedModel !== previousResolvedModel &&
+          !disclosedModels.has(part?.message ?? message)
         );
+        if (showModelChangeDisclosure) disclosedModels.add(part?.message ?? message);
 
-        const messageKey = message.id ?? `msg-${index}-${message.created}`;
+        const messageKey = `${message.id ?? `msg-${index}-${message.created}`}:${part?.start ?? 0}`;
 
         return (
           <Fragment key={messageKey}>
@@ -1183,7 +1506,15 @@ function ProgressiveMessageListContent({
                   activePlanRequestId={activePlanRequestId}
                   compactTools={compactTools}
                   sessionId={chat.sessionId}
-                  message={message}
+                  message={part?.message ?? message}
+                  contentRange={
+                    part && (part.start > 0 || part.end < part.message.content.length)
+                      ? [part.start, part.end]
+                      : undefined
+                  }
+                  showMessageFooter={!footer?.hidden && (!part || part.footer)}
+                  usageOverride={footer?.usage}
+                  createdOverride={footer?.created}
                   messages={sourceMessages}
                   toolResponses={sharedToolResponses}
                   toolChains={sharedToolChains}
@@ -1216,6 +1547,11 @@ function ProgressiveMessageListContent({
     sharedToolResponses,
     sharedToolChains,
     presentationPending,
+    processSettled,
+    contentClip,
+    footer,
+    sharedComputerTargets,
+    livePermissions,
     renderStartIndex,
     renderEndIndex,
     renderMessage,
@@ -1258,14 +1594,25 @@ function ProgressiveMessageListContent({
       start: number,
       end: number,
       streaming: boolean,
-      pending = false
+      pending = false,
+      settled = false,
+      clip?: readonly [number, number, number],
+      footer?: {
+        hidden?: boolean;
+        usage?: import('../types/message').MessageUsage;
+        created?: number;
+      }
     ) => (
       <ProgressiveMessageListContent
         messages={turn}
         sourceMessages={sourceMessages}
         sharedToolResponses={sharedToolResponses}
         sharedToolChains={sharedToolChains}
+        sharedComputerTargets={sharedComputerTargets}
         presentationPending={pending}
+        processSettled={settled}
+        contentClip={clip}
+        footer={footer}
         renderRange={[start, end]}
         sessionType={sessionType}
         readOnly={readOnly}
@@ -1299,11 +1646,6 @@ function ProgressiveMessageListContent({
           // Queued presentation can outlive transport streaming. It belongs to
           // the latest turn's tail, never to already rendered historical prose.
           const pending = presentationPending && latest;
-          const turnRequests = turn.flatMap(getToolRequests);
-          const count = turnRequests.length;
-          const turnResponses = new Map(
-            turn.flatMap(getToolResponses).map((response) => [response.id, response] as const)
-          );
           let terminalIndex = -1;
           let lastToolIndex = -1;
           let answerBoundaryIndex = -1;
@@ -1335,45 +1677,6 @@ function ProgressiveMessageListContent({
             !!terminal &&
             terminalIndex > lastToolIndex &&
             (!streaming || !activeRunId || terminal.run_id === activeRunId);
-          // Idle transport (or a later user message) is not proof that this turn
-          // finished. A bound terminal is, even before the first tool or while
-          // transport teardown is pending; its outcome need not be success.
-          const userCount =
-            turn[0]?.role === 'user' && getToolResponses(turn[0]).length === 0 ? 1 : 0;
-          let finalIndex = -1;
-          for (let index = userCount; index < turn.length; index += 1) {
-            const message = turn[index];
-            if (
-              index > lastToolIndex &&
-              message.role === 'assistant' &&
-              message.metadata.userVisible &&
-              getToolRequests(message).length === 0 &&
-              message.content.some(
-                (content) => content.type === 'text' && content.text.trim().length > 0
-              )
-            ) {
-              // Without a bound answer phase, we cannot distinguish a delivery
-              // explanation from a later host notice. Keep the entire public
-              // text tail rather than letting the notice hide delivered work.
-              finalIndex = index;
-              break;
-            }
-          }
-          if (finalIndex < 0) finalIndex = terminalIndex;
-          const terminalHasText =
-            terminalIndex >= 0 &&
-            turn[terminalIndex].content.some(
-              (content) => content.type === 'text' && content.text.trim().length > 0
-            );
-          const proposedHistoryEnd = hasAnswerBoundary
-            ? answerBoundaryIndex
-            : hasTerminalBoundary && lastToolIndex < userCount && terminalHasText
-              ? terminalIndex
-              : finalIndex >= userCount
-                ? finalIndex
-                : turn.length;
-          // Presentation can delay a newly received tool. It cannot make an older
-          // terminal or answer marker hide work the host has already delivered.
           const boundary = turn[hasAnswerBoundary ? answerBoundaryIndex : terminalIndex];
           const rawBoundaryIndex = boundary
             ? sourceMessages.findIndex(
@@ -1393,110 +1696,137 @@ function ProgressiveMessageListContent({
               break;
             }
           }
-          // Final reasoning is part of the work, including when the provider
-          // puts it in the same message as the public answer. This is a display
-          // projection only; native messages, ordering and receipts stay intact.
-          const answerThinking = turn.slice(proposedHistoryEnd).flatMap((message, offset) => {
-            const content = message.content.filter((item) => item.type === 'thinking');
-            return !suppressProviderThinking && message.role === 'assistant' && content.length
-              ? [{ ...message, id: `${message.id ?? `answer:${offset}`}:work-thinking`, content }]
-              : [];
-          });
-          const foldable =
+          // Keep every public reply mounted outside the process disclosures.
+          // Bound host facts can settle presentation, never execute or seal a turn.
+          const awaitingNativePermission = turn
+            .flatMap(getToolRequests)
+            .some((request) => livePermissions.has(request.id));
+          const settled =
             !laterToolReceived &&
-            (hasAnswerBoundary || hasTerminalBoundary) &&
-            (count > 0 ||
-              answerThinking.length > 0 ||
-              (!suppressProviderThinking &&
-                turn
-                  .slice(userCount, proposedHistoryEnd)
-                  .some((message) =>
-                    message.content.some((content) => content.type === 'thinking')
-                  )) ||
-              terminal?.status !== 'completed' ||
-              turn.some((message) =>
-                message.content.some(
-                  (content) =>
-                    content.type === 'systemNotification' &&
-                    content.notificationType === 'codeProActivity' &&
-                    isActivityEvent(content.data)
-                )
-              )) &&
-            (proposedHistoryEnd > userCount || answerThinking.length > 0);
-          const displayTurn = foldable
-            ? [
-                ...turn.slice(0, proposedHistoryEnd),
-                ...answerThinking,
-                ...turn
-                  .slice(proposedHistoryEnd)
-                  .map((message) =>
-                    message.role === 'assistant' &&
-                    message.content.some((content) => content.type === 'thinking')
-                      ? {
-                          ...message,
-                          content: message.content.filter((content) => content.type !== 'thinking'),
-                        }
-                      : message
-                  )
-                  .filter((message) => message.content.length > 0),
-              ]
-            : turn;
-          const historyEnd = foldable
-            ? proposedHistoryEnd + answerThinking.length
-            : displayTurn.length;
-          const completed =
-            terminal?.status === 'completed' &&
-            !terminal.report_parse_failed &&
-            (!terminal.report || terminal.report.outcome === 'completed') &&
-            // A completed Harness turn can contain denied or failed operations.
-            // This label describes tool receipts, not a second task verdict.
-            turnRequests.every(
-              (request) =>
-                resolveToolLoadingStatus(turnResponses.get(request.id), false, request) ===
-                'success'
-            );
-          const finishedAt = hasAnswerBoundary
-            ? turn[answerBoundaryIndex].created
-            : terminal
-              ? Date.parse(terminal.finished_at) / 1000
+            !awaitingNativePermission &&
+            (hasAnswerBoundary || hasTerminalBoundary);
+          const elapsed =
+            settled && terminal && hasTerminalBoundary && !streaming && !pending
+              ? Math.round(Date.parse(terminal.finished_at) / 1000 - turn[0].created)
               : NaN;
-          const elapsed = Math.round(finishedAt - turn[0].created);
-          const duration =
-            elapsed >= 0 && Number.isFinite(elapsed)
+          const hasProcess = turn.some((message) =>
+            message.content.some(
+              (content) =>
+                content.type === 'toolRequest' ||
+                content.type === 'thinking' ||
+                content.type === 'redactedThinking'
+            )
+          );
+          const processLabel =
+            Number.isFinite(elapsed) && elapsed >= 0
               ? intl.formatMessage(i18n.turnDuration, {
                   minutes: Math.floor(elapsed / 60),
                   seconds: elapsed % 60,
                 })
-              : undefined;
+              : intl.formatMessage(i18n.turnRecord, {
+                  count: turn.flatMap(getToolRequests).length,
+                });
+          const userEnd = turn[0]?.role === 'user' ? 1 : 0;
+          // A bound host boundary selects display history. Never classify
+          // prose by wording or treat the final-looking paragraph as a result.
+          let answerIndex = -1;
+          let answerStart = 0;
+          if (
+            settled &&
+            terminal?.last_response_text_available !== false &&
+            (hasAnswerBoundary ||
+              terminal?.status === 'completed' ||
+              terminal?.last_response_text_available === true)
+          ) {
+            turn.forEach((message, index) => {
+              if (index < lastToolIndex || getTurnTerminalRecord(message)) return;
+              if (hasAnswerBoundary && index <= answerBoundaryIndex) return;
+              if (message.role !== 'assistant') return;
+              let afterTool = 0;
+              if (index === lastToolIndex)
+                message.content.forEach((part, offset) => {
+                  if (part.type === 'toolRequest') afterTool = offset + 1;
+                });
+              const start = message.content.findIndex(
+                (part, offset) =>
+                  offset >= afterTool &&
+                  (part.type === 'image' || (part.type === 'text' && !!part.text.trim()))
+              );
+              if (start >= 0) {
+                answerIndex = index;
+                answerStart = start;
+              }
+            });
+          }
+          const historyEnd =
+            answerIndex >= 0
+              ? answerIndex + (answerStart > 0 ? 1 : 0)
+              : hasTerminalBoundary
+                ? terminalIndex
+                : turn.length;
+          const answerFrom = answerIndex >= 0 ? answerIndex : historyEnd;
+          const hasHistory =
+            hasProcess ||
+            turn
+              .slice(userEnd, historyEnd)
+              .some(
+                (message) =>
+                  message.role === 'assistant' &&
+                  message.content.some(
+                    (part) => part.type === 'image' || (part.type === 'text' && !!part.text.trim())
+                  )
+              );
+          const rawStart = sourceMessages.findIndex(
+            (message) => message === turn[0] || (!!turn[0]?.id && message.id === turn[0].id)
+          );
+          let rawEnd = sourceMessages.length;
+          for (let index = rawStart + 1; rawStart >= 0 && index < sourceMessages.length; index++) {
+            const message = sourceMessages[index];
+            if (
+              message.role === 'user' &&
+              message.metadata.userVisible &&
+              message.content.some((part) => part.type === 'text' || part.type === 'image')
+            ) {
+              rawEnd = index;
+              break;
+            }
+          }
+          const usage = hasTerminalBoundary
+            ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn)
+            : undefined;
+          const completedAt =
+            hasTerminalBoundary && terminal ? Date.parse(terminal.finished_at) / 1000 : undefined;
           return (
             <section key={turn[0]?.id ?? start} className="mb-6">
-              {renderSlice(displayTurn, 0, userCount, false)}
-              <ToolCallExpandable
-                compact
-                // Keep this parent and its process subtree mounted across the
-                // answer boundary so manual expansion and reading anchors survive.
-                className={foldable ? 'text-text-secondary codepro-turn-history' : undefined}
-                scrollable={false}
-                collapsible={foldable}
-                collapseOnSettle={foldable}
-                storageKey={`${chat.sessionId}:turn:${turn[0]?.id ?? start}`}
-                label={
-                  duration
-                    ? duration
-                    : intl.formatMessage(completed ? i18n.turnCompleted : i18n.turnRecord, {
-                        count,
-                      })
-                }
+              {renderSlice(turn, 0, userEnd, streaming, pending, settled)}
+              <TurnProcessHistory
+                settled={settled && hasHistory}
+                label={processLabel}
+                storageKey={`turn-process-${chat.sessionId}-${turn[0]?.id ?? start}`}
               >
                 {renderSlice(
-                  displayTurn,
-                  userCount,
+                  turn,
+                  userEnd,
                   historyEnd,
-                  streaming && !foldable,
-                  pending && historyEnd === displayTurn.length
+                  streaming,
+                  pending,
+                  settled,
+                  answerIndex >= 0 ? [answerIndex, 0, answerStart] : undefined,
+                  { hidden: settled || streaming || pending }
                 )}
-              </ToolCallExpandable>
-              {renderSlice(displayTurn, historyEnd, displayTurn.length, streaming, pending)}
+              </TurnProcessHistory>
+              {renderSlice(
+                turn,
+                answerFrom,
+                turn.length,
+                streaming,
+                pending,
+                settled,
+                answerIndex >= 0
+                  ? [answerIndex, answerStart, turn[answerIndex].content.length]
+                  : undefined,
+                { usage, created: completedAt }
+              )}
               {hasTerminalBoundary && (
                 <CodeProConversationFiles
                   messages={turn}

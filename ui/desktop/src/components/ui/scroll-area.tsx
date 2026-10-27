@@ -450,8 +450,14 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       };
       const handleDisclosure = (event: Event) => {
         const target = event.target;
-        const element =
+        const control =
           target instanceof Element ? target.closest('summary, [aria-expanded]') : null;
+        // A bottom "show more" control moves when rows appear above it.
+        // Anchor the stable section heading instead of following that button.
+        const element =
+          control
+            ?.closest('[data-disclosure-anchor]')
+            ?.querySelector('[data-disclosure-heading]') ?? control;
         if (autoScroll && element && viewport.contains(element)) {
           disclosureAnchorRef.current = {
             element,

@@ -202,18 +202,40 @@ describe('Harness conversation presentation', () => {
     const view = render(show(trace), { wrapper: IntlTestWrapper });
     const history = screen.getByRole('button', { name: 'Time spent 2 min 0 sec' });
     expect(history).toHaveAttribute('aria-expanded', 'false');
+    expect(history).toHaveTextContent('Time spent 2 min 0 sec');
     expect(screen.getByText('Search results are ready.')).toBeVisible();
     expect(view.container.querySelector('.codepro-thinking-record')).toBeNull();
     fireEvent.click(history);
-    const thinking = screen.getByRole('button', { name: 'Thinking' });
-    expect(view.container.querySelector('.codepro-turn-history')).toContainElement(thinking);
+    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
+    expect(screen.queryByText('Review the sources before answering.')).not.toBeInTheDocument();
+    const thinking = screen.getByRole('button', { name: 'Reasoning details', pressed: false });
     fireEvent.click(thinking);
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', exact: true }));
     expect(screen.getByText('Review the sources before answering.')).toBeVisible();
+    expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
     expect(JSON.stringify(trace)).toBe(original);
   });
 
+  it.each(['cancelled', 'failed'])(
+    'folds manually opened unconfirmed work on the bound native %s terminal without claiming success',
+    async (status) => {
+      const trace = [user(), requestMessage(write('unconfirmed'))];
+      const view = render(show(trace, true), { wrapper: IntlTestWrapper });
+      const header = view.container.querySelector('[data-process-group] button')!;
+      fireEvent.click(header);
+      expect(header).toHaveAttribute('aria-expanded', 'true');
+      view.rerender(show([...trace, terminal('user', status)]));
+      const whole = await screen.findByRole('button', { name: /^Time spent/ });
+      expect(whole).toHaveAttribute('aria-expanded', 'false');
+      expect(whole).not.toHaveTextContent('Completed');
+      fireEvent.click(whole);
+      fireEvent.click(view.container.querySelector('[data-process-group] button')!);
+      expect(view.container.querySelector('[data-tool-call-id="unconfirmed"]')).not.toBeNull();
+    }
+  );
+
   it.each([true, false])(
-    'preserves reading at the answer boundary (following=%s) and allows toggling history',
+    'folds manually opened process at the answer boundary (following=%s) and allows later inspection',
     async (following) => {
       const trace = [
         user(),
@@ -227,48 +249,47 @@ describe('Harness conversation presentation', () => {
         </ScrollFollowingContext.Provider>,
         { wrapper: IntlTestWrapper }
       );
+      const history = view.container.querySelector('[data-process-group] button')!;
+      expect(history).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(history);
       const finished = [...trace, prose('The saved result.'), terminal()];
       view.rerender(
         <ScrollFollowingContext.Provider value={following}>
           {show(finished)}
         </ScrollFollowingContext.Provider>
       );
-      await waitFor(() =>
-        expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
-          'aria-expanded',
-          String(!following)
-        )
-      );
-      const history = view.container.querySelector('.codepro-turn-history button')!;
-      if (!following) {
-        expect(screen.getByText('Preparing the files.')).toBeVisible();
-        fireEvent.click(history);
-      }
+      const whole = await screen.findByRole('button', { name: /^Time spent/ });
+      expect(whole).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
-      expect(history).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(history);
+      expect(view.container.querySelector('[data-tool-call-id="a"]')).toBeNull();
+      fireEvent.click(whole);
+      const reopened = view.container.querySelector('[data-process-group] button')!;
+      expect(reopened).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(reopened);
+      expect(view.container.querySelector('[data-tool-call-id="a"]')).not.toBeNull();
       expect(screen.getByText('Preparing the files.')).toBeVisible();
       view.rerender(
         <ScrollFollowingContext.Provider value={following}>
           {show([...finished])}
         </ScrollFollowingContext.Provider>
       );
-      expect(history).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText('The saved result.')).toBeVisible();
+      expect(whole).toHaveAttribute('aria-expanded', 'true');
+      expect(await screen.findByText('The saved result.', {}, { timeout: 5000 })).toBeVisible();
     }
   );
 
-  it('keeps a live thought visible until its native interrupted receipt arrives', () => {
+  it('settles the interrupted thought in its original group without hiding the next input', () => {
     const thought: Message = {
       ...prose('working'),
       content: [{ type: 'thinking', thinking: 'Inspecting the first approach.', signature: '' }],
     };
-    const view = render(show([user(), thought]), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
-    view.rerender(show([user(), thought, user('stop-and-send')]));
-    expect(view.container.querySelector('.codepro-turn-history')).toBeNull();
+    const view = render(show([user(), thought], true), { wrapper: IntlTestWrapper });
+    expect(screen.queryByText('Inspecting the first approach.')).not.toBeInTheDocument();
+    const group = view.container.querySelector('[data-process-group]');
+    view.rerender(show([user(), thought, user('stop-and-send')], true));
+    expect(view.container.querySelector('[data-process-group]')).toBe(group);
     view.rerender(show([user(), thought, user('stop-and-send'), terminal('user', 'interrupted')]));
-    const history = view.container.querySelector('.codepro-turn-history button');
+    const history = view.container.querySelector('[data-turn-process-summary] button');
     expect(history).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('stop-and-send')).toBeVisible();
   });
@@ -368,10 +389,15 @@ describe('Harness conversation presentation', () => {
     const view = render(chat(trace, false, false), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Result 119')).toBeVisible();
     expect(screen.queryByText('Result 116')).not.toBeInTheDocument();
-    expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(3);
-    const history = view.container.querySelector('.codepro-turn-history button')!;
+    expect(view.container.querySelectorAll('[data-turn-process-summary]')).toHaveLength(3);
+    const history = view.container.querySelector('[data-turn-process-summary] button')!;
     fireEvent.click(history);
     expect(screen.getByText('Stage 117')).toBeVisible();
+    expect(screen.queryByText('Inspect stage 117')).not.toBeInTheDocument();
+    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details', pressed: false }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking', exact: true }));
+    expect(screen.getByText('Inspect stage 117')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Load earlier messages/ })).not.toBeInTheDocument();
     act(() => {
       for (const callback of [...intersections])
@@ -392,6 +418,7 @@ describe('Harness conversation presentation', () => {
     ).toBeVisible();
     expect(history).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Stage 117')).toBeVisible();
+    expect(screen.getByText('Inspect stage 117')).toBeVisible();
     fireEvent.keyDown(window, {
       key: 'f',
       ctrlKey: window.electron.platform !== 'darwin',
@@ -432,6 +459,7 @@ describe('Harness conversation presentation', () => {
         });
     }
     const view = render(show(state.messages), { wrapper: IntlTestWrapper });
+    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
     expect(view.container.querySelectorAll('[data-tool-call-id="root-call"]')).toHaveLength(1);
     expect(
       state.messages.some((message) =>
@@ -459,7 +487,7 @@ describe('Harness conversation presentation', () => {
     expect(screen.getByText('The explanation is here.')).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('Needs your input');
   });
-  it('uses one native receipt instead of independent started/completed activity UUIDs, without folding a single operation', async () => {
+  it('folds a single native operation without duplicating lifecycle UUIDs or hiding public prose', async () => {
     const trace = [
       user(),
       activity('random-start-event', 'running'),
@@ -477,17 +505,20 @@ describe('Harness conversation presentation', () => {
         { timeout: 3000 }
       )
     ).toBeVisible();
+    const history = view.container.querySelector('[data-process-group] button')!;
+    expect(history).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(history);
     expect(view.container.querySelectorAll('[data-tool-call-id="call-write"]')).toHaveLength(1);
     expect(view.container.querySelector('[data-tool-call-id="call-write"]')).toHaveAttribute(
       'data-tool-phase',
       'success'
     );
     expect(screen.queryByText(/Operations recorded/)).not.toBeInTheDocument();
-    expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
+    expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
     expect(screen.queryByText(/Running/)).not.toBeInTheDocument();
   });
 
-  it('keeps a series visible until public commentary separates it, then folds more than one operation', async () => {
+  it('keeps a series in one collapsed process and folds manual expansion before public commentary', async () => {
     const trace = [
       user(),
       requestMessage(write('a')),
@@ -504,6 +535,8 @@ describe('Harness conversation presentation', () => {
     ];
     const view = render(show(trace, true), { wrapper: IntlTestWrapper });
     expect(screen.queryByRole('button', { name: 'Wrote 2 files' })).not.toBeInTheDocument();
+    expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(0);
+    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
     expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(2);
     view.rerender(show([...trace, prose('Both files are saved; checking them now.')], true));
     expect(
@@ -539,7 +572,7 @@ describe('Harness conversation presentation', () => {
       });
       expect(summary).toBeVisible();
       expect(summary.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(view.container.querySelector('.codepro-turn-history button')).toHaveAttribute(
+      expect(view.container.querySelector('[data-turn-process-summary] button')).toHaveAttribute(
         'aria-expanded',
         'false'
       );
@@ -575,8 +608,11 @@ describe('Harness conversation presentation', () => {
       terminal('second'),
     ];
     const view = render(show(trace), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(2);
+    expect(view.container.querySelectorAll('[data-turn-process-summary]')).toHaveLength(2);
     expect(screen.queryByText('First stage.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Second stage.')).not.toBeInTheDocument();
+    fireEvent.click(view.container.querySelector('[data-turn-process-summary] button')!);
+    expect(screen.getByText('First stage.')).toBeVisible();
     expect(screen.queryByText('Second stage.')).not.toBeInTheDocument();
     expect(screen.getByText('First result.')).toBeVisible();
     expect(screen.getByText('Second result.')).toBeVisible();
@@ -645,8 +681,15 @@ describe('Harness conversation presentation', () => {
     );
     expect(screen.getByRole('button', { name: 'Modified 5 files this turn' })).toBeVisible();
     expect(screen.queryByRole('button', { name: '/fixture/3.py' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show 2 more files' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show 2 remaining files' }));
     expect(screen.getByRole('button', { name: '/fixture/4.py' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer files' }));
+    expect(screen.queryByRole('button', { name: '/fixture/3.py' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '/fixture/2.py' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Modified 5 files this turn' }));
+    expect(screen.queryByRole('button', { name: '/fixture/0.py' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Modified 5 files this turn' }));
+    expect(screen.getByRole('button', { name: 'Show 2 remaining files' })).toBeVisible();
     expect(screen.queryByText('failed.py')).not.toBeInTheDocument();
   });
 

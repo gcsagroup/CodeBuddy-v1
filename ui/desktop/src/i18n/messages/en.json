@@ -318,13 +318,13 @@
     "defaultMessage": "{count,plural,one{# failed action} other{# failed actions}}"
   },
   "codeProActivity.activityFinished": {
-    "defaultMessage": "{count,plural,one{Operations recorded · # action} other{Operations recorded · # actions}}"
+    "defaultMessage": "{count,plural,one{Operations recorded # action} other{Operations recorded # actions}}"
   },
   "codeProActivity.activityNeedsAttention": {
     "defaultMessage": "{count,plural,one{# action needs attention} other{# actions need attention}}"
   },
   "codeProActivity.activityRunning": {
-    "defaultMessage": "{count,plural,one{Working · # action} other{Working · # actions}}"
+    "defaultMessage": "{count,plural,one{Working # action} other{Working # actions}}"
   },
   "codeProActivity.agentTool": {
     "defaultMessage": "Agent tool"
@@ -441,7 +441,7 @@
     "defaultMessage": "Read actions"
   },
   "codeProActivity.readGroup": {
-    "defaultMessage": "{count,plural,one{Read # file · {status}} other{Read # files · {status}}}"
+    "defaultMessage": "{count,plural,one{Read # file {status}} other{Read # files {status}}}"
   },
   "codeProActivity.reason.credential": {
     "defaultMessage": "Credential material"
@@ -507,7 +507,7 @@
     "defaultMessage": "Task planning"
   },
   "codeProActivity.testProgress.attemptCounts": {
-    "defaultMessage": "Retry {retry} · repair {repair}"
+    "defaultMessage": "Retry {retry}, repair {repair}"
   },
   "codeProActivity.testProgress.attempts": {
     "defaultMessage": "Attempts"
@@ -1071,7 +1071,7 @@
     "defaultMessage": "Unknown status"
   },
   "codeProPresentation.activitySummary": {
-    "defaultMessage": "{verb} {target} · {status}"
+    "defaultMessage": "{verb} {target} {status}"
   },
   "codeProPresentation.activityVerb.change": {
     "defaultMessage": "Change"
@@ -1119,7 +1119,7 @@
     "defaultMessage": "Not authorized by user"
   },
   "codeProPresentation.intentSummary": {
-    "defaultMessage": "{title} · {status}"
+    "defaultMessage": "{title} {status}"
   },
   "codeProPresentation.summaryStatus.cancelled": {
     "defaultMessage": "Stopped"
@@ -1739,9 +1739,6 @@
   "confirmationModal.processing": {
     "defaultMessage": "Processing..."
   },
-  "conversation.turnCompleted": {
-    "defaultMessage": "Completed {count} operations"
-  },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
   },
@@ -1754,11 +1751,14 @@
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
+  "conversationFiles.fewerFiles": {
+    "defaultMessage": "Show fewer files"
+  },
   "conversationFiles.files": {
     "defaultMessage": "Modified {count} files this turn"
   },
   "conversationFiles.moreFiles": {
-    "defaultMessage": "Show {count} more files"
+    "defaultMessage": "Show {count} remaining files"
   },
   "conversationFiles.viewChanges": {
     "defaultMessage": "View changes"
@@ -3996,10 +3996,10 @@
     "defaultMessage": "CodeBuddy is compacting the conversation..."
   },
   "loadingGoose.compactingElapsed": {
-    "defaultMessage": "Organizing conversation context · {seconds}s"
+    "defaultMessage": "Organizing conversation context {seconds}s"
   },
   "loadingGoose.elapsed": {
-    "defaultMessage": "{message} · {seconds}s elapsed"
+    "defaultMessage": "{message} {seconds}s elapsed"
   },
   "loadingGoose.idle": {
     "defaultMessage": "CodeBuddy is working on it…"
@@ -5453,11 +5453,17 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Reasoning details"
+  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },
   "progressiveMessageList.toolRecordsRegion": {
     "defaultMessage": "Tool operation records"
+  },
+  "progressiveMessageList.turnProcessDuration": {
+    "defaultMessage": "This turn: {minutes} min {seconds} sec"
   },
   "projectMemoryApproval.confidence": {
     "defaultMessage": "Confidence"
@@ -7974,7 +7980,7 @@
     "defaultMessage": "Thinking"
   },
   "thinkingContent.thinkingLive": {
-    "defaultMessage": "Thinking · Updating"
+    "defaultMessage": "Thinking (updating)"
   },
   "thinkingEffortPicker.budget": {
     "defaultMessage": "Current budget; model capacity unconfirmed"
@@ -8029,6 +8035,9 @@
   },
   "toasts.copyError": {
     "defaultMessage": "Copy error"
+  },
+  "toolAction.actionDone": {
+    "defaultMessage": "Completed: {action}"
   },
   "toolAction.chart": {
     "defaultMessage": "Create a chart"
@@ -8103,7 +8112,7 @@
     "defaultMessage": "Preparing operation parameters{target}"
   },
   "toolAction.generatingFile": {
-    "defaultMessage": "Generating {target} · {count} lines received — not saved yet"
+    "defaultMessage": "Generating {target}, {count} lines received — not saved yet"
   },
   "toolAction.generatingFileHeadline": {
     "defaultMessage": "Generating file contents{target}"
@@ -8160,7 +8169,7 @@
     "defaultMessage": "Present result"
   },
   "toolAction.running": {
-    "defaultMessage": "{action} · in progress"
+    "defaultMessage": "Running: {action}"
   },
   "toolAction.screenshot": {
     "defaultMessage": "Capture screenshot"
@@ -8424,7 +8433,7 @@
     "defaultMessage": "Activity ({count})"
   },
   "toolCallWithResponse.checkNotAccepted": {
-    "defaultMessage": "Not accepted · view details"
+    "defaultMessage": "Not accepted, view details"
   },
   "toolCallWithResponse.checkResultScope": {
     "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
@@ -8454,13 +8463,13 @@
     "defaultMessage": "Sources"
   },
   "toolCallWithResponse.subagentBudget": {
-    "defaultMessage": "Partial result · delegated work limit reached"
+    "defaultMessage": "Partial result, delegated work limit reached"
   },
   "toolCallWithResponse.subagentStarted": {
     "defaultMessage": "Started {name}"
   },
   "toolCallWithResponse.subagentUnavailable": {
-    "defaultMessage": "Partial result · model service unavailable"
+    "defaultMessage": "Partial result, model service unavailable"
   },
   "toolCallWithResponse.toolDetails": {
     "defaultMessage": "Tool Details"

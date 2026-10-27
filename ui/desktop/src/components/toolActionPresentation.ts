@@ -13,14 +13,15 @@ const messages = defineMessages({
   },
   editDone: { id: 'toolAction.editDone', defaultMessage: 'Edited file' },
   shellDone: { id: 'toolAction.shellDone', defaultMessage: 'Ran command' },
-  running: { id: 'toolAction.running', defaultMessage: '{action} · in progress' },
+  running: { id: 'toolAction.running', defaultMessage: 'Running: {action}' },
+  actionDone: { id: 'toolAction.actionDone', defaultMessage: 'Completed: {action}' },
   generating: {
     id: 'toolAction.generating',
     defaultMessage: 'Preparing operation parameters{target}',
   },
   generatingFile: {
     id: 'toolAction.generatingFile',
-    defaultMessage: 'Generating {target} · {count} lines received — not saved yet',
+    defaultMessage: 'Generating {target}, {count} lines received — not saved yet',
   },
   read: { id: 'toolAction.read', defaultMessage: 'Read file' },
   write: { id: 'toolAction.write', defaultMessage: 'Write file' },
@@ -183,7 +184,8 @@ export function formatToolAction(
   args: Record<string, unknown>,
   state?: 'running' | 'completed',
   presentation: 'detail' | 'headline' | 'name' = 'detail',
-  fallbackTitle?: string
+  fallbackTitle?: string,
+  computerTarget?: string
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
   if (isWebSearchTool(fullName)) {
@@ -403,6 +405,18 @@ export function formatToolAction(
       ? { operation: typeof args.operation === 'string' ? args.operation : 'other' }
       : undefined;
   if (presentation === 'name') return intl.formatMessage(messages[action], fields);
+  if (computerTarget) target = computerTarget;
+  if (!target && action === 'browserAction') {
+    const location = args.htmlPath ?? args.path ?? args.url;
+    if (typeof location === 'string') {
+      try {
+        const url = new URL(location);
+        target = url.hostname + (url.pathname === '/' ? '' : url.pathname);
+      } catch {
+        target = location.split(/[\\/]/).filter(Boolean).pop() ?? '';
+      }
+    }
+  }
   const compactTarget = target.replace(/\s+/g, ' ').trim();
   const visibleTarget =
     compactTarget.length > 80 ? compactTarget.slice(0, 77) + '…' : compactTarget;
@@ -421,7 +435,7 @@ export function formatToolAction(
       });
     }
     return intl.formatMessage(messages.generating, {
-      target: ` · ${[intl.formatMessage(messages[action], fields), visibleTarget].filter(Boolean).join(' ')}`,
+      target: `: ${[intl.formatMessage(messages[action], fields), visibleTarget].filter(Boolean).join(' ')}`,
     });
   }
   if (state === 'completed') {
@@ -429,6 +443,12 @@ export function formatToolAction(
     else if (action === 'write') action = 'writeDone';
     else if (action === 'edit') action = 'editDone';
     else if (action === 'shell') action = 'shellDone';
+    else
+      return intl.formatMessage(messages.actionDone, {
+        action: [intl.formatMessage(messages[action], fields), visibleTarget]
+          .filter(Boolean)
+          .join(' '),
+      });
   }
   const label = [intl.formatMessage(messages[action], fields), visibleTarget]
     .filter(Boolean)

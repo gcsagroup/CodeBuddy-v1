@@ -60,11 +60,11 @@ const i18n = defineMessages({
   },
   compactingElapsed: {
     id: 'loadingGoose.compactingElapsed',
-    defaultMessage: 'Organizing conversation context · {seconds}s',
+    defaultMessage: 'Organizing conversation context {seconds}s',
   },
   elapsed: {
     id: 'loadingGoose.elapsed',
-    defaultMessage: '{message} · {seconds}s elapsed',
+    defaultMessage: '{message} {seconds}s elapsed',
   },
   idle: {
     id: 'loadingGoose.idle',

@@ -5,6 +5,7 @@ import CompactionEngine, { installCompactionRequestCompatibility } from '../comp
 function fixture(reason = { kind: 'stop' }) {
   let request;
   const owner = {
+    pressureAttempts: new WeakMap(),
     config: { modelPolicies: [], summarizationProvider: '', summarizationModel: '', maxTokens: 4096 },
     ctx: { llm: { async *stream(options) {
       request = options;

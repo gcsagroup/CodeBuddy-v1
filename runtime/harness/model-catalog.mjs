@@ -1,8 +1,12 @@
 import { Context } from '@deepseek-ai/cordis';
-import Llm from '@deepseek-ai/dsh-llm';
-import * as pi from '@deepseek-ai/dsh-llm-pi-ai';
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all';
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
+
+// Metadata discovery can run before the execution Host. It must share the same
+// native adapter/LLM identities, with their compatibility contract already loaded.
+await import('./sdk-budget-contract.mjs');
+const { default: Llm } = await import('@deepseek-ai/dsh-llm');
+const pi = await import('@deepseek-ai/dsh-llm-pi-ai');
 
 // Read the installed adapter's public schema, not another host-owned limit.
 export const DEFAULT_CONTEXT_WINDOW = pi.Config.dict.providers.inner.dict.defaultContextWindow.meta.default;

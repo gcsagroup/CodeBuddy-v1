@@ -1,5 +1,7 @@
 # CodeBuddy Harness 运行时
 
+锁版预算兼容修复由 `sdk-budget-contract.mjs` 校验并在原生模块加载时应用，不改写 `node_modules`。最终请求的同一投影用于估价与派发；输出空间不足在 HTTP 前报 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，异常短 length 报 `OUTPUT_TRUNCATED`。本地预算／异常截断恢复每个原生 turn 最多尝试一次，且必须实际缩减并改善 fit 才重试；普通压力压缩仍按上游策略执行，网络 `always` 不能补充恢复次数。Completions 的合法 cap 1/128、普通 stop、原始 usage 和 Session v4 保持原语义。`index.mjs` 串行完成合同加载后再加载原 `driver.mjs` 实现；元数据与 schedule 入口同样先建立合同。版本或 SHA 变化会明确拒绝启动，升级须复审并优先采用等价上游合同，见 PROVENANCE.json。压力显示仍由原生 tokenMeter 负责，与 adapter 最终预算估计不同。
+
 远程 MCP 通过官方 `agent-preset-registry` 的长期作用域和租约跨会话复用；配置一致时仅首次连接，配置变化隔离新修订，既有会话保留原连接。最多保留 8 组可复用配置，仍被租用的旧修订由 Harness 继续保留。stdio 保持会话/工作目录隔离。工具列表变化会同步继承工具限制，执行仍逐会话审批；详见设计与真实窗口验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md`）。
 
 长目标由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目标 CAS、自动续轮、轮数上限和暂停。`prompt` 在原生目标 active + armed 时保持打开，等待官方续轮结束；普通无目标会话正常结束。返回值的 `goal` 为官方 GoalView。Stop 取消本次执行并 disarm；重启保持 disarmed，不自行重放工作。显式暂停目标的恢复使用结构化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立权限和事件承载再调用官方 resume。`getGoal` 只读；`controlGoal` 支持 pause，以及已承载执行中的 resume；空闲时直接 resume 被拒绝。
@@ -12,7 +14,13 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每个主会�
 
 使用 Node 24+。已批准的依赖准备入口为 `npm ci --ignore-scripts --no-audit --no-fund`；本批没有安装、下载或升级依赖，也没有修改系统 PATH。
 
+length 恢复及依赖零输出的溢出判定只使用服务明确报告的输出计数（包含 0）。缺 usage 或缺输出字段时保持未知，保留原 `max-tokens` 终态，不从正文猜 token 数，也不将 SDK 默认 0 当成真实用量。
+
+Responses 启用输出上限时最少需要 16 token（[官方约束](https://developers.openai.com/api/reference/ruby/resources/responses/methods/create)）。显式 cap 小于 16 会在 HTTP 前以 `INVALID_OUTPUT_BUDGET` 结束，不抬高上限、压缩或重试；剩余空间不足 16 则交原生有界预算恢复。Completions 的合法 cap 1 仍保留。显式关闭 `supportsMaxOutputTokens` 继续表示不发送服务端上限。
+
 ## 适配接口
+
+摘要本身也消费 adapter 的实际 fit。完整请求经现有中间件和投影准备后，若放不下所请求的摘要输出（默认 4,096 token），LLM 服务在 HTTP 前返回 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED`。原生压缩在同一事务内按工具配对边界几何缩短选区，同步重建输入与 shadow 集合；未摘要的尾段仍为原 surface 事件。有限次本地准备只寻找一个可用区间，不保证最长或穷尽所有区间。最终候选复用已绑定的连接快照与配置并只发一次摘要 HTTP；实际 length 或取消不再触发第二次摘要。找不到可用区间时不提交检查点，保留原失败。普通压力路径的单检查点保护也覆盖缩区后的实际摘要输入。
 
 `createHarnessDriver({dataDir,cwd,instructionsHome})` 必须指定隔离数据根。调用 `createSession({sessionId,cwd,provider,model,options})`、`prompt(sessionId,content,{onEvent,onToolPolicy,onPermission,onToolStart,signal})`，退出调用 `close()`。provider 支持 baseUrl（API 根）、apiKey、protocol、headers、compat、contextWindow、maxTokens、inputModalities、reasoningEfforts。模型及 MCP 凭据仅在驱动内存；磁盘 Host providers 为空，不发现旧版或环境密钥。
 
@@ -22,7 +30,7 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每个主会�
 - 自定义连接按模型列表的 `owned_by` 选择预览接口：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基础路径和连接鉴权。预览仅渲染实际聊天模板，不生成回答；只有实际改变模板的档位才显示，等效档位合并，并保留服务默认值。结果复用现有能力缓存，刷新模型列表后重新验证。旧服务缺少预览、调用失败或参数被忽略时不推断强度，模型详情显示“尚未确认可用档位”；不以通用参数枚举或模型名称判断支持情况。依据：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步骤数；到达后返回 max_turns，历史保留，不标记业务完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手动压缩，原事件证据保留。
-- 压缩兼容层为同一路由补齐当前对话的思考档位，避免摘要请求切换聊天模板而失去前缀缓存；显式摘要档位、独立摘要模型或已变更的会话配置不覆盖。摘要保持官方原有指令与完整输入，输出预算从 1,024 提升至 4,096 token，容纳思考和完整检查点；不是要求输出更多文字。选区、截断拒绝、取消及检查点事务仍归官方引擎；摘要本身不是任意任务无损的保证。升级 Harness 后复查此兼容层。
+- 压缩兼容层为同一路由补齐当前对话的思考档位，避免摘要请求切换聊天模板而失去前缀缓存；显式摘要档位、独立摘要模型或已变更的会话配置不覆盖。摘要保持官方原有指令与所选区间的完整输入，输出预算从 1,024 提升至 4,096 token，容纳思考和完整检查点；不是要求输出更多文字。锁版选区修复保留最新 `source.kind=user` 的原始事件，后续生成的 runtime-context／skill-catalog 不会取代它。遵守原有 tail 预算，在用户事件两侧选择工具配对完整、估价较大的连续区间，优先非单检查点区间；长任务仍能压缩后续工具历史，不复制或重排用户输入。只有旧检查点可选时保留超限恢复和手动压缩能力，普通压力路径仍略过它。后半区摘要可能无法复用完整前缀缓存。截断拒绝、取消及检查点事务仍归官方引擎；摘要本身不是任意任务无损的保证。升级 Harness 后复查此兼容层。
 - tools 为 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 并返回 JSON 对象，仍经官方 registry、校验和审批。
 - mcpServers 使用官方 stdio／streamable-http 配置；工具名为 mcp__server__tool。独立服务并行连接，保留各项 ready／error 状态及配置顺序；失败连接释放，其他能力仍可用，重配重试。`extensionStatus(sessionId)` 返回状态；`testExtension(server)` 临时连接、发现、释放，失败直接报错。连接、工具发现、同步调用及每次 Tasks 请求默认 300 秒，显式 `toolCallTimeoutMs` 优先。扩展设置的 `timeout` 以秒计，测试和正式会话共用转换；保存后由既有会话重配置机制应用。版本协商可能有多个请求，因此该值不是全部服务的总启动期限。
 - 首次连接／重连从协议能力与工具定义探测异步：2025 Tasks 同时要求服务端 `tasks.requests.tools.call` 和工具 `execution.taskSupport` 为 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 扩展，由服务端决定是否返回任务。未声明支持的工具走同步，不猜工具名、不执行探测业务动作。`mcp-tasks.mjs` 在适配层轮询并将最终 MCP 回执交回 Harness，已受理的调用不重放；300 秒限制单次请求，不限制异步任务总时长，用户仍可取消。取消回执不证明远端已停止。当前不支持 Tasks 内的交互输入或进程重启后的自动恢复。SDK 2.2.0 尚无 Tasks 运行时，新版扩展使用锁定版本的内部 codec 兼容适配，升级依赖时须重新验证并优先移除该适配。设计参考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。

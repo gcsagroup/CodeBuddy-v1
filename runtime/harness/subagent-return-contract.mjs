@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { registerHooks } from 'node:module';
 
+// Schedule metadata can reach this entry before the lazy execution driver.
+// Subagent modules also import the LLM service, so budget seams must load first.
+await import('./sdk-budget-contract.mjs');
+
 // DSH 0.2.1-alpha.2 mandates a manual report in addition to native settlement.
 // Patch only its two model-facing statements, retaining the original module
 // identities and every lifecycle implementation. Never write into node_modules.

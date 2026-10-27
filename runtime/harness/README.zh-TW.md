@@ -1,5 +1,7 @@
 # CodeBuddy Harness 執行環境
 
+鎖版預算相容修復由 `sdk-budget-contract.mjs` 校驗並於原生模組載入時套用，不改寫 `node_modules`。最終請求的同一投影用於估價與派發；輸出空間不足於 HTTP 前回報 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，異常短 length 回報 `OUTPUT_TRUNCATED`。本機預算／異常截斷恢復每個原生 turn 最多嘗試一次，且必須實際縮減並改善 fit 才重試；一般壓力壓縮仍依上游策略執行，網路 `always` 不能補充恢復次數。Completions 的合法 cap 1/128、一般 stop、原始 usage 與 Session v4 保持原語意。`index.mjs` 依序完成合同載入後才載入原 `driver.mjs` 實作；中繼資料與 schedule 入口亦先建立合同。版本或 SHA 改變會明確拒絕啟動，升級須複審並優先採等價上游合同，見 PROVENANCE.json。壓力顯示仍由原生 tokenMeter 負責，與 adapter 最終預算估計不同。
+
 遠端 MCP 透過官方 `agent-preset-registry` 的長期作用域和租約跨會話重用；設定一致時僅首次連線，設定變化隔離新修訂，既有會話保留原連線。最多保留 8 組可重用設定，仍被租用的舊修訂由 Harness 繼續保留。stdio 維持會話/工作目錄隔離。工具清單變化會同步繼承工具限制，執行仍逐會話審批；詳見設計與真實視窗驗收（歷史文件，見 Git 歷史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-TW.md`）。
 
 長目標由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目標 CAS、自動續輪、輪數上限及暫停。`prompt` 在原生目標 active + armed 時保持開啟，等待官方續輪結束；一般無目標對話正常結束。回傳的 `goal` 是官方 GoalView。Stop 取消本次執行並 disarm；重新啟動保持 disarmed，不自行重播工作。明確暫停目標的恢復使用結構化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立權限及事件承載再呼叫官方 resume。`getGoal` 唯讀；`controlGoal` 支援 pause，以及已有承載執行中的 resume；閒置時直接 resume 會被拒絕。
@@ -12,7 +14,13 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每個主會�
 
 使用 Node 24+。已核准依賴準備入口為 `npm ci --ignore-scripts --no-audit --no-fund`；本批沒有安裝、下載或升級依賴，沒有修改系統 PATH。
 
+length 恢復及依賴零輸出的溢位判定只使用服務明確回報的輸出計數（包含 0）。缺 usage 或缺輸出欄位時保持未知，保留原 `max-tokens` 終態，不從正文猜 token 數，也不將 SDK 預設 0 當成真實用量。
+
+Responses 啟用輸出上限時最少需要 16 token（[官方約束](https://developers.openai.com/api/reference/ruby/resources/responses/methods/create)）。明確 cap 小於 16 會於 HTTP 前以 `INVALID_OUTPUT_BUDGET` 結束，不抬高上限、壓縮或重試；剩餘空間不足 16 則交原生有界預算恢復。Completions 的合法 cap 1 仍保留。明確關閉 `supportsMaxOutputTokens` 繼續表示不傳送服務端上限。
+
 ## 適配介面
+
+摘要本身也使用 adapter 的實際 fit。完整請求經既有中介層和投影準備後，若放不下所請求的摘要輸出（預設 4,096 token），LLM 服務於 HTTP 前回報 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED`。原生壓縮在同一交易內依工具配對邊界幾何縮短選區，同步重建輸入與 shadow 集合；未摘要的尾段仍為原 surface 事件。有限次本機準備只尋找一個可用區間，不保證最長或窮盡所有區間。最終候選重用已綁定的連線快照與設定，只發一次摘要 HTTP；實際 length 或取消不再觸發第二次摘要。找不到可用區間時不提交檢查點，保留原失敗。一般壓力路徑的單檢查點保護也涵蓋縮區後的實際摘要輸入。
 
 `createHarnessDriver({dataDir,cwd,instructionsHome})` 必須指定隔離資料根。呼叫 `createSession({sessionId,cwd,provider,model,options})`、`prompt(sessionId,content,{onEvent,onPermission,signal})`，退出呼叫 `close()`。provider 支援 baseUrl（API 根）、apiKey、protocol、headers、compat、contextWindow、maxTokens、inputModalities、reasoningEfforts。模型及 MCP 憑據僅在驅動記憶體；磁碟 Host providers 為空，不發現舊版或環境密鑰。
 
@@ -22,7 +30,7 @@ Host 固定使用官方 `maxActiveSubagents: 3`、`maxDepth: 1`：每個主會�
 - 自訂連線依模型清單的 `owned_by` 選擇預覽介面：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基礎路徑及連線驗證。預覽僅渲染實際聊天範本，不生成回答；僅顯示會改變範本的檔位，合併等效檔位並保留服務預設值。結果重用既有能力快取，重新整理模型清單後再次驗證。舊服務缺少預覽、呼叫失敗或參數被忽略時不推斷強度，模型詳情顯示「尚未確認可用檔位」；不依通用參數列舉或模型名稱判定支援情況。依據：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步驟；到達後返回 max_turns，歷史保留，不標記業務完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手動壓縮，原事件證據保留。
-- 壓縮相容層為同一路由補齊目前對話的思考檔位，避免摘要請求切換聊天模板而失去前綴快取；明確指定的摘要檔位、獨立摘要模型或已變更的會話設定不覆蓋。摘要維持官方原有指令與完整輸入，輸出預算從 1,024 提升至 4,096 token，容納思考和完整檢查點；並非要求輸出更多文字。選區、截斷拒絕、取消及檢查點交易仍歸官方引擎；摘要本身不是任意任務無損的保證。升級 Harness 後複查此相容層。
+- 壓縮相容層為同一路由補齊目前對話的思考檔位，避免摘要請求切換聊天範本而失去前綴快取；明確指定的摘要檔位、獨立摘要模型或已變更的會話設定不覆蓋。摘要維持官方原有指令與所選區間的完整輸入，輸出預算從 1,024 提升至 4,096 token，容納思考和完整檢查點；並非要求輸出更多文字。鎖版選區修復保留最新 `source.kind=user` 的原始事件，後續產生的 runtime-context／skill-catalog 不會取代它。遵守原有 tail 預算，在使用者事件兩側選擇工具配對完整、估價較大的連續區間，優先非單檢查點區間；長任務仍能壓縮後續工具歷史，不複製或重排使用者輸入。只有舊檢查點可選時保留超限恢復和手動壓縮能力，一般壓力路徑仍略過它。後半區摘要可能無法重用完整前綴快取。截斷拒絕、取消及檢查點交易仍歸官方引擎；摘要本身不是任意任務無損的保證。升級 Harness 後複查此相容層。
 - tools 為 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 並返回 JSON 物件，仍經官方 registry、校驗和核准。
 - mcpServers 使用官方 stdio／streamable-http 設定；工具名為 mcp__server__tool。獨立服務並行連線，保留各項 ready／error 狀態及設定順序；失敗連線釋放，其他能力仍可用，重配重試。`extensionStatus(sessionId)` 返回狀態；`testExtension(server)` 臨時連線、發現、釋放，失敗直接報錯。連線、工具發現、同步呼叫及每次 Tasks 請求預設 300 秒，明確設定的 `toolCallTimeoutMs` 優先。擴充設定 `timeout` 單位為秒，測試與正式工作階段共用轉換，儲存後透過既有重設機制套用。版本協商可能有多個請求，因此這不是全部服務的總啟動期限。
 - 首次連線／重連以協議能力及工具定義探測非同步：2025 Tasks 同時要求服務端 `tasks.requests.tools.call` 及工具 `execution.taskSupport` 為 optional／required；2026 Tasks 使用 `io.modelcontextprotocol/tasks` 擴充，由服務端決定是否回傳任務。未宣告支援的工具走同步，不猜工具名稱、不執行探測業務動作。`mcp-tasks.mjs` 在適配層輪詢，將最終 MCP 回執交回 Harness，已受理的呼叫不重送；300 秒限制單次請求，非非同步任務總時長，使用者仍可取消。取消回執不證明遠端已停止。目前未支援 Tasks 內的互動輸入或程序重啟後自動恢復。SDK 2.2.0 尚無 Tasks 執行時，新版擴充使用鎖定版本的內部 codec 相容適配；升級時須重新驗證並優先移除此適配。設計參考：[MCP Tasks](https://tasks.extensions.modelcontextprotocol.io/)。

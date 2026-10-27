@@ -5,7 +5,9 @@ import {mkdtemp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHarnessDriver} from '../index.mjs';
-import {installToolDiscovery, projectOptionalValues} from '../tool-discovery.mjs';
+
+// Load native SDK consumers after the same serialized bootstrap as the driver.
+const {installToolDiscovery, projectOptionalValues} = await import('../tool-discovery.mjs');
 
 test('Ollama optional-value declarations preserve required nulls, payload data and the registry', async () => {
  const parameters = {type:'object',properties:{

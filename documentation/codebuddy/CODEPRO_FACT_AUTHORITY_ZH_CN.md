@@ -255,7 +255,17 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 本日夜间补充：上下文计量、压缩范围、摘要事务与重试归官方 `tokenMeter` / `compaction-basic`；`runtime/context-updates.mjs` 只转换现有 UI 通知，当前占用不得与累计账单混同。压缩不等于长期记忆，摘要不证明需求无损；多次压缩后的独立验收另留证。MCP 截图按实际执行 Agent 的图像能力原生准入，缺能力时复用 `VisionRouting` 的零工具辅助观察；原始工具回执归 MCP，视觉失败不得重放已执行动作。
 
-锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径仅略过官方已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要；不重新选区，不拦截手动压缩或超限恢复。升级官方依赖时复查并在官方修复后撤除此补丁。回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
+锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径略过已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要。2026-10-28 真实宠物历史回归另确认：原生选区可吞掉最新人工输入，摘要遗漏限制后回到旧任务。锁版 `sdk-budget/compaction-patch.mjs` 在共享选区函数内保留最新 `source.kind=user` 原事件，不把后续 runtime-context／skill-catalog 当成人工输入；遵守原有 tail 预算，只在其两侧选择工具配对完整的连续区间，优先非单检查点区间中的估价较大者。只有旧检查点可选时保留超限恢复与手动压缩能力，普通压力路径仍略过它。压力、超限／本地预算恢复和手动压缩共用人工输入保留边界；长 turn 后续工具历史仍可压缩，不复制、重排或补造人工消息。选区估价不替代 adapter 的真实 fit 门槛，后半区摘要可能损失前缀缓存；摘要事务、取消与 Session 格式仍归官方引擎。升级官方依赖时复查并在等价上游修复后撤除相应补丁。早期回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
+
+2026-10-28 用户批准锁定 SDK 的请求预算与恢复合同修复：`runtime/harness/sdk-budget-contract.mjs` 在内存中对精确版本及 SHA 校验后的原生模块实施兼容变换。Pi adapter 持有同一请求的最终规范化投影、拟发送预算（fit）与派发；LLM 服务只以既有 `requestId` 关联一次性的进程内 fit 和原请求重测闭包。`tokenMeter` 的服务用量锚及压力估计保持原职责，不强行与最终投影估价写成同一数字，也不重写历史 usage。`LOCAL_OUTPUT_BUDGET_EXHAUSTED` 在 HTTP 前拒绝没有输出空间的请求；`OUTPUT_TRUNCATED` 表示原始 length 的实际输出小于本请求 clamp 前所需上限，不冒称服务端上下文溢出。`compaction-basic` 消费该 fit，沿原安全选区与摘要事务每轮最多尝试恢复一次，只有真实 surface 替换且同路由预算改善后才返回原生 retry；取消、无进展、摘要失败或第二次截断保留明确失败。通用网络重试不接管这两个错误。没有新宿主循环、持久事件、Session v4 版本或工具重放；升级及撤除边界见 `runtime/harness/PROVENANCE.json`。
+
+繁體：最終請求 fit 歸 adapter，暫存關聯歸 LLM 服務，單輪有界壓縮恢復仍歸原生引擎；歷史用量與 Session 格式不變。English: The adapter owns final request fit; the LLM service carries a transient association; native compaction owns the single recovery attempt. Historical usage and Session format are unchanged.
+
+输出用量证据同样由 adapter 在 Pi 公开的结构化 provider-stream 回调处读取：明确报告的输出计数（包含 0）才可参与 length 恢复与依赖零输出的 length 溢出判定；缺字段时保持未知，不用规范化后的默认 0 替代真实回执，不从正文猜 token 数。未知用量的 length 保留原 `max-tokens` 终态；显式服务错误仍由原分类处理。此观察不改变 usage、原始停止原因或持久化字段。
+
+协议的最小输出也属于 adapter fit：Responses 启用 `max_output_tokens` 时最小值为 16，用户显式上限小于该值以 `INVALID_OUTPUT_BUDGET` 在 HTTP 前拒绝，不抬高用户上限，不摘要或网络重试；可用上下文小于最小输出则走有界的本地预算恢复。恢复重测须满足同一最小值，且可用空间和有效输出均达到它。显式 `supportsMaxOutputTokens=false` 继续表示该连接不发送上限，不把它冒称成服务端强制预算。[官方 Responses 参数约束](https://developers.openai.com/api/reference/ruby/resources/responses/methods/create)。
+
+2026-10-28 真实回归补充：摘要自身也必须消费 adapter 最终 fit，完整摘要输出空间不足时由 LLM 服务在 HTTP 前以 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED` 拒绝。原生压缩事务持有缩区：按工具配对边界有限地几何缩短选区，同步重建摘要输入、计量及 shadow 集合，未摘要的尾段仍为原 active surface 事件；不以“只裁输入、仍替换整段”丢弃事实。本地准备不增加摘要 HTTP 重试，最终候选复用已绑定连接快照及配置，只发一次摘要；实际 length、取消或未找到可用选区不提交检查点。候选搜索不是最长或穷尽保证，普通压力的旧单检查点保护覆盖缩区后的实际输入。没有新宿主循环、持久字段或 Session 迁移。
 
 **繁體補充**：上下文計量及壓縮由 Harness 持有，CodeBuddy 只投影現有通知。摘要不是無損記憶；反覆壓縮另驗。MCP 圖片優先交實際執行模型，缺能力時輔助視覺只觀察，保留原始回執且不重放動作。
 

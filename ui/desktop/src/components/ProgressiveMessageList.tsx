@@ -1236,7 +1236,18 @@ function ProgressiveMessageListContent({
                 )
               : lifecycleNotification(latestPart)?.msg ||
                 intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking);
-          const label = settled && summary ? summary : currentLabel;
+          // A closed history may contain unsuccessful receipts. Use the same
+          // display boundary as folding without treating those receipts as success.
+          const processClosed =
+            processSettled ||
+            settled ||
+            (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
+          const label = processClosed
+            ? summary ||
+              (groupRequests.length
+                ? intl.formatMessage(i18n.toolRecords, { count: groupRequests.length })
+                : currentLabel)
+            : currentLabel;
           return (
             <div
               key={`tools-${identity}`}
@@ -1271,14 +1282,10 @@ function ProgressiveMessageListContent({
                   )
                 }
                 isStartExpanded={false}
-                collapseOnSettle={
-                  processSettled ||
-                  settled ||
-                  (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)))
-                }
+                collapseOnSettle={processClosed}
                 resetOnSettle
                 autoExpandOnReading={false}
-                live={!settled && (isStreamingMessage || presentationPending)}
+                live={!processClosed && (isStreamingMessage || presentationPending)}
               >
                 <div
                   data-testid="tool-message-group"

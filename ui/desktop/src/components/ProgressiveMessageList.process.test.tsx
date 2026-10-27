@@ -67,6 +67,39 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it.each([false, true])(
+    'summarizes closed process records even when an earlier operation was unsuccessful (all failed: %s)',
+    (allFailed) => {
+      const desktopRequest = (id: string): ToolRequestMessageContent => ({
+        type: 'toolRequest',
+        id,
+        toolCall: {
+          name: 'mcp__qwen_computer__get_app_state',
+          arguments: { app_name: 'Example viewer' },
+        },
+      });
+      const records = [
+        user,
+        assistant('failed-observation', [desktopRequest('failed')]),
+        receipt('failed', true),
+        ...(!allFailed
+          ? [assistant('fresh-observation', [desktopRequest('fresh')]), receipt('fresh')]
+          : []),
+        assistant('stage-report', [
+          { type: 'text', text: 'The observed files differ; I will check the remaining material.' },
+        ]),
+      ];
+      const view = render(show(records, true), { wrapper: IntlTestWrapper });
+      const group = view.container.querySelector<HTMLElement>('[data-process-group]')!;
+      const header = group.querySelector('.codepro-group-heading')!.closest('button')!;
+      expect(header).toHaveTextContent(allFailed ? 'Tool records 1' : 'Completed 1 operation');
+      expect(header).not.toHaveTextContent('Read window contents');
+      expect(header).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(header);
+      expect(group.querySelector('[data-tool-call-id="failed"]')).not.toBeNull();
+    }
+  );
+
   it('keeps the same disclosure and reading position owner when a source message adds reasoning and another call', () => {
     const view = render(
       show([user, assistant('stable-source', [request('first')])], true, undefined, false),

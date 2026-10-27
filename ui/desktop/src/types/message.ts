@@ -1,4 +1,5 @@
 import type { TokenState } from './chat';
+import type { BusinessApproval } from './businessApproval';
 
 type JsonObject = Record<string, unknown>;
 export type Role = 'user' | 'assistant';
@@ -143,6 +144,7 @@ export type ActionRequiredData =
       extensionSource?: ToolExtensionSource;
       authorizationScope?: ToolAuthorizationScope;
       taskWorkspaceRoot?: string;
+      businessApproval?: BusinessApproval;
       availableActions?: ToolPermissionAction[];
     }
   | {
@@ -435,6 +437,7 @@ export interface ToolConfirmationData {
   extensionSource?: ToolExtensionSource;
   authorizationScope?: ToolAuthorizationScope;
   taskWorkspaceRoot?: string;
+  businessApproval?: BusinessApproval;
   availableActions?: ToolPermissionAction[];
 }
 
@@ -460,6 +463,7 @@ export function getAnyToolConfirmationData(message: Message): ToolConfirmationDa
       extensionSource: actionRequired.data.extensionSource,
       authorizationScope: actionRequired.data.authorizationScope,
       taskWorkspaceRoot: actionRequired.data.taskWorkspaceRoot,
+      businessApproval: actionRequired.data.businessApproval,
       availableActions: actionRequired.data.availableActions,
     };
   }

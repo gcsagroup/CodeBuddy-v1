@@ -4,6 +4,7 @@ import { defineMessages, useIntl } from '../i18n';
 import { formatToolAction } from './toolActionPresentation';
 import ToolApprovalButtons from './ToolApprovalButtons';
 import { ToolActivityIcon } from './ToolActivityIcon';
+import BusinessApprovalScope, { businessApprovalName } from './BusinessApprovalScope';
 import ProjectMemoryApprovalSummary, {
   filterProjectMemoryApprovalActions,
   parseProjectMemoryApproval,
@@ -131,7 +132,9 @@ export function ToolApprovalTarget({
       try {
         const parsed = new URL(url);
         displayUrl = `${parsed.origin}${parsed.pathname}`;
-      } catch { /* Invalid URLs are rejected by the tool. */ }
+      } catch {
+        /* Invalid URLs are rejected by the tool. */
+      }
     }
     const hasTarget =
       operation === 'open'
@@ -238,10 +241,13 @@ export default function ToolConfirmation({
     extensionSource = 'unknown',
     authorizationScope = 'unknown',
     taskWorkspaceRoot,
+    businessApproval,
     availableActions,
     arguments: toolArguments,
   } = data;
-  const displayName = formatToolAction(intl, toolName, toolArguments ?? {}, undefined, 'name');
+  const displayName = businessApproval
+    ? businessApprovalName(intl, businessApproval)
+    : formatToolAction(intl, toolName, toolArguments ?? {}, undefined, 'name');
   const forcePush = forcePushSummary(toolName, permissionClass, extensionSource, toolArguments);
   const memoryApproval = parseProjectMemoryApproval(toolName, extensionSource, toolArguments);
   const filteredActions = filterProjectMemoryApprovalActions(memoryApproval, availableActions);
@@ -281,6 +287,7 @@ export default function ToolConfirmation({
           ))}
         </dl>
         {prompt && <p className="mt-3 text-sm text-text-secondary">{prompt}</p>}
+        {businessApproval && <BusinessApprovalScope approval={businessApproval} />}
         {taskWorkspaceRoot && (
           <p className="mt-3 text-sm text-text-secondary" data-testid="task-workspace-grant-scope">
             {intl.formatMessage(i18n.taskWorkspaceGrant, { root: taskWorkspaceRoot })}
@@ -332,6 +339,7 @@ export default function ToolConfirmation({
           isClicked,
           permissionClass,
           authorizationScope,
+          businessApproval,
           availableActions: filteredActions,
         }}
       />

@@ -40,6 +40,41 @@ describe('ToolApprovalButtons', () => {
   });
 
   it.each([
+    ['computer-use', 'computer use'],
+    ['image-generation', 'image generation'],
+    ['video-generation', 'video generation'],
+  ] as const)(
+    'names the %s session grant without claiming it covers only one tool',
+    async (id, label) => {
+      resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+      renderWithIntl(
+        <ToolApprovalButtons
+          data={{
+            id,
+            toolName: 'mcp__qwen_computer__click',
+            sessionId: 'business-buttons',
+            authorizationScope: 'session',
+            businessApproval: { id },
+            availableActions: ['allow_once', 'always_allow', 'deny_once'],
+          }}
+        />
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Allow this tool for this session' })
+      ).not.toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole('button', { name: `Allow ${label} for this session` })
+      );
+      expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
+        'business-buttons',
+        id,
+        'always_allow'
+      );
+      expect(screen.getByText(new RegExp(`${label} allowed for this session`))).toBeVisible();
+    }
+  );
+
+  it.each([
     'generate_image',
     'generate_video',
     'browser_control',

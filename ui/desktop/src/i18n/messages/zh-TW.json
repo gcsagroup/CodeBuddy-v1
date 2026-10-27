@@ -9190,5 +9190,41 @@
   },
   "workStatus.waitingHint": {
     "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "本對話允許{business}"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "本對話已允許{business}"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "電腦操作"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "允許讀取桌面視窗與截圖，以及使用滑鼠和鍵盤。範圍是目前桌面，不限於單一應用程式，也不限於唯讀操作。"
+  },
+  "businessApproval.image": {
+    "defaultMessage": "圖片生成"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "僅用於目前對話中的這類業務。工具重新連線、更換服務或工作區、重新啟動應用程式後需重新授權。既有安全檢查、工具停用規則及逐次確認規則仍然生效。"
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "允許查看服務工作流程、上傳目前工作區的 PNG 參考圖、生成內容、查詢狀態、取消單一生成任務，並儲存結果。對話授權包含後續再次生成和修改參數。"
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "包含的操作"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "輸出目錄"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "服務位址"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "影片生成"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "工作區"
   }
 }

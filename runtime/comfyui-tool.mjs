@@ -360,6 +360,8 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
   return registerToolSessionApproval(tool, {
     key: JSON.stringify([toolName, path.resolve(cwd), path.resolve(dataDir), sessionId, server]),
     dependencies: [fetchImpl, statfsImpl],
+    business: { id: media ? 'video-generation' : 'image-generation', service: server,
+      workspace: path.resolve(cwd), outputDirectory: path.resolve(cwd, `generated-${outputKey}`) },
     async accepts(input) {
       if (input.operation === 'generate' || input.operation === 'inspect') return true;
       if (!['status', 'cancel'].includes(input.operation)) return false;

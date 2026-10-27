@@ -41,7 +41,9 @@ it.each([
     { wrapper: IntlTestWrapper }
   );
   expect(screen.getByRole('heading', { name: label })).toBeVisible();
-  expect(screen.getByText(`https://example.com${new URL('https://example.com/文档').pathname}`)).toBeVisible();
+  expect(
+    screen.getByText(`https://example.com${new URL('https://example.com/文档').pathname}`)
+  ).toBeVisible();
   expect(screen.getByText('Tab test-tab')).toBeVisible();
   expect(screen.getByText('Element 7')).toBeVisible();
   expect(screen.queryByText('must-not-appear')).not.toBeInTheDocument();
@@ -94,6 +96,67 @@ function renderPermissionRequest(request: RequestPermissionRequest) {
 }
 
 describe('ToolConfirmation', () => {
+  it('shows desktop-wide CU scope and retains the concrete tool call', () => {
+    renderPermissionRequest({
+      sessionId: 'business-scope',
+      toolCall: { toolCallId: 'cu-list', title: 'mcp__qwen_computer__list_apps', rawInput: {} },
+      options: [
+        { optionId: 'allow_business_session', name: 'Allow computer use', kind: 'allow_always' },
+      ],
+      _meta: {
+        codepro: {
+          authorizationScope: 'session',
+          extensionSource: 'builtin',
+          permissionClass: 'external_write',
+          businessApproval: { id: 'computer-use', tools: ['list_apps', 'click'] },
+        },
+      },
+    });
+    expect(screen.getByText('computer use')).toBeVisible();
+    expect(
+      screen.getByText(/current desktop, rather than a single application or read-only access/)
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /Existing safety checks, disabled tools and per-call confirmation rules still apply/
+      )
+    ).toBeVisible();
+    expect(screen.getByText('Included operations')).toBeVisible();
+  });
+
+  it.each(['image-generation', 'video-generation'] as const)(
+    'shows actual service, workspace and output for %s',
+    (id) => {
+      const output = id === 'image-generation' ? 'generated-images' : 'generated-videos';
+      renderPermissionRequest({
+        sessionId: id,
+        toolCall: {
+          toolCallId: id,
+          title: id === 'image-generation' ? 'generate_image' : 'generate_video',
+          rawInput: {},
+        },
+        options: [
+          { optionId: 'allow_business_session', name: 'Allow media', kind: 'allow_always' },
+        ],
+        _meta: {
+          codepro: {
+            authorizationScope: 'session',
+            businessApproval: {
+              id,
+              service: 'http://fixture.test:8188',
+              workspace: 'C:\\fixture',
+              outputDirectory: `C:\\fixture\\${output}`,
+            },
+          },
+        },
+      });
+      expect(screen.getByText('http://fixture.test:8188')).toBeVisible();
+      expect(screen.getByText('C:\\fixture')).toBeVisible();
+      expect(screen.getByText(`C:\\fixture\\${output}`)).toBeVisible();
+      expect(screen.getByText(/upload PNG references from this workspace/)).toBeVisible();
+      expect(screen.getByText(/includes later generations and changed parameters/)).toBeVisible();
+    }
+  );
   it('uses the same computer operation label in approval without changing its policy facts', () => {
     render(
       <ToolConfirmation

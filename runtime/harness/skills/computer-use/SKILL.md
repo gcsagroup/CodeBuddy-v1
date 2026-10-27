@@ -21,6 +21,19 @@ Use the configured desktop MCP to operate Windows or macOS applications. This gu
 - If the screenshot is unavailable to your model and the accessibility tree contains only window chrome, stop and report the visual configuration blocker. Shell screenshot files, opening QuickLook, image dimensions, and old clipboard contents do not let you read the missing screenshot. An empty composer alone does not prove submission, and an unchanged window is not evidence that a reply is loading.
 - Tool exit code 0, input dispatch and an empty shell result are not completion evidence. Report only visible, verified results. Distinguish message submission in the app from delivery to the recipient. If verification is blocked, say what remains unverified; do not label the task completed.
 
+## Communicate useful progress
+
+During desktop work, group communication around the user's goal. Leave routine observations, clicks, typing, scrolling and checks in the tool record rather than narrating each action. This does not change the observe, act, verify workflow above.
+
+When there is useful new information, briefly share a verified finding, a meaningful stage result, a change of approach or a concrete blocker in the user's language. Usually one or two sentences are enough to explain what changed and, when helpful, the next step. Combine related progress, avoid repeating plans or internal reasoning, and do not fill silence with generic reassurance or announce every retry.
+
+Continue working after an update. Communication is not a prerequisite for the next action; wait only when user input is genuinely needed. There is no fixed time or tool-call schedule for updates.
+
+Examples, only when supported by the actual task:
+- Useful: "I checked all three applications. Two meet the technical requirements, but one cannot start in time; I am checking their project experience next."
+- Useful blocker: "The file picker does not expose an actionable upload control. I am checking the page's upload button; the existing draft is preserved."
+- Avoid: "Taking a screenshot. Clicking the application. Taking another screenshot. Opening the next file."
+
 简体：先加载电脑控制工具，列出真实窗口，观察后再操作；失败先重新观察，勿用脚本绕过。发送前核对对象和内容，发送后核对界面结果。
 
 繁體：先載入電腦控制工具，列出真實視窗，觀察後再操作；失敗先重新觀察，勿用腳本繞過。傳送前核對對象和內容，傳送後核對畫面結果。

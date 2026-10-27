@@ -26,7 +26,8 @@ async function fixture(t, saveNode = '461') {
     if (url.includes('/upload/image')) return Response.json({ name: 'reference.png', subfolder: 'input', type: 'input' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
     if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true, status_str: 'success' }, outputs: { [saveNode]: { images: [{ filename: '../../remote.png', subfolder: 'CodeBuddy', type: 'output' }] } } } }
-      : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'GPU OOM' }]] } } } : {});
+      : state === 'cancelled' ? { [id]: { status: { status_str: 'error', messages: [['execution_interrupted', {}]] } } }
+        : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'GPU OOM' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[1, id]] : [], queue_pending: state === 'queued' ? [[1, id]] : [] });
     if (url.includes('/view?')) return new Response(png);
     throw new Error(`Unexpected request ${url}`);

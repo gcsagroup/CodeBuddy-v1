@@ -11,6 +11,7 @@ import { registerToolSessionApproval, toolSessionApprovalScope } from './tool-se
 export const IMAGE_TOOL_NAME = 'generate_image';
 export const DEFAULT_COMFYUI_URL = 'http://192.168.9.111:8188';
 const refreshes = new Map();
+const receiptWrites = new Map();
 const submissions = new Set();
 const observationErrors = new Set();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -110,10 +111,27 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
   }
   const json = async (base, route, options) => JSON.parse((await limitedBody(await request(base, route, options), route === '/object_info' ? 16 * 1024 * 1024 : 4 * 1024 * 1024)).toString());
   const post = (body, signal) => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
-  async function save(job) {
-    await mkdir(records, { recursive: true });
-    const file = path.join(records, `${job.job_id}.json`), temp = `${file}.${randomUUID()}.tmp`;
-    await writeFile(temp, JSON.stringify(job)); await rename(temp, file);
+  async function save(job, update = () => job) {
+    const file = path.join(records, `${job.job_id}.json`);
+    const key = path.resolve(file);
+    const previous = receiptWrites.get(key) ?? Promise.resolve();
+    const pending = previous.catch(() => {}).then(async () => {
+      const current = await load(job.job_id).catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      const next = update(current);
+      // A poll can finish with a snapshot taken before cancellation was accepted.
+      if (current?.cancel_requested) next.cancel_requested = true;
+      await mkdir(records, { recursive: true });
+      const temp = `${file}.${randomUUID()}.tmp`;
+      await writeFile(temp, JSON.stringify(next)); await rename(temp, file);
+      for (const key of Object.keys(job)) if (!(key in next)) delete job[key];
+      Object.assign(job, next);
+    });
+    receiptWrites.set(key, pending);
+    try { await pending; }
+    finally { if (receiptWrites.get(key) === pending) receiptWrites.delete(key); }
   }
   async function load(id) {
     if (!uuid.test(id ?? '')) throw new Error('A valid job_id from generate is required');
@@ -133,13 +151,13 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         : ['submission_unknown', 'unavailable'].includes(job.status) ? 'Submission or server history is uncertain. Check this job_id with status; do not generate again automatically.'
           : `Call ${toolName} with operation=status, this job_id and wait_seconds=30. Do not submit generation again.` };
   }
-  async function refreshJob(job, signal) {
+  async function refreshJob(job, signal, recheckTerminal = false) {
     if (!['completed', 'failed', 'cancelled'].includes(job.status) && fetchImpl === fetch)
       await watchMedia(streamKey(job), job.server, job);
     // Older video receipts used image Markdown. Refresh their output metadata once
     // without resubmitting generation, so chat can offer a playable HTTP link.
     const needsVideoLink = media && job.status === 'completed' && job.videos?.some(video => !video.preview_url);
-    if (['completed', 'failed', 'cancelled'].includes(job.status) && !needsVideoLink) return result(job);
+    if (['completed', 'failed', 'cancelled'].includes(job.status) && !needsVideoLink && !recheckTerminal) return result(job);
     const history = await json(job.server, `/history/${encodeURIComponent(job.prompt_id)}`, { signal }).catch(error => {
       // A missing optional playback link must not invalidate an already saved output.
       if (needsVideoLink) return {};
@@ -147,8 +165,11 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
     });
     const item = history[job.prompt_id];
     if (needsVideoLink && item?.status?.completed !== true) return result(job);
+    // A later missing history entry cannot negate a failure already observed.
+    if (recheckTerminal && job.status === 'failed' && item?.status?.status_str !== 'error' && item?.status?.completed !== true) return result(job);
+    const interrupted = item?.status?.status_str === 'error' && item.status.messages?.some(x => x[0] === 'execution_interrupted');
     if (item?.status?.status_str === 'error') {
-      job.status = job.cancel_requested && item.status.messages?.some(x => x[0] === 'execution_interrupted') ? 'cancelled' : 'failed';
+      job.status = 'failed';
       const failure = item.status.messages?.find(x => x[0] === 'execution_error')?.[1];
       job.error = failure?.exception_message
         ? `${failure.node_type ?? 'ComfyUI'}: ${String(failure.exception_message).trim()}`.slice(0, 2500)
@@ -200,22 +221,26 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       job.queue_position = position >= 0 ? position + 1 : undefined;
       job.status = queue.queue_running?.some(x => x[1] === job.prompt_id) ? 'running'
         : queue.queue_pending?.some(x => x[1] === job.prompt_id) ? 'queued'
-          : job.cancel_requested ? 'cancelled' : job.status === 'submission_unknown' ? 'submission_unknown' : 'unavailable';
+          : job.status === 'submission_unknown' ? 'submission_unknown' : 'unavailable';
     }
     if (['queued', 'running', 'completed'].includes(job.status)) delete job.error;
-    await save(job);
+    await save(job, current => {
+      // Classify interruption with the latest accepted cancellation, not the poll's old copy.
+      if (interrupted && (current?.cancel_requested || job.cancel_requested)) job.status = 'cancelled';
+      return job;
+    });
     const value = result(job);
     if (['completed', 'failed', 'cancelled'].includes(job.status)) stopMedia(streamKey(job));
     return value;
   }
-  async function refresh(job, signal) {
+  async function refresh(job, signal, recheckTerminal = false) {
     const key = streamKey(job);
     if (refreshes.has(key)) {
       await refreshes.get(key);
       Object.assign(job, await load(job.job_id));
       return result(job);
     }
-    const pending = refreshJob(job, signal).then(value => { observationErrors.delete(key); return value; }, error => { observationErrors.add(key); throw error; }).finally(() => refreshes.delete(key));
+    const pending = refreshJob(job, signal, recheckTerminal).then(value => { observationErrors.delete(key); return value; }, error => { observationErrors.add(key); throw error; }).finally(() => refreshes.delete(key));
     refreshes.set(key, pending); return pending;
   }
   const tool = {
@@ -340,7 +365,12 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
         if (['completed', 'failed', 'cancelled'].includes(job.status)) return result(job);
         try {
           const receipt = await json(job.server, `/api/jobs/${job.prompt_id}/cancel`, post({}, signal));
-          if (receipt.cancelled) { job.cancel_requested = true; await save(job); await refresh(job, signal); }
+          if (receipt.cancelled) {
+            // A completed download may have been saved while the POST was pending.
+            await save(job, current => ({ ...current, cancel_requested: true }));
+            // An interruption can reach history before the cancellation ACK is saved.
+            await refresh(job, signal, job.status === 'failed');
+          }
           return { ...result(job), cancellation_confirmed: job.status === 'cancelled' };
         } catch (error) {
           // Older servers only expose a global interrupt; never stop another client's work.
@@ -351,7 +381,8 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       if (input.operation !== 'status') throw new Error(`Unknown ${kind} operation`);
       const deadline = Date.now() + integer(input.wait_seconds, 0, 0, 30) * 1000;
       do {
-        const current = await refresh(job, signal);
+        // Older receipts could have treated queue absence after a cancel request as final.
+        const current = await refresh(job, signal, job.status === 'cancelled' && job.cancel_requested === true);
         if (!['queued', 'running'].includes(current.status) || Date.now() >= deadline) return current;
         await delay(Math.min(1500, deadline - Date.now()), undefined, { signal });
       } while (true);

@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {Hazırlanıyor} submission_unknown {Gönderim doğrulanmadı} queued {Sırada} running {Oluşturuluyor} completed {Tamamlandı} failed {Başarısız} cancelled {İptal edildi} cancellation_unconfirmed {İptal doğrulanmadı} other {Durum bilinmiyor}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {Video oluşturma} other {Görsel oluşturma}} · {operation, select, inspect {İş akışı incelemesi} generate {Gönderim isteği} status {Durum sorgusu} cancel {İptal isteği} other {Araç işlemi}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

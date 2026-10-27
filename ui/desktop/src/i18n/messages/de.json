@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {Vorbereitung} submission_unknown {Übermittlung nicht bestätigt} queued {In Warteschlange} running {Wird generiert} completed {Abgeschlossen} failed {Fehlgeschlagen} cancelled {Abgebrochen} cancellation_unconfirmed {Abbruch nicht bestätigt} other {Status unbekannt}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {Videoerzeugung} other {Bilderzeugung}} · {operation, select, inspect {Workflow-Prüfung} generate {Übermittlungsanfrage} status {Statusabfrage} cancel {Abbruchanfrage} other {Werkzeugaktion}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

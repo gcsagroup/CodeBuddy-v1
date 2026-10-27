@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {Đang chuẩn bị} submission_unknown {Chưa xác nhận gửi} queued {Đang xếp hàng} running {Đang tạo} completed {Hoàn tất} failed {Thất bại} cancelled {Đã hủy} cancellation_unconfirmed {Chưa xác nhận hủy} other {Không rõ trạng thái}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {Tạo video} other {Tạo hình ảnh}} · {operation, select, inspect {Kiểm tra quy trình} generate {Yêu cầu gửi} status {Kiểm tra trạng thái} cancel {Yêu cầu hủy} other {Thao tác công cụ}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

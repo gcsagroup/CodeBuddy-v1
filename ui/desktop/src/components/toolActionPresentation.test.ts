@@ -1,8 +1,103 @@
 import { createIntl } from 'react-intl';
 import { describe, expect, it } from 'vitest';
 import { formatToolAction, webSearchDetails } from './toolActionPresentation';
+import type { ToolResponseMessageContent } from '../types/message';
 
 const intl = createIntl({ locale: 'en', messages: {} });
+
+describe('media operation receipts', () => {
+  const response = (
+    receipt: Record<string, unknown>,
+    persisted = false
+  ): ToolResponseMessageContent => ({
+    type: 'toolResponse',
+    id: 'media-call',
+    toolResult: {
+      status: 'success',
+      value: persisted
+        ? { content: [{ type: 'text', text: JSON.stringify(receipt) }] }
+        : { content: [], structuredContent: receipt },
+    },
+  });
+  const title = (name: string, operation: string, receipt?: ToolResponseMessageContent) =>
+    formatToolAction(
+      intl,
+      name,
+      { operation },
+      'completed',
+      'detail',
+      undefined,
+      undefined,
+      receipt
+    );
+
+  it.each(['generate_image', 'mcp__comfyui__generate_video'])(
+    'keeps submission and repeated status calls distinct for %s',
+    (name) => {
+      const kind = name.endsWith('video') ? 'Video' : 'Image';
+      expect(title(name, 'generate', response({ status: 'queued' }))).toBe(
+        `${kind} generation · Submission request: Queued`
+      );
+      for (let poll = 0; poll < 13; poll++)
+        expect(title(name, 'status', response({ status: 'running' }))).toBe(
+          `${kind} generation · Status check: Generating`
+        );
+      expect(title(name, 'status', response({ status: 'completed' }, true))).toBe(
+        `${kind} generation · Status check: Completed`
+      );
+      expect(title(name, 'status', response({ status: 'failed' }))).toBe(
+        `${kind} generation · Status check: Failed`
+      );
+    }
+  );
+
+  it('does not promote a successful cancel tool receipt into confirmed cancellation', () => {
+    expect(
+      title(
+        'generate_video',
+        'cancel',
+        response({ status: 'running', cancellation_confirmed: false })
+      )
+    ).toBe('Video generation · Cancellation request: Generating · Cancellation not confirmed');
+    expect(
+      title(
+        'generate_video',
+        'cancel',
+        response({ status: 'cancelled', cancellation_confirmed: true })
+      )
+    ).toBe('Video generation · Cancellation request: Cancelled');
+    expect(title('generate_video', 'cancel', response({ status: 'completed' }))).toBe(
+      'Video generation · Cancellation request: Completed · Cancellation not confirmed'
+    );
+  });
+
+  it('keeps missing or prose-only receipts neutral and names inspection before it executes', () => {
+    expect(title('generate_image', 'generate')).toBe('Image generation · Submission request');
+    expect(
+      title('generate_image', 'status', {
+        type: 'toolResponse',
+        id: 'media-call',
+        toolResult: {
+          status: 'success',
+          value: {
+            content: [{ type: 'text', text: 'The image completed successfully' }],
+          },
+        },
+      })
+    ).toBe('Image generation · Status check');
+    expect(
+      formatToolAction(intl, 'generate_image', { operation: 'inspect' }, undefined, 'name')
+    ).toBe('Image generation · Workflow inspection');
+    expect(
+      formatToolAction(
+        intl,
+        'generate_image',
+        { operation: 'generate', __inputPreview: true },
+        'running'
+      )
+    ).toBe('Preparing operation parameters: Image generation · Submission request');
+  });
+});
 
 it('uses the same browser operation name in approvals and progress without inventing execution', () => {
   expect(

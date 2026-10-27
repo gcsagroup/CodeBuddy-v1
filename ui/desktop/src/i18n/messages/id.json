@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {Menyiapkan} submission_unknown {Pengiriman belum dikonfirmasi} queued {Dalam antrean} running {Sedang dibuat} completed {Selesai} failed {Gagal} cancelled {Dibatalkan} cancellation_unconfirmed {Pembatalan belum dikonfirmasi} other {Status tidak diketahui}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {Pembuatan video} other {Pembuatan gambar}} · {operation, select, inspect {Pemeriksaan alur kerja} generate {Permintaan pengiriman} status {Pemeriksaan status} cancel {Permintaan pembatalan} other {Operasi alat}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

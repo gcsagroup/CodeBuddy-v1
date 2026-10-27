@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {तैयारी जारी} submission_unknown {भेजने की पुष्टि नहीं हुई} queued {कतार में} running {निर्माण जारी} completed {पूर्ण} failed {विफल} cancelled {रद्द} cancellation_unconfirmed {रद्द होने की पुष्टि नहीं हुई} other {स्थिति अज्ञात}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {वीडियो निर्माण} other {चित्र निर्माण}} · {operation, select, inspect {वर्कफ़्लो जाँच} generate {भेजने का अनुरोध} status {स्थिति जाँच} cancel {रद्द करने का अनुरोध} other {टूल कार्रवाई}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

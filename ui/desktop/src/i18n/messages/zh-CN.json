@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "生成地图"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {准备中} submission_unknown {提交未确认} queued {排队中} running {生成中} completed {已完成} failed {失败} cancelled {已取消} cancellation_unconfirmed {取消未确认} other {状态未知}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {视频生成} other {图片生成}} · {operation, select, inspect {工作流检查} generate {提交请求} status {状态查询} cancel {取消请求} other {工具操作}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "向子智能体发送消息"
   },

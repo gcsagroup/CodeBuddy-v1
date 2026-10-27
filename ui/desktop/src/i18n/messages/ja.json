@@ -8129,6 +8129,12 @@
   "toolAction.map": {
     "defaultMessage": "Create a map"
   },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status, select, preparing {準備中} submission_unknown {送信未確認} queued {待機中} running {生成中} completed {完了} failed {失敗} cancelled {キャンセル済み} cancellation_unconfirmed {キャンセル未確認} other {状態不明}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind, select, video {動画生成} other {画像生成}} · {operation, select, inspect {ワークフロー確認} generate {送信リクエスト} status {状態確認} cancel {キャンセル要求} other {ツール操作}}"
+  },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
   },

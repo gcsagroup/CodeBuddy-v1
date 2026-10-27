@@ -28,6 +28,29 @@ const chineseMessages = Object.fromEntries(
 );
 
 describe('tool response completion evidence', () => {
+  it('shows one media submission followed by actual polling states, including persisted receipts', () => {
+    const rows = [
+      { id: 'submit', operation: 'generate', status: 'queued' },
+      { id: 'poll-1', operation: 'status', status: 'running' },
+      { id: 'poll-2', operation: 'status', status: 'running' },
+      { id: 'poll-3', operation: 'status', status: 'completed' },
+    ];
+    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
+      {rows.map(({ id, operation, status }) => <ToolCallWithResponse
+        key={id} compact isCancelledMessage={false} isPendingApproval={false}
+        toolRequest={{ type: 'toolRequest', id, toolCall: { status: 'success', value: {
+          name: 'generate_image', arguments: { operation, job_id: 'same-job' },
+        } } }}
+        toolResponse={{ type: 'toolResponse', id, toolResult: { status: 'success', value: {
+          content: [{ type: 'text', text: JSON.stringify({ job_id: 'same-job', status, images: [] }) }],
+        } } }}
+      />)}
+    </IntlProvider>);
+    expect(screen.getAllByText('图片生成 · 提交请求: 排队中')).toHaveLength(1);
+    expect(screen.getAllByText('图片生成 · 状态查询: 生成中')).toHaveLength(2);
+    expect(screen.getAllByText('图片生成 · 状态查询: 已完成')).toHaveLength(1);
+    expect(screen.queryByText('已生成图片')).not.toBeInTheDocument();
+  });
   it.each([
     { live: true, locale: 'en', messages: {}, label: 'Interact with a window control' },
     { live: false, locale: 'en', messages: {}, label: 'Interact with a window control' },

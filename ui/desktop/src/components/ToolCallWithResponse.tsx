@@ -736,7 +736,8 @@ function ToolCallView({
     loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined,
     'detail',
     compact ? displayTitle : undefined,
-    computerTarget
+    computerTarget,
+    toolResponse
   );
   const toolName = toolCall.name.split(/__|::/).pop();
   const compactTitle = isWebSearchTool(toolCall.name)

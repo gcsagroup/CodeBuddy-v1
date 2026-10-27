@@ -2,6 +2,7 @@ import type { IntlShape } from 'react-intl';
 import { defineMessages } from '../i18n';
 import { snakeToTitleCase } from '../utils';
 import type { ToolResponseMessageContent } from '../types/message';
+import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
 
 const messages = defineMessages({
   readDone: { id: 'toolAction.readDone', defaultMessage: 'Read file' },
@@ -75,6 +76,16 @@ const messages = defineMessages({
   map: { id: 'toolAction.map', defaultMessage: 'Create a map' },
   generateImage: { id: 'toolAction.generateImage', defaultMessage: 'Generate an image' },
   generateVideo: { id: 'toolAction.generateVideo', defaultMessage: 'Generate a video' },
+  mediaOperation: {
+    id: 'toolAction.mediaOperation',
+    defaultMessage:
+      '{kind, select, video {Video generation} other {Image generation}} · {operation, select, inspect {Workflow inspection} generate {Submission request} status {Status check} cancel {Cancellation request} other {Tool operation}}',
+  },
+  mediaJobStatus: {
+    id: 'toolAction.mediaJobStatus',
+    defaultMessage:
+      '{status, select, preparing {Preparing} submission_unknown {Submission not confirmed} queued {Queued} running {Generating} completed {Completed} failed {Failed} cancelled {Cancelled} cancellation_unconfirmed {Cancellation not confirmed} other {Status unknown}}',
+  },
   desktopPet: { id: 'toolAction.desktopPet', defaultMessage: 'Create a desktop pet' },
   question: { id: 'toolAction.question', defaultMessage: 'Ask a question' },
   code: { id: 'toolAction.code', defaultMessage: 'Execute code' },
@@ -185,9 +196,35 @@ export function formatToolAction(
   state?: 'running' | 'completed',
   presentation: 'detail' | 'headline' | 'name' = 'detail',
   fallbackTitle?: string,
-  computerTarget?: string
+  computerTarget?: string,
+  response?: ToolResponseMessageContent
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
+  if (name === 'generate_image' || name === 'generate_video') {
+    const label = intl.formatMessage(messages.mediaOperation, {
+      kind: name === 'generate_video' ? 'video' : 'image',
+      operation: typeof args.operation === 'string' ? args.operation : 'other',
+    });
+    if (presentation === 'name') return label;
+    if (args.__inputPreview === true && state === 'running')
+      return intl.formatMessage(messages.generating, { target: `: ${label}` });
+    const receipt = generatedMediaReceipt(response);
+    if (!receipt)
+      return state === 'running' ? intl.formatMessage(messages.running, { action: label }) : label;
+    const statuses =
+      typeof receipt.status === 'string'
+        ? [intl.formatMessage(messages.mediaJobStatus, { status: receipt.status })]
+        : [];
+    if (
+      args.operation === 'cancel' &&
+      receipt.status !== 'cancelled' &&
+      receipt.cancellation_confirmed !== true
+    )
+      statuses.push(
+        intl.formatMessage(messages.mediaJobStatus, { status: 'cancellation_unconfirmed' })
+      );
+    return statuses.length ? `${label}: ${statuses.join(' · ')}` : label;
+  }
   if (isWebSearchTool(fullName)) {
     return intl.formatMessage(
       messages[

@@ -1,45 +1,16 @@
 import { useMemo } from 'react';
 import type { ToolResponseMessageContent } from '../types/message';
 import { WorkspaceFileReferences } from './WorkspaceFileReferences';
+import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
 
-// Read the tool's receipt, never infer successful generation from assistant prose.
 export function generatedMediaPaths(
   toolName: string,
   response?: ToolResponseMessageContent
 ): string[] {
-  if (!['generate_image', 'generate_video'].includes(toolName)) return [];
-  const result = response?.toolResult;
-  if (
-    result?.status !== 'success' ||
-    !result.value ||
-    typeof result.value !== 'object' ||
-    Array.isArray(result.value)
-  )
+  if (!['generate_image', 'generate_video'].includes(toolName.split(/__|::/).pop() ?? ''))
     return [];
-  const value = result.value as Record<string, unknown>;
-  if (value.isError) return [];
-  let receipt: unknown = value.structuredContent;
-  if (!receipt) {
-    const text = Array.isArray(value.content)
-      ? value.content.find(
-          (item) => item && typeof item === 'object' && !Array.isArray(item) && item.type === 'text'
-        )
-      : undefined;
-    if (text && typeof text === 'object' && !Array.isArray(text) && typeof text.text === 'string') {
-      try {
-        receipt = JSON.parse(text.text);
-      } catch {
-        return [];
-      }
-    }
-  }
-  if (
-    !receipt ||
-    typeof receipt !== 'object' ||
-    !('status' in receipt) ||
-    receipt.status !== 'completed'
-  )
-    return [];
+  const receipt = generatedMediaReceipt(response);
+  if (receipt?.status !== 'completed') return [];
   const entries = 'images' in receipt ? receipt.images : 'videos' in receipt ? receipt.videos : [];
   if (!Array.isArray(entries)) return [];
   return entries

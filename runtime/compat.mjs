@@ -86,8 +86,23 @@ const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'mess
   'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
   'readonlyHistory', 'userSetName', 'archivedAt'];
 
+function imageDisplayBlock(item) {
+  if (item?.type !== "image") return item;
+  const mimeType = item.mimeType ?? item.mediaType;
+  return typeof item.data === "string" && typeof mimeType === "string"
+    ? { ...item, mimeType }
+    : { type: "text", text: "Image preview is unavailable. The original tool result remains recorded." };
+}
+
+async function toolDisplayBlocks(blocks, driver) {
+  // Native image blocks carry durable references; MCP/host display receipts
+  // already carry encoded bytes. Keep both on the same presentation boundary.
+  const projected = await driver.presentationContent?.(blocks).catch(() => blocks) ?? blocks;
+  return projected.map(imageDisplayBlock);
+}
+
 // Both model calls and direct UI calls project the original MCP receipt.
-function toolResultUpdate(event, metadata) {
+async function toolResultUpdate(event, metadata, driver) {
   const blocks = Array.isArray(event.mcpResult?.content)
     ? event.mcpResult.content
     : Array.isArray(event.presentationContent)
@@ -97,14 +112,9 @@ function toolResultUpdate(event, metadata) {
         : Array.isArray(event.result?.content)
           ? event.result.content
           : [];
-  const content = blocks
+  const content = (await toolDisplayBlocks(blocks, driver))
     .filter((item) => ["text", "image", "audio", "resource", "resource_link"].includes(item?.type))
-    .map((item) => ({
-      type: "content",
-      content: item.type === "image"
-        ? { ...item, mimeType: item.mimeType ?? item.mediaType }
-        : item,
-    }));
+    .map((item) => ({ type: "content", content: item }));
   return {
     sessionUpdate: "tool_call_update",
     toolCallId: event.id,
@@ -1515,41 +1525,62 @@ export class Compat {
           }
         }
         checkpoint("workspaceMs");
+        const initialLiveReplay = this.active.get(s.id)?.replay;
+        const legacy = s.legacyHistory ? updatesFromConversation(
+          await loadLegacyConversation(this.store.directory, s.legacyHistory), s.createdAt,
+        ) : undefined;
+        const imageRepairs = new Map();
+        for (const update of [...(s.updates ?? []), ...(initialLiveReplay?.updates ?? [])]) {
+          if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) continue;
+          const key = JSON.stringify(update.content);
+          if (imageRepairs.has(key)) continue;
+          imageRepairs.set(key, await Promise.all(update.content.map(async part =>
+            part.type === "content" && part.content?.type === "image"
+              ? { ...part, content: (await toolDisplayBlocks([part.content], this.driver))[0] }
+              : part)));
+        }
+        // Preview reads can yield while a live turn publishes or finalizes.
+        // Capture its current high water mark only after I/O, then keep reset
+        // and replay synchronous so old history cannot interleave with live data.
+        const current = this.session(s.id);
+        if (current.cwd !== s.cwd || (current.nativeSessionId ?? current.id) !== (s.nativeSessionId ?? s.id))
+          throw invalid("Session changed while image previews were being prepared; retry");
         const liveReplay = this.active.get(s.id)?.replay;
         // Journal projection is committed at turn end. Include already-published
         // live updates until that same turn has reached the persisted high water mark.
         const includeLive =
           liveReplay &&
-          !Object.values(s.transcriptTurns ?? {}).some(
+          !Object.values(current.transcriptTurns ?? {}).some(
             (turn) => turn.turnId === liveReplay.turnId,
           );
         const transcript = replayTranscript(
-          s.legacyHistory
+          legacy
             ? {
-                ...s,
-                updates: updatesFromConversation(
-                  await loadLegacyConversation(
-                    this.store.directory,
-                    s.legacyHistory,
-                  ),
-                  s.createdAt,
-                ),
+                ...current,
+                updates: legacy,
               }
             : includeLive
               ? {
-                  ...s,
+                  ...current,
                   updates: [
-                    ...(s.updates ?? []),
+                    ...(current.updates ?? []),
                     ...liveReplay.users,
                     ...liveReplay.updates,
                   ],
                   usageUpdates: [
-                    ...(s.usageUpdates ?? []),
+                    ...(current.usageUpdates ?? []),
                     ...liveReplay.usageUpdates,
                   ],
                 }
-              : s,
+              : current,
         );
+        transcript.updates = transcript.updates.map(update => {
+          if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) return update;
+          return { ...update, content: imageRepairs.get(JSON.stringify(update.content)) ?? update.content.map(part =>
+            part.type === "content" && part.content?.type === "image"
+              ? { ...part, content: imageDisplayBlock(part.content) }
+              : part) };
+        });
         updateCount =
           transcript.updates.length + transcript.usageUpdates.length;
         checkpoint("projectionMs");
@@ -2037,7 +2068,7 @@ export class Compat {
                   sessionUpdate: "tool_call", toolCallId: event.id, title: event.name,
                   status: "in_progress", kind: "execute", rawInput: event.arguments ?? {}, _meta: meta,
                 });
-                if (event.type === "tool_result") await publish(toolResultUpdate(event, metadata));
+                if (event.type === "tool_result") await publish(await toolResultUpdate(event, metadata, this.driver));
               },
               onToolPolicy: tool => this.toolPolicy(s, tool),
               onPermission: async (tool) => {
@@ -2073,7 +2104,7 @@ export class Compat {
         return result.mcpResult
           ? { ...result.mcpResult, isError: Boolean(result.isError) }
           : {
-              content: result.presentationContent ?? result.content,
+              content: await toolDisplayBlocks(result.presentationContent ?? result.content, this.driver),
               structuredContent: result.value ?? result.structuredContent,
               isError: Boolean(result.isError),
             };
@@ -2760,10 +2791,10 @@ export class Compat {
               },
             });
           } else if (event.type === "tool_result") {
-            await notify(toolResultUpdate(event, {
+            await notify(await toolResultUpdate(event, {
               messageId: event.messageId ?? randomUUID(),
               created,
-            }));
+            }, this.driver));
             afterToolResult = true;
           } else if (event.type === "usage") {
             const usage = {};

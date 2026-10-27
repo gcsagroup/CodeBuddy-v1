@@ -1218,6 +1218,20 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
+    async presentationContent(content) {
+      return Promise.all(content.map(async block => {
+        if (block?.type !== 'image' || !block.attachment) return block;
+        try {
+          // Read only the verified object owned by the native attachment store;
+          // never resolve a tool-provided path or alter the durable receipt.
+          const stored = await ctx.attachments.readImage(block.attachment);
+          return { type: 'image', data: Buffer.from(stored.data).toString('base64'), mimeType: stored.ref.mediaType };
+        } catch {
+          // Optional preview loss must not drop the tool's real terminal update.
+          return { type: 'text', text: 'Image preview is unavailable. The original tool result remains recorded.' };
+        }
+      }));
+    },
     listSubagentChildren(parentSessionId, signal) { return ctx.subagents.listChildren(parentSessionId, signal); },
     async forkWorkingDirectory(sessionId, workingDir, { signal } = {}) {
       const agent = await resolveAgent(sessionId);

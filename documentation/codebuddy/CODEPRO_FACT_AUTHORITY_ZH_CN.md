@@ -267,6 +267,8 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 2026-10-28 真实回归补充：摘要自身也必须消费 adapter 最终 fit，完整摘要输出空间不足时由 LLM 服务在 HTTP 前以 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED` 拒绝。原生压缩事务持有缩区：按工具配对边界有限地几何缩短选区，同步重建摘要输入、计量及 shadow 集合，未摘要的尾段仍为原 active surface 事件；不以“只裁输入、仍替换整段”丢弃事实。本地准备不增加摘要 HTTP 重试，最终候选复用已绑定连接快照及配置，只发一次摘要；实际 length、取消或未找到可用选区不提交检查点。候选搜索不是最长或穷尽保证，普通压力的旧单检查点保护覆盖缩区后的实际输入。没有新宿主循环、持久字段或 Session 迁移。
 
+同日工具状态展示补充：原生附件存储仍持有图片对象的读取与校验，driver 只将已验证图片转换为 ACP 展示块，compat 消费真实工具终态。可选预览读取失败只降级图片展示，不丢弃完成通知或更改工具事实。旧记录只修复回放投影，不改写持久回执或重放工具。图片 I/O 后统一重新读取当前历史与实时高水位，再同步重置并发布回放，避免旧图读取期间的新消息丢失。
+
 **繁體補充**：上下文計量及壓縮由 Harness 持有，CodeBuddy 只投影現有通知。摘要不是無損記憶；反覆壓縮另驗。MCP 圖片優先交實際執行模型，缺能力時輔助視覺只觀察，保留原始回執且不重放動作。
 
 **English addition:** Harness owns context metering and compaction transactions; CodeBuddy only projects existing notifications. Summaries are not lossless memory, so repeated compaction requires independent acceptance. MCP images use the executing model's native capability first, then a tool-free visual observer when configured. Original receipts remain authoritative; observation failures never replay actions.

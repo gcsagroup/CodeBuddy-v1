@@ -22,6 +22,8 @@ Responses 啟用輸出上限時最少需要 16 token（[官方約束](https://de
 
 摘要本身也使用 adapter 的實際 fit。完整請求經既有中介層和投影準備後，若放不下所請求的摘要輸出（預設 4,096 token），LLM 服務於 HTTP 前回報 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED`。原生壓縮在同一交易內依工具配對邊界幾何縮短選區，同步重建輸入與 shadow 集合；未摘要的尾段仍為原 surface 事件。有限次本機準備只尋找一個可用區間，不保證最長或窮盡所有區間。最終候選重用已綁定的連線快照與設定，只發一次摘要 HTTP；實際 length 或取消不再觸發第二次摘要。找不到可用區間時不提交檢查點，保留原失敗。一般壓力路徑的單檢查點保護也涵蓋縮區後的實際摘要輸入。
 
+原生工具圖片引用僅由附件儲存驗證讀取，再由適配層產生合法 ACP 顯示區塊。預覽讀取失敗只降級圖片顯示，工具的真實終態與原回執仍保留；舊紀錄只在回放投影修復，不重播工具或改寫歷史。選用圖片 I/O 完成後重新讀取目前歷史與即時高水位，再同步重設和回放。
+
 `createHarnessDriver({dataDir,cwd,instructionsHome})` 必須指定隔離資料根。呼叫 `createSession({sessionId,cwd,provider,model,options})`、`prompt(sessionId,content,{onEvent,onPermission,signal})`，退出呼叫 `close()`。provider 支援 baseUrl（API 根）、apiKey、protocol、headers、compat、contextWindow、maxTokens、inputModalities、reasoningEfforts。模型及 MCP 憑據僅在驅動記憶體；磁碟 Host providers 為空，不發現舊版或環境密鑰。
 
 `configureSession(sessionId,options)` 在空閒時生效；應用保存並在重啟後重新傳入。參數：

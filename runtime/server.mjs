@@ -73,6 +73,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "forkWorkingDirectory",
           "releaseNativeSessionCapabilities",
           "history",
+          "presentationContent",
           "listSubagentChildren",
           "listSessions",
           "rename",

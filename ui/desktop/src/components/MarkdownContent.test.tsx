@@ -331,7 +331,7 @@ Use \`Array<T>\` for generics.`;
       expect(codeBlocks).toHaveLength(0);
     });
 
-    it('wraps dangerous HTML in code blocks', async () => {
+    it('displays dangerous HTML as text without creating executable nodes or code blocks', async () => {
       const content = `# Security Test
 
 This is safe text.
@@ -340,7 +340,7 @@ This is safe text.
 
 More safe text.`;
 
-      renderWithIntl(<MarkdownContent content={content} />);
+      const { container } = renderWithIntl(<MarkdownContent content={content} />);
 
       await waitFor(() => {
         expect(screen.getByText('Security Test')).toBeInTheDocument();
@@ -348,15 +348,9 @@ More safe text.`;
         expect(screen.getByText('More safe text.')).toBeInTheDocument();
       });
 
-      // The script tag should be in a code block, not executed
-      const scriptElements = document.querySelectorAll('script');
-      expect(scriptElements).toHaveLength(0); // No actual script tags should be created
-
-      // Should find the script content in a code block (text may be split across spans)
-      await waitFor(() => {
-        expect(screen.getByText(/alert/)).toBeInTheDocument();
-        expect(screen.getByText(/xss/)).toBeInTheDocument();
-      });
+      expect(container.querySelector('script')).toBeNull();
+      expect(container.querySelector('pre')).toBeNull();
+      expect(container.textContent).toContain("<script>alert('xss')</script>");
     });
 
     it('handles HTML comments securely', async () => {
@@ -373,7 +367,7 @@ Normal text continues.`;
         expect(screen.getByText('Normal text continues.')).toBeInTheDocument();
       });
 
-      // Comment should be in a code block
+      // Raw HTML remains visible text, including comments.
       await waitFor(() => {
         expect(screen.getByText(/This is a malicious comment/)).toBeInTheDocument();
       });
@@ -387,7 +381,7 @@ const html = "<div>This is safe in a code block</div>";
 console.log(html);
 \`\`\`
 
-<div>This should be wrapped</div>`;
+<div>This remains literal</div>`;
 
       renderWithIntl(<MarkdownContent content={content} />);
 
@@ -401,9 +395,9 @@ console.log(html);
         expect(screen.getAllByText(/html/)).toHaveLength(2); // Variable name and function parameter
       });
 
-      // The div outside the code block should be wrapped
+      // The div outside the code block remains literal text.
       await waitFor(() => {
-        expect(screen.getByText(/This should be wrapped/)).toBeInTheDocument();
+        expect(screen.getByText(/This remains literal/)).toBeInTheDocument();
       });
     });
 
@@ -415,7 +409,7 @@ console.log(html);
 3. Real markup: <input type="text" disabled>
 4. Placeholder path: <project-root>/src`;
 
-      renderWithIntl(<MarkdownContent content={content} />);
+      const { container } = renderWithIntl(<MarkdownContent content={content} />);
 
       await waitFor(() => {
         expect(screen.getByText('Mixed Content Test')).toBeInTheDocument();
@@ -425,7 +419,9 @@ console.log(html);
         expect(screen.getByText(/Placeholder path/)).toBeInTheDocument();
       });
 
-      // Only the input tag should be wrapped
+      expect(container.querySelectorAll('li')).toHaveLength(4);
+      expect(container.querySelector('pre')).toBeNull();
+      // Markup is displayed, without replacing the enclosing list structure.
       await waitFor(() => {
         expect(screen.getByText(/input/)).toBeInTheDocument();
         expect(screen.getByText(/type/)).toBeInTheDocument();
@@ -436,9 +432,126 @@ console.log(html);
       const inputElements = document.querySelectorAll('input');
       expect(inputElements).toHaveLength(0);
     });
+
+    it.each([false, true])(
+      'preserves HTML in table, list, quote and inline code (streaming=%s)',
+      (animateIncoming) => {
+        const content = [
+          '| Name | Value |',
+          '| --- | --- |',
+          '| A | <br> |',
+          '| B | <span>中文🙂</span> |',
+          '',
+          '- first <div>x</div>',
+          '- second',
+          '',
+          '> quote <b>literal</b>',
+          '',
+          '说明 ``<br>`` 完成。',
+        ].join('\n');
+        const { container } = renderWithIntl(
+          <MarkdownContent content={content} animateIncoming={animateIncoming} />
+        );
+        expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+        expect(container.querySelectorAll('li')).toHaveLength(2);
+        expect(container.querySelector('blockquote')).toHaveTextContent('quote <b>literal</b>');
+        expect(container.querySelector('tbody tr')).toHaveTextContent('A<br>');
+        expect(container.querySelector('li')).toHaveTextContent('first <div>x</div>');
+        expect(container.querySelector('code')?.textContent).toBe('<br>');
+        expect(container.querySelector('pre')).toBeNull();
+        expect(container.querySelectorAll('br, span[onclick], b')).toHaveLength(0);
+      }
+    );
+
+    it.each([false, true])(
+      'leaves repeated raw HTML visible without generating thousands of code controls (streaming=%s)',
+      (animateIncoming) => {
+        const content = '<br>\n'.repeat(3315);
+        const { container } = renderWithIntl(
+          <MarkdownContent content={content} animateIncoming={animateIncoming} />
+        );
+        expect(container.textContent?.trimEnd()).toBe(content.trimEnd());
+        expect(container.querySelectorAll('pre, code, br')).toHaveLength(0);
+        expect(screen.queryByRole('button', { name: 'Copy code' })).toBeNull();
+      }
+    );
+
+    it.each([false, true])(
+      'keeps raw HTML inert in all rendering paths (streaming=%s)',
+      (animateIncoming) => {
+        const content = [
+          '<script>window.__htmlExecuted = true</script>',
+          '<style>body { display:none }</style>',
+          '<img src="invalid" onerror="window.__htmlExecuted = true">',
+          '<iframe srcdoc="<script>parent.__htmlExecuted = true</script>"></iframe>',
+          '<object data="invalid"></object>',
+          '<svg onload="window.__htmlExecuted = true"></svg>',
+          '<input value="unsafe">',
+          '<a href="javascript:alert(1)">unsafe</a>',
+        ].join('\n\n');
+        const { container, rerender } = renderWithIntl(
+          <MarkdownContent content={content} animateIncoming={animateIncoming} />
+        );
+        const dangerous =
+          'script, style, img, iframe, object, svg, input, [onerror], [onload], [onclick]';
+        expect(container.querySelector(dangerous)).toBeNull();
+        expect(container.querySelector('a')).toBeNull();
+        for (const literal of content.split('\n\n'))
+          expect(container.textContent).toContain(literal);
+        rerender(
+          <MarkdownContent
+            content={content}
+            revealAt={content.length}
+            animateIncoming={animateIncoming}
+          />
+        );
+        expect(container.querySelector(dangerous)).toBeNull();
+        for (const literal of content.split('\n\n'))
+          expect(container.textContent).toContain(literal);
+      }
+    );
   });
 
   describe('Code Block Functionality', () => {
+    it.each([
+      ['tilde fence', '~~~html\n<div>中文🙂</div>\n<br>\n~~~', '<div>中文🙂</div>\n<br>'],
+      ['long backtick fence', '````html\n```inner\n<br>\n```\n````', '```inner\n<br>\n```'],
+      ['indented code', '    <br>\r\n    <span>x</span>', '<br>\r\n<span>x</span>'],
+    ])(
+      'preserves and copies %s payload through streaming and reveal',
+      async (_name, content, expected) => {
+        const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+        const { container, rerender } = renderWithIntl(
+          <MarkdownContent content={content} animateIncoming />
+        );
+        expect(container.querySelectorAll('pre')).toHaveLength(1);
+        expect(container.querySelector('code')?.textContent).toBe(expected);
+        fireEvent.click(screen.getByRole('button', { name: 'Copy code' }));
+        await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expected));
+        rerender(<MarkdownContent content={content} revealAt={content.length} />);
+        expect(container.querySelector('code')?.textContent).toBe(expected);
+        fireEvent.click(screen.getByRole('button', { name: 'Copy code' }));
+        await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expected));
+        writeText.mockRestore();
+      }
+    );
+
+    it.each(['```html\n```', '~~~python\n~~~', '```html', '~~~html'])(
+      'does not invent undefined for empty code: %s',
+      async (content) => {
+        const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+        const { container, rerender } = renderWithIntl(
+          <MarkdownContent content={content} animateIncoming />
+        );
+        expect(container.textContent).not.toContain('undefined');
+        fireEvent.click(screen.getByRole('button', { name: 'Copy code' }));
+        await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(''));
+        rerender(<MarkdownContent content={content} revealAt={content.length} />);
+        expect(container.textContent).not.toContain('undefined');
+        writeText.mockRestore();
+      }
+    );
+
     it('renders code blocks with syntax highlighting', async () => {
       const content = `\`\`\`javascript
 console.log('Hello, World!');

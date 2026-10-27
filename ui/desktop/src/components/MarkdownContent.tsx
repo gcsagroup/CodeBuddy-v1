@@ -41,7 +41,6 @@ const customOneDarkTheme = {
 };
 
 import { Check, Copy } from './icons';
-import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { isProtocolSafe, getProtocol, BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import {
@@ -285,7 +284,7 @@ const MarkdownCode = memo(
     ref: React.Ref<HTMLElement>
   ) {
     const match = /language-(\w+)/.exec(className || '');
-    const code = String(children);
+    const code = String(children ?? '');
     const isFencedCodeBlock = !inline && (Boolean(match) || code.endsWith('\n'));
 
     return isFencedCodeBlock ? (
@@ -364,8 +363,9 @@ const MarkdownContent = memo(function MarkdownContent({
 
   const completeSegments = useMemo(() => {
     try {
-      const processed = wrapHTMLInCodeBlock(content);
-      return splitCodeProTechnicalEvidence(processed);
+      // ReactMarkdown escapes raw HTML. Rewriting it before parsing corrupts
+      // Markdown structure, source offsets and the code copied by the user.
+      return splitCodeProTechnicalEvidence(content);
     } catch (error) {
       console.error('Error processing content:', error);
       return [{ kind: 'markdown' as const, content }];
@@ -375,12 +375,11 @@ const MarkdownContent = memo(function MarkdownContent({
     completeSegments.length === 1 &&
     completeSegments[0].kind === 'markdown' &&
     completeSegments[0].content === content;
-  // Preserve existing HTML-safety and technical-evidence transformations; their
-  // generated wrappers do not share offsets with the original source.
+  // Technical-evidence folds do not share offsets with the original source.
   const segments = useMemo(
     () =>
       revealAt !== undefined && !canRevealTree
-        ? splitCodeProTechnicalEvidence(wrapHTMLInCodeBlock(content.slice(0, revealAt)))
+        ? splitCodeProTechnicalEvidence(content.slice(0, revealAt))
         : completeSegments,
     [content, revealAt, canRevealTree, completeSegments]
   );

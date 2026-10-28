@@ -91,7 +91,12 @@ function useMediaJobsObserver(sessionId: string) {
     if (!sessionId) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
+    let staleTimer: ReturnType<typeof setTimeout>;
     const poll = async () => {
+      // Expire display evidence without aborting work or stacking another RPC.
+      staleTimer = setTimeout(() => {
+        if (!disposed) setDisconnected(true);
+      }, 10_000);
       try {
         const next = await readMediaJobs(sessionId);
         if (!disposed) {
@@ -102,6 +107,8 @@ function useMediaJobsObserver(sessionId: string) {
         }
       } catch {
         if (!disposed) setDisconnected(true);
+      } finally {
+        clearTimeout(staleTimer);
       }
       if (!disposed) timer = setTimeout(poll, 2000);
     };
@@ -109,6 +116,7 @@ function useMediaJobsObserver(sessionId: string) {
     return () => {
       disposed = true;
       clearTimeout(timer);
+      clearTimeout(staleTimer);
     };
   }, [sessionId]);
   return useMemo(
@@ -138,11 +146,22 @@ const statuses: Record<string, [string, string, string]> = {
   unavailable: ['Status unavailable', '暂未取得任务状态', '暫未取得任務狀態'],
   submission_unknown: ['Confirming submission', '正在确认提交结果', '正在確認提交結果'],
 };
-function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
+function MediaJobPreview({
+  job,
+  scope,
+  disconnected,
+}: {
+  job: MediaJob;
+  scope: PanelScope;
+  disconnected: boolean;
+}) {
   const [media, setMedia] = useState<PanelMedia>();
   const [error, setError] = useState(false);
   const [now, setNow] = useState(Date.now);
-  const active = !['completed', 'failed', 'cancelled'].includes(job.status);
+  const terminal = ['completed', 'failed', 'cancelled'].includes(job.status);
+  const statusName =
+    !terminal && (disconnected || job.observation_error) ? 'unavailable' : job.status;
+  const active = ['preparing', 'queued', 'running'].includes(statusName);
   useEffect(() => {
     if (!active) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -172,7 +191,7 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
     typeof live.step === 'number' && typeof live.total === 'number' && live.total > 0
       ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
       : undefined;
-  const status = statuses[job.status];
+  const status = statuses[statusName];
   const stage = stages[live.stage ?? live.node ?? ''];
   return (
     <article className="rounded-xl border border-border-primary p-4" data-job-id={job.job_id}>
@@ -286,14 +305,14 @@ export function WorkspaceGeneration({
       {disconnected && (
         <p role="status">
           {mediaText(
-            'Connection interrupted. Retrying…',
-            '连接中断，正在重连…',
-            '連線中斷，正在重連…'
+            'Task status is unconfirmed. Waiting for an update…',
+            '任务状态待确认，正在等待更新…',
+            '任務狀態待確認，正在等待更新…'
           )}
         </p>
       )}
       {jobs.map((job) => (
-        <MediaJobPreview key={job.job_id} scope={scope} job={job} />
+        <MediaJobPreview key={job.job_id} scope={scope} job={job} disconnected={disconnected} />
       ))}
     </section>
   );

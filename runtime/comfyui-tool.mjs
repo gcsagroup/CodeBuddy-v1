@@ -11,6 +11,7 @@ import { registerToolSessionApproval, toolSessionApprovalScope } from './tool-se
 export const IMAGE_TOOL_NAME = 'generate_image';
 export const DEFAULT_COMFYUI_URL = 'http://192.168.9.111:8188';
 const refreshes = new Map();
+const refreshStartedAt = new Map();
 const receiptWrites = new Map();
 const submissions = new Set();
 const observationErrors = new Map();
@@ -293,10 +294,11 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       Object.assign(job, await load(job.job_id));
       return result(job);
     }
+    refreshStartedAt.set(key, Date.now());
     const pending = refreshJob(job, signal, recheckTerminal).then(() => { observationErrors.delete(key); return result(job); }, error => {
       observationErrors.set(key, errorContexts.get(error) ?? errorContext('query', 'comfyui', error));
       throw error;
-    }).finally(() => refreshes.delete(key));
+    }).finally(() => { refreshes.delete(key); refreshStartedAt.delete(key); });
     refreshes.set(key, pending); return pending;
   }
   const tool = {
@@ -307,12 +309,15 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       return latest.map(job => {
         // Publish local receipts immediately, even while the service or download
         // is slow. Existing per-job refresh deduplication owns background work.
-        if (!['preparing', 'completed', 'failed', 'cancelled'].includes(job.status) && !submissions.has(streamKey(job)))
+        if (!['completed', 'failed', 'cancelled'].includes(job.status) && !submissions.has(streamKey(job)))
           // Downloads share refresh with Agent polling. Keep the normal request
           // timeout; a short UI timer must not repeatedly abort a slow transfer.
           void refresh(job).catch(() => {});
         const live = mediaObservation(streamKey(job));
-        return { ...result(job), observation_error: observationErrors.has(streamKey(job)), live: { ...live, stage: job.workflow?.stages?.[live.node] } };
+        const startedAt = refreshStartedAt.get(streamKey(job));
+        // This expires an observation, never the generation or its download.
+        const stale = startedAt !== undefined && Date.now() - startedAt >= 15_000;
+        return { ...result(job), observation_error: observationErrors.has(streamKey(job)) || stale, live: { ...live, stage: job.workflow?.stages?.[live.node] } };
       });
     },
     name: toolName,

@@ -38,6 +38,45 @@ async function fixture(t, saveNode = '461') {
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
 
+test('an orphaned preparing record is observed by its original ID without resubmission', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  const file = path.join(f.root, 'image-jobs', Buffer.from(f.options.sessionId).toString('hex'), `${id}.json`);
+  const record = JSON.parse(await readFile(file, 'utf8'));
+  await writeFile(file, JSON.stringify({ ...record, status: 'preparing' }));
+  f.state('failed');
+  const restored = comfyuiTool(f.options);
+  assert.equal((await restored.jobs())[0].status, 'preparing');
+  assert.equal((await restored.execute({ operation: 'status', job_id: id })).status, 'failed');
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
+test('a stalled observation expires its running display without cancelling or replacing the job', async t => {
+  const f = await fixture(t);
+  await f.tool.execute(generate);
+  f.state('failed');
+  let now = Date.now();
+  t.mock.method(Date, 'now', () => now);
+  let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  const tool = comfyuiTool({ ...f.options, fetchImpl: async (url, options) => {
+    if (url.includes('/history/')) await barrier;
+    return f.options.fetchImpl(url, options);
+  } });
+  try {
+    assert.equal((await tool.jobs())[0].observation_error, false);
+    now += 16_000;
+    const stale = (await tool.jobs())[0];
+    assert.equal(stale.observation_error, true);
+    assert.equal(stale.status, 'queued');
+    assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+    assert.equal(f.calls.some(call => call.url.includes('/cancel') || call.url.endsWith('/interrupt')), false);
+  } finally { release(); }
+  const final = await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(final.status, 'failed');
+  assert.equal((await tool.jobs())[0].observation_error, false);
+});
+
 test('pre-template queued receipts still download their original output without submitting a replacement', async t => {
   const f = await fixture(t, 'save');
   const records = path.join(f.root, 'image-jobs', Buffer.from(f.options.sessionId).toString('hex'));

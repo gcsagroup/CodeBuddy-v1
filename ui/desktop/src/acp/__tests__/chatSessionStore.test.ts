@@ -32,6 +32,62 @@ function message(id: string, text: string): Message {
   };
 }
 
+it('reconciles missing native tool terminals without changing receipts, direct calls or another turn', () => {
+  const id = 'native-tool-activity-reconciliation';
+  const call = (toolCallId: string, direct = false): SessionNotification => ({
+    sessionId: id,
+    update: {
+      sessionUpdate: 'tool_call',
+      toolCallId,
+      title: 'generate_image',
+      status: 'in_progress',
+      _meta: { goose: { ...(direct ? { directToolCall: true } : {}) } },
+    },
+  });
+  const activity = (ids: unknown, run = 'run', user = 'user') =>
+    acpChatSessionActions.applyAcpGooseSessionNotification({
+      sessionId: id,
+      update: {
+        sessionUpdate: 'status_message',
+        status: {
+          type: 'progress',
+          message: '',
+          data: {
+            schema_version: 1,
+            event: 'execution_activity',
+            run_id: run,
+            source_user_message_id: user,
+            phase: 'model',
+            child_count: 0,
+            active_tool_call_ids: ids,
+          },
+        },
+      },
+    });
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+    acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'run'));
+    for (const name of ['a', 'b']) acpChatSessionActions.applyAcpSessionNotification(call(name));
+    acpChatSessionActions.applyAcpSessionNotification(call('direct', true));
+    expect(activity(['a', 'b']).activeToolCallIds).toEqual(['a', 'b', 'direct']);
+    expect(activity([], 'old-run').activeToolCallIds).toEqual(['a', 'b', 'direct']);
+    expect(activity([], 'run', 'old-user').activeToolCallIds).toEqual(['a', 'b', 'direct']);
+    expect(activity(['b', 42]).activeToolCallIds).toEqual(['a', 'b', 'direct']);
+    const reconciled = activity(['b']);
+    expect(reconciled.activeToolCallIds).toEqual(['b', 'direct']);
+    expect(
+      reconciled.messages.flatMap((m) => m.content).filter((c) => c.type === 'toolResponse')
+    ).toEqual([]);
+    expect(activity([]).activeToolCallIds).toEqual(['direct']);
+    acpChatSessionActions.applyAcpSessionNotification(call('c'));
+    expect(activity(['c']).activeToolCallIds).toEqual(['direct', 'c']);
+    acpChatSessionActions.applyAcpSessionNotification(call('a'));
+    expect(acpChatSessionStore.getSnapshot(id)?.activeToolCallIds).toEqual(['direct', 'c']);
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
 it('keeps an explicitly older run out of the current activity set while retaining its history', () => {
   const id = 'foreign-run-tool-activity';
   try {

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createHarnessDriver, HARNESS_VERSION } from '../index.mjs';
+import { workStatusUpdates } from '../../work-status.mjs';
 
 let driver, server, root, provider;
 const requests = [];
@@ -133,6 +134,16 @@ test('official tool pipeline owns requested approval and its dispatch result', a
   assert.ok(events.some(event => event.type === 'tool_result' && !event.isError));
   assert.equal(events.filter(event => event.type === 'assistant_start').length, 2);
   assert.equal(events.filter(event => event.type === 'assistant_committed').length, 2);
+  const project = workStatusUpdates({ sessionId: allowed.sessionId });
+  let started = false;
+  for (const event of events) {
+    // Simulate a dropped result notification while exercising the real loop's
+    // batch boundary, rather than declaring completion from assistant text.
+    if (event.type === 'tool_result') continue;
+    const snapshot = project(event)[0]?.status.data.active_tool_call_ids;
+    if (event.type === 'tool_call') { started = true; assert.deepEqual(snapshot, [event.id]); }
+    if (event.type === 'assistant_start' && started) assert.deepEqual(snapshot, []);
+  }
 });
 
 test('streamed file input is visible before native dispatch without leaking draft contents or inventing its path', async () => {

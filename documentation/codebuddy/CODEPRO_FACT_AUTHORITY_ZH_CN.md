@@ -257,6 +257,10 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 ## 2026-10-14 已批准：新版 Harness 执行与目标权威
 
+2026-10-28 异步工具显示核对：现有临时 `execution_activity` 可携带 `active_tool_call_ids`，由适配器投影本轮原生工具调用/结果及下一模型流的批次边界。Harness 在进入下一模型流前等待当前工具批次结束；桌面只核对同一 run、同一用户输入的运行标记，保留并行及直接工具调用。缺失回执的结果仍为未知，不补造成功或失败，不修改持久会话。媒体观察超过时限或断联时仅将显示降为“状态待确认”，保留远端任务和查询；不据此取消、重复提交或改变已确认终态。
+
+繁體：工具活動核對僅清除失效顯示，缺失回執保持未知；媒體觀察失效不改變遠端任務。 English: ephemeral native activity reconciles display occupancy only; missing receipts remain unknown, and stale media observations do not cancel or resubmit remote work.
+
 2026-10-20 用户明确要求通过输入框 `/` 菜单提供长期目标、暂停/继续和计划入口，取代常驻目标表单：桌面通过结构化 `codebuddy/goal` prompt 元数据和原生目标读/暂停适配接入 GoalService。Harness 仍是目标日志、revision、轮次、激活及完成的唯一 owner；UI 只读取投影、提交用户操作并展示实际回执。创建/继续绑定普通 prompt 的批准和取消通道；暂停先提交原生 CAS，再取消当前执行。新任务批准选择先完成现有 ACP set_mode，再发送首条消息，不修改全局默认。计划使用锁定上游 `PlanModeController` 的日志与投影，`codebuddy/plan` 仅传递显式选择；不改变批准模式，不新增调度器。没有目标或计划元数据的旧会话保持原行为。三语说明见 `docs/long-term-goals.*.md`。
 
 繁體：斜線命令沿用原生目標與計畫狀態，長期目標 UI 沿用 Harness 唯一狀態與續輪權威，結構化控制綁定原有核准、取消及 revision 檢查。English: Slash commands consume native Harness goal and plan state; structured controls retain existing approval, cancellation, and revision checks without adding a second scheduler.

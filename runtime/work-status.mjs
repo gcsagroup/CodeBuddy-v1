@@ -32,10 +32,18 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
   const children = new Set();
   const observations = new Map();
   const retryMessages = new Map();
+  const activeTools = new Set();
   let previous;
   let lastToolInputAt = 0;
   return event => {
     if (signal?.aborted) return [];
+    if (event.sessionId === sessionId) {
+      if (event.type === 'tool_call' && !event.internalControl && typeof event.id === 'string') activeTools.add(event.id);
+      if (event.type === 'tool_result') activeTools.delete(event.id);
+      // The native loop awaits the whole tool batch before this next stream.
+      // Clear display occupancy only; missing receipts still have unknown results.
+      if (event.type === 'assistant_start') activeTools.clear();
+    }
     let phase, modelRequestPhase, toolInput, message = '', type = 'progress';
     if (event.type === 'model_diagnostic' && event.sessionId) {
       if (event.phase === 'start') observations.delete(event.sessionId);
@@ -107,7 +115,8 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     if (!phase) return [];
     // One worker's recovery cannot clear another worker's active backoff.
     if (type === 'progress' && retryMessages.size) message = [...retryMessages.values()].at(-1);
-    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}`;
+    const toolIds = [...activeTools];
+    const key = `${phase}:${children.size}:${modelRequestPhase ?? ''}:${message}:${JSON.stringify(toolInput)}:${JSON.stringify(toolIds)}`;
     const now = Date.now();
     // A real fragment can arrive without changing a complete field or size.
     // Preserve that reception fact, bounded to 1 Hz; never synthesize a timer.
@@ -117,6 +126,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     return [{ sessionUpdate: 'status_message', status: { type, message, data: {
       schema_version: 1, event: 'execution_activity', source_user_message_id: sourceMessageId,
       run_id: typeof runId === 'function' ? runId() : runId, phase, child_count: children.size,
+      active_tool_call_ids: toolIds,
       ...(phase === 'model' && modelRequestPhase ? { model_request_phase: modelRequestPhase } : {}),
       ...(toolInput ? { tool_input: toolInput } : {}),
     } } }];

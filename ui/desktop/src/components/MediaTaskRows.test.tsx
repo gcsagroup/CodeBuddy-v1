@@ -128,14 +128,14 @@ describe('media task presentation', () => {
     const original = JSON.stringify(trace);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
-    expect(screen.getByRole('status')).toHaveTextContent('Image generation Completed');
+    expect(screen.getByRole('status')).toHaveTextContent('Image 1 Completed');
     const task = screen.getByRole('button', {
-      name: 'Image generation Completed',
+      name: 'Image 1 Completed',
       expanded: false,
     });
-    expect(screen.queryByRole('img', { name: '1.png' })).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Image 1 / 1.png' })).toBeNull();
     fireEvent.click(task);
-    expect(screen.getByRole('img', { name: '1.png' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Image 1 / 1.png' })).toBeVisible();
     expect(view.container).not.toHaveTextContent('Related files');
     expect(view.container).not.toHaveTextContent('3,505,445');
     expect(view.container.querySelector('[data-tool-call-id]')).toBeNull();
@@ -145,9 +145,9 @@ describe('media task presentation', () => {
     );
     expect(ids).toHaveLength(21);
     expect(new Set(ids).size).toBe(21);
-    expect(screen.getAllByRole('img', { name: '1.png' })).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'Image 1 / 1.png' })).toHaveLength(1);
     fireEvent.click(task);
-    expect(screen.queryByRole('img', { name: '1.png' })).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Image 1 / 1.png' })).toBeNull();
     expect(JSON.stringify(trace)).toBe(original);
   });
 
@@ -174,11 +174,17 @@ describe('media task presentation', () => {
     expect(
       screen
         .getAllByRole('status')
-        .filter((node) => node.textContent?.includes('Image generation Completed'))
+        .filter((node) => /^Image \d+ Completed$/.test(node.textContent ?? ''))
     ).toHaveLength(7);
     expect(screen.queryByRole('img')).toBeNull();
-    const toggles = screen.getAllByRole('button', { name: 'Image generation Completed' });
+    const toggles = screen.getAllByRole('button', { name: /^Image \d+ Completed$/ });
+    expect(toggles.map((toggle) => toggle.textContent)).toEqual(
+      ids.map((_, index) => `Image ${index + 1} Completed`)
+    );
     toggles.forEach((toggle) => fireEvent.click(toggle));
+    expect(screen.getAllByRole('img').map((node) => node.getAttribute('alt'))).toEqual(
+      ids.map((_, index) => `Image ${index + 1} / 1.png`)
+    );
     expect(new Set(screen.getAllByRole('img').map((node) => node.getAttribute('src'))).size).toBe(
       7
     );
@@ -192,11 +198,11 @@ describe('media task presentation', () => {
       response('poll', jobA, 'failed', { error: 'KSampler: dimensions 4096 / 5120' }),
     ];
     const view = render(history(trace), { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('status')).toHaveTextContent('Image generation Unsuccessful');
+    expect(screen.getByRole('status')).toHaveTextContent('Image 1 Unsuccessful');
     expect(view.container).not.toHaveTextContent('Completed');
     expect(view.container).not.toHaveTextContent('KSampler');
     expect(screen.getByRole('status')).not.toHaveTextContent('·');
-    fireEvent.click(screen.getByRole('button', { name: 'Image generation Unsuccessful' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Unsuccessful' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
     expect(view.container).toHaveTextContent('KSampler');
   });
@@ -294,7 +300,7 @@ describe('media task presentation', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent('Generating');
     expect(view.container).not.toHaveTextContent('Cancelled');
-    fireEvent.click(screen.getByRole('button', { name: 'Image generation Generating' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Generating' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
     expect(view.container).toHaveTextContent('Cancellation unconfirmed');
   });
@@ -345,7 +351,7 @@ describe('media task presentation', () => {
       await Promise.resolve();
     });
     expect(screen.getByRole('status')).toHaveTextContent('Queued');
-    fireEvent.click(screen.getByRole('button', { name: 'Image generation Queued' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Queued' }));
     expect(view.container).toHaveTextContent('Last confirmed receipt');
     expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
   });
@@ -376,7 +382,7 @@ describe('media task presentation', () => {
     ];
     const view = render(history(trace, true), { wrapper: IntlTestWrapper });
     expect(await screen.findByTestId('tool-approval-actions')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Image generation Queued' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Queued' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
     for (const group of view.container.querySelectorAll('[data-process-group]')) {
       const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
@@ -422,8 +428,8 @@ describe('media task presentation', () => {
     );
     const original = JSON.stringify(trace);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
-    const failed = screen.getByRole('button', { name: 'Image generation Unsuccessful' });
-    expect(failed).not.toHaveTextContent('8');
+    const failed = screen.getByRole('button', { name: 'Image 1–8 Unsuccessful' });
+    expect(failed).not.toHaveTextContent('8 failed');
     expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(1);
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(0);
     expect(view.container).not.toHaveTextContent('KSampler');
@@ -434,7 +440,7 @@ describe('media task presentation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
     expect(screen.getByText('Reviewing dimensions.')).toBeVisible();
     fireEvent.click(
-      within(jobs[0] as HTMLElement).getByRole('button', { name: 'Image generation Unsuccessful' })
+      within(jobs[0] as HTMLElement).getByRole('button', { name: 'Image 1 Unsuccessful' })
     );
     fireEvent.click(
       within(jobs[0] as HTMLElement).getByRole('button', {
@@ -472,14 +478,93 @@ describe('media task presentation', () => {
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(0);
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(4);
-    expect(screen.getAllByRole('button', { name: 'Image generation Unsuccessful' })).toHaveLength(
-      3
-    );
-    expect(screen.getByRole('button', { name: 'Image generation Completed' })).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /^Image \d+ Unsuccessful$/ })).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'Image 3 Completed' })).toBeVisible();
     expect(screen.getByText('Trying the other workflow.')).toBeVisible();
     const group = view.container.querySelector('[data-process-group]')!;
     fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
     expect(group.querySelector('[data-tool-call-id="command"]')).not.toBeNull();
+  });
+
+  it('keeps submission numbers stable across pending receipts, polling, replay, visible windows and media kinds', () => {
+    const third = 'c3144477-d0b1-4177-905e-aaaec95c2f59';
+    const trace = [
+      request('first'),
+      response('first'),
+      request('pending'),
+      request('third'),
+      response('third', third, 'completed'),
+      request('video', 'generate', jobA, 'generate_video'),
+      response('video', jobA, 'completed', { kind: 'video' }),
+    ];
+    expect(collectMediaJobs(trace).get('third')?.sequence).toBe(3);
+    const poll = request('poll-third', 'status', third);
+    const later = [
+      ...trace,
+      response('pending', jobB),
+      poll,
+      response('poll-third', third, 'completed'),
+      trace[0],
+      trace[1],
+    ];
+    const jobs = collectMediaJobs(later, [poll]);
+    expect(jobs.get('pending')?.sequence).toBe(2);
+    expect(jobs.get('third')?.sequence).toBe(3);
+    expect(jobs.get('poll-third')?.sequence).toBe(3);
+    expect(jobs.get('poll-third')?.anchorId).toBe('poll-third');
+    expect(jobs.get('video')?.sequence).toBe(1);
+    const collision = collectMediaJobs([
+      request(jobB),
+      request('accepted'),
+      response('accepted', jobB),
+    ]);
+    expect(collision.get('accepted')?.sequence).toBe(2);
+    const view = render(rows(later), { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('button', { name: 'Image 3 Completed' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Video 1 Completed' })).toBeVisible();
+    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(4);
+  });
+
+  it('reuses the original number for an idempotent submission and uses the actual ID for query-only history', () => {
+    const retry = message('retry', 'assistant', [
+      {
+        type: 'toolRequest',
+        id: 'retry',
+        toolCall: {
+          name: 'generate_image',
+          arguments: { operation: 'generate', request_id: jobA },
+        },
+      },
+    ]);
+    const jobs = collectMediaJobs([
+      request('first'),
+      response('first'),
+      retry,
+      response('retry'),
+      request('second'),
+      response('second', jobB),
+    ]);
+    expect(jobs.get('retry')).toBe(jobs.get('first'));
+    expect(jobs.get('retry')?.sequence).toBe(1);
+    expect(jobs.get('second')?.sequence).toBe(3);
+    const early = [
+      request('unidentified'),
+      retry,
+      response('retry'),
+      request('independent'),
+      response('independent', jobB),
+    ];
+    const before = collectMediaJobs(early);
+    const after = collectMediaJobs([...early, response('unidentified'), response('retry')]);
+    expect(before.get('retry')?.sequence).toBe(2);
+    expect(after.get('retry')?.sequence).toBe(2);
+    expect(after.get('unidentified')?.sequence).toBe(2);
+    expect(before.get('independent')?.sequence).toBe(3);
+    expect(after.get('independent')?.sequence).toBe(3);
+    const history = [request('query-only', 'status'), response('query-only', jobA, 'completed')];
+    expect(collectMediaJobs(history).get('query-only')?.sequence).toBeUndefined();
+    render(rows(history), { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('button', { name: `Image ${jobA} Completed` })).toBeVisible();
   });
 
   it('preserves ordinary tool groups on both sides of a media call within the same source message', () => {

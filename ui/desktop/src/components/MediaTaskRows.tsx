@@ -34,9 +34,9 @@ const statusText = (status: string) => {
   }
 };
 const kindText = (kind: MediaJobPresentation['kind']) =>
-  kind === 'video'
-    ? text('Video generation', '视频生成', '影片生成')
-    : text('Image generation', '图片生成', '圖片生成');
+  kind === 'video' ? text('Video', '视频', '影片') : text('Image', '图片', '圖片');
+const taskName = (job: MediaJobPresentation) =>
+  `${kindText(job.kind)} ${job.sequence ?? job.jobId}`;
 
 export function MediaTaskRows({
   jobs,
@@ -56,6 +56,7 @@ export function MediaTaskRows({
   const snapshot = useMediaJobs(readOnly ? '' : sessionId);
   const entries = jobs.map((job) => ({ job, observation: mediaJobObservation(job, snapshot) }));
   const rows = entries.map(({ job, observation }) => {
+    const name = taskName(job);
     const last = job.latestReceipt;
     const calls = job.calls.filter((call) => !pendingIds?.has(call.request.id));
     const queries = calls.filter(
@@ -77,7 +78,7 @@ export function MediaTaskRows({
               data-media-status={observation.status}
               data-media-active={observation.active}
             >
-              {kindText(job.kind)} {statusText(observation.status)}
+              {name} {statusText(observation.status)}
             </span>
           }
           icon={
@@ -101,6 +102,7 @@ export function MediaTaskRows({
           <GeneratedMediaFiles
             sessionId={sessionId}
             paths={mediaOutputPaths(observation.receipt)}
+            taskLabel={name}
             inline
           />
           <div className="ml-6">
@@ -150,7 +152,16 @@ export function MediaTaskRows({
     entries.every(
       (entry) => entry.job.kind === entries[0].job.kind && entry.observation.status === 'failed'
     )
-  )
+  ) {
+    const first = entries[0].job;
+    const last = entries[entries.length - 1].job;
+    const firstSequence = first.sequence;
+    const consecutive =
+      firstSequence !== undefined &&
+      entries.every((entry, index) => entry.job.sequence === firstSequence + index);
+    const names = consecutive
+      ? `${kindText(first.kind)} ${first.sequence}–${last.sequence}`
+      : entries.map((entry) => taskName(entry.job)).join(text(', ', '、', '、'));
     return (
       <div data-media-failure-group="" className="my-1 w-full max-w-[52rem]">
         <ToolCallExpandable
@@ -160,7 +171,7 @@ export function MediaTaskRows({
           storageKey={'media-failures-' + sessionId + '-' + entries[0].job.key}
           label={
             <span role="status">
-              {kindText(entries[0].job.kind)} {statusText('failed')}
+              {names} {statusText('failed')}
             </span>
           }
           icon={
@@ -174,5 +185,6 @@ export function MediaTaskRows({
         </ToolCallExpandable>
       </div>
     );
+  }
   return <>{rows}</>;
 }

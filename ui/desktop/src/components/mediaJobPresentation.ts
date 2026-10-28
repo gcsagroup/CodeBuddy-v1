@@ -18,6 +18,7 @@ export interface MediaJobPresentation {
   key: string;
   jobId: string;
   kind: 'image' | 'video';
+  sequence?: number;
   anchorId: string;
   calls: MediaJobCall[];
   latestReturned?: MediaJobCall;
@@ -60,12 +61,17 @@ export function collectMediaJobs(
   visibleMessages: Message[] = messages
 ): MediaJobsByCall {
   const requests = new Map<string, ToolRequestMessageContent>();
-  const responses = new Map<string, { response: ToolResponseMessageContent; order: number }>();
+  const responses = new Map<
+    string,
+    { response: ToolResponseMessageContent; order: number; firstOrder: number }
+  >();
   let order = 0;
   for (const message of messages) {
     for (const request of getToolRequests(message)) requests.set(request.id, request);
-    for (const response of getToolResponses(message))
-      responses.set(response.id, { response, order: order++ });
+    for (const response of getToolResponses(message)) {
+      const firstOrder = responses.get(response.id)?.firstOrder ?? order;
+      responses.set(response.id, { response, order: order++, firstOrder });
+    }
   }
   const jobs = new Map<string, MediaJobPresentation>();
   for (const request of requests.values()) {
@@ -98,6 +104,8 @@ export function collectMediaJobs(
       });
   }
   const byCall = new Map<string, MediaJobPresentation>();
+  const sequenceOwners = new Map<string, number>();
+  const nextSequence = { image: 0, video: 0 };
   for (const request of requests.values()) {
     const call = presentedToolCall(request);
     const kind = call && mediaToolKind(call.name);
@@ -113,6 +121,12 @@ export function collectMediaJobs(
       call.arguments.operation === 'generate'
         ? (value?.job_id ?? call.arguments.request_id)
         : call.arguments.job_id;
+    let sequence: number | undefined;
+    if (call.arguments.operation === 'generate') {
+      // Reserve every call slot before its job is known. Later identity
+      // reconciliation must not close gaps and renumber independent images.
+      sequence = ++nextSequence[kind];
+    }
     if (
       !identity(jobId) ||
       (value?.job_id !== undefined && value.job_id !== jobId) ||
@@ -121,6 +135,16 @@ export function collectMediaJobs(
       continue;
     const job = jobs.get(JSON.stringify([kind, jobId]));
     if (!job) continue;
+    if (
+      sequence !== undefined &&
+      returned &&
+      value?.job_id === jobId &&
+      statuses.has(String(value.status)) &&
+      returned.firstOrder < (sequenceOwners.get(job.key) ?? Infinity)
+    ) {
+      job.sequence = sequence;
+      sequenceOwners.set(job.key, returned.firstOrder);
+    }
     const entry = { request, response: returned?.response, responseOrder: returned?.order ?? -1 };
     job.calls.push(entry);
     byCall.set(request.id, job);

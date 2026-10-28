@@ -42,25 +42,36 @@ export function GeneratedMediaFiles({
   sessionId,
   paths,
   inline = false,
+  taskLabel,
 }: {
   sessionId: string;
   paths: string[];
   inline?: boolean;
+  taskLabel?: string;
 }) {
   return inline ? (
-    <MediaTaskOutputs sessionId={sessionId} paths={paths} />
+    <MediaTaskOutputs sessionId={sessionId} paths={paths} taskLabel={taskLabel} />
   ) : paths.length ? (
     <WorkspaceFileReferences sessionId={sessionId} content="" paths={paths} />
   ) : null;
 }
 
 const MediaTaskOutputs = memo(
-  function MediaTaskOutputs({ sessionId, paths }: { sessionId: string; paths: string[] }) {
+  function MediaTaskOutputs({
+    sessionId,
+    paths,
+    taskLabel,
+  }: {
+    sessionId: string;
+    paths: string[];
+    taskLabel?: string;
+  }) {
     const files = useWorkspaceFileReferences({ sessionId, content: '', paths });
     return files.length ? (
       <div className="ml-6 my-2 grid max-w-xl gap-3">
         {files.map((file) => {
-          const title = file.path.replace(/\\/g, '/').split('/').pop()!;
+          const filename = file.path.replace(/\\/g, '/').split('/').pop()!;
+          const title = taskLabel ? `${taskLabel} / ${filename}` : filename;
           return (
             <div
               key={file.path}
@@ -89,6 +100,7 @@ const MediaTaskOutputs = memo(
   },
   (previous, next) =>
     previous.sessionId === next.sessionId &&
+    previous.taskLabel === next.taskLabel &&
     previous.paths.length === next.paths.length &&
     previous.paths.every((path, index) => path === next.paths[index])
 );

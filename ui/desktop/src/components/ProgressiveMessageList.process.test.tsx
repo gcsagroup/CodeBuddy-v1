@@ -268,10 +268,8 @@ describe('processes between public replies', () => {
       expect(group.querySelector('[data-tool-call-id="first"]')).not.toBeNull();
       expect(group.querySelectorAll('[data-tool-call-id="first"]')).toHaveLength(1);
       expect(screen.queryByText('Detailed model reasoning.')).not.toBeInTheDocument();
-      expect(group.querySelector('.codepro-thinking-record')).toBeNull();
-      fireEvent.click(
-        within(group).getByRole('button', { name: 'Reasoning details', pressed: false })
-      );
+      expect(group.querySelectorAll('.codepro-thinking-record')).toHaveLength(1);
+      expect(within(group).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
       expect(screen.queryByText('Detailed model reasoning.')).not.toBeInTheDocument();
       fireEvent.click(within(group).getByRole('button', { name: 'Thinking' }));
       const detail = screen.getByText('Detailed model reasoning.');
@@ -414,9 +412,7 @@ describe('processes between public replies', () => {
     expect(groups).toHaveLength(1);
     fireEvent.click(within(groups[0]).getByRole('button', { expanded: false }));
     expect(screen.queryByText('Check the remaining source.')).not.toBeInTheDocument();
-    fireEvent.click(
-      within(groups[0]).getByRole('button', { name: 'Reasoning details', pressed: false })
-    );
+    expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[0]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[0]).getByText('Check the remaining source.')).toBeVisible();
   });
@@ -452,9 +448,7 @@ describe('processes between public replies', () => {
       )
     ).toEqual(['first', 'second']);
     expect(within(groups[1]).queryByText('Check another source.')).not.toBeInTheDocument();
-    fireEvent.click(
-      within(groups[1]).getByRole('button', { name: 'Reasoning details', pressed: false })
-    );
+    expect(within(groups[1]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[1]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[1]).getByText('Check another source.')).toBeVisible();
     expect(view.container.querySelectorAll('.goose-message .codepro-message-actions')).toHaveLength(
@@ -492,9 +486,7 @@ describe('processes between public replies', () => {
     const toggle = within(groups[0]).getByRole('button', { expanded: false });
     fireEvent.click(toggle);
     expect(screen.queryByText('Compare both files.')).not.toBeInTheDocument();
-    fireEvent.click(
-      within(groups[0]).getByRole('button', { name: 'Reasoning details', pressed: false })
-    );
+    expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[0]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[0]).getByText('Compare both files.')).toBeVisible();
     expect(groups[0].querySelectorAll('[data-tool-call-id]')).toHaveLength(2);

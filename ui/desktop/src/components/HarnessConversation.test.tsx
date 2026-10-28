@@ -241,10 +241,8 @@ describe('Harness conversation presentation', () => {
     expect(screen.getByText('Search results are ready.')).toBeVisible();
     expect(view.container.querySelector('.codepro-thinking-record')).toBeNull();
     fireEvent.click(history);
-    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
     expect(screen.queryByText('Review the sources before answering.')).not.toBeInTheDocument();
-    const thinking = screen.getByRole('button', { name: 'Reasoning details', pressed: false });
-    fireEvent.click(thinking);
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Review the sources before answering.')).toBeVisible();
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
@@ -429,8 +427,7 @@ describe('Harness conversation presentation', () => {
     fireEvent.click(history);
     expect(screen.getByText('Stage 117')).toBeVisible();
     expect(screen.queryByText('Inspect stage 117')).not.toBeInTheDocument();
-    fireEvent.click(view.container.querySelector('[data-process-group] button')!);
-    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details', pressed: false }));
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
     expect(screen.getByText('Inspect stage 117')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Load earlier messages/ })).not.toBeInTheDocument();

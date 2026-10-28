@@ -410,7 +410,8 @@ describe('work / answer presentation boundary', () => {
       expect(
         screen.queryByText('Consider the greeting without any tools.')
       ).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: 'Reasoning details', pressed: false }));
+      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
       expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
       view.rerender(
         show(
@@ -754,9 +755,7 @@ describe('CodePro ordinary tool message presentation', () => {
       act(() => vi.advanceTimersByTime(1000));
       expect(screen.queryByRole('button', { name: 'Thinking (updating)' })).toBeNull();
       expect(screen.queryByText('Inspecting the requested project.')).not.toBeInTheDocument();
-      expect(
-        screen.getByText('Generating app.js, 2 lines received — not saved yet')
-      ).toBeVisible();
+      expect(screen.getByText('Generating app.js, 2 lines received — not saved yet')).toBeVisible();
       expect(screen.queryByText('Wrote file app.js')).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
@@ -1675,9 +1674,7 @@ describe('ProgressiveMessageList CodePro activity orchestration', () => {
 
     expect(screen.getByRole('button', { name: 'Operations recorded 4 actions' })).toBeVisible();
     expect(screen.queryByText('1 failed action')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Activity: Run pnpm test Completed' })
-    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Activity: Run pnpm test Completed' })).toBeVisible();
     expect(
       screen.getByRole('button', {
         name: 'Activity: Change D:\\project\\src\\broken.ts Failed',

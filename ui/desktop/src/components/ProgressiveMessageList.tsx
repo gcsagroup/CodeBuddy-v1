@@ -27,8 +27,12 @@ import {
 } from 'react';
 import { ChevronRight, Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
-import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
-import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
+import GooseMessage, {
+  codeProTerminalPresentation,
+  hasMissingFinalReply,
+  isRepeatedToolThinking,
+} from './GooseMessage';
+import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
 import { computerActionTargets } from './computerActionTargets';
@@ -877,29 +881,7 @@ function ProgressiveMessageListContent({
       const job = mediaJobs.get(request.id);
       if (!job || approvals.has(request.id)) return undefined;
       if (job.anchorId !== request.id) return null;
-      return (
-        <MediaTaskRows
-          jobs={[job]}
-          sessionId={chat.sessionId}
-          readOnly={readOnly}
-          pendingIds={approvals}
-          renderCall={(call) => (
-            <ToolCallWithResponse
-              compact
-              isCancelledMessage={false}
-              isPendingApproval={false}
-              sessionId={chat.sessionId}
-              showGeneratedMedia={false}
-              toolRequest={call.request}
-              toolResponse={call.response}
-              notifications={toolCallNotifications?.get(call.request.id)}
-              isStreamingMessage={
-                !!isStreamingMessage && !!activeToolCallIds?.includes(call.request.id)
-              }
-            />
-          )}
-        />
-      );
+      return <MediaTaskRows jobs={[job]} sessionId={chat.sessionId} readOnly={readOnly} />;
     };
     const requestIds = new Set(
       sourceMessages.flatMap(getToolRequests).map((request) => request.id)
@@ -1217,6 +1199,19 @@ function ProgressiveMessageListContent({
           const onlyMedia =
             groupRequests.length > 0 && groupRequests.every((request) => mediaJobs.has(request.id));
           const mediaOnlyView = onlyMedia && groupMedia.length > 0;
+          const thinkingCount = suppressProviderThinking
+            ? 0
+            : group.reduce((count, item) => {
+                if (isRepeatedToolThinking(parts.get(item)?.message ?? item, sourceMessages))
+                  return count;
+                return (
+                  count +
+                  item.content.filter(
+                    (content, offset) =>
+                      content.type === 'thinking' && item.content[offset - 1]?.type !== 'thinking'
+                  ).length
+                );
+              }, 0);
           // A hidden poll can leave an empty transport shell, but cannot hide
           // original thinking, ordinary tools, lifecycle events or approvals.
           if (
@@ -1258,6 +1253,24 @@ function ProgressiveMessageListContent({
           // A late reasoning block changes content, never the group's identity.
           const groupIdentity = message.id ?? requests[0]?.id ?? index;
           const identity = `${groupIdentity}:${part?.start ?? 0}`;
+          const hasVisibleTool = groupRequests.some((request) => {
+            const job = mediaJobs.get(request.id);
+            return !job || job.anchorId === request.id || approvals.has(request.id);
+          });
+          // A single thought already owns a disclosure. Keep that original
+          // renderer in place without adding two more thought-only headers.
+          if (thinkingCount === 1 && !hasVisibleTool && !group.some(lifecycleNotification)) {
+            return (
+              <div
+                key={`tools-${identity}`}
+                className="my-0.5 w-full max-w-[52rem]"
+                data-testid="message-container"
+                data-process-group=""
+              >
+                {group.map((item) => renderToolMessage(item, true, pendingIds))}
+              </div>
+            );
+          }
           const attentionStates = group
             .flatMap(getToolRequests)
             .flatMap((request): ('failed' | 'unknown')[] => {
@@ -1398,16 +1411,11 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  <ProcessDetails
-                    hasThinking={
-                      !suppressProviderThinking &&
-                      group.some((item) =>
-                        item.content.some((content) => content.type === 'thinking')
-                      )
-                    }
-                  >
+                  <ProcessDetails hasThinking={thinkingCount > 1}>
                     {(showThinking) =>
-                      group.map((item) => renderToolMessage(item, showThinking, pendingIds))
+                      group.map((item) =>
+                        renderToolMessage(item, showThinking || thinkingCount === 1, pendingIds)
+                      )
                     }
                   </ProcessDetails>
                 </div>

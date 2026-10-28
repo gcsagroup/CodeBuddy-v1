@@ -84,7 +84,6 @@ const rows = (messages: Message[], readOnly = false) => (
     jobs={[...new Set(collectMediaJobs(messages).values())]}
     sessionId={sessionId}
     readOnly={readOnly}
-    renderCall={(call) => <span data-raw-call={call.request.id}>{call.request.id}</span>}
   />
 );
 const owner = (children: React.ReactNode) => (
@@ -122,7 +121,7 @@ const named = (
 ) => response(id, jobId, status, { display_name: name, ...extra });
 
 describe('media task presentation', () => {
-  it('shows one business name for twenty polls, collapses the image independently and retains all 21 calls', () => {
+  it('shows one business name and a collapsible image for twenty polls without execution records', () => {
     const path = 'generated-images/' + jobA + '/1.png';
     const trace = [request('submit'), named('submit')];
     for (let i = 1; i <= 20; i++)
@@ -149,15 +148,10 @@ describe('media task presentation', () => {
     expect(view.container).not.toHaveTextContent('Related files');
     expect(view.container).not.toHaveTextContent('3,505,445');
     expect(view.container.querySelector('[data-tool-call-id]')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (20 status checks)' }));
-    const calls = [...view.container.querySelectorAll('[data-tool-call-id]')];
-    expect(calls).toHaveLength(21);
-    expect(new Set(calls.map((node) => node.getAttribute('data-tool-call-id'))).size).toBe(21);
+    expect(screen.queryByRole('button', { name: /Execution records/ })).toBeNull();
+    expect(collectMediaJobs(trace).get('submit')?.calls).toHaveLength(21);
     fireEvent.click(task);
     expect(screen.queryByRole('img')).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Execution records (20 status checks)' })
-    ).toHaveAttribute('aria-expanded', 'true');
     expect(JSON.stringify(trace)).toBe(original);
   });
 
@@ -202,6 +196,10 @@ describe('media task presentation', () => {
             (statuses[i] === 'completed' ? 'Completed' : 'Unsuccessful')
         );
         if (statuses[i] === 'failed') {
+          expect(within(row).queryByText(/normalized_shape/)).toBeNull();
+          fireEvent.click(
+            within(row).getByRole('button', { name: 'Generate ' + names[i] + ' Unsuccessful' })
+          );
           expect(within(row).getByText('The external generation service failed')).toBeVisible();
           expect(within(row).getByText(/normalized_shape/)).toBeVisible();
         }
@@ -240,10 +238,11 @@ describe('media task presentation', () => {
     ];
     const view = render(rows(trace), { wrapper: IntlTestWrapper });
     expect(screen.getByRole('status')).toHaveTextContent('Generate image Unsuccessful');
+    expect(screen.queryByText('Original service error')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate image Unsuccessful' }));
     expect(screen.getByText('Original service error')).toBeVisible();
     expect(view.container).not.toHaveTextContent(jobA);
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
-    expect(view.container).toHaveTextContent(jobA);
+    expect(view.container).not.toHaveTextContent('Execution records');
     view.rerender(
       rows([request('submit'), response('submit', jobA, 'failed', { display_name: 'a\u202Eb' })])
     );
@@ -257,10 +256,9 @@ describe('media task presentation', () => {
     const jobs = collectMediaJobs(trace, [poll]);
     expect(jobs.get('poll')).toBe(jobs.get('submit'));
     expect(jobs.get('poll')?.anchorId).toBe('poll');
-    render(
-      <MediaTaskRows jobs={[jobs.get('poll')!]} sessionId={sessionId} renderCall={() => null} />,
-      { wrapper: IntlTestWrapper }
-    );
+    render(<MediaTaskRows jobs={[jobs.get('poll')!]} sessionId={sessionId} />, {
+      wrapper: IntlTestWrapper,
+    });
     expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Completed');
   });
 
@@ -291,6 +289,8 @@ describe('media task presentation', () => {
         await Promise.resolve();
       });
       expect(screen.getByRole('status')).toHaveTextContent('Status unconfirmed');
+      expect(screen.queryByText('Original ' + stage + ' error')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /Status unconfirmed/ }));
       expect(screen.getByText('Original ' + stage + ' error')).toBeVisible();
       expect(view.container).not.toHaveTextContent('Unsuccessful');
       expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
@@ -313,6 +313,8 @@ describe('media task presentation', () => {
     const view = render(rows(trace), { wrapper: IntlTestWrapper });
     const jobs = [...view.container.querySelectorAll('[data-media-job-id]')];
     expect(jobs).toHaveLength(2);
+    for (const row of jobs)
+      fireEvent.click(within(row as HTMLElement).getByRole('button', { name: /Unsuccessful/ }));
     expect(within(jobs[0] as HTMLElement).getByText('KSampler dimensions 0')).toBeVisible();
     expect(within(jobs[1] as HTMLElement).getByText('KSampler dimensions 1')).toBeVisible();
     expect(view.container).not.toHaveTextContent('same error');
@@ -391,8 +393,8 @@ describe('media task presentation', () => {
       ])
     );
     expect(screen.getByRole('status')).toHaveTextContent('Generating');
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
-    expect(view.container).toHaveTextContent('Cancellation unconfirmed');
+    expect(view.container).not.toHaveTextContent('Cancelled');
+    expect(view.container).not.toHaveTextContent('Execution records');
   });
 
   it('requires an exact native contract, keeps media kinds separate and leaves external/inspect/unknown calls on the ordinary path', () => {
@@ -475,7 +477,6 @@ describe('media task presentation', () => {
     const view = render(history(trace, true), { wrapper: IntlTestWrapper });
     expect(await screen.findByTestId('tool-approval-actions')).toBeVisible();
     openProcesses(view.container);
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
     expect(view.container.querySelectorAll('[data-tool-call-id="poll"]')).toHaveLength(1);
     expect(
       view.container.querySelector('[data-process-approval] [data-tool-call-id="poll"]')
@@ -584,8 +585,9 @@ describe('media task presentation', () => {
     );
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Unsuccessful');
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (25 status checks)' }));
-    expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(26);
+    expect(screen.queryByRole('button', { name: /Execution records/ })).toBeNull();
+    expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(0);
+    expect(collectMediaJobs(trace).get('submit')?.calls).toHaveLength(26);
   });
 
   it('keeps reasoning at a later query position without another generated-completed headline or an empty polling shell', () => {
@@ -607,9 +609,93 @@ describe('media task presentation', () => {
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2);
     const later = view.container.querySelectorAll('[data-process-group]')[1] as HTMLElement;
-    expect(later.querySelector('.codepro-group-heading')).toHaveTextContent('Thinking');
-    fireEvent.click(within(later).getByRole('button', { name: 'Reasoning details' }));
+    expect(later.querySelector('.codepro-group-heading')).toBeNull();
+    expect(within(later).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(within(later).getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
     expect(later.querySelector('.codepro-thinking-record')).not.toBeNull();
     expect(later.querySelector('[data-media-job-id]')).toBeNull();
+  });
+
+  it.each([1, 2, 3])(
+    'uses the original single-thought entry and preserves the existing %s-thought disclosure hierarchy',
+    (count) => {
+      const trace = Array.from({ length: count }, (_, index) =>
+        message('thought-' + index, 'assistant', [
+          { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
+        ])
+      );
+      const view = render(history(trace), { wrapper: IntlTestWrapper });
+      if (count === 1) {
+        expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+        expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
+        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+        expect(screen.queryByText('Reasoning part 0')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+        expect(screen.getByText('Reasoning part 0')).toBeVisible();
+        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+        expect(screen.queryByText('Reasoning part 0')).toBeNull();
+      } else {
+        expect(view.container.querySelector('.codepro-group-heading')).not.toBeNull();
+        openProcesses(view.container);
+        expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
+        fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+        expect(view.container.querySelectorAll('.codepro-thinking-record')).toHaveLength(count);
+        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(count + 1);
+      }
+    }
+  );
+
+  it('treats adjacent streaming thinking fragments as one original disclosure', () => {
+    const view = render(
+      history([
+        message('fragments', 'assistant', [
+          { type: 'thinking', thinking: 'First fragment.', signature: '' },
+          { type: 'thinking', thinking: 'Second fragment.', signature: '' },
+        ]),
+      ]),
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+    expect(view.container).toHaveTextContent('First fragment.');
+    expect(view.container).toHaveTextContent('Second fragment.');
+  });
+
+  it('keeps one thought at its original position among media and ordinary tools without a middle thinking-details layer', () => {
+    const ordinary = {
+      type: 'toolRequest' as const,
+      id: 'command',
+      toolCall: { name: 'pwsh', arguments: { command: 'Write-Output done' } },
+    };
+    const trace = [
+      message('mixed', 'assistant', [
+        { type: 'thinking', thinking: 'Before the image.', signature: '' },
+        request('submit').content[0],
+        ordinary,
+      ]),
+      named('submit', jobA, 'failed', '产品海报', { error: 'KSampler: actual failure' }),
+      response('command'),
+    ];
+    const original = JSON.stringify(trace);
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    openProcesses(view.container);
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+    const ordered = [
+      ...view.container.querySelectorAll(
+        '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
+      ),
+    ];
+    expect(ordered).toHaveLength(3);
+    expect(ordered[0]).toHaveClass('codepro-thinking-record');
+    expect(ordered[1]).toHaveAttribute('data-media-job-id', jobA);
+    expect(ordered[2]).toHaveAttribute('data-tool-call-id', 'command');
+    expect(screen.queryByText('KSampler: actual failure')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Generate 产品海报 Unsuccessful' }));
+    expect(screen.getByText('KSampler: actual failure')).toBeVisible();
+    expect(view.container).not.toHaveTextContent('Execution records');
+    expect(JSON.stringify(trace)).toBe(original);
   });
 });

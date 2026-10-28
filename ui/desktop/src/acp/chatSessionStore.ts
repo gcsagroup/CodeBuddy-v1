@@ -717,8 +717,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     // Replayed/history calls and late updates cannot acquire a new running badge.
     if (
       !entry.sessionReplayActive &&
-      (entry.activePromptAttemptId !== null || hasDirectToolOrigin(update._meta)) &&
+      (currentPromptActivity || hasDirectToolOrigin(update._meta)) &&
       update.sessionUpdate === 'tool_call' &&
+      update.status !== 'completed' &&
+      update.status !== 'failed' &&
       !entry.messages.some((message) =>
         message.content.some(
           (content) =>
@@ -732,7 +734,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     const changes = entry.adapter.apply(notification);
     applyChatStateChanges(entry, changes);
     if (
-      update.sessionUpdate === 'tool_call_update' &&
+      (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') &&
       (update.status === 'completed' || update.status === 'failed')
     ) {
       entry.liveToolCallIds.delete(update.toolCallId);

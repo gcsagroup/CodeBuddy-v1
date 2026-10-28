@@ -32,6 +32,253 @@ function message(id: string, text: string): Message {
   };
 }
 
+it('keeps an explicitly older run out of the current activity set while retaining its history', () => {
+  const id = 'foreign-run-tool-activity';
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'new-attempt', 'new-user');
+    acpChatSessionActions.applyAcpSessionNotification({
+      sessionId: id,
+      update: {
+        sessionUpdate: 'session_info_update',
+        _meta: { goose: { activeRunId: 'new-run' } },
+      },
+    });
+    for (const run of ['old', 'new'])
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: `${run}-call`,
+          title: 'read_image',
+          status: 'in_progress',
+          _meta: { goose: { activeRunId: `${run}-run`, messageId: `${run}-message` } },
+        },
+      });
+    const snapshot = acpChatSessionStore.getSnapshot(id)!;
+    expect(snapshot.activeToolCallIds).toEqual(['new-call']);
+    expect(
+      snapshot.messages
+        .flatMap((item) => item.content)
+        .filter((item) => item.type === 'toolRequest')
+        .map((item) => item.id)
+    ).toEqual(['old-call', 'new-call']);
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
+it.each([
+  { status: 'completed' as const, preview: false },
+  { status: 'failed' as const, preview: false },
+  { status: 'completed' as const, preview: true },
+  { status: 'failed' as const, preview: true },
+])(
+  'consumes a full $status snapshot after preview=$preview without keeping it active or borrowing the assistant identity',
+  ({ status, preview }) => {
+    const id = `first-terminal-tool-${status}-${preview}`;
+    try {
+      acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+      if (preview)
+        acpChatSessionActions.applyAcpSessionNotification({
+          sessionId: id,
+          update: {
+            sessionUpdate: 'tool_call',
+            toolCallId: 'finished',
+            title: 'read',
+            status: 'in_progress',
+            rawInput: { __inputPreview: true },
+          },
+        });
+      const terminal: SessionNotification = {
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: 'finished',
+          title: 'read',
+          status,
+          _meta: { goose: { messageId: 'native-assistant' } },
+          content: [{ type: 'content', content: { type: 'text', text: 'Tool receipt' } }],
+        },
+      };
+      const first = acpChatSessionActions.applyAcpSessionNotification(terminal);
+      expect(first.activeToolCallIds).toEqual([]);
+      const responses = first.messages
+        .flatMap((item) => item.content)
+        .filter((item) => item.type === 'toolResponse');
+      expect(responses).toHaveLength(1);
+      expect(responses[0].toolResult.status).toBe(status === 'failed' ? 'error' : 'success');
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          messageId: 'native-assistant',
+          content: { type: 'text', text: 'Next explanation' },
+        },
+      });
+      acpChatSessionActions.applyAcpSessionNotification(terminal);
+      const next = acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: 'new-call',
+          title: 'write',
+          status: 'in_progress',
+        },
+      });
+      expect(next.activeToolCallIds).toEqual(['new-call']);
+      expect(
+        next.messages.flatMap((item) => item.content).filter((item) => item.type === 'toolResponse')
+      ).toHaveLength(1);
+      const messageIds = next.messages.flatMap((item) => (item.id ? [item.id] : []));
+      expect(new Set(messageIds).size).toBe(messageIds.length);
+      expect(first.activeToolCallIds).toEqual([]);
+    } finally {
+      acpChatSessionActions.deleteSnapshot(id);
+    }
+  }
+);
+
+it.each([
+  { status: 'completed' as const, assistantId: undefined },
+  { status: 'failed' as const, assistantId: undefined },
+  { status: 'completed' as const, assistantId: 'native-assistant' },
+  { status: 'failed' as const, assistantId: 'native-assistant' },
+])(
+  'completes an initially payload-free $status result with assistantId=$assistantId without duplicating messages',
+  ({ status, assistantId }) => {
+    const id = `terminal-enrichment-${status}-${assistantId ?? 'unbound'}`;
+    try {
+      acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+      const terminal: SessionNotification = {
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: 'finished',
+          title: 'read',
+          status,
+          ...(assistantId ? { _meta: { goose: { messageId: assistantId } } } : {}),
+        },
+      };
+      const initial = acpChatSessionActions.applyAcpSessionNotification(terminal);
+      const initialMessages = JSON.stringify(initial.messages);
+      expect(initial.activeToolCallIds).toEqual([]);
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          messageId: 'native-assistant',
+          content: { type: 'text', text: 'Explanation after the tool snapshot' },
+        },
+      });
+      const result: SessionNotification = {
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'finished',
+          status,
+          content: [{ type: 'content', content: { type: 'text', text: 'Full native result' } }],
+          _meta: { goose: { messageId: 'native-result' } },
+        },
+      };
+      acpChatSessionActions.applyAcpSessionNotification(result);
+      const enriched: SessionNotification = {
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId: 'finished',
+          status,
+          rawOutput: { bytesRead: 42 },
+          _meta: { goose: { messageId: 'native-result' } },
+        },
+      };
+      acpChatSessionActions.applyAcpSessionNotification(enriched);
+      acpChatSessionActions.applyAcpSessionNotification(enriched);
+      acpChatSessionActions.applyAcpSessionNotification(terminal);
+      const next = acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId: 'next',
+          title: 'write',
+          status: 'in_progress',
+        },
+      });
+      const responses = next.messages
+        .flatMap((item) => item.content)
+        .filter((item) => item.type === 'toolResponse');
+      expect(responses).toHaveLength(1);
+      expect(responses[0].toolResult).toEqual(
+        status === 'failed'
+          ? { status: 'error', error: 'Full native result' }
+          : {
+              status: 'success',
+              value: {
+                content: [{ type: 'text', text: 'Full native result' }],
+                isError: false,
+                structuredContent: { bytesRead: 42 },
+              },
+            }
+      );
+      expect(responses[0].metadata?.rawOutput).toEqual({ bytesRead: 42 });
+      expect(next.messages.find((item) => item.id === 'native-result')?.role).toBe('user');
+      expect(next.messages.find((item) => item.id === 'native-result')?.content).toEqual([
+        responses[0],
+      ]);
+      expect(next.messages.find((item) => item.id === 'native-assistant')?.content).toContainEqual({
+        type: 'text',
+        text: 'Explanation after the tool snapshot',
+      });
+      const messageIds = next.messages.flatMap((item) => (item.id ? [item.id] : []));
+      expect(new Set(messageIds).size).toBe(messageIds.length);
+      expect(next.activeToolCallIds).toEqual(['next']);
+      expect(JSON.stringify(initial.messages)).toBe(initialMessages);
+    } finally {
+      acpChatSessionActions.deleteSnapshot(id);
+    }
+  }
+);
+
+it('joins initially unbound tool results to their shared native result message without duplicating responses', () => {
+  const id = 'terminal-enrichment-shared-result';
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+    for (const toolCallId of ['first', 'second']) {
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call',
+          toolCallId,
+          title: 'read',
+          status: 'completed',
+          _meta: { goose: { messageId: 'native-assistant' } },
+        },
+      });
+    }
+    for (const toolCallId of ['first', 'second', 'first', 'second']) {
+      acpChatSessionActions.applyAcpSessionNotification({
+        sessionId: id,
+        update: {
+          sessionUpdate: 'tool_call_update',
+          toolCallId,
+          status: 'completed',
+          content: [{ type: 'content', content: { type: 'text', text: toolCallId } }],
+          _meta: { goose: { messageId: 'shared-native-result' } },
+        },
+      });
+    }
+    const snapshot = acpChatSessionStore.getSnapshot(id)!;
+    expect(snapshot.messages.filter((item) => item.role === 'user')).toHaveLength(1);
+    expect(
+      snapshot.messages
+        .find((item) => item.id === 'shared-native-result')
+        ?.content.map((item) => (item.type === 'toolResponse' ? item.id : undefined))
+    ).toEqual(['first', 'second']);
+    expect(snapshot.activeToolCallIds).toEqual([]);
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
+
 it('keeps late usage idle and replaces receipt-only messages at the history replay boundary', () => {
   const id = 'usage-replay-boundary';
   const receipt = {
@@ -1134,12 +1381,19 @@ describe('acpChatSessionStore', () => {
     );
     const boundary: SessionNotification = {
       sessionId: id,
-      update: { sessionUpdate: 'session_info_update', _meta: { goose: { transcriptReplayStarted: true } } },
+      update: {
+        sessionUpdate: 'session_info_update',
+        _meta: { goose: { transcriptReplayStarted: true } },
+      },
     };
     acpChatSessionActions.applyAcpSessionNotification(boundary);
     acpChatSessionActions.applyAcpSessionNotification({
       sessionId: id,
-      update: { sessionUpdate: 'user_message_chunk', content: { type: 'text', text: 'Run report' }, messageId: 'user' },
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        content: { type: 'text', text: 'Run report' },
+        messageId: 'user',
+      },
     });
     acpChatSessionActions.applyAcpSessionNotification(
       agentMessageChunkNotification(id, 'answer', 'Hello')
@@ -1151,7 +1405,9 @@ describe('acpChatSessionStore', () => {
     expect(restored.messages.map((item) => item.id)).toEqual(['user', 'answer']);
     expect(restored.messages[1].content).toContainEqual({ type: 'text', text: 'Hello world' });
     // Late markers outside an explicit history load never erase live messages.
-    expect(acpChatSessionActions.applyAcpSessionNotification(boundary).messages).toEqual(restored.messages);
+    expect(acpChatSessionActions.applyAcpSessionNotification(boundary).messages).toEqual(
+      restored.messages
+    );
   });
 
   it('does not reposition a live terminal after a failed history load', () => {

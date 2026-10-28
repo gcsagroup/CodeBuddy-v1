@@ -3,7 +3,7 @@ import type {
   ToolCall,
   ToolCallUpdate,
 } from '@agentclientprotocol/sdk';
-import type { Message } from '../../types/message';
+import type { Message, ToolResponseMessageContent } from '../../types/message';
 import type { ContentBlock as GooseContentBlock } from '../../types/message';
 import { findMessageForChunk } from './messages';
 import { toolAuditReceiptFromMeta } from './toolAudit';
@@ -29,7 +29,9 @@ export function applyToolCall(state: AdapterState, update: ToolCall): AcpChatSta
       )
     )
   ) {
-    mergeToolCallSnapshot(state, update);
+    mergeToolCallSnapshot(state, update, true);
+    if (update.status === 'completed' || update.status === 'failed')
+      return applyInitialToolResult(state, update);
     return messagesChange(state);
   }
   const gooseMeta = getGooseMessageMeta(update);
@@ -65,7 +67,22 @@ export function applyToolCall(state: AdapterState, update: ToolCall): AcpChatSta
     ...(update._meta ? { _meta: update._meta } : {}),
   });
 
-  return messagesChange(state);
+  return update.status === 'completed' || update.status === 'failed'
+    ? applyInitialToolResult(state, update)
+    : messagesChange(state);
+}
+
+function applyInitialToolResult(state: AdapterState, update: ToolCall): AcpChatStateChange[] {
+  if (findToolResponse(state, update.toolCallId)) return messagesChange(state);
+  // This snapshot's messageId identifies the assistant call, not a native
+  // result message. Keep the result unbound until it has its own identity.
+  const meta = { ...update._meta };
+  if (isRecord(meta.goose)) {
+    const goose = { ...meta.goose };
+    delete goose.messageId;
+    meta.goose = goose;
+  }
+  return applyToolCallUpdate(state, { ...update, _meta: meta });
 }
 
 export function applyToolCallUpdate(
@@ -81,29 +98,66 @@ export function applyToolCallUpdate(
     ];
   }
 
-  if (hasToolResponse(state, update.toolCallId)) {
-    return messagesChange(state);
-  }
-
   const gooseMeta = getGooseMessageMeta(update);
-  const message = getOrCreateToolResponseMessageForUpdate(state, gooseMeta);
+  const previous = findToolResponse(state, update.toolCallId);
+  const message = previous?.message ?? getOrCreateToolResponseMessageForUpdate(state, gooseMeta);
   const identity = toolIdentity(update);
-  const metadata = toolResponseMetadata(update, identity);
+  const metadata = { ...previous?.response.metadata, ...toolResponseMetadata(update, identity) };
+  // ACP updates contain only changed fields. Preserve previous result fields
+  // when a terminal update supplies its native identity or other metadata.
+  const resultUpdate: ToolCallUpdate = {
+    ...update,
+    ...(update.content == null && Array.isArray(metadata.content)
+      ? { content: metadata.content as ToolCallUpdate['content'] }
+      : {}),
+    ...(update.rawOutput === undefined && 'rawOutput' in metadata
+      ? { rawOutput: metadata.rawOutput }
+      : {}),
+  };
+  const resultStatus = update.status === 'failed' ? 'error' : 'success';
+  const keepResult =
+    previous?.response.toolResult.status === resultStatus &&
+    resultUpdate.content == null &&
+    resultUpdate.rawOutput === undefined &&
+    !mcpAppMetadata(update);
 
-  message.content.push({
+  const response: ToolResponseMessageContent = {
     type: 'toolResponse',
     id: update.toolCallId,
     toolResult:
-      update.status === 'failed'
-        ? { status: 'error', error: toolError(update) }
-        : { status: 'success', value: toolResultValue(update, mcpAppMetadata(update)) },
-    ...(metadata ? { metadata } : {}),
-  });
+      keepResult && previous
+        ? previous.response.toolResult
+        : update.status === 'failed'
+          ? { status: 'error', error: toolError(resultUpdate) }
+          : {
+              status: 'success',
+              value: {
+                ...(previous?.response.toolResult.status === 'success' &&
+                isRecord(previous.response.toolResult.value)
+                  ? previous.response.toolResult.value
+                  : {}),
+                ...toolResultValue(resultUpdate, mcpAppMetadata(update)),
+              },
+            },
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+  };
+  if (previous) {
+    message.content = message.content.map((content) =>
+      content === previous.response ? response : content
+    );
+    bindToolResponseIdentity(state, message, response, gooseMeta);
+  } else {
+    message.content.push(response);
+  }
 
   return messagesChange(state);
 }
 
-function mergeToolCallSnapshot(state: AdapterState, update: ToolCall | ToolCallUpdate): boolean {
+function mergeToolCallSnapshot(
+  state: AdapterState,
+  update: ToolCall | ToolCallUpdate,
+  bindAssistantIdentity = false
+): boolean {
   const owner = state.messages.find((message) =>
     message.content.some(
       (content) => content.type === 'toolRequest' && content.id === update.toolCallId
@@ -125,7 +179,7 @@ function mergeToolCallSnapshot(state: AdapterState, update: ToolCall | ToolCallU
   const metadata = baseToolMetadata(update, identity);
   let changed = false;
   const messageMeta = getGooseMessageMeta(update);
-  if (owner && !owner.id && messageMeta.messageId) {
+  if (bindAssistantIdentity && owner && !owner.id && messageMeta.messageId) {
     owner.id = messageMeta.messageId;
     owner.created = messageMeta.created ?? owner.created;
     changed = true;
@@ -198,10 +252,41 @@ function getOrCreateToolResponseMessageForUpdate(
   return message;
 }
 
-function hasToolResponse(state: AdapterState, toolCallId: string): boolean {
-  return state.messages.some((message) =>
-    message.content.some((content) => content.type === 'toolResponse' && content.id === toolCallId)
+function findToolResponse(
+  state: AdapterState,
+  toolCallId: string
+): { message: Message; response: ToolResponseMessageContent } | undefined {
+  for (const message of state.messages) {
+    const response = message.content.find(
+      (content): content is ToolResponseMessageContent =>
+        content.type === 'toolResponse' && content.id === toolCallId
+    );
+    if (response) return { message, response };
+  }
+  return undefined;
+}
+
+function bindToolResponseIdentity(
+  state: AdapterState,
+  message: Message,
+  response: ToolResponseMessageContent,
+  gooseMeta: GooseMessageMeta
+): void {
+  if (message.id || !gooseMeta.messageId) return;
+  const target = state.messages.find(
+    (item) => item.role === 'user' && item.id === gooseMeta.messageId
   );
+  if (!target && message.content.length === 1) {
+    message.id = gooseMeta.messageId;
+    message.created = gooseMeta.created ?? message.created;
+    return;
+  }
+  const result = target ?? getOrCreateToolResponseMessageForUpdate(state, gooseMeta);
+  message.content = message.content.filter((content) => content !== response);
+  result.content.push(response);
+  if (message.content.length === 0) {
+    state.messages = state.messages.filter((item) => item !== message);
+  }
 }
 
 function toolRequestMetadata(

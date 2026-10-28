@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, realpath } from 'node
 import os from 'node:os';
 import path from 'node:path';
 import { comfyuiTool, comfyWorkflow, comfyuiUrl } from '../comfyui-tool.mjs';
+import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { validatePreference } from '../settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 
@@ -89,6 +90,158 @@ test('real PNG result survives tool recreation, routes by prompt ID, and repeate
   await assert.rejects(tool.execute({ ...generate, prompt: 'Different request' }), /different image request/);
   await assert.rejects(comfyuiTool({ ...f.options, sessionId: 'another' }).execute({ operation: 'status', job_id: id }), /ENOENT/);
 });
+
+test('business names are display-only, survive status/cancel and recreation, and idempotent retries retain the original name', async t => {
+  const f = await fixture(t);
+  const submitted = await f.tool.execute({ ...generate, display_name: '  品牌欢迎插画  ' });
+  assert.equal(submitted.display_name, '品牌欢迎插画');
+  assert.equal((await f.tool.execute({ ...generate, display_name: 'Do not rename' })).display_name, submitted.display_name);
+  assert.equal((await f.tool.execute(generate)).display_name, submitted.display_name);
+  const records = path.join(f.root, 'image-jobs', Buffer.from(f.options.sessionId).toString('hex'));
+  const saved = JSON.parse(await readFile(path.join(records, `${id}.json`), 'utf8'));
+  assert.equal(saved.display_name, submitted.display_name);
+  assert.deepEqual(saved.input, generate);
+  assert.ok(!JSON.stringify(JSON.parse(f.calls.find(call => call.url.endsWith('/prompt')).body)).includes(submitted.display_name));
+  const restored = comfyuiTool(f.options);
+  f.state('running');
+  assert.equal((await restored.execute({ operation: 'status', job_id: id })).display_name, submitted.display_name);
+  const cancelled = await restored.execute({ operation: 'cancel', job_id: id, display_name: 'Do not rename during cancel' });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.display_name, submitted.display_name);
+  assert.equal(cancelled.failure_info, undefined);
+  assert.equal((await restored.jobs())[0].display_name, submitted.display_name);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
+test('video business names use the same optional metadata contract without changing video inputs', async t => {
+  const f = await fixture(t), tool = comfyuiVideoTool(f.options);
+  const input = { ...generate, mode: 'text_to_video' };
+  assert.equal(tool.inputSchema.properties.display_name.type, undefined);
+  assert.equal((await tool.execute({ ...input, display_name: '  门店促销短片  ' })).display_name, '门店促销短片');
+  assert.equal((await tool.execute({ ...input, display_name: 'A different label' })).display_name, '门店促销短片');
+  const cancelled = await tool.execute({ operation: 'cancel', job_id: id });
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.failure_info, undefined);
+  assert.equal((await tool.jobs())[0].display_name, '门店促销短片');
+  const saved = JSON.parse(await readFile(path.join(f.root, 'video-jobs', Buffer.from(f.options.sessionId).toString('hex'), `${id}.json`), 'utf8'));
+  assert.deepEqual(saved.input, input);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+});
+
+test('invalid optional names degrade without blocking execution or retroactively naming legacy records', async t => {
+  for (const value of [42, { name: 'wrong type' }, '', 'x'.repeat(81), 'two\nlines', '\u202Ehidden']) {
+    await t.test(JSON.stringify(value), async child => {
+      const f = await fixture(child);
+      const submitted = await f.tool.execute({ ...generate, display_name: value });
+      assert.equal(submitted.status, 'queued');
+      assert.equal(submitted.display_name, undefined);
+      assert.equal((await f.tool.execute({ ...generate, display_name: 'Later name' })).display_name, undefined);
+      assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+    });
+  }
+  await t.test('Unicode length and schema allow host degradation', async child => {
+    const f = await fixture(child);
+    const name = '🐼'.repeat(80);
+    assert.equal((await f.tool.execute({ ...generate, display_name: name })).display_name, name);
+    assert.equal(f.tool.inputSchema.properties.display_name.type, undefined);
+  });
+});
+
+test('remote execution preserves structured failure facts without deriving a code from message text', async t => {
+  for (const code of ['dimension_mismatch', undefined]) {
+    await t.test(code ?? 'uncoded', async child => {
+      const f = await fixture(child); await f.tool.execute(generate);
+      const details = { node_type: 'KSampler', exception_type: 'RuntimeError', exception_message: 'GPU OOM or dimensions: unclassified original text', ...(code ? { error_code: code } : {}) };
+      const tool = comfyuiTool({ ...f.options, fetchImpl: (url, options) => url.includes('/history/')
+        ? Promise.resolve(Response.json({ [id]: { status: { status_str: 'error', messages: [['execution_error', details]] } } }))
+        : f.options.fetchImpl(url, options) });
+      const failed = await tool.execute({ operation: 'status', job_id: id });
+      assert.equal(failed.status, 'failed');
+      assert.deepEqual(failed.failure_info, { stage: 'remote_execution', source: 'comfyui', node_type: 'KSampler', exception_type: 'RuntimeError', message: details.exception_message, ...(code ? { error_code: code } : {}) });
+      assert.equal(failed.error, `KSampler: ${details.exception_message}`);
+      assert.deepEqual((await comfyuiTool(f.options).jobs())[0].failure_info, failed.failure_info);
+    });
+  }
+});
+
+test('structured failure identities stay bounded without converting malformed fields into shared error codes', async t => {
+  const f = await fixture(t); await f.tool.execute(generate);
+  const details = { node_type: 'K'.repeat(161), exception_type: { invalid: true }, error_code: 'wrong\ncode', exception_message: 'original\nerror '.repeat(300) };
+  const tool = comfyuiTool({ ...f.options, fetchImpl: (url, options) => url.includes('/history/')
+    ? Promise.resolve(Response.json({ [id]: { status: { status_str: 'error', messages: [['execution_error', details]] } } }))
+    : f.options.fetchImpl(url, options) });
+  const failed = await tool.execute({ operation: 'status', job_id: id });
+  assert.equal(failed.status, 'failed');
+  assert.deepEqual(failed.failure_info, { stage: 'remote_execution', source: 'comfyui', message: details.exception_message.slice(0, 2500) });
+  assert.equal(failed.error, `${details.node_type}: ${details.exception_message.trim()}`.slice(0, 2500));
+});
+
+test('submission rejection and ambiguous transport keep their existing outcomes and structured domains', async t => {
+  await t.test('HTTP rejection', async child => {
+    const f = await fixture(child);
+    const tool = comfyuiTool({ ...f.options, fetchImpl: (url, options) => url.endsWith('/prompt')
+      ? Promise.resolve(Response.json({ error: { message: 'Workflow rejected' }, error_code: 'invalid_workflow' }, { status: 400 }))
+      : f.options.fetchImpl(url, options) });
+    const failed = await tool.execute(generate);
+    assert.equal(failed.status, 'failed');
+    assert.equal(failed.failure_info.stage, 'submission');
+    assert.equal(failed.failure_info.source, 'comfyui');
+    assert.equal(failed.failure_info.http_status, 400);
+    assert.equal(failed.failure_info.error_code, 'invalid_workflow');
+    assert.match(failed.error, /Workflow rejected/);
+  });
+  await t.test('ambiguous submission', async child => {
+    const f = await fixture(child);
+    const tool = comfyuiTool({ ...f.options, fetchImpl: (url, options) => {
+      if (url.endsWith('/prompt')) throw new Error('Response connection lost');
+      return f.options.fetchImpl(url, options);
+    } });
+    const uncertain = await tool.execute(generate);
+    assert.equal(uncertain.status, 'submission_unknown');
+    assert.equal(uncertain.failure_info, undefined);
+    assert.deepEqual(uncertain.observation_error_info, { stage: 'submission', source: 'comfyui', message: 'Response connection lost' });
+    assert.equal(uncertain.error, 'Response connection lost');
+    assert.equal((await tool.execute({ operation: 'status', job_id: id })).status, 'queued');
+    assert.equal((await tool.jobs())[0].observation_error, false);
+    await tool.execute({ operation: 'status', job_id: id });
+  });
+});
+
+test('query, retrieval, validation and publication errors remain recoverable observations, not generation failure', async t => {
+  for (const stage of ['query', 'output_retrieval', 'output_validation', 'output_publication']) {
+    await t.test(stage, async child => {
+      const f = await fixture(child); await f.tool.execute(generate); f.state('completed');
+      let fail = true;
+      const tool = comfyuiTool({ ...f.options,
+        statfsImpl: async () => ({ bavail: fail && stage === 'output_publication' ? 0 : 2 * 1024 ** 3, bsize: 1 }),
+        fetchImpl: (url, options) => {
+          if (fail && ((stage === 'query' && url.includes('/history/')) || (stage === 'output_retrieval' && url.includes('/view?')))) throw new Error('Temporary observation trouble');
+          if (fail && stage === 'output_validation' && url.includes('/view?')) return Promise.resolve(new Response('not PNG'));
+          return f.options.fetchImpl(url, options);
+        },
+      });
+      await assert.rejects(tool.execute({ operation: 'status', job_id: id }));
+      const snapshot = (await tool.jobs())[0];
+      assert.equal(snapshot.observation_error, true);
+      assert.equal(snapshot.observation_error_info.stage, stage);
+      assert.equal(snapshot.observation_error_info.source, ['query', 'output_retrieval'].includes(stage) ? 'comfyui' : 'host');
+      assert.equal(typeof snapshot.observation_error_info.message, 'string');
+      assert.equal(snapshot.status, 'queued');
+      assert.equal(snapshot.failure_info, undefined);
+      const persisted = JSON.parse(await readFile(path.join(f.root, 'image-jobs', Buffer.from(f.options.sessionId).toString('hex'), `${id}.json`), 'utf8'));
+      assert.equal(persisted.status, 'queued');
+      assert.equal(persisted.observation_error_info, undefined);
+      await assert.rejects(tool.execute({ operation: 'status', job_id: id }));
+      fail = false;
+      const completed = await tool.execute({ operation: 'status', job_id: id });
+      assert.equal(completed.status, 'completed');
+      assert.equal(completed.failure_info, undefined);
+      assert.equal(completed.observation_error_info, undefined);
+      assert.equal((await tool.jobs())[0].observation_error, false);
+      assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
+    });
+  }
+});
 test('reference editing uploads actual workspace bytes and builds transparent pose request without pet-only constraints', async t => {
   const f = await fixture(t); await writeFile(path.join(f.cwd, 'reference.png'), f.png);
   await f.tool.execute({ ...generate, reference_images: ['reference.png'], transparent_background: true, width: 1536 });
@@ -161,7 +314,7 @@ test('official Harness discovers and calls the image tool without adding it to t
     const { sessionId } = await driver.createSession({ cwd: f.cwd, provider: { id: 'fixture', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'fixture' }, model: 'fixture', options: { tools: [f.tool], toolFilter: { allow: [] } } });
     const found = await driver.callTool(sessionId, 'search_mcp_tools', { names: [f.tool.name] }, { onPermission: () => true });
     assert.equal(found.isError, false);
-    const result = await driver.callTool(sessionId, f.tool.name, generate, { onPermission: () => true });
+    const result = await driver.callTool(sessionId, f.tool.name, { ...generate, display_name: 42 }, { onPermission: () => true });
     assert.equal(result.isError, false, JSON.stringify(result)); assert.match(JSON.stringify(result), /queued/);
   } finally { await driver.close(); }
 });

@@ -7,7 +7,7 @@ import {
 } from '../types/message';
 import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
 import { presentedToolCall } from './codepro/CodeProToolContent';
-import type { MediaJob } from '../workspace-panel/WorkspaceGeneration';
+import type { MediaJob, MediaFailureInfo } from '../workspace-panel/WorkspaceGeneration';
 
 export interface MediaJobCall {
   request: ToolRequestMessageContent;
@@ -18,7 +18,7 @@ export interface MediaJobPresentation {
   key: string;
   jobId: string;
   kind: 'image' | 'video';
-  sequence?: number;
+  displayName?: string;
   anchorId: string;
   calls: MediaJobCall[];
   latestReturned?: MediaJobCall;
@@ -32,6 +32,30 @@ export interface MediaJobObservation {
   active: boolean;
   receipt?: Record<string, unknown>;
   source: 'snapshot' | 'receipt' | 'unavailable';
+  issue?: MediaFailureInfo;
+}
+export function mediaDisplayName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return;
+  const name = value.trim();
+  if (!name || Array.from(name).length > 80 || /[\p{Cc}\p{Cf}]/u.test(name)) return;
+  return name;
+}
+export function mediaFailureInfo(value: unknown): MediaFailureInfo | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+  const info = value as MediaFailureInfo;
+  if (
+    !['comfyui', 'host'].includes(info.source) ||
+    ![
+      'remote_execution',
+      'submission',
+      'query',
+      'output_retrieval',
+      'output_validation',
+      'output_publication',
+    ].includes(info.stage)
+  )
+    return;
+  return info;
 }
 const statuses = new Set([
   'preparing',
@@ -61,16 +85,12 @@ export function collectMediaJobs(
   visibleMessages: Message[] = messages
 ): MediaJobsByCall {
   const requests = new Map<string, ToolRequestMessageContent>();
-  const responses = new Map<
-    string,
-    { response: ToolResponseMessageContent; order: number; firstOrder: number }
-  >();
+  const responses = new Map<string, { response: ToolResponseMessageContent; order: number }>();
   let order = 0;
   for (const message of messages) {
     for (const request of getToolRequests(message)) requests.set(request.id, request);
     for (const response of getToolResponses(message)) {
-      const firstOrder = responses.get(response.id)?.firstOrder ?? order;
-      responses.set(response.id, { response, order: order++, firstOrder });
+      responses.set(response.id, { response, order: order++ });
     }
   }
   const jobs = new Map<string, MediaJobPresentation>();
@@ -104,8 +124,6 @@ export function collectMediaJobs(
       });
   }
   const byCall = new Map<string, MediaJobPresentation>();
-  const sequenceOwners = new Map<string, number>();
-  const nextSequence = { image: 0, video: 0 };
   for (const request of requests.values()) {
     const call = presentedToolCall(request);
     const kind = call && mediaToolKind(call.name);
@@ -121,12 +139,6 @@ export function collectMediaJobs(
       call.arguments.operation === 'generate'
         ? (value?.job_id ?? call.arguments.request_id)
         : call.arguments.job_id;
-    let sequence: number | undefined;
-    if (call.arguments.operation === 'generate') {
-      // Reserve every call slot before its job is known. Later identity
-      // reconciliation must not close gaps and renumber independent images.
-      sequence = ++nextSequence[kind];
-    }
     if (
       !identity(jobId) ||
       (value?.job_id !== undefined && value.job_id !== jobId) ||
@@ -135,16 +147,8 @@ export function collectMediaJobs(
       continue;
     const job = jobs.get(JSON.stringify([kind, jobId]));
     if (!job) continue;
-    if (
-      sequence !== undefined &&
-      returned &&
-      value?.job_id === jobId &&
-      statuses.has(String(value.status)) &&
-      returned.firstOrder < (sequenceOwners.get(job.key) ?? Infinity)
-    ) {
-      job.sequence = sequence;
-      sequenceOwners.set(job.key, returned.firstOrder);
-    }
+    if (value?.job_id === jobId && statuses.has(String(value.status)))
+      job.displayName ??= mediaDisplayName(value.display_name);
     const entry = { request, response: returned?.response, responseOrder: returned?.order ?? -1 };
     job.calls.push(entry);
     byCall.set(request.id, job);
@@ -186,16 +190,17 @@ export function mediaJobObservation(
   job: MediaJobPresentation,
   snapshot: { jobs: MediaJob[]; disconnected: boolean }
 ): MediaJobObservation {
+  const current = snapshot.jobs.find(
+    (value) => value.job_id === job.jobId && value.kind === job.kind
+  );
   const unknown: MediaJobObservation = {
     status: 'unavailable',
     active: false,
     source: 'unavailable',
+    issue: mediaFailureInfo(current?.observation_error_info),
   };
   if (job.historyUncertain) return unknown;
   const history = job.latestReceipt?.value;
-  const current = snapshot.jobs.find(
-    (value) => value.job_id === job.jobId && value.kind === job.kind
-  );
   if (
     current &&
     ((current.status === 'cancelled' && history?.cancellation_confirmed === false) ||

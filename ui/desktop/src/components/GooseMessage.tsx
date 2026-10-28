@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
@@ -19,6 +19,7 @@ import {
   type Message,
   type MessageUsage,
   type ToolResponseMessageContent,
+  type ToolRequestMessageContent,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
 import ElicitationRequest from './ElicitationRequest';
@@ -187,6 +188,7 @@ interface GooseMessageProps {
   groupedProcess?: boolean;
   showGroupedThinking?: boolean;
   hiddenToolRequestIds?: ReadonlySet<string>;
+  renderToolRequest?: (request: ToolRequestMessageContent) => ReactNode | undefined;
   computerTargets?: ReadonlyMap<string, string>;
   showMessageFooter?: boolean;
   usageOverride?: MessageUsage;
@@ -310,6 +312,7 @@ export default function GooseMessage({
   groupedProcess = false,
   showGroupedThinking = false,
   hiddenToolRequestIds,
+  renderToolRequest,
   computerTargets,
   showMessageFooter = true,
   usageOverride,
@@ -673,6 +676,16 @@ export default function GooseMessage({
             if (hiddenToolRequestIds?.has(toolRequest.id)) return null;
             const hasResponse = toolResponsesMap.has(toolRequest.id);
             const isPending = pendingConfirmationIds.has(toolRequest.id);
+            if (!isPending) {
+              const rendered = renderToolRequest?.(toolRequest);
+              if (rendered === null) return null;
+              if (rendered !== undefined)
+                return (
+                  <div key={key} className="goose-message-tool mt-1">
+                    {rendered}
+                  </div>
+                );
+            }
             const confirmationContent = findConfirmationForToolAcrossMessages(toolRequest.id);
             const isApprovalClicked = confirmationContent && !isPending && hasResponse;
             return (

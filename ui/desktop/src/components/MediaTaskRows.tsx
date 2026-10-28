@@ -6,8 +6,11 @@ import { ToolCallExpandable } from './ToolCallExpandable';
 import { ToolActivityIcon } from './ToolActivityIcon';
 import { presentedToolCall } from './codepro/CodeProToolContent';
 import {
+  mediaDisplayName,
+  mediaFailureInfo,
   mediaJobObservation,
   type MediaJobCall,
+  type MediaJobObservation,
   type MediaJobPresentation,
 } from './mediaJobPresentation';
 import { GeneratedMediaFiles, mediaOutputPaths } from './GeneratedMedia';
@@ -33,158 +36,219 @@ const statusText = (status: string) => {
       return text('Status unconfirmed', '状态待确认', '狀態待確認');
   }
 };
-const kindText = (kind: MediaJobPresentation['kind']) =>
-  kind === 'video' ? text('Video', '视频', '影片') : text('Image', '图片', '圖片');
-const taskName = (job: MediaJobPresentation) =>
-  `${kindText(job.kind)} ${job.sequence ?? job.jobId}`;
-
+function taskName(job: MediaJobPresentation, observation: MediaJobObservation) {
+  return (
+    mediaDisplayName(observation.receipt?.display_name) ??
+    job.displayName ??
+    mediaDisplayName(job.latestReceipt?.value.display_name) ??
+    (job.kind === 'video' ? text('video', '视频', '影片') : text('image', '图片', '圖片'))
+  );
+}
+function taskTitle(job: MediaJobPresentation, observation: MediaJobObservation) {
+  const name = taskName(job, observation);
+  return (
+    text(`Generate ${name}`, `生成${name}`, `生成${name}`) + ' ' + statusText(observation.status)
+  );
+}
+export function mediaProcessSummary(jobs: MediaJobPresentation[]) {
+  if (!jobs.length) return '';
+  if (jobs.every((job) => job.kind === 'image'))
+    return text('Image generation results', '图片生成结果', '圖片生成結果');
+  if (jobs.every((job) => job.kind === 'video'))
+    return text('Video generation results', '视频生成结果', '影片生成結果');
+  return text('Generation results', '生成结果', '生成結果');
+}
+function failureSummary(observation: MediaJobObservation) {
+  const info = observation.issue ?? mediaFailureInfo(observation.receipt?.failure_info);
+  switch (info?.stage) {
+    case 'query':
+      return text(
+        'Unable to check the generation status; result unconfirmed',
+        '暂时无法查询生成状态，结果待确认',
+        '暫時無法查詢生成狀態，結果待確認'
+      );
+    case 'output_retrieval':
+      return text(
+        'Unable to retrieve the generated result',
+        '生成结果尚未获取成功',
+        '生成結果尚未取得成功'
+      );
+    case 'output_validation':
+      return text(
+        'The returned file did not pass validation',
+        '生成结果文件未通过校验',
+        '生成結果檔案未通過校驗'
+      );
+    case 'output_publication':
+      return text(
+        'Unable to save the generated result',
+        '生成结果尚未保存成功',
+        '生成結果尚未儲存成功'
+      );
+    case 'submission':
+      return text(
+        'The generation request was not accepted',
+        '生成请求未被接受',
+        '生成請求未被接受'
+      );
+    case 'remote_execution':
+      return text(
+        'The external generation service failed',
+        '外部生成服务执行失败',
+        '外部生成服務執行失敗'
+      );
+    default:
+      return observation.status === 'failed'
+        ? text(
+            'The generation service reported a failure',
+            '生成服务返回失败结果',
+            '生成服務返回失敗結果'
+          )
+        : undefined;
+  }
+}
 export function MediaTaskRows({
   jobs,
   sessionId,
   renderCall,
-  renderBefore,
   pendingIds,
   readOnly = false,
 }: {
   jobs: MediaJobPresentation[];
   sessionId: string;
   renderCall: (call: MediaJobCall) => ReactNode;
-  renderBefore?: (job: MediaJobPresentation) => ReactNode;
   pendingIds?: ReadonlySet<string>;
   readOnly?: boolean;
 }) {
   const snapshot = useMediaJobs(readOnly ? '' : sessionId);
-  const entries = jobs.map((job) => ({ job, observation: mediaJobObservation(job, snapshot) }));
-  const rows = entries.map(({ job, observation }) => {
-    const name = taskName(job);
-    const last = job.latestReceipt;
-    const calls = job.calls.filter((call) => !pendingIds?.has(call.request.id));
-    const queries = calls.filter(
-      (call) => call.response && presentedToolCall(call.request)?.arguments.operation === 'status'
-    ).length;
-    const cancelUnconfirmed =
-      last?.value.cancellation_confirmed === false && observation.status !== 'cancelled';
-    return (
-      <div key={job.key} data-media-job-id={job.jobId} className="my-1 w-full max-w-[52rem]">
-        {renderBefore?.(job)}
-        <ToolCallExpandable
-          compact
-          scrollable={false}
-          autoExpandOnReading={false}
-          storageKey={'media-task-' + sessionId + '-' + job.key}
-          label={
-            <span
-              role="status"
-              data-media-status={observation.status}
-              data-media-active={observation.active}
-            >
-              {name} {statusText(observation.status)}
-            </span>
-          }
-          icon={
-            <ToolActivityIcon
-              name={job.kind === 'video' ? 'generate_video' : 'generate_image'}
-              status={
-                observation.active
-                  ? 'loading'
-                  : observation.status === 'failed'
-                    ? 'error'
-                    : 'pending'
-              }
-            />
-          }
-        >
-          {observation.source === 'receipt' && (
-            <p className="ml-6 text-xs text-text-secondary">
-              {text('Last confirmed receipt', '最后确认的回执', '最後確認的回執')}
-            </p>
-          )}
-          <GeneratedMediaFiles
-            sessionId={sessionId}
-            paths={mediaOutputPaths(observation.receipt)}
-            taskLabel={name}
-            inline
-          />
-          <div className="ml-6">
-            <ToolCallExpandable
-              compact
-              label={
-                text('Execution records', '执行记录', '執行紀錄') +
-                ' (' +
-                queries +
-                ' ' +
-                text('status checks', '次状态查询', '次狀態查詢') +
-                ')'
-              }
-              storageKey={'media-' + sessionId + '-' + job.key}
-              autoExpandOnReading={false}
-              scrollable={false}
-            >
-              {observation.source === 'unavailable' && last && (
-                <p className="mb-2 text-xs text-text-secondary">
-                  {text('Last confirmed receipt', '最后确认的回执', '最後確認的回執')}:{' '}
-                  {statusText(String(last.value.status))}
+  return (
+    <>
+      {jobs.map((job) => {
+        const observation = mediaJobObservation(job, snapshot);
+        const name = taskName(job, observation);
+        const title = taskTitle(job, observation);
+        const calls = job.calls.filter((call) => !pendingIds?.has(call.request.id));
+        const queries = calls.filter(
+          (call) =>
+            call.response && presentedToolCall(call.request)?.arguments.operation === 'status'
+        ).length;
+        const summary = failureSummary(observation);
+        const info = observation.issue ?? mediaFailureInfo(observation.receipt?.failure_info);
+        const error =
+          typeof info?.message === 'string'
+            ? info.message
+            : typeof observation.receipt?.error === 'string'
+              ? observation.receipt.error
+              : undefined;
+        const paths = mediaOutputPaths(observation.receipt);
+        const requirement = calls
+          .map((call) => presentedToolCall(call.request))
+          .find((call) => call?.arguments.operation === 'generate')?.arguments.prompt;
+        return (
+          <div key={job.key} data-media-job-id={job.jobId} className="my-1 w-full max-w-[52rem]">
+            {paths.length ? (
+              <ToolCallExpandable
+                compact
+                scrollable={false}
+                autoExpandOnReading={false}
+                storageKey={'media-task-' + sessionId + '-' + job.key}
+                label={
+                  <span
+                    role="status"
+                    data-media-status={observation.status}
+                    data-media-active={observation.active}
+                  >
+                    {title}
+                  </span>
+                }
+                icon={
+                  <ToolActivityIcon
+                    name={job.kind === 'video' ? 'generate_video' : 'generate_image'}
+                    status="success"
+                  />
+                }
+              >
+                <GeneratedMediaFiles sessionId={sessionId} paths={paths} taskLabel={name} inline />
+              </ToolCallExpandable>
+            ) : (
+              <div className="flex items-start gap-2 py-1 text-sm">
+                <ToolActivityIcon
+                  name={job.kind === 'video' ? 'generate_video' : 'generate_image'}
+                  status={
+                    observation.active
+                      ? 'loading'
+                      : observation.status === 'failed'
+                        ? 'error'
+                        : 'pending'
+                  }
+                />
+                <span
+                  role="status"
+                  data-media-status={observation.status}
+                  data-media-active={observation.active}
+                >
+                  {title}
+                </span>
+              </div>
+            )}
+            {summary && (
+              <div data-media-failure-summary="" className="ml-6 mb-1 text-sm text-text-secondary">
+                <p>{summary}</p>
+                {error && (
+                  <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs" title={error}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="ml-6">
+              <ToolCallExpandable
+                compact
+                scrollable={false}
+                autoExpandOnReading={false}
+                label={
+                  text('Execution records', '执行记录', '執行紀錄') +
+                  ' (' +
+                  queries +
+                  ' ' +
+                  text('status checks', '次状态查询', '次狀態查詢') +
+                  ')'
+                }
+                storageKey={'media-' + sessionId + '-' + job.key}
+              >
+                <p className="mb-1 text-xs text-text-secondary">
+                  {text('Task ID', '任务 ID', '任務 ID')}: {job.jobId}
                 </p>
-              )}
-              {cancelUnconfirmed && (
-                <p className="mb-2 text-xs text-text-secondary">
-                  {text('Cancellation unconfirmed', '取消未确认', '取消未確認')}
-                </p>
-              )}
-              {typeof observation.receipt?.error === 'string' && observation.receipt.error && (
-                <p className="mb-2 whitespace-pre-wrap break-words text-xs text-text-secondary">
-                  {observation.receipt.error}
-                </p>
-              )}
-              {calls.map((call) => (
-                <Fragment key={call.request.id}>{renderCall(call)}</Fragment>
-              ))}
-            </ToolCallExpandable>
+                {observation.source !== 'snapshot' && job.latestReceipt && (
+                  <p className="mb-1 text-xs text-text-secondary">
+                    {text('Last confirmed receipt', '最后确认的回执', '最後確認的回執')}:{' '}
+                    {statusText(String(job.latestReceipt.value.status))}
+                  </p>
+                )}
+                {job.latestReceipt?.value.cancellation_confirmed === false &&
+                  observation.status !== 'cancelled' && (
+                    <p className="mb-1 text-xs text-text-secondary">
+                      {text('Cancellation unconfirmed', '取消未确认', '取消未確認')}
+                    </p>
+                  )}
+                {typeof requirement === 'string' && (
+                  <p className="mb-2 whitespace-pre-wrap break-words text-xs text-text-secondary">
+                    {text('Generation request', '生成要求', '生成要求')}: {requirement}
+                  </p>
+                )}
+                {error && (
+                  <p className="mb-2 whitespace-pre-wrap break-words text-xs text-text-secondary">
+                    {error}
+                  </p>
+                )}
+                {calls.map((call) => (
+                  <Fragment key={call.request.id}>{renderCall(call)}</Fragment>
+                ))}
+              </ToolCallExpandable>
+            </div>
           </div>
-        </ToolCallExpandable>
-      </div>
-    );
-  });
-  // This disclosure groups rows for reading, not jobs for execution. Every job
-  // retains its own identity, state and complete calls inside the disclosure.
-  if (
-    entries.length > 1 &&
-    entries.every(
-      (entry) => entry.job.kind === entries[0].job.kind && entry.observation.status === 'failed'
-    )
-  ) {
-    const first = entries[0].job;
-    const last = entries[entries.length - 1].job;
-    const firstSequence = first.sequence;
-    const consecutive =
-      firstSequence !== undefined &&
-      entries.every((entry, index) => entry.job.sequence === firstSequence + index);
-    const names = consecutive
-      ? `${kindText(first.kind)} ${first.sequence}–${last.sequence}`
-      : entries.map((entry) => taskName(entry.job)).join(text(', ', '、', '、'));
-    return (
-      <div data-media-failure-group="" className="my-1 w-full max-w-[52rem]">
-        <ToolCallExpandable
-          compact
-          scrollable={false}
-          autoExpandOnReading={false}
-          storageKey={'media-failures-' + sessionId + '-' + entries[0].job.key}
-          label={
-            <span role="status">
-              {names} {statusText('failed')}
-            </span>
-          }
-          icon={
-            <ToolActivityIcon
-              name={entries[0].job.kind === 'video' ? 'generate_video' : 'generate_image'}
-              status="error"
-            />
-          }
-        >
-          {rows}
-        </ToolCallExpandable>
-      </div>
-    );
-  }
-  return <>{rows}</>;
+        );
+      })}
+    </>
+  );
 }

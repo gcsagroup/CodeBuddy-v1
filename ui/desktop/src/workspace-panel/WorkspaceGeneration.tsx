@@ -14,6 +14,9 @@ export interface MediaJob {
   created_at: string;
   status: string;
   observation_error?: boolean;
+  display_name?: string;
+  failure_info?: MediaFailureInfo;
+  observation_error_info?: MediaFailureInfo;
   workflow?: { id: string; label: string };
   queue_position?: number;
   error?: string | null;
@@ -26,6 +29,21 @@ export interface MediaJob {
   };
   images?: { path: string }[];
   videos?: { path: string }[];
+}
+export interface MediaFailureInfo {
+  stage:
+    | 'remote_execution'
+    | 'submission'
+    | 'query'
+    | 'output_retrieval'
+    | 'output_validation'
+    | 'output_publication';
+  source: 'comfyui' | 'host';
+  node_type?: string;
+  exception_type?: string;
+  error_code?: string;
+  http_status?: number;
+  message?: string;
 }
 export async function readMediaJobs(sessionId: string): Promise<MediaJob[]> {
   const client = await getAcpControlClient();

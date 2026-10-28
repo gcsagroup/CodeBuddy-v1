@@ -79,7 +79,7 @@ import {
   mediaJobObservation,
   type MediaJobsByCall,
 } from './mediaJobPresentation';
-import { MediaTaskRows } from './MediaTaskRows';
+import { MediaTaskRows, mediaProcessSummary } from './MediaTaskRows';
 import { useMediaJobs } from '../workspace-panel/WorkspaceGeneration';
 import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
@@ -803,10 +803,6 @@ function ProgressiveMessageListContent({
           getToolResponses(item).map((response) => [response.id, response] as const)
         )
       );
-    const approvals = getPendingToolConfirmationIds(sourceMessages);
-    const pendingMediaIds = new Set(
-      [...approvals].filter((id) => livePermissions.has(id) && !responses.has(id))
-    );
     // Only the latest acknowledged plan in this turn can show live activity.
     // Old snapshots remain readable, but must not keep spinning after updates.
     const acknowledgedPlans = messages
@@ -823,26 +819,9 @@ function ProgressiveMessageListContent({
     const messagesToRender = messages
       .slice(renderStartIndex, renderEndIndex)
       .flatMap((message, offset) => {
-        const baseRanges = renderMessage
+        const sourceRanges = renderMessage
           ? [{ message, start: 0, end: message.content.length }]
           : messageContentParts(message);
-        // Split only media display ranges; ordinary tools retain their renderer
-        // and tasks stay at their original call position in the conversation.
-        const sourceRanges = renderMessage
-          ? baseRanges
-          : baseRanges.flatMap((range) => {
-              const split: MessageContentPart[] = [];
-              let start = range.start;
-              for (let at = range.start; at < range.end; at += 1) {
-                const content = message.content[at];
-                if (content.type !== 'toolRequest' || !sharedMediaJobs?.has(content.id)) continue;
-                if (at > start) split.push({ message, start, end: at });
-                split.push({ message, start: at, end: at + 1 });
-                start = at + 1;
-              }
-              if (start < range.end) split.push({ message, start, end: range.end });
-              return split;
-            });
         const ranges = sourceRanges.flatMap((range) => {
           if (!contentClip || renderStartIndex + offset !== contentClip[0]) return [range];
           const start = Math.max(range.start, contentClip[1]);
@@ -863,14 +842,6 @@ function ProgressiveMessageListContent({
           const projected = {
             ...message,
             content: message.content.slice(range.start, range.end).filter((content) => {
-              if (
-                !renderMessage &&
-                content.type === 'toolRequest' &&
-                !pendingMediaIds.has(content.id)
-              ) {
-                const job = sharedMediaJobs?.get(content.id);
-                if (job && content.id !== job.anchorId) return false;
-              }
               if (
                 !renderMessage &&
                 suppressProviderThinking &&
@@ -897,18 +868,45 @@ function ProgressiveMessageListContent({
           return projected;
         });
       });
+    const approvals = getPendingToolConfirmationIds(sourceMessages);
+    const mediaJobs =
+      !foldTurns && !renderRange
+        ? collectMediaJobs(sourceMessages, messages.slice(renderStartIndex, renderEndIndex))
+        : (sharedMediaJobs ?? collectMediaJobs(sourceMessages, messages));
+    const renderMediaRequest = (request: ReturnType<typeof getToolRequests>[number]) => {
+      const job = mediaJobs.get(request.id);
+      if (!job || approvals.has(request.id)) return undefined;
+      if (job.anchorId !== request.id) return null;
+      return (
+        <MediaTaskRows
+          jobs={[job]}
+          sessionId={chat.sessionId}
+          readOnly={readOnly}
+          pendingIds={approvals}
+          renderCall={(call) => (
+            <ToolCallWithResponse
+              compact
+              isCancelledMessage={false}
+              isPendingApproval={false}
+              sessionId={chat.sessionId}
+              showGeneratedMedia={false}
+              toolRequest={call.request}
+              toolResponse={call.response}
+              notifications={toolCallNotifications?.get(call.request.id)}
+              isStreamingMessage={
+                !!isStreamingMessage && !!activeToolCallIds?.includes(call.request.id)
+              }
+            />
+          )}
+        />
+      );
+    };
     const requestIds = new Set(
       sourceMessages.flatMap(getToolRequests).map((request) => request.id)
     );
     const lifecycleNotification = (item: Message) => {
       const notification = getSystemNotification(item);
       return notification && parseSubagentLifecycle(notification.data) ? notification : undefined;
-    };
-    const mediaJobFor = (item: Message) => {
-      if (item.content.length !== 1 || item.content[0].type !== 'toolRequest') return;
-      const request = item.content[0];
-      const job = sharedMediaJobs?.get(request.id);
-      return job?.anchorId === request.id && !pendingMediaIds.has(request.id) ? job : undefined;
     };
     const isProcessToolMessage = (item: Message) => {
       if (
@@ -923,8 +921,7 @@ function ProgressiveMessageListContent({
             content.type === 'redactedThinking' ||
             (content.type === 'text' && !content.text.trim())
         ) ||
-        isRepresentedToolTransport(item) ||
-        mediaJobFor(item)
+        isRepresentedToolTransport(item)
       )
         return false;
       return getToolRequests(item).every((request) => {
@@ -1001,6 +998,7 @@ function ProgressiveMessageListContent({
           groupedProcess
           showGroupedThinking={showThinking}
           hiddenToolRequestIds={hiddenToolRequestIds}
+          renderToolRequest={renderMediaRequest}
           showMessageFooter={false}
           messages={sourceMessages}
           toolResponses={sharedToolResponses}
@@ -1022,7 +1020,9 @@ function ProgressiveMessageListContent({
         const call = presentedToolCall(request);
         return call && isTaskContractCheck(call);
       });
-      const operations = requests.filter((request) => !checks.includes(request));
+      const operations = requests.filter(
+        (request) => !checks.includes(request) && !mediaJobs.has(request.id)
+      );
       const successful = formatToolActionSummary(
         intl,
         operations.flatMap((request) => {
@@ -1163,80 +1163,6 @@ function ProgressiveMessageListContent({
         }
 
         if (foldedIndices.has(localIndex)) return null;
-        const mediaJob = mediaJobFor(message);
-        if (mediaJob) {
-          const jobs = [mediaJob];
-          const beforeJobs = new Map<string, Message[]>();
-          if (mediaJobObservation(mediaJob, mediaSnapshot).status === 'failed') {
-            let reasoning: { item: Message; index: number }[] = [];
-            for (let next = localIndex + 1; next < messagesToRender.length; next += 1) {
-              const candidate = messagesToRender[next];
-              const job = mediaJobFor(candidate);
-              if (
-                job &&
-                job.kind === mediaJob.kind &&
-                mediaJobObservation(job, mediaSnapshot).status === 'failed'
-              ) {
-                jobs.push(job);
-                foldedIndices.add(next);
-                if (reasoning.length) {
-                  beforeJobs.set(
-                    job.key,
-                    reasoning.map((value) => value.item)
-                  );
-                  reasoning.forEach((value) => foldedIndices.add(value.index));
-                  reasoning = [];
-                }
-              } else if (isThinkingMessage(candidate)) {
-                reasoning.push({ item: candidate, index: next });
-              } else if (
-                !candidate.metadata.userVisible ||
-                candidate.content.length === 0 ||
-                candidate.content.every(
-                  (content) =>
-                    content.type === 'toolResponse' ||
-                    (content.type === 'text' && !content.text.trim())
-                )
-              ) {
-                continue;
-              } else break;
-            }
-          }
-          return (
-            <MediaTaskRows
-              key={`media-${chat.sessionId}-${mediaJob.key}`}
-              jobs={jobs}
-              sessionId={chat.sessionId}
-              readOnly={readOnly}
-              pendingIds={pendingMediaIds}
-              renderBefore={(job) => {
-                const reasoning = beforeJobs.get(job.key);
-                return reasoning?.length ? (
-                  <ProcessDetails hasThinking>
-                    {(showThinking) =>
-                      reasoning.map((item) => renderToolMessage(item, showThinking))
-                    }
-                  </ProcessDetails>
-                ) : null;
-              }}
-              renderCall={({ request, response }) => (
-                <ToolCallWithResponse
-                  compact
-                  showGeneratedMedia={false}
-                  sessionId={chat.sessionId}
-                  isCancelledMessage={false}
-                  toolRequest={request}
-                  toolResponse={response}
-                  isPendingApproval={false}
-                  isStreamingMessage={
-                    !!isStreamingMessage && !!activeToolCallIds?.includes(request.id)
-                  }
-                  notifications={toolCallNotifications.get(request.id)}
-                />
-              )}
-            />
-          );
-        }
         const requests = getToolRequests(message);
         const progressRequest = requests.length === 1 ? requests[0] : undefined;
         const progressCall = progressRequest ? presentedToolCall(progressRequest) : undefined;
@@ -1279,7 +1205,37 @@ function ProgressiveMessageListContent({
           lifecycleNotification(message)
         ) {
           const { group, settled, atPublicBoundary } = collectProcess(localIndex);
+          const groupRequests = group.flatMap(getToolRequests);
+          const groupMedia = [
+            ...new Set(
+              groupRequests.flatMap((request) => {
+                const job = mediaJobs.get(request.id);
+                return job?.anchorId === request.id ? [job] : [];
+              })
+            ),
+          ];
+          const onlyMedia =
+            groupRequests.length > 0 && groupRequests.every((request) => mediaJobs.has(request.id));
+          const mediaOnlyView = onlyMedia && groupMedia.length > 0;
+          // A hidden poll can leave an empty transport shell, but cannot hide
+          // original thinking, ordinary tools, lifecycle events or approvals.
+          if (
+            onlyMedia &&
+            groupMedia.length === 0 &&
+            !group.some(
+              (item) =>
+                isThinkingMessage(item) ||
+                lifecycleNotification(item) ||
+                item.content.some(
+                  (content) => content.type === 'thinking' || content.type === 'redactedThinking'
+                )
+            ) &&
+            !groupRequests.some((request) => approvals.has(request.id))
+          )
+            return null;
           const summary = operationSummary(group);
+          const mediaSummary = mediaProcessSummary(groupMedia);
+          const mediaStates = groupMedia.map((job) => mediaJobObservation(job, mediaSnapshot));
           const awaitingApproval = group
             .flatMap(getToolRequests)
             .some(
@@ -1305,6 +1261,16 @@ function ProgressiveMessageListContent({
           const attentionStates = group
             .flatMap(getToolRequests)
             .flatMap((request): ('failed' | 'unknown')[] => {
+              const job = mediaJobs.get(request.id);
+              if (job) {
+                const observation = mediaJobObservation(job, mediaSnapshot);
+                return observation.status === 'failed'
+                  ? ['failed']
+                  : observation.status === 'unavailable' ||
+                      observation.status === 'submission_unknown'
+                    ? ['unknown']
+                    : [];
+              }
               const response = responses.get(request.id);
               const active =
                 !!isStreamingMessage && (activeToolCallIds?.includes(request.id) ?? true);
@@ -1320,7 +1286,6 @@ function ProgressiveMessageListContent({
                 : [];
             });
           const attention = attentionStates.includes('failed') ? 'failed' : attentionStates[0];
-          const groupRequests = group.flatMap(getToolRequests);
           const activeRequest = [...groupRequests]
             .reverse()
             .find(
@@ -1366,12 +1331,17 @@ function ProgressiveMessageListContent({
             processSettled ||
             settled ||
             (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
-          const label = processClosed
-            ? summary ||
-              (groupRequests.length
-                ? intl.formatMessage(i18n.toolRecords, { count: groupRequests.length })
-                : currentLabel)
-            : currentLabel;
+          const label =
+            onlyMedia && !groupMedia.length
+              ? intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking)
+              : mediaSummary
+                ? [summary, mediaSummary].filter(Boolean).join('\u2002')
+                : processClosed
+                  ? summary ||
+                    (groupRequests.length
+                      ? intl.formatMessage(i18n.toolRecords, { count: groupRequests.length })
+                      : currentLabel)
+                  : currentLabel;
           return (
             <div
               key={`tools-${identity}`}
@@ -1383,7 +1353,7 @@ function ProgressiveMessageListContent({
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable
+                scrollable={!mediaOnlyView}
                 label={label}
                 icon={
                   thinkingNow ? (
@@ -1394,19 +1364,29 @@ function ProgressiveMessageListContent({
                     <ToolActivityIcon
                       name={headlineCall.name}
                       status={
-                        awaitingApproval
-                          ? 'pending'
-                          : headlineStatus === 'loading'
+                        mediaOnlyView
+                          ? mediaStates.some((state) => state.active)
                             ? 'loading'
                             : attention
                               ? 'warning'
-                              : 'success'
+                              : mediaStates.every((state) => state.status === 'completed')
+                                ? 'success'
+                                : 'pending'
+                          : groupMedia.some((job) => mediaJobObservation(job, mediaSnapshot).active)
+                            ? 'loading'
+                            : awaitingApproval
+                              ? 'pending'
+                              : headlineStatus === 'loading'
+                                ? 'loading'
+                                : attention
+                                  ? 'warning'
+                                  : 'success'
                       }
                     />
                   )
                 }
-                isStartExpanded={false}
-                collapseOnSettle={processClosed}
+                isStartExpanded={mediaOnlyView}
+                collapseOnSettle={!mediaOnlyView && processClosed}
                 resetOnSettle
                 autoExpandOnReading={false}
                 live={!processClosed && (isStreamingMessage || presentationPending)}
@@ -1649,6 +1629,7 @@ function ProgressiveMessageListContent({
                   messages={sourceMessages}
                   toolResponses={sharedToolResponses}
                   toolChains={sharedToolChains}
+                  renderToolRequest={renderMediaRequest}
                   suppressProviderThinking={suppressProviderThinking}
                   append={append}
                   onRetryMessage={onMessageUpdate}
@@ -1684,6 +1665,8 @@ function ProgressiveMessageListContent({
     sharedComputerTargets,
     sharedMediaJobs,
     mediaSnapshot,
+    foldTurns,
+    renderRange,
     livePermissions,
     renderStartIndex,
     renderEndIndex,

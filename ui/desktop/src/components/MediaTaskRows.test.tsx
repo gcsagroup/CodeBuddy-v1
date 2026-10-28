@@ -107,109 +107,220 @@ afterEach(() => {
   cancelAcpPermissionRequestsForSession(sessionId);
 });
 
+const openProcesses = (container: HTMLElement) => {
+  for (const group of container.querySelectorAll('[data-process-group]')) {
+    const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
+    if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+  }
+};
+const named = (
+  id: string,
+  jobId = jobA,
+  status = 'queued',
+  name = '小熊猫招手动作图',
+  extra: Record<string, unknown> = {}
+) => response(id, jobId, status, { display_name: name, ...extra });
+
 describe('media task presentation', () => {
-  it('keeps one task for twenty polls with independently collapsible image and full 21-call audit', () => {
+  it('shows one business name for twenty polls, collapses the image independently and retains all 21 calls', () => {
     const path = 'generated-images/' + jobA + '/1.png';
-    const trace = [
-      message('user', 'user', [{ type: 'text', text: 'Generate a sheet.' }]),
-      request('submit'),
-      response('submit'),
-    ];
+    const trace = [request('submit'), named('submit')];
     for (let i = 1; i <= 20; i++)
       trace.push(
         request('poll-' + i, 'status'),
-        response(
+        named(
           'poll-' + i,
           jobA,
           i === 20 ? 'completed' : 'running',
+          '小熊猫招手动作图',
           i === 20 ? { images: [{ path }] } : {}
         )
       );
     const original = JSON.stringify(trace);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
-    expect(screen.getByRole('status')).toHaveTextContent('Image 1 Completed');
-    const task = screen.getByRole('button', {
-      name: 'Image 1 Completed',
-      expanded: false,
-    });
-    expect(screen.queryByRole('img', { name: 'Image 1 / 1.png' })).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Completed');
+    const task = within(
+      view.container.querySelector('[data-media-job-id]') as HTMLElement
+    ).getByRole('button', { name: 'Generate 小熊猫招手动作图 Completed', expanded: false });
+    expect(screen.queryByRole('img')).toBeNull();
     fireEvent.click(task);
-    expect(screen.getByRole('img', { name: 'Image 1 / 1.png' })).toBeVisible();
+    expect(screen.getByRole('img', { name: '小熊猫招手动作图 / 1.png' })).toBeVisible();
     expect(view.container).not.toHaveTextContent('Related files');
     expect(view.container).not.toHaveTextContent('3,505,445');
     expect(view.container.querySelector('[data-tool-call-id]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (20 status checks)' }));
-    const ids = [...view.container.querySelectorAll('[data-tool-call-id]')].map((node) =>
-      node.getAttribute('data-tool-call-id')
-    );
-    expect(ids).toHaveLength(21);
-    expect(new Set(ids).size).toBe(21);
-    expect(screen.getAllByRole('img', { name: 'Image 1 / 1.png' })).toHaveLength(1);
+    const calls = [...view.container.querySelectorAll('[data-tool-call-id]')];
+    expect(calls).toHaveLength(21);
+    expect(new Set(calls.map((node) => node.getAttribute('data-tool-call-id'))).size).toBe(21);
     fireEvent.click(task);
-    expect(screen.queryByRole('img', { name: 'Image 1 / 1.png' })).toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Execution records (20 status checks)' })
+    ).toHaveAttribute('aria-expanded', 'true');
     expect(JSON.stringify(trace)).toBe(original);
   });
 
-  it('keeps the seven real jobs after the screenshot text separate, including their same-named image files', () => {
-    const ids = [
-      jobA,
-      jobB,
-      'c3144477-d0b1-4177-905e-aaaec95c2f59',
-      'f5551332-ee83-4a44-b957-18bd0d49dd92',
-      '0f4650cf-ddef-4280-a8fe-32ee2f9bd4dc',
-      'c1c7e5d2-803c-41ec-8236-0bd0a5ace435',
-      '46dddb0a-fa54-4f90-aec9-8d28de0645ad',
-    ];
-    const trace = ids.flatMap((id, i) => [
+  it.each(['completed', 'failed', 'mixed'])(
+    'shows distinct business results for %s without treating transport success as generation success',
+    (mode) => {
+      const statuses = mode === 'mixed' ? ['completed', 'failed'] : [mode, mode];
+      const names = ['产品海报', '小熊猫招手动作图'];
+      const trace = [jobA, jobB].flatMap((id, i) => [
+        request('submit-' + i),
+        named('submit-' + i, id, 'queued', names[i]),
+        request('poll-' + i, 'status', id),
+        named(
+          'poll-' + i,
+          id,
+          statuses[i],
+          names[i],
+          statuses[i] === 'failed'
+            ? {
+                error: 'KSampler: normalized_shape=[4096], input=[1,2331,5120]',
+                failure_info: {
+                  stage: 'remote_execution',
+                  source: 'comfyui',
+                  node_type: 'KSampler',
+                  exception_type: 'RuntimeError',
+                },
+              }
+            : {}
+        ),
+      ]);
+      const view = render(history(trace), { wrapper: IntlTestWrapper });
+      expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(2);
+      expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(0);
+      for (let i = 0; i < 2; i++) {
+        const row = view.container.querySelector(
+          `[data-media-job-id="${[jobA, jobB][i]}"]`
+        ) as HTMLElement;
+        expect(within(row).getByRole('status')).toHaveTextContent(
+          'Generate ' +
+            names[i] +
+            ' ' +
+            (statuses[i] === 'completed' ? 'Completed' : 'Unsuccessful')
+        );
+        if (statuses[i] === 'failed') {
+          expect(within(row).getByText('The external generation service failed')).toBeVisible();
+          expect(within(row).getByText(/normalized_shape/)).toBeVisible();
+        }
+      }
+      expect(view.container).not.toHaveTextContent('Completed 4 operations');
+    }
+  );
+
+  it('preserves distinct jobs even when their business names and output filenames match', () => {
+    const trace = [jobA, jobB].flatMap((id, i) => [
       request('submit-' + i),
-      response('submit-' + i, id),
-      request('poll-' + i, 'status', id),
-      response('poll-' + i, id, 'completed', {
+      named('submit-' + i, id, 'completed', '产品海报', {
         images: [{ path: 'generated-images/' + id + '/1.png' }],
       }),
     ]);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(7);
-    expect(
-      screen
-        .getAllByRole('status')
-        .filter((node) => /^Image \d+ Completed$/.test(node.textContent ?? ''))
-    ).toHaveLength(7);
-    expect(screen.queryByRole('img')).toBeNull();
-    const toggles = screen.getAllByRole('button', { name: /^Image \d+ Completed$/ });
-    expect(toggles.map((toggle) => toggle.textContent)).toEqual(
-      ids.map((_, index) => `Image ${index + 1} Completed`)
-    );
-    toggles.forEach((toggle) => fireEvent.click(toggle));
-    expect(screen.getAllByRole('img').map((node) => node.getAttribute('alt'))).toEqual(
-      ids.map((_, index) => `Image ${index + 1} / 1.png`)
-    );
-    expect(new Set(screen.getAllByRole('img').map((node) => node.getAttribute('src'))).size).toBe(
-      7
+    const jobs = view.container.querySelectorAll('[data-media-job-id]');
+    expect(jobs).toHaveLength(2);
+    for (const row of jobs)
+      fireEvent.click(
+        within(row as HTMLElement).getByRole('button', { name: 'Generate 产品海报 Completed' })
+      );
+    expect(screen.getAllByRole('img').map((image) => image.getAttribute('alt'))).toEqual([
+      '产品海报 / 1.png',
+      '产品海报 / 1.png',
+    ]);
+    expect(new Set(screen.getAllByRole('img').map((image) => image.getAttribute('src'))).size).toBe(
+      2
     );
   });
 
-  it('does not call a failed generation completed just because both tool calls succeeded', async () => {
+  it('does not invent names from numbers, workflow labels, prompt snippets or invalid optional fields', () => {
     const trace = [
       request('submit'),
-      response('submit'),
-      request('poll', 'status'),
-      response('poll', jobA, 'failed', { error: 'KSampler: dimensions 4096 / 5120' }),
+      response('submit', jobA, 'failed', { display_name: 42, error: 'Original service error' }),
     ];
-    const view = render(history(trace), { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('status')).toHaveTextContent('Image 1 Unsuccessful');
-    expect(view.container).not.toHaveTextContent('Completed');
-    expect(view.container).not.toHaveTextContent('KSampler');
-    expect(screen.getByRole('status')).not.toHaveTextContent('·');
-    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Unsuccessful' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
-    expect(view.container).toHaveTextContent('KSampler');
+    const view = render(rows(trace), { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('status')).toHaveTextContent('Generate image Unsuccessful');
+    expect(screen.getByText('Original service error')).toBeVisible();
+    expect(view.container).not.toHaveTextContent(jobA);
+    fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
+    expect(view.container).toHaveTextContent(jobA);
+    view.rerender(
+      rows([request('submit'), response('submit', jobA, 'failed', { display_name: 'a\u202Eb' })])
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Generate image Unsuccessful');
   });
 
-  it('stops live activity on disconnect and lets a later completed receipt supersede an old running cache', async () => {
+  it('retains the acknowledged business name across query-only windows, replay and missing optional name in a later receipt', () => {
+    const submit = request('submit');
+    const poll = request('poll', 'status');
+    const trace = [submit, named('submit'), poll, response('poll', jobA, 'completed'), submit];
+    const jobs = collectMediaJobs(trace, [poll]);
+    expect(jobs.get('poll')).toBe(jobs.get('submit'));
+    expect(jobs.get('poll')?.anchorId).toBe('poll');
+    render(
+      <MediaTaskRows jobs={[jobs.get('poll')!]} sessionId={sessionId} renderCall={() => null} />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Completed');
+  });
+
+  it('escapes business names and displays unrelated business names through the same contract', () => {
+    render(
+      rows([request('submit'), named('submit', jobA, 'failed', '<script>产品海报</script>')]),
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Generate <script>产品海报</script> Unsuccessful'
+    );
+    expect(document.querySelector('script')).toBeNull();
+  });
+
+  it.each(['query', 'output_retrieval', 'output_validation', 'output_publication'])(
+    'distinguishes %s observation errors from a generation failure',
+    async (stage) => {
+      const info = { stage, source: 'host', message: 'Original ' + stage + ' error' };
+      extMethod.mockResolvedValue({
+        sessionId,
+        jobs: [
+          { ...current(jobA, 'running'), observation_error: true, observation_error_info: info },
+        ],
+      });
+      const trace = [request('submit'), named('submit', jobA, 'running')];
+      const view = render(owner(rows(trace)), { wrapper: IntlTestWrapper });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByRole('status')).toHaveTextContent('Status unconfirmed');
+      expect(screen.getByText('Original ' + stage + ' error')).toBeVisible();
+      expect(view.container).not.toHaveTextContent('Unsuccessful');
+      expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
+    }
+  );
+
+  it('does not merge root causes from similar error text or node and exception types', () => {
+    const trace = [jobA, jobB].flatMap((id, i) => [
+      request('submit-' + i),
+      named('submit-' + i, id, 'failed', ['海报', '招手'][i], {
+        error: 'KSampler dimensions ' + i,
+        failure_info: {
+          stage: 'remote_execution',
+          source: 'comfyui',
+          node_type: 'KSampler',
+          exception_type: 'RuntimeError',
+        },
+      }),
+    ]);
+    const view = render(rows(trace), { wrapper: IntlTestWrapper });
+    const jobs = [...view.container.querySelectorAll('[data-media-job-id]')];
+    expect(jobs).toHaveLength(2);
+    expect(within(jobs[0] as HTMLElement).getByText('KSampler dimensions 0')).toBeVisible();
+    expect(within(jobs[1] as HTMLElement).getByText('KSampler dimensions 1')).toBeVisible();
+    expect(view.container).not.toHaveTextContent('same error');
+  });
+
+  it('stops live activity on disconnect and accepts a later terminal receipt without stale active state', async () => {
     vi.useFakeTimers();
-    const trace = [request('submit'), response('submit', jobA, 'running')];
+    const trace = [request('submit'), named('submit', jobA, 'running')];
     extMethod
       .mockResolvedValueOnce({ sessionId, jobs: [current(jobA, 'running')] })
       .mockRejectedValue(Error('Disconnected'));
@@ -222,70 +333,51 @@ describe('media task presentation', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Status unconfirmed');
     expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
     view.rerender(
-      owner(rows([...trace, request('poll', 'status'), response('poll', jobA, 'completed')]))
+      owner(rows([...trace, request('poll', 'status'), named('poll', jobA, 'completed')]))
     );
     expect(screen.getByRole('status')).toHaveTextContent('Completed');
   });
 
   it.each([false, true])(
-    'never promotes a cached terminal over conflicting history, disconnected=%s',
+    'keeps contradictory terminal and cancellation evidence unknown, disconnected=%s',
     (disconnected) => {
-      const trace = [
-        request('submit'),
-        response('submit'),
-        request('poll', 'status'),
-        response('poll', jobA, 'completed'),
-        request('late', 'status'),
-        response('late', jobA, 'failed'),
+      const traces = [
+        [
+          request('submit'),
+          response('submit', jobA, 'completed'),
+          request('poll', 'status'),
+          response('poll', jobA, 'failed'),
+        ],
+        [
+          request('submit'),
+          response('submit', jobA, 'cancelled'),
+          request('poll', 'cancel'),
+          response('poll', jobA, 'running', { cancellation_confirmed: false }),
+        ],
+        [
+          request('submit'),
+          response('submit'),
+          request('poll', 'cancel'),
+          response('poll', jobA, 'running', { cancellation_confirmed: false }),
+        ],
       ];
-      const job = collectMediaJobs(trace).get('submit')!;
-      expect(
-        mediaJobObservation(job, {
-          jobs: [{ ...current(jobA, 'completed'), observation_error: !disconnected }],
-          disconnected,
-        })
-      ).toMatchObject({ status: 'unavailable', active: false });
-      const cancelled = [
-        request('submit'),
-        response('submit', jobA, 'cancelled'),
-        request('cancel', 'cancel'),
-        response('cancel', jobA, 'running', { cancellation_confirmed: false }),
-      ];
-      expect(
-        mediaJobObservation(collectMediaJobs(cancelled).get('submit')!, {
-          jobs: [current(jobA, 'cancelled')],
-          disconnected,
-        })
-      ).toMatchObject({ status: 'unavailable', active: false });
-      const unconfirmedCancel = [
-        request('submit'),
-        response('submit'),
-        request('cancel', 'cancel'),
-        response('cancel', jobA, 'running', { cancellation_confirmed: false }),
-      ];
-      expect(
-        mediaJobObservation(collectMediaJobs(unconfirmedCancel).get('submit')!, {
-          jobs: [current(jobA, 'cancelled')],
-          disconnected,
-        })
-      ).toMatchObject({ status: 'unavailable', active: false });
-      const oldCancellation = [request('submit'), response('submit', jobA, 'cancelled')];
-      expect(
-        mediaJobObservation(collectMediaJobs(oldCancellation).get('submit')!, {
-          jobs: [current(jobA, 'running')],
-          disconnected,
-        })
-      ).toMatchObject({ status: 'unavailable', active: false });
+      for (const trace of traces)
+        expect(
+          mediaJobObservation(collectMediaJobs(trace).get('submit')!, {
+            jobs: [current(jobA, 'cancelled')],
+            disconnected,
+          })
+        ).toMatchObject({ status: 'unavailable', active: false });
     }
   );
 
-  it('does not turn a failed query or unconfirmed cancellation into a generation outcome', () => {
+  it('keeps query tool errors and unconfirmed cancellation separate from generation failure', () => {
     const failed = message('query-error', 'user', [
       { type: 'toolResponse', id: 'poll', toolResult: { status: 'error', error: 'Query failed' } },
     ]);
     const trace = [
       request('submit'),
-      response('submit', jobA, 'running'),
+      named('submit', jobA, 'running'),
       request('poll', 'status'),
       failed,
     ];
@@ -295,17 +387,15 @@ describe('media task presentation', () => {
       rows([
         ...trace,
         request('cancel', 'cancel'),
-        response('cancel', jobA, 'running', { cancellation_confirmed: false }),
+        named('cancel', jobA, 'running', '小熊猫招手动作图', { cancellation_confirmed: false }),
       ])
     );
     expect(screen.getByRole('status')).toHaveTextContent('Generating');
-    expect(view.container).not.toHaveTextContent('Cancelled');
-    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Generating' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
     expect(view.container).toHaveTextContent('Cancellation unconfirmed');
   });
 
-  it('requires a native owner receipt and keeps kind, provider, mismatches and replay identities separate', () => {
+  it('requires an exact native contract, keeps media kinds separate and leaves external/inspect/unknown calls on the ordinary path', () => {
     const trace = [
       request('submit'),
       response('submit'),
@@ -315,19 +405,23 @@ describe('media task presentation', () => {
       response('bad', jobB, 'completed'),
       request('foreign', 'generate', jobA, 'mcp__other__generate_image'),
       response('foreign'),
+      request('inspect', 'inspect'),
+      response('inspect'),
       request('unknown', 'status', jobB),
       request('invalid', 'status', 'invented-job'),
       response('invalid', 'invented-job', 'completed'),
     ];
-    const jobs = collectMediaJobs([...trace, trace[0], trace[1]]);
+    const jobs = collectMediaJobs(trace);
     expect(jobs.get('submit')).not.toBe(jobs.get('video'));
-    expect(jobs.get('submit')?.calls).toHaveLength(1);
-    for (const id of ['bad', 'foreign', 'unknown', 'invalid']) expect(jobs.has(id)).toBe(false);
-    const later = request('later', 'status');
-    expect(collectMediaJobs([...trace, later], [later]).get('later')?.anchorId).toBe('later');
+    for (const id of ['bad', 'foreign', 'inspect', 'unknown', 'invalid'])
+      expect(jobs.has(id)).toBe(false);
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    openProcesses(view.container);
+    for (const id of ['bad', 'foreign', 'inspect', 'unknown', 'invalid'])
+      expect(view.container.querySelector(`[data-tool-call-id="${id}"]`)).not.toBeNull();
   });
 
-  it('uses response order for concurrent queries and keeps late contradictory results unconfirmed', () => {
+  it('uses actual response order and refuses a late contradictory terminal update', () => {
     const trace = [
       request('submit'),
       response('submit'),
@@ -343,29 +437,27 @@ describe('media task presentation', () => {
     ).toMatchObject({ status: 'unavailable', active: false });
   });
 
-  it('ignores the live owner when displaying read-only history', async () => {
-    const trace = [request('submit'), response('submit')];
+  it('does not promote a read-only history from the current live owner', async () => {
     extMethod.mockResolvedValue({ sessionId, jobs: [current(jobA, 'failed')] });
-    const view = render(owner(rows(trace, true)), { wrapper: IntlTestWrapper });
+    const view = render(owner(rows([request('submit'), named('submit')], true)), {
+      wrapper: IntlTestWrapper,
+    });
     await act(async () => {
       await Promise.resolve();
     });
     expect(screen.getByRole('status')).toHaveTextContent('Queued');
-    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Queued' }));
-    expect(view.container).toHaveTextContent('Last confirmed receipt');
     expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
   });
 
-  it('keeps a pending query only at its native approval position even after opening media and process details', async () => {
+  it('keeps native approval actions exactly once outside the folded raw records', async () => {
     const permission = requestAcpPermission({
       sessionId,
       toolCall: { toolCallId: 'poll', title: 'generate_image', status: 'pending' },
       options: [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }],
     });
     const trace = [
-      message('user', 'user', [{ type: 'text', text: 'Check image.' }]),
       request('submit'),
-      response('submit'),
+      named('submit'),
       request('poll', 'status'),
       message('permission', 'assistant', [
         {
@@ -382,12 +474,8 @@ describe('media task presentation', () => {
     ];
     const view = render(history(trace, true), { wrapper: IntlTestWrapper });
     expect(await screen.findByTestId('tool-approval-actions')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Image 1 Queued' }));
+    openProcesses(view.container);
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
-    for (const group of view.container.querySelectorAll('[data-process-group]')) {
-      const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
-      if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
-    }
     expect(view.container.querySelectorAll('[data-tool-call-id="poll"]')).toHaveLength(1);
     expect(
       view.container.querySelector('[data-process-approval] [data-tool-call-id="poll"]')
@@ -397,199 +485,131 @@ describe('media task presentation', () => {
     expect(await permission).toEqual({ outcome: { outcome: 'cancelled' } });
   });
 
-  it('folds eight independent failures into one visual entry while preserving job identities and interleaved reasoning', () => {
-    const ids = [
-      'c8ca0443-25cb-4f1b-b5e4-507e4f726070',
-      '3409ec53-d45b-404b-9b9e-3ec9741c4b9d',
-      '7f56bdf4-89d5-4581-ba23-ce6d2631de21',
-      '96de3c75-0708-427d-ad20-5e1ded47e76d',
-      '5df4f554-8ea5-4238-a575-ceb72c35d32a',
-      '902683fb-e48e-481e-836e-0e0df6828443',
-      '17a975df-24a9-4a9e-b07b-8d3fb1faa5cf',
-      'd28d1f91-d704-4491-bc56-c46858fbb7cd',
-    ];
-    const trace: Message[] = [
-      message('user', 'user', [{ type: 'text', text: 'Generate eight sheets.' }]),
-    ];
-    ids.forEach((id, index) => {
-      if (index === 4)
-        trace.push(
-          message('reason-middle', 'assistant', [
-            { type: 'thinking', thinking: 'Reviewing dimensions.', signature: '' },
-          ])
-        );
-      trace.push(request('submit-' + index), response('submit-' + index, id));
-    });
-    ids.forEach((id, index) =>
-      trace.push(
-        request('poll-' + index, 'status', id),
-        response('poll-' + index, id, 'failed', { error: 'KSampler dimensions' })
-      )
-    );
-    const original = JSON.stringify(trace);
-    const view = render(history(trace), { wrapper: IntlTestWrapper });
-    const failed = screen.getByRole('button', { name: 'Image 1–8 Unsuccessful' });
-    expect(failed).not.toHaveTextContent('8 failed');
-    expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(1);
-    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(0);
-    expect(view.container).not.toHaveTextContent('KSampler');
-    fireEvent.click(failed);
-    const jobs = view.container.querySelectorAll('[data-media-job-id]');
-    expect([...jobs].map((node) => node.getAttribute('data-media-job-id'))).toEqual(ids);
-    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-    expect(screen.getByText('Reviewing dimensions.')).toBeVisible();
-    fireEvent.click(
-      within(jobs[0] as HTMLElement).getByRole('button', { name: 'Image 1 Unsuccessful' })
-    );
-    fireEvent.click(
-      within(jobs[0] as HTMLElement).getByRole('button', {
-        name: 'Execution records (1 status checks)',
-      })
-    );
-    expect(view.container.querySelectorAll('[data-tool-call-id="submit-0"]')).toHaveLength(1);
-    expect(view.container.querySelectorAll('[data-tool-call-id="poll-0"]')).toHaveLength(1);
-    expect(JSON.stringify(trace)).toBe(original);
-  });
-
-  it('does not fold failures across ordinary commands, successful media or public replies', () => {
-    const third = 'c3144477-d0b1-4177-905e-aaaec95c2f59';
-    const fourth = 'f5551332-ee83-4a44-b957-18bd0d49dd92';
-    const command = message('command', 'assistant', [
-      {
-        type: 'toolRequest',
+  it.each([false, true])(
+    'preserves original thinking parents, ranges and order with mixed tools; sameMessage=%s',
+    (sameMessage) => {
+      const thought = (thinking: string) => ({
+        type: 'thinking' as const,
+        thinking,
+        signature: '',
+      });
+      const command = {
+        type: 'toolRequest' as const,
         id: 'command',
         toolCall: { name: 'pwsh', arguments: { command: 'Write-Output done' } },
-      },
-    ]);
+      };
+      const contents = [
+        thought('Before media.'),
+        request('submit').content[0],
+        thought('After media.'),
+        command,
+      ];
+      const trace = [
+        ...(sameMessage
+          ? [
+              message('mixed', 'assistant', [
+                ...contents,
+                { type: 'text' as const, text: 'Public result.' },
+              ]),
+            ]
+          : [
+              ...contents.map((content, i) => message('part-' + i, 'assistant', [content])),
+              message('public', 'assistant', [{ type: 'text', text: 'Public result.' }]),
+            ]),
+        named('submit', jobA, 'failed', '招手动作图', { error: 'Original remote error' }),
+        response('command'),
+      ];
+      const original = JSON.stringify(trace);
+      const view = render(history(trace), { wrapper: IntlTestWrapper });
+      expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
+      openProcesses(view.container);
+      expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
+      fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+      const thinking = [...view.container.querySelectorAll('.codepro-thinking-record')];
+      expect(thinking).toHaveLength(2);
+      for (const record of thinking) {
+        expect(record.closest('[data-media-job-id]')).toBeNull();
+        expect(record.closest('[data-process-group]')).not.toBeNull();
+      }
+      const ordered = [
+        ...view.container.querySelectorAll(
+          '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
+        ),
+      ];
+      expect(ordered).toEqual([
+        thinking[0],
+        view.container.querySelector('[data-media-job-id]'),
+        thinking[1],
+        view.container.querySelector('[data-tool-call-id="command"]'),
+      ]);
+      expect(screen.getByText('Public result.')).toBeVisible();
+      expect(JSON.stringify(trace)).toBe(original);
+    }
+  );
+
+  it('does not create a media task or change custom rendering without an acknowledged job', () => {
+    const trace = [request('pending'), request('inspect', 'inspect'), response('inspect')];
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    expect(view.container.querySelector('[data-media-job-id]')).toBeNull();
+    view.rerender(
+      <ProgressiveMessageList
+        messages={trace}
+        chat={{ sessionId }}
+        isUserMessage={(item) => item.role === 'user'}
+        renderMessage={(item) => <span key={item.id}>custom {item.id}</span>}
+      />
+    );
+    expect(view.container).toHaveTextContent('custom pending');
+    expect(view.container.querySelector('[data-process-group]')).toBeNull();
+  });
+
+  it('anchors a task in the actual clipped subagent window while keeping its full call history', () => {
+    const trace = [request('submit'), named('submit')];
+    for (let i = 0; i < 25; i++)
+      trace.push(
+        message('public-' + i, 'assistant', [{ type: 'text', text: 'Progress ' + i }]),
+        request('poll-' + i, 'status'),
+        named('poll-' + i, jobA, i === 24 ? 'failed' : 'running')
+      );
+    const view = render(
+      <ProgressiveMessageList
+        messages={trace}
+        chat={{ sessionId }}
+        isUserMessage={(item) => item.role === 'user'}
+        foldTurns={false}
+        maxVisibleMessages={4}
+        showLoadingThreshold={1000}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Unsuccessful');
+    fireEvent.click(screen.getByRole('button', { name: 'Execution records (25 status checks)' }));
+    expect(view.container.querySelectorAll('[data-tool-call-id]')).toHaveLength(26);
+  });
+
+  it('keeps reasoning at a later query position without another generated-completed headline or an empty polling shell', () => {
     const trace = [
-      request('a'),
-      response('a', jobA, 'failed'),
-      command,
-      response('command'),
-      request('b'),
-      response('b', jobB, 'failed'),
-      request('success'),
-      response('success', third, 'completed'),
-      message('public', 'assistant', [{ type: 'text', text: 'Trying the other workflow.' }]),
-      request('c'),
-      response('c', fourth, 'failed'),
+      request('submit'),
+      named('submit'),
+      message('boundary', 'assistant', [{ type: 'text', text: 'Waiting for the result.' }]),
+      message('reasoning', 'assistant', [
+        { type: 'thinking', thinking: 'Checking the remote task.', signature: '' },
+      ]),
+      request('poll', 'status'),
+      named('poll', jobA, 'failed'),
+      message('boundary-2', 'assistant', [{ type: 'text', text: 'The task did not complete.' }]),
+      request('late', 'status'),
+      named('late', jobA, 'failed'),
     ];
     const view = render(history(trace), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(0);
-    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(4);
-    expect(screen.getAllByRole('button', { name: /^Image \d+ Unsuccessful$/ })).toHaveLength(3);
-    expect(screen.getByRole('button', { name: 'Image 3 Completed' })).toBeVisible();
-    expect(screen.getByText('Trying the other workflow.')).toBeVisible();
-    const group = view.container.querySelector('[data-process-group]')!;
-    fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
-    expect(group.querySelector('[data-tool-call-id="command"]')).not.toBeNull();
-  });
-
-  it('keeps submission numbers stable across pending receipts, polling, replay, visible windows and media kinds', () => {
-    const third = 'c3144477-d0b1-4177-905e-aaaec95c2f59';
-    const trace = [
-      request('first'),
-      response('first'),
-      request('pending'),
-      request('third'),
-      response('third', third, 'completed'),
-      request('video', 'generate', jobA, 'generate_video'),
-      response('video', jobA, 'completed', { kind: 'video' }),
-    ];
-    expect(collectMediaJobs(trace).get('third')?.sequence).toBe(3);
-    const poll = request('poll-third', 'status', third);
-    const later = [
-      ...trace,
-      response('pending', jobB),
-      poll,
-      response('poll-third', third, 'completed'),
-      trace[0],
-      trace[1],
-    ];
-    const jobs = collectMediaJobs(later, [poll]);
-    expect(jobs.get('pending')?.sequence).toBe(2);
-    expect(jobs.get('third')?.sequence).toBe(3);
-    expect(jobs.get('poll-third')?.sequence).toBe(3);
-    expect(jobs.get('poll-third')?.anchorId).toBe('poll-third');
-    expect(jobs.get('video')?.sequence).toBe(1);
-    const collision = collectMediaJobs([
-      request(jobB),
-      request('accepted'),
-      response('accepted', jobB),
-    ]);
-    expect(collision.get('accepted')?.sequence).toBe(2);
-    const view = render(rows(later), { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('button', { name: 'Image 3 Completed' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Video 1 Completed' })).toBeVisible();
-    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(4);
-  });
-
-  it('reuses the original number for an idempotent submission and uses the actual ID for query-only history', () => {
-    const retry = message('retry', 'assistant', [
-      {
-        type: 'toolRequest',
-        id: 'retry',
-        toolCall: {
-          name: 'generate_image',
-          arguments: { operation: 'generate', request_id: jobA },
-        },
-      },
-    ]);
-    const jobs = collectMediaJobs([
-      request('first'),
-      response('first'),
-      retry,
-      response('retry'),
-      request('second'),
-      response('second', jobB),
-    ]);
-    expect(jobs.get('retry')).toBe(jobs.get('first'));
-    expect(jobs.get('retry')?.sequence).toBe(1);
-    expect(jobs.get('second')?.sequence).toBe(3);
-    const early = [
-      request('unidentified'),
-      retry,
-      response('retry'),
-      request('independent'),
-      response('independent', jobB),
-    ];
-    const before = collectMediaJobs(early);
-    const after = collectMediaJobs([...early, response('unidentified'), response('retry')]);
-    expect(before.get('retry')?.sequence).toBe(2);
-    expect(after.get('retry')?.sequence).toBe(2);
-    expect(after.get('unidentified')?.sequence).toBe(2);
-    expect(before.get('independent')?.sequence).toBe(3);
-    expect(after.get('independent')?.sequence).toBe(3);
-    const history = [request('query-only', 'status'), response('query-only', jobA, 'completed')];
-    expect(collectMediaJobs(history).get('query-only')?.sequence).toBeUndefined();
-    render(rows(history), { wrapper: IntlTestWrapper });
-    expect(screen.getByRole('button', { name: `Image ${jobA} Completed` })).toBeVisible();
-  });
-
-  it('preserves ordinary tool groups on both sides of a media call within the same source message', () => {
-    const ordinary = (id: string) => ({
-      type: 'toolRequest' as const,
-      id,
-      toolCall: { name: 'pwsh', arguments: { command: 'Write-Output ' + id } },
-    });
-    const media = request('submit').content[0];
-    const trace = [
-      message('mixed', 'assistant', [ordinary('before'), media, ordinary('after')]),
-      response('before'),
-      response('submit'),
-      response('after'),
-    ];
-    const view = render(history(trace), { wrapper: IntlTestWrapper });
-    const ordered = [
-      ...view.container.querySelectorAll('[data-process-group], [data-media-job-id]'),
-    ];
-    expect(ordered).toHaveLength(3);
-    expect(ordered[1]).toHaveAttribute('data-media-job-id', jobA);
-    for (const group of [ordered[0], ordered[2]])
-      fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
-    expect(ordered[0].querySelector('[data-tool-call-id="before"]')).not.toBeNull();
-    expect(ordered[2].querySelector('[data-tool-call-id="after"]')).not.toBeNull();
-    expect(view.container.querySelectorAll('[data-tool-call-id="submit"]')).toHaveLength(0);
+    openProcesses(view.container);
+    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2);
+    const later = view.container.querySelectorAll('[data-process-group]')[1] as HTMLElement;
+    expect(later.querySelector('.codepro-group-heading')).toHaveTextContent('Thinking');
+    fireEvent.click(within(later).getByRole('button', { name: 'Reasoning details' }));
+    expect(later.querySelector('.codepro-thinking-record')).not.toBeNull();
+    expect(later.querySelector('[data-media-job-id]')).toBeNull();
   });
 });

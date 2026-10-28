@@ -1229,8 +1229,8 @@ function ProgressiveMessageListContent({
           )
             return null;
           const summary = operationSummary(group);
-          const mediaSummary = mediaProcessSummary(groupMedia);
           const mediaStates = groupMedia.map((job) => mediaJobObservation(job, mediaSnapshot));
+          const mediaSummary = mediaProcessSummary(groupMedia, mediaStates);
           const awaitingApproval = group
             .flatMap(getToolRequests)
             .some(
@@ -1366,7 +1366,7 @@ function ProgressiveMessageListContent({
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable={!mediaOnlyView}
+                scrollable
                 label={label}
                 icon={
                   thinkingNow ? (
@@ -1398,8 +1398,8 @@ function ProgressiveMessageListContent({
                     />
                   )
                 }
-                isStartExpanded={mediaOnlyView}
-                collapseOnSettle={!mediaOnlyView && processClosed}
+                isStartExpanded={false}
+                collapseOnSettle={processClosed}
                 resetOnSettle
                 autoExpandOnReading={false}
                 live={!processClosed && (isStreamingMessage || presentationPending)}

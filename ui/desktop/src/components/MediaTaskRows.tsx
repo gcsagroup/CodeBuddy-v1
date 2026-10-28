@@ -47,8 +47,17 @@ function taskTitle(job: MediaJobPresentation, observation: MediaJobObservation) 
     text(`Generate ${name}`, `生成${name}`, `生成${name}`) + ' ' + statusText(observation.status)
   );
 }
-export function mediaProcessSummary(jobs: MediaJobPresentation[]) {
+export function mediaProcessSummary(
+  jobs: MediaJobPresentation[],
+  observations: MediaJobObservation[]
+) {
   if (!jobs.length) return '';
+  const failed =
+    observations.length === jobs.length && observations.every((value) => value.status === 'failed');
+  if (failed && jobs.every((job) => job.kind === 'image'))
+    return text('Image generation unsuccessful', '图片生成未成功', '圖片生成未成功');
+  if (failed && jobs.every((job) => job.kind === 'video'))
+    return text('Video generation unsuccessful', '视频生成未成功', '影片生成未成功');
   if (jobs.every((job) => job.kind === 'image'))
     return text('Image generation results', '图片生成结果', '圖片生成結果');
   if (jobs.every((job) => job.kind === 'video'))
@@ -89,19 +98,9 @@ function failureSummary(observation: MediaJobObservation) {
         '生成請求未被接受'
       );
     case 'remote_execution':
-      return text(
-        'The external generation service failed',
-        '外部生成服务执行失败',
-        '外部生成服務執行失敗'
-      );
+      return text('External generation service error', '外部生成服务报错', '外部生成服務報錯');
     default:
-      return observation.status === 'failed'
-        ? text(
-            'The generation service reported a failure',
-            '生成服务返回失败结果',
-            '生成服務返回失敗結果'
-          )
-        : undefined;
+      return undefined;
   }
 }
 export function MediaTaskRows({
@@ -153,30 +152,51 @@ export function MediaTaskRows({
           />
         );
         return (
-          <div key={job.key} data-media-job-id={job.jobId} className="my-1 w-full max-w-[52rem]">
-            {paths.length || summary ? (
+          <div
+            key={job.key}
+            data-media-job-id={job.jobId}
+            className="w-full text-sm font-sans text-text-secondary"
+          >
+            {paths.length || summary || error || observation.status === 'failed' ? (
               <ToolCallExpandable
                 compact
-                scrollable={false}
                 autoExpandOnReading={false}
                 storageKey={'media-task-' + sessionId + '-' + job.key}
                 label={label}
                 icon={icon}
               >
                 <GeneratedMediaFiles sessionId={sessionId} paths={paths} taskLabel={name} inline />
-                {summary && (
-                  <div
-                    data-media-failure-summary=""
-                    className="ml-6 mb-1 text-sm text-text-secondary"
-                  >
-                    <p>{summary}</p>
-                    {error && <p className="whitespace-pre-wrap break-words text-xs">{error}</p>}
+                {(summary || error || observation.status === 'failed') && (
+                  <div data-media-failure-summary="" className="py-1 text-sm text-text-secondary">
+                    {summary && <p>{summary}</p>}
+                    {error ? (
+                      <details className="mt-1 text-xs" data-media-error-details="">
+                        <summary className="cursor-pointer hover:text-text-primary">
+                          {text('Error details', '具体错误', '具體錯誤')}
+                        </summary>
+                        <pre className="mt-1 whitespace-pre-wrap break-words font-mono">
+                          {error}
+                        </pre>
+                      </details>
+                    ) : (
+                      !summary && (
+                        <p>
+                          {text(
+                            'The service did not provide failure details',
+                            '服务未返回具体失败原因',
+                            '服務未返回具體失敗原因'
+                          )}
+                        </p>
+                      )
+                    )}
                   </div>
                 )}
               </ToolCallExpandable>
             ) : (
-              <div className="flex items-start gap-2 py-1 text-sm">
-                {icon}
+              <div className="codepro-record-trigger flex min-h-7 items-center gap-1.5 py-1 text-sm">
+                <span className="codepro-record-icon flex w-[18px] shrink-0 items-center justify-start">
+                  {icon}
+                </span>
                 {label}
               </div>
             )}

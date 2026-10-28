@@ -148,6 +148,31 @@ export function findMessageForChunk(
     (message) => message.id === messageId && message.role === role
   );
   if (existing) {
+    if (
+      existing.content.length === 0 &&
+      existing.metadata.usage &&
+      !existing.metadata.userVisible &&
+      !existing.metadata.agentVisible
+    ) {
+      // A receipt arrived before this content. Preserve the legacy adoption
+      // of an adjacent anonymous chunk, without creating another visible row.
+      const index = state.messages.indexOf(existing);
+      const previous = state.messages[index - 1];
+      if (
+        index === state.messages.length - 1 &&
+        previous?.role === role &&
+        !previous.id &&
+        previous.metadata.agentVisible
+      ) {
+        state.messages.splice(index, 1);
+        previous.id = messageId;
+        previous.created = created ?? previous.created;
+        previous.metadata = { ...previous.metadata, usage: existing.metadata.usage };
+        return previous;
+      }
+      existing.created = created ?? existing.created;
+      existing.metadata = { ...existing.metadata, ...DEFAULT_VISIBLE_MESSAGE_METADATA };
+    }
     return existing;
   }
 

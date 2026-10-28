@@ -7,6 +7,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../../types/message';
 import { ChatState } from '../../types/chatState';
+import { conversationUsage } from '../../components/conversationUsage';
 import {
   requestAcpPermission,
   restoreAcpPermissionRequestsForSession,
@@ -30,6 +31,48 @@ function message(id: string, text: string): Message {
     metadata: { userVisible: true, agentVisible: true },
   };
 }
+
+it('keeps late usage idle and replaces receipt-only messages at the history replay boundary', () => {
+  const id = 'usage-replay-boundary';
+  const receipt = {
+    sessionId: id,
+    update: {
+      sessionUpdate: 'message_usage' as const,
+      messageId: 'internal',
+      usage: { inputTokens: 10, outputTokens: 2 },
+    },
+  };
+  try {
+    acpChatSessionActions.startPromptAttempt(id, 'attempt', 'user');
+    acpChatSessionActions.finishPromptAttemptIfCurrent(id, 'attempt');
+    const late = acpChatSessionActions.applyAcpGooseSessionNotification(receipt);
+    expect(late.chatState).toBe(ChatState.Idle);
+    expect(late.activeToolCallIds).toEqual([]);
+    expect(conversationUsage(late.messages)).toEqual({ inputTokens: 10, outputTokens: 2 });
+
+    acpChatSessionActions.startSessionLoad(id);
+    acpChatSessionActions.applyAcpSessionNotification({
+      sessionId: id,
+      update: {
+        sessionUpdate: 'session_info_update',
+        _meta: { goose: { transcriptReplayStarted: true } },
+      },
+    });
+    const replayed = acpChatSessionActions.applyAcpGooseSessionNotification({
+      ...receipt,
+      update: {
+        ...receipt.update,
+        messageId: 'restored',
+        usage: { inputTokens: 20, outputTokens: 3 },
+      },
+    });
+    expect(replayed.messages.map((item) => item.id)).toEqual(['restored']);
+    expect(conversationUsage(replayed.messages)).toEqual({ inputTokens: 20, outputTokens: 3 });
+    expect(late.messages[0].metadata.usage).toEqual({ inputTokens: 10, outputTokens: 2 });
+  } finally {
+    acpChatSessionActions.deleteSnapshot(id);
+  }
+});
 
 it('accepts only current-turn file preparation metadata without adding a request or persisting it in history', () => {
   const id = 'tool-input-display';

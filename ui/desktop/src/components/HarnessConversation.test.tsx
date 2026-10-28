@@ -12,6 +12,7 @@ import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
 import { fileChangeReceipt } from './codepro/CodeProFileChange';
 import { toolPlanContent } from './codepro/CodeProToolContent';
 import { applyGooseSessionNotification } from '../acp/adapter/gooseSessionNotifications';
+import { createAcpSessionNotificationAdapter } from '../acp/sessionNotificationAdapter';
 import type { AdapterState } from '../acp/adapter/shared';
 import { SearchView } from './conversation/SearchView';
 import { ScrollFollowingContext } from './ui/scroll-follow-context';
@@ -188,6 +189,40 @@ function SearchableHistory({
 }
 
 describe('Harness conversation presentation', () => {
+  it('includes early and internal-only usage in the completed turn footer without showing empty rows', () => {
+    const adapter = createAcpSessionNotificationAdapter([user(), prose('First answer.')]);
+    const receipt = (messageId: string, inputTokens: number, outputTokens: number) =>
+      adapter.applyGoose({
+        sessionId: 'session',
+        update: {
+          sessionUpdate: 'message_usage',
+          messageId,
+          usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+        },
+      });
+    receipt('First answer.', 7028, 313);
+    receipt('internal-tool-attempt', 7250, 25);
+    adapter.apply({
+      sessionId: 'session',
+      update: {
+        sessionUpdate: 'agent_message_chunk',
+        messageId: 'answer',
+        content: { type: 'text', text: 'Final answer.' },
+      },
+    });
+    receipt('answer', 7895, 18);
+    const messages = [...adapter.getMessages(), terminal()];
+    const view = render(show(messages), { wrapper: IntlTestWrapper });
+
+    expect(screen.getByLabelText('Total')).toHaveTextContent('Input 22k');
+    expect(screen.getByLabelText('Total')).toHaveTextContent('Output 356');
+    expect(view.container).toHaveTextContent('Final answer.');
+    expect(view.container).not.toHaveTextContent('internal-tool-attempt');
+    receipt('internal-tool-attempt', 7250, 25);
+    view.rerender(show([...adapter.getMessages(), terminal()]));
+    expect(screen.getByLabelText('Total')).toHaveTextContent('Output 356');
+  });
+
   it('folds final reasoning with execution while preserving public prose and real elapsed time', () => {
     const start = Date.parse('2026-10-15T11:04:00Z') / 1000;
     const answer: Message = {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getAcpControlClient } from '../acp/acpConnection';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
@@ -45,10 +45,29 @@ export async function readMediaJobs(sessionId: string): Promise<MediaJob[]> {
       typeof job.live === 'object'
   );
 }
+const emptyMediaJobs = { sessionId: '', jobs: [] as MediaJob[], disconnected: false };
+const MediaJobsContext = createContext(emptyMediaJobs);
+export function MediaJobsProvider({
+  sessionId,
+  children,
+}: {
+  sessionId: string;
+  children: ReactNode;
+}) {
+  const snapshot = useMediaJobsObserver(sessionId);
+  return <MediaJobsContext.Provider value={snapshot}>{children}</MediaJobsContext.Provider>;
+}
 export function useMediaJobs(sessionId: string) {
+  const snapshot = useContext(MediaJobsContext);
+  return snapshot.sessionId === sessionId ? snapshot : emptyMediaJobs;
+}
+// Chat and preview observe the same runtime job store through one request at a time.
+function useMediaJobsObserver(sessionId: string) {
+  const [owner, setOwner] = useState(sessionId);
   const [jobs, setJobs] = useState<MediaJob[]>([]);
   const [disconnected, setDisconnected] = useState(false);
   useEffect(() => {
+    setOwner(sessionId);
     setJobs([]);
     setDisconnected(false);
     if (!sessionId) return;
@@ -58,7 +77,9 @@ export function useMediaJobs(sessionId: string) {
       try {
         const next = await readMediaJobs(sessionId);
         if (!disposed) {
-          setJobs(next);
+          setJobs((previous) =>
+            JSON.stringify(previous) === JSON.stringify(next) ? previous : next
+          );
           setDisconnected(false);
         }
       } catch {
@@ -72,7 +93,10 @@ export function useMediaJobs(sessionId: string) {
       clearTimeout(timer);
     };
   }, [sessionId]);
-  return { jobs, disconnected };
+  return useMemo(
+    () => (owner === sessionId ? { sessionId, jobs, disconnected } : emptyMediaJobs),
+    [owner, sessionId, jobs, disconnected]
+  );
 }
 const stages: Record<string, [string, string, string]> = {
   prepare: ['Preparing generation', '准备生成', '準備生成'],

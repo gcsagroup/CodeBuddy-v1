@@ -28,7 +28,7 @@ import {
 import { ChevronRight, Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
-import { resolveToolLoadingStatus } from './ToolCallWithResponse';
+import ToolCallWithResponse, { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
 import { computerActionTargets } from './computerActionTargets';
@@ -74,6 +74,8 @@ import {
 } from '../types/message';
 import { messageContentParts, type MessageContentPart } from './messageContentParts';
 import { conversationUsage } from './conversationUsage';
+import { collectMediaJobs, type MediaJobsByCall } from './mediaJobPresentation';
+import { MediaTaskRows } from './MediaTaskRows';
 import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
 import { getResponsePhase } from '../types/responsePhase';
@@ -358,6 +360,10 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
   const chains = useMemo(() => identifyConsecutiveToolCalls(props.messages), [props.messages]);
   const computerTargets = useMemo(() => computerActionTargets(props.messages), [props.messages]);
   const presentation = useOrderedToolPresentation(visibleMessages, !!props.isStreamingMessage);
+  const mediaJobs = useMemo(
+    () => collectMediaJobs(props.messages, presentation.messages),
+    [props.messages, presentation.messages]
+  );
   const historyMessageCount = props.messages.length;
   const historySessionId = props.chat.sessionId;
   const onHistoryRendered = props.onHistoryRendered;
@@ -386,6 +392,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         sharedToolResponses={responses}
         sharedToolChains={chains}
         sharedComputerTargets={computerTargets}
+        sharedMediaJobs={mediaJobs}
         presentationPending={!props.renderMessage && presentation.pending}
       />
     </>
@@ -488,6 +495,7 @@ function ProgressiveMessageListContent({
   sharedToolResponses,
   sharedToolChains,
   sharedComputerTargets,
+  sharedMediaJobs,
   processSettled = false,
   contentClip,
   footer,
@@ -498,6 +506,7 @@ function ProgressiveMessageListContent({
   sharedToolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   sharedToolChains?: number[][];
   sharedComputerTargets?: ReadonlyMap<string, string>;
+  sharedMediaJobs?: MediaJobsByCall;
   processSettled?: boolean;
   contentClip?: readonly [number, number, number];
   footer?: { hidden?: boolean; usage?: import('../types/message').MessageUsage; created?: number };
@@ -788,6 +797,10 @@ function ProgressiveMessageListContent({
           getToolResponses(item).map((response) => [response.id, response] as const)
         )
       );
+    const approvals = getPendingToolConfirmationIds(sourceMessages);
+    const pendingMediaIds = new Set(
+      [...approvals].filter((id) => livePermissions.has(id) && !responses.has(id))
+    );
     // Only the latest acknowledged plan in this turn can show live activity.
     // Old snapshots remain readable, but must not keep spinning after updates.
     const acknowledgedPlans = messages
@@ -804,9 +817,26 @@ function ProgressiveMessageListContent({
     const messagesToRender = messages
       .slice(renderStartIndex, renderEndIndex)
       .flatMap((message, offset) => {
-        const sourceRanges = renderMessage
+        const baseRanges = renderMessage
           ? [{ message, start: 0, end: message.content.length }]
           : messageContentParts(message);
+        // Split only media display ranges; ordinary tools retain their renderer
+        // and tasks stay at their original call position in the conversation.
+        const sourceRanges = renderMessage
+          ? baseRanges
+          : baseRanges.flatMap((range) => {
+              const split: MessageContentPart[] = [];
+              let start = range.start;
+              for (let at = range.start; at < range.end; at += 1) {
+                const content = message.content[at];
+                if (content.type !== 'toolRequest' || !sharedMediaJobs?.has(content.id)) continue;
+                if (at > start) split.push({ message, start, end: at });
+                split.push({ message, start: at, end: at + 1 });
+                start = at + 1;
+              }
+              if (start < range.end) split.push({ message, start, end: range.end });
+              return split;
+            });
         const ranges = sourceRanges.flatMap((range) => {
           if (!contentClip || renderStartIndex + offset !== contentClip[0]) return [range];
           const start = Math.max(range.start, contentClip[1]);
@@ -827,6 +857,14 @@ function ProgressiveMessageListContent({
           const projected = {
             ...message,
             content: message.content.slice(range.start, range.end).filter((content) => {
+              if (
+                !renderMessage &&
+                content.type === 'toolRequest' &&
+                !pendingMediaIds.has(content.id)
+              ) {
+                const job = sharedMediaJobs?.get(content.id);
+                if (job && content.id !== job.anchorId) return false;
+              }
               if (
                 !renderMessage &&
                 suppressProviderThinking &&
@@ -853,13 +891,18 @@ function ProgressiveMessageListContent({
           return projected;
         });
       });
-    const approvals = getPendingToolConfirmationIds(sourceMessages);
     const requestIds = new Set(
       sourceMessages.flatMap(getToolRequests).map((request) => request.id)
     );
     const lifecycleNotification = (item: Message) => {
       const notification = getSystemNotification(item);
       return notification && parseSubagentLifecycle(notification.data) ? notification : undefined;
+    };
+    const mediaJobFor = (item: Message) => {
+      if (item.content.length !== 1 || item.content[0].type !== 'toolRequest') return;
+      const request = item.content[0];
+      const job = sharedMediaJobs?.get(request.id);
+      return job?.anchorId === request.id && !pendingMediaIds.has(request.id) ? job : undefined;
     };
     const isProcessToolMessage = (item: Message) => {
       if (
@@ -874,7 +917,8 @@ function ProgressiveMessageListContent({
             content.type === 'redactedThinking' ||
             (content.type === 'text' && !content.text.trim())
         ) ||
-        isRepresentedToolTransport(item)
+        isRepresentedToolTransport(item) ||
+        mediaJobFor(item)
       )
         return false;
       return getToolRequests(item).every((request) => {
@@ -1113,6 +1157,32 @@ function ProgressiveMessageListContent({
         }
 
         if (foldedIndices.has(localIndex)) return null;
+        const mediaJob = mediaJobFor(message);
+        if (mediaJob)
+          return (
+            <MediaTaskRows
+              key={`media-${chat.sessionId}-${mediaJob.key}`}
+              jobs={[mediaJob]}
+              sessionId={chat.sessionId}
+              readOnly={readOnly}
+              pendingIds={pendingMediaIds}
+              renderCall={({ request, response }) => (
+                <ToolCallWithResponse
+                  compact
+                  showGeneratedMedia={false}
+                  sessionId={chat.sessionId}
+                  isCancelledMessage={false}
+                  toolRequest={request}
+                  toolResponse={response}
+                  isPendingApproval={false}
+                  isStreamingMessage={
+                    !!isStreamingMessage && !!activeToolCallIds?.includes(request.id)
+                  }
+                  notifications={toolCallNotifications.get(request.id)}
+                />
+              )}
+            />
+          );
         const requests = getToolRequests(message);
         const progressRequest = requests.length === 1 ? requests[0] : undefined;
         const progressCall = progressRequest ? presentedToolCall(progressRequest) : undefined;
@@ -1558,6 +1628,7 @@ function ProgressiveMessageListContent({
     contentClip,
     footer,
     sharedComputerTargets,
+    sharedMediaJobs,
     livePermissions,
     renderStartIndex,
     renderEndIndex,
@@ -1616,6 +1687,7 @@ function ProgressiveMessageListContent({
         sharedToolResponses={sharedToolResponses}
         sharedToolChains={sharedToolChains}
         sharedComputerTargets={sharedComputerTargets}
+        sharedMediaJobs={sharedMediaJobs}
         presentationPending={pending}
         processSettled={settled}
         contentClip={clip}

@@ -210,6 +210,7 @@ type ToolRequestWithMeta = ToolRequestMessageContent & {
 };
 
 interface ToolCallWithResponseProps {
+  showGeneratedMedia?: boolean;
   computerTarget?: string;
   planActive?: boolean;
   compact?: boolean;
@@ -344,6 +345,7 @@ function McpAppWrapper({
 }
 
 export default function ToolCallWithResponse({
+  showGeneratedMedia = true,
   computerTarget,
   planActive,
   compact = false,
@@ -430,7 +432,7 @@ export default function ToolCallWithResponse({
           }}
         />
         {/* Inline approval UI */}
-        {sessionId && !isPendingApproval && (
+        {showGeneratedMedia && sessionId && !isPendingApproval && (
           <GeneratedMedia sessionId={sessionId} toolName={toolCall.name} response={toolResponse} />
         )}
         {showInlineApproval && (

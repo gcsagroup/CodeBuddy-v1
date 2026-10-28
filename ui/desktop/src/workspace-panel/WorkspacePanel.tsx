@@ -80,7 +80,12 @@ import {
   type WorkbenchTab,
 } from './workspacePanelStore';
 import { WorkspaceCodePreview } from './WorkspaceCodePreview';
-import { WorkspaceGeneration, useMediaJobs, mediaText } from './WorkspaceGeneration';
+import {
+  MediaJobsProvider,
+  WorkspaceGeneration,
+  useMediaJobs,
+  mediaText,
+} from './WorkspaceGeneration';
 import './workspacePanel.css';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 import { getSessionGoal } from '../acp/goals';
@@ -134,20 +139,24 @@ export function WorkspaceSubagentProvider({
 }) {
   const { scope, snapshot } = useWorkspaceScope();
   return (
-    <SubagentCatalogProvider
-      cacheKey={scopeKey(scope)}
-      parentSessionId={scope.sessionId}
-      enabled={
-        !!snapshot?.session && !!scope.root && snapshot.chatState !== ChatState.LoadingConversation
-      }
-      active={
-        expanded ||
-        (!!snapshot &&
-          ![ChatState.Idle, ChatState.LoadingConversation].includes(snapshot.chatState))
-      }
-    >
-      {children}
-    </SubagentCatalogProvider>
+    <MediaJobsProvider sessionId={scope.root ? scope.sessionId : ''}>
+      <SubagentCatalogProvider
+        cacheKey={scopeKey(scope)}
+        parentSessionId={scope.sessionId}
+        enabled={
+          !!snapshot?.session &&
+          !!scope.root &&
+          snapshot.chatState !== ChatState.LoadingConversation
+        }
+        active={
+          expanded ||
+          (!!snapshot &&
+            ![ChatState.Idle, ChatState.LoadingConversation].includes(snapshot.chatState))
+        }
+      >
+        {children}
+      </SubagentCatalogProvider>
+    </MediaJobsProvider>
   );
 }
 

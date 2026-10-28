@@ -1,8 +1,9 @@
 import type { IntlShape } from 'react-intl';
 import { defineMessages } from '../i18n';
+import { selectNativeText } from '../utils/nativeLocalization';
 import { snakeToTitleCase } from '../utils';
 import type { ToolResponseMessageContent } from '../types/message';
-import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
+import { generatedMediaReceipt, mediaDisplayName } from '../utils/mediaToolReceipt';
 
 const messages = defineMessages({
   readDone: { id: 'toolAction.readDone', defaultMessage: 'Read file' },
@@ -201,14 +202,25 @@ export function formatToolAction(
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
   if (name === 'generate_image' || name === 'generate_video') {
-    const label = intl.formatMessage(messages.mediaOperation, {
-      kind: name === 'generate_video' ? 'video' : 'image',
-      operation: typeof args.operation === 'string' ? args.operation : 'other',
-    });
+    const receipt = generatedMediaReceipt(response);
+    const displayName =
+      fullName === name && args.operation === 'generate'
+        ? (mediaDisplayName(receipt?.display_name) ?? mediaDisplayName(args.display_name))
+        : undefined;
+    const label = displayName
+      ? selectNativeText(
+          intl.locale,
+          `Generate ${displayName}`,
+          `生成${displayName}`,
+          `生成${displayName}`
+        )
+      : intl.formatMessage(messages.mediaOperation, {
+          kind: name === 'generate_video' ? 'video' : 'image',
+          operation: typeof args.operation === 'string' ? args.operation : 'other',
+        });
     if (presentation === 'name') return label;
     if (args.__inputPreview === true && state === 'running')
       return intl.formatMessage(messages.generating, { target: `: ${label}` });
-    const receipt = generatedMediaReceipt(response);
     if (!receipt)
       return state === 'running' ? intl.formatMessage(messages.running, { action: label }) : label;
     const statuses =

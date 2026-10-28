@@ -31,6 +31,74 @@ describe('media operation receipts', () => {
       receipt
     );
 
+  it.each(['generate_image', 'generate_video'])(
+    'shows each requested business name before receiving a job for %s without claiming completion',
+    (tool) => {
+      for (const name of ['春季促销海报', '夏季促销海报']) {
+        const args = { operation: 'generate', display_name: name };
+        expect(formatToolAction(intl, tool, args, 'running')).toBe(`Running: Generate ${name}`);
+        expect(formatToolAction(intl, tool, args, undefined, 'name')).toBe(`Generate ${name}`);
+        expect(formatToolAction(intl, tool, args, 'completed')).toBe(`Generate ${name}`);
+        expect(
+          formatToolAction(
+            intl,
+            tool,
+            args,
+            'completed',
+            'detail',
+            undefined,
+            undefined,
+            response({ status: 'queued', display_name: name })
+          )
+        ).toBe(`Generate ${name}: Queued`);
+      }
+    }
+  );
+
+  it('does not apply the native naming contract to unrelated MCP tools or workflow inspection', () => {
+    expect(
+      formatToolAction(
+        intl,
+        'mcp__other__generate_image',
+        {
+          operation: 'generate',
+          display_name: 'Ignored name',
+        },
+        undefined,
+        'name'
+      )
+    ).toBe('Image generation · Submission request');
+    expect(
+      formatToolAction(
+        intl,
+        'generate_image',
+        {
+          operation: 'inspect',
+          display_name: 'Ignored name',
+        },
+        undefined,
+        'name'
+      )
+    ).toBe('Image generation · Workflow inspection');
+  });
+
+  it('uses the active view language for the named action', () => {
+    for (const locale of ['zh-CN', 'zh-TW']) {
+      expect(
+        formatToolAction(
+          createIntl({ locale, messages: {} }),
+          'generate_image',
+          {
+            operation: 'generate',
+            display_name: '小熊猫招手动作图',
+          },
+          undefined,
+          'name'
+        )
+      ).toBe('生成小熊猫招手动作图');
+    }
+  });
+
   it.each(['generate_image', 'mcp__comfyui__generate_video'])(
     'keeps submission and repeated status calls distinct for %s',
     (name) => {

@@ -450,10 +450,10 @@ export function comfyuiMediaTool({ cwd, dataDir, sessionId, baseUrl = DEFAULT_CO
       } while (true);
     },
   };
-  tool.description += ' For generate, provide display_name: a short business name in the user\'s language identifying the intended result. It is optional display metadata, not a prompt or execution parameter.';
+  tool.description += ' For every generate request, include display_name: a concise name in the user\'s language describing the specific intended result. Users see this name in the generation list, so identify the subject and purpose or action, and distinguish requested variants (for example 招手动作图 and 跳跃动作图, or 春季促销海报 and 夏季促销海报). Do not use a generic tool label, a sequence number, a job ID, or a status as the name. Reuse the name when retrying the same request. Status/cancel calls only need the existing job_id. This is display metadata and does not decide execution or completion; omission does not block generation.';
   tool.inputSchema = { ...tool.inputSchema, properties: { ...tool.inputSchema.properties,
     // Host validation degrades invalid optional metadata instead of rejecting generation.
-    display_name: { description: 'Optional short business name in the user\'s language, preferably within 80 characters. Display only; omitted or invalid values are ignored.' },
+    display_name: { description: 'For generate, supply a short string naming this specific result in the user\'s language, up to 80 characters. Include the subject and purpose/action, e.g. 小熊猫招手动作图 or 门店开业宣传短片. Distinguish real variants by their purpose rather than numbers. Omit status words such as completed/failed. Display only; omitted or invalid values are ignored.' },
   } };
   return registerToolSessionApproval(tool, {
     key: JSON.stringify([toolName, path.resolve(cwd), path.resolve(dataDir), sessionId, server]),

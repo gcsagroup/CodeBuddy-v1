@@ -5,7 +5,8 @@ import {
   type ToolRequestMessageContent,
   type ToolResponseMessageContent,
 } from '../types/message';
-import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
+import { generatedMediaReceipt, mediaDisplayName } from '../utils/mediaToolReceipt';
+export { mediaDisplayName } from '../utils/mediaToolReceipt';
 import { presentedToolCall } from './codepro/CodeProToolContent';
 import type { MediaJob, MediaFailureInfo } from '../workspace-panel/WorkspaceGeneration';
 
@@ -33,12 +34,6 @@ export interface MediaJobObservation {
   receipt?: Record<string, unknown>;
   source: 'snapshot' | 'receipt' | 'unavailable';
   issue?: MediaFailureInfo;
-}
-export function mediaDisplayName(value: unknown): string | undefined {
-  if (typeof value !== 'string') return;
-  const name = value.trim();
-  if (!name || Array.from(name).length > 80 || /[\p{Cc}\p{Cf}]/u.test(name)) return;
-  return name;
 }
 export function mediaFailureInfo(value: unknown): MediaFailureInfo | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return;
@@ -162,6 +157,16 @@ export function collectMediaJobs(
       job.latestReceipt = { call: entry, value };
   }
   for (const job of jobs.values()) {
+    // A submitted label is display metadata, never proof of a job or its state.
+    // Prefer any acknowledged name; queries cannot rename the original request.
+    if (!job.displayName) {
+      for (const entry of job.calls) {
+        const call = presentedToolCall(entry.request);
+        if (call?.arguments.operation !== 'generate') continue;
+        job.displayName = mediaDisplayName(call.arguments.display_name);
+        break;
+      }
+    }
     let settled: string | undefined;
     for (const call of [...job.calls].sort((a, b) => a.responseOrder - b.responseOrder)) {
       const status = generatedMediaReceipt(call.response)?.status;

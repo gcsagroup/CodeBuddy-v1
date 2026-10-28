@@ -1,5 +1,12 @@
 import type { ToolResponseMessageContent } from '../types/message';
 
+export function mediaDisplayName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return;
+  const name = value.trim();
+  if (!name || Array.from(name).length > 80 || /[\p{Cc}\p{Cf}]/u.test(name)) return;
+  return name;
+}
+
 // Read the tool's receipt, never infer generation status from assistant prose.
 export function generatedMediaReceipt(
   response?: ToolResponseMessageContent

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '../types/message';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -108,7 +108,7 @@ afterEach(() => {
 });
 
 describe('media task presentation', () => {
-  it('keeps one task for twenty polls, the full 21-call audit, and a primary image outside collapsed details', () => {
+  it('keeps one task for twenty polls with independently collapsible image and full 21-call audit', () => {
     const path = 'generated-images/' + jobA + '/1.png';
     const trace = [
       message('user', 'user', [{ type: 'text', text: 'Generate a sheet.' }]),
@@ -129,6 +129,12 @@ describe('media task presentation', () => {
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent('Image generation Completed');
+    const task = screen.getByRole('button', {
+      name: 'Image generation Completed',
+      expanded: false,
+    });
+    expect(screen.queryByRole('img', { name: '1.png' })).toBeNull();
+    fireEvent.click(task);
     expect(screen.getByRole('img', { name: '1.png' })).toBeVisible();
     expect(view.container).not.toHaveTextContent('Related files');
     expect(view.container).not.toHaveTextContent('3,505,445');
@@ -140,6 +146,8 @@ describe('media task presentation', () => {
     expect(ids).toHaveLength(21);
     expect(new Set(ids).size).toBe(21);
     expect(screen.getAllByRole('img', { name: '1.png' })).toHaveLength(1);
+    fireEvent.click(task);
+    expect(screen.queryByRole('img', { name: '1.png' })).toBeNull();
     expect(JSON.stringify(trace)).toBe(original);
   });
 
@@ -168,6 +176,9 @@ describe('media task presentation', () => {
         .getAllByRole('status')
         .filter((node) => node.textContent?.includes('Image generation Completed'))
     ).toHaveLength(7);
+    expect(screen.queryByRole('img')).toBeNull();
+    const toggles = screen.getAllByRole('button', { name: 'Image generation Completed' });
+    toggles.forEach((toggle) => fireEvent.click(toggle));
     expect(new Set(screen.getAllByRole('img').map((node) => node.getAttribute('src'))).size).toBe(
       7
     );
@@ -185,6 +196,7 @@ describe('media task presentation', () => {
     expect(view.container).not.toHaveTextContent('Completed');
     expect(view.container).not.toHaveTextContent('KSampler');
     expect(screen.getByRole('status')).not.toHaveTextContent('·');
+    fireEvent.click(screen.getByRole('button', { name: 'Image generation Unsuccessful' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
     expect(view.container).toHaveTextContent('KSampler');
   });
@@ -282,6 +294,7 @@ describe('media task presentation', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent('Generating');
     expect(view.container).not.toHaveTextContent('Cancelled');
+    fireEvent.click(screen.getByRole('button', { name: 'Image generation Generating' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (1 status checks)' }));
     expect(view.container).toHaveTextContent('Cancellation unconfirmed');
   });
@@ -332,6 +345,7 @@ describe('media task presentation', () => {
       await Promise.resolve();
     });
     expect(screen.getByRole('status')).toHaveTextContent('Queued');
+    fireEvent.click(screen.getByRole('button', { name: 'Image generation Queued' }));
     expect(view.container).toHaveTextContent('Last confirmed receipt');
     expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
   });
@@ -362,6 +376,7 @@ describe('media task presentation', () => {
     ];
     const view = render(history(trace, true), { wrapper: IntlTestWrapper });
     expect(await screen.findByTestId('tool-approval-actions')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Image generation Queued' }));
     fireEvent.click(screen.getByRole('button', { name: 'Execution records (0 status checks)' }));
     for (const group of view.container.querySelectorAll('[data-process-group]')) {
       const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
@@ -374,6 +389,97 @@ describe('media task presentation', () => {
     expect(screen.getAllByTestId('tool-approval-actions')).toHaveLength(1);
     act(() => cancelAcpPermissionRequestsForSession(sessionId));
     expect(await permission).toEqual({ outcome: { outcome: 'cancelled' } });
+  });
+
+  it('folds eight independent failures into one visual entry while preserving job identities and interleaved reasoning', () => {
+    const ids = [
+      'c8ca0443-25cb-4f1b-b5e4-507e4f726070',
+      '3409ec53-d45b-404b-9b9e-3ec9741c4b9d',
+      '7f56bdf4-89d5-4581-ba23-ce6d2631de21',
+      '96de3c75-0708-427d-ad20-5e1ded47e76d',
+      '5df4f554-8ea5-4238-a575-ceb72c35d32a',
+      '902683fb-e48e-481e-836e-0e0df6828443',
+      '17a975df-24a9-4a9e-b07b-8d3fb1faa5cf',
+      'd28d1f91-d704-4491-bc56-c46858fbb7cd',
+    ];
+    const trace: Message[] = [
+      message('user', 'user', [{ type: 'text', text: 'Generate eight sheets.' }]),
+    ];
+    ids.forEach((id, index) => {
+      if (index === 4)
+        trace.push(
+          message('reason-middle', 'assistant', [
+            { type: 'thinking', thinking: 'Reviewing dimensions.', signature: '' },
+          ])
+        );
+      trace.push(request('submit-' + index), response('submit-' + index, id));
+    });
+    ids.forEach((id, index) =>
+      trace.push(
+        request('poll-' + index, 'status', id),
+        response('poll-' + index, id, 'failed', { error: 'KSampler dimensions' })
+      )
+    );
+    const original = JSON.stringify(trace);
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    const failed = screen.getByRole('button', { name: 'Image generation Unsuccessful' });
+    expect(failed).not.toHaveTextContent('8');
+    expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(0);
+    expect(view.container).not.toHaveTextContent('KSampler');
+    fireEvent.click(failed);
+    const jobs = view.container.querySelectorAll('[data-media-job-id]');
+    expect([...jobs].map((node) => node.getAttribute('data-media-job-id'))).toEqual(ids);
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+    expect(screen.getByText('Reviewing dimensions.')).toBeVisible();
+    fireEvent.click(
+      within(jobs[0] as HTMLElement).getByRole('button', { name: 'Image generation Unsuccessful' })
+    );
+    fireEvent.click(
+      within(jobs[0] as HTMLElement).getByRole('button', {
+        name: 'Execution records (1 status checks)',
+      })
+    );
+    expect(view.container.querySelectorAll('[data-tool-call-id="submit-0"]')).toHaveLength(1);
+    expect(view.container.querySelectorAll('[data-tool-call-id="poll-0"]')).toHaveLength(1);
+    expect(JSON.stringify(trace)).toBe(original);
+  });
+
+  it('does not fold failures across ordinary commands, successful media or public replies', () => {
+    const third = 'c3144477-d0b1-4177-905e-aaaec95c2f59';
+    const fourth = 'f5551332-ee83-4a44-b957-18bd0d49dd92';
+    const command = message('command', 'assistant', [
+      {
+        type: 'toolRequest',
+        id: 'command',
+        toolCall: { name: 'pwsh', arguments: { command: 'Write-Output done' } },
+      },
+    ]);
+    const trace = [
+      request('a'),
+      response('a', jobA, 'failed'),
+      command,
+      response('command'),
+      request('b'),
+      response('b', jobB, 'failed'),
+      request('success'),
+      response('success', third, 'completed'),
+      message('public', 'assistant', [{ type: 'text', text: 'Trying the other workflow.' }]),
+      request('c'),
+      response('c', fourth, 'failed'),
+    ];
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    expect(view.container.querySelectorAll('[data-media-failure-group]')).toHaveLength(0);
+    expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(4);
+    expect(screen.getAllByRole('button', { name: 'Image generation Unsuccessful' })).toHaveLength(
+      3
+    );
+    expect(screen.getByRole('button', { name: 'Image generation Completed' })).toBeVisible();
+    expect(screen.getByText('Trying the other workflow.')).toBeVisible();
+    const group = view.container.querySelector('[data-process-group]')!;
+    fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
+    expect(group.querySelector('[data-tool-call-id="command"]')).not.toBeNull();
   });
 
   it('preserves ordinary tool groups on both sides of a media call within the same source message', () => {

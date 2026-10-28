@@ -74,8 +74,13 @@ import {
 } from '../types/message';
 import { messageContentParts, type MessageContentPart } from './messageContentParts';
 import { conversationUsage } from './conversationUsage';
-import { collectMediaJobs, type MediaJobsByCall } from './mediaJobPresentation';
+import {
+  collectMediaJobs,
+  mediaJobObservation,
+  type MediaJobsByCall,
+} from './mediaJobPresentation';
 import { MediaTaskRows } from './MediaTaskRows';
+import { useMediaJobs } from '../workspace-panel/WorkspaceGeneration';
 import { isActivityEvent } from '../types/activityEvent';
 import { getTurnTerminalRecord, type MessageEditType } from '../types/turnTerminal';
 import { getResponsePhase } from '../types/responsePhase';
@@ -512,6 +517,7 @@ function ProgressiveMessageListContent({
   footer?: { hidden?: boolean; usage?: import('../types/message').MessageUsage; created?: number };
 }) {
   const intl = useIntl();
+  const mediaSnapshot = useMediaJobs(readOnly ? '' : chat.sessionId);
   const [renderedCount, setRenderedCount] = useState(() => {
     // Initialize with either all messages (if small) or first batch (if large)
     return (foldTurns && !renderMessage) || messages.length <= showLoadingThreshold
@@ -1158,14 +1164,61 @@ function ProgressiveMessageListContent({
 
         if (foldedIndices.has(localIndex)) return null;
         const mediaJob = mediaJobFor(message);
-        if (mediaJob)
+        if (mediaJob) {
+          const jobs = [mediaJob];
+          const beforeJobs = new Map<string, Message[]>();
+          if (mediaJobObservation(mediaJob, mediaSnapshot).status === 'failed') {
+            let reasoning: { item: Message; index: number }[] = [];
+            for (let next = localIndex + 1; next < messagesToRender.length; next += 1) {
+              const candidate = messagesToRender[next];
+              const job = mediaJobFor(candidate);
+              if (
+                job &&
+                job.kind === mediaJob.kind &&
+                mediaJobObservation(job, mediaSnapshot).status === 'failed'
+              ) {
+                jobs.push(job);
+                foldedIndices.add(next);
+                if (reasoning.length) {
+                  beforeJobs.set(
+                    job.key,
+                    reasoning.map((value) => value.item)
+                  );
+                  reasoning.forEach((value) => foldedIndices.add(value.index));
+                  reasoning = [];
+                }
+              } else if (isThinkingMessage(candidate)) {
+                reasoning.push({ item: candidate, index: next });
+              } else if (
+                !candidate.metadata.userVisible ||
+                candidate.content.length === 0 ||
+                candidate.content.every(
+                  (content) =>
+                    content.type === 'toolResponse' ||
+                    (content.type === 'text' && !content.text.trim())
+                )
+              ) {
+                continue;
+              } else break;
+            }
+          }
           return (
             <MediaTaskRows
               key={`media-${chat.sessionId}-${mediaJob.key}`}
-              jobs={[mediaJob]}
+              jobs={jobs}
               sessionId={chat.sessionId}
               readOnly={readOnly}
               pendingIds={pendingMediaIds}
+              renderBefore={(job) => {
+                const reasoning = beforeJobs.get(job.key);
+                return reasoning?.length ? (
+                  <ProcessDetails hasThinking>
+                    {(showThinking) =>
+                      reasoning.map((item) => renderToolMessage(item, showThinking))
+                    }
+                  </ProcessDetails>
+                ) : null;
+              }}
               renderCall={({ request, response }) => (
                 <ToolCallWithResponse
                   compact
@@ -1183,6 +1236,7 @@ function ProgressiveMessageListContent({
               )}
             />
           );
+        }
         const requests = getToolRequests(message);
         const progressRequest = requests.length === 1 ? requests[0] : undefined;
         const progressCall = progressRequest ? presentedToolCall(progressRequest) : undefined;
@@ -1629,6 +1683,7 @@ function ProgressiveMessageListContent({
     footer,
     sharedComputerTargets,
     sharedMediaJobs,
+    mediaSnapshot,
     livePermissions,
     renderStartIndex,
     renderEndIndex,

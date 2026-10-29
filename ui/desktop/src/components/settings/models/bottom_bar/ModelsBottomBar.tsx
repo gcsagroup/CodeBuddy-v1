@@ -1,15 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bot, Check, ChevronDown, ChevronRight, LoaderCircle, Settings } from 'lucide-react';
 import { DropdownChevron } from '../../../ui/DropdownChevron';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { ModelThinkingMenu } from '../../../ThinkingEffortPicker';
-import {
-  acpReadModelDisplaySettings,
-  acpListProviderDetails,
-  type ModelDisplaySettings,
-} from '../../../../acp/providers';
+import { acpListProviderDetails } from '../../../../acp/providers';
 import {
   providerActivationDisabledReason,
   type ProviderDetails,
@@ -19,8 +15,6 @@ import type { View } from '../../../../utils/navigationUtils';
 import type { Message } from '../../../../types/message';
 import type Model from '../modelInterface';
 import { getModelDisplayName } from '../predefinedModelsUtils';
-import { useIsMobile } from '../../../../hooks/use-mobile';
-import { getModelDescription } from '../modelDescriptions';
 
 const i18n = defineMessages({
   choose: { id: 'modelsBottomBar.selectOrChangeModel', defaultMessage: 'Select or change model' },
@@ -74,7 +68,6 @@ export default function ModelsBottomBar({
   const intl = useIntl();
   const location = useLocation();
   const navigate = useNavigate();
-  const narrowWindow = useIsMobile();
   const {
     currentModel: configModel,
     currentProvider: configProvider,
@@ -95,7 +88,6 @@ export default function ModelsBottomBar({
     selection: Selection;
   } | null>(null);
   const [retry, setRetry] = useState(0);
-  const [detail, setDetail] = useState<Selection | null>(null);
   const [modelQuery, setModelQuery] = useState('');
   const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
   const [expandedModelLists, setExpandedModelLists] = useState<Record<string, boolean>>({});
@@ -103,90 +95,13 @@ export default function ModelsBottomBar({
   const inFlight = useRef(false);
   const mounted = useRef(true);
   const currentSession = useRef(sessionId);
-  const listAnchor = useRef<HTMLDivElement>(null);
-  const detailAnchor = useRef<HTMLButtonElement | null>(null);
-  const detailCloseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const displayReads = useRef(
-    new Map<
-      string,
-      {
-        promise: Promise<ModelDisplaySettings>;
-        value?: ModelDisplaySettings;
-      }
-    >()
-  );
-  const readDisplaySettings = useCallback((provider: string, model: string) => {
-    const key = identity({ provider, model });
-    const cached = displayReads.current.get(key);
-    if (cached) return cached.promise;
-    const entry: { promise: Promise<ModelDisplaySettings>; value?: ModelDisplaySettings } = {
-      promise: acpReadModelDisplaySettings(provider, model),
-    };
-    displayReads.current.set(key, entry);
-    void entry.promise.then(
-      (value) => {
-        entry.value = value;
-        // Missing advisory metadata is not a durable model capability. Let the
-        // next detail opening retry; keep complete reads and in-flight deduping.
-        if (
-          value.contextSource === 'fallback' &&
-          !value.thinking.options.length &&
-          displayReads.current.get(key) === entry
-        )
-          displayReads.current.delete(key);
-      },
-      () => {
-        if (displayReads.current.get(key) === entry) displayReads.current.delete(key);
-      }
-    );
-    return entry.promise;
-  }, []);
-  const retainDetail = () => clearTimeout(detailCloseTimer.current);
-  const leaveDetail = () => {
-    retainDetail();
-    detailCloseTimer.current = setTimeout(() => setDetail(null), 150);
-  };
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      clearTimeout(detailCloseTimer.current);
     };
   }, []);
   currentSession.current = sessionId;
-  useEffect(() => {
-    let active = true;
-    void acpListProviderDetails()
-      .then(async (all) => {
-        const queue = all
-          .filter(
-            (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
-          )
-          .flatMap((provider) =>
-            provider.metadata.known_models.map((model) => ({
-              provider: provider.name,
-              model: model.name,
-            }))
-          );
-        let index = 0;
-        await Promise.all(
-          Array.from({ length: 3 }, async () => {
-            while (active && index < queue.length) {
-              const selection = queue[index++];
-              try {
-                await readDisplaySettings(selection.provider, selection.model);
-              } catch {
-                /* Preloading is optional; the hovered detail still reports its own read result. */
-              }
-            }
-          })
-        );
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [readDisplaySettings]);
   useEffect(() => {
     if (!open) return;
     let active = true;
@@ -199,7 +114,6 @@ export default function ModelsBottomBar({
           (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
         );
         setProviders(configured);
-        setDetail(null);
       })
       .catch(() => {
         if (active) setLoadError(true);
@@ -217,8 +131,6 @@ export default function ModelsBottomBar({
   }, [sessionId]);
   useEffect(() => {
     if (!open) {
-      clearTimeout(detailCloseTimer.current);
-      setDetail(null);
       setModelQuery('');
       setExpandedProviders({});
       setExpandedModelLists({});
@@ -322,19 +234,11 @@ export default function ModelsBottomBar({
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Content
-            ref={listAnchor}
             side="top"
             align="start"
             sideOffset={8}
             collisionPadding={12}
             data-model-picker-list
-            onInteractOutside={(event) => {
-              if (
-                event.target instanceof window.Element &&
-                event.target.closest('[data-model-picker-details], [data-thinking-effort-card]')
-              )
-                event.preventDefault();
-            }}
             className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -345,7 +249,6 @@ export default function ModelsBottomBar({
                 placeholder={intl.formatMessage(i18n.search)}
                 onChange={(event) => {
                   setModelQuery(event.target.value);
-                  setDetail(null);
                 }}
                 className="m-1 shrink-0 rounded-lg border border-border-secondary bg-transparent px-3 py-2 text-sm outline-none focus:border-border-primary"
               />
@@ -377,12 +280,7 @@ export default function ModelsBottomBar({
                       (expandedProviders[provider.name] ??
                         provider.name === (currentProvider ?? providers[0]?.name));
                     const showAll = !!query || expandedModelLists[provider.name];
-                    const previewCount =
-                      models.length > MODEL_PREVIEW_COUNT &&
-                      provider.name === currentProvider &&
-                      models.some((model) => model.name === currentModel)
-                        ? 1
-                        : MODEL_PREVIEW_COUNT;
+                    const previewCount = MODEL_PREVIEW_COUNT;
                     const shownModels = showAll ? models : models.slice(0, previewCount);
                     return (
                       <div key={provider.name} className="space-y-1">
@@ -396,7 +294,6 @@ export default function ModelsBottomBar({
                               ...previous,
                               [provider.name]: !expanded,
                             }));
-                            if (detail?.provider === provider.name) setDetail(null);
                           }}
                           className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
                         >
@@ -426,27 +323,8 @@ export default function ModelsBottomBar({
                                 disabled={!!switching}
                                 aria-pressed={selected}
                                 title={model.name}
-                                // Popup positioning can generate mouseenter beneath a stationary pointer.
-                                onMouseMove={(event) => {
-                                  retainDetail();
-                                  detailAnchor.current = event.currentTarget;
-                                  setDetail((previous) =>
-                                    previous && identity(previous) === identity(selection)
-                                      ? previous
-                                      : selection
-                                  );
-                                }}
-                                onMouseLeave={leaveDetail}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'ArrowRight') {
-                                    event.preventDefault();
-                                    retainDetail();
-                                    detailAnchor.current = event.currentTarget;
-                                    setDetail(selection);
-                                  }
-                                }}
                                 onClick={() => void choose(selection)}
-                                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected || (detail && identity(detail) === identity(selection)) ? 'bg-background-secondary' : ''}`}
+                                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected ? 'bg-background-secondary' : ''}`}
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   {getModelDisplayName(model.name)}
@@ -476,7 +354,6 @@ export default function ModelsBottomBar({
                                 ...previous,
                                 [provider.name]: !showAll,
                               }));
-                              if (detail?.provider === provider.name) setDetail(null);
                             }}
                             className="flex min-h-9 w-full items-center rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
                           >
@@ -504,72 +381,6 @@ export default function ModelsBottomBar({
                 {intl.formatMessage(i18n.manage)}
               </button>
             </div>
-            {detail && (
-              <Popover.Root
-                open={open}
-                onOpenChange={(next) => {
-                  if (!next) setDetail(null);
-                }}
-              >
-                <Popover.Anchor
-                  virtualRef={{
-                    current: (narrowWindow ? listAnchor.current : detailAnchor.current)!,
-                  }}
-                />
-                <Popover.Portal>
-                  <Popover.Content
-                    data-model-picker-details
-                    onMouseEnter={retainDetail}
-                    onMouseLeave={leaveDetail}
-                    side={narrowWindow ? 'top' : 'right'}
-                    align={narrowWindow ? 'start' : 'end'}
-                    sideOffset={8}
-                    collisionPadding={12}
-                    onOpenAutoFocus={(event) => event.preventDefault()}
-                    onCloseAutoFocus={(event) => event.preventDefault()}
-                    onInteractOutside={(event) => {
-                      if (
-                        event.target instanceof window.Element &&
-                        event.target.closest(
-                          '[data-model-picker-list], [data-thinking-effort-card]'
-                        )
-                      )
-                        event.preventDefault();
-                    }}
-                    className="z-[105] max-h-[var(--radix-popover-content-available-height)] w-[min(19rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border-primary bg-background-primary p-4 text-text-primary shadow-md"
-                  >
-                    <p className="break-words text-base font-semibold">
-                      {getModelDisplayName(detail.model)}
-                    </p>
-                    <p className="mt-1 break-words text-xs text-text-secondary">
-                      {getModelDescription(intl, detail.model, detail.providerName)}
-                    </p>
-                    <div className="mt-4 border-t border-border-secondary pt-3">
-                      <ModelThinkingMenu
-                        key={identity(detail)}
-                        provider={detail.provider}
-                        model={detail.model}
-                        popupSide={narrowWindow ? 'top' : 'left'}
-                        showContextWindow
-                        initialSettings={displayReads.current.get(identity(detail))?.value}
-                        readSettings={readDisplaySettings}
-                        onEffortChanged={(settings) => {
-                          displayReads.current.set(identity(detail), {
-                            promise: Promise.resolve(settings),
-                            value: settings,
-                          });
-                          return choose(detail);
-                        }}
-                        onSavingChange={(saving) => {
-                          if (mounted.current) setSwitching(saving ? identity(detail) : null);
-                        }}
-                        showLabel
-                      />
-                    </div>
-                  </Popover.Content>
-                </Popover.Portal>
-              </Popover.Root>
-            )}
             {switchError && (
               <div className="flex items-start gap-2 px-3 pb-1 pt-2 text-xs text-text-secondary">
                 <p role="alert" className="min-w-0 flex-1 break-words">
@@ -588,6 +399,17 @@ export default function ModelsBottomBar({
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
+      {!loadingSession && currentProvider && currentModel && (
+        <ModelThinkingMenu
+          key={identity({ provider: currentProvider, model: currentModel })}
+          provider={currentProvider}
+          model={currentModel}
+          presentation="slider"
+          modelLabel={getModelDisplayName(currentModel)}
+          onSelectModel={() => setOpen(true)}
+          disabled={!!switching}
+        />
+      )}
       {!open && switchError && (
         <span role="alert" className="ml-2 flex min-w-0 items-center text-xs text-text-secondary">
           <button

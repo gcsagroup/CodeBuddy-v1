@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import {
   acpReadModelDisplaySettings,
@@ -37,15 +37,7 @@ const i18n = defineMessages({
   },
 });
 
-export function ThinkingEffortPicker({
-  settings,
-  onChange,
-  disabled = false,
-  error = false,
-  showLabel = false,
-  openOnHover = false,
-  popupSide = 'top',
-}: {
+type ThinkingEffortPickerProps = {
   settings: ModelThinkingSettings;
   onChange: (value: ThinkingEffort) => Promise<void> | void;
   disabled?: boolean;
@@ -53,7 +45,271 @@ export function ThinkingEffortPicker({
   showLabel?: boolean;
   openOnHover?: boolean;
   popupSide?: 'top' | 'left';
-}) {
+  presentation?: 'menu' | 'slider';
+  modelLabel?: string;
+  onSelectModel?: () => void;
+};
+
+export function ThinkingEffortPicker(props: ThinkingEffortPickerProps) {
+  return props.presentation === 'slider' ? (
+    <ThinkingEffortSlider {...props} />
+  ) : (
+    <ThinkingEffortMenu {...props} />
+  );
+}
+
+function effortIndex(options: ThinkingEffort[], value: ThinkingEffort | null) {
+  return value ? Math.max(0, options.indexOf(value)) : 0;
+}
+
+function ThinkingEffortSlider({
+  settings,
+  onChange,
+  disabled = false,
+  error = false,
+  modelLabel,
+  onSelectModel,
+}: ThinkingEffortPickerProps) {
+  const intl = useIntl();
+  const [open, setOpen] = useState(false);
+  const [rangeValue, setRangeValue] = useState(() => effortIndex(settings.options, settings.value));
+  const [dragging, setDragging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const alive = useRef(true);
+  const draggingNow = useRef(false);
+  const inFlight = useRef(false);
+  const queued = useRef<ThinkingEffort | null>(null);
+  const confirmed = useRef(settings.value);
+  const change = useRef(onChange);
+  const openingModelList = useRef(false);
+  change.current = onChange;
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      queued.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    confirmed.current = settings.value;
+    if (!inFlight.current && !draggingNow.current)
+      setRangeValue(effortIndex(settings.options, settings.value));
+  }, [settings.value, settings.options]);
+  useEffect(() => {
+    if (!open && !inFlight.current) setRangeValue(effortIndex(settings.options, confirmed.current));
+  }, [open, settings.options]);
+
+  const label = (effort: ThinkingEffort) =>
+    intl.formatMessage(settings.toggle && effort !== 'off' ? i18n.on : i18n[effort]);
+  const commit = (effort: ThinkingEffort) => {
+    if (disabled) return;
+    queued.current = effort;
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSaving(true);
+    void (async () => {
+      try {
+        while (alive.current && queued.current !== null) {
+          const next = queued.current;
+          queued.current = null;
+          if (next === confirmed.current) continue;
+          try {
+            await change.current(next);
+            confirmed.current = next;
+          } catch {
+            if (alive.current && queued.current === null && !draggingNow.current)
+              setRangeValue(effortIndex(settings.options, confirmed.current));
+          }
+        }
+      } finally {
+        inFlight.current = false;
+        if (alive.current) setSaving(false);
+      }
+    })();
+  };
+  if (!settings.options.length || !settings.value) return null;
+  const title = intl.formatMessage(i18n.title);
+  if (settings.options.length === 1)
+    return (
+      <span className="shrink-0 px-1 text-xs text-text-secondary" title={title}>
+        {label(settings.value)}
+      </span>
+    );
+  const index = Math.min(settings.options.length - 1, Math.max(0, Math.round(rangeValue)));
+  const fraction = Math.min(1, Math.max(0, rangeValue / (settings.options.length - 1)));
+  const position = `calc(${fraction * 100}% + ${14 - fraction * 28}px)`;
+  const release = (value: string) => {
+    draggingNow.current = false;
+    setDragging(false);
+    const at = Math.round(Number(value));
+    const effort = settings.options[at];
+    if (effort) setRangeValue(at);
+    if (effort) commit(effort);
+  };
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          draggingNow.current = false;
+          setDragging(false);
+        }
+      }}
+    >
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-busy={saving}
+          aria-label={`${title}: ${label(settings.value)}`}
+          title={title}
+          className="ml-1 flex min-h-7 shrink-0 items-center gap-1 rounded-md px-1 text-xs text-text-secondary transition-colors hover:bg-background-secondary disabled:opacity-60"
+        >
+          {label(settings.value)}
+          {saving ? (
+            <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-3" aria-hidden="true" />
+          )}
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          data-thinking-effort-card
+          side="top"
+          align="start"
+          sideOffset={8}
+          collisionPadding={12}
+          onCloseAutoFocus={(event) => {
+            if (openingModelList.current) {
+              event.preventDefault();
+              openingModelList.current = false;
+            }
+          }}
+          className="z-[110] w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-border-primary bg-background-primary p-4 text-text-primary shadow-md motion-reduce:animate-none"
+        >
+          <div className="min-h-5 text-center text-sm font-medium text-blue-500">
+            {label(settings.options[index])}
+          </div>
+          {modelLabel &&
+            (onSelectModel ? (
+              <button
+                type="button"
+                className="mx-auto mt-1 flex max-w-full items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
+                onClick={() => {
+                  openingModelList.current = true;
+                  setOpen(false);
+                  onSelectModel();
+                }}
+              >
+                <span className="truncate">{modelLabel}</span>
+                <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+              </button>
+            ) : (
+              <p className="mt-1 truncate text-center text-xs text-text-secondary">{modelLabel}</p>
+            ))}
+          <div className="relative mt-4 h-8 rounded-full bg-background-secondary has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
+            <div
+              className={`pointer-events-none absolute inset-y-0 left-0 rounded-full bg-blue-500 ${dragging ? '' : 'transition-[width] duration-150 ease-out motion-reduce:transition-none'}`}
+              style={{ width: position }}
+            />
+            {settings.options.map((effort, at) => {
+              const part = at / (settings.options.length - 1);
+              return (
+                <span
+                  key={effort}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-secondary/35"
+                  style={{ left: `calc(${part * 100}% + ${14 - part * 28}px)` }}
+                />
+              );
+            })}
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute top-1/2 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border-secondary bg-background-primary shadow-sm ${dragging ? '' : 'transition-[left] duration-150 ease-out motion-reduce:transition-none'}`}
+              style={{ left: position }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={settings.options.length - 1}
+              step="any"
+              value={rangeValue}
+              aria-label={title}
+              aria-valuetext={label(settings.options[index])}
+              aria-busy={saving}
+              disabled={disabled}
+              className="absolute inset-0 m-0 h-full w-full cursor-ew-resize touch-none appearance-none opacity-0 disabled:cursor-default [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none"
+              onPointerDown={() => {
+                draggingNow.current = true;
+                setDragging(true);
+              }}
+              onChange={(event) => {
+                setRangeValue(Number(event.target.value));
+              }}
+              onPointerUp={(event) => release(event.currentTarget.value)}
+              onPointerCancel={() => {
+                draggingNow.current = false;
+                setDragging(false);
+                setRangeValue(effortIndex(settings.options, confirmed.current));
+              }}
+              onKeyDown={(event) => {
+                const delta = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key)
+                  ? -1
+                  : ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key)
+                    ? 1
+                    : 0;
+                if (!delta && event.key !== 'Home' && event.key !== 'End') return;
+                event.preventDefault();
+                setRangeValue(
+                  event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? settings.options.length - 1
+                      : Math.min(
+                          settings.options.length - 1,
+                          Math.max(0, Math.round(Number(event.currentTarget.value)) + delta)
+                        )
+                );
+              }}
+              onKeyUp={(event) => {
+                if (
+                  [
+                    'ArrowLeft',
+                    'ArrowRight',
+                    'ArrowUp',
+                    'ArrowDown',
+                    'Home',
+                    'End',
+                    'PageUp',
+                    'PageDown',
+                  ].includes(event.key)
+                )
+                  release(event.currentTarget.value);
+              }}
+            />
+          </div>
+          {error && (
+            <p role="alert" className="pt-2 text-xs text-text-danger">
+              {intl.formatMessage(i18n.error)}
+            </p>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+function ThinkingEffortMenu({
+  settings,
+  onChange,
+  disabled = false,
+  error = false,
+  showLabel = false,
+  openOnHover = false,
+  popupSide = 'top',
+}: ThinkingEffortPickerProps) {
   const intl = useIntl();
   const name = useId();
   const [open, setOpen] = useState(false);
@@ -188,6 +444,10 @@ export function ModelThinkingMenu({
   readSettings = acpReadModelDisplaySettings,
   onEffortChanged,
   onSavingChange,
+  presentation,
+  modelLabel,
+  onSelectModel,
+  disabled,
 }: {
   provider: string | null;
   model: string | null;
@@ -198,6 +458,10 @@ export function ModelThinkingMenu({
   readSettings?: typeof acpReadModelDisplaySettings;
   onEffortChanged?: (settings: ModelDisplaySettings) => Promise<void> | void;
   onSavingChange?: (saving: boolean) => void;
+  presentation?: 'menu' | 'slider';
+  modelLabel?: string;
+  onSelectModel?: () => void;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const identity = JSON.stringify([provider, model]);
@@ -251,6 +515,10 @@ export function ModelThinkingMenu({
         <ThinkingEffortPicker
           key={identity}
           settings={settings}
+          presentation={presentation}
+          modelLabel={modelLabel}
+          onSelectModel={onSelectModel}
+          disabled={disabled}
           showLabel={showLabel}
           openOnHover={showLabel}
           popupSide={popupSide}

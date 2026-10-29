@@ -7,10 +7,10 @@ import { acpReadModelDisplaySettings, acpListProviderDetails } from '../../../..
 import type { ProviderDetails } from '../../../../types/providers';
 import ModelsBottomBar from './ModelsBottomBar';
 
-const mocks = vi.hoisted(() => ({ change: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ change: vi.fn(), navigate: vi.fn(), configModel: 'model-A' }));
 vi.mock('../../../ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({
-    currentModel: 'model-A',
+    currentModel: mocks.configModel,
     currentProvider: 'p',
     changeModel: mocks.change,
   }),
@@ -74,6 +74,7 @@ async function openModels(user: ReturnType<typeof userEvent.setup>) {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.configModel = 'model-A';
   vi.mocked(acpListProviderDetails).mockResolvedValue([
     provider('p', ['model-A', 'model-B']),
     provider('disabled', ['unavailable'], false),
@@ -86,6 +87,16 @@ beforeEach(() => {
   });
 });
 describe('direct model selection', () => {
+  it('makes the current chat model the default when its provider differs from the saved selection', async () => {
+    mocks.configModel = 'model-B';
+    const user = userEvent.setup();
+    setup();
+    await openModels(user);
+    await user.click(await screen.findByRole('button', { name: 'model-A', pressed: true }));
+    await waitFor(() => expect(mocks.change).toHaveBeenCalledTimes(1));
+    expect(mocks.change.mock.calls[0][1]).toMatchObject({ name: 'model-A', provider: 'p' });
+    expect(mocks.change.mock.calls[0][2]).toHaveProperty('updateDefaults', true);
+  });
   it('keeps other connections folded and leaves the current selection intact when toggling groups', async () => {
     vi.mocked(acpListProviderDetails).mockResolvedValue([
       provider('other-key', ['other-model']),
@@ -227,7 +238,7 @@ describe('direct model selection', () => {
     expect(mocks.change).toHaveBeenCalledTimes(1);
     expect(mocks.change.mock.calls[0][0]).toBe('chat');
     expect(mocks.change.mock.calls[0][1]).toMatchObject({ name: 'model-B', provider: 'p' });
-    expect(mocks.change.mock.calls[0][2]).not.toHaveProperty('updateDefaults');
+    expect(mocks.change.mock.calls[0][2]).toHaveProperty('updateDefaults', true);
     expect(screen.queryByText('Configure agent models')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'model-B' })).toBeVisible();
   });

@@ -5,7 +5,7 @@ import { Button } from '../../../../../ui/button';
 import { SecureStorageNotice } from '../SecureStorageNotice';
 import type { UpdateCustomProviderRequest } from '../../../../../../types/providers';
 import type { ProviderTemplateDto } from '@aaif/goose-sdk';
-import { Plus, X, Trash2, AlertTriangle, ExternalLink, Search, Settings } from 'lucide-react';
+import { Plus, X, Trash2, ExternalLink, Search, Settings } from 'lucide-react';
 import { cn } from '../../../../../../utils';
 import ProviderCatalogPicker from '../ProviderCatalogPicker';
 import { defineMessages, useIntl } from '../../../../../../i18n';
@@ -202,10 +202,9 @@ const i18n = defineMessages({
     id: 'customProviderForm.submitError',
     defaultMessage: 'Failed to save provider. Please check your configuration and try again.',
   },
-  cannotDeleteActive: {
-    id: 'customProviderForm.cannotDeleteActive',
-    defaultMessage:
-      "You cannot delete this provider while it's currently in use. Please switch to a different model first.",
+  deleteFailed: {
+    id: 'customProviderForm.deleteFailed',
+    defaultMessage: 'Could not delete this connection. Stop any tasks using it and try again.',
   },
   deleteConfirmation: {
     id: 'customProviderForm.deleteConfirmation',
@@ -413,7 +412,6 @@ interface CustomProviderFormProps {
   onSubmit: (data: UpdateCustomProviderRequest) => void | Promise<void>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
-  isActiveProvider?: boolean;
   initialData: UpdateCustomProviderRequest | null;
   isEditable?: boolean;
   compactSetup?: boolean;
@@ -425,7 +423,6 @@ export default function CustomProviderForm({
   onSubmit,
   onCancel,
   onDelete,
-  isActiveProvider = false,
   initialData,
   isEditable,
   compactSetup = false,
@@ -1351,32 +1348,38 @@ export default function CustomProviderForm({
 
       {showDeleteConfirmation ? (
         <div className="pt-4 space-y-3">
-          {isActiveProvider ? (
-            <div className="px-4 py-3 bg-yellow-600/20 border border-yellow-500/30 rounded">
-              <p className="text-yellow-500 text-sm flex items-start">
-                <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                <span>{intl.formatMessage(i18n.cannotDeleteActive)}</span>
-              </p>
-            </div>
-          ) : (
-            <div className="px-4 py-3 bg-red-900/20 border border-red-500/30 rounded">
-              <p className="text-red-400 text-sm">{intl.formatMessage(i18n.deleteConfirmation)}</p>
-            </div>
-          )}
+          <div className="px-4 py-3 bg-red-900/20 border border-red-500/30 rounded">
+            <p className="text-red-400 text-sm">{intl.formatMessage(i18n.deleteConfirmation)}</p>
+          </div>
           <div className="flex justify-end space-x-2">
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => setShowDeleteConfirmation(false)}
             >
               {intl.formatMessage(i18n.cancel)}
             </Button>
-            {!isActiveProvider && (
-              <Button type="button" variant="destructive" onClick={onDelete}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                {intl.formatMessage(i18n.confirmDelete)}
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isSubmitting}
+              onClick={async () => {
+                if (isSubmitting) return;
+                setIsSubmitting(true);
+                setSubmitError(null);
+                try {
+                  await onDelete?.();
+                } catch {
+                  setSubmitError(intl.formatMessage(i18n.deleteFailed));
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {intl.formatMessage(i18n.confirmDelete)}
+            </Button>
           </div>
         </div>
       ) : (

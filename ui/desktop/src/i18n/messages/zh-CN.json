@@ -2123,8 +2123,8 @@
   "customProviderForm.cancel": {
     "defaultMessage": "取消"
   },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "此提供商正在使用中，无法删除。请先切换到其他模型。"
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "无法删除此连接。请停止正在使用它的任务后重试。"
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "选择你想如何设置提供商。"

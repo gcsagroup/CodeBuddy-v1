@@ -9,7 +9,6 @@ import type { ProviderDetails } from '../../../types/providers';
 import SubagentTemplateSettings from './SubagentTemplateSettings';
 import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
-import ModelsSection from './ModelsSection';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
@@ -135,8 +134,6 @@ export default function ModelsAndRuntimeSettings({
 
   const connections = (
     <div className="space-y-4 pb-8">
-      <ModelsSection setView={setView} showProviderConfiguration={false} />
-
       <Card className="rounded-lg">
         <CardHeader className="pb-3">
           <CardTitle>{intl.formatMessage(i18n.customConnections)}</CardTitle>

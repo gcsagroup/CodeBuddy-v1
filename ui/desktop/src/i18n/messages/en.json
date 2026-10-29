@@ -2159,9 +2159,6 @@
   "customProviderForm.cancel": {
     "defaultMessage": "Cancel"
   },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "You cannot delete this provider while it's currently in use. Please switch to a different model first."
-  },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "Choose how you'd like to set up your provider."
   },
@@ -2203,6 +2200,9 @@
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Are you sure you want to delete this custom provider? This will permanently remove the provider and its stored API key. This action cannot be undone."
+  },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
   },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Delete Provider"
@@ -5795,9 +5795,6 @@
   "providerConfigurationModal.cancel": {
     "defaultMessage": "Cancel"
   },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "You cannot delete this provider while it's currently in use. Please switch to a different model first."
-  },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Check your configuration again to use this provider."
   },
@@ -5903,9 +5900,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "Cancel"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "You cannot delete {providerName} while it's currently in use. Please switch to a different model before deleting this provider."
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "Confirm Delete"
   },
@@ -5917,9 +5911,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "Enable Provider"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "Ok"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "Submit"

@@ -2,7 +2,11 @@ import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { acpReadProviderConfig, acpSaveProviderConfig } from '../../../../acp/providers';
+import {
+  acpReadProviderConfig,
+  acpSaveProviderConfig,
+  acpDeleteProviderConfig,
+} from '../../../../acp/providers';
 import type { ProviderDetails } from '../../../../types/providers';
 import ProviderConfigurationModal from './ProviderConfigurationModal';
 
@@ -16,6 +20,7 @@ vi.mock('../../../../acp/providers', () => ({
 
 vi.mock('../../../ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({
+    refreshCurrentModelAndProvider: vi.fn().mockResolvedValue(undefined),
     getCurrentModelAndProvider: vi.fn().mockResolvedValue({
       model: 'gpt-4o',
       provider: 'openai',
@@ -102,4 +107,29 @@ describe('ProviderConfigurationModal OpenAI endpoint selector', () => {
     );
     expect(onConfigured).toHaveBeenCalledWith(openai);
   });
+
+  it.each([false, true])(
+    'uses the delete receipt instead of the saved default to decide success (reject=%s)',
+    async (rejected) => {
+      if (rejected)
+        vi.mocked(acpDeleteProviderConfig).mockRejectedValueOnce(new Error('active task'));
+      else vi.mocked(acpDeleteProviderConfig).mockResolvedValueOnce(undefined);
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <IntlProvider locale="en">
+          <ProviderConfigurationModal provider={openai} onClose={onClose} />
+        </IntlProvider>
+      );
+      await user.click(await screen.findByRole('button', { name: 'Delete Provider' }));
+      await user.click(screen.getByRole('button', { name: 'Confirm Delete' }));
+      expect(acpDeleteProviderConfig).toHaveBeenCalledWith('openai');
+      if (rejected) {
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+          'Could not delete this connection'
+        );
+        expect(onClose).not.toHaveBeenCalled();
+      } else await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    }
+  );
 });

@@ -144,7 +144,12 @@ export default function ModelsBottomBar({
       loadingSession
     )
       return;
-    if (selection.provider === currentProvider && selection.model === currentModel) {
+    if (
+      selection.provider === currentProvider &&
+      selection.model === currentModel &&
+      selection.provider === configProvider &&
+      selection.model === configModel
+    ) {
       return;
     }
     const requestedSession = sessionId;
@@ -159,6 +164,7 @@ export default function ModelsBottomBar({
         subtext: selection.providerName,
       };
       const applied = await changeModel(requestedSession, model, {
+        updateDefaults: true,
         onError: (value) => {
           message = value;
         },

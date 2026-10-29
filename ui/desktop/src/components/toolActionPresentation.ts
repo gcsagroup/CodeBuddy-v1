@@ -299,9 +299,11 @@ export function formatToolAction(
       break;
     case 'glob':
       action = 'findFiles';
+      if (typeof args.pattern === 'string') target = args.pattern;
       break;
     case 'grep':
       action = 'searchContents';
+      if (typeof args.pattern === 'string') target = args.pattern;
       break;
     case 'read_image':
       action = 'readImage';

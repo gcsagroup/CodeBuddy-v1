@@ -80,6 +80,74 @@ beforeEach(() => {
   });
 });
 describe('direct model selection', () => {
+  it('keeps other connections folded and leaves the current selection intact when toggling groups', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('other-key', ['other-model']),
+      provider('p', ['model-A', 'model-B']),
+    ]);
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    expect(await screen.findByRole('button', { name: 'model-A' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    const other = screen.getByRole('button', { name: 'other-key (1)' });
+    expect(other).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'other-model' })).toBeNull();
+    await user.click(other);
+    expect(screen.getByRole('button', { name: 'other-model' })).toBeVisible();
+    await user.click(other);
+    expect(screen.queryByRole('button', { name: 'other-model' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'model-A' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mocks.change).not.toHaveBeenCalled();
+  });
+  it('pins the current model ahead of a long list and expands the remaining models on demand', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('p', [...Array.from({ length: 9 }, (_, index) => `model-${index}`), 'model-A']),
+    ]);
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    const selected = await screen.findByRole('button', { name: 'model-A' });
+    expect(selected).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'model-8' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'model-0' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show 9 more' }));
+    expect(screen.getByRole('button', { name: 'model-8' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show fewer' }));
+    expect(screen.queryByRole('button', { name: 'model-8' })).toBeNull();
+    expect(selected).toBeVisible();
+  });
+  it('searches every connection including folded models and switches using the matched connection', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('p', ['model-A']),
+      provider(
+        'another-key',
+        Array.from({ length: 12 }, (_, index) => `remote-${index}`)
+      ),
+    ]);
+    const user = userEvent.setup();
+    const view = setup();
+    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await screen.findByRole('button', { name: 'model-A' });
+    const search = screen.getByRole('searchbox', { name: 'Search models or connections' });
+    await user.type(search, 'REMOTE-11');
+    expect(screen.queryByRole('button', { name: 'model-A' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'remote-11' }));
+    await waitFor(() =>
+      expect(view.changed).toHaveBeenCalledWith({ model: 'remote-11', provider: 'another-key' })
+    );
+    await user.clear(search);
+    await user.type(search, 'no-such-model');
+    expect(screen.getByText('No matching models')).toBeVisible();
+    await user.clear(search);
+    expect(screen.getByRole('button', { name: 'model-A' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'another-key (12)' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+  });
   it('recovers thinking controls after an incomplete preload and detail read without changing models', async () => {
     let targetReads = 0;
     vi.mocked(acpReadModelDisplaySettings).mockImplementation(async (_provider, model) => {

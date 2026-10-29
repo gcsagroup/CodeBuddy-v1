@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Bot, Check, LoaderCircle, Settings } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronRight, LoaderCircle, Settings } from 'lucide-react';
 import { DropdownChevron } from '../../../ui/DropdownChevron';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
@@ -39,7 +39,13 @@ const i18n = defineMessages({
     id: 'modelsBottomBar.switchFailedLabel',
     defaultMessage: 'Switch failed',
   },
+  search: { id: 'modelsBottomBar.search', defaultMessage: 'Search models or connections' },
+  noMatches: { id: 'modelsBottomBar.noMatches', defaultMessage: 'No matching models' },
+  showMore: { id: 'modelsBottomBar.showMore', defaultMessage: 'Show {count} more' },
+  showFewer: { id: 'modelsBottomBar.showFewer', defaultMessage: 'Show fewer' },
 });
+
+const MODEL_PREVIEW_COUNT = 6;
 type Selection = { provider: string; model: string; providerName: string };
 const identity = (selection: { provider: string; model: string }) =>
   JSON.stringify([selection.provider, selection.model]);
@@ -90,6 +96,9 @@ export default function ModelsBottomBar({
   } | null>(null);
   const [retry, setRetry] = useState(0);
   const [detail, setDetail] = useState<Selection | null>(null);
+  const [modelQuery, setModelQuery] = useState('');
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
+  const [expandedModelLists, setExpandedModelLists] = useState<Record<string, boolean>>({});
   const [switching, setSwitching] = useState<string | null>(null);
   const inFlight = useRef(false);
   const mounted = useRef(true);
@@ -210,6 +219,9 @@ export default function ModelsBottomBar({
     if (!open) {
       clearTimeout(detailCloseTimer.current);
       setDetail(null);
+      setModelQuery('');
+      setExpandedProviders({});
+      setExpandedModelLists({});
     }
   }, [open]);
   const choose = async (selection: Selection) => {
@@ -259,6 +271,25 @@ export default function ModelsBottomBar({
       navigate('/codepro/settings', { state: { section: 'models' } });
     else setView('configureProviders');
   };
+  const query = modelQuery.trim().toLocaleLowerCase();
+  const visibleProviders = [...providers]
+    .sort((a, b) => Number(b.name === currentProvider) - Number(a.name === currentProvider))
+    .map((provider) => {
+      const connectionMatches = [provider.name, provider.metadata.display_name].some((name) =>
+        name.toLocaleLowerCase().includes(query)
+      );
+      const models = [...provider.metadata.known_models]
+        .filter(
+          (model) => !query || connectionMatches || model.name.toLocaleLowerCase().includes(query)
+        )
+        .sort((a, b) =>
+          provider.name === currentProvider
+            ? Number(b.name === currentModel) - Number(a.name === currentModel)
+            : 0
+        );
+      return { provider, models };
+    })
+    .filter(({ models }) => models.length > 0);
   return (
     <div className="relative flex min-w-0 max-w-full items-center" ref={dropdownRef}>
       <Popover.Root open={open} onOpenChange={setOpen}>
@@ -307,6 +338,17 @@ export default function ModelsBottomBar({
             className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <input
+                type="search"
+                value={modelQuery}
+                aria-label={intl.formatMessage(i18n.search)}
+                placeholder={intl.formatMessage(i18n.search)}
+                onChange={(event) => {
+                  setModelQuery(event.target.value);
+                  setDetail(null);
+                }}
+                className="m-1 shrink-0 rounded-lg border border-border-secondary bg-transparent px-3 py-2 text-sm outline-none focus:border-border-primary"
+              />
               <div
                 role="group"
                 aria-label={intl.formatMessage(i18n.choose)}
@@ -328,73 +370,127 @@ export default function ModelsBottomBar({
                       {intl.formatMessage(i18n.retry)}
                     </button>
                   </div>
-                ) : providers.length ? (
-                  providers.map((provider) => (
-                    <div key={provider.name} className="space-y-1">
-                      <p className="px-3 pb-1 pt-2 text-xs text-text-secondary">
-                        {provider.metadata.display_name}
-                      </p>
-                      {provider.metadata.known_models.map((model) => {
-                        const selection = {
-                          provider: provider.name,
-                          providerName: provider.metadata.display_name,
-                          model: model.name,
-                        };
-                        const selected =
-                          provider.name === currentProvider && model.name === currentModel;
-                        return (
+                ) : visibleProviders.length ? (
+                  visibleProviders.map(({ provider, models }) => {
+                    const expanded =
+                      !!query ||
+                      (expandedProviders[provider.name] ??
+                        provider.name === (currentProvider ?? providers[0]?.name));
+                    const showAll = !!query || expandedModelLists[provider.name];
+                    const previewCount =
+                      models.length > MODEL_PREVIEW_COUNT &&
+                      provider.name === currentProvider &&
+                      models.some((model) => model.name === currentModel)
+                        ? 1
+                        : MODEL_PREVIEW_COUNT;
+                    const shownModels = showAll ? models : models.slice(0, previewCount);
+                    return (
+                      <div key={provider.name} className="space-y-1">
+                        <button
+                          type="button"
+                          aria-expanded={expanded}
+                          aria-label={`${provider.metadata.display_name} (${intl.formatNumber(models.length)})`}
+                          disabled={!!query}
+                          onClick={() => {
+                            setExpandedProviders((previous) => ({
+                              ...previous,
+                              [provider.name]: !expanded,
+                            }));
+                            if (detail?.provider === provider.name) setDetail(null);
+                          }}
+                          className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
+                        >
+                          {expanded ? (
+                            <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                          ) : (
+                            <ChevronRight className="size-3 shrink-0" aria-hidden="true" />
+                          )}
+                          <span className="min-w-0 flex-1 truncate">
+                            {provider.metadata.display_name}
+                          </span>
+                          <span>({intl.formatNumber(models.length)})</span>
+                        </button>
+                        {expanded &&
+                          shownModels.map((model) => {
+                            const selection = {
+                              provider: provider.name,
+                              providerName: provider.metadata.display_name,
+                              model: model.name,
+                            };
+                            const selected =
+                              provider.name === currentProvider && model.name === currentModel;
+                            return (
+                              <button
+                                key={model.name}
+                                type="button"
+                                disabled={!!switching}
+                                aria-pressed={selected}
+                                title={model.name}
+                                // Popup positioning can generate mouseenter beneath a stationary pointer.
+                                onMouseMove={(event) => {
+                                  retainDetail();
+                                  detailAnchor.current = event.currentTarget;
+                                  setDetail((previous) =>
+                                    previous && identity(previous) === identity(selection)
+                                      ? previous
+                                      : selection
+                                  );
+                                }}
+                                onMouseLeave={leaveDetail}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'ArrowRight') {
+                                    event.preventDefault();
+                                    retainDetail();
+                                    detailAnchor.current = event.currentTarget;
+                                    setDetail(selection);
+                                  }
+                                }}
+                                onClick={() => void choose(selection)}
+                                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected || (detail && identity(detail) === identity(selection)) ? 'bg-background-secondary' : ''}`}
+                              >
+                                <span className="min-w-0 flex-1 truncate">
+                                  {getModelDisplayName(model.name)}
+                                </span>
+                                {switching === identity(selection) ? (
+                                  <LoaderCircle
+                                    aria-label={intl.formatMessage(i18n.switching)}
+                                    className="size-3.5 shrink-0 animate-spin"
+                                  />
+                                ) : (
+                                  selected && (
+                                    <Check
+                                      className="size-3.5 shrink-0 text-text-secondary"
+                                      aria-hidden="true"
+                                    />
+                                  )
+                                )}
+                              </button>
+                            );
+                          })}
+                        {expanded && !query && models.length > previewCount && (
                           <button
-                            key={model.name}
                             type="button"
-                            disabled={!!switching}
-                            aria-pressed={selected}
-                            title={model.name}
-                            // Popup positioning can generate mouseenter beneath a stationary pointer.
-                            onMouseMove={(event) => {
-                              retainDetail();
-                              detailAnchor.current = event.currentTarget;
-                              setDetail((previous) =>
-                                previous && identity(previous) === identity(selection)
-                                  ? previous
-                                  : selection
-                              );
+                            aria-expanded={!!showAll}
+                            onClick={() => {
+                              setExpandedModelLists((previous) => ({
+                                ...previous,
+                                [provider.name]: !showAll,
+                              }));
+                              if (detail?.provider === provider.name) setDetail(null);
                             }}
-                            onMouseLeave={leaveDetail}
-                            onKeyDown={(event) => {
-                              if (event.key === 'ArrowRight') {
-                                event.preventDefault();
-                                retainDetail();
-                                detailAnchor.current = event.currentTarget;
-                                setDetail(selection);
-                              }
-                            }}
-                            onClick={() => void choose(selection)}
-                            className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected || (detail && identity(detail) === identity(selection)) ? 'bg-background-secondary' : ''}`}
+                            className="flex min-h-9 w-full items-center rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
                           >
-                            <span className="min-w-0 flex-1 truncate">
-                              {getModelDisplayName(model.name)}
-                            </span>
-                            {switching === identity(selection) ? (
-                              <LoaderCircle
-                                aria-label={intl.formatMessage(i18n.switching)}
-                                className="size-3.5 shrink-0 animate-spin"
-                              />
-                            ) : (
-                              selected && (
-                                <Check
-                                  className="size-3.5 shrink-0 text-text-secondary"
-                                  aria-hidden="true"
-                                />
-                              )
-                            )}
+                            {intl.formatMessage(showAll ? i18n.showFewer : i18n.showMore, {
+                              count: models.length - previewCount,
+                            })}
                           </button>
-                        );
-                      })}
-                    </div>
-                  ))
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <p className="px-3 py-4 text-sm text-text-secondary">
-                    {intl.formatMessage(i18n.empty)}
+                    {intl.formatMessage(query ? i18n.noMatches : i18n.empty)}
                   </p>
                 )}
               </div>

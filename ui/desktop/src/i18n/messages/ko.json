@@ -875,6 +875,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "Actual model: {provider} / {model} · Separate setting"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "이미지 모델 연결 추가"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1000,6 +1003,9 @@
   },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "Use another provider…"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "기본 이미지 모델 사용"
   },
   "codeProModels.visionAgent": {
     "defaultMessage": "Vision assistant agent"
@@ -4691,14 +4697,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "Manage model connections"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "일치하는 모델 없음"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "모델 또는 연결 검색"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "모델 선택"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "간략히 보기"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "{count}개 더 보기"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."

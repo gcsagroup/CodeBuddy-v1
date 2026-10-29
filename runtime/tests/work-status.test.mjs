@@ -114,6 +114,7 @@ test('image observation stages share the existing activity channel and retain ch
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: () => runId, signal: controller.signal });
   const start = project({ type: 'image_observation', sessionId: 'parent', phase: 'start', modelId: 'vision' });
   assert.match(start[0].status.message, /正在识别图片/);
+  assert.equal(start[0].status.message.includes('vision'), false);
   assert.equal(start[0].status.data.run_id, 'preparation');
   runId = 'native-run';
   project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

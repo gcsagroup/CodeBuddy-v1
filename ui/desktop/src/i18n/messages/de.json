@@ -875,6 +875,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "Actual model: {provider} / {model} · Separate setting"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "Bildmodell-Verbindung hinzufügen"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1000,6 +1003,9 @@
   },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "Use another provider…"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "Verwendet das Standard-Bildmodell"
   },
   "codeProModels.visionAgent": {
     "defaultMessage": "Vision assistant agent"
@@ -4691,14 +4697,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "Manage model connections"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Keine passenden Modelle"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Modelle oder Verbindungen suchen"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Modell auswählen"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Weniger anzeigen"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "{count} weitere anzeigen"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."

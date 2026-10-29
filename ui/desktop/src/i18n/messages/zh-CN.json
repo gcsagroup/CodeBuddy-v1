@@ -998,6 +998,12 @@
   "codeProModels.unavailableProviderOption": {
     "defaultMessage": "{provider}（暂时不可用）"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "添加识图模型连接"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "使用默认识图模型"
+  },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "使用其他厂商…"
   },
@@ -4678,6 +4684,18 @@
   },
   "modelsAndRuntime.visionDescription": {
     "defaultMessage": "优先使用主模型，必要时使用备用识图模型。"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "搜索模型或连接"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "没有匹配的模型"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "展开其余 {count} 个模型"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "收起更多模型"
   },
   "modelsBottomBar.empty": {
     "defaultMessage": "暂无已配置模型"

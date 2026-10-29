@@ -180,9 +180,6 @@ export default function ImagePreview({ src }: ImagePreviewProps) {
         open={isExpanded}
         onOpenChange={setIsExpanded}
       />
-      <div className="text-xs text-text-secondary mt-1">
-        {intl.formatMessage(i18n.clickToExpand)}
-      </div>
     </div>
   );
 }

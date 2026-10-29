@@ -9,10 +9,29 @@ import {
   acpListProviderDetails,
   acpListProviderModels,
   acpReadDefaults,
+  acpCreateCustomProviderFromRequest,
+  acpDiscoverCustomProviderModels,
 } from '../../acp/providers';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { CodeProModelModal } from './CodeProModelModal';
 import { resolveModelCapability } from '../../acp/modelCapabilities';
+
+it('adds a custom image connection inside the vision dialog without navigating to provider settings', async () => {
+  vi.mocked(readCodeProModelRouting).mockResolvedValue(null);
+  const configure = vi.fn();
+  render(<CodeProModelModal visionOnly onClose={vi.fn()} onConfigureProvider={configure} />, {
+    wrapper: IntlTestWrapper,
+  });
+  fireEvent.click(await screen.findByRole('switch', { name: 'Use a custom image model' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Add an image model connection' }));
+  expect(screen.getByLabelText(/^API URL/)).toBeVisible();
+  expect(screen.getByLabelText(/^API Key/)).toBeVisible();
+  expect(configure).not.toHaveBeenCalled();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Cancel' })[0]);
+  expect(
+    await screen.findByRole('button', { name: 'Add an image model connection' })
+  ).toBeVisible();
+});
 
 vi.mock('../../acp/modelCapabilities', () => ({
   resolveModelCapability: vi.fn(async (providerId: string, modelId: string) => ({
@@ -36,6 +55,8 @@ vi.mock('../../acp/codeproModelRouting', () => ({
 }));
 
 vi.mock('../../acp/providers', () => ({
+  acpCreateCustomProviderFromRequest: vi.fn(),
+  acpDiscoverCustomProviderModels: vi.fn(),
   acpListProviderDetails: vi.fn().mockResolvedValue([
     {
       name: 'ollama_cloud',
@@ -757,7 +778,8 @@ it('uses the LAN image default with the switch off, distinguishes equal ids and 
     expect(screen.queryByText('Checking image support…')).not.toBeInTheDocument()
   );
   expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-  expect(screen.getByText(/Default: gemma-4-26B-A4B-it-uncensored-FP8-W8A16/)).toBeVisible();
+  expect(screen.getByText('Uses the default image model')).toBeVisible();
+  expect(screen.queryByText(/Default: gemma-4-26B-A4B-it-uncensored-FP8-W8A16/)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
   await waitFor(() =>
     expect(saveCodeProModelRouting).toHaveBeenCalledWith({
@@ -812,5 +834,50 @@ it('does not claim unavailable while image capabilities are loading and preserve
   expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   expect(screen.getByText('Image support not confirmed: saved')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  expect(saveCodeProModelRouting).not.toHaveBeenCalled();
+});
+
+it('does not turn the first model from a newly created connection into an image model', async () => {
+  vi.clearAllMocks();
+  const provider = {
+    name: 'plain-connection',
+    is_configured: true,
+    provider_type: 'Custom',
+    metadata: { display_name: 'Plain connection' },
+  } as Awaited<ReturnType<typeof acpListProviderDetails>>[number];
+  vi.mocked(acpListProviderDetails).mockResolvedValue([provider]);
+  vi.mocked(acpListProviderModels).mockResolvedValue([{ id: 'plain-chat', name: 'plain-chat' }]);
+  vi.mocked(resolveModelCapability).mockImplementation(async (providerId, modelId) => ({
+    providerId,
+    modelId,
+    imageInput: 'unsupported',
+    source: 'provider_metadata',
+  }));
+  vi.mocked(readCodeProModelRouting).mockResolvedValue(null);
+  vi.mocked(acpDiscoverCustomProviderModels).mockResolvedValue(['plain-chat']);
+  vi.mocked(acpCreateCustomProviderFromRequest).mockResolvedValue({ provider_name: 'new-plain' });
+  render(<CodeProModelModal visionOnly onClose={vi.fn()} />, { wrapper: IntlTestWrapper });
+  fireEvent.click(await screen.findByRole('switch', { name: 'Use a custom image model' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Add an image model connection' }));
+  fireEvent.change(screen.getByLabelText(/^API URL/), {
+    target: { value: 'https://fixture.invalid' },
+  });
+  fireEvent.change(screen.getByLabelText(/^API Key/), {
+    target: { value: 'fixture-not-a-real-key' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Load models' }));
+  await screen.findByLabelText('Discovered models');
+  vi.mocked(acpListProviderDetails).mockResolvedValueOnce([
+    provider,
+    { ...provider, name: 'new-plain' },
+  ]);
+  fireEvent.click(screen.getByRole('button', { name: 'Create Provider' }));
+  await screen.findByRole('button', { name: 'Add an image model connection' });
+  expect(acpCreateCustomProviderFromRequest).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('radio', { name: 'plain-chat' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save vision settings' }));
+  expect(
+    await screen.findByText('Choose both a provider and model for Backup image model.')
+  ).toBeVisible();
   expect(saveCodeProModelRouting).not.toHaveBeenCalled();
 });

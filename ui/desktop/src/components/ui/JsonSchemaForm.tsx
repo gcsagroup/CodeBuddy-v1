@@ -262,7 +262,7 @@ export default function JsonSchemaForm({
           ? 'border-border-secondary bg-background-secondary'
           : 'border-border-primary bg-background-primary',
         disabled && 'cursor-not-allowed opacity-50',
-        compact && 'rounded-lg border-transparent px-2.5 py-1.5'
+        compact && 'rounded-lg border-transparent px-2 py-1'
       )}
     >
       <span className={cn('flex items-start gap-3', compact && 'gap-2')}>
@@ -270,6 +270,7 @@ export default function JsonSchemaForm({
           aria-hidden="true"
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border',
+            compact && 'h-4 w-4 text-[11px]',
             compact || prop.type === 'array' ? 'rounded-md' : 'rounded-full',
             selected
               ? 'border-text-primary bg-text-primary text-background-primary'
@@ -279,7 +280,12 @@ export default function JsonSchemaForm({
           {compact ? index + 1 : selected ? <Check className="h-3.5 w-3.5" /> : null}
         </span>
         <span className="min-w-0">
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-text-primary">
+          <span
+            className={cn(
+              'flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-text-primary',
+              compact && 'text-xs leading-4'
+            )}
+          >
             {option.label}
             {index === 0 && options.length > 0 && (
               <span className="rounded bg-background-secondary px-1.5 py-0.5 text-[11px] font-normal text-text-secondary">
@@ -291,7 +297,7 @@ export default function JsonSchemaForm({
             <span
               className={cn(
                 'mt-0.5 block text-xs leading-5 text-text-secondary',
-                compact && 'leading-4'
+                compact && 'mt-0 text-[11px] leading-4'
               )}
             >
               {option.description}
@@ -313,7 +319,7 @@ export default function JsonSchemaForm({
       const selected = Array.isArray(value) ? (value as string[]) : [];
       return (
         <div
-          className={cn('flex flex-col gap-2', compact && 'gap-1')}
+          className={cn('flex flex-col gap-2', compact && 'gap-0.5')}
           role="group"
           aria-labelledby={`${key}-title`}
         >
@@ -336,7 +342,7 @@ export default function JsonSchemaForm({
     if (options.length) {
       return (
         <div
-          className={cn('flex flex-col gap-2', compact && 'gap-1')}
+          className={cn('flex flex-col gap-2', compact && 'gap-0.5')}
           role="radiogroup"
           aria-labelledby={`${key}-title`}
         >
@@ -418,7 +424,10 @@ export default function JsonSchemaForm({
           <div className="min-w-0">
             <h3
               id={`${key}-title`}
-              className={cn('text-base font-semibold text-text-primary', compact && 'text-sm')}
+              className={cn(
+                'text-base font-semibold text-text-primary',
+                compact && 'text-xs leading-4'
+              )}
             >
               {prop.title || key}
               {required && !compact && <span className="ml-1 text-red-500">*</span>}

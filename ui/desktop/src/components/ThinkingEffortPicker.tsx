@@ -247,7 +247,7 @@ export function ModelThinkingMenu({
           </span>
         </div>
       )}
-      {details && settings && (
+      {details && settings && !unresolved && (
         <ThinkingEffortPicker
           key={identity}
           settings={settings}

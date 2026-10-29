@@ -875,6 +875,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "Actual model: {provider} / {model} · Separate setting"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "इमेज मॉडल कनेक्शन जोड़ें"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1000,6 +1003,9 @@
   },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "Use another provider…"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "डिफ़ॉल्ट इमेज मॉडल का उपयोग करता है"
   },
   "codeProModels.visionAgent": {
     "defaultMessage": "Vision assistant agent"
@@ -4691,14 +4697,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "Manage model connections"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "कोई मेल खाता मॉडल नहीं"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "मॉडल या कनेक्शन खोजें"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "मॉडल का चयन करें"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "कम दिखाएँ"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "{count} और दिखाएँ"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."

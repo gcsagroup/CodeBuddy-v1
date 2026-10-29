@@ -13,7 +13,10 @@ import {
   acpListProviderDetails,
   acpListProviderModels,
   acpReadDefaults,
+  acpCreateCustomProviderFromRequest,
+  acpDiscoverCustomProviderModels,
 } from '../../acp/providers';
+import CustomProviderForm from '../settings/providers/modal/subcomponents/forms/CustomProviderForm';
 import { defineMessages, useIntl } from '../../i18n';
 import { providerActivationDisabledReason, type ProviderDetails } from '../../types/providers';
 import type { ProviderInventoryModelDto } from '@aaif/goose-sdk';
@@ -194,6 +197,14 @@ const i18n = defineMessages({
     id: 'codeProModels.visionDefault',
     defaultMessage: 'Default: {model}',
   },
+  addVisionConnection: {
+    id: 'codeProModels.addVisionConnection',
+    defaultMessage: 'Add an image model connection',
+  },
+  useDefaultVision: {
+    id: 'codeProModels.useDefaultVision',
+    defaultMessage: 'Uses the default image model',
+  },
   visionDefaultUnavailable: {
     id: 'codeProModels.visionDefaultUnavailable',
     defaultMessage: 'The default Flash model is not configured. Choose a custom image model.',
@@ -327,6 +338,7 @@ export function CodeProModelModal({
   >({});
   const [modelLoadAttempt, setModelLoadAttempt] = useState(0);
   const [customVisionDraft, setCustomVisionDraft] = useState<boolean>();
+  const [addingVisionConnection, setAddingVisionConnection] = useState(false);
   const modelRequestGeneration = useRef(0);
   const visionInventory = useMemo(
     () =>
@@ -937,11 +949,7 @@ export function CodeProModelModal({
                 </div>
                 {!customVisionEnabled && (
                   <p className="text-sm text-text-secondary">
-                    {intl.formatMessage(i18n.visionDefault, {
-                      model: defaultVisionModel
-                        ? `${defaultVisionModel.name || defaultVisionModel.id} · ${defaultVisionModel.providerLabel}`
-                        : DEFAULT_IMAGE_MODEL,
-                    })}
+                    {intl.formatMessage(i18n.useDefaultVision)}
                   </p>
                 )}
                 {visionChecking ? (
@@ -1047,10 +1055,50 @@ export function CodeProModelModal({
                       )}
                     </p>
                   )}
-                {customVisionEnabled && onConfigureProvider && (
-                  <Button type="button" variant="outline" onClick={onConfigureProvider}>
-                    {intl.formatMessage(i18n.useAnotherProvider)}
+                {customVisionEnabled && !addingVisionConnection && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddingVisionConnection(true)}
+                  >
+                    {intl.formatMessage(i18n.addVisionConnection)}
                   </Button>
+                )}
+                {customVisionEnabled && addingVisionConnection && (
+                  <CustomProviderForm
+                    compactSetup
+                    isEditable
+                    initialData={null}
+                    existingProviderNames={providers.map(
+                      (provider) => provider.metadata.display_name || provider.name
+                    )}
+                    discoverModels={acpDiscoverCustomProviderModels}
+                    onCancel={() => setAddingVisionConnection(false)}
+                    onSubmit={async (request) => {
+                      const created = await acpCreateCustomProviderFromRequest(request);
+                      const updated = await acpListProviderDetails();
+                      setProviders(
+                        updated.filter(
+                          (provider) =>
+                            provider.is_configured &&
+                            provider.provider_type === 'Custom' &&
+                            provider.category !== 'agent' &&
+                            !providerActivationDisabledReason(provider)
+                        )
+                      );
+                      setVisionRoute({
+                        enabled: true,
+                        mode: 'auto',
+                        providerId: created.provider_name,
+                        // Connection discovery does not establish image support.
+                        // Choose only from the verified image inventory after it loads.
+                        modelId: '',
+                      });
+                      setCustomVisionDraft(true);
+                      setAddingVisionConnection(false);
+                      setOperationError('');
+                    }}
+                  />
                 )}
               </section>
             ) : (
@@ -1221,20 +1269,22 @@ export function CodeProModelModal({
             </div>
           )}
 
-        <DialogFooter className="gap-2 sm:justify-end">
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {intl.formatMessage(i18n.cancel)}
-            </Button>
-            <Button type="button" onClick={save} disabled={saving || !configurationLoaded}>
-              {saving
-                ? intl.formatMessage(i18n.saving)
-                : intl.formatMessage(
-                    visionOnly ? i18n.saveVision : duplicateWarning ? i18n.saveAnyway : i18n.save
-                  )}
-            </Button>
-          </div>
-        </DialogFooter>
+        {!(visionOnly && customVisionEnabled && addingVisionConnection) && (
+          <DialogFooter className="gap-2 sm:justify-end">
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                {intl.formatMessage(i18n.cancel)}
+              </Button>
+              <Button type="button" onClick={save} disabled={saving || !configurationLoaded}>
+                {saving
+                  ? intl.formatMessage(i18n.saving)
+                  : intl.formatMessage(
+                      visionOnly ? i18n.saveVision : duplicateWarning ? i18n.saveAnyway : i18n.save
+                    )}
+              </Button>
+            </div>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

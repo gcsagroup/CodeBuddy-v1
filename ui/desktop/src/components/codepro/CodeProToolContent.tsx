@@ -92,9 +92,18 @@ export function presentedToolCall(
 }
 
 export function hasReadableToolContent(name: string): boolean {
-  return ['shell', 'pwsh', 'bash', 'write', 'edit', 'read', 'read_document', 'todo_write'].includes(
-    name.split(/__|::/).pop() ?? ''
-  );
+  return [
+    'shell',
+    'pwsh',
+    'bash',
+    'write',
+    'edit',
+    'read',
+    'read_document',
+    'glob',
+    'grep',
+    'todo_write',
+  ].includes(name.split(/__|::/).pop() ?? '');
 }
 
 // This view consumes requests and receipts; submitted code is not a before/after
@@ -156,6 +165,12 @@ export function CodeProToolContent({
           {typeof (args.file_path ?? args.path) === 'string' && (
             <p className="font-mono text-xs break-all">{String(args.file_path ?? args.path)}</p>
           )}
+          {(kind === 'glob' || kind === 'grep') &&
+            typeof args.pattern === 'string' &&
+            code(args.pattern)}
+          {(kind === 'glob' || kind === 'grep') &&
+            typeof args.include === 'string' &&
+            code(args.include)}
           {['shell', 'pwsh', 'bash'].includes(kind ?? '') &&
             typeof args.command === 'string' &&
             code(args.command)}

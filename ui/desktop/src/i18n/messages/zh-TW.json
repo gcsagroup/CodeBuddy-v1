@@ -875,6 +875,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "實際模型：{provider} / {model} · 獨立設定"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "新增圖片模型連線"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1000,6 +1003,9 @@
   },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "使用其他廠商…"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "使用預設圖片模型"
   },
   "codeProModels.visionAgent": {
     "defaultMessage": "備用識圖模型"
@@ -4691,14 +4697,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "管理模型連線"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "沒有符合的模型"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "重試"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "搜尋模型或連線"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "選擇模型"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "選擇或更改模型"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "收起模型"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "展開其餘 {count} 個模型"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "模型切換失敗，請重試。"

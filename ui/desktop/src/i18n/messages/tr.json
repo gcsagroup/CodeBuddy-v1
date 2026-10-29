@@ -875,6 +875,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "Actual model: {provider} / {model} · Separate setting"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "Görüntü modeli bağlantısı ekle"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1000,6 +1003,9 @@
   },
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "Use another provider…"
+  },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "Varsayılan görüntü modelini kullanır"
   },
   "codeProModels.visionAgent": {
     "defaultMessage": "Vision assistant agent"
@@ -4691,14 +4697,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "Manage model connections"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Eşleşen model yok"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Model veya bağlantı ara"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Modeli Seçin"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Daha az göster"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "{count} tane daha göster"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."

@@ -61,7 +61,7 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     if (event.type === 'subagent_end') retryMessages.delete(event.childSessionId);
     if (event.type === 'image_observation' && event.sessionId === sessionId) {
       phase = children.size ? 'children' : 'model';
-      message = event.phase === 'start' ? `正在识别图片（${event.modelId}）` : '图片识别完成，正在等待主模型回答';
+      message = event.phase === 'start' ? '正在识别图片' : '图片识别完成，正在等待主模型回答';
     } else if (native?.type === 'llm/retry') {
       const data = native.data;
       const count = Number.isSafeInteger(data.retry) && data.retry > 0

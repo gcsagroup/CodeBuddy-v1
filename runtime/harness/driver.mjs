@@ -611,7 +611,12 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (!settings) return config;
     if (settings.maxTokens !== undefined) config.maxTokens = settings.maxTokens;
     if (settings.temperature !== undefined) config.temperature = settings.temperature;
-    if (sessionSettings.has(agent.id) && settings.thinkingEffort !== undefined) config.reasoningEffort = settings.thinkingEffort;
+    if (sessionSettings.has(agent.id)) {
+      // Main-chat selection replaces the old effort; native children retain
+      // their own inherited request selection when no override is supplied.
+      if (settings.thinkingEffort !== undefined) config.reasoningEffort = settings.thinkingEffort;
+      else if (agent.session.header.origin !== 'subagent') delete config.reasoningEffort;
+    }
     return config;
   });
 
@@ -998,7 +1003,12 @@ Keep progress updates brief, meaningful, and outcome-based.
         finally { initialPermissions.delete(sessionId); }
         await ctx.sessionController.selectModel({ sessionId: created.sessionId, ...selection });
         contextSources.set(created.sessionId, provider.contextSource ?? (provider.contextWindow ? 'configured' : 'fallback'));
-        if (options || !sessionScopes.has(created.sessionId)) await configureSession(created.sessionId, options);
+        await configureSession(created.sessionId, {
+          ...options,
+          // Model admission replaces the effort; unlike a partial tool update,
+          // an omitted effort here must not inherit the previous model's choice.
+          thinkingEffort: options?.thinkingEffort,
+        });
         return { ...created, cwd: sessionCwd, provider: provider.id, model };
       });
       creation = work.catch(() => {});

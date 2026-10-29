@@ -209,6 +209,18 @@ test('adopting a live session and changing its model preserves prior history', a
   assert.equal((await driver.history(created.sessionId)).events.filter(event => event.type === 'turn/end').length, 2);
 });
 
+test('changing to a model without reasoning clears the previous request effort', async () => {
+  const reasoningProvider = { ...provider, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true }, reasoningEfforts: { low: 'low', high: 'high' } };
+  const created = await driver.createSession({ cwd: root, provider: reasoningProvider, model: 'fixture-reasoning', options: { thinkingEffort: 'low' } });
+  await driver.prompt(created.sessionId, 'fixture_chat with_effort');
+  assert.equal(requests.at(-1).reasoning_effort, 'low');
+  await driver.createSession({ sessionId: created.sessionId, cwd: root,
+    provider: { ...provider, compat: undefined, reasoningEfforts: false }, model: 'fixture-no-reasoning', options: {} });
+  await driver.prompt(created.sessionId, 'fixture_chat without_effort');
+  assert.equal(requests.at(-1).model, 'fixture-no-reasoning');
+  assert.equal(requests.at(-1).reasoning_effort, undefined);
+});
+
 test('cancellation closes a real in-flight model turn', async () => {
   const created = await session();
   const abort = new AbortController();

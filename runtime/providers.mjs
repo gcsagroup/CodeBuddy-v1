@@ -728,7 +728,9 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     throw providerError('tools_unsupported', 'This Ollama model reports no tool-calling support. Select an installed model with the tools capability for CodeBuddy tasks.');
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
-  const { thinkingToggle: _toggle, thinkingDefault: _default, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const { thinkingToggle: _toggle, thinkingDefault: _default, compat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
+    ? "openai-responses" : "openai-completions";
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
@@ -736,10 +738,11 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     headers,
     // The official Harness/pi-ai adapter owns serialization and streaming.
     ...nativeThinking,
+    // Thinking-profile compatibility fields describe Chat Completions only.
+    // Responses has its own native reasoning serialization and rejects them.
+    ...(protocol === 'openai-completions' && compat ? { compat } : {}),
     ...contextProfile(provider, model),
     ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens }),
-    protocol: endpoints(provider).completion.pathname.endsWith("/responses")
-      ? "openai-responses"
-      : "openai-completions",
+    protocol,
   };
 }

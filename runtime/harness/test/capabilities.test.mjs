@@ -10,10 +10,11 @@ import { createHarnessDriver } from '../index.mjs';
 import { createConversationDriver } from '../../conversation-driver.mjs';
 import { listSubagentCatalog, readSubagentConversation } from '../../subagent-conversations.mjs';
 import sharp from 'sharp';
-import { Config as PiAiConfig } from '@deepseek-ai/dsh-llm-pi-ai';
+const { Config: PiAiConfig } = await import('@deepseek-ai/dsh-llm-pi-ai');
 
 let driver, server, root, provider, mcpUrl;
 let siblingFixture, capacityFixture;
+let schemaPressureFixture;
 let overflowExecutions = 0;
 const requests = [], mcpCalls = [];
 before(async () => {
@@ -45,9 +46,19 @@ before(async () => {
       return;
     }
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-    const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'capabilities', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
+    let outputChars = 0;
+    const emit = (delta, finish_reason = null) => {
+      outputChars += delta.content?.length ?? 0;
+      const usage = request.model === 'fixture-tool-capacity' && finish_reason && schemaPressureFixture ? {
+        prompt_tokens: schemaPressureFixture.fit.estimate.tokens,
+        completion_tokens: Math.ceil(outputChars / 3.5),
+        total_tokens: schemaPressureFixture.fit.estimate.tokens + Math.ceil(outputChars / 3.5),
+      } : undefined;
+      res.write(`data: ${JSON.stringify({ id: 'capabilities', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
+    };
     const call = (name, args) => { emit({ role: 'assistant', tool_calls: [{ index: 0, id: `call-${randomUUID()}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }); emit({}, 'tool_calls'); };
-    if (prompt.includes('fixture_retained_overflow') && !since.some(message => message.role === 'tool')) call('oversized_evidence', {});
+    if (request.model === 'fixture-tool-capacity' && JSON.stringify(request.messages.at(-1)?.content).includes('You are now acting as a compaction engine')) { emit({ role: 'assistant', content: 'Preserve the schema and completed evidence.' }); emit({}, 'stop'); }
+    else if (prompt.includes('fixture_retained_overflow') && !since.some(message => message.role === 'tool')) call('oversized_evidence', {});
     else if (prompt.includes('fixture_child_slow')) {
       emit({ role: 'assistant', content: 'child waiting' });
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
@@ -89,7 +100,7 @@ before(async () => {
     else if (prompt.includes('fixture_browser_capture') && !since.some(message => message.role === 'tool')) call('browser_control', { operation: 'screenshot' });
     else if (prompt.includes('fixture_host') && !since.some(message => message.role === 'tool')) call('record_artifact', { value: 'first' });
     else if (prompt.includes('fixture_host') && since.filter(message => message.role === 'tool').length === 1) call('finish_artifact', {});
-    else if (prompt.includes('fixture_large')) { emit({ role: 'assistant', content: 'Long evidence '.repeat(1800) }); emit({}, 'stop'); }
+    else if (prompt.includes('fixture_large')) { emit({ role: 'assistant', content: 'Long evidence '.repeat(request.model === 'fixture-tool-capacity' ? 600 : 1800) }); emit({}, 'stop'); }
     else { emit({ role: 'assistant', content: 'fixture summary and response' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
   });
@@ -721,8 +732,20 @@ test('configured pressure threshold automatically compacts long conversation con
   assert.equal(events.findLast(e => e.type === 'context_usage').used, usage.used);
 });
 
-test('tool schema pressure preserves explicit output budget with the actual model window and contributes to automatic compaction', async () => {
-  const tools = [{ name: 'large_catalog_fixture', description: 'Schema reference '.repeat(10500), parameters: { type: 'object', properties: {} }, execute: async () => 'fixture' }];
+test('tool schema pressure preserves explicit output budget with the actual model window and contributes to automatic compaction', async t => {
+  const { PiAiAdapter } = await import('@deepseek-ai/dsh-llm-pi-ai');
+  const fits = [], prepare = PiAiAdapter.prototype.prepareRequestWithSnapshot;
+  schemaPressureFixture = {};
+  t.mock.method(PiAiAdapter.prototype, 'prepareRequestWithSnapshot', async function(options, snapshot) {
+    const request = await prepare.call(this, options, snapshot);
+    fits.push({ purpose: options.purpose ?? 'agent', ...request.fit });
+    if (options.model === 'fixture-tool-capacity') schemaPressureFixture.fit = request.fit;
+    return request;
+  });
+  t.after(() => { schemaPressureFixture = undefined; });
+  // Leave enough room for a legal output and the retained tail. The mock reports
+  // usage for its actual prepared prefix instead of silently omitting the anchor.
+  const tools = [{ name: 'large_catalog_fixture', description: 'Schema reference '.repeat(8000), parameters: { type: 'object', properties: {} }, execute: async () => 'fixture' }];
   const created = await driver.createSession({ sessionId: randomUUID(), cwd: root,
     provider: { ...provider, contextWindow: 65536, maxTokens: 4096 }, model: 'fixture-tool-capacity',
     options: { tools, autoCompactThreshold: 0.8 } });
@@ -732,10 +755,16 @@ test('tool schema pressure preserves explicit output budget with the actual mode
   const initial = await driver.contextUsage(created.sessionId);
   assert.equal(initial.contextLimit, 65536);
   assert.ok(initial.used > 32768, 'the model meter counts the large tool schema');
-  for (let n = 0; n < 5; n++) await driver.prompt(created.sessionId, `fixture_large schema ${n}`);
+  const requestStart = requests.length;
+  for (let n = 0; n < 6; n++) await driver.prompt(created.sessionId, `fixture_large schema ${n}`);
   const history = await driver.history(created.sessionId);
   assert.ok(history.events.some(e => e.type === 'compaction/end' && !e.data.error), 'history pressure on top of tools triggers official compaction');
   assert.ok(requests.at(-1).tools.some(t => t.function?.name === 'large_catalog_fixture'), 'compaction preserves tool access');
+  assert.ok(fits.every(fit => fit.available >= 4096 && fit.effectiveMaxTokens === 4096), 'every conversation and summary request retains the explicit output budget');
+  assert.ok(requests.slice(requestStart).every(request => (request.max_tokens ?? request.max_completion_tokens) === 4096));
+  assert.ok(history.events.some(event => event.type === 'assistant/message' && event.data.usage?.inputTokens > 32768), 'the native pressure meter receives controlled service SSE usage for the large schema');
+  assert.ok(history.events.filter(event => event.type === 'assistant/message').every(event => event.data.usage.outputTokens <= 4096), 'the controlled responses must respect their output cap');
+  t.diagnostic(JSON.stringify({ fixture: 'tool-schema-pressure', fits: fits.map(({ purpose, estimate, available }) => ({ purpose, tokens: estimate.tokens, available })) }));
 });
 
 test('output capability preserves native dynamic fitting on small windows without inventing a call default', async () => {

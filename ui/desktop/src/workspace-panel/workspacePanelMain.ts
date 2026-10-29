@@ -18,6 +18,7 @@ import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { openCodeFile, type CodeEditorSettings } from './workspaceCodeEditor';
 import type { DocumentPreviewer } from '../../../../runtime/document-preview.mjs';
 import { MEDIA_SCHEME, PanelMediaRegistry, mediaRange } from './workspacePanelMedia';
 import type { IPty } from 'node-pty';
@@ -47,6 +48,7 @@ import {
   isPanelDocument,
   panelUrl,
   readPanelFile,
+  readPanelReference,
   savePanelFile,
   searchPanelFiles,
 } from './workspacePanelFiles';
@@ -78,6 +80,7 @@ interface Owner {
 }
 const owners = new Map<number, Owner>();
 let updatePending = false;
+let codeEditorSettings: CodeEditorSettings = { get: () => null, set: () => {} };
 export function hasWorkspaceTerminals(): boolean {
   return [...owners.values()].some((owner) =>
     [...owner.terminals.values()].some((terminal) => !terminal.exited)
@@ -307,6 +310,16 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       if (document.media) document.media.url = mediaFiles.grant(owner.id, root, request.path);
       return { document };
     }
+    case 'read-reference': {
+      const { file, document, external } = await readPanelReference(root, request.path);
+      if (owners.get(owner.id) !== owner || owner.roots.get(scope) !== root)
+        throw new Error('Reference or conversation changed; open the link again');
+      if (!external) {
+        if (document.media) document.media.url = mediaFiles.grant(owner.id, root, request.path);
+        return { document };
+      }
+      return { reference: { path: file, content: document.content } };
+    }
     case 'inspect': {
       const file = await inspectPanelFile(root, request.path);
       if (file.media) file.media.url = mediaFiles.grant(owner.id, root, request.path);
@@ -413,14 +426,37 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
         owner.documentRequests.delete(request.requestId);
       }
     }
-    case 'open-external': {
-      const file = await externalPanelFile(root, request.path);
+    case 'open-external':
+    case 'open-with': {
+      const file = request.reference
+        ? (await readPanelReference(root, request.path)).file
+        : await externalPanelFile(root, request.path);
+      if (!canOpenPanelFileExternally(file))
+        throw new Error('This file type can only be previewed in CodeBuddy');
       if (isPanelEditorFile(file)) {
-        // A script's OS association can execute it. Only send a validated file
-        // path to the editor's documented file URI, never a command URI.
-        await shell.openExternal(`vscode://file${pathToFileURL(file).pathname}`);
-        return {};
+        const result = await openCodeFile(
+          owner.win,
+          file,
+          request.line,
+          request.action === 'open-with',
+          codeEditorSettings,
+          async () => {
+            const current = request.reference
+              ? (await readPanelReference(root, request.path)).file
+              : await externalPanelFile(root, request.path);
+            if (
+              current !== file ||
+              owners.get(owner.id) !== owner ||
+              owner.roots.get(scope) !== root
+            )
+              throw new Error('Reference or conversation changed; open the link again');
+          }
+        );
+        return result === 'preview' ? { fileAction: 'preview' } : {};
       }
+      if (request.action === 'open-with') throw new Error('Choose an editor for a source file');
+      // Follow the user's file association. Source locations belong to the
+      // built-in preview; appending them would change the filesystem path.
       const error = await shell.openPath(file);
       if (error) throw new Error(error);
       return {};
@@ -432,7 +468,12 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     case 'save-as':
     case 'attach-image':
     case 'file-menu': {
-      const file = await panelPath(root, request.path);
+      const referenceAction =
+        request.reference === true &&
+        ['file-menu', 'reveal', 'copy-path', 'copy-text', 'save-as'].includes(request.action);
+      const file = referenceAction
+        ? (await readPanelReference(root, request.path)).file
+        : await panelPath(root, request.path);
       const stat = await fs.stat(file);
       if (!stat.isFile()) throw new Error('Path is not a regular file');
       if (request.action === 'file-menu') {
@@ -444,6 +485,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
             : [
                 ...(request.tabs ? [] : ['preview' as const]),
                 'open-external',
+                ...(isPanelEditorFile(file) ? ['open-with' as const] : []),
                 null,
                 'save-as',
                 'copy-path',
@@ -455,16 +497,31 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
           (resolve) => {
             Menu.buildFromTemplate([
               ...choices.map((action) =>
-                action
+                action === 'open-with'
                   ? {
-                      label:
-                        action === 'open-external' && isPanelEditorFile(file)
-                          ? (request.labels.editor ?? request.labels[action])
-                          : request.labels[action],
-                      enabled: action !== 'open-external' || canOpenPanelFileExternally(file),
-                      click: () => resolve(action),
+                      label: request.labels['open-with'] ?? 'Open with',
+                      submenu: [
+                        { label: request.labels.preview, click: () => resolve('preview') },
+                        {
+                          label: request.labels.codeEditor ?? 'Open in code editor',
+                          click: () => resolve('open-external'),
+                        },
+                        {
+                          label: request.labels.chooseCodeEditor ?? 'Change default code editor…',
+                          click: () => resolve('open-with'),
+                        },
+                      ],
                     }
-                  : { type: 'separator' as const }
+                  : action
+                    ? {
+                        label:
+                          action === 'open-external' && isPanelEditorFile(file)
+                            ? (request.labels.codeEditor ?? 'Open in code editor')
+                            : request.labels[action],
+                        enabled: action !== 'open-external' || canOpenPanelFileExternally(file),
+                        click: () => resolve(action),
+                      }
+                    : { type: 'separator' as const }
               ),
               ...(request.tabs
                 ? [
@@ -488,7 +545,9 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       if (request.action === 'reveal') shell.showItemInFolder(file);
       else if (request.action === 'copy-path') clipboard.writeText(file);
       else if (request.action === 'copy-text') {
-        const document = await readPanelFile(root, request.path);
+        const document = referenceAction
+          ? (await readPanelReference(root, request.path)).document
+          : await readPanelFile(root, request.path);
         if (document.binary || document.media)
           throw new Error('This file cannot be copied as text');
         clipboard.writeText(document.content);
@@ -526,7 +585,11 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
           )
             return {};
           // The source may have moved while the user chose a destination.
-          await fs.copyFile(await panelPath(root, request.path), destination.filePath);
+          const current = referenceAction
+            ? (await readPanelReference(root, request.path)).file
+            : await panelPath(root, request.path);
+          if (current !== file) throw new Error('Reference changed; open the link again');
+          await fs.copyFile(current, destination.filePath);
         }
       }
       return {};
@@ -713,7 +776,8 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
   );
 }
 
-export function registerWorkspacePanel() {
+export function registerWorkspacePanel(editorSettings?: CodeEditorSettings) {
+  codeEditorSettings = editorSettings ?? { get: () => null, set: () => {} };
   ipcMain.handle(
     'workspace-tab-menu',
     async (event, request: PanelTabMenuRequest): Promise<PanelReply> => {
@@ -726,6 +790,8 @@ export function registerWorkspacePanel() {
           path: request.path,
           labels: request.labels,
           tabs: request.tabs,
+          reference: request.reference,
+          line: request.line,
         });
       const tabAction = await new Promise<PanelTabAction | undefined>((resolve) => {
         Menu.buildFromTemplate(

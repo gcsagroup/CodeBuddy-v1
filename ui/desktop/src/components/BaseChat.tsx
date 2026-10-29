@@ -10,7 +10,6 @@ import LoadingGoose, {
   isCheckingExecutionResults,
 } from './LoadingGoose';
 import ProgressiveMessageList from './ProgressiveMessageList';
-import { ToolInputPreview } from './ToolInputPreview';
 import ElicitationDock, { partitionElicitationMessages } from './ElicitationDock';
 import { elicitationContent } from '../acp/adapter/elicitations';
 import { MainPanelLayout } from './Layout/MainPanelLayout';
@@ -258,14 +257,6 @@ export default function BaseChat({
       : undefined;
   }, [messages, activeToolCallIds, chatState, intl]);
   const currentAction = currentTool?.title;
-  const toolInput =
-    !readonlyHistory &&
-    !acpRecovering &&
-    !cancelling &&
-    !currentTool &&
-    (chatState === ChatState.Streaming || chatState === ChatState.Thinking)
-      ? promptActivity?.execution?.toolInput
-      : undefined;
   const currentStage = useMemo(
     () =>
       promptActivity ? currentWorkStage(messages, promptActivity.sourceUserMessageId) : undefined,
@@ -792,6 +783,13 @@ export default function BaseChat({
                       thinkingActivity={thinkingActivity}
                       onRenderingComplete={handleRenderingComplete}
                       onHistoryRendered={handleHistoryRendered}
+                      messageEditingDisabled={
+                        readonlyHistory ||
+                        acpRecovering ||
+                        cancelling ||
+                        chatState !== ChatState.Idle ||
+                        Boolean(activeRunId)
+                      }
                       onMessageUpdate={readonlyHistory ? undefined : onMessageUpdate}
                       submitElicitationResponse={
                         readonlyHistory ? undefined : submitElicitationResponse
@@ -800,7 +798,6 @@ export default function BaseChat({
                       resumeAfterWorkspace={readonlyHistory ? undefined : resumeAfterWorkspace}
                     />
                   </SearchView>
-                  {toolInput && <ToolInputPreview key={toolInput.id} preview={toolInput} />}
                 </div>
 
                 <div className="block h-8" />

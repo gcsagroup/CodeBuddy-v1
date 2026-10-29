@@ -5,6 +5,60 @@ import { ScrollArea, type ScrollAreaHandle } from './scroll-area';
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('keeps the file heading in place when a bottom show-more button moves down', () => {
+  const observers: Array<() => void> = [];
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        observers.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
+  const ref = createRef<ScrollAreaHandle>();
+  const view = render(
+    <ScrollArea ref={ref} autoScroll>
+      <div data-disclosure-anchor="">
+        <button data-disclosure-heading="" aria-expanded="true">
+          Modified files
+        </button>
+        <button aria-expanded="false">Show remaining files</button>
+      </div>
+    </ScrollArea>
+  );
+  const viewport = ref.current!.viewportRef.current!;
+  Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 500 });
+  Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 1500 });
+  viewport.scrollTop = 250;
+  const rect = (top: number) => ({
+    top,
+    bottom: top + 30,
+    width: 500,
+    height: 30,
+    x: 0,
+    y: top,
+    left: 0,
+    right: 500,
+    toJSON() {},
+  });
+  vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue(rect(0));
+  const heading = view.getByText('Modified files');
+  vi.spyOn(heading, 'getBoundingClientRect').mockImplementation(() =>
+    rect(320 - viewport.scrollTop)
+  );
+  const more = view.getByText('Show remaining files');
+  const movingButton = vi.spyOn(more, 'getBoundingClientRect').mockReturnValue(rect(240));
+  fireEvent.click(more);
+  movingButton.mockReturnValue(rect(640));
+  act(() => observers.forEach((callback) => callback()));
+  expect(viewport.scrollTop).toBe(250);
+  expect(heading.getBoundingClientRect().top).toBe(70);
+  expect(ref.current!.isFollowing).toBe(false);
+});
+
 it('reports actual bottom after layout and scroll events without changing reading intent', () => {
   const observers: Array<{ callback: () => void; disconnect: ReturnType<typeof vi.fn> }> = [];
   vi.stubGlobal(

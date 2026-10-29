@@ -3,10 +3,12 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  type RefObject,
 } from 'react';
 import { ItemIcon } from './ItemIcon';
 import { getInitialWorkingDir } from '../utils/workingDir';
@@ -107,7 +109,7 @@ interface MentionPopoverProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (filePath: string, item?: DisplayItem) => void;
-  position: { x: number; y: number; width?: number };
+  anchorRef: RefObject<HTMLElement | null>;
   query: string;
   isSlashCommand: boolean;
   selectedIndex: number;
@@ -189,7 +191,7 @@ const MentionPopover = forwardRef<
       isOpen,
       onClose,
       onSelect,
-      position,
+      anchorRef,
       query,
       isSlashCommand,
       selectedIndex,
@@ -204,6 +206,27 @@ const MentionPopover = forwardRef<
     const [isLoading, setIsLoading] = useState(false);
     const [inventoryError, setInventoryError] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState<{ x: number; y: number; width: number } | null>(null);
+    useLayoutEffect(() => {
+      if (!isOpen) return;
+      let frame = 0;
+      // Follow the textarea through window and pane transitions, including moves
+      // that don't resize the textarea itself. Only publish changed geometry.
+      const measure = () => {
+        const anchor = anchorRef.current;
+        if (anchor) {
+          const { left: x, top: y, width } = anchor.getBoundingClientRect();
+          setPosition((previous) =>
+            previous?.x === x && previous.y === y && previous.width === width
+              ? previous
+              : { x, y, width }
+          );
+        }
+        frame = requestAnimationFrame(measure);
+      };
+      measure();
+      return () => cancelAnimationFrame(frame);
+    }, [isOpen, anchorRef]);
     const listRef = useRef<HTMLDivElement>(null);
     const currentWorkingDir = workingDir ?? getInitialWorkingDir();
 
@@ -680,7 +703,7 @@ const MentionPopover = forwardRef<
       }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || !position) return null;
 
     return (
       <div

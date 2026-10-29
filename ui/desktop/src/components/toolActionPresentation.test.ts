@@ -1,15 +1,178 @@
 import { createIntl } from 'react-intl';
 import { describe, expect, it } from 'vitest';
 import { formatToolAction, webSearchDetails } from './toolActionPresentation';
+import type { ToolResponseMessageContent } from '../types/message';
 
 const intl = createIntl({ locale: 'en', messages: {} });
+
+describe('media operation receipts', () => {
+  const response = (
+    receipt: Record<string, unknown>,
+    persisted = false
+  ): ToolResponseMessageContent => ({
+    type: 'toolResponse',
+    id: 'media-call',
+    toolResult: {
+      status: 'success',
+      value: persisted
+        ? { content: [{ type: 'text', text: JSON.stringify(receipt) }] }
+        : { content: [], structuredContent: receipt },
+    },
+  });
+  const title = (name: string, operation: string, receipt?: ToolResponseMessageContent) =>
+    formatToolAction(
+      intl,
+      name,
+      { operation },
+      'completed',
+      'detail',
+      undefined,
+      undefined,
+      receipt
+    );
+
+  it.each(['generate_image', 'generate_video'])(
+    'shows each requested business name before receiving a job for %s without claiming completion',
+    (tool) => {
+      for (const name of ['春季促销海报', '夏季促销海报']) {
+        const args = { operation: 'generate', display_name: name };
+        expect(formatToolAction(intl, tool, args, 'running')).toBe(`Running: Generate ${name}`);
+        expect(formatToolAction(intl, tool, args, undefined, 'name')).toBe(`Generate ${name}`);
+        expect(formatToolAction(intl, tool, args, 'completed')).toBe(`Generate ${name}`);
+        expect(
+          formatToolAction(
+            intl,
+            tool,
+            args,
+            'completed',
+            'detail',
+            undefined,
+            undefined,
+            response({ status: 'queued', display_name: name })
+          )
+        ).toBe(`Generate ${name}: Queued`);
+      }
+    }
+  );
+
+  it('does not apply the native naming contract to unrelated MCP tools or workflow inspection', () => {
+    expect(
+      formatToolAction(
+        intl,
+        'mcp__other__generate_image',
+        {
+          operation: 'generate',
+          display_name: 'Ignored name',
+        },
+        undefined,
+        'name'
+      )
+    ).toBe('Image generation · Submission request');
+    expect(
+      formatToolAction(
+        intl,
+        'generate_image',
+        {
+          operation: 'inspect',
+          display_name: 'Ignored name',
+        },
+        undefined,
+        'name'
+      )
+    ).toBe('Image generation · Workflow inspection');
+  });
+
+  it('uses the active view language for the named action', () => {
+    for (const locale of ['zh-CN', 'zh-TW']) {
+      expect(
+        formatToolAction(
+          createIntl({ locale, messages: {} }),
+          'generate_image',
+          {
+            operation: 'generate',
+            display_name: '小熊猫招手动作图',
+          },
+          undefined,
+          'name'
+        )
+      ).toBe('生成小熊猫招手动作图');
+    }
+  });
+
+  it.each(['generate_image', 'mcp__comfyui__generate_video'])(
+    'keeps submission and repeated status calls distinct for %s',
+    (name) => {
+      const kind = name.endsWith('video') ? 'Video' : 'Image';
+      expect(title(name, 'generate', response({ status: 'queued' }))).toBe(
+        `${kind} generation · Submission request: Queued`
+      );
+      for (let poll = 0; poll < 13; poll++)
+        expect(title(name, 'status', response({ status: 'running' }))).toBe(
+          `${kind} generation · Status check: Generating`
+        );
+      expect(title(name, 'status', response({ status: 'completed' }, true))).toBe(
+        `${kind} generation · Status check: Completed`
+      );
+      expect(title(name, 'status', response({ status: 'failed' }))).toBe(
+        `${kind} generation · Status check: Failed`
+      );
+    }
+  );
+
+  it('does not promote a successful cancel tool receipt into confirmed cancellation', () => {
+    expect(
+      title(
+        'generate_video',
+        'cancel',
+        response({ status: 'running', cancellation_confirmed: false })
+      )
+    ).toBe('Video generation · Cancellation request: Generating · Cancellation not confirmed');
+    expect(
+      title(
+        'generate_video',
+        'cancel',
+        response({ status: 'cancelled', cancellation_confirmed: true })
+      )
+    ).toBe('Video generation · Cancellation request: Cancelled');
+    expect(title('generate_video', 'cancel', response({ status: 'completed' }))).toBe(
+      'Video generation · Cancellation request: Completed · Cancellation not confirmed'
+    );
+  });
+
+  it('keeps missing or prose-only receipts neutral and names inspection before it executes', () => {
+    expect(title('generate_image', 'generate')).toBe('Image generation · Submission request');
+    expect(
+      title('generate_image', 'status', {
+        type: 'toolResponse',
+        id: 'media-call',
+        toolResult: {
+          status: 'success',
+          value: {
+            content: [{ type: 'text', text: 'The image completed successfully' }],
+          },
+        },
+      })
+    ).toBe('Image generation · Status check');
+    expect(
+      formatToolAction(intl, 'generate_image', { operation: 'inspect' }, undefined, 'name')
+    ).toBe('Image generation · Workflow inspection');
+    expect(
+      formatToolAction(
+        intl,
+        'generate_image',
+        { operation: 'generate', __inputPreview: true },
+        'running'
+      )
+    ).toBe('Preparing operation parameters: Image generation · Submission request');
+  });
+});
 
 it('uses the same browser operation name in approvals and progress without inventing execution', () => {
   expect(
     formatToolAction(intl, 'browser_control', { operation: 'observe' }, undefined, 'name')
   ).toBe('Read page');
   expect(formatToolAction(intl, 'browser_control', { operation: 'observe' }, 'running')).toBe(
-    'Read page · in progress'
+    'Running: Read page'
   );
   expect(
     formatToolAction(
@@ -18,7 +181,7 @@ it('uses the same browser operation name in approvals and progress without inven
       { operation: 'observe', __inputPreview: true },
       'running'
     )
-  ).toBe('Preparing operation parameters · Read page');
+  ).toBe('Preparing operation parameters: Read page');
   expect(
     formatToolAction(intl, 'browser_control', { operation: 'invented' }, undefined, 'name')
   ).toBe('Browser action');
@@ -59,10 +222,10 @@ describe('live file generation', () => {
   it('counts received draft lines without claiming a write and drops draft wording for execution', () => {
     const args = { path: 'src/app.js', content: 'first\nsecond\n', __inputPreview: true };
     expect(formatToolAction(intl, 'write', args, 'running')).toBe(
-      'Generating app.js · 2 lines received — not saved yet'
+      'Generating app.js, 2 lines received — not saved yet'
     );
     expect(formatToolAction(intl, 'write', { ...args, __inputPreview: undefined }, 'running')).toBe(
-      'Write file app.js · in progress'
+      'Running: Write file app.js'
     );
     expect(formatToolAction(intl, 'write', args, 'completed')).toBe('Wrote file app.js');
   });
@@ -143,6 +306,6 @@ describe('web search presentation receipts', () => {
       queries: ['a real query'],
       sources: [{ title: 'Official source', url: 'https://example.test/docs' }],
     });
-    expect(formatToolAction(intl, 'search', {}, 'running')).toBe('Search · in progress');
+    expect(formatToolAction(intl, 'search', {}, 'running')).toBe('Running: Search');
   });
 });

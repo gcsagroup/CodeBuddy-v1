@@ -103,7 +103,7 @@ const i18n = defineMessages({
   diagnostics: { id: 'operation.diagnostics', defaultMessage: 'Diagnostic record' },
   checkNotAccepted: {
     id: 'toolCallWithResponse.checkNotAccepted',
-    defaultMessage: 'Not accepted · view details',
+    defaultMessage: 'Not accepted, view details',
   },
   checkResultScope: {
     id: 'toolCallWithResponse.checkResultScope',
@@ -132,11 +132,11 @@ const i18n = defineMessages({
   },
   subagentBudget: {
     id: 'toolCallWithResponse.subagentBudget',
-    defaultMessage: 'Partial result · delegated work limit reached',
+    defaultMessage: 'Partial result, delegated work limit reached',
   },
   subagentUnavailable: {
     id: 'toolCallWithResponse.subagentUnavailable',
-    defaultMessage: 'Partial result · model service unavailable',
+    defaultMessage: 'Partial result, model service unavailable',
   },
   toolDetails: {
     id: 'toolCallWithResponse.toolDetails',
@@ -210,6 +210,8 @@ type ToolRequestWithMeta = ToolRequestMessageContent & {
 };
 
 interface ToolCallWithResponseProps {
+  showGeneratedMedia?: boolean;
+  computerTarget?: string;
   planActive?: boolean;
   compact?: boolean;
   sessionId?: string;
@@ -343,6 +345,8 @@ function McpAppWrapper({
 }
 
 export default function ToolCallWithResponse({
+  showGeneratedMedia = true,
+  computerTarget,
   planActive,
   compact = false,
   sessionId,
@@ -409,6 +413,7 @@ export default function ToolCallWithResponse({
       >
         <ToolCallView
           {...{
+            computerTarget,
             sessionId,
             planActive,
             isCancelledMessage,
@@ -427,7 +432,7 @@ export default function ToolCallWithResponse({
           }}
         />
         {/* Inline approval UI */}
-        {sessionId && !isPendingApproval && (
+        {showGeneratedMedia && sessionId && !isPendingApproval && (
           <GeneratedMedia sessionId={sessionId} toolName={toolCall.name} response={toolResponse} />
         )}
         {showInlineApproval && (
@@ -474,6 +479,7 @@ export default function ToolCallWithResponse({
 }
 
 interface ToolCallViewProps {
+  computerTarget?: string;
   sessionId?: string;
   planActive?: boolean;
   compact?: boolean;
@@ -602,6 +608,7 @@ const getExtensionTooltip = (toolCallName: string): string | null => {
 };
 
 function ToolCallView({
+  computerTarget,
   sessionId,
   compact = false,
   displayTitle,
@@ -730,7 +737,9 @@ function ToolCallView({
       : (toolCall.arguments ?? {}),
     loadingStatus === 'success' ? 'completed' : loadingStatus === 'loading' ? 'running' : undefined,
     'detail',
-    compact ? displayTitle : undefined
+    compact ? displayTitle : undefined,
+    computerTarget,
+    toolResponse
   );
   const toolName = toolCall.name.split(/__|::/).pop();
   const compactTitle = isWebSearchTool(toolCall.name)
@@ -821,9 +830,13 @@ function ToolCallView({
         event.stopPropagation();
         openWorkspaceFile({ sessionId: sessionId!, filePath: filePath!, action: 'file-menu' });
       }}
-      onClick={() =>
-        openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
-      }
+      onClick={(event) => {
+        if (event.ctrlKey || event.metaKey) {
+          openWorkspaceFile({ sessionId: sessionId!, filePath: filePath!, action: 'open-external' });
+        } else {
+          openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath });
+        }
+      }}
     >
       {filePath!.split(/[\\/]/).filter(Boolean).pop()}
     </button>
@@ -981,7 +994,9 @@ function ToolCallView({
     if (!readable && !preview && !childSessionId && !isProgressTool(toolCall.name)) {
       return (
         <div className="codepro-record-trigger flex min-h-7 items-center gap-1.5 py-1 text-sm">
-          <ToolActivityIcon name={toolCall.name} status={toolCallStatus} />
+          <span className="codepro-record-icon flex w-[18px] shrink-0 items-center justify-start">
+            <ToolActivityIcon name={toolCall.name} status={toolCallStatus} />
+          </span>
           <span className="min-w-0">{toolLabel}</span>
         </div>
       );
@@ -1332,7 +1347,7 @@ function SubagentLogEntry({ log }: { log: string }) {
       <span className="flex items-center gap-1.5">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
         <span className="font-medium text-text-secondary">{toolName}</span>
-        {extensionName && <span className="text-textSubtle opacity-60">· {extensionName}</span>}
+        {extensionName && <span className="text-textSubtle opacity-60">{extensionName}</span>}
       </span>
       {detailLines.length > 0 && (
         <pre className="ml-3 mt-0.5 text-xs text-textSubtle whitespace-pre-wrap">

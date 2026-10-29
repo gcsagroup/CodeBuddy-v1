@@ -156,6 +156,47 @@
   margin-top: 4px;
 }
 
+/* One transparent, bounded scroller owns both reasoning and operation rows. */
+.codepro-chat-history .codepro-process-details {
+  --conversation-line-height: 1.45;
+  max-height: min(18rem, 40vh);
+}
+
+.codepro-chat-history .codepro-process-details .codepro-tool-group {
+  gap: 0;
+}
+
+.codepro-chat-history .codepro-process-details .codepro-record-trigger {
+  min-height: 24px;
+  padding-block: 1px;
+}
+
+.codepro-conversation
+  .codepro-chat-history
+  .codepro-process-details
+  :is(
+    button,
+    .codepro-record-trigger,
+    .codepro-tool-group,
+    .codepro-secondary-label,
+    .codepro-group-heading
+  ) {
+  font-size: var(--conversation-secondary-size);
+  line-height: 1.45;
+}
+
+.codepro-chat-history .codepro-process-details .codepro-thinking-details {
+  max-height: min(14rem, 32vh);
+}
+
+.codepro-chat-history .codepro-process-details .assistant {
+  margin-block: 0;
+}
+
+.codepro-chat-history .codepro-process-details .codepro-thinking-details .prose > :is(p, ul, ol) {
+  margin-block: 0.25rem;
+}
+
 .codepro-chat-history
   [data-slot='collapsible-trigger']:is(:hover, :focus-visible)
   :is(.codepro-secondary-label, .codepro-group-heading) {

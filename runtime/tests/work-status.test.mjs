@@ -2,6 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workStatusUpdates } from '../work-status.mjs';
 
+test('native activity reconciles missing call results while preserving parallel calls and ignoring children', () => {
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  const active = event => project({ sessionId: 'parent', ...event })[0]?.status.data.active_tool_call_ids;
+  assert.deepEqual(active({ type: 'tool_call', id: 'a' }), ['a']);
+  assert.deepEqual(active({ type: 'tool_call', id: 'b' }), ['a', 'b']);
+  assert.deepEqual(active({ type: 'tool_result', id: 'a', isError: true }), ['b']);
+  assert.deepEqual(project({ type: 'assistant_start', sessionId: 'child' }), []);
+  assert.deepEqual(active({ type: 'tool_call', id: 'c' }), ['b', 'c']);
+  // The next native model stream starts after all calls have settled, even
+  // when an individual result notification was lost by a downstream consumer.
+  assert.deepEqual(active({ type: 'assistant_start' }), []);
+  assert.deepEqual(active({ type: 'tool_call', id: 'd' }), ['d']);
+  assert.deepEqual(active({ type: 'tool_result', id: 'a' }), ['d']);
+});
+
 test('model transport publishes bounded public waiting phases without diagnostic internals', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   for (const [phase, expected] of [['start','preparing'], ['request_created','connecting'], ['request_sent','waiting']]) {
@@ -99,6 +114,7 @@ test('image observation stages share the existing activity channel and retain ch
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: () => runId, signal: controller.signal });
   const start = project({ type: 'image_observation', sessionId: 'parent', phase: 'start', modelId: 'vision' });
   assert.match(start[0].status.message, /正在识别图片/);
+  assert.equal(start[0].status.message.includes('vision'), false);
   assert.equal(start[0].status.data.run_id, 'preparation');
   runId = 'native-run';
   project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'child' });

@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, realpath, readFile, access } from 'node:fs/promises';
+import { mkdtemp, realpath, readFile, access, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { createCompatServer } from '../server.mjs';
+import { createHarnessDriver } from '../harness/index.mjs';
+import { zSessionNotification } from '../../ui/node_modules/@agentclientprotocol/sdk/dist/schema/zod.gen.js';
+import { zGooseToolCallResponse_unstable } from '../../ui/sdk/src/generated/zod.gen.ts';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { statefulMcp } from '../harness/test/fixtures/stateful-mcp.mjs';
 import { projectChatUpdates } from './helpers/renderer-projection.mjs';
@@ -69,7 +73,7 @@ async function fixtureServer(root) {
   const server = http.createServer(async (req, res) => {
     if (req.url === '/v1/models') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ data: [{ id: 'bridge-model' }, { id: 'bridge-model-two' }] }));
+      res.end(JSON.stringify({ data: [{ id: 'bridge-model', inputModalities: ['text', 'image'] }, { id: 'bridge-model-two' }] }));
       return;
     }
     if (req.url !== '/v1/chat/completions') { res.writeHead(404); res.end(); return; }
@@ -98,6 +102,14 @@ async function fixtureServer(root) {
       return;
     }
     const toolFinished = request.messages.slice(lastUser + 1).some(message => message.role === 'tool' && message.tool_call_id === 'bridge-call-write');
+    if (prompt.includes('bridge_fixture_image') && !request.tools.some(t => t.function.name === 'read_image')) {
+      emit({ tool_calls: [{ index: 0, id: 'discover-image', type: 'function', function: { name: 'search_mcp_tools', arguments: JSON.stringify({ names: ['read_image'] }) } }] });
+      emit({}, 'tool_calls'); res.end('data: [DONE]\n\n'); return;
+    }
+    if (prompt.includes('bridge_fixture_image') && !request.messages.slice(lastUser + 1).some(message => message.role === 'tool' && message.tool_call_id === 'bridge-call-image')) {
+      emit({ tool_calls: [{ index: 0, id: 'bridge-call-image', type: 'function', function: { name: 'read_image', arguments: JSON.stringify({ file_path: path.join(root, 'image.png') }) } }] });
+      emit({}, 'tool_calls'); res.end('data: [DONE]\n\n'); return;
+    }
     if (prompt.includes('bridge_fixture_write') && !request.tools.some(t => t.function.name === 'write')) {
       emit({tool_calls:[{index:0,id:'discover-write',type:'function',function:{name:'search_mcp_tools',arguments:JSON.stringify({names:['write']})}}]});
       emit({},'tool_calls');res.end('data: [DONE]\n\n');return;
@@ -301,4 +313,116 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     const list = await client.request('session/list', {});
     assert.ok(list.sessions.some(session => session.sessionId === retainedSession));
   });
+});
+
+test('native image receipts and existing host previews cross ACP without stranding completed tools, including old replay', { timeout: 60000 }, async t => {
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-image-presentation-')));
+  const dataDir = path.join(root, 'data');
+  const sharp = createRequire(new URL('../harness/package.json', import.meta.url))('sharp');
+  const png = await sharp({ create: { width: 16, height: 12, channels: 3, background: '#ff0000' } }).png().toBuffer();
+  await writeFile(path.join(root, 'image.png'), png);
+  const model = await fixtureServer(root);
+  const native = await createHarnessDriver({ dataDir: path.join(dataDir, 'harness'), cwd: root });
+  let effects = 0;
+  const hostTool = {
+    name: 'fixture_image_output', description: 'Return the existing isolated image once', inputSchema: { type: 'object', properties: {} },
+    async execute() { effects++; return { content: [{ type: 'text', text: 'Original host image receipt.' }, { type: 'image', mimeType: 'image/png', data: png.toString('base64') }] }; },
+  };
+  const driver = new Proxy(native, { get(target, key) {
+    if (key === 'createSession') return input => target.createSession({ ...input, options: { ...input.options, tools: [...(input.options.tools ?? []), hostTool] } });
+    return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
+  } });
+  let app = await createCompatServer({ dataDir, secret, driver });
+  let client = await connect(await app.listen(0));
+  t.after(async () => { client.close(); await app.close(); await model.close(); });
+  await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  const configured = await client.request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Image projection fixture', apiUrl: model.url, requiresAuth: false, models: ['bridge-model'], supportsStreaming: true, headers: {} });
+  await client.request(ext('defaults/save'), { providerId: configured.providerId, modelId: 'bridge-model' });
+  await client.request(ext('tools/permissions/set'), { toolPermissions: ['read_image', 'fixture_image_output', 'search_mcp_tools'].map(toolName => ({ toolName, permission: 'always_allow' })) });
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [] });
+  const updates = () => client.notifications.filter(message => message.method === 'session/update' && message.params.sessionId === sessionId).map(message => message.params.update);
+  const validUpdates = () => updates().map(update => zSessionNotification.parse({ sessionId, update }).update);
+  const call = (name, args) => client.request(ext('tools/call'), { sessionId, name, arguments: args });
+  assert.equal((await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'bridge_fixture_image inspect the isolated fixture.' }] })).stopReason, 'end_turn');
+  assert.equal(validUpdates().find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === 'bridge-call-image').status, 'completed');
+  const direct = await call('read_image', { file_path: path.join(root, 'image.png') });
+  zGooseToolCallResponse_unstable.parse(direct);
+  assert.equal(direct.isError, false, JSON.stringify(direct));
+  assert.equal(direct.content.find(block => block.type === 'image').data, png.toString('base64'));
+  const originalRef = direct.structuredContent.image;
+  const directId = updates().find(update => update.sessionUpdate === 'tool_call' && update.title === 'read_image').toolCallId;
+  const successful = validUpdates().find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === directId);
+  assert.equal(successful.status, 'completed');
+  assert.equal(successful.content.find(part => part.content?.type === 'image').content.mimeType, 'image/png');
+  const host = await call('fixture_image_output', {});
+  zGooseToolCallResponse_unstable.parse(host);
+  assert.equal(host.isError, false);
+  assert.equal(host.content.find(block => block.type === 'image').data, png.toString('base64'), 'the original host display bytes remain authoritative');
+  assert.equal(effects, 1);
+  const missing = await call('read_image', { file_path: path.join(root, 'missing.png') });
+  zGooseToolCallResponse_unstable.parse(missing);
+  assert.equal(missing.isError, true);
+  assert.ok(validUpdates().some(update => update.sessionUpdate === 'tool_call_update' && update.status === 'failed'));
+  const projected = await projectChatUpdates(validUpdates());
+  const requests = projected.flatMap(message => message.content).filter(part => part.type === 'toolRequest');
+  const responses = projected.flatMap(message => message.content).filter(part => part.type === 'toolResponse');
+  assert.ok(requests.every(request => responses.some(response => response.id === request.id)), 'every started native/host tool has its actual terminal receipt');
+  const history = await native.history(sessionId);
+  const originalNative = history.events.find(event => event.type === 'tool/result' && event.data.message.toolCallId === 'bridge-call-image');
+  assert.ok(originalNative.data.message.content.some(block => block.type === 'image' && block.attachment && !block.data), 'native Session v4 retains the original durable attachment shape');
+  const modelRequests = model.requests.length;
+  client.close(); await app.close();
+  // Simulate the precise old journal shape captured in the product failure.
+  // One second preview reference is unavailable; neither terminal may be lost.
+  const stateFile = path.join(dataDir, 'state.json'), state = JSON.parse(await readFile(stateFile, 'utf8'));
+  const saved = state.sessions.find(session => session.id === sessionId);
+  const oldUpdate = saved.updates.find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === directId);
+  oldUpdate.content = [{ type: 'content', content: { type: 'image', attachment: originalRef } }];
+  const hostId = saved.updates.find(update => update.sessionUpdate === 'tool_call' && update.title === 'fixture_image_output').toolCallId;
+  const unavailable = saved.updates.find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === hostId);
+  unavailable.content = [{ type: 'content', content: { type: 'image', attachment: { ...originalRef, attachmentId: 'sha256:' + '0'.repeat(64) } } }];
+  await writeFile(stateFile, JSON.stringify(state));
+  const beforeReplay = await readFile(stateFile, 'utf8');
+  app = await createCompatServer({ dataDir, secret });
+  client = await connect(await app.listen(0));
+  await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  await client.request('session/load', { sessionId, cwd: root, mcpServers: [] });
+  const restored = validUpdates();
+  const restoredDirect = restored.find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === directId);
+  assert.equal(restoredDirect.status, 'completed');
+  assert.equal(restoredDirect.content[0].content.data, png.toString('base64'));
+  const restoredUnavailable = restored.find(update => update.sessionUpdate === 'tool_call_update' && update.toolCallId === hostId);
+  assert.equal(restoredUnavailable.status, 'completed', 'a missing optional preview does not turn a completed tool into a failure');
+  assert.match(restoredUnavailable.content[0].content.text, /preview is unavailable/);
+  assert.equal(restored.filter(update => update.sessionUpdate === 'tool_call_update' && update.status === 'failed').length, 1);
+  assert.equal(effects, 1); assert.equal(model.requests.length, modelRequests, 'replay never repeats the tool or model action');
+  assert.deepEqual(JSON.parse(await readFile(stateFile, 'utf8')).sessions.find(session => session.id === sessionId).updates,
+    JSON.parse(beforeReplay).sessions.find(session => session.id === sessionId).updates,
+    'repairing display must not rewrite the persisted transcript');
+  client.close(); await app.close();
+  const replayNative = await createHarnessDriver({ dataDir: path.join(dataDir, 'harness'), cwd: root });
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let blocked = false;
+  const replayDriver = new Proxy(replayNative, { get(target, key) {
+    if (key === 'presentationContent') return async content => {
+      if (!blocked) { blocked = true; entered.resolve(); await release.promise; }
+      return target.presentationContent(content);
+    };
+    return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
+  } });
+  app = await createCompatServer({ dataDir, secret, driver: replayDriver });
+  client = await connect(await app.listen(0));
+  await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });
+  const loading = client.request('session/load', { sessionId, cwd: root, mcpServers: [] });
+  await entered.promise;
+  const concurrentRequest = 'bridge_fixture_chat completed while an older preview was loading.';
+  try {
+    assert.equal((await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: concurrentRequest }] })).stopReason, 'end_turn');
+  } finally { release.resolve(); }
+  await loading;
+  const afterRead = validUpdates();
+  const reset = afterRead.findLastIndex(update => update.sessionUpdate === 'session_info_update' && update._meta?.goose?.transcriptReplayStarted);
+  assert.ok(afterRead.slice(reset + 1).some(update => update.sessionUpdate === 'user_message_chunk' && update.content.text === concurrentRequest), 'replay must capture the new durable high water mark after optional preview I/O');
+  assert.equal(model.requests.length, modelRequests + 1);
+  assert.equal(effects, 1);
 });

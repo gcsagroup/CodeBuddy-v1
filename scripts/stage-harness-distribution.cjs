@@ -31,6 +31,20 @@ async function copyRuntimeSources(runtime, destination) {
   }
 }
 
+async function copyHarnessSources(harness, destination) {
+  await fs.mkdir(destination, { recursive: true });
+  const entries = await fs.readdir(harness, { withFileTypes: true });
+  for (const entry of entries) {
+    if ((entry.isFile() && /\.(mjs|json)$/.test(entry.name)) || ['skills', 'sdk-budget'].includes(entry.name)) {
+      await fs.cp(path.join(harness, entry.name), path.join(destination, entry.name), {
+        recursive: true, dereference: true,
+        filter: file => !['.bin', '.cache', '.DS_Store'].includes(path.basename(file)),
+      });
+    }
+  }
+  return entries;
+}
+
 async function stageWindowsToolRuntime(runtime, destination) {
   // The tool-only MSVC binary must also work without a machine-wide VC redist.
   // Reuse the release DLL already supplied by the native Python payload.
@@ -76,12 +90,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await copy(nodeLicense, path.join(destination, 'node/LICENSE'));
   await copyRuntimeSources(runtime, path.join(destination, 'runtime'));
   const harness = path.join(runtime, 'harness');
-  const harnessEntries = await fs.readdir(harness, { withFileTypes: true });
-  for (const entry of harnessEntries) {
-    if ((entry.isFile() && /\.(mjs|json)$/.test(entry.name)) || entry.name === 'skills') {
-      await copy(path.join(runtime, 'harness', entry.name), path.join(destination, 'runtime/harness', entry.name));
-    }
-  }
+  const harnessEntries = await copyHarnessSources(harness, path.join(destination, 'runtime/harness'));
   const requireDesktop = createRequire(path.join(repoRoot, 'ui/desktop/package.json'));
   const { init, parse } = requireDesktop('es-module-lexer');
   const typescript = requireDesktop('typescript');
@@ -164,7 +173,7 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await fs.writeFile(path.join(destination, 'manifest.json'), JSON.stringify({ schemaVersion: 1, engine: 'deepseek-harness', nodeVersion: process.versions.node, createdAt: new Date().toISOString(), sourceDigest, runtimeDependencies: [...roots].sort(), adapterDependencies, files }, null, 2));
   return { destination, sourceDigest, files: files.length };
 }
-module.exports = { stageHarness, distributionTarget, assertOfficeTarget, copyRuntimeSources, stageWindowsToolRuntime };
+module.exports = { stageHarness, distributionTarget, assertOfficeTarget, copyRuntimeSources, copyHarnessSources, stageWindowsToolRuntime };
 if (require.main === module) {
   stageHarness(path.resolve(__dirname, '..'), path.resolve(process.argv[2])).then(result => console.log(JSON.stringify(result))).catch(error => { console.error(error); process.exitCode = 1; });
 }

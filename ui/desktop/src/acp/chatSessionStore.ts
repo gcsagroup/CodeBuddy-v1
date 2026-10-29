@@ -73,6 +73,7 @@ type SnapshotListener = (snapshot: AcpChatSessionSnapshot) => void;
 
 interface StoreEntry extends AcpChatSessionSnapshot {
   liveToolCallIds: Set<string>;
+  liveAgentToolCallIds: Set<string>;
   adapter: AcpSessionNotificationAdapter;
   sessionReplayActive: boolean;
   activePromptSourceUserMessageId: string | null;
@@ -242,6 +243,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       activePromptSourceUserMessageId: null,
       activeRunId: null,
       liveToolCallIds: new Set(),
+      liveAgentToolCallIds: new Set(),
       pendingCancelPromptAttemptId: null,
       promptCancellationRestoreState: null,
       pendingUserInputRequestIds: new Set(),
@@ -454,6 +456,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     discardPendingLocalSteerMessages(entry);
     entry.activePromptAttemptId = promptAttemptId;
     entry.liveToolCallIds.clear();
+    entry.liveAgentToolCallIds.clear();
     entry.thinkingActivity = undefined;
     entry.promptActivity = {
       promptAttemptId,
@@ -612,6 +615,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     entry.activePromptSourceUserMessageId = null;
     entry.activeRunId = null;
     entry.liveToolCallIds.clear();
+    entry.liveAgentToolCallIds.clear();
     entry.pendingCancelPromptAttemptId = null;
     entry.promptCancellationRestoreState = null;
     entry.pendingUserInputRequestIds.clear();
@@ -637,6 +641,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     entry.activePromptSourceUserMessageId = null;
     entry.activeRunId = null;
     entry.liveToolCallIds.clear();
+    entry.liveAgentToolCallIds.clear();
     entry.pendingUserInputRequestIds.clear();
     discardPendingLocalSteerMessages(entry);
     entry.chatState = ChatState.Idle;
@@ -717,8 +722,10 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     // Replayed/history calls and late updates cannot acquire a new running badge.
     if (
       !entry.sessionReplayActive &&
-      (entry.activePromptAttemptId !== null || hasDirectToolOrigin(update._meta)) &&
+      (currentPromptActivity || hasDirectToolOrigin(update._meta)) &&
       update.sessionUpdate === 'tool_call' &&
+      update.status !== 'completed' &&
+      update.status !== 'failed' &&
       !entry.messages.some((message) =>
         message.content.some(
           (content) =>
@@ -728,14 +735,16 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       )
     ) {
       entry.liveToolCallIds.add(update.toolCallId);
+      if (!hasDirectToolOrigin(update._meta)) entry.liveAgentToolCallIds.add(update.toolCallId);
     }
     const changes = entry.adapter.apply(notification);
     applyChatStateChanges(entry, changes);
     if (
-      update.sessionUpdate === 'tool_call_update' &&
+      (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') &&
       (update.status === 'completed' || update.status === 'failed')
     ) {
       entry.liveToolCallIds.delete(update.toolCallId);
+      entry.liveAgentToolCallIds.delete(update.toolCallId);
       if (
         hasDirectToolOrigin(update._meta) &&
         !entry.activePromptAttemptId &&
@@ -781,6 +790,18 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
           Number.isInteger(activity.child_count) &&
           Number(activity.child_count) >= 0
         ) {
+          if (
+            Array.isArray(activity.active_tool_call_ids) &&
+            activity.active_tool_call_ids.every((id) => typeof id === 'string' && id.length > 0)
+          ) {
+            const active = new Set(activity.active_tool_call_ids);
+            for (const id of entry.liveAgentToolCallIds) {
+              if (!active.has(id)) {
+                entry.liveToolCallIds.delete(id);
+                entry.liveAgentToolCallIds.delete(id);
+              }
+            }
+          }
           const toolInput = parseToolInputPreview(activity.tool_input);
           entry.promptActivity = {
             ...entry.promptActivity,
@@ -1088,6 +1109,7 @@ function shouldClearProgressMessage(
 
 function resetReplayState(entry: StoreEntry): void {
   entry.liveToolCallIds.clear();
+  entry.liveAgentToolCallIds.clear();
   entry.thinkingActivity = undefined;
   entry.messages = [];
   entry.tokenState = { ...initialTokenState };

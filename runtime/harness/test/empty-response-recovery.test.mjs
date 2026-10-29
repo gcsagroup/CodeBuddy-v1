@@ -9,7 +9,7 @@ import { createHarnessDriver } from '../index.mjs';
 test('native retry owns recovery, exhaustion, cancellation and later turns for empty completions', { timeout: 15000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'harness-empty-recovery-'));
   await writeFile(path.join(root, 'AGENTS.md'), 'Use concise replies and follow the current user request.');
-  const counts = new Map();
+  const counts = new Map(), lengthRequests = [];
   const childEnded = Promise.withResolvers();
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk;
@@ -18,8 +18,9 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
     const marker = /empty_fixture_(recover|exhaust|cancel|length|normal|parent|child)/.exec(prompt)?.[1];
     assert.ok(marker);
     const count = (counts.get(marker) ?? 0) + 1; counts.set(marker, count);
+    if (marker === 'length') lengthRequests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    const send = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'fixture', model: request.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
+    const send = (delta, finish_reason = null, usage) => res.write(`data: ${JSON.stringify({ id: 'fixture', model: request.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
     send({ reasoning: 'Reasoning stays private; a written tool proposal is not an invocation.' });
     if (marker === 'parent') {
       let call;
@@ -32,18 +33,19 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
       send({}, call ? 'tool_calls' : 'stop'); res.end('data: [DONE]\n\n'); return;
     }
     if (marker === 'normal' || (['recover', 'child'].includes(marker) && count > 1)) send({ content: 'Actual answer after the provider response.' });
-    send({}, marker === 'length' ? 'length' : 'stop');
+    send({}, marker === 'length' ? 'length' : 'stop', marker === 'length'
+      ? { prompt_tokens: 100, completion_tokens: 128, total_tokens: 228 } : undefined);
     res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
   t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
-  async function session(delay = 1) {
+  async function session(delay = 1, options = {}) {
     return driver.createSession({ cwd: root, provider: {
       id: 'empty-response-fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-key',
       // Short waits are isolated test policy; the product's provider policy is unchanged.
       retryPolicy: { mode: 'normal', maxRetries: 2, backoff: { initialDelayMs: delay, maxDelayMs: delay, jitterRatio: 0 } },
-    }, model: 'fixture', options: { mcpServers: [] } });
+    }, model: 'fixture', options: { mcpServers: [], ...options } });
   }
   await t.test('one empty response recovers through one durable native retry', async () => {
     const s = await session(); const events = [];
@@ -76,9 +78,16 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
     assert.equal((await driver.prompt(s.sessionId, 'empty_fixture_normal')).stopReason, 'end_turn', 'a cancelled backoff must not poison the next turn');
   });
   await t.test('reasoning cut short by a token limit is not misclassified or retried', async () => {
-    const s = await session();
+    const s = await session(1, { maxTokens: 128 });
     assert.equal((await driver.prompt(s.sessionId, 'empty_fixture_length')).stopReason, 'max_tokens');
     assert.equal(counts.get('length'), 1);
+    assert.equal(lengthRequests[0].max_completion_tokens ?? lengthRequests[0].max_tokens, 128);
+    const history = await driver.history(s.sessionId);
+    const message = history.events.findLast(event => event.type === 'assistant/message');
+    const finish = message.data.stream.findLast(record => record.type === 'chunk' && record.chunk.type === 'finish').chunk;
+    assert.equal(message.data.usage.outputTokens, 128, 'the provider reached the explicit request cap');
+    assert.equal(finish.reason.kind, 'max-tokens', 'a fulfilled cap is neither EMPTY_RESPONSE nor a short-output failure');
+    assert.equal(history.events.filter(event => event.type === 'llm/retry').length, 0);
   });
   await t.test('a native child keeps upstream reasoning-only completion semantics and its parent can finish', async () => {
     const s = await session(); const events = [];

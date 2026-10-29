@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listAgentMentionItems, listSlashCommandItems } from '../acp/autocomplete';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import MentionPopover from './MentionPopover';
@@ -10,6 +10,9 @@ vi.mock('../acp/autocomplete', () => ({
   listAgentMentionItems: vi.fn().mockResolvedValue([]),
   listSlashCommandItems: vi.fn().mockResolvedValue([]),
 }));
+
+const anchorRef = { current: document.createElement('textarea') };
+afterEach(() => vi.restoreAllMocks());
 
 describe('MentionPopover while the workspace is unbound', () => {
   beforeEach(() => {
@@ -70,7 +73,7 @@ describe('MentionPopover while the workspace is unbound', () => {
         isOpen
         onClose={vi.fn()}
         onSelect={onSelect}
-        position={{ x: 0, y: 600 }}
+        anchorRef={anchorRef}
         query=""
         isSlashCommand
         selectedIndex={0}
@@ -99,7 +102,7 @@ describe('MentionPopover while the workspace is unbound', () => {
         isOpen
         onClose={vi.fn()}
         onSelect={onSelect}
-        position={{ x: 300, y: 400 }}
+        anchorRef={anchorRef}
         query=""
         isSlashCommand
         selectedIndex={0}
@@ -115,7 +118,7 @@ describe('MentionPopover while the workspace is unbound', () => {
         isOpen
         onClose={vi.fn()}
         onSelect={onSelect}
-        position={{ x: 300, y: 400 }}
+        anchorRef={anchorRef}
         query="permission"
         isSlashCommand
         selectedIndex={0}
@@ -134,7 +137,7 @@ describe('MentionPopover while the workspace is unbound', () => {
         isOpen
         onClose={vi.fn()}
         onSelect={vi.fn()}
-        position={{ x: 0, y: 0 }}
+        anchorRef={anchorRef}
         query=""
         isSlashCommand={false}
         selectedIndex={0}
@@ -157,7 +160,7 @@ describe('MentionPopover while the workspace is unbound', () => {
         isOpen
         onClose={vi.fn()}
         onSelect={vi.fn()}
-        position={{ x: 0, y: 0 }}
+        anchorRef={anchorRef}
         query=""
         isSlashCommand
         selectedIndex={0}
@@ -171,4 +174,40 @@ describe('MentionPopover while the workspace is unbound', () => {
     expect(listAgentMentionItems).not.toHaveBeenCalled();
     expect(window.electron.listFiles).not.toHaveBeenCalled();
   });
+});
+
+it('follows an open menu through window and pane layout changes and stops observing on close', async () => {
+  let nextFrame: (time: number) => void = () => {};
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    nextFrame = callback;
+    return 7;
+  });
+  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+  let rect = new window.DOMRect(200, 400, 300, 20);
+  vi.spyOn(anchorRef.current, 'getBoundingClientRect').mockImplementation(() => rect);
+  const view = render(
+    <MentionPopover
+      isOpen
+      anchorRef={anchorRef}
+      onClose={vi.fn()}
+      onSelect={vi.fn()}
+      query=""
+      isSlashCommand
+      selectedIndex={0}
+      onSelectedIndexChange={vi.fn()}
+      workingDir=""
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  const menu = view.container.firstElementChild;
+  expect(menu).toHaveStyle({ left: '200px', top: '390px', width: '300px' });
+  rect = new window.DOMRect(80, 250, 240, 20);
+  act(() => nextFrame(16));
+  expect(menu).toHaveStyle({ left: '80px', top: '240px', width: '240px' });
+  // A panel can move the anchor without a viewport resize or new typed input.
+  rect = new window.DOMRect(160, 290, 240, 20);
+  act(() => nextFrame(32));
+  expect(menu).toHaveStyle({ left: '160px', top: '280px', width: '240px' });
+  view.unmount();
+  expect(cancel).toHaveBeenCalledWith(7);
 });

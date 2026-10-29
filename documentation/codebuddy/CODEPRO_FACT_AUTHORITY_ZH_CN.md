@@ -1,6 +1,30 @@
 
 # CodePro 事实权威与模块职责
 
+## 2026-10-29 已批准：外部源码链接的单次只读预览
+
+同日用户追加批准：点击会话中的外部源码链接直接在右侧只读预览，取消二次确认框。Electron 主进程仍校验真实路径、常规文件、大小和文本类型，读取期间路径、会话或窗口变化则拒绝。renderer 只接收本次只读内容，以会话作用域内的临时标签显示，不生成编辑、保存或执行入口。预览不扩大工作区根目录，不授权 Harness 或模型读取该文件，不持久化目录许可；工作区内文件以及原有写入、终端、媒体和脚本打开路径保持原权限边界。
+
+用户最终批准：左键右侧预览并定位行号；Ctrl/Meta 左键将源码交给全局默认代码编辑器，媒体和普通文档继续使用系统默认应用。首次使用或已选编辑器失效时，Electron 主进程检测常见安装目录及 PATH，弹出选择菜单；取消或无编辑器时返回右侧预览。用户可在右键“打开方式”中更换默认代码编辑器。主进程经显式选择及启动成功后，通过现有 settings.json 的 defaultCodeEditor 保存程序路径、显示名及有限的行号参数类型；通用 renderer set-setting 不接受此键。旧设置缺失时默认为 null，不迁移或修改 Windows 文件关联。启动前校验当前窗口、会话、目标文件及程序路径；不使用 vscode://、命令拼接或 shell。源码启动使用选定程序及参数数组，支持的编辑器携带行号，普通文档仅传真实路径。原有外部目录枚举、Agent 读取、文件原路径保存边界不变；编辑器偏好不授予模型外部文件权限。参考官方 https://learn.chatgpt.com/docs/app/windows 的 Preferred editor：只采用明确选择默认编辑器的行为，不新增项目级覆盖，不宣称复制 Codex 内部实现。
+
+## 2026-10-28 已批准：媒体业务展示元数据
+
+主 Agent 在原生图片/视频生成请求中给出可选 `display_name`，表示用户可识别的业务名称。`comfyui-tool.mjs` 校验、保存并经原任务回执与 `/jobs` 发布；无效或缺失名称只降级展示，不阻断生成。名称不进入执行输入、权限范围、幂等参数比较或完成判断，重试保留已存名称。旧记录无需迁移，前端不从思考、编号、文件名或提示词片段另造业务名称。
+
+提交期间可展示该次 `generate` 请求的显式名称；任务关联仍须已有真实回执，随后优先使用 owner 确认的名称。回执缺少可选名称时可保留原提交名称，不能用 `status`/`cancel` 请求改名。用户确认本批只修新任务，旧会话不补名，不增加后台命名或历史迁移。
+
+同一 owner 在现有错误分支发布可选 `failure_info` 或临时 `observation_error_info`，区分提交、远端执行、状态查询、结果获取、校验和保存阶段。该元数据只解释既有状态或观察异常，不改变 throw/return、取消、重试与状态转换。没有稳定错误码时不从错误文字推断共同根因；原始回执完整保留。
+
+聊天只对已确认采用该合同的原生工具，按会话、媒体种类和任务 ID 聚合多次调用。状态继续由原生任务 owner 确认；工具调用成功及 Agent 结束均不表示生成完成。普通工具与未经适配的外部 MCP 保留原展示和执行语义，思考留在原过程位置。产物仍通过现有工作区文件能力打开，不按业务名改路径。
+
+## 2026-10-27 已批准：业务能力的会话授权
+
+电脑操作、图片生成和视频生成分别申请会话授权，不隐含彼此权限。受信工厂声明业务范围；内置电脑操作只绑定已校验的固定 MCP 驱动、连接及已登记工具定义，远端注解、同名自定义 MCP 和模型文字不能制造业务授权。当前电脑操作范围为桌面读取及鼠标键盘能力，不承诺按应用隔离或只读；不升级或替换驱动。媒体沿用现有服务、工作区、会话和任务记录绑定，不扩展文件访问、输出目录或取消范围。
+
+Harness 继续持有执行策略、审批请求、取消和审计。兼容层复用现有 owner 与工具身份授权存储，只有明确支持业务范围展示的客户端才能申请业务授权；旧客户端保留逐工具选择。每次调用仍先经过启用状态、明确禁止、逐次确认和安全检查；会话许可不能越过它们。同业务并发请求共享待决选择，允许一次仍只批准当前调用；工具重连、定义或范围配置变化，以及原生会话 owner 释放或进程重启使相关许可失效。renderer 只展示宿主提供的准确范围和返回选择，不保存执行授权。撤销后续访问不表示已经派发的输入被撤回，未知结果仍由原执行回执与后续观察核对。
+
+繁體：三種業務分別取得明示會話許可，沿用 Host 身分與既有安全檢查；舊客戶端仍逐工具詢問，不更換驅動、不承諾應用隔離。English: Computer use, image generation and video generation have independent explicit session grants. Trusted factories and live definitions own scope; Harness retains execution policy and approval audit. Older clients keep per-tool grants, and existing safety checks remain authoritative. No driver upgrade or app-isolation claim is introduced.
+
 ## 2026-10-26 已批准：桌面更新与确认后停止任务
 
 Electron 主进程的 `update/` 持有更新频道、GitHub Release 与文件身份、下载状态和安装调度。用户自己的 GitHub CLI 登录提供瞬时凭据；不使用 GitHub MCP 凭据、不复制到设置或安装包，不向 renderer 或 CDN 转发 Token。renderer 只发起检查、下载、取消和确认安装，消费主进程状态。Windows Inno 负责安装目录中的程序更新，Mac Squirrel.Mac 负责签名应用替换；更新器不迁移、清空聊天、配置、工作区或凭据。
@@ -239,6 +263,10 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 ## 2026-10-14 已批准：新版 Harness 执行与目标权威
 
+2026-10-28 异步工具显示核对：现有临时 `execution_activity` 可携带 `active_tool_call_ids`，由适配器投影本轮原生工具调用/结果及下一模型流的批次边界。Harness 在进入下一模型流前等待当前工具批次结束；桌面只核对同一 run、同一用户输入的运行标记，保留并行及直接工具调用。缺失回执的结果仍为未知，不补造成功或失败，不修改持久会话。媒体观察超过时限或断联时仅将显示降为“状态待确认”，保留远端任务和查询；不据此取消、重复提交或改变已确认终态。
+
+繁體：工具活動核對僅清除失效顯示，缺失回執保持未知；媒體觀察失效不改變遠端任務。 English: ephemeral native activity reconciles display occupancy only; missing receipts remain unknown, and stale media observations do not cancel or resubmit remote work.
+
 2026-10-20 用户明确要求通过输入框 `/` 菜单提供长期目标、暂停/继续和计划入口，取代常驻目标表单：桌面通过结构化 `codebuddy/goal` prompt 元数据和原生目标读/暂停适配接入 GoalService。Harness 仍是目标日志、revision、轮次、激活及完成的唯一 owner；UI 只读取投影、提交用户操作并展示实际回执。创建/继续绑定普通 prompt 的批准和取消通道；暂停先提交原生 CAS，再取消当前执行。新任务批准选择先完成现有 ACP set_mode，再发送首条消息，不修改全局默认。计划使用锁定上游 `PlanModeController` 的日志与投影，`codebuddy/plan` 仅传递显式选择；不改变批准模式，不新增调度器。没有目标或计划元数据的旧会话保持原行为。三语说明见 `docs/long-term-goals.*.md`。
 
 繁體：斜線命令沿用原生目標與計畫狀態，長期目標 UI 沿用 Harness 唯一狀態與續輪權威，結構化控制綁定原有核准、取消及 revision 檢查。English: Slash commands consume native Harness goal and plan state; structured controls retain existing approval, cancellation, and revision checks without adding a second scheduler.
@@ -247,7 +275,19 @@ English: runtime settings owns configuration and the MCP server owns task state/
 
 本日夜间补充：上下文计量、压缩范围、摘要事务与重试归官方 `tokenMeter` / `compaction-basic`；`runtime/context-updates.mjs` 只转换现有 UI 通知，当前占用不得与累计账单混同。压缩不等于长期记忆，摘要不证明需求无损；多次压缩后的独立验收另留证。MCP 截图按实际执行 Agent 的图像能力原生准入，缺能力时复用 `VisionRouting` 的零工具辅助观察；原始工具回执归 MCP，视觉失败不得重放已执行动作。
 
-锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径仅略过官方已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要；不重新选区，不拦截手动压缩或超限恢复。升级官方依赖时复查并在官方修复后撤除此补丁。回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
+锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径略过已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要。2026-10-28 真实宠物历史回归另确认：原生选区可吞掉最新人工输入，摘要遗漏限制后回到旧任务。锁版 `sdk-budget/compaction-patch.mjs` 在共享选区函数内保留最新 `source.kind=user` 原事件，不把后续 runtime-context／skill-catalog 当成人工输入；遵守原有 tail 预算，只在其两侧选择工具配对完整的连续区间，优先非单检查点区间中的估价较大者。只有旧检查点可选时保留超限恢复与手动压缩能力，普通压力路径仍略过它。压力、超限／本地预算恢复和手动压缩共用人工输入保留边界；长 turn 后续工具历史仍可压缩，不复制、重排或补造人工消息。选区估价不替代 adapter 的真实 fit 门槛，后半区摘要可能损失前缀缓存；摘要事务、取消与 Session 格式仍归官方引擎。升级官方依赖时复查并在等价上游修复后撤除相应补丁。早期回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
+
+2026-10-28 用户批准锁定 SDK 的请求预算与恢复合同修复：`runtime/harness/sdk-budget-contract.mjs` 在内存中对精确版本及 SHA 校验后的原生模块实施兼容变换。Pi adapter 持有同一请求的最终规范化投影、拟发送预算（fit）与派发；LLM 服务只以既有 `requestId` 关联一次性的进程内 fit 和原请求重测闭包。`tokenMeter` 的服务用量锚及压力估计保持原职责，不强行与最终投影估价写成同一数字，也不重写历史 usage。`LOCAL_OUTPUT_BUDGET_EXHAUSTED` 在 HTTP 前拒绝没有输出空间的请求；`OUTPUT_TRUNCATED` 表示原始 length 的实际输出小于本请求 clamp 前所需上限，不冒称服务端上下文溢出。`compaction-basic` 消费该 fit，沿原安全选区与摘要事务每轮最多尝试恢复一次，只有真实 surface 替换且同路由预算改善后才返回原生 retry；取消、无进展、摘要失败或第二次截断保留明确失败。通用网络重试不接管这两个错误。没有新宿主循环、持久事件、Session v4 版本或工具重放；升级及撤除边界见 `runtime/harness/PROVENANCE.json`。
+
+繁體：最終請求 fit 歸 adapter，暫存關聯歸 LLM 服務，單輪有界壓縮恢復仍歸原生引擎；歷史用量與 Session 格式不變。English: The adapter owns final request fit; the LLM service carries a transient association; native compaction owns the single recovery attempt. Historical usage and Session format are unchanged.
+
+输出用量证据同样由 adapter 在 Pi 公开的结构化 provider-stream 回调处读取：明确报告的输出计数（包含 0）才可参与 length 恢复与依赖零输出的 length 溢出判定；缺字段时保持未知，不用规范化后的默认 0 替代真实回执，不从正文猜 token 数。未知用量的 length 保留原 `max-tokens` 终态；显式服务错误仍由原分类处理。此观察不改变 usage、原始停止原因或持久化字段。
+
+协议的最小输出也属于 adapter fit：Responses 启用 `max_output_tokens` 时最小值为 16，用户显式上限小于该值以 `INVALID_OUTPUT_BUDGET` 在 HTTP 前拒绝，不抬高用户上限，不摘要或网络重试；可用上下文小于最小输出则走有界的本地预算恢复。恢复重测须满足同一最小值，且可用空间和有效输出均达到它。显式 `supportsMaxOutputTokens=false` 继续表示该连接不发送上限，不把它冒称成服务端强制预算。[官方 Responses 参数约束](https://developers.openai.com/api/reference/ruby/resources/responses/methods/create)。
+
+2026-10-28 真实回归补充：摘要自身也必须消费 adapter 最终 fit，完整摘要输出空间不足时由 LLM 服务在 HTTP 前以 `COMPACTION_OUTPUT_BUDGET_EXHAUSTED` 拒绝。原生压缩事务持有缩区：按工具配对边界有限地几何缩短选区，同步重建摘要输入、计量及 shadow 集合，未摘要的尾段仍为原 active surface 事件；不以“只裁输入、仍替换整段”丢弃事实。本地准备不增加摘要 HTTP 重试，最终候选复用已绑定连接快照及配置，只发一次摘要；实际 length、取消或未找到可用选区不提交检查点。候选搜索不是最长或穷尽保证，普通压力的旧单检查点保护覆盖缩区后的实际输入。没有新宿主循环、持久字段或 Session 迁移。
+
+同日工具状态展示补充：原生附件存储仍持有图片对象的读取与校验，driver 只将已验证图片转换为 ACP 展示块，compat 消费真实工具终态。可选预览读取失败只降级图片展示，不丢弃完成通知或更改工具事实。旧记录只修复回放投影，不改写持久回执或重放工具。图片 I/O 后统一重新读取当前历史与实时高水位，再同步重置并发布回放，避免旧图读取期间的新消息丢失。
 
 **繁體補充**：上下文計量及壓縮由 Harness 持有，CodeBuddy 只投影現有通知。摘要不是無損記憶；反覆壓縮另驗。MCP 圖片優先交實際執行模型，缺能力時輔助視覺只觀察，保留原始回執且不重放動作。
 

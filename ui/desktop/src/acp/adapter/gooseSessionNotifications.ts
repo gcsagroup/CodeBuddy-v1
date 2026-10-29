@@ -422,28 +422,6 @@ function applyMessageUsage(
   state: AdapterState,
   update: Extract<GooseSessionNotification_unstable['update'], { sessionUpdate: 'message_usage' }>
 ): AcpChatStateChange[] {
-  // Live tool-call turns carry a server-side id the client never saw, so an
-  // id miss falls back to the most recent assistant message with provider
-  // content - skipping client-made rows (approval cards, status notices).
-  const byId = update.messageId
-    ? state.messages.find((message) => message.id === update.messageId)
-    : undefined;
-  const target =
-    byId ??
-    [...state.messages]
-      .reverse()
-      .find(
-        (message) =>
-          message.role === 'assistant' &&
-          message.content.some(
-            (content) => content.type !== 'actionRequired' && content.type !== 'systemNotification'
-          )
-      );
-
-  if (!target) {
-    return [];
-  }
-
   const usage: MessageUsage = {
     inputTokens: update.usage.inputTokens,
     outputTokens: update.usage.outputTokens,
@@ -457,6 +435,36 @@ function applyMessageUsage(
     isCompaction: update.usage.isCompaction,
   };
 
+  if (update.messageId) {
+    const target = state.messages.find((message) => message.id === update.messageId);
+    if (target) {
+      target.metadata = { ...target.metadata, usage };
+      return messagesChange(state, target);
+    }
+    // Usage can precede a tool-only message, or belong to internal work with
+    // no visible row. Keep its identity for billing; content will reuse it.
+    const message = {
+      id: update.messageId,
+      role: 'assistant' as const,
+      created: Math.floor(Date.now() / 1000),
+      content: [],
+      metadata: { userVisible: false, agentVisible: false, usage },
+    };
+    state.messages.push(message);
+    return messagesChange(state, message, true);
+  }
+
+  // Only legacy receipts with no identity may use the last provider message.
+  const target = [...state.messages]
+    .reverse()
+    .find(
+      (message) =>
+        message.role === 'assistant' &&
+        message.content.some(
+          (content) => content.type !== 'actionRequired' && content.type !== 'systemNotification'
+        )
+    );
+  if (!target) return [];
   target.metadata = { ...target.metadata, usage };
-  return messagesChange(state);
+  return messagesChange(state, target);
 }

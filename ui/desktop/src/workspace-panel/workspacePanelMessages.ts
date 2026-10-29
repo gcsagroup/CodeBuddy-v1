@@ -1,5 +1,9 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  readOnlyReference: {
+    id: 'workspacePanel.readOnlyReference',
+    defaultMessage: 'Read-only reference; the workspace and file permissions are unchanged.',
+  },
   openFile: { id: 'workspacePanel.openFile', defaultMessage: 'Open file' },
   playVideo: { id: 'workspacePanel.playVideo', defaultMessage: 'Play video' },
   openImageTab: { id: 'workspacePanel.openImageTab', defaultMessage: 'Open image in new tab' },
@@ -29,11 +33,15 @@ export const panelMessages = defineMessages({
     id: 'workspacePanel.openDocument',
     defaultMessage: 'Open in default application',
   },
-  openEditor: { id: 'workspacePanel.openEditor', defaultMessage: 'Open in VS Code' },
-  fileActionFailed: {
-    id: 'workspacePanel.fileActionFailed',
-    defaultMessage:
-      'Could not complete the file action. Please try again. Opening code files requires VS Code.',
+  openWith: { id: 'workspacePanel.openWith', defaultMessage: 'Open with' },
+  codeEditor: { id: 'workspacePanel.codeEditor', defaultMessage: 'Open in code editor' },
+  chooseCodeEditor: {
+    id: 'workspacePanel.chooseCodeEditor',
+    defaultMessage: 'Change default code editor…',
+  },
+  chooseApplication: {
+    id: 'workspacePanel.chooseApplication',
+    defaultMessage: 'Choose application…',
   },
   documentInfo: {
     id: 'workspacePanel.documentInfo',

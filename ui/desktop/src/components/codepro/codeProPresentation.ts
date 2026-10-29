@@ -126,11 +126,11 @@ const messages = defineMessages({
   verbProcess: { id: 'codeProPresentation.activityVerb.process', defaultMessage: 'Process' },
   activitySummary: {
     id: 'codeProPresentation.activitySummary',
-    defaultMessage: '{verb} {target} · {status}',
+    defaultMessage: '{verb} {target} {status}',
   },
   intentSummary: {
     id: 'codeProPresentation.intentSummary',
-    defaultMessage: '{title} · {status}',
+    defaultMessage: '{title} {status}',
   },
 });
 

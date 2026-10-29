@@ -1,7 +1,16 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
-import { WorkspaceGeneration, type MediaJob } from './WorkspaceGeneration';
+import {
+  MediaJobsProvider,
+  useMediaJobs,
+  WorkspaceGeneration,
+  type MediaJob,
+} from './WorkspaceGeneration';
+const { mediaRequest } = vi.hoisted(() => ({ mediaRequest: vi.fn() }));
+vi.mock('../acp/acpConnection', () => ({
+  getAcpControlClient: async () => ({ extMethod: mediaRequest }),
+}));
 const scope = { sessionId: 'session-a', root: 'D:/fixture' };
 beforeEach(() => {
   vi.stubGlobal(
@@ -12,7 +21,85 @@ beforeEach(() => {
     }
   );
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  mediaRequest.mockReset();
+});
+
+it('stops stale preview animation without changing the job result and resumes on fresh evidence', () => {
+  const job: MediaJob = {
+    job_id: 'a',
+    kind: 'image',
+    created_at: new Date().toISOString(),
+    status: 'running',
+    live: {},
+  };
+  const view = render(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected={false} />, {
+    wrapper: IntlTestWrapper,
+  });
+  expect(screen.getByTestId('generation-wait')).toBeVisible();
+  view.rerender(
+    <WorkspaceGeneration
+      scope={scope}
+      jobs={[{ ...job, observation_error: true }]}
+      disconnected={false}
+    />
+  );
+  expect(screen.queryByTestId('generation-wait')).toBeNull();
+  expect(screen.getByText('Status unavailable')).toBeVisible();
+  view.rerender(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected />);
+  expect(screen.queryByTestId('generation-wait')).toBeNull();
+  view.rerender(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected={false} />);
+  expect(screen.getByTestId('generation-wait')).toBeVisible();
+  expect(job.status).toBe('running');
+});
+
+it('marks a hung observation disconnected, keeps one request in flight and accepts its later result', async () => {
+  vi.useFakeTimers();
+  let finish!: (value: unknown) => void;
+  mediaRequest.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+  );
+  const Observer = () => {
+    const value = useMediaJobs('session-a');
+    return (
+      <span data-testid="observed">
+        {value.disconnected ? 'unconfirmed' : 'connected'}:{value.jobs[0]?.status}
+      </span>
+    );
+  };
+  const view = render(
+    <MediaJobsProvider sessionId="session-a">
+      <Observer />
+    </MediaJobsProvider>
+  );
+  await act(async () => {});
+  await act(async () => vi.advanceTimersByTimeAsync(11_000));
+  expect(screen.getByTestId('observed')).toHaveTextContent('unconfirmed');
+  expect(mediaRequest).toHaveBeenCalledTimes(1);
+  await act(async () =>
+    finish({
+      sessionId: 'session-a',
+      jobs: [
+        {
+          job_id: 'a',
+          kind: 'image',
+          status: 'failed',
+          created_at: '2026-10-28T00:00:00Z',
+          live: {},
+        },
+      ],
+    })
+  );
+  expect(screen.getByTestId('observed')).toHaveTextContent('connected:failed');
+  view.unmount();
+  await act(async () => vi.advanceTimersByTimeAsync(30_000));
+  expect(mediaRequest).toHaveBeenCalledTimes(1);
+});
 it('distinguishes image pixels from a file link and routes plain and Ctrl clicks', async () => {
   const opened = vi.fn();
   window.addEventListener('codebuddy:open-workspace-file', opened);
@@ -126,7 +213,9 @@ it('keeps failures visible and shows reconnect without submitting a new job', ()
   );
   expect(screen.getByRole('alert')).toHaveTextContent('GPU memory');
   expect(screen.queryByTestId('generation-wait')).toBeNull();
-  expect(screen.getByText('Connection interrupted. Retrying…')).toBeInTheDocument();
+  expect(
+    screen.getByText('Task status is unconfirmed. Waiting for an update…')
+  ).toBeInTheDocument();
 });
 
 it('shows the same animation for images without invented progress and replaces it with the final image', async () => {
@@ -137,13 +226,11 @@ it('shows the same animation for images without invented progress and replaces i
     status: 'queued',
     live: { connected: true },
   };
-  window.electron.workspacePanel = vi
-    .fn()
-    .mockResolvedValue({
-      document: {
-        media: { kind: 'image', mimeType: 'image/png', url: 'codebuddy-media://preview/image' },
-      },
-    });
+  window.electron.workspacePanel = vi.fn().mockResolvedValue({
+    document: {
+      media: { kind: 'image', mimeType: 'image/png', url: 'codebuddy-media://preview/image' },
+    },
+  });
   const view = render(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected={false} />, {
     wrapper: IntlTestWrapper,
   });

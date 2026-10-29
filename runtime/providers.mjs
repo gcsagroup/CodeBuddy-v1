@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
-import { catalogModels, catalogThinkingProfile } from './harness/model-catalog.mjs';
+import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -137,6 +137,28 @@ export function modelBase(provider) {
   return endpoints(provider)
     .completion.toString()
     .replace(/\/(?:chat\/completions|responses)$/, "");
+}
+
+function providerCatalog(provider) {
+  return provider.catalogProviderId ?? catalogProviderForEndpoint(modelBase(provider));
+}
+
+function orderedModels(provider, ids, created = {}) {
+  const catalogProviderId = providerCatalog(provider);
+  const catalog = new Set(catalogModelIds(catalogProviderId));
+  // API entry creation can predate a newer model alias. Numbered GPT names
+  // have a useful display order; this must never establish capabilities.
+  const versions = new Map(ids.map(id => {
+    const match = catalogProviderId === 'openai' && /^gpt-(\d+)(?:\.(\d+))?/.exec(id);
+    return [id, match ? [Number(match[1]), Number(match[2] ?? 0)] : undefined];
+  }));
+  return [...ids].sort((a, b) => {
+    const first = versions.get(a), second = versions.get(b);
+    return Number(Boolean(second)) - Number(Boolean(first)) ||
+      (first && second ? second[0] - first[0] || second[1] - first[1] : 0) ||
+      Number(catalog.has(b)) - Number(catalog.has(a)) ||
+      (created[b] ?? 0) - (created[a] ?? 0);
+  });
 }
 
 function sameConnection(first, second) {
@@ -348,12 +370,15 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     .map(model => [model.id, modelOutput(model)]));
   const templateBackends = Object.fromEntries(models.filter(model => ['vllm', 'sglang'].includes(model?.owned_by))
     .map(model => [model.id, model.owned_by]));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, expires: Date.now() + metadataTtlMs });
-  return ids;
+  const created = Object.fromEntries(models.filter(model => Number.isSafeInteger(model?.created) && model.created > 0)
+    .map(model => [model.id, model.created]));
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+  return orderedModels(provider, ids, created);
 }
 
 async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
   if (!model) return undefined;
+  const catalogProviderId = providerCatalog(provider);
   const key = listingKey(provider);
   let cached = cachedModels(provider);
   if (!cached) {
@@ -398,8 +423,8 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           }
           source = 'service';
         }
-        if (!capacity && provider.catalogProviderId) {
-          const info = (await catalogModels(provider.catalogProviderId)).find(m => m.id === model);
+        if (!capacity && catalogProviderId) {
+          const info = (await catalogModels(catalogProviderId)).find(m => m.id === model);
           capacity = info?.contextWindow;
           const input = modelImageProfile(info, 'catalog');
           if (input && !cached.inputs?.[model]) { cached.inputs ??= {}; cached.inputs[model] = input; }
@@ -409,8 +434,8 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           source = 'catalog';
         }
         cached.thinking ??= {};
-        if (!Object.keys(cached.thinking[model] ?? {}).length && provider.catalogProviderId)
-          cached.thinking[model] = catalogThinkingProfile(provider.catalogProviderId, model);
+        if (!Object.keys(cached.thinking[model] ?? {}).length && catalogProviderId)
+          cached.thinking[model] = catalogThinkingProfile(catalogProviderId, model);
         if (capacity && !cached.contexts?.[model]) {
           cached.contexts ??= {}; cached.sources ??= {};
           cached.contexts[model] = capacity; cached.sources[model] = source;
@@ -559,7 +584,7 @@ export function inventory(provider) {
     setupSteps: [],
     supportsRefresh: true,
     refreshing: false,
-    models: models.map((id) => ({
+    models: orderedModels(provider, models, cachedModels(provider)?.created).map((id) => ({
       id,
       name: id,
       contextLimit: contextProfile(provider, id).contextWindow,
@@ -644,8 +669,9 @@ function ollamaThinkingProfile(body) {
 export function thinkingProfile(provider, model) {
   const discovered = cachedModels(provider)?.thinking?.[model];
   if (discovered && Object.hasOwn(discovered, 'reasoningEfforts')) return discovered;
-  if (provider.catalogProviderId) {
-    const catalog = catalogThinkingProfile(provider.catalogProviderId, model);
+  const catalogProviderId = providerCatalog(provider);
+  if (catalogProviderId) {
+    const catalog = catalogThinkingProfile(catalogProviderId, model);
     if (Object.hasOwn(catalog, 'reasoningEfforts')) return catalog;
   }
   // Only non-Ollama Gemma deployments use the existing chat-template adapter.
@@ -702,7 +728,9 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     throw providerError('tools_unsupported', 'This Ollama model reports no tool-calling support. Select an installed model with the tools capability for CodeBuddy tasks.');
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
-  const { thinkingToggle: _toggle, thinkingDefault: _default, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const { thinkingToggle: _toggle, thinkingDefault: _default, compat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
+  const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
+    ? "openai-responses" : "openai-completions";
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
@@ -710,10 +738,11 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     headers,
     // The official Harness/pi-ai adapter owns serialization and streaming.
     ...nativeThinking,
+    // Thinking-profile compatibility fields describe Chat Completions only.
+    // Responses has its own native reasoning serialization and rejects them.
+    ...(protocol === 'openai-completions' && compat ? { compat } : {}),
     ...contextProfile(provider, model),
     ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens }),
-    protocol: endpoints(provider).completion.pathname.endsWith("/responses")
-      ? "openai-responses"
-      : "openai-completions",
+    protocol,
   };
 }

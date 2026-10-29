@@ -61,12 +61,12 @@ describe('ThinkingContent', () => {
     try {
       const view = render(<ThinkingContent content="Preparing a file." isExpanded isStreaming />);
       act(() => vi.advanceTimersByTime(2500));
-      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
         'data-state',
         'closed'
       );
       view.rerender(<ThinkingContent content="More thought arrived." isExpanded isStreaming />);
-      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
         'data-state',
         'open'
       );
@@ -79,7 +79,7 @@ describe('ThinkingContent', () => {
       fireEvent.pointerDown(viewport);
       fireEvent.scroll(viewport);
       act(() => vi.advanceTimersByTime(2500));
-      expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
         'data-state',
         'open'
       );
@@ -111,7 +111,7 @@ describe('ThinkingContent', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
       'data-state',
       'open'
     );
@@ -144,8 +144,8 @@ describe('ThinkingContent', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking · Updating' }));
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking (updating)' }));
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
       'data-state',
       'closed'
     );
@@ -158,7 +158,7 @@ describe('ThinkingContent', () => {
         storageKey="turn-1"
       />
     );
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
       'data-state',
       'closed'
     );
@@ -172,7 +172,7 @@ describe('ThinkingContent', () => {
         storageKey="turn-1"
       />
     );
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
       'data-state',
       'closed'
     );

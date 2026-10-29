@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createHarnessDriver, HARNESS_VERSION } from '../index.mjs';
+import { workStatusUpdates } from '../../work-status.mjs';
 
 let driver, server, root, provider;
 const requests = [];
@@ -133,6 +134,16 @@ test('official tool pipeline owns requested approval and its dispatch result', a
   assert.ok(events.some(event => event.type === 'tool_result' && !event.isError));
   assert.equal(events.filter(event => event.type === 'assistant_start').length, 2);
   assert.equal(events.filter(event => event.type === 'assistant_committed').length, 2);
+  const project = workStatusUpdates({ sessionId: allowed.sessionId });
+  let started = false;
+  for (const event of events) {
+    // Simulate a dropped result notification while exercising the real loop's
+    // batch boundary, rather than declaring completion from assistant text.
+    if (event.type === 'tool_result') continue;
+    const snapshot = project(event)[0]?.status.data.active_tool_call_ids;
+    if (event.type === 'tool_call') { started = true; assert.deepEqual(snapshot, [event.id]); }
+    if (event.type === 'assistant_start' && started) assert.deepEqual(snapshot, []);
+  }
 });
 
 test('streamed file input is visible before native dispatch without leaking draft contents or inventing its path', async () => {
@@ -196,6 +207,18 @@ test('adopting a live session and changing its model preserves prior history', a
   await driver.prompt(created.sessionId, 'fixture_chat changed_model');
   assert.equal(requests.at(-1).model, 'fixture-model-two');
   assert.equal((await driver.history(created.sessionId)).events.filter(event => event.type === 'turn/end').length, 2);
+});
+
+test('changing to a model without reasoning clears the previous request effort', async () => {
+  const reasoningProvider = { ...provider, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true }, reasoningEfforts: { low: 'low', high: 'high' } };
+  const created = await driver.createSession({ cwd: root, provider: reasoningProvider, model: 'fixture-reasoning', options: { thinkingEffort: 'low' } });
+  await driver.prompt(created.sessionId, 'fixture_chat with_effort');
+  assert.equal(requests.at(-1).reasoning_effort, 'low');
+  await driver.createSession({ sessionId: created.sessionId, cwd: root,
+    provider: { ...provider, compat: undefined, reasoningEfforts: false }, model: 'fixture-no-reasoning', options: {} });
+  await driver.prompt(created.sessionId, 'fixture_chat without_effort');
+  assert.equal(requests.at(-1).model, 'fixture-no-reasoning');
+  assert.equal(requests.at(-1).reasoning_effort, undefined);
 });
 
 test('cancellation closes a real in-flight model turn', async () => {

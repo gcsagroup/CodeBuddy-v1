@@ -227,6 +227,7 @@ export function PermissionPicker({
       </div>
       <Popover.Portal>
         <Popover.Content
+          updatePositionStrategy="always"
           side="top"
           align="start"
           sideOffset={8}

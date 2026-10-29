@@ -45,6 +45,7 @@ import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
+import { mcpSessionApprovalScope } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
@@ -85,8 +86,23 @@ const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'mess
   'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
   'readonlyHistory', 'userSetName', 'archivedAt'];
 
+function imageDisplayBlock(item) {
+  if (item?.type !== "image") return item;
+  const mimeType = item.mimeType ?? item.mediaType;
+  return typeof item.data === "string" && typeof mimeType === "string"
+    ? { ...item, mimeType }
+    : { type: "text", text: "Image preview is unavailable. The original tool result remains recorded." };
+}
+
+async function toolDisplayBlocks(blocks, driver) {
+  // Native image blocks carry durable references; MCP/host display receipts
+  // already carry encoded bytes. Keep both on the same presentation boundary.
+  const projected = await driver.presentationContent?.(blocks).catch(() => blocks) ?? blocks;
+  return projected.map(imageDisplayBlock);
+}
+
 // Both model calls and direct UI calls project the original MCP receipt.
-function toolResultUpdate(event, metadata) {
+async function toolResultUpdate(event, metadata, driver) {
   const blocks = Array.isArray(event.mcpResult?.content)
     ? event.mcpResult.content
     : Array.isArray(event.presentationContent)
@@ -96,14 +112,9 @@ function toolResultUpdate(event, metadata) {
         : Array.isArray(event.result?.content)
           ? event.result.content
           : [];
-  const content = blocks
+  const content = (await toolDisplayBlocks(blocks, driver))
     .filter((item) => ["text", "image", "audio", "resource", "resource_link"].includes(item?.type))
-    .map((item) => ({
-      type: "content",
-      content: item.type === "image"
-        ? { ...item, mimeType: item.mimeType ?? item.mediaType }
-        : item,
-    }));
+    .map((item) => ({ type: "content", content: item }));
   return {
     sessionUpdate: "tool_call_update",
     toolCallId: event.id,
@@ -822,6 +833,7 @@ export class Compat {
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
       mcpServers,
+      mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
       mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
         const state = this.store.read(["modelRouting", "providers"]);
         return this.vision.prepareToolContent({
@@ -922,6 +934,11 @@ export class Compat {
     if (!grant) { grant = { allowed: false, pending: null }; tools.set(approval.tool, grant); }
     return grant;
   }
+  businessGrant(tool) {
+    const approval = tool.sessionApproval, business = approval?.business;
+    if (!business || !business.isCurrent()) return undefined;
+    return this.toolGrant({ sessionApproval: { ...approval, tool: business.identity } });
+  }
   async toolPolicy(s, tool, signal = tool.signal) {
     const extensions = {};
     const denied = () => !this.store.readSession(s.id) ||
@@ -940,7 +957,7 @@ export class Compat {
     const permission = permissions[publicToolName(tool.name)] ?? permissions[tool.name];
     if (safety.requiresApproval || permission === 'ask_before')
       return { kind: 'ask', reason: safety.explanation ?? 'The configured tool rule requires approval.' };
-    if (this.toolGrant(tool)?.allowed || permission === 'always_allow' ||
+    if (this.toolGrant(tool)?.allowed || this.businessGrant(tool)?.allowed || permission === 'always_allow' ||
       tool.nativeCapability || tool.readOnly || tool.delegationControl || tool.sandboxMode === 'danger-full-access')
       return { kind: 'allow' };
     // Remote MCP and host capabilities do not acquire file-sandbox protection
@@ -997,11 +1014,14 @@ export class Compat {
     if (blocked(currentPolicy())) return false;
     const approval = tool.sessionApproval;
     if (approval && !approval.isCurrent()) return false;
-    const grant = this.toolGrant(tool);
-    const reusable = Boolean(grant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
-    if (grant?.allowed && reusable) return true;
+    const toolGrant = this.toolGrant(tool), businessGrant = this.businessGrant(tool);
+    const reusable = Boolean(toolGrant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
+    if (reusable && (toolGrant?.allowed || businessGrant?.allowed)) return true;
+    const business = reusable && businessGrant && !directToolCall && this.businessApprovalClients?.has(connection)
+      ? approval.business : undefined;
+    const grant = business ? businessGrant : toolGrant;
 
-    // Parallel calls wait for the same tool's explicit choice, then recheck the
+    // Parallel calls wait for the same scope's explicit choice, then recheck the
     // owner. Allow-once still requires each later call to ask for itself.
     if (grant?.pending && reusable) {
       let cancel;
@@ -1023,7 +1043,9 @@ export class Compat {
           sessionId: s.id,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
-            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: approval.extensionSource, ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
+            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: business ? 'builtin' : approval.extensionSource,
+              ...(business ? { permissionClass: 'external_write', businessApproval: business.presentation } : {}),
+              ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
           },
           toolCall: {
             toolCallId: tool.id ?? randomUUID(),
@@ -1052,8 +1074,8 @@ export class Compat {
             ...(reusable
               ? [
                   {
-                    optionId: "allow_always",
-                    name: approval.targetOrigin
+                    optionId: business ? 'allow_business_session' : "allow_always",
+                    name: business ? `Allow ${business.presentation.id} for this session` : approval.targetOrigin
                       ? `Allow ${approval.targetOrigin} for this session`
                       : "Allow this tool for this session",
                     kind: "allow_always",
@@ -1072,10 +1094,12 @@ export class Compat {
       const option =
         reply?.outcome?.outcome === "selected" ? reply.outcome.optionId : null;
       if (approval && !approval.isCurrent()) return false;
-      if (option === "allow_always" && reusable) grant.allowed = true;
+      const scopeAllowed = reusable && currentPolicy().permission !== 'ask_before' &&
+        (business ? option === 'allow_business_session' && business.isCurrent() : option === 'allow_always');
+      if (scopeAllowed) grant.allowed = true;
       return (
         option === "allow_once" ||
-        (option === "allow_always" && reusable)
+        scopeAllowed
       );
     } finally {
       if (decision) { grant.pending = null; decision.resolve(); }
@@ -1307,7 +1331,11 @@ export class Compat {
       const [images, videos] = await Promise.all([comfyuiTool(options).jobs(), comfyuiVideoTool(options).jobs()]);
       return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
     }
-    if (method === "initialize")
+    if (method === "initialize") {
+      this.businessApprovalClients ??= new WeakSet();
+      if (connection && p.clientCapabilities?._meta?.goose?.businessSessionApproval === 1)
+        this.businessApprovalClients.add(connection);
+      else if (connection) this.businessApprovalClients.delete(connection);
       return {
         protocolVersion: 1,
         agentInfo: { name: "CodeBuddy", version: "0.1.0" },
@@ -1319,6 +1347,7 @@ export class Compat {
           _meta: { goose: { customNotifications: true } },
         },
       };
+    }
     if (method === "authenticate")
       throw unsupported(
         "ACP provider authentication; configure the model connection in settings",
@@ -1496,41 +1525,62 @@ export class Compat {
           }
         }
         checkpoint("workspaceMs");
+        const initialLiveReplay = this.active.get(s.id)?.replay;
+        const legacy = s.legacyHistory ? updatesFromConversation(
+          await loadLegacyConversation(this.store.directory, s.legacyHistory), s.createdAt,
+        ) : undefined;
+        const imageRepairs = new Map();
+        for (const update of [...(s.updates ?? []), ...(initialLiveReplay?.updates ?? [])]) {
+          if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) continue;
+          const key = JSON.stringify(update.content);
+          if (imageRepairs.has(key)) continue;
+          imageRepairs.set(key, await Promise.all(update.content.map(async part =>
+            part.type === "content" && part.content?.type === "image"
+              ? { ...part, content: (await toolDisplayBlocks([part.content], this.driver))[0] }
+              : part)));
+        }
+        // Preview reads can yield while a live turn publishes or finalizes.
+        // Capture its current high water mark only after I/O, then keep reset
+        // and replay synchronous so old history cannot interleave with live data.
+        const current = this.session(s.id);
+        if (current.cwd !== s.cwd || (current.nativeSessionId ?? current.id) !== (s.nativeSessionId ?? s.id))
+          throw invalid("Session changed while image previews were being prepared; retry");
         const liveReplay = this.active.get(s.id)?.replay;
         // Journal projection is committed at turn end. Include already-published
         // live updates until that same turn has reached the persisted high water mark.
         const includeLive =
           liveReplay &&
-          !Object.values(s.transcriptTurns ?? {}).some(
+          !Object.values(current.transcriptTurns ?? {}).some(
             (turn) => turn.turnId === liveReplay.turnId,
           );
         const transcript = replayTranscript(
-          s.legacyHistory
+          legacy
             ? {
-                ...s,
-                updates: updatesFromConversation(
-                  await loadLegacyConversation(
-                    this.store.directory,
-                    s.legacyHistory,
-                  ),
-                  s.createdAt,
-                ),
+                ...current,
+                updates: legacy,
               }
             : includeLive
               ? {
-                  ...s,
+                  ...current,
                   updates: [
-                    ...(s.updates ?? []),
+                    ...(current.updates ?? []),
                     ...liveReplay.users,
                     ...liveReplay.updates,
                   ],
                   usageUpdates: [
-                    ...(s.usageUpdates ?? []),
+                    ...(current.usageUpdates ?? []),
                     ...liveReplay.usageUpdates,
                   ],
                 }
-              : s,
+              : current,
         );
+        transcript.updates = transcript.updates.map(update => {
+          if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) return update;
+          return { ...update, content: imageRepairs.get(JSON.stringify(update.content)) ?? update.content.map(part =>
+            part.type === "content" && part.content?.type === "image"
+              ? { ...part, content: imageDisplayBlock(part.content) }
+              : part) };
+        });
         updateCount =
           transcript.updates.length + transcript.usageUpdates.length;
         checkpoint("projectionMs");
@@ -2018,7 +2068,7 @@ export class Compat {
                   sessionUpdate: "tool_call", toolCallId: event.id, title: event.name,
                   status: "in_progress", kind: "execute", rawInput: event.arguments ?? {}, _meta: meta,
                 });
-                if (event.type === "tool_result") await publish(toolResultUpdate(event, metadata));
+                if (event.type === "tool_result") await publish(await toolResultUpdate(event, metadata, this.driver));
               },
               onToolPolicy: tool => this.toolPolicy(s, tool),
               onPermission: async (tool) => {
@@ -2054,7 +2104,7 @@ export class Compat {
         return result.mcpResult
           ? { ...result.mcpResult, isError: Boolean(result.isError) }
           : {
-              content: result.presentationContent ?? result.content,
+              content: await toolDisplayBlocks(result.presentationContent ?? result.content, this.driver),
               structuredContent: result.value ?? result.structuredContent,
               isError: Boolean(result.isError),
             };
@@ -2741,10 +2791,10 @@ export class Compat {
               },
             });
           } else if (event.type === "tool_result") {
-            await notify(toolResultUpdate(event, {
+            await notify(await toolResultUpdate(event, {
               messageId: event.messageId ?? randomUUID(),
               created,
-            }));
+            }, this.driver));
             afterToolResult = true;
           } else if (event.type === "usage") {
             const usage = {};

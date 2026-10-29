@@ -1,7 +1,9 @@
 import type { IntlShape } from 'react-intl';
 import { defineMessages } from '../i18n';
+import { selectNativeText } from '../utils/nativeLocalization';
 import { snakeToTitleCase } from '../utils';
 import type { ToolResponseMessageContent } from '../types/message';
+import { generatedMediaReceipt, mediaDisplayName } from '../utils/mediaToolReceipt';
 
 const messages = defineMessages({
   readDone: { id: 'toolAction.readDone', defaultMessage: 'Read file' },
@@ -13,14 +15,15 @@ const messages = defineMessages({
   },
   editDone: { id: 'toolAction.editDone', defaultMessage: 'Edited file' },
   shellDone: { id: 'toolAction.shellDone', defaultMessage: 'Ran command' },
-  running: { id: 'toolAction.running', defaultMessage: '{action} · in progress' },
+  running: { id: 'toolAction.running', defaultMessage: 'Running: {action}' },
+  actionDone: { id: 'toolAction.actionDone', defaultMessage: 'Completed: {action}' },
   generating: {
     id: 'toolAction.generating',
     defaultMessage: 'Preparing operation parameters{target}',
   },
   generatingFile: {
     id: 'toolAction.generatingFile',
-    defaultMessage: 'Generating {target} · {count} lines received — not saved yet',
+    defaultMessage: 'Generating {target}, {count} lines received — not saved yet',
   },
   read: { id: 'toolAction.read', defaultMessage: 'Read file' },
   write: { id: 'toolAction.write', defaultMessage: 'Write file' },
@@ -74,6 +77,16 @@ const messages = defineMessages({
   map: { id: 'toolAction.map', defaultMessage: 'Create a map' },
   generateImage: { id: 'toolAction.generateImage', defaultMessage: 'Generate an image' },
   generateVideo: { id: 'toolAction.generateVideo', defaultMessage: 'Generate a video' },
+  mediaOperation: {
+    id: 'toolAction.mediaOperation',
+    defaultMessage:
+      '{kind, select, video {Video generation} other {Image generation}} · {operation, select, inspect {Workflow inspection} generate {Submission request} status {Status check} cancel {Cancellation request} other {Tool operation}}',
+  },
+  mediaJobStatus: {
+    id: 'toolAction.mediaJobStatus',
+    defaultMessage:
+      '{status, select, preparing {Preparing} submission_unknown {Submission not confirmed} queued {Queued} running {Generating} completed {Completed} failed {Failed} cancelled {Cancelled} cancellation_unconfirmed {Cancellation not confirmed} other {Status unknown}}',
+  },
   desktopPet: { id: 'toolAction.desktopPet', defaultMessage: 'Create a desktop pet' },
   question: { id: 'toolAction.question', defaultMessage: 'Ask a question' },
   code: { id: 'toolAction.code', defaultMessage: 'Execute code' },
@@ -183,9 +196,47 @@ export function formatToolAction(
   args: Record<string, unknown>,
   state?: 'running' | 'completed',
   presentation: 'detail' | 'headline' | 'name' = 'detail',
-  fallbackTitle?: string
+  fallbackTitle?: string,
+  computerTarget?: string,
+  response?: ToolResponseMessageContent
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
+  if (name === 'generate_image' || name === 'generate_video') {
+    const receipt = generatedMediaReceipt(response);
+    const displayName =
+      fullName === name && args.operation === 'generate'
+        ? (mediaDisplayName(receipt?.display_name) ?? mediaDisplayName(args.display_name))
+        : undefined;
+    const label = displayName
+      ? selectNativeText(
+          intl.locale,
+          `Generate ${displayName}`,
+          `生成${displayName}`,
+          `生成${displayName}`
+        )
+      : intl.formatMessage(messages.mediaOperation, {
+          kind: name === 'generate_video' ? 'video' : 'image',
+          operation: typeof args.operation === 'string' ? args.operation : 'other',
+        });
+    if (presentation === 'name') return label;
+    if (args.__inputPreview === true && state === 'running')
+      return intl.formatMessage(messages.generating, { target: `: ${label}` });
+    if (!receipt)
+      return state === 'running' ? intl.formatMessage(messages.running, { action: label }) : label;
+    const statuses =
+      typeof receipt.status === 'string'
+        ? [intl.formatMessage(messages.mediaJobStatus, { status: receipt.status })]
+        : [];
+    if (
+      args.operation === 'cancel' &&
+      receipt.status !== 'cancelled' &&
+      receipt.cancellation_confirmed !== true
+    )
+      statuses.push(
+        intl.formatMessage(messages.mediaJobStatus, { status: 'cancellation_unconfirmed' })
+      );
+    return statuses.length ? `${label}: ${statuses.join(' · ')}` : label;
+  }
   if (isWebSearchTool(fullName)) {
     return intl.formatMessage(
       messages[
@@ -248,9 +299,11 @@ export function formatToolAction(
       break;
     case 'glob':
       action = 'findFiles';
+      if (typeof args.pattern === 'string') target = args.pattern;
       break;
     case 'grep':
       action = 'searchContents';
+      if (typeof args.pattern === 'string') target = args.pattern;
       break;
     case 'read_image':
       action = 'readImage';
@@ -403,6 +456,18 @@ export function formatToolAction(
       ? { operation: typeof args.operation === 'string' ? args.operation : 'other' }
       : undefined;
   if (presentation === 'name') return intl.formatMessage(messages[action], fields);
+  if (computerTarget) target = computerTarget;
+  if (!target && action === 'browserAction') {
+    const location = args.htmlPath ?? args.path ?? args.url;
+    if (typeof location === 'string') {
+      try {
+        const url = new URL(location);
+        target = url.hostname + (url.pathname === '/' ? '' : url.pathname);
+      } catch {
+        target = location.split(/[\\/]/).filter(Boolean).pop() ?? '';
+      }
+    }
+  }
   const compactTarget = target.replace(/\s+/g, ' ').trim();
   const visibleTarget =
     compactTarget.length > 80 ? compactTarget.slice(0, 77) + '…' : compactTarget;
@@ -421,7 +486,7 @@ export function formatToolAction(
       });
     }
     return intl.formatMessage(messages.generating, {
-      target: ` · ${[intl.formatMessage(messages[action], fields), visibleTarget].filter(Boolean).join(' ')}`,
+      target: `: ${[intl.formatMessage(messages[action], fields), visibleTarget].filter(Boolean).join(' ')}`,
     });
   }
   if (state === 'completed') {
@@ -429,6 +494,12 @@ export function formatToolAction(
     else if (action === 'write') action = 'writeDone';
     else if (action === 'edit') action = 'editDone';
     else if (action === 'shell') action = 'shellDone';
+    else
+      return intl.formatMessage(messages.actionDone, {
+        action: [intl.formatMessage(messages[action], fields), visibleTarget]
+          .filter(Boolean)
+          .join(' '),
+      });
   }
   const label = [intl.formatMessage(messages[action], fields), visibleTarget]
     .filter(Boolean)

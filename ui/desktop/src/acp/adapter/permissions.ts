@@ -1,4 +1,5 @@
 import type { RequestPermissionRequest } from '@agentclientprotocol/sdk';
+import { BUSINESS_SESSION_OPTION, readBusinessApproval } from '../../types/businessApproval';
 import {
   type AcpChatStateChange,
   type AdapterState,
@@ -59,6 +60,11 @@ export function applyPermissionRequest(
   const identity = toolIdentity(request.toolCall);
   const prompt = permissionPrompt(request);
   const permissionContext = parsePermissionContext(request._meta);
+  const businessApproval = request.options.some(
+    (option) => option.optionId === BUSINESS_SESSION_OPTION
+  )
+    ? readBusinessApproval(request._meta)
+    : undefined;
   const availableActions = permissionActions(request, permissionContext.permissionClass);
 
   state.messages.push({
@@ -74,6 +80,7 @@ export function applyPermissionRequest(
           toolName: identity.toolName ?? request.toolCall.title ?? toolCallId,
           arguments: rawInputToArguments(request.toolCall.rawInput),
           ...permissionContext,
+          ...(businessApproval ? { businessApproval } : {}),
           availableActions,
           ...(prompt ? { prompt } : {}),
         },
@@ -126,6 +133,8 @@ function permissionActions(
         if (permissionClass !== 'forbidden') actions.add('allow_once');
         break;
       case 'allow_always':
+        if (option.optionId === BUSINESS_SESSION_OPTION && !readBusinessApproval(request._meta))
+          break;
         if (permissionClass !== 'forbidden') actions.add('always_allow');
         break;
       case 'reject_once':

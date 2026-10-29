@@ -52,4 +52,16 @@ export default class CompactionEngine extends BasicCompactionEngine {
     if (attempt) attempt.result = result;
     return result;
   }
+
+  async summarize(input, agent, signal) {
+    signal?.throwIfAborted();
+    const first = input.messages[0]?.role === 'system' ? 1 : 0;
+    const message = input.messages[first];
+    // Local fit preparation may shrink a larger region to its old checkpoint.
+    // Guard the actual summary input as well as the original region entrance.
+    if (this.pressureAttempts.has(agent) && input.messages.length === first + 1 &&
+        message?.role === 'user' && message.source?.kind === 'compact-checkpoint')
+      throw new UnchangedCheckpoint();
+    return super.summarize(input, agent, signal);
+  }
 }

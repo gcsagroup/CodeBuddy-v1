@@ -193,7 +193,7 @@ export default function MessageUsageStats({
           ) : (
             chipSegments.map((segment, index) => (
               <Fragment key={index}>
-                {index > 0 && <span className="text-text-tertiary">·</span>}
+                {index > 0 && <span className="w-1" aria-hidden="true" />}
                 {segment}
               </Fragment>
             ))

@@ -1,0 +1,95 @@
+{
+  "productSourceRevision": "46ebc73",
+  "branch": "codex/conversation-process-review-20261026",
+  "evidenceGeneratedAt": "2026-10-27T05:24:03.767Z",
+  "interpretation": "Isolated original-source tests using synthetic events and fake model hooks; not live plugin activation or model-cadence acceptance.",
+  "sourceIntegrityVerified": true,
+  "dependenciesInstalled": false,
+  "realModelCalls": 0,
+  "realToolsExecuted": 0,
+  "productProfileModified": false,
+  "pluginActivatedInRealHost": false,
+  "tests": [
+    {
+      "name": "rules-upstream",
+      "exitCode": 0,
+      "signal": null,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "error": null
+    },
+    {
+      "name": "quiet-narrator-upstream-host-protocol",
+      "exitCode": 0,
+      "signal": null,
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "error": null
+    },
+    {
+      "name": "summary-upstream-policy",
+      "exitCode": 0,
+      "signal": null,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "error": null
+    },
+    {
+      "name": "independent-boundaries",
+      "exitCode": 0,
+      "signal": null,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "error": null
+    }
+  ],
+  "totals": {
+    "tests": 58,
+    "pass": 58,
+    "fail": 0
+  },
+  "compatibility": [
+    {
+      "name": "dsh-progress-narrator",
+      "version": "0.4.3",
+      "runtime": "0.2.1-alpha.2",
+      "declaredConflictDetected": false,
+      "exemptionGranted": false,
+      "fullRuntimeCompatibilityProven": false
+    },
+    {
+      "name": "dsh-progress-summary",
+      "version": "0.1.0",
+      "runtime": "0.2.1-alpha.2",
+      "declaredConflictDetected": false,
+      "exemptionGranted": false,
+      "fullRuntimeCompatibilityProven": false
+    },
+    {
+      "name": "dsh-progress-rules",
+      "version": "0.2.1",
+      "runtime": "0.2.1-alpha.2",
+      "declaredConflictDetected": false,
+      "exemptionGranted": false,
+      "fullRuntimeCompatibilityProven": false
+    },
+    {
+      "name": "@kermanx/dsh-progress-check",
+      "version": "0.2.0",
+      "runtime": "0.2.1-alpha.2",
+      "declaredConflictDetected": true,
+      "exemptionGranted": false,
+      "fullRuntimeCompatibilityProven": false
+    }
+  ],
+  "limitations": [
+    "No live Host, UI, real model, or product E2E acceptance.",
+    "No DSH peer declaration in dsh-progress-summary; a missing declared conflict is not compatibility proof.",
+    "Initial import URL and resolver recursion were local fixture launch errors; original failure logs retained locally.",
+    "Existing UI WIP still has 19 of 97 related regressions failing; research does not close them."
+  ]
+}

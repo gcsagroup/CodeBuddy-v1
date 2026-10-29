@@ -15,14 +15,22 @@ function lastGoal(body) {
   }
   throw Error('Fixture expected a real goal tool receipt');
 }
-async function fixture(t, handler, { sessionOptions = {}, effectValue } = {}) {
+async function fixture(t, handler, { sessionOptions = {}, effectValue, usageInputTokens } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'harness-goals-'));
   const requests = [], effects = [];
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
     const body = JSON.parse(raw); requests.push(body);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: `fixture-${requests.length}`, object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
+    let outputChars = 0;
+    const emit = (delta, finish_reason = null) => {
+      outputChars += delta.content?.length ?? 0;
+      outputChars += (delta.tool_calls ?? []).reduce((sum, call) => sum + (call.function?.name?.length ?? 0) + (call.function?.arguments?.length ?? 0), 0);
+      const inputTokens = finish_reason ? usageInputTokens?.() : undefined;
+      const outputTokens = Math.ceil(outputChars / 3.5);
+      const usage = inputTokens === undefined ? undefined : { prompt_tokens: inputTokens, completion_tokens: outputTokens, total_tokens: inputTokens + outputTokens };
+      res.write(`data: ${JSON.stringify({ id: `fixture-${requests.length}`, object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
+    };
     const tool = (name, args, analysis) => { if (analysis) emit({ content: analysis }); emit({ tool_calls: [{ index: 0, id: `call-${requests.length}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }] }); emit({}, 'tool_calls'); };
     const text = value => { emit({ content: value }); emit({}, 'stop'); };
     try { await handler({ body, count: requests.length, tool, text }); }
@@ -181,6 +189,13 @@ test('prompt step limit disarms an active native goal before automatic continuat
 });
 
 test('official automatic compaction preserves native goal and todo evidence while long-turn work continues', { timeout: 20000 }, async t => {
+  const { PiAiAdapter } = await import('@deepseek-ai/dsh-llm-pi-ai');
+  const fits = [], prepare = PiAiAdapter.prototype.prepareRequestWithSnapshot;
+  t.mock.method(PiAiAdapter.prototype, 'prepareRequestWithSnapshot', async function(options, snapshot) {
+    const request = await prepare.call(this, options, snapshot);
+    fits.push({ purpose: options.purpose ?? 'agent', ...request.fit });
+    return request;
+  });
   let steps = 0, summaries = 0;
   const todo = { content: 'Preserve module A and verify module B', status: 'in_progress' };
   const f = await fixture(t, async ({ body, tool, text }) => {
@@ -190,27 +205,50 @@ test('official automatic compaction preserves native goal and todo evidence whil
     }
     const n = ++steps;
     if (n === 1) tool('create_goal', { objective: 'Retain the native objective across automatic compaction', max_goal_rounds: 3 });
-    else if (n === 2) tool('todo_write', { todos: [todo] });
-    else if (n === 3) tool('fixture_effect', {}, 'Module A verified; module B requirements remain unchanged. '.repeat(1800));
+    // Give the retained tail older post-human facts to leave behind; the
+    // current human request itself is no longer a valid compaction target.
+    else if (n === 2) tool('todo_write', { todos: [todo] }, 'Module A receipt is durable; module B requires verification. '.repeat(52));
+    else if (n === 3) tool('fixture_effect', {}, 'Module A verified; module B requirements remain unchanged. '.repeat(60));
     else if (n === 4) tool('get_goal', {});
     else if (n === 5) tool('todo_write', { todos: [{ ...todo, status: 'completed' }] });
     else if (n === 6) { const goal = lastGoal(body); tool('update_goal', { goal_id: goal.id, revision: goal.revision, action: 'complete' }); }
     else text('Compacted task completed.');
-  }, { sessionOptions: { autoCompactThreshold: 0.35 }, effectValue: 'Large module diagnostic evidence '.repeat(3500) });
-  const result = await f.driver.prompt(f.sessionId, 'Create the goal, plan, execute and verify it', { onPermission: () => true });
-  assert.equal(result.goal.phase, 'complete'); assert.ok(summaries > 0); assert.equal(f.effects.length, 1);
+  }, {
+    sessionOptions: { autoCompactThreshold: 0.2 },
+    // This receipt crosses pressure in the 32k window while the 1024-token
+    // assistant output and the retained receipt still leave Pi's safety reserve.
+    effectValue: 'Large module diagnostic evidence '.repeat(1000),
+    usageInputTokens: () => fits.at(-1).estimate.tokens,
+  });
+  const result = await f.driver.prompt(f.sessionId, 'Create the goal, plan, execute and verify it. ' + 'Module A is already verified; keep its receipt and finish module B. '.repeat(60), { onPermission: () => true });
   const history = await f.driver.history(f.sessionId);
-  const compact = history.events.find(e => e.type === 'compaction/end'); assert.ok(compact);
+  assert.equal(result.goal.phase, 'complete'); assert.ok(summaries > 0); assert.equal(f.effects.length, 1);
   const goals = history.events.filter(e => e.type === 'goal/change');
   assert.equal(goals[0].data.goal.id, result.goal.id); assert.equal(goals.at(-1).data.goal.phase, 'complete');
   const todos = history.events.filter(e => e.type === 'todo/write');
   assert.deepEqual(todos[0].data.todos, [todo]); assert.deepEqual(todos.at(-1).data.todos, [{ ...todo, status: 'completed' }]);
-  assert.ok(compact.seq > todos[0].seq && compact.seq < todos.at(-1).seq);
-  // Native compaction may copy a retained receipt; it must not repeat the side effect.
-  const receipts = history.events.filter(e => e.type === 'tool/result' && e.data.message.toolCallId === 'call-3');
+  const compact = history.events.find(e => e.type === 'compaction/end' && !e.data.error && e.seq > todos[0].seq && e.seq < todos.at(-1).seq);
+  assert.ok(compact, 'a real summary must finish while the todo and native goal are still active');
+  assert.equal(goals.filter(e => e.seq < compact.seq).at(-1).data.goal.phase, 'active');
+  const original = history.events.find(e => e.type === 'user/message' && e.data.source?.kind === 'user');
+  const summaryEvents = history.events.filter(e => e.type === 'compaction/summary');
+  assert.ok(summaryEvents.some(e => e.data.compactionId === compact.data.compactionId));
+  assert.ok(summaryEvents.every(e => !e.data.shadowedSeqs.includes(original.seq)), 'the latest human input must survive independently of the summary');
+  const { Session } = await import('@deepseek-ai/dsh-session');
+  const restored = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
+  assert.deepEqual(restored.deriveMessages().find(message => message.id === original.data.id), original.data);
+  // Pruned result replacements keep their receipt identity without executing again.
+  const effectCalls = history.events.filter(e => e.type === 'tool/call' && e.data.name === 'fixture_effect');
+  assert.equal(effectCalls.length, 1);
+  const receipts = history.events.filter(e => e.type === 'tool/result' && e.data.message.toolCallId === effectCalls[0].data.callId);
   assert.ok(receipts.length >= 1);
+  assert.equal(receipts.filter(e => e.surfaceOp === 'append').length, 1);
   assert.equal(JSON.parse(receipts[0].data.message.content[0].text).count, 1);
   assert.equal(await readFile(join(f.root, 'once.txt'), 'utf8'), 'preserved checkpoint');
+  assert.ok(fits.every(fit => fit.available >= fit.desiredMaxTokens && fit.effectiveMaxTokens === fit.desiredMaxTokens), 'legal task and summary requests leave the full output reservation');
+  assert.ok(history.events.some(event => event.type === 'assistant/message' && event.data.usage?.inputTokens > 0), 'automatic compaction consumes the mock service SSE usage anchor');
+  assert.ok(history.events.filter(event => event.type === 'assistant/message').every(event => event.data.usage.outputTokens <= 1024), 'the controlled task responses must respect their 1024-token cap');
+  t.diagnostic(JSON.stringify({ fixture: 'goal-todo-pressure', root: f.root, sessionId: f.sessionId, summarySeqs: summaryEvents.map(e => e.seq), fits: fits.map(({ purpose, estimate, available }) => ({ purpose, tokens: estimate.tokens, available })) }));
 });
 
 test('structured human resume retains official paused-goal CAS and keeps permissions attached', { timeout: 15000 }, async t => {

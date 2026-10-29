@@ -25,6 +25,7 @@ describe('image preview', () => {
   it('opens a dialog and returns to the thumbnail after Escape', async () => {
     render(<ImagePreview src="data:image/png;base64,aW1hZ2U=" />, { wrapper: IntlTestWrapper });
     const thumbnail = screen.getByRole('button', { name: 'Click to expand' });
+    expect(screen.queryByText('Click to expand')).toBeNull();
     fireEvent.click(thumbnail);
     const dialog = screen.getByRole('dialog', { name: 'CodeBuddy image' });
     expect(within(dialog).getByRole('img')).toHaveAttribute(

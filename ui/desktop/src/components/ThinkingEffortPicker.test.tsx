@@ -41,6 +41,7 @@ describe('ThinkingEffortPicker', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent('Thinking effort');
     expect(screen.getByRole('status')).toHaveTextContent('Not provided');
+    expect(screen.getAllByText('Thinking effort')).toHaveLength(1);
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.getByText('Current budget; model capacity unconfirmed')).toBeVisible();
   });

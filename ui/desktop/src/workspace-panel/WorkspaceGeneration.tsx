@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getAcpControlClient } from '../acp/acpConnection';
 import { currentLocale } from '../i18n';
 import { selectNativeText } from '../utils/nativeLocalization';
@@ -14,6 +14,9 @@ export interface MediaJob {
   created_at: string;
   status: string;
   observation_error?: boolean;
+  display_name?: string;
+  failure_info?: MediaFailureInfo;
+  observation_error_info?: MediaFailureInfo;
   workflow?: { id: string; label: string };
   queue_position?: number;
   error?: string | null;
@@ -26,6 +29,21 @@ export interface MediaJob {
   };
   images?: { path: string }[];
   videos?: { path: string }[];
+}
+export interface MediaFailureInfo {
+  stage:
+    | 'remote_execution'
+    | 'submission'
+    | 'query'
+    | 'output_retrieval'
+    | 'output_validation'
+    | 'output_publication';
+  source: 'comfyui' | 'host';
+  node_type?: string;
+  exception_type?: string;
+  error_code?: string;
+  http_status?: number;
+  message?: string;
 }
 export async function readMediaJobs(sessionId: string): Promise<MediaJob[]> {
   const client = await getAcpControlClient();
@@ -45,24 +63,52 @@ export async function readMediaJobs(sessionId: string): Promise<MediaJob[]> {
       typeof job.live === 'object'
   );
 }
+const emptyMediaJobs = { sessionId: '', jobs: [] as MediaJob[], disconnected: false };
+const MediaJobsContext = createContext(emptyMediaJobs);
+export function MediaJobsProvider({
+  sessionId,
+  children,
+}: {
+  sessionId: string;
+  children: ReactNode;
+}) {
+  const snapshot = useMediaJobsObserver(sessionId);
+  return <MediaJobsContext.Provider value={snapshot}>{children}</MediaJobsContext.Provider>;
+}
 export function useMediaJobs(sessionId: string) {
+  const snapshot = useContext(MediaJobsContext);
+  return snapshot.sessionId === sessionId ? snapshot : emptyMediaJobs;
+}
+// Chat and preview observe the same runtime job store through one request at a time.
+function useMediaJobsObserver(sessionId: string) {
+  const [owner, setOwner] = useState(sessionId);
   const [jobs, setJobs] = useState<MediaJob[]>([]);
   const [disconnected, setDisconnected] = useState(false);
   useEffect(() => {
+    setOwner(sessionId);
     setJobs([]);
     setDisconnected(false);
     if (!sessionId) return;
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
+    let staleTimer: ReturnType<typeof setTimeout>;
     const poll = async () => {
+      // Expire display evidence without aborting work or stacking another RPC.
+      staleTimer = setTimeout(() => {
+        if (!disposed) setDisconnected(true);
+      }, 10_000);
       try {
         const next = await readMediaJobs(sessionId);
         if (!disposed) {
-          setJobs(next);
+          setJobs((previous) =>
+            JSON.stringify(previous) === JSON.stringify(next) ? previous : next
+          );
           setDisconnected(false);
         }
       } catch {
         if (!disposed) setDisconnected(true);
+      } finally {
+        clearTimeout(staleTimer);
       }
       if (!disposed) timer = setTimeout(poll, 2000);
     };
@@ -70,9 +116,13 @@ export function useMediaJobs(sessionId: string) {
     return () => {
       disposed = true;
       clearTimeout(timer);
+      clearTimeout(staleTimer);
     };
   }, [sessionId]);
-  return { jobs, disconnected };
+  return useMemo(
+    () => (owner === sessionId ? { sessionId, jobs, disconnected } : emptyMediaJobs),
+    [owner, sessionId, jobs, disconnected]
+  );
 }
 const stages: Record<string, [string, string, string]> = {
   prepare: ['Preparing generation', '准备生成', '準備生成'],
@@ -96,11 +146,22 @@ const statuses: Record<string, [string, string, string]> = {
   unavailable: ['Status unavailable', '暂未取得任务状态', '暫未取得任務狀態'],
   submission_unknown: ['Confirming submission', '正在确认提交结果', '正在確認提交結果'],
 };
-function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
+function MediaJobPreview({
+  job,
+  scope,
+  disconnected,
+}: {
+  job: MediaJob;
+  scope: PanelScope;
+  disconnected: boolean;
+}) {
   const [media, setMedia] = useState<PanelMedia>();
   const [error, setError] = useState(false);
   const [now, setNow] = useState(Date.now);
-  const active = !['completed', 'failed', 'cancelled'].includes(job.status);
+  const terminal = ['completed', 'failed', 'cancelled'].includes(job.status);
+  const statusName =
+    !terminal && (disconnected || job.observation_error) ? 'unavailable' : job.status;
+  const active = ['preparing', 'queued', 'running'].includes(statusName);
   useEffect(() => {
     if (!active) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -130,7 +191,7 @@ function MediaJobPreview({ job, scope }: { job: MediaJob; scope: PanelScope }) {
     typeof live.step === 'number' && typeof live.total === 'number' && live.total > 0
       ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
       : undefined;
-  const status = statuses[job.status];
+  const status = statuses[statusName];
   const stage = stages[live.stage ?? live.node ?? ''];
   return (
     <article className="rounded-xl border border-border-primary p-4" data-job-id={job.job_id}>
@@ -244,14 +305,14 @@ export function WorkspaceGeneration({
       {disconnected && (
         <p role="status">
           {mediaText(
-            'Connection interrupted. Retrying…',
-            '连接中断，正在重连…',
-            '連線中斷，正在重連…'
+            'Task status is unconfirmed. Waiting for an update…',
+            '任务状态待确认，正在等待更新…',
+            '任務狀態待確認，正在等待更新…'
           )}
         </p>
       )}
       {jobs.map((job) => (
-        <MediaJobPreview key={job.job_id} scope={scope} job={job} />
+        <MediaJobPreview key={job.job_id} scope={scope} job={job} disconnected={disconnected} />
       ))}
     </section>
   );

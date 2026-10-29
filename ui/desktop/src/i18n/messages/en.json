@@ -215,6 +215,42 @@
   "builtInExtension.memory.name": {
     "defaultMessage": "Legacy global memory"
   },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
+  },
   "cardButtons.configure": {
     "defaultMessage": "Configure"
   },
@@ -318,13 +354,13 @@
     "defaultMessage": "{count,plural,one{# failed action} other{# failed actions}}"
   },
   "codeProActivity.activityFinished": {
-    "defaultMessage": "{count,plural,one{Operations recorded · # action} other{Operations recorded · # actions}}"
+    "defaultMessage": "{count,plural,one{Operations recorded # action} other{Operations recorded # actions}}"
   },
   "codeProActivity.activityNeedsAttention": {
     "defaultMessage": "{count,plural,one{# action needs attention} other{# actions need attention}}"
   },
   "codeProActivity.activityRunning": {
-    "defaultMessage": "{count,plural,one{Working · # action} other{Working · # actions}}"
+    "defaultMessage": "{count,plural,one{Working # action} other{Working # actions}}"
   },
   "codeProActivity.agentTool": {
     "defaultMessage": "Agent tool"
@@ -441,7 +477,7 @@
     "defaultMessage": "Read actions"
   },
   "codeProActivity.readGroup": {
-    "defaultMessage": "{count,plural,one{Read # file · {status}} other{Read # files · {status}}}"
+    "defaultMessage": "{count,plural,one{Read # file {status}} other{Read # files {status}}}"
   },
   "codeProActivity.reason.credential": {
     "defaultMessage": "Credential material"
@@ -507,7 +543,7 @@
     "defaultMessage": "Task planning"
   },
   "codeProActivity.testProgress.attemptCounts": {
-    "defaultMessage": "Retry {retry} · repair {repair}"
+    "defaultMessage": "Retry {retry}, repair {repair}"
   },
   "codeProActivity.testProgress.attempts": {
     "defaultMessage": "Attempts"
@@ -875,6 +911,9 @@
   "codeProModels.actualModel": {
     "defaultMessage": "Actual model: {provider} / {model} · Separate setting"
   },
+  "codeProModels.addVisionConnection": {
+    "defaultMessage": "Add an image model connection"
+  },
   "codeProModels.advancedRouting": {
     "defaultMessage": "Enable advanced model routing"
   },
@@ -1001,6 +1040,9 @@
   "codeProModels.useAnotherProvider": {
     "defaultMessage": "Use another provider…"
   },
+  "codeProModels.useDefaultVision": {
+    "defaultMessage": "Uses the default image model"
+  },
   "codeProModels.visionAgent": {
     "defaultMessage": "Backup image model"
   },
@@ -1071,7 +1113,7 @@
     "defaultMessage": "Unknown status"
   },
   "codeProPresentation.activitySummary": {
-    "defaultMessage": "{verb} {target} · {status}"
+    "defaultMessage": "{verb} {target} {status}"
   },
   "codeProPresentation.activityVerb.change": {
     "defaultMessage": "Change"
@@ -1119,7 +1161,7 @@
     "defaultMessage": "Not authorized by user"
   },
   "codeProPresentation.intentSummary": {
-    "defaultMessage": "{title} · {status}"
+    "defaultMessage": "{title} {status}"
   },
   "codeProPresentation.summaryStatus.cancelled": {
     "defaultMessage": "Stopped"
@@ -1739,9 +1781,6 @@
   "confirmationModal.processing": {
     "defaultMessage": "Processing..."
   },
-  "conversation.turnCompleted": {
-    "defaultMessage": "Completed {count} operations"
-  },
   "conversation.turnDuration": {
     "defaultMessage": "Time spent {minutes} min {seconds} sec"
   },
@@ -1754,11 +1793,14 @@
   "conversationFiles.diffUnavailable": {
     "defaultMessage": "Historical diff unavailable for some operations"
   },
+  "conversationFiles.fewerFiles": {
+    "defaultMessage": "Show fewer files"
+  },
   "conversationFiles.files": {
     "defaultMessage": "Modified {count} files this turn"
   },
   "conversationFiles.moreFiles": {
-    "defaultMessage": "Show {count} more files"
+    "defaultMessage": "Show {count} remaining files"
   },
   "conversationFiles.viewChanges": {
     "defaultMessage": "View changes"
@@ -3996,10 +4038,10 @@
     "defaultMessage": "CodeBuddy is compacting the conversation..."
   },
   "loadingGoose.compactingElapsed": {
-    "defaultMessage": "Organizing conversation context · {seconds}s"
+    "defaultMessage": "Organizing conversation context {seconds}s"
   },
   "loadingGoose.elapsed": {
-    "defaultMessage": "{message} · {seconds}s elapsed"
+    "defaultMessage": "{message} {seconds}s elapsed"
   },
   "loadingGoose.idle": {
     "defaultMessage": "CodeBuddy is working on it…"
@@ -4892,14 +4934,26 @@
   "modelsBottomBar.manage": {
     "defaultMessage": "Manage model connections"
   },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "No matching models"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Search models or connections"
   },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Select Model"
   },
   "modelsBottomBar.selectOrChangeModel": {
     "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Show fewer"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "Show {count} more"
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
@@ -5453,11 +5507,17 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Reasoning details"
+  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },
   "progressiveMessageList.toolRecordsRegion": {
     "defaultMessage": "Tool operation records"
+  },
+  "progressiveMessageList.turnProcessDuration": {
+    "defaultMessage": "This turn: {minutes} min {seconds} sec"
   },
   "projectMemoryApproval.confidence": {
     "defaultMessage": "Confidence"
@@ -7974,7 +8034,7 @@
     "defaultMessage": "Thinking"
   },
   "thinkingContent.thinkingLive": {
-    "defaultMessage": "Thinking · Updating"
+    "defaultMessage": "Thinking (updating)"
   },
   "thinkingEffortPicker.budget": {
     "defaultMessage": "Current budget; model capacity unconfirmed"
@@ -8029,6 +8089,9 @@
   },
   "toasts.copyError": {
     "defaultMessage": "Copy error"
+  },
+  "toolAction.actionDone": {
+    "defaultMessage": "Completed: {action}"
   },
   "toolAction.chart": {
     "defaultMessage": "Create a chart"
@@ -8103,7 +8166,7 @@
     "defaultMessage": "Preparing operation parameters{target}"
   },
   "toolAction.generatingFile": {
-    "defaultMessage": "Generating {target} · {count} lines received — not saved yet"
+    "defaultMessage": "Generating {target}, {count} lines received — not saved yet"
   },
   "toolAction.generatingFileHeadline": {
     "defaultMessage": "Generating file contents{target}"
@@ -8119,6 +8182,12 @@
   },
   "toolAction.map": {
     "defaultMessage": "Create a map"
+  },
+  "toolAction.mediaJobStatus": {
+    "defaultMessage": "{status,select,preparing{Preparing} submission_unknown{Submission not confirmed} queued{Queued} running{Generating} completed{Completed} failed{Failed} cancelled{Cancelled} cancellation_unconfirmed{Cancellation not confirmed} other{Status unknown}}"
+  },
+  "toolAction.mediaOperation": {
+    "defaultMessage": "{kind,select,video{{operation,select,inspect{Video generation · Workflow inspection} generate{Video generation · Submission request} status{Video generation · Status check} cancel{Video generation · Cancellation request} other{Video generation · Tool operation}}} other{{operation,select,inspect{Image generation · Workflow inspection} generate{Image generation · Submission request} status{Image generation · Status check} cancel{Image generation · Cancellation request} other{Image generation · Tool operation}}}}"
   },
   "toolAction.messageAgent": {
     "defaultMessage": "Send a message to a subagent"
@@ -8160,7 +8229,7 @@
     "defaultMessage": "Present result"
   },
   "toolAction.running": {
-    "defaultMessage": "{action} · in progress"
+    "defaultMessage": "Running: {action}"
   },
   "toolAction.screenshot": {
     "defaultMessage": "Capture screenshot"
@@ -8424,7 +8493,7 @@
     "defaultMessage": "Activity ({count})"
   },
   "toolCallWithResponse.checkNotAccepted": {
-    "defaultMessage": "Not accepted · view details"
+    "defaultMessage": "Not accepted, view details"
   },
   "toolCallWithResponse.checkResultScope": {
     "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
@@ -8454,13 +8523,13 @@
     "defaultMessage": "Sources"
   },
   "toolCallWithResponse.subagentBudget": {
-    "defaultMessage": "Partial result · delegated work limit reached"
+    "defaultMessage": "Partial result, delegated work limit reached"
   },
   "toolCallWithResponse.subagentStarted": {
     "defaultMessage": "Started {name}"
   },
   "toolCallWithResponse.subagentUnavailable": {
-    "defaultMessage": "Partial result · model service unavailable"
+    "defaultMessage": "Partial result, model service unavailable"
   },
   "toolCallWithResponse.toolDetails": {
     "defaultMessage": "Tool Details"
@@ -8933,6 +9002,12 @@
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
   },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
+  },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
   },
@@ -8950,6 +9025,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Copy file contents"
@@ -8989,9 +9067,6 @@
   },
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
-  },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "Could not complete the file action. Please try again. Opening code files requires VS Code."
   },
   "workspacePanel.fileTree": {
     "defaultMessage": "Workspace file tree"
@@ -9038,9 +9113,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Open in VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Open file"
   },
@@ -9049,6 +9121,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Open in new tab"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -9061,6 +9136,9 @@
   },
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
+  },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "Read-only reference; the workspace and file permissions are unchanged."
   },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"

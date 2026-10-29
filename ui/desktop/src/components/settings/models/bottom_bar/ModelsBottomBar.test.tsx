@@ -66,6 +66,12 @@ function setup() {
   );
   return { ...view, changed };
 }
+async function openModels(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = await screen.findByRole('button', { name: 'Thinking effort: On' });
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: 'model-A' }));
+  return trigger;
+}
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(acpListProviderDetails).mockResolvedValue([
@@ -80,43 +86,90 @@ beforeEach(() => {
   });
 });
 describe('direct model selection', () => {
-  it('recovers thinking controls after an incomplete preload and detail read without changing models', async () => {
-    let targetReads = 0;
-    vi.mocked(acpReadModelDisplaySettings).mockImplementation(async (_provider, model) => {
-      if (model === 'model-B' && ++targetReads <= 2)
-        return {
-          thinking: { options: [], value: null, toggle: false },
-          contextWindow: 262144,
-          contextSource: 'fallback',
-        };
-      return {
-        thinking: { options: ['off', 'low', 'high'], value: 'high', toggle: false },
-        contextWindow: 1048576,
-        contextSource: 'service',
-      };
-    });
+  it('keeps other connections folded and leaves the current selection intact when toggling groups', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('other-key', ['other-model']),
+      provider('p', ['model-A', 'model-B']),
+    ]);
     const user = userEvent.setup();
     setup();
-    await waitFor(() => expect(targetReads).toBe(1));
-    const trigger = screen.getByRole('button', { name: 'Select or change model' });
-    await user.click(trigger);
-    fireEvent.mouseMove(await screen.findByRole('button', { name: 'model-B' }));
-    expect(await screen.findByText('Not provided')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Thinking effort: High' })).toBeNull();
-    await user.click(document.body);
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
-    await user.click(trigger);
-    fireEvent.mouseMove(await screen.findByRole('button', { name: 'model-B' }));
-    expect(await screen.findByRole('button', { name: 'Thinking effort: High' })).toBeVisible();
-    expect(screen.getByText('1,048,576 tokens')).toBeVisible();
-    expect(targetReads).toBe(3);
+    await openModels(user);
+    expect(await screen.findByRole('button', { name: 'model-A' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    const other = screen.getByRole('button', { name: 'other-key (1)' });
+    expect(other).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'other-model' })).toBeNull();
+    await user.click(other);
+    expect(screen.getByRole('button', { name: 'other-model' })).toBeVisible();
+    await user.click(other);
+    expect(screen.queryByRole('button', { name: 'other-model' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'model-A' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mocks.change).not.toHaveBeenCalled();
+  });
+  it('pins the current model ahead of a long list and expands the remaining models on demand', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('p', [...Array.from({ length: 9 }, (_, index) => `model-${index}`), 'model-A']),
+    ]);
+    const user = userEvent.setup();
+    setup();
+    await openModels(user);
+    const selected = await screen.findByRole('button', { name: 'model-A' });
+    expect(selected).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'model-8' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'model-0' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show 4 more' }));
+    expect(screen.getByRole('button', { name: 'model-8' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show fewer' }));
+    expect(screen.queryByRole('button', { name: 'model-8' })).toBeNull();
+    expect(selected).toBeVisible();
+  });
+  it('searches every connection including folded models and switches using the matched connection', async () => {
+    vi.mocked(acpListProviderDetails).mockResolvedValue([
+      provider('p', ['model-A']),
+      provider(
+        'another-key',
+        Array.from({ length: 12 }, (_, index) => `remote-${index}`)
+      ),
+    ]);
+    const user = userEvent.setup();
+    const view = setup();
+    await openModels(user);
+    await screen.findByRole('button', { name: 'model-A' });
+    const search = screen.getByRole('searchbox', { name: 'Search models or connections' });
+    await user.type(search, 'REMOTE-11');
+    expect(screen.queryByRole('button', { name: 'model-A' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'remote-11' }));
+    await waitFor(() =>
+      expect(view.changed).toHaveBeenCalledWith({ model: 'remote-11', provider: 'another-key' })
+    );
+    await user.clear(search);
+    await user.type(search, 'no-such-model');
+    expect(screen.getByText('No matching models')).toBeVisible();
+    await user.clear(search);
+    expect(screen.getByRole('button', { name: 'model-A' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'another-key (12)' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+  });
+  it('reads only the current model and never opens a model details card on hover', async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByRole('button', { name: 'Thinking effort: On' });
+    await openModels(user);
+    const target = await screen.findByRole('button', { name: 'model-B' });
+    fireEvent.mouseEnter(target);
+    fireEvent.mouseMove(target);
+    expect(document.querySelector('[data-model-picker-details]')).toBeNull();
+    expect(acpReadModelDisplaySettings).toHaveBeenCalledExactlyOnceWith('p', 'model-A');
     expect(mocks.change).not.toHaveBeenCalled();
   });
   it('keeps the clicked list open after pointer movement and closes on an outside click', async () => {
     const user = userEvent.setup();
     setup();
-    const trigger = screen.getByRole('button', { name: 'Select or change model' });
-    await user.click(trigger);
+    const trigger = await openModels(user);
     await screen.findByRole('button', { name: 'model-B' });
     const list = document.querySelector('[data-model-picker-list]')!;
     vi.useFakeTimers();
@@ -125,42 +178,48 @@ describe('direct model selection', () => {
       fireEvent.mouseOver(list, { relatedTarget: trigger });
       fireEvent.mouseOut(list, { relatedTarget: trigger });
       await act(() => vi.advanceTimersByTimeAsync(200));
-      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(document.querySelector('[data-model-picker-list]')).toBeVisible();
       expect(screen.getByRole('button', { name: 'model-B' })).toBeVisible();
 
       fireEvent.mouseOut(trigger, { relatedTarget: document.body });
       await act(() => vi.advanceTimersByTimeAsync(200));
-      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(document.querySelector('[data-model-picker-list]')).toBeVisible();
     } finally {
       vi.useRealTimers();
     }
     await user.click(document.body);
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
+    await waitFor(() => expect(document.querySelector('[data-model-picker-list]')).toBeNull());
   });
-  it('opens the list first and only shows model details after hover', async () => {
+  it('opens the effort slider directly and links back to model selection without a details page', async () => {
     const user = userEvent.setup();
     setup();
-    await waitFor(() => expect(acpReadModelDisplaySettings).toHaveBeenCalledWith('p', 'model-B'));
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
-    const target = await screen.findByRole('button', { name: 'model-B' });
+    await screen.findByRole('button', { name: 'Thinking effort: On' });
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button')).toHaveTextContent('model-A');
+    await user.click(await screen.findByRole('button', { name: 'Thinking effort: On' }));
+    expect(screen.getByRole('slider', { name: 'Thinking effort' })).toHaveAttribute('max', '1');
     expect(document.querySelector('[data-model-picker-details]')).toBeNull();
-    // Layout alone can generate enter/leave events when a popup is positioned.
-    fireEvent.mouseEnter(target);
-    expect(document.querySelector('[data-model-picker-details]')).toBeNull();
-    fireEvent.mouseMove(target);
-    await waitFor(() =>
-      expect(document.querySelector('[data-model-picker-details]')).toHaveTextContent('model-B')
-    );
-    await user.click(target);
-    expect(document.querySelector('[data-model-picker-details]')).not.toBeNull();
-    fireEvent.mouseLeave(target);
-    await waitFor(() => expect(document.querySelector('[data-model-picker-details]')).toBeNull());
-    expect(screen.getByRole('button', { name: 'model-B' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'model-A' }));
+    expect(await screen.findByRole('button', { name: 'model-B' })).toBeVisible();
+    expect(screen.queryByRole('slider')).toBeNull();
+    expect(mocks.change).not.toHaveBeenCalled();
+  });
+  it('opens model selection directly when the model has no thinking controls', async () => {
+    vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
+      thinking: { options: [], value: null, toggle: false },
+      contextWindow: 32768,
+      contextSource: 'service',
+    });
+    const user = userEvent.setup();
+    setup();
+    await user.click(await screen.findByRole('button', { name: 'model-A' }));
+    expect(await screen.findByRole('button', { name: 'model-B' })).toBeVisible();
+    expect(screen.queryByRole('slider')).toBeNull();
   });
   it('switches with one model click and has no intermediate dialog or agent configuration action', async () => {
     const user = userEvent.setup(),
       view = setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'model-B' }));
     await waitFor(() =>
       expect(view.changed).toHaveBeenCalledExactlyOnceWith({ model: 'model-B', provider: 'p' })
@@ -176,7 +235,7 @@ describe('direct model selection', () => {
     mocks.change.mockResolvedValue(false);
     const user = userEvent.setup(),
       view = setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'model-B' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not switch models');
     expect(screen.getByRole('button', { name: 'model-A' })).toHaveAttribute('aria-pressed', 'true');
@@ -192,7 +251,7 @@ describe('direct model selection', () => {
     );
     const user = userEvent.setup(),
       view = setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     const target = await screen.findByRole('button', { name: 'model-B' });
     await user.dblClick(target);
     expect(mocks.change).toHaveBeenCalledTimes(1);
@@ -209,12 +268,11 @@ describe('direct model selection', () => {
     );
     const user = userEvent.setup(),
       view = setup();
-    const trigger = screen.getByRole('button', { name: 'Select or change model' });
-    await user.click(trigger);
+    const trigger = await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'model-B' }));
     expect(trigger).toHaveAttribute('aria-busy', 'true');
     await user.click(document.body);
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
+    await waitFor(() => expect(document.querySelector('[data-model-picker-list]')).toBeNull());
     await act(async () => fail(false));
     expect(await screen.findByRole('alert')).toHaveTextContent('Switch failed');
     expect(view.changed).not.toHaveBeenCalled();
@@ -245,7 +303,7 @@ describe('direct model selection', () => {
     });
     const user = userEvent.setup(),
       view = setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'model-B' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The model service could not be reached'
@@ -265,19 +323,17 @@ describe('direct model selection', () => {
     );
     const user = userEvent.setup(),
       view = setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     await user.click(await screen.findByRole('button', { name: 'model-B' }));
     view.unmount();
     await act(async () => resolve(true));
     expect(view.changed).not.toHaveBeenCalled();
   });
   it('reports model-list load failure and retries without using stale choices', async () => {
-    vi.mocked(acpListProviderDetails)
-      .mockRejectedValueOnce(new Error('private path'))
-      .mockRejectedValueOnce(new Error('private path'));
+    vi.mocked(acpListProviderDetails).mockRejectedValueOnce(new Error('private path'));
     const user = userEvent.setup();
     setup();
-    await user.click(screen.getByRole('button', { name: 'Select or change model' }));
+    await openModels(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load models.');
     expect(screen.getByRole('alert')).not.toHaveTextContent('private');
     await user.click(screen.getByRole('button', { name: 'Retry' }));

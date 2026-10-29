@@ -1,5 +1,6 @@
 import type { RequestPermissionRequest, RequestPermissionResponse } from '@agentclientprotocol/sdk';
 import type { Permission } from '../types/permissions';
+import { BUSINESS_SESSION_OPTION, readBusinessApproval } from '../types/businessApproval';
 import {
   acpChatSessionActions,
   acpChatSessionStore,
@@ -185,7 +186,11 @@ function permissionOptionIdForAction(
     return undefined;
   }
 
-  return request.options.find((candidate) => candidate.kind === kind)?.optionId;
+  return request.options.find(
+    (candidate) =>
+      candidate.kind === kind &&
+      (candidate.optionId !== BUSINESS_SESSION_OPTION || readBusinessApproval(request._meta))
+  )?.optionId;
 }
 
 function permissionOptionKindForAction(action: Permission) {

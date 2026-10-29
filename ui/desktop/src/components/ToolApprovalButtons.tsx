@@ -13,8 +13,18 @@ import {
   subscribeAcpPermissionRequests,
 } from '../acp/permissionRequests';
 import { defineMessages, useIntl } from '../i18n';
+import type { BusinessApproval } from '../types/businessApproval';
+import { businessApprovalName } from './BusinessApprovalScope';
 
 const i18n = defineMessages({
+  allowBusiness: {
+    id: 'businessApproval.allowSession',
+    defaultMessage: 'Allow {business} for this session',
+  },
+  allowedBusiness: {
+    id: 'businessApproval.allowedSession',
+    defaultMessage: '{business} allowed for this session',
+  },
   allowOnce: {
     id: 'toolApprovalButtons.allowOnce',
     defaultMessage: 'Allow Once',
@@ -94,6 +104,7 @@ export interface ToolApprovalData {
   permissionClass?: ToolPermissionClass;
   authorizationScope?: ToolAuthorizationScope;
   availableActions?: ToolPermissionAction[];
+  businessApproval?: BusinessApproval;
 }
 
 export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }) {
@@ -106,6 +117,7 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     permissionClass = 'legacy',
     authorizationScope = 'unknown',
     availableActions = ['allow_once', 'deny_once'],
+    businessApproval,
   } = data;
   const stateKey = approvalStateKey(sessionId, id);
   const isPending = useSyncExternalStore(subscribeAcpPermissionRequests, () =>
@@ -138,9 +150,15 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
       permissionClass !== 'legacy');
   const canAllowOnce = allowActionsVisible && actions.has('allow_once');
   const canAllowScope = allowActionsVisible && scopedLongTermAllow && actions.has('always_allow');
-  const scopeLabel = intl.formatMessage(i18n.allowByScope, { scope: authorizationScope });
+  const scopeLabel = businessApproval
+    ? intl.formatMessage(i18n.allowBusiness, {
+        business: businessApprovalName(intl, businessApproval),
+      })
+    : intl.formatMessage(i18n.allowByScope, { scope: authorizationScope });
   const scopeHint =
-    authorizationScope === 'session' ? intl.formatMessage(i18n.sessionAllowHint) : undefined;
+    authorizationScope === 'session' && !businessApproval
+      ? intl.formatMessage(i18n.sessionAllowHint)
+      : undefined;
 
   const setResolvedDecision = (action: Permission) => {
     setApprovalState({ key: stateKey, decision: action, isClicked: true });
@@ -179,9 +197,13 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
   };
 
   if (!isPending && isClicked && decision) {
-    const scopedAllowed = intl.formatMessage(i18n.allowedByScope, {
-      scope: authorizationScope,
-    });
+    const scopedAllowed = businessApproval
+      ? intl.formatMessage(i18n.allowedBusiness, {
+          business: businessApprovalName(intl, businessApproval),
+        })
+      : intl.formatMessage(i18n.allowedByScope, {
+          scope: authorizationScope,
+        });
     const statusMessages: Record<Permission, string> = {
       allow_once: intl.formatMessage(i18n.allowedOnce),
       always_allow: scopedLongTermAllow ? scopedAllowed : intl.formatMessage(i18n.alwaysAllowed),

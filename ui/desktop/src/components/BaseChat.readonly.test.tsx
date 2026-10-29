@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { IpcRendererEvent } from 'electron';
 import { useLayoutEffect } from 'react';
 import { IntlTestWrapper } from '../i18n/test-utils';
@@ -13,6 +13,7 @@ const fixture = vi.hoisted(() => ({
   loading: false,
   cancelling: false,
   busy: false,
+  activeToolCallIds: [] as string[],
   state: 'idle',
   activity: undefined as PromptActivity | undefined,
   submit: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('../hooks/useChatSession', () => ({
     chatState: fixture.loading ? 'loadingConversation' : fixture.busy ? 'thinking' : fixture.state,
     cancelling: fixture.cancelling,
     promptActivity: fixture.activity,
+    activeToolCallIds: fixture.activeToolCallIds,
     tokenState: {},
     notifications: new Map(),
     handleSubmit: fixture.submit,
@@ -106,6 +108,7 @@ vi.mock('./ProgressiveMessageList', () => ({
 }));
 
 beforeEach(() => {
+  fixture.activeToolCallIds = [];
   fixture.readonly = true;
   fixture.loading = false;
   fixture.cancelling = false;
@@ -122,6 +125,53 @@ beforeEach(() => {
   fixture.reconfirm.mockReset();
   vi.mocked(window.electron.on).mockClear();
   Object.assign(window.electron, { logInfo: vi.fn() });
+});
+
+afterEach(() => vi.useRealTimers());
+
+it('moves the actual footer from A through model output to B and resets its action clock', () => {
+  vi.useFakeTimers();
+  fixture.readonly = false;
+  fixture.state = 'streaming';
+  fixture.history = ['A', 'B'].map((name) => ({
+    id: name,
+    role: 'assistant',
+    created: 1,
+    metadata: { userVisible: true, agentVisible: true },
+    content: [
+      {
+        type: 'toolRequest',
+        id: name,
+        toolCall: {
+          status: 'success',
+          value: {
+            name: 'generate_image',
+            arguments: { operation: 'generate', display_name: '海报 ' + name },
+          },
+        },
+      },
+    ],
+  }));
+  fixture.activeToolCallIds = ['A'];
+  const view = show();
+  act(() => vi.advanceTimersByTime(30_000));
+  expect(screen.getByTestId('loading-indicator')).toHaveTextContent('海报 A');
+  expect(screen.getByTestId('loading-indicator')).toHaveTextContent('30s');
+  fixture.activeToolCallIds = [];
+  view.rerender(
+    <MemoryRouter>
+      <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+    </MemoryRouter>
+  );
+  expect(screen.getByTestId('loading-indicator')).not.toHaveTextContent('海报 A');
+  fixture.activeToolCallIds = ['B'];
+  view.rerender(
+    <MemoryRouter>
+      <BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} />
+    </MemoryRouter>
+  );
+  expect(screen.getByTestId('loading-indicator')).toHaveTextContent('海报 B');
+  expect(screen.getByTestId('loading-indicator')).not.toHaveTextContent('30s');
 });
 
 function show({ startAgent = true } = {}) {
@@ -143,7 +193,7 @@ function show({ startAgent = true } = {}) {
   );
 }
 
-it('renders a file draft outside durable history and clears it when the turn is stopped', () => {
+it('keeps input preparation in the footer without appending a transient history row', async () => {
   fixture.readonly = false;
   fixture.state = 'streaming';
   fixture.activity = {
@@ -157,7 +207,10 @@ it('renders a file draft outside durable history and clears it when the turn is 
     },
   };
   const view = show();
-  expect(screen.getAllByText('Generating file contents').length).toBeGreaterThan(0);
+  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
+  expect(screen.getAllByText('Generating file contents')).toHaveLength(1);
+  expect(screen.getByTestId('loading-indicator')).toHaveTextContent('Generating file contents');
+  expect(view.container.querySelector('.codepro-chat-history [role="status"]')).toBeNull();
   expect(screen.queryByText('14 KB')).toBeNull();
   expect(screen.getByTestId('history-order')).not.toHaveTextContent('tool-preview');
   fixture.state = 'idle';
@@ -167,6 +220,7 @@ it('renders a file draft outside durable history and clears it when the turn is 
     </MemoryRouter>
   );
   expect(screen.queryByText('14 KB')).toBeNull();
+  expect(screen.queryByText('Generating file contents')).toBeNull();
 });
 
 it('projects pending input before stop receipts without changing execution history or leaking into another chat', () => {

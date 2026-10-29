@@ -33,7 +33,8 @@ async function fixture(t, frames = 124) {
     if (url.endsWith('/upload/image')) return Response.json({ name: 'reference.png' });
     if (url.includes('/cancel')) { state = 'cancelled'; return Response.json({ cancelled: true }); }
     if (url.includes('/history/')) return Response.json(state === 'completed' ? { [id]: { status: { completed: true }, outputs: { '92': { images: [{ filename: 'clip.mp4', type: 'output' }] } } } }
-      : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'out of memory' }]] } } } : {});
+      : state === 'cancelled' ? { [id]: { status: { status_str: 'error', messages: [['execution_interrupted', {}]] } } }
+        : state === 'failed' ? { [id]: { status: { status_str: 'error', messages: [['execution_error', { exception_message: 'out of memory' }]] } } } : {});
     if (url.endsWith('/queue')) return Response.json({ queue_running: state === 'running' ? [[0, id]] : [], queue_pending: state === 'queued' ? [[0, id]] : [] });
     if (url.includes('/view?')) return new Response(bytes);
     throw new Error(url);

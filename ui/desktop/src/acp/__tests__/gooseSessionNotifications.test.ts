@@ -204,13 +204,10 @@ describe('applyGooseSessionNotification', () => {
       expect(state.messages[1].metadata.usage).toEqual(FULL_USAGE);
     });
 
-    it.each([
-      ['absent', undefined],
-      ['unknown', 'missing'],
-    ])('falls back to the last assistant message for an %s messageId', (_name, messageId) => {
+    it('retains the legacy fallback only when messageId is absent', () => {
       const state = makeState();
 
-      const changes = applyGooseSessionNotification(state, messageUsageNotification(messageId));
+      const changes = applyGooseSessionNotification(state, messageUsageNotification(undefined));
 
       const messages = expectOnlyMessagesChange(changes);
       const [user, first, last] = messages;
@@ -218,6 +215,23 @@ describe('applyGooseSessionNotification', () => {
       expect(first.metadata.usage).toBeUndefined();
       expect(last.id).toBe('a2');
       expect(last.metadata.usage).toEqual(FULL_USAGE);
+    });
+
+    it('keeps an early identified receipt hidden without overwriting another message', () => {
+      const state = makeState();
+      state.messages[2].metadata.usage = { inputTokens: 9, outputTokens: 2 };
+
+      const changes = applyGooseSessionNotification(state, messageUsageNotification('future'));
+
+      const messages = expectOnlyMessagesChange(changes);
+      expect(messages).toHaveLength(4);
+      expect(messages[2].metadata.usage).toEqual({ inputTokens: 9, outputTokens: 2 });
+      expect(messages[3]).toMatchObject({
+        id: 'future',
+        role: 'assistant',
+        content: [],
+        metadata: { userVisible: false, agentVisible: false, usage: FULL_USAGE },
+      });
     });
 
     it('skips client-made approval rows when falling back', () => {
@@ -235,7 +249,7 @@ describe('applyGooseSessionNotification', () => {
         metadata: { userVisible: true, agentVisible: true },
       });
 
-      const changes = applyGooseSessionNotification(state, messageUsageNotification('missing'));
+      const changes = applyGooseSessionNotification(state, messageUsageNotification(undefined));
 
       const messages = expectOnlyMessagesChange(changes);
       expect(messages[3].metadata.usage).toBeUndefined();
@@ -243,7 +257,7 @@ describe('applyGooseSessionNotification', () => {
       expect(messages[2].metadata.usage).toEqual(FULL_USAGE);
     });
 
-    it('returns no changes and mutates nothing when no assistant message exists', () => {
+    it('preserves a receipt before any assistant content exists', () => {
       const state: AdapterState = {
         messages: [message('u1', 'user')],
         localSteerTextByMessageId: new Map(),
@@ -251,7 +265,11 @@ describe('applyGooseSessionNotification', () => {
 
       const changes = applyGooseSessionNotification(state, messageUsageNotification('missing'));
 
-      expect(changes).toEqual([]);
+      expect(expectOnlyMessagesChange(changes)[1]).toMatchObject({
+        id: 'missing',
+        content: [],
+        metadata: { userVisible: false, agentVisible: false, usage: FULL_USAGE },
+      });
       expect(state.messages[0].metadata.usage).toBeUndefined();
     });
   });

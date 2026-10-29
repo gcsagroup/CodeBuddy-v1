@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
@@ -17,7 +17,9 @@ import {
   ToolConfirmationData,
   NotificationEvent,
   type Message,
+  type MessageUsage,
   type ToolResponseMessageContent,
+  type ToolRequestMessageContent,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
 import ElicitationRequest from './ElicitationRequest';
@@ -182,6 +184,15 @@ interface GooseMessageProps {
   compactTools?: boolean;
   sessionId: string;
   message: Message;
+  contentRange?: readonly [number, number];
+  groupedProcess?: boolean;
+  showGroupedThinking?: boolean;
+  hiddenToolRequestIds?: ReadonlySet<string>;
+  renderToolRequest?: (request: ToolRequestMessageContent) => ReactNode | undefined;
+  computerTargets?: ReadonlyMap<string, string>;
+  showMessageFooter?: boolean;
+  usageOverride?: MessageUsage;
+  createdOverride?: number;
   messages: Message[];
   toolResponses?: ReadonlyMap<string, ToolResponseMessageContent>;
   toolChains?: number[][];
@@ -297,6 +308,15 @@ export default function GooseMessage({
   compactTools = false,
   sessionId,
   message,
+  contentRange,
+  groupedProcess = false,
+  showGroupedThinking = false,
+  hiddenToolRequestIds,
+  renderToolRequest,
+  computerTargets,
+  showMessageFooter = true,
+  usageOverride,
+  createdOverride,
   messages,
   toolResponses,
   toolChains,
@@ -337,6 +357,7 @@ export default function GooseMessage({
   const contentBlocks = useMemo(() => {
     const blocks: { start: number; content: Message['content'] }[] = [];
     message.content.forEach((content, start) => {
+      if (contentRange && (start < contentRange[0] || start >= contentRange[1])) return;
       const previous = blocks[blocks.length - 1];
       if (
         (content.type === 'text' || content.type === 'thinking') &&
@@ -347,21 +368,28 @@ export default function GooseMessage({
         blocks.push({ start, content: [content] });
       }
     });
-    if (!textContent.trim() && displayText.trim()) {
+    if (!contentRange && !textContent.trim() && displayText.trim()) {
       blocks.push({
         start: message.content.length,
         content: [{ type: 'text', text: displayText }],
       });
     }
     return blocks;
-  }, [message.content, textContent, displayText]);
+  }, [message.content, textContent, displayText, contentRange]);
   const textBlockCount = contentBlocks.filter((block) => block.content[0].type === 'text').length;
   const streamRenderProbe = useRef({ messageId: '', lastAt: 0, updates: 0, active: false });
   const displayUnits = displayText.length;
+  const firstTextIndex = message.content.findIndex(
+    (content) => content.type === 'text' && !!content.text.trim()
+  );
+  // A reasoning range has no text ref. Observe text from its first public range.
+  const observesText =
+    !contentRange || (firstTextIndex >= contentRange[0] && firstTextIndex < contentRange[1]);
   const firstTokenProbe = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (
       !import.meta.env.DEV ||
+      (contentRange && contentRange[0] > 0) ||
       !isStreaming ||
       message.role !== 'assistant' ||
       !message.metadata.userVisible ||
@@ -395,12 +423,14 @@ export default function GooseMessage({
     message.role,
     message.metadata.userVisible,
     sessionId,
+    contentRange,
   ]);
   useEffect(() => {
     // Development E2E probe: React committed this text, not proof of screen paint.
     // Sample progress at most once per second; first and final commits are immediate.
     if (
       !import.meta.env.DEV ||
+      !observesText ||
       message.role !== 'assistant' ||
       !message.id ||
       !message.metadata.userVisible
@@ -441,6 +471,7 @@ export default function GooseMessage({
     message.metadata.userVisible,
     message.role,
     sessionId,
+    observesText,
   ]);
   const terminalPresentation = turnTerminal ? codeProTerminalPresentation(turnTerminal) : undefined;
   const terminalCopyText = useMemo(
@@ -448,7 +479,9 @@ export default function GooseMessage({
     [displayText, messages, turnTerminal]
   );
 
-  const timestamp = useMemo(() => formatMessageTimestamp(message.created), [message.created]);
+  const displayedCreated = createdOverride ?? message.created;
+  const timestamp = useMemo(() => formatMessageTimestamp(displayedCreated), [displayedCreated]);
+  const displayedUsage = usageOverride ?? message.metadata.usage;
   const toolRequests = getToolRequests(message);
   const messageIndex = messages.findIndex((msg) => msg.id === message.id);
   const retrySource = useMemo(() => {
@@ -592,6 +625,17 @@ export default function GooseMessage({
           const key = `${content.type}-${block.start}`;
           if (content.type === 'thinking') {
             if (providerThinkingSuppressed) return null;
+            if (groupedProcess) {
+              return showGroupedThinking ? (
+                <ThinkingContent
+                  key={key}
+                  content={getThinkingContent({ ...message, content: block.content }) ?? ''}
+                  isExpanded={false}
+                  isStreaming={thinkingActive && index === contentBlocks.length - 1}
+                  storageKey={message.id ? `provider-${message.id}-${block.start}` : undefined}
+                />
+              ) : null;
+            }
             const active = thinkingActive && index === contentBlocks.length - 1;
             return (
               <ThinkingContent
@@ -603,7 +647,7 @@ export default function GooseMessage({
                     ? `provider-${message.id}${block.start === 0 ? '' : `-${block.start}`}`
                     : undefined
                 }
-                isExpanded={active}
+                isExpanded={!groupedProcess && active}
               />
             );
           }
@@ -629,8 +673,19 @@ export default function GooseMessage({
           }
           if (content.type === 'toolRequest') {
             const toolRequest = content;
+            if (hiddenToolRequestIds?.has(toolRequest.id)) return null;
             const hasResponse = toolResponsesMap.has(toolRequest.id);
             const isPending = pendingConfirmationIds.has(toolRequest.id);
+            if (!isPending) {
+              const rendered = renderToolRequest?.(toolRequest);
+              if (rendered === null) return null;
+              if (rendered !== undefined)
+                return (
+                  <div key={key} className="goose-message-tool mt-1">
+                    {rendered}
+                  </div>
+                );
+            }
             const confirmationContent = findConfirmationForToolAcrossMessages(toolRequest.id);
             const isApprovalClicked = confirmationContent && !isPending && hasResponse;
             return (
@@ -641,6 +696,7 @@ export default function GooseMessage({
                   sessionId={sessionId}
                   isCancelledMessage={false}
                   toolRequest={toolRequest}
+                  computerTarget={computerTargets?.get(toolRequest.id)}
                   toolResponse={toolResponsesMap.get(toolRequest.id)}
                   notifications={toolCallNotifications.get(toolRequest.id)}
                   isStreamingMessage={
@@ -657,7 +713,7 @@ export default function GooseMessage({
           return null;
         })}
 
-        {(displayText.trim() || imagePaths.length > 0) && (
+        {showMessageFooter && (displayText.trim() || imagePaths.length > 0) && (
           <div className="flex min-h-6 items-center justify-between gap-3 pt-1">
             {!isStreaming && (
               <div className="text-xs font-mono text-text-secondary">{timestamp}</div>
@@ -672,14 +728,14 @@ export default function GooseMessage({
                     alwaysVisible
                   />
                 )}
-                {message.metadata.usage && (
-                  <MessageUsageStats usage={message.metadata.usage} compact={compactTools} />
+                {displayedUsage && (
+                  <MessageUsageStats usage={displayedUsage} compact={compactTools} />
                 )}
               </div>
             )}
           </div>
         )}
-        {toolRequests.length > 0 && !compactTools && !displayText.trim() && (
+        {showMessageFooter && toolRequests.length > 0 && !compactTools && !displayText.trim() && (
           <div className="flex items-center justify-between">
             <div
               className={cn(
@@ -728,7 +784,7 @@ export default function GooseMessage({
                 </span>
                 {terminalPresentation.verdict === 'BLOCKED' && (
                   <span>
-                    {' · '}
+                    {' '}
                     {intl.formatMessage(i18n.turnStoppedSummary, {
                       count: turnTerminal.tool_action_count,
                     })}

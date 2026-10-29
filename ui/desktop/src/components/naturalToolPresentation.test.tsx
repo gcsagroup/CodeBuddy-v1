@@ -52,10 +52,45 @@ const card = (
 };
 
 describe('natural tool action presentation', () => {
+  it('shows the actual file-search pattern and expands its scope and returned matches', () => {
+    const toolRequest = {
+      type: 'toolRequest' as const,
+      id: 'search-details',
+      toolCall: {
+        status: 'success' as const,
+        value: {
+          name: 'grep',
+          arguments: { pattern: 'catalogProviderId', path: 'runtime', include: '*.mjs' },
+        },
+      },
+    };
+    const toolResponse = {
+      type: 'toolResponse' as const,
+      id: 'search-details',
+      toolResult: {
+        status: 'success' as const,
+        value: {
+          content: [
+            { type: 'text' as const, text: 'runtime/providers.mjs:644: catalogProviderId' },
+          ],
+          isError: false,
+        },
+      },
+    };
+    render(card({ compact: true, toolRequest, toolResponse }));
+    const row = screen.getByRole('button', { name: /Search file contents catalogProviderId/ });
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(row);
+    expect(screen.getByTestId('readable-tool-content')).toHaveTextContent('runtime');
+    expect(screen.getByTestId('readable-tool-content')).toHaveTextContent('*.mjs');
+    expect(screen.getByTestId('readable-tool-content')).toHaveTextContent(
+      'runtime/providers.mjs:644: catalogProviderId'
+    );
+  });
   it('changes running to a completed call only after a response, and retains raw details', async () => {
     const view = render(card({ isStreamingMessage: true }));
     expect(
-      await screen.findByRole('button', { name: /Read file project-guide.md · in progress/ })
+      await screen.findByRole('button', { name: /Running: Read file project-guide.md/ })
     ).toBeVisible();
     expect(screen.getByRole('button', { name: path })).toBeVisible();
     expect(screen.getByText('Running')).toBeVisible();
@@ -159,7 +194,7 @@ describe('natural tool action presentation', () => {
         isStreamingMessage: true,
       })
     );
-    expect(screen.getByText('Execute code · in progress')).toBeVisible();
+    expect(screen.getByText('Running: Execute code')).toBeVisible();
     expect(screen.queryByText('All tasks completed successfully')).toBeNull();
     expect(screen.getByText('Running')).toBeVisible();
   });

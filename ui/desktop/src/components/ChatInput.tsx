@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
 import type { View, ViewOptions } from '../utils/navigationUtils';
 import { ChatInputStopButton } from './ChatInputStopButton';
+import { ImageLightbox } from './ImagePreview';
 import { Attach, Close, Microphone } from './icons';
 import { ChatState } from '../types/chatState';
 import debounce from 'lodash/debounce';
@@ -296,6 +297,10 @@ export default function ChatInput({
   const [_value, setValue] = useState(initialValue);
   const [displayValue, setDisplayValue] = useState(initialValue); // For immediate visual feedback
   const [isFocused, setIsFocused] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ src: string; title: string } | null>(
+    null
+  );
+  useEffect(() => setAttachmentPreview(null), [sessionId]);
   const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(
     []
   );
@@ -672,14 +677,12 @@ export default function ChatInput({
   ]);
   const [mentionPopover, setMentionPopover] = useState<{
     isOpen: boolean;
-    position: { x: number; y: number; width?: number };
     query: string;
     mentionStart: number;
     selectedIndex: number;
     isSlashCommand: boolean;
   }>({
     isOpen: false,
-    position: { x: 0, y: 0 },
     query: '',
     mentionStart: -1,
     selectedIndex: 0,
@@ -959,14 +962,10 @@ export default function ChatInput({
     updateValue(val);
     inputRevisionRef.current += 1;
     setHasUserTyped(true);
-    checkForMentionOrSlash(val, cursorPosition, evt.target);
+    checkForMentionOrSlash(val, cursorPosition);
   };
 
-  const checkForMentionOrSlash = (
-    text: string,
-    cursorPosition: number,
-    textArea: HTMLTextAreaElement
-  ) => {
+  const checkForMentionOrSlash = (text: string, cursorPosition: number) => {
     const isSlashCommand = text.startsWith('/');
     const beforeCursor = text.slice(0, cursorPosition);
     const lastAtIndex = isSlashCommand ? 0 : beforeCursor.lastIndexOf('@');
@@ -984,17 +983,9 @@ export default function ChatInput({
       return;
     }
 
-    // Calculate position for the popover - position it above the chat input
-    const textAreaRect = textArea.getBoundingClientRect();
-
     setMentionPopover((prev) => ({
       ...prev,
       isOpen: true,
-      position: {
-        x: textAreaRect.left,
-        width: textAreaRect.width,
-        y: textAreaRect.top, // Position at the top of the textarea
-      },
       query: afterAt,
       mentionStart: lastAtIndex,
       selectedIndex: 0, // Reset selection when query changes
@@ -1083,7 +1074,7 @@ export default function ChatInput({
               setDisplayValue(newValue);
               updateValue(newValue);
               setHasUserTyped(true);
-              checkForMentionOrSlash(newValue, cursorPos, textarea);
+              checkForMentionOrSlash(newValue, cursorPos);
               requestAnimationFrame(() => {
                 textarea.selectionStart = textarea.selectionEnd = cursorPos;
               });
@@ -2097,17 +2088,38 @@ export default function ChatInput({
       </form>
 
       {/* Combined files and images preview */}
+      {attachmentPreview && (
+        <ImageLightbox
+          src={attachmentPreview.src}
+          title={attachmentPreview.title}
+          open
+          onOpenChange={(open) => {
+            if (!open) setAttachmentPreview(null);
+          }}
+        />
+      )}
       {(pastedImages.length > 0 || allDroppedFiles.length > 0) && (
         <div className="flex flex-wrap gap-2 p-4 mt-2 border-t border-border-primary">
           {/* Render pasted images first */}
           {pastedImages.map((img) => (
             <div key={img.id} className="relative group w-20 h-20">
               {img.dataUrl && (
-                <img
-                  src={img.dataUrl}
-                  alt={intl.formatMessage(i18n.pastedImage, { id: img.id })}
-                  className={`w-full h-full object-cover rounded border ${img.error ? 'border-red-500' : 'border-border-primary'}`}
-                />
+                <button
+                  type="button"
+                  className="h-full w-full rounded focus-visible:outline focus-visible:outline-2"
+                  onClick={() =>
+                    setAttachmentPreview({
+                      src: img.dataUrl,
+                      title: intl.formatMessage(i18n.pastedImage, { id: img.id }),
+                    })
+                  }
+                >
+                  <img
+                    src={img.dataUrl}
+                    alt={intl.formatMessage(i18n.pastedImage, { id: img.id })}
+                    className={`w-full h-full object-cover rounded border ${img.error ? 'border-red-500' : 'border-border-primary'}`}
+                  />
+                </button>
               )}
               {img.isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
@@ -2144,11 +2156,17 @@ export default function ChatInput({
                 // Image preview
                 <div className="w-20 h-20">
                   {file.dataUrl && (
-                    <img
-                      src={file.dataUrl}
-                      alt={file.name}
-                      className={`w-full h-full object-cover rounded border ${file.error ? 'border-red-500' : 'border-border-primary'}`}
-                    />
+                    <button
+                      type="button"
+                      className="h-full w-full rounded focus-visible:outline focus-visible:outline-2"
+                      onClick={() => setAttachmentPreview({ src: file.dataUrl!, title: file.name })}
+                    >
+                      <img
+                        src={file.dataUrl}
+                        alt={file.name}
+                        className={`w-full h-full object-cover rounded border ${file.error ? 'border-red-500' : 'border-border-primary'}`}
+                      />
+                    </button>
                   )}
                   {file.isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
@@ -2368,7 +2386,7 @@ export default function ChatInput({
           isSlashCommand={mentionPopover.isSlashCommand}
           onClose={() => setMentionPopover((prev) => ({ ...prev, isOpen: false }))}
           onSelect={handleMentionItemSelect}
-          position={mentionPopover.position}
+          anchorRef={textAreaRef}
           query={mentionPopover.query}
           selectedIndex={mentionPopover.selectedIndex}
           onSelectedIndexChange={(index) =>

@@ -197,6 +197,12 @@ describe('workspace images added to the composer', () => {
       });
       expect(screen.getByRole('button', { name: 'Remove image' })).toBeVisible();
       expect(submit).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('img').closest('button')!);
+      expect(screen.getByRole('dialog')).toBeVisible();
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Remove image' })).toBeVisible();
+      expect(submit).not.toHaveBeenCalled();
       view.changeSession('new-session');
       expect(screen.queryByRole('button', { name: 'Remove image' })).toBeNull();
       expect(submit).not.toHaveBeenCalled();

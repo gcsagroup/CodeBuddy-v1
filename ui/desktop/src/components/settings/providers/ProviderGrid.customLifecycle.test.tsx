@@ -11,6 +11,7 @@ const providerApi = vi.hoisted(() => ({
   update: vi.fn(),
   remove: vi.fn(),
   create: vi.fn(),
+  refreshDefaults: vi.fn(),
 }));
 
 vi.mock('../../../acp/providers', () => ({
@@ -24,9 +25,10 @@ vi.mock('../../../acp/providers', () => ({
 vi.mock('../../ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({
     getCurrentModelAndProvider: vi.fn().mockResolvedValue({
-      provider: 'another-provider',
-      model: 'another-model',
+      provider: 'custom_office_local',
+      model: 'qwen3:8b',
     }),
+    refreshCurrentModelAndProvider: providerApi.refreshDefaults,
   }),
 }));
 
@@ -214,7 +216,7 @@ describe('ProviderGrid custom provider lifecycle', () => {
     expect(providerApi.create).not.toHaveBeenCalled();
   });
 
-  it('deletes an inactive custom connection after the explicit confirmation', async () => {
+  it('deletes a saved default connection after confirmation without requiring the old settings selector', async () => {
     const user = userEvent.setup();
     const refreshProviders = vi.fn();
     render(
@@ -232,6 +234,29 @@ describe('ProviderGrid custom provider lifecycle', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm Delete' }));
 
     expect(providerApi.remove).toHaveBeenCalledWith('custom_office_local');
+    expect(providerApi.refreshDefaults).toHaveBeenCalledTimes(1);
     expect(refreshProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the connection form and displays an error when deletion is rejected', async () => {
+    providerApi.remove.mockRejectedValueOnce(new Error('active provider'));
+    const user = userEvent.setup();
+    const refreshProviders = vi.fn();
+    render(
+      <ProviderGrid
+        providers={[customProvider]}
+        isOnboarding={false}
+        compactConnectionSetup
+        refreshProviders={refreshProviders}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(screen.getByTestId('provider-card-custom_office_local'));
+    await user.click(await screen.findByRole('button', { name: 'Delete Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm Delete' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete this connection');
+    expect(screen.getByText('Edit Provider')).toBeInTheDocument();
+    expect(providerApi.refreshDefaults).not.toHaveBeenCalled();
+    expect(refreshProviders).not.toHaveBeenCalled();
   });
 });

@@ -41,10 +41,9 @@ const i18n = defineMessages({
     id: 'providerConfigurationModal.configureHeader',
     defaultMessage: 'Configure {providerName}',
   },
-  cannotDeleteActive: {
-    id: 'providerConfigurationModal.cannotDeleteActive',
-    defaultMessage:
-      "You cannot delete this provider while it's currently in use. Please switch to a different model first.",
+  deleteFailed: {
+    id: 'customProviderForm.deleteFailed',
+    defaultMessage: 'Could not delete this connection. Stop any tasks using it and try again.',
   },
   deleteConfirmation: {
     id: 'providerConfigurationModal.deleteConfirmation',
@@ -169,10 +168,10 @@ export default function ProviderConfigurationModal({
 }: ProviderConfigurationModalProps) {
   const intl = useIntl();
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const { getCurrentModelAndProvider } = useModelAndProvider();
+  const { refreshCurrentModelAndProvider } = useModelAndProvider();
   const [configValues, setConfigValues] = useState<Record<string, ConfigInput>>({});
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [isActiveProvider, setIsActiveProvider] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
 
@@ -202,9 +201,7 @@ export default function ProviderConfigurationModal({
     provider.metadata.setup_steps.length > 0;
 
   const descriptionText = showDeleteConfirmation
-    ? isActiveProvider
-      ? intl.formatMessage(i18n.cannotDeleteActive)
-      : intl.formatMessage(i18n.deleteConfirmation)
+    ? intl.formatMessage(i18n.deleteConfirmation)
     : hasOAuth
       ? intl.formatMessage(i18n.oauthSignInDescription, {
           providerName: provider.metadata.display_name,
@@ -286,48 +283,28 @@ export default function ProviderConfigurationModal({
     onClose();
   };
 
-  const handleDelete = async () => {
-    try {
-      const providerModel = await getCurrentModelAndProvider();
-      if (provider.name === providerModel.provider) {
-        setIsActiveProvider(true);
-        setShowDeleteConfirmation(true);
-        return;
-      }
-    } catch (error) {
-      console.error('Failed to check current provider:', error);
-    }
-
-    setIsActiveProvider(false);
+  const handleDelete = () => {
     setShowDeleteConfirmation(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (isActiveProvider) {
-      return;
+    setDeleteError(false);
+    try {
+      if (provider.provider_type === 'Custom') {
+        await acpDeleteCustomProvider(provider.name);
+      } else {
+        await acpDeleteProviderConfig(provider.name);
+      }
+      await refreshCurrentModelAndProvider();
+      onClose();
+    } catch {
+      setDeleteError(true);
     }
-
-    const isCustomProvider = provider.provider_type === 'Custom';
-
-    if (isCustomProvider) {
-      await acpDeleteCustomProvider(provider.name);
-    } else {
-      // Deletes all config/secret fields and cleans up provider-specific cache
-      // (e.g. OAuth tokens) server-side.
-      await acpDeleteProviderConfig(provider.name);
-    }
-
-    onClose();
   };
 
   const getModalIcon = () => {
     if (showDeleteConfirmation) {
-      return (
-        <AlertTriangle
-          className={isActiveProvider ? 'text-yellow-500' : 'text-red-500'}
-          size={24}
-        />
-      );
+      return <AlertTriangle className="text-red-500" size={24} />;
     }
     return <ProviderLogo providerName={provider.name} />;
   };
@@ -474,6 +451,7 @@ export default function ProviderConfigurationModal({
             )}
           </div>
 
+          {deleteError && <p role="alert">{intl.formatMessage(i18n.deleteFailed)}</p>}
           <DialogFooter>
             {validationUnavailableReason && !showDeleteConfirmation ? (
               <Button variant="outline" onClick={handleCancel}>
@@ -510,12 +488,10 @@ export default function ProviderConfigurationModal({
                 showDeleteConfirmation={showDeleteConfirmation}
                 onConfirmDelete={handleConfirmDelete}
                 onCancelDelete={() => {
-                  setIsActiveProvider(false);
                   setShowDeleteConfirmation(false);
                 }}
-                canDelete={isConfigured && !isActiveProvider}
+                canDelete={isConfigured}
                 providerName={provider.metadata.display_name}
-                isActiveProvider={isActiveProvider}
               />
             )}
           </DialogFooter>

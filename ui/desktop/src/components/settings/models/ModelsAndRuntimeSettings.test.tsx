@@ -106,7 +106,7 @@ describe('ModelsAndRuntimeSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Models and connections' }));
     expect(screen.getByText(/CodeBuddy model.*In development/)).toBeInTheDocument();
     expect(screen.getByText('Custom model connections')).toBeInTheDocument();
-    expect(screen.getByTestId('provider-configuration-visibility')).toHaveTextContent('hidden');
+    expect(screen.queryByText('current-model-settings')).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId('custom-provider-grid')).toHaveTextContent('studio')
     );

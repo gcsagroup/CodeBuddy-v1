@@ -133,8 +133,7 @@ function ProviderCards({
     provider: string;
     model?: string;
   } | null>(null);
-  const [isActiveProvider, setIsActiveProvider] = useState(false);
-  const { getCurrentModelAndProvider } = useModelAndProvider();
+  const { refreshCurrentModelAndProvider } = useModelAndProvider();
   const [editingProvider, setEditingProvider] = useState<{
     id: string;
     config: CustomProviderConfigDto;
@@ -171,21 +170,13 @@ function ProviderCards({
             providerType: provider.provider_type,
           });
 
-          // Check if this is the active provider
-          try {
-            const providerModel = await getCurrentModelAndProvider();
-            setIsActiveProvider(provider.name === providerModel.provider);
-          } catch {
-            setIsActiveProvider(false);
-          }
-
           setShowCustomProviderModal(true);
         }
       } else {
         openModal(provider);
       }
     },
-    [openModal, getCurrentModelAndProvider]
+    [openModal]
   );
 
   const handleUpdateCustomProvider = useCallback(
@@ -206,18 +197,17 @@ function ProviderCards({
     if (!editingProvider) return;
 
     await acpDeleteCustomProvider(editingProvider.id);
+    await refreshCurrentModelAndProvider();
     setShowCustomProviderModal(false);
     setEditingProvider(null);
-    setIsActiveProvider(false);
     if (refreshProviders) {
       refreshProviders();
     }
-  }, [editingProvider, refreshProviders]);
+  }, [editingProvider, refreshProviders, refreshCurrentModelAndProvider]);
 
   const handleCloseModal = useCallback(() => {
     setShowCustomProviderModal(false);
     setEditingProvider(null);
-    setIsActiveProvider(false);
   }, []);
 
   const onCloseProviderConfig = useCallback(() => {
@@ -361,7 +351,6 @@ function ProviderCards({
             onDelete={
               editingProvider?.providerType === 'Custom' ? handleDeleteCustomProvider : undefined
             }
-            isActiveProvider={isActiveProvider}
             compactSetup={Boolean(compactConnectionSetup)}
             existingProviderNames={providers.map((provider) => provider.metadata.display_name)}
             discoverModels={(data) => acpDiscoverCustomProviderModels(data, editingProvider?.id)}

@@ -1,19 +1,10 @@
 import { SyntheticEvent } from 'react';
 import { Button } from '../../../../ui/button';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { ConfigKey } from '../../../../../types/providers';
 import { defineMessages, useIntl } from '../../../../../i18n';
 
 const i18n = defineMessages({
-  cannotDeleteActive: {
-    id: 'providerSetupActions.cannotDeleteActive',
-    defaultMessage:
-      "You cannot delete {providerName} while it's currently in use. Please switch to a different model before deleting this provider.",
-  },
-  ok: {
-    id: 'providerSetupActions.ok',
-    defaultMessage: 'Ok',
-  },
   confirmDeleteMessage: {
     id: 'providerSetupActions.confirmDeleteMessage',
     defaultMessage:
@@ -51,7 +42,6 @@ interface ProviderSetupActionsProps {
   canDelete?: boolean;
   providerName?: string;
   primaryParameters?: ConfigKey[];
-  isActiveProvider?: boolean; // Made optional with default false
 }
 
 /**
@@ -68,33 +58,11 @@ export default function ProviderSetupActions({
   canDelete,
   providerName,
   primaryParameters,
-  isActiveProvider = false, // Default value provided
 }: ProviderSetupActionsProps) {
   const intl = useIntl();
 
   // If we're showing delete confirmation, render the delete confirmation buttons
   if (showDeleteConfirmation) {
-    // Check if this is the active provider
-    if (isActiveProvider) {
-      return (
-        <div className="w-full">
-          <div className="w-full px-6 py-4 bg-yellow-600/20 border-t border-yellow-500/30">
-            <p className="text-yellow-500 text-sm mb-2 flex items-start">
-              <AlertTriangle className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>{intl.formatMessage(i18n.cannotDeleteActive, { providerName })}</span>
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={onCancelDelete}
-            className="w-full h-[60px] rounded-none hover:bg-background-secondary text-text-secondary hover:text-text-primary text-md font-regular"
-          >
-            {intl.formatMessage(i18n.ok)}
-          </Button>
-        </div>
-      );
-    }
-
     // Normal delete confirmation
     return (
       <div className="w-full">

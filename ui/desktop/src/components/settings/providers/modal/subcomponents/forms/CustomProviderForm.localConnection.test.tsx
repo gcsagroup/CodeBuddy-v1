@@ -10,6 +10,22 @@ async function chooseLocal(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('CustomProviderForm local connection setup', () => {
+  it('sets the official OpenAI agent route to Responses and leaves compatible APIs configurable', async () => {
+    const user = userEvent.setup();
+    render(
+      <CustomProviderForm initialData={null} isEditable compactSetup
+        discoverModels={vi.fn()} onSubmit={vi.fn()} onCancel={vi.fn()} />,
+      { wrapper: IntlTestWrapper }
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'OpenAI' }));
+    expect(screen.getByRole('textbox', { name: 'API URL' })).toHaveValue('https://api.openai.com');
+    expect(screen.getByRole('textbox', { name: 'API Base Path (optional)' })).toHaveValue('/v1/responses');
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
+    expect(screen.getByRole('textbox', { name: 'API Base Path (optional)' })).toHaveValue('');
+  });
+
   it('keeps the catalog after a selected model fails and allows saving another model', async () => {
     const user = userEvent.setup();
     const discoverModels = vi.fn().mockResolvedValue(['gemini-3.6-flash', 'ollama-dev']);

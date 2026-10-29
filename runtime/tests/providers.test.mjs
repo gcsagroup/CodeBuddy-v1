@@ -58,6 +58,43 @@ function memoryStore() {
   };
 }
 
+test('official endpoints resolve native catalog capabilities without guessing from names or proxy URLs', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
+    data: [{ id: 'gpt-6.1-sol' }, { id: 'deepseek-flash' }],
+  }), { headers: { 'content-type': 'application/json' } }));
+  for (const [url, model] of [['https://api.openai.com', 'gpt-6.1-sol'], ['https://api.deepseek.com', 'deepseek-flash']]) {
+    const provider = { ...input(url), id: url, models: [model] };
+    const resolved = await driverProvider(provider, model);
+    assert.ok(Object.keys(resolved.reasoningEfforts).length > 1);
+    assert.equal(resolved.contextSource, 'catalog');
+    assert.equal((await resolveImageCapability(provider, model)).imageInput, 'supported');
+    assert.equal(provider.catalogProviderId, undefined, 'advisory lookup does not rewrite saved settings');
+  }
+  for (const url of ['https://openai-proxy.invalid', 'https://api.openai.com/proxy/v1']) {
+    const proxy = { ...input(url), displayName: 'OpenAI', id: url, models: ['gpt-6.1-sol'] };
+    assert.equal((await driverProvider(proxy, 'gpt-6.1-sol')).reasoningEfforts, undefined);
+    assert.equal((await resolveImageCapability(proxy, 'gpt-6.1-sol')).imageInput, 'unknown');
+  }
+});
+
+test('model lists prioritize catalog entries and service creation dates without changing the saved default', async t => {
+  const rows = [
+    { id: 'gpt-4', created: 100 },
+    { id: 'tts-1', created: 999 },
+    { id: 'gpt-6.1-sol', created: 200 },
+    { id: 'unknown-model', created: 300 },
+  ];
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: rows })));
+  const provider = { ...input('https://api.openai.com'), models: rows.map(row => row.id) };
+  const expected = ['gpt-6.1-sol', 'gpt-4', 'tts-1', 'unknown-model'];
+  assert.deepEqual(await discover(provider), expected);
+  assert.deepEqual(inventory(provider).models.map(model => model.id), expected);
+  assert.equal(inventory(provider).defaultModel, 'gpt-4');
+  assert.deepEqual(provider.models, rows.map(row => row.id));
+  const proxy = { ...provider, apiUrl: 'https://proxy.invalid', displayName: 'OpenAI' };
+  assert.deepEqual(await discover(proxy), ['tts-1', 'unknown-model', 'gpt-6.1-sol', 'gpt-4']);
+});
+
 test('local Ollama show metadata distinguishes vision, tool support and non-chat models', async t => {
   const api = await endpoint(t, (req, res, body) => res.end(JSON.stringify(req.url.endsWith('/api/tags')
     ? { models: ['vision-agent', 'text-only', 'embedding', 'unknown'].map(name => ({ name })) }

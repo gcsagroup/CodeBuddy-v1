@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
-import { catalogModels, catalogThinkingProfile } from './harness/model-catalog.mjs';
+import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -137,6 +137,16 @@ export function modelBase(provider) {
   return endpoints(provider)
     .completion.toString()
     .replace(/\/(?:chat\/completions|responses)$/, "");
+}
+
+function providerCatalog(provider) {
+  return provider.catalogProviderId ?? catalogProviderForEndpoint(modelBase(provider));
+}
+
+function orderedModels(provider, ids, created = {}) {
+  const catalog = new Set(catalogModelIds(providerCatalog(provider)));
+  return [...ids].sort((a, b) =>
+    Number(catalog.has(b)) - Number(catalog.has(a)) || (created[b] ?? 0) - (created[a] ?? 0));
 }
 
 function sameConnection(first, second) {
@@ -348,12 +358,15 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     .map(model => [model.id, modelOutput(model)]));
   const templateBackends = Object.fromEntries(models.filter(model => ['vllm', 'sglang'].includes(model?.owned_by))
     .map(model => [model.id, model.owned_by]));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, expires: Date.now() + metadataTtlMs });
-  return ids;
+  const created = Object.fromEntries(models.filter(model => Number.isSafeInteger(model?.created) && model.created > 0)
+    .map(model => [model.id, model.created]));
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+  return orderedModels(provider, ids, created);
 }
 
 async function resolveContext(provider, model, authPending, retryAfterRefresh = true) {
   if (!model) return undefined;
+  const catalogProviderId = providerCatalog(provider);
   const key = listingKey(provider);
   let cached = cachedModels(provider);
   if (!cached) {
@@ -398,8 +411,8 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           }
           source = 'service';
         }
-        if (!capacity && provider.catalogProviderId) {
-          const info = (await catalogModels(provider.catalogProviderId)).find(m => m.id === model);
+        if (!capacity && catalogProviderId) {
+          const info = (await catalogModels(catalogProviderId)).find(m => m.id === model);
           capacity = info?.contextWindow;
           const input = modelImageProfile(info, 'catalog');
           if (input && !cached.inputs?.[model]) { cached.inputs ??= {}; cached.inputs[model] = input; }
@@ -409,8 +422,8 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           source = 'catalog';
         }
         cached.thinking ??= {};
-        if (!Object.keys(cached.thinking[model] ?? {}).length && provider.catalogProviderId)
-          cached.thinking[model] = catalogThinkingProfile(provider.catalogProviderId, model);
+        if (!Object.keys(cached.thinking[model] ?? {}).length && catalogProviderId)
+          cached.thinking[model] = catalogThinkingProfile(catalogProviderId, model);
         if (capacity && !cached.contexts?.[model]) {
           cached.contexts ??= {}; cached.sources ??= {};
           cached.contexts[model] = capacity; cached.sources[model] = source;
@@ -559,7 +572,7 @@ export function inventory(provider) {
     setupSteps: [],
     supportsRefresh: true,
     refreshing: false,
-    models: models.map((id) => ({
+    models: orderedModels(provider, models, cachedModels(provider)?.created).map((id) => ({
       id,
       name: id,
       contextLimit: contextProfile(provider, id).contextWindow,
@@ -644,8 +657,9 @@ function ollamaThinkingProfile(body) {
 export function thinkingProfile(provider, model) {
   const discovered = cachedModels(provider)?.thinking?.[model];
   if (discovered && Object.hasOwn(discovered, 'reasoningEfforts')) return discovered;
-  if (provider.catalogProviderId) {
-    const catalog = catalogThinkingProfile(provider.catalogProviderId, model);
+  const catalogProviderId = providerCatalog(provider);
+  if (catalogProviderId) {
+    const catalog = catalogThinkingProfile(catalogProviderId, model);
     if (Object.hasOwn(catalog, 'reasoningEfforts')) return catalog;
   }
   // Only non-Ollama Gemma deployments use the existing chat-template adapter.

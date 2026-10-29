@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis';
-import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all';
+import { builtinProviders, getBuiltinModels } from '@earendil-works/pi-ai/providers/all';
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 
 // Metadata discovery can run before the execution Host. It must share the same
@@ -10,6 +10,29 @@ const pi = await import('@deepseek-ai/dsh-llm-pi-ai');
 
 // Read the installed adapter's public schema, not another host-owned limit.
 export const DEFAULT_CONTEXT_WINDOW = pi.Config.dict.providers.inner.dict.defaultContextWindow.meta.default;
+
+function catalogBase(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return undefined;
+    url.pathname = url.pathname.replace(/\/$/, '').replace(/\/v1$/, '') || '/';
+    return url.href;
+  } catch { return undefined; }
+}
+
+const providerBases = builtinProviders().filter(provider => typeof provider.baseUrl === 'string')
+  .map(provider => [provider.id, catalogBase(provider.baseUrl)]);
+
+export function catalogProviderForEndpoint(baseUrl) {
+  const base = catalogBase(baseUrl);
+  if (!base) return undefined;
+  const matches = providerBases.filter(([, candidate]) => candidate === base);
+  return matches.length === 1 ? matches[0][0] : undefined;
+}
+
+export function catalogModelIds(provider) {
+  return provider ? getBuiltinModels(provider).map(model => model.id) : [];
+}
 
 export function catalogThinkingProfile(provider, id) {
   const model = getBuiltinModels(provider).find(item => item.id === id);

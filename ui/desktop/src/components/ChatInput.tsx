@@ -677,14 +677,12 @@ export default function ChatInput({
   ]);
   const [mentionPopover, setMentionPopover] = useState<{
     isOpen: boolean;
-    position: { x: number; y: number; width?: number };
     query: string;
     mentionStart: number;
     selectedIndex: number;
     isSlashCommand: boolean;
   }>({
     isOpen: false,
-    position: { x: 0, y: 0 },
     query: '',
     mentionStart: -1,
     selectedIndex: 0,
@@ -964,14 +962,10 @@ export default function ChatInput({
     updateValue(val);
     inputRevisionRef.current += 1;
     setHasUserTyped(true);
-    checkForMentionOrSlash(val, cursorPosition, evt.target);
+    checkForMentionOrSlash(val, cursorPosition);
   };
 
-  const checkForMentionOrSlash = (
-    text: string,
-    cursorPosition: number,
-    textArea: HTMLTextAreaElement
-  ) => {
+  const checkForMentionOrSlash = (text: string, cursorPosition: number) => {
     const isSlashCommand = text.startsWith('/');
     const beforeCursor = text.slice(0, cursorPosition);
     const lastAtIndex = isSlashCommand ? 0 : beforeCursor.lastIndexOf('@');
@@ -989,17 +983,9 @@ export default function ChatInput({
       return;
     }
 
-    // Calculate position for the popover - position it above the chat input
-    const textAreaRect = textArea.getBoundingClientRect();
-
     setMentionPopover((prev) => ({
       ...prev,
       isOpen: true,
-      position: {
-        x: textAreaRect.left,
-        width: textAreaRect.width,
-        y: textAreaRect.top, // Position at the top of the textarea
-      },
       query: afterAt,
       mentionStart: lastAtIndex,
       selectedIndex: 0, // Reset selection when query changes
@@ -1088,7 +1074,7 @@ export default function ChatInput({
               setDisplayValue(newValue);
               updateValue(newValue);
               setHasUserTyped(true);
-              checkForMentionOrSlash(newValue, cursorPos, textarea);
+              checkForMentionOrSlash(newValue, cursorPos);
               requestAnimationFrame(() => {
                 textarea.selectionStart = textarea.selectionEnd = cursorPos;
               });
@@ -2400,7 +2386,7 @@ export default function ChatInput({
           isSlashCommand={mentionPopover.isSlashCommand}
           onClose={() => setMentionPopover((prev) => ({ ...prev, isOpen: false }))}
           onSelect={handleMentionItemSelect}
-          position={mentionPopover.position}
+          anchorRef={textAreaRef}
           query={mentionPopover.query}
           selectedIndex={mentionPopover.selectedIndex}
           onSelectedIndexChange={(index) =>

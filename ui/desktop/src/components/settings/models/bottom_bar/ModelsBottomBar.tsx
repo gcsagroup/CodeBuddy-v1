@@ -205,41 +205,70 @@ export default function ModelsBottomBar({
   return (
     <div className="relative flex min-w-0 max-w-full items-center" ref={dropdownRef}>
       <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            aria-label={intl.formatMessage(i18n.choose)}
-            title={intl.formatMessage(i18n.choose)}
-            disabled={loadingSession}
-            aria-busy={!!switching}
-            className="flex min-w-0 max-w-full items-center gap-1 text-xs text-text-primary/70 hover:text-text-primary disabled:opacity-60"
-          >
-            {loadingSession || switching ? (
-              <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
-            ) : (
-              <Bot className="size-4 shrink-0" aria-hidden="true" />
-            )}
-            <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
-              {loadingSession
-                ? intl.formatMessage(i18n.loading)
-                : currentModel
-                  ? getModelDisplayName(currentModel)
-                  : intl.formatMessage(i18n.select)}
-            </span>
-            <DropdownChevron
-              open={open}
-              className="size-3 shrink-0 group-data-[compact=true]/composer-toolbar:hidden"
-            />
-          </button>
-        </Popover.Trigger>
+        {!loadingSession && currentProvider && currentModel ? (
+          <Popover.Anchor asChild>
+            <div className="min-w-0 max-w-full">
+              <ModelThinkingMenu
+                key={identity({ provider: currentProvider, model: currentModel })}
+                provider={currentProvider}
+                model={currentModel}
+                presentation="slider"
+                modelLabel={getModelDisplayName(currentModel)}
+                onSelectModel={() => setOpen(true)}
+                disabled={!!switching}
+                triggerContent={
+                  <>
+                    {switching ? (
+                      <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Bot className="size-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
+                      {getModelDisplayName(currentModel)}
+                    </span>
+                  </>
+                }
+              />
+            </div>
+          </Popover.Anchor>
+        ) : (
+          <Popover.Trigger asChild>
+            <button
+              type="button"
+              aria-label={intl.formatMessage(i18n.choose)}
+              title={intl.formatMessage(i18n.choose)}
+              disabled={loadingSession}
+              aria-busy={!!switching}
+              className="flex min-w-0 max-w-full items-center gap-1 text-xs text-text-primary/70 hover:text-text-primary disabled:opacity-60"
+            >
+              {loadingSession || switching ? (
+                <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+              ) : (
+                <Bot className="size-4 shrink-0" aria-hidden="true" />
+              )}
+              <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
+                {loadingSession
+                  ? intl.formatMessage(i18n.loading)
+                  : currentModel
+                    ? getModelDisplayName(currentModel)
+                    : intl.formatMessage(i18n.select)}
+              </span>
+              <DropdownChevron
+                open={open}
+                className="size-3 shrink-0 group-data-[compact=true]/composer-toolbar:hidden"
+              />
+            </button>
+          </Popover.Trigger>
+        )}
         <Popover.Portal>
           <Popover.Content
+            updatePositionStrategy="always"
             side="top"
             align="start"
             sideOffset={8}
             collisionPadding={12}
             data-model-picker-list
-            className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border-primary bg-background-primary p-1.5 text-text-primary shadow-md"
+            className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(17.6rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-border-primary bg-background-primary p-[5px] text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <input
@@ -250,20 +279,26 @@ export default function ModelsBottomBar({
                 onChange={(event) => {
                   setModelQuery(event.target.value);
                 }}
-                className="m-1 shrink-0 rounded-lg border border-border-secondary bg-transparent px-3 py-2 text-sm outline-none focus:border-border-primary"
+                className="m-0.5 shrink-0 rounded-md border border-border-secondary bg-transparent px-2.5 py-1.5 text-[11px] leading-4 outline-none focus:border-border-primary"
               />
               <div
                 role="group"
                 aria-label={intl.formatMessage(i18n.choose)}
                 aria-busy={loading || !!switching}
-                className="min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto overscroll-contain"
+                className="min-h-0 max-h-[min(20.8rem,44vh)] overflow-y-auto overscroll-contain"
               >
                 {loading ? (
-                  <p role="status" className="px-3 py-4 text-sm text-text-secondary">
+                  <p
+                    role="status"
+                    className="px-2.5 py-1.5 text-[11px] leading-4 text-text-secondary"
+                  >
                     {intl.formatMessage(i18n.loading)}
                   </p>
                 ) : loadError ? (
-                  <div role="alert" className="px-3 py-3 text-sm text-text-secondary">
+                  <div
+                    role="alert"
+                    className="px-2.5 py-1.5 text-[11px] leading-4 text-text-secondary"
+                  >
                     <p>{intl.formatMessage(i18n.failed)}</p>
                     <button
                       type="button"
@@ -283,7 +318,7 @@ export default function ModelsBottomBar({
                     const previewCount = MODEL_PREVIEW_COUNT;
                     const shownModels = showAll ? models : models.slice(0, previewCount);
                     return (
-                      <div key={provider.name} className="space-y-1">
+                      <div key={provider.name} className="space-y-0.5">
                         <button
                           type="button"
                           aria-expanded={expanded}
@@ -295,7 +330,7 @@ export default function ModelsBottomBar({
                               [provider.name]: !expanded,
                             }));
                           }}
-                          className="flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
+                          className="flex min-h-[29px] w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] leading-[13px] text-text-secondary hover:bg-background-secondary"
                         >
                           {expanded ? (
                             <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
@@ -324,7 +359,7 @@ export default function ModelsBottomBar({
                                 aria-pressed={selected}
                                 title={model.name}
                                 onClick={() => void choose(selection)}
-                                className={`flex min-h-9 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected ? 'bg-background-secondary' : ''}`}
+                                className={`flex min-h-[29px] w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[11px] leading-4 hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 ${selected ? 'bg-background-secondary' : ''}`}
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   {getModelDisplayName(model.name)}
@@ -332,12 +367,12 @@ export default function ModelsBottomBar({
                                 {switching === identity(selection) ? (
                                   <LoaderCircle
                                     aria-label={intl.formatMessage(i18n.switching)}
-                                    className="size-3.5 shrink-0 animate-spin"
+                                    className="size-3 shrink-0 animate-spin"
                                   />
                                 ) : (
                                   selected && (
                                     <Check
-                                      className="size-3.5 shrink-0 text-text-secondary"
+                                      className="size-3 shrink-0 text-text-secondary"
                                       aria-hidden="true"
                                     />
                                   )
@@ -355,7 +390,7 @@ export default function ModelsBottomBar({
                                 [provider.name]: !showAll,
                               }));
                             }}
-                            className="flex min-h-9 w-full items-center rounded-lg px-3 py-2 text-left text-xs text-text-secondary hover:bg-background-secondary"
+                            className="flex min-h-[29px] w-full items-center rounded-md px-2.5 py-1.5 text-left text-[10px] leading-[13px] text-text-secondary hover:bg-background-secondary"
                           >
                             {intl.formatMessage(showAll ? i18n.showFewer : i18n.showMore, {
                               count: models.length - previewCount,
@@ -366,7 +401,7 @@ export default function ModelsBottomBar({
                     );
                   })
                 ) : (
-                  <p className="px-3 py-4 text-sm text-text-secondary">
+                  <p className="px-2.5 py-1.5 text-[11px] leading-4 text-text-secondary">
                     {intl.formatMessage(query ? i18n.noMatches : i18n.empty)}
                   </p>
                 )}
@@ -375,14 +410,14 @@ export default function ModelsBottomBar({
                 type="button"
                 disabled={!!switching}
                 onClick={manage}
-                className="mt-1 flex min-h-9 w-full shrink-0 items-center gap-2 border-t border-border-secondary px-3 py-2 text-left text-sm text-text-secondary hover:bg-background-secondary"
+                className="mt-0.5 flex min-h-[29px] w-full shrink-0 items-center gap-1.5 border-t border-border-secondary px-2.5 py-1.5 text-left text-[11px] leading-4 text-text-secondary hover:bg-background-secondary"
               >
-                <Settings className="size-3.5 shrink-0" aria-hidden="true" />
+                <Settings className="size-3 shrink-0" aria-hidden="true" />
                 {intl.formatMessage(i18n.manage)}
               </button>
             </div>
             {switchError && (
-              <div className="flex items-start gap-2 px-3 pb-1 pt-2 text-xs text-text-secondary">
+              <div className="flex items-start gap-1.5 px-2.5 pb-1 pt-2 text-[10px] leading-[13px] text-text-secondary">
                 <p role="alert" className="min-w-0 flex-1 break-words">
                   {switchError.message}
                 </p>
@@ -399,17 +434,6 @@ export default function ModelsBottomBar({
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
-      {!loadingSession && currentProvider && currentModel && (
-        <ModelThinkingMenu
-          key={identity({ provider: currentProvider, model: currentModel })}
-          provider={currentProvider}
-          model={currentModel}
-          presentation="slider"
-          modelLabel={getModelDisplayName(currentModel)}
-          onSelectModel={() => setOpen(true)}
-          disabled={!!switching}
-        />
-      )}
       {!open && switchError && (
         <span role="alert" className="ml-2 flex min-w-0 items-center text-xs text-text-secondary">
           <button

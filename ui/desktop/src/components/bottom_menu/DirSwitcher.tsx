@@ -224,6 +224,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        updatePositionStrategy="always"
         className="w-[min(28rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto"
         side="top"
         align="start"

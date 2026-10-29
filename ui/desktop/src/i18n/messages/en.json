@@ -9002,6 +9002,12 @@
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
   },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
+  },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
   },
@@ -9019,6 +9025,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Copy file contents"
@@ -9058,9 +9067,6 @@
   },
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
-  },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "Could not complete the file action. Please try again. Opening code files requires VS Code."
   },
   "workspacePanel.fileTree": {
     "defaultMessage": "Workspace file tree"
@@ -9107,9 +9113,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Open in VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Open file"
   },
@@ -9118,6 +9121,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Open in new tab"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"

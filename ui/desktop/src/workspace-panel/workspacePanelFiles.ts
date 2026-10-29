@@ -49,6 +49,26 @@ export async function panelPath(root: string, requested: string): Promise<string
   return real;
 }
 
+// Desktop references authorize this file only, never its containing directory.
+export async function readPanelReference(root: string, requested: string) {
+  if (typeof requested !== 'string' || requested.includes('\0'))
+    throw new Error('Invalid reference path');
+  const file = await fs.realpath(path.resolve(root, requested));
+  const external = !inside(root, file);
+  const stat = await fs.stat(file);
+  if (!stat.isFile() || (external && stat.size > LIMIT))
+    throw new Error('Reference must be a regular text file of at most 2 MiB');
+  const document = await readPanelFile(
+    external ? path.dirname(file) : root,
+    external ? path.basename(file) : file
+  );
+  if (external && (document.binary || document.media || document.image))
+    throw new Error('External reference supports text and source code only');
+  if ((await fs.realpath(path.resolve(root, requested))) !== file)
+    throw new Error('Reference changed; open the link again');
+  return { file, document, external };
+}
+
 export async function listPanelFiles(root: string, requested: string) {
   // Resolve the root once so linked workspaces (including macOS /var) keep
   // returned paths in the same coordinate system as the resolved directory.
@@ -72,8 +92,8 @@ export async function listPanelFiles(root: string, requested: string) {
 }
 
 const externalDocuments = new Set(['.docx', '.xlsx', '.pptx', '.pdf']);
-// Ordinary text/data files retain the user's OS association. Code goes to an
-// explicit editor, because script associations can execute instead of display.
+// These file types can be handed to the user's default application only after
+// an explicit desktop open action; preview itself never launches an application.
 const externalText = new Set([
   '.txt',
   '.md',

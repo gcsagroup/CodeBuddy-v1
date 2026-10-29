@@ -1017,6 +1017,33 @@ it.each([false, true])(
   }
 );
 
+it.each(['C:/project/src/main.ts:141', 'C:/project/src/main.ts#L141'])(
+  'preserves the source location for preview, editor and context menu: %s',
+  (href) => {
+    const opened = vi.fn();
+    window.addEventListener('codebuddy:open-workspace-file', opened);
+    try {
+      renderWithIntl(<MarkdownContent sessionId="source-location" content={`[Source](${href})`} />);
+      const link = screen.getByRole('link', { name: 'Source' });
+      fireEvent.click(link);
+      fireEvent.click(link, { ctrlKey: true });
+      fireEvent.contextMenu(link);
+      const target = {
+        sessionId: 'source-location',
+        filePath: 'C:/project/src/main.ts',
+        line: 141,
+      };
+      expect(opened.mock.calls.map(([event]) => event.detail)).toEqual([
+        target,
+        { ...target, action: 'open-external' },
+        { ...target, action: 'file-menu' },
+      ]);
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-file', opened);
+    }
+  }
+);
+
 it.each([false, true])(
   'opens workspace-relative links while preserving web and URL boundaries (streaming=%s)',
   (animateIncoming) => {
@@ -1041,7 +1068,11 @@ it.each([false, true])(
       expect(opened.mock.calls.map(([event]) => event.detail)).toEqual([
         { sessionId: 'relative-files', filePath: 'acceptance/maximum.cjs' },
         { sessionId: 'relative-files', filePath: './acceptance/中文 #.cjs' },
-        { sessionId: 'relative-files', filePath: '../../../../../runtime/providers.mjs' },
+        {
+          sessionId: 'relative-files',
+          filePath: '../../../../../runtime/providers.mjs',
+          line: 644,
+        },
       ]);
       fireEvent.click(screen.getByRole('link', { name: 'Web' }));
       expect(external).not.toHaveBeenCalled();

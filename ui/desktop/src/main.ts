@@ -2569,7 +2569,14 @@ ipcMain.handle('check-ollama', async () => {
 
 ipcMain.handle('read-file', async (_event, filePath) => readFileResponse(expandTilde(filePath)));
 
-registerWorkspacePanel();
+registerWorkspacePanel({
+  get: () => getSettings().defaultCodeEditor,
+  set: (editor) =>
+    updateSettings((settings) => {
+      settings.defaultCodeEditor = editor;
+    }),
+  t: nativeT,
+});
 registerGitHubCliAuth();
 
 ipcMain.handle('read-workspace-file', async (_event, workspaceRoot, requestedPath) => {

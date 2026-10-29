@@ -43,17 +43,25 @@ export interface PanelBrowserState {
 }
 export type PanelFileAction =
   | 'open-external'
+  | 'open-with'
   | 'reveal'
   | 'copy-path'
   | 'copy-image'
   | 'copy-text'
   | 'save-as';
 export type PanelFileMenuChoice = PanelFileAction | 'preview' | 'image-tab' | 'add-to-chat';
-export type PanelFileMenuLabels = Record<PanelFileMenuChoice, string> & { editor?: string };
+export type PanelFileMenuLabels = Record<Exclude<PanelFileMenuChoice, 'open-with'>, string> & {
+  'open-with'?: string;
+  chooseApplication?: string;
+  codeEditor?: string;
+  chooseCodeEditor?: string;
+};
 export type PanelTabAction = 'close' | 'close-others' | 'close-right';
 export interface PanelTabMenuRequest {
   scope?: PanelScope;
   path?: string;
+  reference?: boolean;
+  line?: number;
   labels: PanelFileMenuLabels;
   tabs: { labels: Record<PanelTabAction, string>; others: boolean; right: boolean };
 }
@@ -63,7 +71,7 @@ export interface WebLinkMenuRequest {
   allowPreview: boolean;
   labels: Record<WebLinkMenuChoice, string>;
 }
-export type PanelRequest = { scope: PanelScope } & (
+export type PanelRequest = { scope: PanelScope; reference?: boolean; line?: number } & (
   | ({ action: 'browser-control' } & BrowserControlInput)
   | { action: 'list'; path: string }
   | { action: 'search'; query: string }
@@ -73,6 +81,7 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'document-preview'; path: string; requestId: string }
   | { action: 'document-preview-cancel'; requestId: string }
   | { action: 'open-external'; path: string }
+  | { action: 'open-with'; path: string }
   | { action: 'reveal' | 'copy-path' | 'copy-image' | 'copy-text' | 'save-as'; path: string }
   | {
       action: 'file-menu';

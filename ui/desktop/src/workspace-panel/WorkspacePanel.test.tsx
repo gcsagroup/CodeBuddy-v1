@@ -10,46 +10,76 @@ import { AppEvents } from '../constants/events';
 import { getSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 
-it('shows an approved external source in a read-only preview without edit or save controls', async () => {
-  const previous = window.electron.workspacePanel;
-  const ipc = vi.fn(async (request: PanelRequest) =>
-    request.action === 'read-reference'
-      ? {
-          reference: {
-            path: 'C:/outside/source.mjs',
-            content: 'export const readonlyReference = true;',
+it.each(['codebuddy:open-workspace-file', 'codebuddy:open-conversation-change'])(
+  'opens an external source in a read-only right-panel tab through %s',
+  async (eventName) => {
+    const previous = window.electron.workspacePanel;
+    const ipc = vi.fn(async (request: PanelRequest) =>
+      request.action === 'read-reference'
+        ? {
+            reference: {
+              path: 'C:/outside/source.mjs',
+              content: 'const first = 1;\nexport const readonlyReference = true;',
+            },
+          }
+        : { entries: [] }
+    );
+    window.electron.workspacePanel = ipc as typeof previous;
+    try {
+      render(
+        <WorkspacePanelContent
+          scope={{ sessionId: `read-reference-test-${eventName}`, root: 'C:/fixture' }}
+          messages={fileOperation('external-read', 'read', '../outside/source.mjs')}
+          expanded
+          width={560}
+          onExpandedChange={vi.fn()}
+        />,
+        { wrapper: IntlTestWrapper }
+      );
+      fireEvent(
+        window,
+        new CustomEvent(eventName, {
+          detail: {
+            sessionId: `read-reference-test-${eventName}`,
+            filePath: '../outside/source.mjs',
+            line: 2,
+            ...(eventName === 'codebuddy:open-conversation-change'
+              ? { toolCallId: 'external-read' }
+              : {}),
           },
-        }
-      : { entries: [] }
-  );
-  window.electron.workspacePanel = ipc as typeof previous;
-  try {
-    render(
-      <WorkspacePanelContent
-        scope={{ sessionId: 'read-reference-test', root: 'C:/fixture' }}
-        expanded
-        width={560}
-        onExpandedChange={vi.fn()}
-      />,
-      { wrapper: IntlTestWrapper }
-    );
-    fireEvent(
-      window,
-      new CustomEvent('codebuddy:open-workspace-file', {
-        detail: { sessionId: 'read-reference-test', filePath: '../outside/source.mjs' },
-      })
-    );
-    const preview = await screen.findByRole('dialog', { name: 'C:/outside/source.mjs' });
-    expect(preview).toHaveTextContent('readonlyReference');
-    expect(within(preview).queryByRole('textbox')).toBeNull();
-    expect(within(preview).queryByRole('button', { name: /Save|Edit/ })).toBeNull();
-    expect(ipc).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'read-reference', path: '../outside/source.mjs' })
-    );
-  } finally {
-    window.electron.workspacePanel = previous;
+        })
+      );
+      const preview = await screen.findByRole('region', { name: 'C:/outside/source.mjs' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.getByRole('tab', { name: 'source.mjs' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
+      expect(preview).toHaveTextContent('readonlyReference');
+      expect(within(preview).queryByRole('textbox')).toBeNull();
+      expect(within(preview).queryByRole('button', { name: /Save|Edit/ })).toBeNull();
+      expect(ipc).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'read-reference', path: '../outside/source.mjs' })
+      );
+      fireEvent(
+        window,
+        new CustomEvent('codebuddy:open-workspace-file', {
+          detail: {
+            sessionId: `read-reference-test-${eventName}`,
+            filePath: 'C:/outside/source.mjs',
+            line: 2,
+          },
+        })
+      );
+      expect(screen.getAllByRole('tab', { name: 'source.mjs' })).toHaveLength(1);
+      expect(preview.querySelector('[data-source-line="2"]')).toHaveClass('wb-code-line-selected');
+      fireEvent.click(screen.getByRole('button', { name: 'Close source.mjs' }));
+      expect(screen.queryByRole('region', { name: 'C:/outside/source.mjs' })).toBeNull();
+    } finally {
+      window.electron.workspacePanel = previous;
+    }
   }
-});
+);
 vi.mock('../acp/goals', () => ({ getSessionGoal: vi.fn(), changeSessionGoal: vi.fn() }));
 vi.mock('./dshDocumentRenderer', () => ({
   loadDshDocumentRenderer: vi.fn().mockResolvedValue({}),
@@ -302,6 +332,7 @@ it('opens historical changes without a writable workspace and keeps file tabs se
   expect(invoke).not.toHaveBeenCalled();
 });
 beforeEach(() => {
+  globalThis.Element.prototype.scrollIntoView = vi.fn();
   mediaState.jobs = [];
   snapshotMock.binding = 'project_container';
   snapshotMock.readonlyHistory = false;
@@ -529,7 +560,12 @@ it('routes a file tab menu action through its current workspace without reopenin
   invoke.mockClear();
   fireEvent.contextMenu(tab);
   await waitFor(() =>
-    expect(invoke).toHaveBeenCalledWith({ scope, action: 'copy-path', path: 'note.txt' })
+    expect(invoke).toHaveBeenCalledWith({
+      scope,
+      action: 'copy-path',
+      path: 'note.txt',
+      reference: true,
+    })
   );
   expect(menu).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -603,6 +639,32 @@ it('ignores a tab menu result delivered after the panel unmounts', async () => {
   expect(invoke).not.toHaveBeenCalled();
 });
 
+it('shows the file preview when external editor selection falls back to preview', async () => {
+  const { scope } = panel();
+  invoke.mockImplementation(async (request: PanelRequest) =>
+    request.action === 'open-external'
+      ? { fileAction: 'preview' }
+      : request.action === 'read-reference'
+        ? { reference: { path: 'C:/outside/app.ts', content: 'const previewFallback = true;' } }
+        : {}
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: {
+        sessionId: scope.sessionId,
+        filePath: 'C:/outside/app.ts',
+        action: 'open-external',
+        line: 1,
+      },
+    })
+  );
+  const preview = await screen.findByRole('region', { name: 'C:/outside/app.ts' });
+  expect(preview).toHaveTextContent('previewFallback');
+  expect(preview.querySelector('[data-source-line="1"]')).toHaveClass('wb-code-line-selected');
+  expect(within(preview).queryByRole('textbox')).toBeNull();
+});
+
 it('routes file menu actions only through their current workspace and exposes failures', async () => {
   const { scope } = panel();
   invoke.mockClear();
@@ -620,13 +682,13 @@ it('routes file menu actions only through their current workspace and exposes fa
     scope,
     action: 'reveal',
     path: 'generated-images/sun.png',
+    reference: true,
   });
   invoke.mockRejectedValueOnce(new Error('File no longer exists'));
   action(scope.sessionId, 'copy-path');
-  expect(await screen.findByText(/Could not complete the file action/)).toBeVisible();
-  expect(screen.queryByText(/File no longer exists/)).toBeNull();
+  expect(await screen.findByText(/File no longer exists/)).toBeVisible();
   action(scope.sessionId, 'reveal');
-  await waitFor(() => expect(screen.queryByText(/Could not complete the file action/)).toBeNull());
+  await waitFor(() => expect(screen.queryByText(/File no longer exists/)).toBeNull());
   expect(screen.queryByRole('tab', { name: 'sun.png' })).toBeNull();
 });
 
@@ -647,6 +709,7 @@ it('consumes a native file menu choice once and ignores a late choice after leav
       scope: view.scope,
       action: 'copy-text',
       path: 'source.ts',
+      reference: true,
     })
   );
   let resolve!: (reply: { fileAction: 'open-external' }) => void;
@@ -881,7 +944,11 @@ it('opens read targets through the existing file tab and reuses absolute and rel
     })
   );
   expect(await screen.findByRole('tab', { name: 'note.txt' })).toBeVisible();
-  expect(invoke).toHaveBeenCalledWith({ scope, action: 'read', path: 'D:\\fixture\\note.txt' });
+  expect(invoke).toHaveBeenCalledWith({
+    scope,
+    action: 'read-reference',
+    path: 'D:\\fixture\\note.txt',
+  });
   invoke.mockClear();
   fireEvent(
     window,

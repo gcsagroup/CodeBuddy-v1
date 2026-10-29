@@ -249,6 +249,11 @@
   padding-left: 3.5em;
   min-height: 1.85em;
 }
+
+.wb-code-line-selected {
+  background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+  box-shadow: inset 3px 0 #3888e8;
+}
 .wb-code-line > .react-syntax-highlighter-line-number {
   position: absolute;
   left: 0;

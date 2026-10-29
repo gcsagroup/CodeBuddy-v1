@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 const languages: Record<string, string> = {
@@ -33,18 +33,40 @@ export const WorkspaceCodePreview = memo(function WorkspaceCodePreview({
   path,
   content,
   wrap,
+  line,
 }: {
   path: string;
   content: string;
   wrap: boolean;
+  line?: number;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (line)
+      root.current
+        ?.querySelector(`[data-source-line="${line}"]`)
+        ?.scrollIntoView({ block: 'center' });
+  }, [line, content]);
   const language = languages[path.split('.').pop()?.toLowerCase() ?? ''] ?? 'text';
   // Bound tokenization cost for large files; retain their full, selectable contents.
   return (
-    <div className={'wb-code ' + (wrap ? 'wb-code-wrap' : '')}>
+    <div ref={root} className={'wb-code ' + (wrap ? 'wb-code-wrap' : '')}>
       <div className="wb-code-language">{language}</div>
       {content.length > 100_000 ? (
-        <pre>{content}</pre>
+        <pre>
+          {line
+            ? content.split('\n').map((text, index) => (
+                <span
+                  key={index}
+                  className={`wb-code-line ${index + 1 === line ? 'wb-code-line-selected' : ''}`}
+                  data-source-line={index + 1}
+                >
+                  <span className="react-syntax-highlighter-line-number">{index + 1}</span>
+                  {text || '\n'}
+                </span>
+              ))
+            : content}
+        </pre>
       ) : (
         <SyntaxHighlighter
           language={language}
@@ -52,7 +74,10 @@ export const WorkspaceCodePreview = memo(function WorkspaceCodePreview({
           useInlineStyles={false}
           showLineNumbers
           wrapLines
-          lineProps={{ className: 'wb-code-line' }}
+          lineProps={(number) => ({
+            className: `wb-code-line ${number === line ? 'wb-code-line-selected' : ''}`,
+            'data-source-line': number,
+          })}
           codeTagProps={{ style: { font: 'inherit', color: 'inherit', textShadow: 'none' } }}
           lineNumberStyle={{
             minWidth: '3.5em',

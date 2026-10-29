@@ -8975,9 +8975,6 @@
   "workspacePanel.exited": {
     "defaultMessage": "已退出"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "无法完成文件操作，请重试。打开代码文件需要安装 VS Code。"
-  },
   "workspacePanel.files": {
     "defaultMessage": "工作区文件"
   },
@@ -9023,8 +9020,15 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "在默认应用中打开"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "在 VS Code 中打开"
+  "workspacePanel.openWith": {
+    "defaultMessage": "打开方式"
+  },
+  "workspacePanel.codeEditor": { "defaultMessage": "在代码编辑器中打开" },
+  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更换默认代码编辑器…" },
+  "workspacePanel.codeEditor": { "defaultMessage": "在代码编辑器中打开" },
+  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更换默认代码编辑器…" },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "选择其他应用…"
   },
   "workspacePanel.readOnlyReference": {
     "defaultMessage": "只读引用预览；不会扩大工作区或文件权限。"

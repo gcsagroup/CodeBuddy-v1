@@ -28,7 +28,15 @@ export type LanguageSetting =
   | 'system' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'id' | 'ms' | 'vi'
   | 'hi' | 'ja' | 'ko' | 'ru' | 'tr' | 'zh-CN' | 'zh-TW';
 
+export interface CodeEditorPreference {
+  path: string;
+  label: string;
+  kind: 'vscode' | 'sublime' | 'notepad++' | 'generic';
+}
+
 export interface Settings {
+  // Written only after an explicit editor choice in the main process.
+  defaultCodeEditor: CodeEditorPreference | null;
   // Desktop app settings
   showMenuBarIcon: boolean;
   disableAutoDownload: boolean;
@@ -67,6 +75,7 @@ export const defaultKeyboardShortcuts: DefaultKeyboardShortcuts = {
 };
 
 export const defaultSettings: Settings = {
+  defaultCodeEditor: null,
   // Desktop app settings
   showMenuBarIcon: true,
   disableAutoDownload: false,

@@ -4,6 +4,7 @@ export const OPEN_WORKSPACE_FILE = 'codebuddy:open-workspace-file';
 export interface WorkspaceFileTarget {
   sessionId: string;
   filePath: string;
+  line?: number;
   action?: PanelFileMenuChoice | 'file-menu';
   menuKind?: 'link' | 'image' | 'video';
 }
@@ -25,7 +26,7 @@ export interface WorkspaceWebTarget {
 
 export function workspaceLinkPath(value: string): string | undefined {
   try {
-    value = value.replace(/#L[1-9]\d*(?:-L?[1-9]\d*)?$/, '');
+    value = value.replace(/#L[1-9]\d*(?:-L?[1-9]\d*)?$|:[1-9]\d*(?::[1-9]\d*)?$/, '');
     if (/^file:/i.test(value)) {
       const url = new URL(value);
       if (url.hostname || url.search || url.hash) return undefined;
@@ -44,4 +45,10 @@ export function workspaceLinkPath(value: string): string | undefined {
     /* Incomplete or malformed Markdown URLs are not file targets. */
   }
   return undefined;
+}
+
+export function workspaceLinkLine(value: string): number | undefined {
+  const match = /#L([1-9]\d*)(?:-L?[1-9]\d*)?$|:([1-9]\d*)(?::[1-9]\d*)?$/.exec(value);
+  const line = match && Number(match[1] ?? match[2]);
+  return line && Number.isSafeInteger(line) ? line : undefined;
 }

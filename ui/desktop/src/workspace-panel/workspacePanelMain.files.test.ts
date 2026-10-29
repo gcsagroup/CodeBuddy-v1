@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 
 const hooks = vi.hoisted(() => ({
   ipc: vi.fn(),
@@ -17,7 +17,18 @@ const hooks = vi.hoisted(() => ({
   external: vi.fn(),
   download: vi.fn(),
   confirm: vi.fn(),
+  chooseApp: vi.fn(),
+  launch: vi.fn(),
+  codeOpen: vi.fn(),
 }));
+vi.mock('./workspaceCodeEditor', () => ({ openCodeFile: hooks.codeOpen }));
+beforeEach(() => {
+  vi.clearAllMocks();
+  hooks.codeOpen.mockImplementation(async (...args) => {
+    await args[5]();
+    return 'opened';
+  });
+});
 vi.mock('electron', () => ({
   app: { on: vi.fn() },
   BrowserWindow: { fromWebContents: hooks.from },
@@ -27,13 +38,17 @@ vi.mock('electron', () => ({
   shell: { showItemInFolder: hooks.reveal, openPath: hooks.open, openExternal: hooks.external },
   clipboard: { writeText: hooks.copy, writeImage: hooks.copyImage },
   Menu: { buildFromTemplate: hooks.menu },
-  dialog: { showSaveDialog: hooks.save, showMessageBox: hooks.confirm },
+  dialog: {
+    showSaveDialog: hooks.save,
+    showMessageBox: hooks.confirm,
+    showOpenDialog: hooks.chooseApp,
+  },
   nativeImage: { createFromPath: hooks.image },
   WebContentsView: vi.fn(),
 }));
 import { registerWorkspacePanel } from './workspacePanelMain';
 
-it('confirms each external source preview and never grants workspace read or write access', async () => {
+it('previews external source directly and limits file-menu actions to the referenced file', async () => {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-reference-'));
   const root = path.join(base, 'workspace');
   try {
@@ -60,27 +75,97 @@ it('confirms each external source preview and never grants workspace read or wri
     expect(() =>
       ipc({ ...event, senderFrame: {} }, { scope, action: 'read-reference', path: '../source.mjs' })
     ).toThrow('main frame');
-    hooks.confirm.mockResolvedValueOnce({ response: 1 });
-    expect(await ipc(event, { scope, action: 'read-reference', path: '../source.mjs' })).toEqual(
-      {}
-    );
-    hooks.confirm.mockResolvedValueOnce({ response: 0 });
     const reply = await ipc(event, { scope, action: 'read-reference', path: '../source.mjs' });
     expect(reply.reference).toEqual({
       path: await fs.realpath(outside),
       content: 'export const verified = true;',
     });
-    expect(hooks.confirm).toHaveBeenLastCalledWith(
+    expect(hooks.confirm.mock.calls).toHaveLength(confirmations);
+    const reference = { scope, path: '../source.mjs', reference: true };
+    await ipc(event, { ...reference, action: 'open-external', line: 141 });
+    expect(hooks.codeOpen).toHaveBeenLastCalledWith(
       win,
-      expect.objectContaining({ detail: await fs.realpath(outside), cancelId: 1, defaultId: 1 })
+      await fs.realpath(outside),
+      141,
+      false,
+      expect.any(Object),
+      expect.any(Function)
     );
+    expect(hooks.open).not.toHaveBeenCalled();
+    expect(hooks.external).not.toHaveBeenCalled();
+    await ipc(event, { ...reference, action: 'copy-path' });
+    expect(hooks.copy).toHaveBeenLastCalledWith(await fs.realpath(outside));
+    await ipc(event, { ...reference, action: 'copy-text' });
+    expect(hooks.copy).toHaveBeenLastCalledWith('export const verified = true;');
+    await ipc(event, { ...reference, action: 'reveal' });
+    expect(hooks.reveal).toHaveBeenLastCalledWith(await fs.realpath(outside));
+    const saved = path.join(base, 'copy.mjs');
+    hooks.save.mockResolvedValueOnce({ canceled: false, filePath: saved });
+    await ipc(event, { ...reference, action: 'save-as' });
+    expect(await fs.readFile(saved, 'utf8')).toBe('export const verified = true;');
+    const labels = {
+      preview: 'Open file',
+      'open-external': 'Open',
+      'open-with': 'Open with',
+      chooseApplication: 'Choose…',
+      'save-as': 'Save as…',
+      'copy-path': 'Copy path',
+      'copy-text': 'Copy contents',
+      reveal: 'Show in folder',
+    };
+    let menu: Array<{ label?: string; submenu?: Array<{ label?: string; click: () => void }> }> =
+      [];
+    hooks.menu.mockImplementationOnce((items) => {
+      menu = items;
+      return { popup: ({ callback }: { callback: () => void }) => callback() };
+    });
+    await ipc(event, { ...reference, action: 'file-menu', kind: 'link', labels });
+    expect(menu.map((item) => item.label).filter(Boolean)).toEqual([
+      'Open file',
+      'Open in code editor',
+      'Open with',
+      'Save as…',
+      'Copy path',
+      'Copy contents',
+      'Show in folder',
+    ]);
+    expect(
+      menu.find((item) => item.label === 'Open with')?.submenu?.map((item) => item.label)
+    ).toEqual(['Open file', 'Open in code editor', 'Change default code editor…']);
+    await ipc(event, { ...reference, action: 'open-with' });
+    expect(hooks.codeOpen).toHaveBeenLastCalledWith(
+      win,
+      await fs.realpath(outside),
+      undefined,
+      true,
+      expect.any(Object),
+      expect.any(Function)
+    );
+    hooks.codeOpen.mockResolvedValueOnce('preview');
+    expect(await ipc(event, { ...reference, action: 'open-external' })).toEqual({
+      fileAction: 'preview',
+    });
     await expect(ipc(event, { scope, action: 'read', path: '../source.mjs' })).rejects.toThrow(
       'outside'
     );
     await expect(
-      ipc(event, { scope, action: 'save', path: '../source.mjs', content: 'changed', version: '' })
+      ipc(event, {
+        scope,
+        action: 'save',
+        path: '../source.mjs',
+        content: 'changed',
+        version: '',
+        reference: true,
+      })
     ).rejects.toThrow('outside');
     expect(await fs.readFile(outside, 'utf8')).toBe('export const verified = true;');
+    await fs.writeFile(path.join(base, 'binary.dat'), Buffer.from([0, 1, 2, 0]));
+    await expect(
+      ipc(event, { ...reference, action: 'read-reference', path: '../binary.dat' })
+    ).rejects.toThrow('text');
+    await expect(ipc(event, { ...reference, action: 'list', path: '..' })).rejects.toThrow(
+      'outside'
+    );
   } finally {
     await fs.rm(base, { recursive: true, force: true });
   }
@@ -185,35 +270,33 @@ it('reveals or copies only existing scoped files without executing them or trust
     expect(await fs.readFile(file, 'utf8')).toBe('image fixture');
     await fs.writeFile(path.join(root, 'run.js'), 'throw new Error("not executed")');
     await ipc(event, { scope, action: 'open-external', path: 'run.js' });
-    expect(hooks.external).toHaveBeenLastCalledWith(expect.stringContaining('/run.js'));
+    expect(hooks.codeOpen.mock.lastCall?.[1]).toBe(path.join(root, 'run.js'));
     await expect(ipc(event, { scope, action: 'copy-image', path: 'run.js' })).rejects.toThrow(
       'supported image'
     );
     for (const name of ['run.jsx', 'run.py', 'run.bat']) {
       await fs.writeFile(path.join(root, name), 'not executed');
       await ipc(event, { scope, action: 'open-external', path: name });
-      expect(hooks.external).toHaveBeenLastCalledWith(expect.stringMatching(/^vscode:\/\/file\//));
+      expect(hooks.codeOpen.mock.lastCall?.[1]).toBe(path.join(root, name));
     }
     await fs.writeFile(path.join(root, '脚本 #1%.py'), 'not executed');
     await ipc(event, { scope, action: 'open-external', path: '脚本 #1%.py' });
-    expect(hooks.external).toHaveBeenLastCalledWith(
-      expect.stringContaining('%E8%84%9A%E6%9C%AC%20%231%25.py')
-    );
-    expect(hooks.open).toHaveBeenCalledTimes(1);
+    expect(hooks.codeOpen.mock.lastCall?.[1]).toBe(path.join(root, '脚本 #1%.py'));
+    expect(hooks.external).not.toHaveBeenCalled();
     await ipc(event, {
       scope,
       action: 'file-menu',
       path: 'run.js',
       kind: 'link',
-      labels: { ...labels, editor: 'Open in VS Code' },
+      labels,
     });
-    expect(menu.find((item) => item.label === 'Open in VS Code')?.enabled).toBe(true);
+    expect(menu.find((item) => item.label === 'Open in code editor')?.enabled).toBe(true);
     expect(menu.some((item) => item.label === labels['copy-text'])).toBe(true);
     await fs.writeFile(path.join(root, 'source.ts'), 'const 中文 = 1;\r\n');
     await ipc(event, { scope, action: 'copy-text', path: 'source.ts' });
     expect(hooks.copy).toHaveBeenLastCalledWith('const 中文 = 1;\r\n');
     await expect(ipc(event, { scope, action: 'copy-text', path: file })).rejects.toThrow('as text');
-    hooks.external.mockRejectedValueOnce(new Error('No associated application'));
+    hooks.codeOpen.mockRejectedValueOnce(new Error('No associated application'));
     await expect(ipc(event, { scope, action: 'open-external', path: 'source.ts' })).rejects.toThrow(
       'No associated application'
     );

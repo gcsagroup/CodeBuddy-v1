@@ -36,7 +36,6 @@ import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
 import { formatSubagentLabel } from '../components/toolActionPresentation';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceDocument } from './WorkspaceDocument';
 import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
@@ -319,8 +318,6 @@ export function WorkspacePanelContent({
   const [treeOpen, setTreeOpen] = useState(false);
   const [conversationRevision, setConversationRevision] = useState(0);
   const [wrap, setWrap] = useState(false);
-  const [reference, setReference] = useState<{ path: string; content: string } | null>(null);
-  useEffect(() => setReference(null), [scope.sessionId, scope.root]);
   const tabStrip = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(''),
     [results, setResults] = useState<PanelEntry[]>([]),
@@ -535,17 +532,27 @@ export function WorkspacePanelContent({
     [update]
   );
   const openFile = useCallback(
-    async (entry: PanelEntry, newImageTab = false, referenceLink = false) => {
+    async (entry: PanelEntry, newImageTab = false, referenceLink = false, line?: number) => {
       const existing =
         !newImageTab &&
         latest.current.tabs.find(
           (t) =>
-            (t.kind === 'file' || t.kind === 'file-info') &&
-            fileIdentity(t.kind === 'file' ? t.document.path : t.file.path, scope.root) ===
-              fileIdentity(entry.path, scope.root)
+            (t.kind === 'file' || t.kind === 'file-info' || t.kind === 'reference') &&
+            fileIdentity(
+              t.kind === 'file' ? t.document.path : t.kind === 'reference' ? t.path : t.file.path,
+              scope.root
+            ) === fileIdentity(entry.path, scope.root)
         );
       if (existing) {
-        activate(existing.id);
+        update((s) => ({
+          ...s,
+          active: existing.id,
+          tabs: s.tabs.map((t) =>
+            t.id === existing.id && (t.kind === 'file' || t.kind === 'reference')
+              ? { ...t, line, ...(t.kind === 'file' ? { preview: true } : {}) }
+              : t
+          ),
+        }));
         return;
       }
       setBusy(true);
@@ -581,7 +588,26 @@ export function WorkspacePanelContent({
           path: entry.path,
         });
         if (reply.reference && alive.current) {
-          setReference(reply.reference);
+          const reference = reply.reference;
+          update((s) => {
+            const existing = s.tabs.find(
+              (t) =>
+                t.kind === 'reference' &&
+                fileIdentity(t.path, scope.root) === fileIdentity(reference.path, scope.root)
+            );
+            const tab: WorkbenchTab = {
+              id: existing?.id ?? globalThis.crypto.randomUUID(),
+              kind: 'reference',
+              title: entry.name,
+              line,
+              ...reference,
+            };
+            return {
+              ...s,
+              tabs: existing ? s.tabs.map((t) => (t.id === tab.id ? tab : t)) : [...s.tabs, tab],
+              active: tab.id,
+            };
+          });
           return;
         }
         const { document } = reply;
@@ -608,6 +634,7 @@ export function WorkspacePanelContent({
                 document,
                 draft: document.content,
                 preview: true,
+                line,
               },
             ],
             active: id,
@@ -619,7 +646,7 @@ export function WorkspacePanelContent({
         if (alive.current) setBusy(false);
       }
     },
-    [scope, activate, update, fail, intl]
+    [scope, update, fail, intl]
   );
   useEffect(() => {
     const open = (event: Event) => {
@@ -639,7 +666,8 @@ export function WorkspacePanelContent({
             name: target.filePath.replace(/\\/g, '/').split('/').pop() || target.filePath,
           },
           newImageTab,
-          true
+          true,
+          target.line
         );
       };
       if (target.action) {
@@ -653,12 +681,17 @@ export function WorkspacePanelContent({
               action,
               path: target.filePath,
               kind: target.menuKind ?? 'link',
+              reference: true,
+              ...(target.line ? { line: target.line } : {}),
               labels: {
                 preview: intl.formatMessage(target.menuKind === 'video' ? m.playVideo : m.openFile),
                 'image-tab': intl.formatMessage(m.openImageTab),
                 'add-to-chat': intl.formatMessage(m.addToChat),
                 'open-external': intl.formatMessage(m.openDocument),
-                editor: intl.formatMessage(m.openEditor),
+                'open-with': intl.formatMessage(m.openWith),
+                chooseApplication: intl.formatMessage(m.chooseApplication),
+                codeEditor: intl.formatMessage(m.codeEditor),
+                chooseCodeEditor: intl.formatMessage(m.chooseCodeEditor),
                 reveal: intl.formatMessage(m.revealFile),
                 'copy-path': intl.formatMessage(m.copyFilePath),
                 'copy-image': intl.formatMessage(m.copyImage),
@@ -697,12 +730,19 @@ export function WorkspacePanelContent({
             );
             return;
           }
-          await window.electron.workspacePanel({ scope, action, path: target.filePath });
+          const result = await window.electron.workspacePanel({
+            scope,
+            action,
+            path: target.filePath,
+            reference: true,
+            ...(target.line ? { line: target.line } : {}),
+          });
+          if (alive.current && result?.fileAction === 'preview') return preview();
         })().catch((error) => {
           if (!alive.current) return;
           onExpandedChange(true);
           console.warn('Workspace file action failed:', error);
-          setError(intl.formatMessage(m.fileActionFailed));
+          fail(error);
         });
         return;
       }
@@ -753,11 +793,15 @@ export function WorkspacePanelContent({
       }
       if (operation?.kind === 'read') {
         if (available)
-          void openFile({
-            kind: 'file',
-            path: operation.path,
-            name: operation.path.replace(/\\/g, '/').split('/').pop() || operation.path,
-          });
+          void openFile(
+            {
+              kind: 'file',
+              path: operation.path,
+              name: operation.path.replace(/\\/g, '/').split('/').pop() || operation.path,
+            },
+            false,
+            true
+          );
         else setError(intl.formatMessage(m.noWorkspace));
       } else if ((!target.turnId && !target.toolCallId) || !target.filePath) {
         update((current) => ({ ...current, active: 'changes' }));
@@ -941,17 +985,29 @@ export function WorkspacePanelContent({
       const filePath =
         tab.kind === 'file'
           ? tab.document.path
-          : tab.kind === 'file-info'
-            ? tab.file.path
-            : undefined;
+          : tab.kind === 'reference'
+            ? tab.path
+            : tab.kind === 'file-info'
+              ? tab.file.path
+              : undefined;
       const reply = await window.electron.workspaceTabMenu({
-        ...(filePath ? { scope, path: filePath } : {}),
+        ...(filePath
+          ? {
+              scope,
+              path: filePath,
+              reference: tab.kind === 'reference',
+              ...('line' in tab && tab.line ? { line: tab.line } : {}),
+            }
+          : {}),
         labels: {
           preview: intl.formatMessage(m.openFile),
           'image-tab': intl.formatMessage(m.openImageTab),
           'add-to-chat': intl.formatMessage(m.addToChat),
           'open-external': intl.formatMessage(m.openDocument),
-          editor: intl.formatMessage(m.openEditor),
+          'open-with': intl.formatMessage(m.openWith),
+          chooseApplication: intl.formatMessage(m.chooseApplication),
+          codeEditor: intl.formatMessage(m.codeEditor),
+          chooseCodeEditor: intl.formatMessage(m.chooseCodeEditor),
           reveal: intl.formatMessage(m.revealFile),
           'copy-path': intl.formatMessage(m.copyFilePath),
           'copy-image': intl.formatMessage(m.copyImage),
@@ -971,7 +1027,12 @@ export function WorkspacePanelContent({
       if (!alive.current || !latest.current.tabs.some((item) => item.id === tab.id)) return;
       if (!reply) throw new Error(intl.formatMessage(m.restartDesktop));
       if (reply.fileAction && filePath) {
-        openWorkspaceFile({ sessionId: scope.sessionId, filePath, action: reply.fileAction });
+        openWorkspaceFile({
+          sessionId: scope.sessionId,
+          filePath,
+          action: reply.fileAction,
+          ...('line' in tab && tab.line ? { line: tab.line } : {}),
+        });
         return;
       }
       const action = reply.tabAction;
@@ -1187,9 +1248,11 @@ export function WorkspacePanelContent({
                 title={
                   t.kind === 'file'
                     ? t.document.path
-                    : t.kind === 'subagent'
-                      ? formatSubagentLabel(intl, t.title)
-                      : t.title
+                    : t.kind === 'reference'
+                      ? t.path
+                      : t.kind === 'subagent'
+                        ? formatSubagentLabel(intl, t.title)
+                        : t.title
                 }
                 onClick={() => activate(t.id)}
               >
@@ -1197,7 +1260,7 @@ export function WorkspacePanelContent({
                   <Target size={13} />
                 ) : t.kind === 'change' ? (
                   <FileDiff size={13} />
-                ) : t.kind === 'file' || t.kind === 'file-info' ? (
+                ) : t.kind === 'file' || t.kind === 'file-info' || t.kind === 'reference' ? (
                   <FileCode2 size={13} />
                 ) : t.kind === 'terminal' ? (
                   <TerminalSquare size={13} />
@@ -1405,7 +1468,34 @@ export function WorkspacePanelContent({
               </div>
             </section>
           )}
-          {selected?.kind === 'file-info' ? (
+          {selected?.kind === 'reference' ? (
+            <section className="flex min-w-0 flex-1 flex-col" aria-label={selected.path}>
+              <header className="wb-toolbar">
+                <span className="min-w-0 flex-1 truncate" title={selected.path}>
+                  {selected.path}
+                </span>
+                <button
+                  className="wb-icon"
+                  title={intl.formatMessage(m.wrap)}
+                  aria-label={intl.formatMessage(m.wrap)}
+                  aria-pressed={wrap}
+                  onClick={() => setWrap((value) => !value)}
+                >
+                  <WrapText size={15} />
+                </button>
+              </header>
+              <div className="wb-file-preview">
+                <WorkspaceCodePreview
+                  key={selected.id}
+                  path={selected.path}
+                  content={selected.content}
+                  wrap={wrap}
+                  line={selected.line}
+                />
+              </div>
+              <footer className="wb-statusbar">{intl.formatMessage(m.readOnlyReference)}</footer>
+            </section>
+          ) : selected?.kind === 'file-info' ? (
             <WorkspaceDocument
               key={selected.id}
               scope={scope}
@@ -1530,6 +1620,7 @@ export function WorkspacePanelContent({
                       path={selected.document.path}
                       content={selected.draft}
                       wrap={wrap}
+                      line={selected.line}
                     />
                   )}
                 </div>
@@ -1615,25 +1706,6 @@ export function WorkspacePanelContent({
   );
   return (
     <>
-      <Dialog
-        open={!!reference}
-        onOpenChange={(open) => {
-          if (!open) setReference(null);
-        }}
-      >
-        <DialogContent
-          aria-describedby={undefined}
-          className="flex h-[85vh] w-[90vw] max-w-[90vw] sm:max-w-[90vw] flex-col"
-        >
-          <DialogTitle className="break-all pr-6 text-sm">{reference?.path}</DialogTitle>
-          <p className="text-xs text-text-secondary">{intl.formatMessage(m.readOnlyReference)}</p>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {reference && (
-              <WorkspaceCodePreview path={reference.path} content={reference.content} wrap={wrap} />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
       {!expanded && (
         <button
           className="absolute right-3 top-11 z-20 wb-icon bg-background-primary no-drag"

@@ -830,9 +830,13 @@ function ToolCallView({
         event.stopPropagation();
         openWorkspaceFile({ sessionId: sessionId!, filePath: filePath!, action: 'file-menu' });
       }}
-      onClick={() =>
-        openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath })
-      }
+      onClick={(event) => {
+        if (event.ctrlKey || event.metaKey) {
+          openWorkspaceFile({ sessionId: sessionId!, filePath: filePath!, action: 'open-external' });
+        } else {
+          openConversationChange({ sessionId: sessionId!, toolCallId: requestId, filePath });
+        }
+      }}
     >
       {filePath!.split(/[\\/]/).filter(Boolean).pop()}
     </button>

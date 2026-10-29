@@ -45,6 +45,7 @@ import { isProtocolSafe, getProtocol, BLOCKED_PROTOCOLS } from '../utils/urlSecu
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import {
   openWorkspaceFile,
+  workspaceLinkLine,
   workspaceLinkPath,
   OPEN_WORKSPACE_WEB,
 } from '../workspace-panel/workspaceFilePanel';
@@ -411,6 +412,7 @@ const MarkdownContent = memo(function MarkdownContent({
     () => ({
       a: (props) => {
         const filePath = props.href && workspaceLinkPath(props.href);
+        const line = props.href && filePath ? workspaceLinkLine(props.href) : undefined;
         const link = (
           <a
             {...props}
@@ -424,6 +426,7 @@ const MarkdownContent = memo(function MarkdownContent({
                 openWorkspaceFile({
                   sessionId,
                   filePath,
+                  ...(line ? { line } : {}),
                   ...(e.ctrlKey || e.metaKey ? { action: 'open-external' as const } : {}),
                 });
                 return;
@@ -448,7 +451,7 @@ const MarkdownContent = memo(function MarkdownContent({
                 ? (event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    openWorkspaceFile({ sessionId, filePath, action: 'file-menu' });
+                    openWorkspaceFile({ sessionId, filePath, ...(line ? { line } : {}), action: 'file-menu' });
                   }
                 : /^https?:\/\//i.test(props.href ?? '')
                   ? (event) => {

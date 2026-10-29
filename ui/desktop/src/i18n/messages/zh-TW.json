@@ -8975,9 +8975,6 @@
   "workspacePanel.exited": {
     "defaultMessage": "已結束"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "無法完成檔案操作，請重試。開啟程式碼檔案需要安裝 VS Code。"
-  },
   "workspacePanel.files": {
     "defaultMessage": "工作區檔案"
   },
@@ -9023,8 +9020,13 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "在預設應用程式中開啟"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "在 VS Code 中開啟"
+  "workspacePanel.openWith": {
+    "defaultMessage": "開啟方式"
+  },
+  "workspacePanel.codeEditor": { "defaultMessage": "在程式碼編輯器中開啟" },
+  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更換預設程式碼編輯器…" },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "選擇其他應用程式…"
   },
   "workspacePanel.openFile": {
     "defaultMessage": "開啟檔案"

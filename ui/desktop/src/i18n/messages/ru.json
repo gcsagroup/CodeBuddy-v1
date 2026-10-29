@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Не удалось показать документ. Обновите его или откройте в приложении по умолчанию."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Некоторые шрифты недоступны. Макет предпросмотра может отличаться от оригинала."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Сжать сейчас"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Не удалось прочитать файл изображения"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "К одному сообщению можно прикрепить до {count} изображений."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Пользовательское подключение"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Удалить этого пользовательского провайдера? Провайдер и сохраненный API-ключ будут удалены навсегда. Это действие нельзя отменить."
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} не удалось"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Модель изменена"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Выбрать модель"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Модель успешно переключена -- используется {model} от {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Неизвестный провайдер в конфигурации -- проверьте config.yaml"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Не удалось переключить"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Корень с правом записи"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Добавить в чат"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Копировать содержимое файла"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Копировать путь к файлу"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Копировать изображение"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Копировать ссылку"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Скачать копию"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Не удалось выполнить действие со ссылкой. Повторите попытку."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Открыть в браузере по умолчанию"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Открыть файл"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Открыть изображение в новой вкладке"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Открыть в новой вкладке"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Воспроизвести видео"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Показать в папке"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Сохранить как…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Сохранить ссылку как…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Увеличить"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Уменьшить"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "По размеру окна"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Закрыть другие вкладки"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Закрыть вкладки справа"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Открыть в VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Не удалось выполнить действие с файлом. Повторите попытку. Для открытия файлов кода требуется VS Code."
   }
 }

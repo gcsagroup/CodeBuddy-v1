@@ -1,5 +1,9 @@
 import {
   app,
+  clipboard,
+  dialog,
+  Menu,
+  nativeImage,
   BrowserWindow,
   ipcMain,
   net,
@@ -13,6 +17,8 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import type { DocumentPreviewer } from '../../../../runtime/document-preview.mjs';
 import { MEDIA_SCHEME, PanelMediaRegistry, mediaRange } from './workspacePanelMedia';
 import type { IPty } from 'node-pty';
 import { terminalModulePath, terminalShell } from './workspacePanelTerminal';
@@ -23,11 +29,22 @@ import type {
   PanelReply,
   PanelRequest,
   PanelScope,
+  PanelFileMenuChoice,
+  WebLinkMenuRequest,
+  WebLinkMenuChoice,
+  PanelTabAction,
+  PanelTabMenuRequest,
 } from './workspacePanelTypes';
 import {
   listPanelFiles,
   inspectPanelFile,
-  externalPanelDocument,
+  externalPanelFile,
+  canOpenPanelFileExternally,
+  isPanelEditorFile,
+  panelPath,
+  panelMedia,
+  panelMediaType,
+  isPanelDocument,
   panelUrl,
   readPanelFile,
   savePanelFile,
@@ -55,17 +72,23 @@ interface Owner {
   roots: Map<string, string>;
   terminals: Map<string, TerminalState>;
   browsers: Map<string, BrowserState>;
+  documentPreviewer?: Promise<DocumentPreviewer>;
+  documentRequests?: Map<string, { scope: string; controller: AbortController }>;
   repositionBrowsers?: () => void;
 }
 const owners = new Map<number, Owner>();
 let updatePending = false;
 export function hasWorkspaceTerminals(): boolean {
-  return [...owners.values()].some(owner => [...owner.terminals.values()].some(terminal => !terminal.exited));
+  return [...owners.values()].some((owner) =>
+    [...owner.terminals.values()].some((terminal) => !terminal.exited)
+  );
 }
 export function reserveWorkspaceUpdate(): () => void {
   if (updatePending) throw new Error('应用正在准备更新。');
   updatePending = true;
-  return () => { updatePending = false; };
+  return () => {
+    updatePending = false;
+  };
 }
 const mediaFiles = new PanelMediaRegistry();
 const mediaSessions = new WeakSet<Session>();
@@ -118,6 +141,8 @@ function dispose(owner: Owner) {
     owner.win.removeListener('restore', owner.repositionBrowsers);
   }
   mediaFiles.revoke(owner.id);
+  for (const request of owner.documentRequests?.values() ?? []) request.controller.abort();
+  void owner.documentPreviewer?.then((previewer) => previewer.dispose()).catch(console.warn);
   for (const terminal of owner.terminals.values()) {
     if (!terminal.exited) {
       try {
@@ -287,9 +312,223 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       if (file.media) file.media.url = mediaFiles.grant(owner.id, root, request.path);
       return { file };
     }
+    case 'document-preview-cancel': {
+      const current = owner.documentRequests?.get(request.requestId);
+      if (current?.scope === scope) current.controller.abort();
+      return {};
+    }
+    case 'document-preview': {
+      if (
+        typeof request.requestId !== 'string' ||
+        !request.requestId ||
+        request.requestId.length > 100
+      )
+        throw new Error('Invalid document request');
+      owner.documentRequests ??= new Map();
+      if (owner.documentRequests.size >= 8 || owner.documentRequests.has(request.requestId))
+        throw new Error('Too many document preview requests');
+      const controller = new AbortController();
+      owner.documentRequests.set(request.requestId, { scope, controller });
+      try {
+        const file = await panelPath(root, request.path);
+        if (!isPanelDocument(file)) throw new Error('Unsupported preview document');
+        const stat = await fs.stat(file);
+        if (!stat.isFile() || stat.size > 32 * 1024 * 1024)
+          throw new Error('Document exceeds 32 MB');
+        const versionOf = (info: {
+          dev: number;
+          ino: number;
+          size: number;
+          mtimeMs: number;
+          ctimeMs: number;
+        }) => JSON.stringify([info.dev, info.ino, info.size, info.mtimeMs, info.ctimeMs]);
+        const version = versionOf(stat);
+        controller.signal.throwIfAborted();
+        owner.documentPreviewer ??= (async () => {
+          const runtime = app.isPackaged
+            ? path.join(
+                path.dirname(
+                  await fs.realpath(
+                    path.join(process.resourcesPath, 'harness-distribution', 'manifest.json')
+                  )
+                ),
+                'runtime'
+              )
+            : path.resolve(app.getAppPath(), '../../runtime');
+          const module = await import(
+            /* @vite-ignore */ pathToFileURL(path.join(runtime, 'document-preview.mjs')).href
+          );
+          return new module.DocumentPreviewer() as DocumentPreviewer;
+        })().catch((error) => {
+          owner.documentPreviewer = undefined;
+          throw error;
+        });
+        const previewer = await owner.documentPreviewer;
+        const documentPreview = await previewer.render(
+          {
+            key: JSON.stringify([owner.id, root, file]),
+            extension: path.extname(file).toLowerCase(),
+            version,
+            size: stat.size,
+            read: async (signal, maxBytes) => {
+              signal.throwIfAborted();
+              if ((await panelPath(root, request.path)) !== file)
+                throw new Error('Document path changed');
+              const handle = await fs.open(file, 'r');
+              try {
+                const current = await handle.stat();
+                if (!current.isFile() || current.size > maxBytes)
+                  throw new Error('Document exceeds the preview size limit');
+                if (versionOf(current) !== version)
+                  throw new Error('Document changed; reload its preview');
+                const buffer = Buffer.alloc(current.size + 1);
+                let offset = 0;
+                while (offset < buffer.length) {
+                  signal.throwIfAborted();
+                  const read = await handle.read(buffer, offset, buffer.length - offset, offset);
+                  if (!read.bytesRead) break;
+                  offset += read.bytesRead;
+                }
+                const after = await handle.stat();
+                if (offset !== current.size || versionOf(after) !== version)
+                  throw new Error('Document changed; reload its preview');
+                return { bytes: buffer.subarray(0, offset), version: versionOf(after) };
+              } finally {
+                await handle.close();
+              }
+            },
+          },
+          controller.signal
+        );
+        controller.signal.throwIfAborted();
+        return { documentPreview };
+      } catch (error) {
+        if (!controller.signal.aborted)
+          console.warn(
+            'Document preview failed:',
+            error instanceof Error ? error.message : 'Unknown preview error'
+          );
+        throw error;
+      } finally {
+        owner.documentRequests.delete(request.requestId);
+      }
+    }
     case 'open-external': {
-      const error = await shell.openPath(await externalPanelDocument(root, request.path));
+      const file = await externalPanelFile(root, request.path);
+      if (isPanelEditorFile(file)) {
+        // A script's OS association can execute it. Only send a validated file
+        // path to the editor's documented file URI, never a command URI.
+        await shell.openExternal(`vscode://file${pathToFileURL(file).pathname}`);
+        return {};
+      }
+      const error = await shell.openPath(file);
       if (error) throw new Error(error);
+      return {};
+    }
+    case 'reveal':
+    case 'copy-path':
+    case 'copy-image':
+    case 'copy-text':
+    case 'save-as':
+    case 'attach-image':
+    case 'file-menu': {
+      const file = await panelPath(root, request.path);
+      const stat = await fs.stat(file);
+      if (!stat.isFile()) throw new Error('Path is not a regular file');
+      if (request.action === 'file-menu') {
+        const media = panelMediaType(file);
+        const image = media?.kind === 'image';
+        const choices: (PanelFileMenuChoice | null)[] =
+          request.kind === 'image' && image
+            ? ['image-tab', 'add-to-chat', 'copy-image', 'reveal', 'save-as']
+            : [
+                ...(request.tabs ? [] : ['preview' as const]),
+                'open-external',
+                null,
+                'save-as',
+                'copy-path',
+                ...(!media && !isPanelDocument(file) ? ['copy-text' as const] : []),
+                null,
+                'reveal',
+              ];
+        const selected = await new Promise<PanelFileMenuChoice | PanelTabAction | undefined>(
+          (resolve) => {
+            Menu.buildFromTemplate([
+              ...choices.map((action) =>
+                action
+                  ? {
+                      label:
+                        action === 'open-external' && isPanelEditorFile(file)
+                          ? (request.labels.editor ?? request.labels[action])
+                          : request.labels[action],
+                      enabled: action !== 'open-external' || canOpenPanelFileExternally(file),
+                      click: () => resolve(action),
+                    }
+                  : { type: 'separator' as const }
+              ),
+              ...(request.tabs
+                ? [
+                    { type: 'separator' as const },
+                    ...(['close', 'close-others', 'close-right'] as const).map((action) => ({
+                      label: request.tabs!.labels[action],
+                      enabled:
+                        action === 'close' ||
+                        (action === 'close-others' ? request.tabs!.others : request.tabs!.right),
+                      click: () => resolve(action),
+                    })),
+                  ]
+                : []),
+            ]).popup({ window: owner.win, callback: () => resolve(undefined) });
+          }
+        );
+        return selected === 'close' || selected === 'close-others' || selected === 'close-right'
+          ? { fileAction: null, tabAction: selected }
+          : { fileAction: selected ?? null };
+      }
+      if (request.action === 'reveal') shell.showItemInFolder(file);
+      else if (request.action === 'copy-path') clipboard.writeText(file);
+      else if (request.action === 'copy-text') {
+        const document = await readPanelFile(root, request.path);
+        if (document.binary || document.media)
+          throw new Error('This file cannot be copied as text');
+        clipboard.writeText(document.content);
+      } else if (request.action === 'copy-image') {
+        if (panelMedia(file, stat.size)?.kind !== 'image') throw new Error('Not a supported image');
+        const image = nativeImage.createFromPath(file);
+        if (image.isEmpty()) throw new Error('Image could not be loaded');
+        clipboard.writeImage(image);
+      } else if (request.action === 'attach-image') {
+        const media = panelMedia(file, stat.size);
+        if (media?.kind !== 'image') throw new Error('Not a supported image');
+        const data = await fs.readFile(file);
+        if (data.length > 32 * 1024 * 1024)
+          throw new Error('Image exceeds the attachment size limit');
+        return {
+          attachment: {
+            name: path.basename(file),
+            dataUrl: `data:${media.mimeType};base64,${data.toString('base64')}`,
+          },
+        };
+      } else {
+        const destination = await dialog.showSaveDialog(owner.win, {
+          defaultPath: path.basename(file),
+        });
+        if (!destination.canceled && destination.filePath) {
+          const existing = await fs
+            .stat(destination.filePath)
+            .catch((error: Error & { code?: string }) => {
+              if (error.code !== 'ENOENT') throw error;
+              return undefined;
+            });
+          if (
+            path.relative(file, path.resolve(destination.filePath)) === '' ||
+            (existing && stat.ino !== 0 && existing.dev === stat.dev && existing.ino === stat.ino)
+          )
+            return {};
+          // The source may have moved while the user chose a destination.
+          await fs.copyFile(await panelPath(root, request.path), destination.filePath);
+        }
+      }
       return {};
     }
     case 'save':
@@ -469,12 +708,64 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       return {};
     }
   }
+  throw new Error(
+    'Unsupported workspace action. Restart CodeBuddy after updating its main process.'
+  );
 }
 
 export function registerWorkspacePanel() {
+  ipcMain.handle(
+    'workspace-tab-menu',
+    async (event, request: PanelTabMenuRequest): Promise<PanelReply> => {
+      const owner = ownerFor(event);
+      if (request.path && request.scope)
+        return dispatch(owner, {
+          scope: request.scope,
+          action: 'file-menu',
+          kind: 'link',
+          path: request.path,
+          labels: request.labels,
+          tabs: request.tabs,
+        });
+      const tabAction = await new Promise<PanelTabAction | undefined>((resolve) => {
+        Menu.buildFromTemplate(
+          (['close', 'close-others', 'close-right'] as const).map((action) => ({
+            label: request.tabs.labels[action],
+            enabled:
+              action === 'close' ||
+              (action === 'close-others' ? request.tabs.others : request.tabs.right),
+            click: () => resolve(action),
+          }))
+        ).popup({ window: owner.win, callback: () => resolve(undefined) });
+      });
+      return { fileAction: null, ...(tabAction ? { tabAction } : {}) };
+    }
+  );
   ipcMain.handle('workspace-panel', (event, request: PanelRequest) =>
     dispatch(ownerFor(event), request)
   );
+  ipcMain.handle('web-link-menu', async (event, request: WebLinkMenuRequest) => {
+    const owner = ownerFor(event);
+    const url = panelUrl(request.url);
+    const choices: WebLinkMenuChoice[] = [
+      ...(request.allowPreview ? ['preview' as const] : []),
+      'open-external',
+      'copy-link',
+      'save-link',
+    ];
+    const action = await new Promise<WebLinkMenuChoice | null>((resolve) => {
+      Menu.buildFromTemplate(
+        choices.map((choice) => ({
+          label: request.labels[choice],
+          click: () => resolve(choice),
+        }))
+      ).popup({ window: owner.win, callback: () => resolve(null) });
+    });
+    if (action === 'open-external') await shell.openExternal(url);
+    else if (action === 'copy-link') clipboard.writeText(url);
+    else if (action === 'save-link') owner.win.webContents.downloadURL(url);
+    return { action: action === 'preview' ? action : null };
+  });
   app.on('before-quit', () => {
     for (const owner of [...owners.values()]) dispose(owner);
   });

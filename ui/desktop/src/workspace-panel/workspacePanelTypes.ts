@@ -27,6 +27,11 @@ export interface PanelFileInfo {
   openExternally: boolean;
   media?: PanelMedia;
 }
+export interface PanelDocumentPreview {
+  kind: 'pdf' | 'excel';
+  data: Uint8Array;
+  missingFonts: readonly string[];
+}
 export interface PanelBrowserState {
   id: string;
   url: string;
@@ -36,13 +41,46 @@ export interface PanelBrowserState {
   forward: boolean;
   error?: string;
 }
+export type PanelFileAction =
+  | 'open-external'
+  | 'reveal'
+  | 'copy-path'
+  | 'copy-image'
+  | 'copy-text'
+  | 'save-as';
+export type PanelFileMenuChoice = PanelFileAction | 'preview' | 'image-tab' | 'add-to-chat';
+export type PanelFileMenuLabels = Record<PanelFileMenuChoice, string> & { editor?: string };
+export type PanelTabAction = 'close' | 'close-others' | 'close-right';
+export interface PanelTabMenuRequest {
+  scope?: PanelScope;
+  path?: string;
+  labels: PanelFileMenuLabels;
+  tabs: { labels: Record<PanelTabAction, string>; others: boolean; right: boolean };
+}
+export type WebLinkMenuChoice = 'preview' | 'open-external' | 'copy-link' | 'save-link';
+export interface WebLinkMenuRequest {
+  url: string;
+  allowPreview: boolean;
+  labels: Record<WebLinkMenuChoice, string>;
+}
 export type PanelRequest = { scope: PanelScope } & (
   | ({ action: 'browser-control' } & BrowserControlInput)
   | { action: 'list'; path: string }
   | { action: 'search'; query: string }
   | { action: 'read'; path: string }
   | { action: 'inspect'; path: string }
+  | { action: 'document-preview'; path: string; requestId: string }
+  | { action: 'document-preview-cancel'; requestId: string }
   | { action: 'open-external'; path: string }
+  | { action: 'reveal' | 'copy-path' | 'copy-image' | 'copy-text' | 'save-as'; path: string }
+  | {
+      action: 'file-menu';
+      path: string;
+      kind: 'link' | 'image' | 'video';
+      labels: PanelFileMenuLabels;
+      tabs?: PanelTabMenuRequest['tabs'];
+    }
+  | { action: 'attach-image'; path: string }
   | { action: 'save'; path: string; content: string; version: string }
   | { action: 'terminal-create' }
   | { action: 'terminal-read'; id: string; offset: number }
@@ -61,11 +99,15 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'browser-close'; id: string }
 );
 export interface PanelReply {
+  fileAction?: PanelFileMenuChoice | null;
+  tabAction?: PanelTabAction;
+  attachment?: { name: string; dataUrl: string };
   result?: Record<string, unknown>;
   entries?: PanelEntry[];
   truncated?: boolean;
   document?: PanelDocument;
   file?: PanelFileInfo;
+  documentPreview?: PanelDocumentPreview;
   id?: string;
   data?: string;
   offset?: number;

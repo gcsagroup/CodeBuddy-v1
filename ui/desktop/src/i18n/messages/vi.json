@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Không thể xem trước tài liệu này. Hãy tải lại hoặc mở bằng ứng dụng mặc định."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Một số phông chữ không khả dụng. Bố cục xem trước có thể khác bản gốc."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Nén ngay"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Không thể đọc tệp hình ảnh"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Bạn có thể đính kèm tối đa {count} hình ảnh trong mỗi tin nhắn."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Kết nối tùy chỉnh"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bạn có chắc chắn muốn xóa nhà cung cấp tùy chỉnh này không? Thao tác này sẽ xóa vĩnh viễn nhà cung cấp và khóa API đã lưu trữ của nó. Hành động này không thể hoàn tác."
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} thất bại"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Đã thay đổi mô hình"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Chọn mô hình"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Đã chuyển đổi mô hình thành công -- đang sử dụng {model} từ {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Nhà cung cấp không xác định trong cấu hình -- vui lòng kiểm tra config.yaml của bạn"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Chuyển đổi thất bại"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Thư mục gốc có thể ghi"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Thêm vào cuộc trò chuyện"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Sao chép nội dung tệp"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Sao chép đường dẫn tệp"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Sao chép hình ảnh"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Sao chép liên kết"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Tải xuống bản sao"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Không thể hoàn tất thao tác liên kết. Hãy thử lại."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Mở bằng trình duyệt mặc định"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Mở tệp"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Mở hình ảnh trong thẻ mới"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Mở trong thẻ mới"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Phát video"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Hiển thị trong thư mục"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Lưu thành…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Lưu liên kết thành…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Phóng to"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Thu nhỏ"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Vừa cửa sổ"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Đóng các thẻ khác"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Đóng các thẻ bên phải"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Mở trong VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Không thể hoàn tất thao tác với tệp. Hãy thử lại. Cần có VS Code để mở tệp mã."
   }
 }

@@ -108,7 +108,7 @@ describe('CustomProviderForm local connection setup', () => {
 
     expect(screen.queryByText('Start from a provider template')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'API URL' })).toHaveValue('');
-    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('Custom connection');
     expect(screen.getByLabelText(/^API Key/)).toHaveValue('');
     expect(discoverModels).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('Available Models (comma-separated)')).not.toBeInTheDocument();
@@ -294,7 +294,7 @@ describe('CustomProviderForm local connection setup', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
     await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
-    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('Custom connection');
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'Remote test');
     await user.type(screen.getByRole('textbox', { name: 'API URL' }), 'https://example.test');
     await user.type(screen.getByLabelText(/^API Key/), '12345');
@@ -328,7 +328,7 @@ describe('CustomProviderForm local connection setup', () => {
     expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
   });
 
-  it('clears the preset display name when the user chooses a custom endpoint', async () => {
+  it('keeps a name the user entered when the provider preset changes', async () => {
     const user = userEvent.setup();
     render(
       <CustomProviderForm
@@ -348,6 +348,6 @@ describe('CustomProviderForm local connection setup', () => {
     await user.type(displayName, 'temporary name');
     await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
     await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
-    expect(displayName).toHaveValue('');
+    expect(displayName).toHaveValue('Local Ollamatemporary name');
   });
 });

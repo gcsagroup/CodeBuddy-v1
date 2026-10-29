@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Bu belge önizlenemedi. Yeniden yükleyin veya varsayılan uygulamada açın."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Bazı yazı tipleri kullanılamıyor. Önizleme düzeni asıl belgeden farklı olabilir."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Şimdi sıkıştır"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Resim dosyası okunamadı"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Bir mesaja en fazla {count} resim ekleyebilirsiniz."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Özel bağlantı"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bu özel sağlayıcıyı silmek istediğinizden emin misiniz? Bu, sağlayıcıyı ve depolanan API anahtarını kalıcı olarak kaldıracaktır. Bu eylem geri alınamaz."
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} başarısız oldu"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Model değiştirildi"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Modeli Seçin"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "{provider}'den {model} kullanılarak modeller başarıyla değiştirildi"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Config'de bilinmeyen sağlayıcı -- lütfen config.yaml dosyanızı inceleyin"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Geçiş başarısız"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Yazılabilir kök"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Sohbete ekle"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Dosya içeriğini kopyala"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Dosya yolunu kopyala"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Resmi kopyala"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Bağlantıyı kopyala"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Bir kopya indir"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Bağlantı işlemi tamamlanamadı. Tekrar deneyin."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Varsayılan tarayıcıda aç"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Dosyayı aç"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Resmi yeni sekmede aç"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Yeni sekmede aç"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Videoyu oynat"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Klasörde göster"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Farklı kaydet…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Bağlantıyı farklı kaydet…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Yakınlaştır"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Uzaklaştır"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Pencereye sığdır"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Diğer sekmeleri kapat"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Sağdaki sekmeleri kapat"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "VS Code ile aç"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Dosya işlemi tamamlanamadı. Tekrar deneyin. Kod dosyalarını açmak için VS Code gereklidir."
   }
 }

@@ -3,6 +3,7 @@ import { FileCode2, ChevronRight } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
 import { getToolResponses, type Message } from '../../types/message';
 import { openConversationChange } from '../../workspace-panel/conversationChangePanel';
+import { openWorkspaceFile } from '../../workspace-panel/workspaceFilePanel';
 import {
   collectConversationChanges,
   displayChangePath,
@@ -31,8 +32,8 @@ const i18n = defineMessages({
   },
 });
 
-// The card opens saved evidence in the workbench. It never reads today's files
-// or expands a second history viewer inside the conversation.
+// The default click opens saved evidence. Only an explicit file-menu action
+// addresses today's workspace file; the main process validates that path.
 export function CodeProConversationFiles({
   messages,
   sourceMessages,
@@ -136,7 +137,20 @@ export function CodeProConversationFiles({
                     type="button"
                     className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
                     aria-label={file.path}
-                    onClick={() => open(file.path)}
+                    onClick={(event) =>
+                      event.ctrlKey || event.metaKey
+                        ? openWorkspaceFile({
+                            sessionId,
+                            filePath: file.path,
+                            action: 'open-external',
+                          })
+                        : open(file.path)
+                    }
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openWorkspaceFile({ sessionId, filePath: file.path, action: 'file-menu' });
+                    }}
                   >
                     {content}
                   </button>

@@ -1,6 +1,11 @@
 import type { PetRequest, PetSnapshot } from './pets/petTypes';
 import type { GitHubCliStatus, GitHubCliChallenge, GitHubCliPoll } from './github/githubCliTypes';
-import type { PanelRequest, PanelReply } from './workspace-panel/workspacePanelTypes';
+import type {
+  PanelRequest,
+  PanelReply,
+  WebLinkMenuRequest,
+  PanelTabMenuRequest,
+} from './workspace-panel/workspacePanelTypes';
 import Electron, { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Recipe } from './recipe';
 import type { GooseApp } from './types/apps';
@@ -110,6 +115,8 @@ type ElectronAPI = {
   desktopPet: (request: PetRequest) => Promise<PetSnapshot>;
   petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
+  workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
+  webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
   arch: string;
   reactReady: () => void;
@@ -189,7 +196,9 @@ type ElectronAPI = {
   openExternal: (url: string) => Promise<void>;
   // Update-related functions
   getVersion: () => string;
-  checkForUpdates: (channel?: import('./update/types').UpdateChannel) => Promise<import('./update/types').UpdateState>;
+  checkForUpdates: (
+    channel?: import('./update/types').UpdateChannel
+  ) => Promise<import('./update/types').UpdateState>;
   downloadUpdate: () => Promise<import('./update/types').UpdateState>;
   installUpdate: () => Promise<import('./update/types').UpdateState>;
   cancelUpdate: () => Promise<void>;
@@ -219,6 +228,8 @@ type AppConfigAPI = {
 const electronAPI: ElectronAPI = {
   desktopPet: (request) => ipcRenderer.invoke('desktop-pet', request),
   workspacePanel: (request) => ipcRenderer.invoke('workspace-panel', request),
+  workspaceTabMenu: (request) => ipcRenderer.invoke('workspace-tab-menu', request),
+  webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),
   platform: process.platform,
   arch: process.arch,
   reactReady: () => ipcRenderer.send('react-ready'),

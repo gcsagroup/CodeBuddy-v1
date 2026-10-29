@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "この文書をプレビューできません。再読み込みするか、既定のアプリで開いてください。"
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "一部のフォントが利用できないため、プレビューのレイアウトが原本と異なる場合があります。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "今すぐ圧縮"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "画像ファイルの読み込みに失敗しました"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "1つのメッセージに追加できる画像は最大 {count} 枚です。"
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "カスタム接続"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "このカスタムプロバイダーを削除してもよろしいですか？プロバイダーと保存されたAPIキーが完全に削除されます。この操作は元に戻せません。"
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model}に失敗しました"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "モデルを変更しました"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "モデルを選択"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "モデルを切り替えました — {provider}の{model}を使用中"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "設定内に不明なプロバイダーがあります -- config.yamlを確認してください"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "切り替えに失敗"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "書き込み可能なルート"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "チャットに追加"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "ファイルの内容をコピー"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "ファイルのパスをコピー"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "画像をコピー"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "リンクをコピー"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "コピーをダウンロード"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "リンクの操作を完了できませんでした。再試行してください。"
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "既定のブラウザーで開く"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "ファイルを開く"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "新しいタブで画像を開く"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "新しいタブで開く"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "動画を再生"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "フォルダー内に表示"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "名前を付けて保存…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "リンク先を名前を付けて保存…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "拡大"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "縮小"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "ウィンドウに合わせる"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "他のタブを閉じる"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "右側のタブを閉じる"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "VS Code で開く"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "ファイル操作を完了できませんでした。再試行してください。コードファイルを開くには VS Code が必要です。"
   }
 }

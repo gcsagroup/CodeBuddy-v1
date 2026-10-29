@@ -76,6 +76,10 @@ const i18n = defineMessages({
     id: 'customProviderForm.displayNamePlaceholder',
     defaultMessage: 'Your Provider Name',
   },
+  defaultDisplayName: {
+    id: 'customProviderForm.defaultDisplayName',
+    defaultMessage: 'Custom connection',
+  },
   apiUrl: {
     id: 'customProviderForm.apiUrl',
     defaultMessage: 'API URL',
@@ -414,6 +418,7 @@ interface CustomProviderFormProps {
   isEditable?: boolean;
   compactSetup?: boolean;
   discoverModels?: (data: UpdateCustomProviderRequest) => Promise<string[]>;
+  existingProviderNames?: string[];
 }
 
 export default function CustomProviderForm({
@@ -425,15 +430,26 @@ export default function CustomProviderForm({
   isEditable,
   compactSetup = false,
   discoverModels,
+  existingProviderNames = [],
 }: CustomProviderFormProps) {
   const intl = useIntl();
+  const suggestName = (base: string) => {
+    const existing = new Set(existingProviderNames.map((name) => name.trim().toLowerCase()));
+    let candidate = base;
+    for (let number = 2; existing.has(candidate.toLowerCase()); number += 1) {
+      candidate = `${base} ${number}`;
+    }
+    return candidate;
+  };
+  const defaultName = intl.formatMessage(i18n.defaultDisplayName);
   const [compactPresetId, setCompactPresetId] = useState(DEFAULT_COMPACT_PROVIDER_PRESET.id);
   const [engine, setEngine] = useState<string>(
     compactSetup ? DEFAULT_COMPACT_PROVIDER_PRESET.engine : 'openai_compatible'
   );
   const [displayName, setDisplayName] = useState(
-    compactSetup ? DEFAULT_COMPACT_PROVIDER_PRESET.displayName : ''
+    () => initialData?.display_name ?? suggestName(defaultName)
   );
+  const [nameEdited, setNameEdited] = useState(false);
   const [apiUrl, setApiUrl] = useState(compactSetup ? DEFAULT_COMPACT_PROVIDER_PRESET.apiUrl : '');
   const [basePath, setBasePath] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -461,6 +477,15 @@ export default function CustomProviderForm({
   const [discoveryStatus, setDiscoveryStatus] = useState<'idle' | 'loading' | 'ready' | 'failed'>(
     'idle'
   );
+
+  const clearFieldError = (field: string) => {
+    setValidationErrors((previous) => {
+      if (!previous[field]) return previous;
+      const next = { ...previous };
+      delete next[field];
+      return next;
+    });
+  };
 
   const resetConnectionTest = () => {
     if (!compactSetup) return;
@@ -513,7 +538,7 @@ export default function CustomProviderForm({
     setSelectedTemplate(template);
 
     // Prefill fields from template
-    setDisplayName(template.name);
+    if (!nameEdited) setDisplayName(suggestName(template.name));
     setApiUrl(template.apiUrl);
     setBasePath('');
     setSupportsStreaming(template.supportsStreaming);
@@ -534,7 +559,8 @@ export default function CustomProviderForm({
 
   const handleClearTemplate = () => {
     setSelectedTemplate(null);
-    setDisplayName('');
+    setDisplayName(suggestName(defaultName));
+    setNameEdited(false);
     setApiUrl('');
     setBasePath('');
     setModels('');
@@ -549,6 +575,7 @@ export default function CustomProviderForm({
     resetConnectionTest();
     if (!checked) {
       setApiKey('');
+      clearFieldError('apiKey');
     }
   };
 
@@ -680,26 +707,34 @@ export default function CustomProviderForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitInFlightRef.current) return;
+    const form = e.currentTarget;
     setSubmitError(null);
     setValidationErrors({});
 
     const errors: Record<string, string> = {};
-    if (!displayName) errors.displayName = intl.formatMessage(i18n.displayNameRequired);
-    if (!apiUrl) errors.apiUrl = intl.formatMessage(i18n.apiUrlRequired);
+    if (!displayName.trim()) errors.displayName = intl.formatMessage(i18n.displayNameRequired);
+    if (!apiUrl.trim()) errors.apiUrl = intl.formatMessage(i18n.apiUrlRequired);
     const existingHadAuth = initialData && (initialData.requires_auth ?? true);
-    if (requiresAuth && !apiKey && !existingHadAuth)
+    if (requiresAuth && !apiKey.trim() && !existingHadAuth)
       errors.apiKey = intl.formatMessage(i18n.apiKeyRequired);
-    if (!models) errors.models = intl.formatMessage(i18n.modelsRequired);
-
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
-      return;
-    }
-
     const modelList = models
       .split(',')
       .map((m) => m.trim())
       .filter((m) => m);
+    if (!modelList.length) errors.models = intl.formatMessage(i18n.modelsRequired);
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      // Wait for aria-invalid and the associated error text to reach the DOM.
+      requestAnimationFrame(() => {
+        if (!form.isConnected) return;
+        const field = form.querySelector<HTMLElement>('[aria-invalid="true"]');
+        field?.focus({ preventScroll: true });
+        field?.scrollIntoView({ block: 'center' });
+      });
+      return;
+    }
+
     const orderedModelList = selectedModel
       ? [selectedModel, ...modelList.filter((model) => model !== selectedModel)]
       : modelList;
@@ -927,6 +962,7 @@ export default function CustomProviderForm({
               const selectedOption = option as { value: string; label: string } | null;
               if (selectedOption) {
                 resetConnectionTest();
+                setValidationErrors({});
                 if (compactSetup) {
                   const preset = COMPACT_PROVIDER_PRESETS.find(
                     (candidate) => candidate.id === selectedOption.value
@@ -936,7 +972,8 @@ export default function CustomProviderForm({
                     setEngine(preset.engine);
                     setApiUrl(preset.apiUrl);
                     setBasePath(preset.basePath ?? '');
-                    setDisplayName(preset.displayName);
+                    if (!initialData && !nameEdited)
+                      setDisplayName(suggestName(preset.displayName || defaultName));
                     setRequiresAuth(preset.requiresAuth);
                     setApiKey('');
                   }
@@ -970,7 +1007,11 @@ export default function CustomProviderForm({
           <Input
             id="display-name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => {
+              setDisplayName(e.target.value);
+              setNameEdited(true);
+              if (e.target.value.trim()) clearFieldError('displayName');
+            }}
             placeholder={intl.formatMessage(i18n.displayNamePlaceholder)}
             aria-invalid={!!validationErrors.displayName}
             aria-describedby={validationErrors.displayName ? 'display-name-error' : undefined}
@@ -1001,6 +1042,7 @@ export default function CustomProviderForm({
             value={apiUrl}
             onChange={(e) => {
               setApiUrl(e.target.value);
+              if (e.target.value.trim()) clearFieldError('apiUrl');
               resetConnectionTest();
             }}
             placeholder={intl.formatMessage(i18n.apiUrlPlaceholder)}
@@ -1081,6 +1123,7 @@ export default function CustomProviderForm({
               value={apiKey}
               onChange={(e) => {
                 setApiKey(e.target.value);
+                if (e.target.value.trim()) clearFieldError('apiKey');
                 resetConnectionTest();
               }}
               placeholder={
@@ -1162,7 +1205,11 @@ export default function CustomProviderForm({
           <Input
             id="available-models"
             value={models}
-            onChange={(e) => setModels(e.target.value)}
+            onChange={(e) => {
+              setModels(e.target.value);
+              if (e.target.value.split(',').some((value) => value.trim()))
+                clearFieldError('models');
+            }}
             placeholder={intl.formatMessage(i18n.modelsPlaceholder)}
             aria-invalid={!!validationErrors.models}
             aria-describedby={validationErrors.models ? 'available-models-error' : undefined}
@@ -1289,6 +1336,12 @@ export default function CustomProviderForm({
       )}
 
       <SecureStorageNotice />
+
+      {Object.keys(validationErrors).length > 0 && (
+        <p role="alert" className="text-text-secondary text-sm">
+          {Object.values(validationErrors)[0]}
+        </p>
+      )}
 
       {submitError && (
         <p role="alert" className="text-red-500 text-sm">

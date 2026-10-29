@@ -12,6 +12,10 @@ import { getSessionGoal } from '../acp/goals';
 import { acpExportSession } from '../acp/sessions';
 import { GOAL_CHANGED, openGoalEditor } from '../workspace-panel/goalPanel';
 import { AppEvents } from '../constants/events';
+import {
+  ATTACH_WORKSPACE_IMAGE,
+  type WorkspaceImageAttachment,
+} from '../workspace-panel/workspaceFilePanel';
 import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, ScrollText } from 'lucide-react';
@@ -155,6 +159,10 @@ const i18n = defineMessages({
     id: 'chatInput.failedToReadImage',
     defaultMessage: 'Failed to read image file',
   },
+  imageLimit: {
+    id: 'chatInput.imageLimit',
+    defaultMessage: 'You can attach up to {count} images to one message.',
+  },
   viewEditRecipe: {
     id: 'chatInput.viewEditRecipe',
     defaultMessage: 'View/Edit Recipe',
@@ -288,7 +296,9 @@ export default function ChatInput({
   const [_value, setValue] = useState(initialValue);
   const [displayValue, setDisplayValue] = useState(initialValue); // For immediate visual feedback
   const [isFocused, setIsFocused] = useState(false);
-  const [pastedImages, setPastedImages] = useState<PastedImage[]>([]);
+  const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(
+    []
+  );
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
   const submitInFlightRef = useRef(false);
   const inputRevisionRef = useRef(0);
@@ -774,6 +784,68 @@ export default function ChatInput({
     () => [...droppedFiles, ...localDroppedFiles],
     [droppedFiles, localDroppedFiles]
   );
+  const attachmentSessionRef = useRef(sessionId);
+  attachmentSessionRef.current = sessionId;
+  const attachmentIntlRef = useRef(intl);
+  attachmentIntlRef.current = intl;
+  useEffect(() => {
+    setPastedImages((current) =>
+      current.filter((image) => !image.sourceSessionId || image.sourceSessionId === sessionId)
+    );
+  }, [sessionId]);
+  const attachmentCountRef = useRef(0);
+  attachmentCountRef.current =
+    pastedImages.length + allDroppedFiles.filter((file) => file.isImage).length;
+  useEffect(() => {
+    let disposed = false;
+    const attach = (event: Event) => {
+      const image = (event as CustomEvent<WorkspaceImageAttachment>).detail;
+      if (!image || image.sessionId !== sessionId) return;
+      if (attachmentCountRef.current >= MAX_IMAGES_PER_MESSAGE) {
+        setCommandNotice(
+          attachmentIntlRef.current.formatMessage(i18n.imageLimit, {
+            count: MAX_IMAGES_PER_MESSAGE,
+          })
+        );
+        return;
+      }
+      attachmentCountRef.current += 1;
+      inputRevisionRef.current += 1;
+      const id = `workspace-image-${globalThis.crypto.randomUUID()}`;
+      setPastedImages((current) => [
+        ...current,
+        { id, sourceSessionId: image.sessionId, dataUrl: image.dataUrl, isLoading: true },
+      ]);
+      // Use the same normalization as pasted/uploaded images; never submit automatically.
+      void compressImageDataUrl(image.dataUrl)
+        .then((dataUrl) => {
+          if (disposed || attachmentSessionRef.current !== image.sessionId) return;
+          setPastedImages((current) =>
+            current.map((item) => (item.id === id ? { ...item, dataUrl, isLoading: false } : item))
+          );
+        })
+        .catch(() => {
+          if (disposed || attachmentSessionRef.current !== image.sessionId) return;
+          setPastedImages((current) =>
+            current.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    isLoading: false,
+                    error: attachmentIntlRef.current.formatMessage(i18n.failedToReadImage),
+                  }
+                : item
+            )
+          );
+        });
+      textAreaRef.current?.focus();
+    };
+    window.addEventListener(ATTACH_WORKSPACE_IMAGE, attach);
+    return () => {
+      disposed = true;
+      window.removeEventListener(ATTACH_WORKSPACE_IMAGE, attach);
+    };
+  }, [sessionId, textAreaRef]);
 
   const handleRemoveDroppedFile = (idToRemove: string) => {
     inputRevisionRef.current += 1;

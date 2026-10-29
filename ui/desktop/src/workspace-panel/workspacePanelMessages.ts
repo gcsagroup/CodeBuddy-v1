@@ -1,5 +1,23 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  openFile: { id: 'workspacePanel.openFile', defaultMessage: 'Open file' },
+  playVideo: { id: 'workspacePanel.playVideo', defaultMessage: 'Play video' },
+  openImageTab: { id: 'workspacePanel.openImageTab', defaultMessage: 'Open image in new tab' },
+  addToChat: { id: 'workspacePanel.addToChat', defaultMessage: 'Add to chat' },
+  downloadCopy: { id: 'workspacePanel.downloadCopy', defaultMessage: 'Download a copy' },
+  openWebTab: { id: 'workspacePanel.openWebTab', defaultMessage: 'Open in new tab' },
+  openBrowser: { id: 'workspacePanel.openBrowser', defaultMessage: 'Open in default browser' },
+  copyLink: { id: 'workspacePanel.copyLink', defaultMessage: 'Copy link' },
+  saveLink: { id: 'workspacePanel.saveLink', defaultMessage: 'Save link as…' },
+  linkFailed: {
+    id: 'workspacePanel.linkFailed',
+    defaultMessage: 'Could not complete the link action. Please try again.',
+  },
+  revealFile: { id: 'workspacePanel.revealFile', defaultMessage: 'Show in folder' },
+  copyFilePath: { id: 'workspacePanel.copyFilePath', defaultMessage: 'Copy file path' },
+  copyImage: { id: 'workspacePanel.copyImage', defaultMessage: 'Copy image' },
+  copyFileContent: { id: 'workspacePanel.copyFileContent', defaultMessage: 'Copy file contents' },
+  saveAs: { id: 'workspacePanel.saveAs', defaultMessage: 'Save as…' },
   previewMedia: { id: 'workspacePanel.previewMedia', defaultMessage: 'View in right panel' },
   mediaFailed: {
     id: 'workspacePanel.mediaFailed',
@@ -11,9 +29,24 @@ export const panelMessages = defineMessages({
     id: 'workspacePanel.openDocument',
     defaultMessage: 'Open in default application',
   },
+  openEditor: { id: 'workspacePanel.openEditor', defaultMessage: 'Open in VS Code' },
+  fileActionFailed: {
+    id: 'workspacePanel.fileActionFailed',
+    defaultMessage:
+      'Could not complete the file action. Please try again. Opening code files requires VS Code.',
+  },
   documentInfo: {
     id: 'workspacePanel.documentInfo',
     defaultMessage: 'This document opens in its associated application.',
+  },
+  documentPreviewFailed: {
+    id: 'workspacePanel.documentPreviewFailed',
+    defaultMessage:
+      'Could not preview this document. Reload it or open it in the default application.',
+  },
+  documentMissingFonts: {
+    id: 'workspacePanel.documentMissingFonts',
+    defaultMessage: 'Some fonts are unavailable. The preview layout may differ from the original.',
   },
   restartDesktop: {
     id: 'workspacePanel.restartDesktop',
@@ -53,6 +86,11 @@ export const panelMessages = defineMessages({
   open: { id: 'workspacePanel.open', defaultMessage: 'Open workspace panel' },
   closePanel: { id: 'workspacePanel.closePanel', defaultMessage: 'Collapse panel' },
   close: { id: 'workspacePanel.close', defaultMessage: 'Close' },
+  closeOtherTabs: { id: 'workspacePanel.closeOtherTabs', defaultMessage: 'Close other tabs' },
+  closeRightTabs: {
+    id: 'workspacePanel.closeRightTabs',
+    defaultMessage: 'Close tabs to the right',
+  },
   maximize: { id: 'workspacePanel.maximize', defaultMessage: 'Expand or restore panel' },
   resize: { id: 'workspacePanel.resize', defaultMessage: 'Resize workspace panel' },
   noWorkspace: {

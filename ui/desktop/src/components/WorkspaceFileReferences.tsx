@@ -51,7 +51,18 @@ export function WorkspaceFileReferences({
             type="button"
             title={file.path}
             className="flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
-            onClick={() => openWorkspaceFile({ sessionId, filePath: file.path })}
+            onClick={(event) =>
+              openWorkspaceFile({
+                sessionId,
+                filePath: file.path,
+                ...(event.ctrlKey || event.metaKey ? { action: 'open-external' as const } : {}),
+              })
+            }
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openWorkspaceFile({ sessionId, filePath: file.path, action: 'file-menu' });
+            }}
           >
             {file.media ? (
               <span className="flex min-w-0 flex-1 flex-col items-start gap-2">
@@ -59,6 +70,7 @@ export function WorkspaceFileReferences({
                   media={file.media}
                   title={file.path.replace(/\\/g, '/').split('/').pop()!}
                   thumbnail
+                  target={{ sessionId, filePath: file.path }}
                 />
                 <span>
                   {intl.formatMessage(panelMessages.previewMedia)} ·{' '}

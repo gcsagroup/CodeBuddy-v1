@@ -242,6 +242,9 @@
   "chatInput.failedToReadImage": {
     "defaultMessage": "Failed to read image file"
   },
+  "chatInput.imageLimit": {
+    "defaultMessage": "You can attach up to {count} images to one message."
+  },
   "chatInput.listening": {
     "defaultMessage": "Listening"
   },
@@ -2153,6 +2156,9 @@
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
   },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Custom connection"
+  },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Are you sure you want to delete this custom provider? This will permanently remove the provider and its stored API key. This action cannot be undone."
   },
@@ -3683,8 +3689,17 @@
   "imagePreview.clickToExpand": {
     "defaultMessage": "Click to expand"
   },
+  "imagePreview.fit": {
+    "defaultMessage": "Fit to window"
+  },
   "imagePreview.unableToLoad": {
     "defaultMessage": "Unable to load image"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Zoom in"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Zoom out"
   },
   "importRecipeForm.cancel": {
     "defaultMessage": "Cancel"
@@ -4514,26 +4529,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} failed"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Model changed"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Select Model"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Successfully switched models -- using {model} from {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Unknown provider in config -- please inspect your config.yaml"
@@ -4900,6 +4903,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Switch failed"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8915,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Writable root"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Add to chat"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8930,17 +8939,44 @@
   "workspacePanel.close": {
     "defaultMessage": "Close"
   },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Close other tabs"
+  },
   "workspacePanel.closePanel": {
     "defaultMessage": "Collapse panel"
   },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Close tabs to the right"
+  },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Copy file contents"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Copy file path"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Copy image"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Copy link"
   },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Some fonts are unavailable. The preview layout may differ from the original."
+  },
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Could not preview this document. Reload it or open it in the default application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Download a copy"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8953,6 +8989,9 @@
   },
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Could not complete the file action. Please try again. Opening code files requires VS Code."
   },
   "workspacePanel.fileTree": {
     "defaultMessage": "Workspace file tree"
@@ -8975,6 +9014,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Could not complete the link action. Please try again."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9032,29 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Open in default browser"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Open in VS Code"
+  },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Open file"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Open image in new tab"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Open in new tab"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Play video"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9077,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Show in folder"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Save as…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Save link as…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"

@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "इस दस्तावेज़ का पूर्वावलोकन नहीं हो सका। इसे फिर से लोड करें या डिफ़ॉल्ट ऐप में खोलें।"
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "कुछ फ़ॉन्ट उपलब्ध नहीं हैं। पूर्वावलोकन का लेआउट मूल से भिन्न हो सकता है।"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "अब संक्षिप्त करें"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "छवि फ़ाइल पढ़ने में विफल"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "एक संदेश में अधिकतम {count} इमेज जोड़ सकते हैं।"
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "कस्टम कनेक्शन"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "क्या आप वाकई इस कस्टम प्रदाता को हटाना चाहते हैं? इससे प्रदाता और उसकी संग्रहीत API कुंजी स्थायी रूप से हट जाएगी। इस कार्रवाई को वापस नहीं किया जा सकता।"
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} विफल"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "मॉडल बदल गया"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "मॉडल का चयन करें"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "मॉडल सफलतापूर्वक बदला गया -- {provider} से {model} इस्तेमाल किया जा रहा है"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "कॉन्फ़िग में अज्ञात प्रदाता -- कृपया अपनी config.yaml जांचें"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "बदलाव विफल"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "लिखने योग्य रूट"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "चैट में जोड़ें"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "फ़ाइल की सामग्री कॉपी करें"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "फ़ाइल का पथ कॉपी करें"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "इमेज कॉपी करें"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "लिंक कॉपी करें"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "एक कॉपी डाउनलोड करें"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "लिंक की कार्रवाई पूरी नहीं हुई। फिर कोशिश करें।"
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "डिफ़ॉल्ट ब्राउज़र में खोलें"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "फ़ाइल खोलें"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "इमेज नए टैब में खोलें"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "नए टैब में खोलें"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "वीडियो चलाएँ"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "फ़ोल्डर में दिखाएँ"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "इस रूप में सहेजें…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "लिंक इस रूप में सहेजें…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "ज़ूम इन"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "ज़ूम आउट"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "विंडो में फ़िट करें"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "अन्य टैब बंद करें"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "दाईं ओर के टैब बंद करें"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "VS Code में खोलें"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "फ़ाइल की कार्रवाई पूरी नहीं हो सकी। फिर से कोशिश करें। कोड फ़ाइल खोलने के लिए VS Code आवश्यक है।"
   }
 }

@@ -44,7 +44,11 @@ import { Check, Copy } from './icons';
 import { wrapHTMLInCodeBlock } from '../utils/htmlSecurity';
 import { isProtocolSafe, getProtocol, BLOCKED_PROTOCOLS } from '../utils/urlSecurity';
 import { ConfirmationModal } from './ui/ConfirmationModal';
-import { openWorkspaceFile, workspaceLinkPath } from '../workspace-panel/workspaceFilePanel';
+import {
+  openWorkspaceFile,
+  workspaceLinkPath,
+  OPEN_WORKSPACE_WEB,
+} from '../workspace-panel/workspaceFilePanel';
 import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { defineMessages, useIntl } from '../i18n';
 
@@ -324,6 +328,39 @@ const MarkdownContent = memo(function MarkdownContent({
   const splitIncoming = animateIncoming;
   const previewLabel = intl.formatMessage(panelMessages.previewMedia);
   const [pendingLink, setPendingLink] = useState<{ protocol: string; href: string } | null>(null);
+  const [linkMenuError, setLinkMenuError] = useState('');
+  const webMenuContext = useRef({ sessionId, intl });
+  webMenuContext.current = { sessionId, intl };
+  const menuMounted = useRef(true);
+  useEffect(() => {
+    menuMounted.current = true;
+    return () => {
+      menuMounted.current = false;
+    };
+  }, []);
+  const showWebLinkMenu = useCallback(async (url: string) => {
+    const { sessionId, intl } = webMenuContext.current;
+    setLinkMenuError('');
+    try {
+      const reply = await window.electron.webLinkMenu({
+        url,
+        allowPreview: !!sessionId,
+        labels: {
+          preview: intl.formatMessage(panelMessages.openWebTab),
+          'open-external': intl.formatMessage(panelMessages.openBrowser),
+          'copy-link': intl.formatMessage(panelMessages.copyLink),
+          'save-link': intl.formatMessage(panelMessages.saveLink),
+        },
+      });
+      if (!menuMounted.current || webMenuContext.current.sessionId !== sessionId) return;
+      if (!reply) throw new Error('Missing web menu reply');
+      if (reply.action === 'preview' && sessionId)
+        window.dispatchEvent(new CustomEvent(OPEN_WORKSPACE_WEB, { detail: { sessionId, url } }));
+    } catch {
+      if (menuMounted.current && webMenuContext.current.sessionId === sessionId)
+        setLinkMenuError(intl.formatMessage(panelMessages.linkFailed));
+    }
+  }, []);
 
   const completeSegments = useMemo(() => {
     try {
@@ -373,35 +410,80 @@ const MarkdownContent = memo(function MarkdownContent({
   // existing children must not remount and replay their entrance animation.
   const components = useMemo<Components>(
     () => ({
-      a: (props) => (
-        <a
-          {...props}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!props.href) return;
-            const filePath = workspaceLinkPath(props.href);
-            if (sessionId && filePath) {
-              openWorkspaceFile({ sessionId, filePath });
-              return;
+      a: (props) => {
+        const filePath = props.href && workspaceLinkPath(props.href);
+        const link = (
+          <a
+            {...props}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!props.href) return;
+              if (sessionId && filePath) {
+                openWorkspaceFile({
+                  sessionId,
+                  filePath,
+                  ...(e.ctrlKey || e.metaKey ? { action: 'open-external' as const } : {}),
+                });
+                return;
+              }
+              if (sessionId && /^https?:\/\//i.test(props.href) && !e.ctrlKey && !e.metaKey) {
+                window.dispatchEvent(
+                  new CustomEvent(OPEN_WORKSPACE_WEB, {
+                    detail: { sessionId, url: props.href },
+                  })
+                );
+                return;
+              }
+              if (isProtocolSafe(props.href)) {
+                window.electron.openExternal(props.href);
+              } else {
+                const protocol = getProtocol(props.href);
+                if (protocol) setPendingLink({ protocol, href: props.href });
+              }
+            }}
+            onContextMenu={
+              sessionId && filePath
+                ? (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openWorkspaceFile({ sessionId, filePath, action: 'file-menu' });
+                  }
+                : /^https?:\/\//i.test(props.href ?? '')
+                  ? (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void showWebLinkMenu(props.href!);
+                    }
+                  : undefined
             }
-            if (isProtocolSafe(props.href)) {
-              window.electron.openExternal(props.href);
-            } else {
-              const protocol = getProtocol(props.href);
-              if (protocol) setPendingLink({ protocol, href: props.href });
-            }
-          }}
-        />
-      ),
+          />
+        );
+        return link;
+      },
       img: ({ src, alt }) =>
         sessionId && typeof src === 'string' && workspaceLinkPath(src) ? (
           <button
             type="button"
             className="underline"
-            onClick={() => openWorkspaceFile({ sessionId, filePath: workspaceLinkPath(src)! })}
+            onClick={(event) =>
+              openWorkspaceFile({
+                sessionId,
+                filePath: workspaceLinkPath(src)!,
+                ...(event.ctrlKey || event.metaKey ? { action: 'open-external' as const } : {}),
+              })
+            }
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openWorkspaceFile({
+                sessionId,
+                filePath: workspaceLinkPath(src)!,
+                action: 'file-menu',
+              });
+            }}
           >
             {alt || previewLabel}
           </button>
@@ -410,7 +492,7 @@ const MarkdownContent = memo(function MarkdownContent({
         ),
       code: MarkdownCode,
     }),
-    [sessionId, previewLabel]
+    [sessionId, previewLabel, showWebLinkMenu]
   );
 
   const urlTransform = useCallback(
@@ -506,6 +588,11 @@ const MarkdownContent = memo(function MarkdownContent({
               </div>
             </details>
           )
+        )}
+        {linkMenuError && (
+          <p role="alert" className="text-sm text-text-secondary">
+            {linkMenuError}
+          </p>
         )}
       </div>
       <ConfirmationModal

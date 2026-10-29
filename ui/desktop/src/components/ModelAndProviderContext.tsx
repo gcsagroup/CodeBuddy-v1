@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { toastError, toastSuccess } from '../toasts';
 import Model, { getProviderMetadata } from './settings/models/modelInterface';
 import type { ProviderMetadata } from '../types/providers';
 import { acpChatSessionActions, acpChatSessionStore } from '../acp/chatSessionStore';
@@ -25,25 +24,9 @@ const i18n = defineMessages({
     id: 'modelAndProviderContext.unknownProviderMsg',
     defaultMessage: 'Unknown provider in config -- please inspect your config.yaml',
   },
-  modelChangedTitle: {
-    id: 'modelAndProviderContext.modelChangedTitle',
-    defaultMessage: 'Model changed',
-  },
-  switchModelSuccess: {
-    id: 'modelAndProviderContext.switchModelSuccess',
-    defaultMessage: 'Successfully switched models -- using {model} from {provider}',
-  },
-  modelChangeFailed: {
-    id: 'modelAndProviderContext.modelChangeFailed',
-    defaultMessage: '{provider}/{model} failed',
-  },
   modelChangeFailedMessage: {
     id: 'modelAndProviderContext.modelChangeFailedMessage',
     defaultMessage: 'Unable to switch models. Try again.',
-  },
-  modelChangeFailedTraceback: {
-    id: 'modelAndProviderContext.modelChangeFailedTraceback',
-    defaultMessage: 'The model change could not be completed.',
   },
   modelUnavailable: {
     id: 'modelAndProviderContext.modelUnavailable',
@@ -153,13 +136,6 @@ export const ModelAndProviderProvider: React.FC<ModelAndProviderProviderProps> =
           setCurrentModel(modelName);
         }
 
-        toastSuccess({
-          title: intl.formatMessage(i18n.modelChangedTitle),
-          msg: intl.formatMessage(i18n.switchModelSuccess, {
-            model: model.alias ?? modelName,
-            provider: model.subtext ?? providerName,
-          }),
-        });
         return true;
       } catch (error) {
         if (
@@ -196,14 +172,6 @@ export const ModelAndProviderProvider: React.FC<ModelAndProviderProviderProps> =
           messages[acpErrorCode(error) ?? ''] ?? i18n.modelChangeFailedMessage
         );
         options?.onError?.(message);
-        toastError({
-          title: intl.formatMessage(i18n.modelChangeFailed, {
-            provider: providerName,
-            model: modelName,
-          }),
-          msg: message,
-          traceback: intl.formatMessage(i18n.modelChangeFailedTraceback),
-        });
         return false;
       }
     },

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const test = require('node:test');
 const { previewEnvironment, startPreview } = require('./start-harness-preview.cjs');
 
@@ -16,6 +17,27 @@ function fixture(t) {
   });
   const serverPath = path.join(root, 'server.cjs');
   const desktopPath = path.join(root, 'desktop.cjs');
+  const artifactModule = path.join(root, 'runtime', 'builtin-artifacts.mjs');
+  const toolFile = path.join(root, 'runtime', 'tools', 'bin', 'fixture-tools.exe');
+  const toolBytes = Buffer.from('fixture-pinned-tool');
+  fs.mkdirSync(path.dirname(toolFile), { recursive: true });
+  fs.writeFileSync(toolFile, toolBytes, { mode: 0o755 });
+  // Use the unchanged production validator against tiny isolated artifacts.
+  fs.copyFileSync(path.join(__dirname, '../runtime/builtin-artifacts.mjs'), path.join(root, 'runtime/artifact-validation.mjs'));
+  const artifact = { file: path.basename(toolFile), bytes: toolBytes.length, sha256: createHash('sha256').update(toolBytes).digest('hex') };
+  fs.writeFileSync(artifactModule, `
+    import fs from 'node:fs';
+    import { verifiedBinary as verify } from './artifact-validation.mjs';
+    const root = new URL('../', import.meta.url);
+    export async function builtinArtifacts() {
+      return ${JSON.stringify({ tools: artifact })};
+    }
+    export async function verifiedBinary(artifact) {
+      const file = await verify(artifact);
+      fs.writeFileSync(new URL('artifacts-checked.txt', root), 'checked');
+      return file;
+    }
+  `);
   fs.writeFileSync(serverPath, `
     const http = require('node:http');
     const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
@@ -51,7 +73,7 @@ function fixture(t) {
     }, 100);
   `);
   return {
-    root,
+    root, toolFile, toolBytes,
     options: {
       repoRoot: root, serverPath,
       dataDirectory: path.join(root, '.preview-data'),
@@ -128,6 +150,8 @@ for (const configured of [false, true]) {
     const receiptText = fs.readFileSync(path.join(expectedHome, 'logs', 'preview', 'launch.json'), 'utf8');
     const receipt = JSON.parse(receiptText);
     assert.equal(receipt.status, 'stopped');
+    assert.equal(receipt.artifactCheck.status, 'passed');
+    assert.ok(fs.existsSync(path.join(root, 'artifacts-checked.txt')));
     assert.ok(receipt.runtimePid > 0);
     assert.ok(receipt.desktopPid > 0);
     assert.throws(() => process.kill(receipt.runtimePid, 0));
@@ -145,3 +169,30 @@ test('failed bridge startup never launches desktop and records a failed receipt'
   assert.equal(receipt.status, 'failed');
   assert.equal(receipt.desktopPid, null);
 });
+
+for (const defect of ['missing', 'size', 'checksum']) {
+  test(`artifact ${defect} failure stops backend and desktop before startup`, async (t) => {
+    const { root, options, toolFile, toolBytes } = fixture(t);
+    if (defect === 'missing') fs.unlinkSync(toolFile);
+    else fs.writeFileSync(toolFile, Buffer.alloc(toolBytes.length + (defect === 'size' ? 1 : 0), 0x78));
+    options.commands.prepare.push({
+      cwd: root,
+      args: ['-e', `require('node:fs').writeFileSync('preparation-started.txt', 'unexpected')`],
+    });
+    await assert.rejects(startPreview(options), error => {
+      assert.match(error.message, /Preview tool check failed/);
+      assert.ok(error.message.includes(path.join(root, 'runtime', 'tools', 'bin', 'fixture-tools.exe')));
+      assert.match(error.message, defect === 'missing' ? /ENOENT/ : defect === 'size' ? /identity is invalid/ : /checksum differs/);
+      assert.ok(error.message.includes(`${toolBytes.length} bytes`));
+      assert.match(error.message, /README.md/);
+      assert.match(error.message, /Git 不同步/);
+      return true;
+    });
+    assert.equal(fs.existsSync(path.join(root, 'preparation-started.txt')), process.platform === 'darwin');
+    assert.equal(fs.existsSync(path.join(root, 'desktop-observed.json')), false);
+    const receipt = JSON.parse(fs.readFileSync(path.join(options.dataDirectory, 'logs', 'preview', 'launch.json'), 'utf8'));
+    assert.equal(receipt.status, 'failed');
+    assert.equal(receipt.runtimePid, null);
+    assert.equal(receipt.desktopPid, null);
+  });
+}

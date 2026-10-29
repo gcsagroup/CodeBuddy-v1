@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const os = require('node:os');
+const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const { defaultWorkspaceRoot, prepareDefaultWorkspace } = require('./default-workspace.cjs');
 const { createRotatingLog } = require('../runtime/rotating-log.cjs');
@@ -157,9 +158,42 @@ function defaultCommands(repoRoot) {
   };
 }
 
+async function checkPreviewArtifacts(repoRoot) {
+  const failures = [];
+  const checked = [];
+  try {
+    const { builtinArtifacts, verifiedBinary } = await import(pathToFileURL(path.join(repoRoot, 'runtime', 'builtin-artifacts.mjs')).href);
+    const artifacts = await builtinArtifacts();
+    for (const artifact of Object.values(artifacts)) {
+      const file = path.join(repoRoot, 'runtime', 'tools', 'bin', artifact.file);
+      try {
+        await verifiedBinary(artifact);
+        checked.push(file);
+      } catch (error) {
+        failures.push(`${file}\n  ${error.message}\n  Expected: ${artifact.bytes} bytes; SHA256 ${artifact.sha256}`);
+      }
+    }
+  } catch (error) {
+    failures.push(`${path.join(repoRoot, 'runtime', 'builtin-artifacts.mjs')}\n  ${error.message}`);
+  }
+  if (failures.length) {
+    const preparation = process.platform === 'darwin'
+      ? '请按 docs/macos.zh-CN.md 准备本机架构的工具及 artifacts.json；原生工具准备完成后仍须通过上述校验。'
+      : '请按 README.md 的“Windows 构建”说明准备独立 MCP 工具：先备份旧文件，再从与当前源码匹配的已核验载荷恢复上述文件；也可按文档离线构建并核对来源和产物登记。';
+    throw new Error([
+      '预览工具检查失败（Preview tool check failed），尚未启动后端或桌面。',
+      ...failures,
+      'Git 不同步 runtime/tools/bin 中的工具；只拉源码可能保留旧文件。',
+      preparation,
+      '不要仅修改大小或哈希来绕过校验。本检查不会自动下载、安装或替换工具。',
+      `准备完成后重新运行预览入口。说明：${path.join(repoRoot, 'README.md')}`,
+    ].join('\n'));
+  }
+  return { status: 'passed', files: checked };
+}
+
 async function startPreview(options = {}) {
   const repoRoot = options.repoRoot || path.resolve(__dirname, '..');
-  const commands = options.commands || defaultCommands(repoRoot);
   const port = await reservePort();
   const secret = crypto.randomBytes(32).toString('hex');
   const env = previewEnvironment(repoRoot, port, secret, options.env, options.dataDirectory);
@@ -185,6 +219,13 @@ async function startPreview(options = {}) {
   process.once('SIGTERM', onSignal);
   saveReceipt();
   try {
+    // Mac's existing preparation builds its local artifacts first. Windows
+    // artifacts are supplied separately and must pass before SDK preparation.
+    if (process.platform !== 'darwin') {
+      receipt.artifactCheck = await checkPreviewArtifacts(repoRoot);
+      saveReceipt();
+    }
+    const commands = options.commands || defaultCommands(repoRoot);
     const workspaceRoot = prepareDefaultWorkspace(env.CODEBUDDY_WORKSPACE_ROOT);
     env.CODEBUDDY_WORKSPACE_ROOT = workspaceRoot;
     env.GOOSE_WORKING_DIR = workspaceRoot;
@@ -196,6 +237,10 @@ async function startPreview(options = {}) {
       const result = await Promise.race([prepare.completion, interrupted]);
       if (result.interrupted) return 0;
       if (result.code !== 0) throw new Error(`Preview preparation failed. See ${path.join(logRoot, 'prepare.log')}`);
+    }
+    if (process.platform === 'darwin') {
+      receipt.artifactCheck = await checkPreviewArtifacts(repoRoot);
+      saveReceipt();
     }
     const runtime = spawnLogged(process.execPath, [
       options.serverPath || path.join(repoRoot, 'runtime', 'server.mjs'),
@@ -249,7 +294,7 @@ async function startPreview(options = {}) {
   }
 }
 
-module.exports = { previewEnvironment, startPreview };
+module.exports = { previewEnvironment, startPreview, checkPreviewArtifacts };
 
 if (require.main === module) {
   if (Number(process.versions.node.split('.')[0]) < 24) {

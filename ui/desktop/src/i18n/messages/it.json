@@ -1,4 +1,10 @@
 {
+  "workspacePanel.documentPreviewFailed": {
+    "defaultMessage": "Impossibile visualizzare l’anteprima. Ricarica il documento o aprilo nell’applicazione predefinita."
+  },
+  "workspacePanel.documentMissingFonts": {
+    "defaultMessage": "Alcuni caratteri non sono disponibili. Il layout dell’anteprima potrebbe differire dall’originale."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Compatta ora"
   },
@@ -241,6 +247,9 @@
   },
   "chatInput.failedToReadImage": {
     "defaultMessage": "Impossibile leggere il file immagine"
+  },
+  "chatInput.imageLimit": {
+    "defaultMessage": "Puoi allegare fino a {count} immagini per messaggio."
   },
   "chatInput.listening": {
     "defaultMessage": "Listening"
@@ -2152,6 +2161,9 @@
   },
   "customProviderForm.customOpenAiEndpoint": {
     "defaultMessage": "Custom OpenAI endpoint"
+  },
+  "customProviderForm.defaultDisplayName": {
+    "defaultMessage": "Connessione personalizzata"
   },
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Sei sicuro di voler eliminare questo provider personalizzato? Questa operazione rimuoverà definitivamente il provider e la sua chiave API memorizzata. Questa azione non può essere annullata."
@@ -4514,26 +4526,14 @@
   "modelAndProviderContext.invalidResponse": {
     "defaultMessage": "The model service returned an invalid response. Check the provider address and API compatibility."
   },
-  "modelAndProviderContext.modelChangeFailed": {
-    "defaultMessage": "{provider}/{model} non riuscito"
-  },
   "modelAndProviderContext.modelChangeFailedMessage": {
     "defaultMessage": "Unable to switch models. Try again."
-  },
-  "modelAndProviderContext.modelChangeFailedTraceback": {
-    "defaultMessage": "The model change could not be completed."
-  },
-  "modelAndProviderContext.modelChangedTitle": {
-    "defaultMessage": "Modello cambiato"
   },
   "modelAndProviderContext.modelUnavailable": {
     "defaultMessage": "This model is no longer served by the provider. Refresh the model list and choose an available model."
   },
   "modelAndProviderContext.selectModel": {
     "defaultMessage": "Seleziona modello"
-  },
-  "modelAndProviderContext.switchModelSuccess": {
-    "defaultMessage": "Modelli cambiati correttamente -- in uso {model} di {provider}"
   },
   "modelAndProviderContext.unknownProviderMsg": {
     "defaultMessage": "Provider sconosciuto nella configurazione -- controlla il tuo config.yaml"
@@ -4900,6 +4900,9 @@
   },
   "modelsBottomBar.switchFailed": {
     "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Cambio non riuscito"
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
@@ -8909,6 +8912,9 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Radice scrivibile"
   },
+  "workspacePanel.addToChat": {
+    "defaultMessage": "Aggiungi alla chat"
+  },
   "workspacePanel.address": {
     "defaultMessage": "Web address"
   },
@@ -8936,11 +8942,26 @@
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
   },
+  "workspacePanel.copyFileContent": {
+    "defaultMessage": "Copia contenuto del file"
+  },
+  "workspacePanel.copyFilePath": {
+    "defaultMessage": "Copia percorso del file"
+  },
+  "workspacePanel.copyImage": {
+    "defaultMessage": "Copia immagine"
+  },
+  "workspacePanel.copyLink": {
+    "defaultMessage": "Copia link"
+  },
   "workspacePanel.discard": {
     "defaultMessage": "Discard unsaved edits to this file?"
   },
   "workspacePanel.documentInfo": {
     "defaultMessage": "This document opens in its associated application."
+  },
+  "workspacePanel.downloadCopy": {
+    "defaultMessage": "Scarica una copia"
   },
   "workspacePanel.edit": {
     "defaultMessage": "Edit"
@@ -8975,6 +8996,9 @@
   "workspacePanel.go": {
     "defaultMessage": "Open address"
   },
+  "workspacePanel.linkFailed": {
+    "defaultMessage": "Impossibile completare l’azione del link. Riprova."
+  },
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
@@ -8990,11 +9014,26 @@
   "workspacePanel.open": {
     "defaultMessage": "Open workspace panel"
   },
+  "workspacePanel.openBrowser": {
+    "defaultMessage": "Apri nel browser predefinito"
+  },
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
+  "workspacePanel.openFile": {
+    "defaultMessage": "Apri file"
+  },
+  "workspacePanel.openImageTab": {
+    "defaultMessage": "Apri immagine in una nuova scheda"
+  },
+  "workspacePanel.openWebTab": {
+    "defaultMessage": "Apri in una nuova scheda"
+  },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
+  },
+  "workspacePanel.playVideo": {
+    "defaultMessage": "Riproduci video"
   },
   "workspacePanel.preview": {
     "defaultMessage": "Preview"
@@ -9017,11 +9056,20 @@
   "workspacePanel.restartDesktop": {
     "defaultMessage": "Restart CodeBuddy to load this file-opening feature."
   },
+  "workspacePanel.revealFile": {
+    "defaultMessage": "Mostra nella cartella"
+  },
   "workspacePanel.running": {
     "defaultMessage": "Running"
   },
   "workspacePanel.save": {
     "defaultMessage": "Save file ({shortcut})"
+  },
+  "workspacePanel.saveAs": {
+    "defaultMessage": "Salva con nome…"
+  },
+  "workspacePanel.saveLink": {
+    "defaultMessage": "Salva link con nome…"
   },
   "workspacePanel.search": {
     "defaultMessage": "Search filenames"
@@ -9112,5 +9160,26 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "imagePreview.zoomIn": {
+    "defaultMessage": "Ingrandisci"
+  },
+  "imagePreview.zoomOut": {
+    "defaultMessage": "Riduci"
+  },
+  "imagePreview.fit": {
+    "defaultMessage": "Adatta alla finestra"
+  },
+  "workspacePanel.closeOtherTabs": {
+    "defaultMessage": "Chiudi le altre schede"
+  },
+  "workspacePanel.closeRightTabs": {
+    "defaultMessage": "Chiudi le schede a destra"
+  },
+  "workspacePanel.openEditor": {
+    "defaultMessage": "Apri in VS Code"
+  },
+  "workspacePanel.fileActionFailed": {
+    "defaultMessage": "Impossibile completare l’operazione sul file. Riprova. Per aprire i file di codice è necessario VS Code."
   }
 }

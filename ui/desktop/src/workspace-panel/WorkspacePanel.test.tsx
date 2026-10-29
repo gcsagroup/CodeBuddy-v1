@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
@@ -10,6 +10,10 @@ import { AppEvents } from '../constants/events';
 import { getSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 vi.mock('../acp/goals', () => ({ getSessionGoal: vi.fn(), changeSessionGoal: vi.fn() }));
+vi.mock('./dshDocumentRenderer', () => ({
+  loadDshDocumentRenderer: vi.fn().mockResolvedValue({}),
+  DshDocumentRenderer: ({ kind }: { kind: string }) => <div>interactive-{kind}</div>,
+}));
 const mediaState = vi.hoisted(() => ({ jobs: [] as MediaJob[] }));
 vi.mock('./WorkspaceGeneration', async (original) => ({
   ...(await original<typeof import('./WorkspaceGeneration')>()),
@@ -425,7 +429,7 @@ it('invalidates retired child views after a confirmed edit, preserving file draf
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
 });
 
-it('opens verified document entries as file information while preserving an edited file tab', async () => {
+it('opens document previews while preserving an edited file tab', async () => {
   const { scope } = panel();
   fireEvent(
     window,
@@ -438,7 +442,17 @@ it('opens verified document entries as file information while preserving an edit
     target: { value: 'unsaved user draft' },
   });
   invoke.mockImplementation(async (r: PanelRequest) =>
-    r.action === 'inspect' ? { file: { path: r.path, size: 35000, openExternally: true } } : {}
+    r.action === 'inspect'
+      ? { file: { path: r.path, size: 35000, openExternally: true } }
+      : r.action === 'document-preview'
+        ? {
+            documentPreview: {
+              kind: 'pdf',
+              data: new Uint8Array([1, 2, 3]),
+              missingFonts: [],
+            },
+          }
+        : {}
   );
   fireEvent(
     window,
@@ -453,10 +467,273 @@ it('opens verified document entries as file information while preserving an edit
       detail: { sessionId: scope.sessionId, filePath: 'report.docx' },
     })
   );
+  expect(await screen.findByText('interactive-pdf')).toBeVisible();
   fireEvent.click(await screen.findByRole('button', { name: 'Open in default application' }));
   expect(invoke).toHaveBeenCalledWith({ scope, action: 'open-external', path: 'report.docx' });
   fireEvent.click(screen.getByRole('tab', { name: /note.txt/ }));
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
+});
+
+it('routes a file tab menu action through its current workspace without reopening the file', async () => {
+  const menu = vi.fn().mockResolvedValue({ fileAction: 'copy-path' });
+  Object.assign(window.electron, { workspaceTabMenu: menu });
+  const { scope } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+    })
+  );
+  const tab = await screen.findByRole('tab', { name: 'note.txt' });
+  invoke.mockClear();
+  fireEvent.contextMenu(tab);
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({ scope, action: 'copy-path', path: 'note.txt' })
+  );
+  expect(menu).toHaveBeenCalledWith(
+    expect.objectContaining({
+      scope,
+      path: 'note.txt',
+      tabs: expect.objectContaining({ others: false, right: false }),
+    })
+  );
+  expect(invoke.mock.calls.some(([r]) => r.action === 'read')).toBe(false);
+});
+
+it('stops closing tabs to the right when an unsaved draft is kept, then closes only those tabs after confirmation', async () => {
+  const menu = vi.fn().mockResolvedValue({ fileAction: null, tabAction: 'close-right' });
+  Object.assign(window.electron, { workspaceTabMenu: menu });
+  const { scope } = panel();
+  invoke.mockImplementation(async (r) =>
+    r.action === 'read' ? { document: { path: r.path, content: 'original', version: 'v1' } } : {}
+  );
+  for (const name of ['left.txt', 'draft.txt', 'right.txt']) {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: scope.sessionId, filePath: name },
+      })
+    );
+    await screen.findByRole('tab', { name });
+  }
+  fireEvent.click(screen.getByRole('tab', { name: 'draft.txt' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'File editor' }), {
+    target: { value: 'keep this draft' },
+  });
+  fireEvent.contextMenu(screen.getByRole('tab', { name: 'left.txt' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Discard unsaved edits');
+  fireEvent.click(screen.getByRole('button', { name: 'No' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.getByRole('tab', { name: 'draft.txt ●' })).toBeVisible();
+  expect(screen.getByRole('tab', { name: 'right.txt' })).toBeVisible();
+  expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('keep this draft');
+  fireEvent.contextMenu(screen.getByRole('tab', { name: 'left.txt' }));
+  await screen.findByRole('dialog');
+  fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+  await waitFor(() => expect(screen.queryByRole('tab', { name: 'right.txt' })).toBeNull());
+  expect(screen.queryByRole('tab', { name: 'draft.txt ●' })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'left.txt' })).toBeVisible();
+});
+
+it('ignores a tab menu result delivered after the panel unmounts', async () => {
+  let reply!: (value: { fileAction: string }) => void;
+  Object.assign(window.electron, {
+    workspaceTabMenu: vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          reply = resolve;
+        })
+    ),
+  });
+  const { scope, unmount } = panel();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath: 'note.txt' },
+    })
+  );
+  fireEvent.contextMenu(await screen.findByRole('tab', { name: 'note.txt' }));
+  unmount();
+  invoke.mockClear();
+  await act(async () => reply({ fileAction: 'copy-path' }));
+  expect(invoke).not.toHaveBeenCalled();
+});
+
+it('routes file menu actions only through their current workspace and exposes failures', async () => {
+  const { scope } = panel();
+  invoke.mockClear();
+  const action = (sessionId: string, operation: 'reveal' | 'copy-path') =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId, filePath: 'generated-images/sun.png', action: operation },
+      })
+    );
+  action('other-session', 'reveal');
+  expect(invoke).not.toHaveBeenCalled();
+  action(scope.sessionId, 'reveal');
+  expect(invoke).toHaveBeenCalledWith({
+    scope,
+    action: 'reveal',
+    path: 'generated-images/sun.png',
+  });
+  invoke.mockRejectedValueOnce(new Error('File no longer exists'));
+  action(scope.sessionId, 'copy-path');
+  expect(await screen.findByText(/Could not complete the file action/)).toBeVisible();
+  expect(screen.queryByText(/File no longer exists/)).toBeNull();
+  action(scope.sessionId, 'reveal');
+  await waitFor(() => expect(screen.queryByText(/Could not complete the file action/)).toBeNull());
+  expect(screen.queryByRole('tab', { name: 'sun.png' })).toBeNull();
+});
+
+it('consumes a native file menu choice once and ignores a late choice after leaving the workspace', async () => {
+  const view = panel();
+  invoke.mockClear();
+  invoke.mockResolvedValueOnce({ fileAction: 'copy-text' });
+  const menu = () =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: view.scope.sessionId, filePath: 'source.ts', action: 'file-menu' },
+      })
+    );
+  menu();
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({
+      scope: view.scope,
+      action: 'copy-text',
+      path: 'source.ts',
+    })
+  );
+  let resolve!: (reply: { fileAction: 'open-external' }) => void;
+  invoke.mockImplementationOnce(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      })
+  );
+  menu();
+  view.unmount();
+  const count = invoke.mock.calls.length;
+  resolve({ fileAction: 'open-external' });
+  await Promise.resolve();
+  expect(invoke).toHaveBeenCalledTimes(count);
+});
+
+it.each([undefined, {}])(
+  'shows a restart hint for an older main process reply (%j)',
+  async (reply) => {
+    const view = panel();
+    invoke.mockClear();
+    invoke.mockResolvedValueOnce(reply);
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: view.scope.sessionId, filePath: 'image.png', action: 'file-menu' },
+      })
+    );
+    expect(
+      await screen.findByText('Restart CodeBuddy to load this file-opening feature.')
+    ).toBeVisible();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/TypeError/)).toBeNull();
+  }
+);
+
+it('treats an explicitly dismissed native menu as a no-op', async () => {
+  const view = panel();
+  invoke.mockClear();
+  invoke.mockResolvedValueOnce({ fileAction: null });
+  await act(async () => {
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: view.scope.sessionId, filePath: 'image.png', action: 'file-menu' },
+      })
+    );
+  });
+  expect(invoke).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(/Restart CodeBuddy|TypeError/)).toBeNull();
+});
+
+it('opens a separate image tab while keeping text-file tabs unique and adds an image to its own composer only', async () => {
+  const view = panel();
+  const attached = vi.fn();
+  window.addEventListener('codebuddy:attach-workspace-image', attached);
+  invoke.mockImplementation(async (r: PanelRequest) =>
+    r.action === 'read'
+      ? {
+          document: {
+            path: r.path,
+            content: '',
+            version: '',
+            media: { kind: 'image', mimeType: 'image/png', url: 'codebuddy-media://preview/test' },
+          },
+        }
+      : r.action === 'attach-image'
+        ? { attachment: { name: 'sun.png', dataUrl: 'data:image/png;base64,aGVsbG8=' } }
+        : {}
+  );
+  const open = (action?: 'image-tab' | 'add-to-chat') =>
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: {
+          sessionId: view.scope.sessionId,
+          filePath: 'sun.png',
+          ...(action ? { action } : {}),
+        },
+      })
+    );
+  try {
+    open();
+    await screen.findByRole('tab', { name: 'sun.png' });
+    open('image-tab');
+    await waitFor(() => expect(screen.getAllByRole('tab', { name: 'sun.png' })).toHaveLength(2));
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    open('add-to-chat');
+    await waitFor(() => expect(attached).toHaveBeenCalledOnce());
+    expect(attached.mock.lastCall?.[0].detail).toEqual({
+      sessionId: view.scope.sessionId,
+      name: 'sun.png',
+      dataUrl: 'data:image/png;base64,aGVsbG8=',
+    });
+  } finally {
+    window.removeEventListener('codebuddy:attach-workspace-image', attached);
+  }
+});
+
+it('uses the existing browser owner for a web-link tab and keeps foreign sessions isolated', async () => {
+  const view = panel();
+  invoke.mockClear();
+  invoke.mockImplementation(async (r: PanelRequest) =>
+    r.action === 'browser-control'
+      ? { id: 'link-browser', browser: { url: 'https://example.com/', title: 'Example' } }
+      : {}
+  );
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-web', {
+      detail: { sessionId: 'foreign', url: 'https://example.com/' },
+    })
+  );
+  expect(invoke).not.toHaveBeenCalled();
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-web', {
+      detail: { sessionId: view.scope.sessionId, url: 'https://example.com/' },
+    })
+  );
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith({
+      scope: view.scope,
+      action: 'browser-control',
+      operation: 'open',
+      url: 'https://example.com/',
+    })
+  );
+  expect(await screen.findByRole('tab', { name: 'Example' })).toBeVisible();
 });
 function fileOperation(
   id: string,

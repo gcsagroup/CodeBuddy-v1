@@ -5,6 +5,7 @@ import { catalogModels, catalogThinkingProfile } from './harness/model-catalog.m
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
+const PROBE_OUTPUT_TOKENS = 128;
 // Advisory model metadata is shared across sessions, never fetched per turn.
 // The connection fingerprint invalidates it when endpoint or credentials change.
 const modelListings = new Map();
@@ -209,6 +210,31 @@ async function credentials(input, stored) {
   return { key, customHeaders, requestHeaders, requiresAuth };
 }
 
+async function providerFailureDetails(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return {};
+  try {
+    const chunks = [];
+    let size = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 8192) return {};
+      chunks.push(value);
+    }
+    const error = JSON.parse(Buffer.concat(chunks).toString("utf8"))?.error;
+    // Return only bounded protocol identifiers, never raw messages that can echo credentials.
+    return Object.fromEntries([['upstreamCode', error?.code], ['upstreamParam', error?.param]]
+      .filter(([, value]) => typeof value === 'string' && /^[a-zA-Z0-9_.[\]-]{1,100}$/.test(value)));
+  } catch {
+    return {};
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 async function requestJson(
   url,
   { headers, method = "GET", payload, models = false, timeoutMs = REQUEST_TIMEOUT_MS },
@@ -233,13 +259,15 @@ async function requestJson(
     throw providerError("invalid_credentials", "The API key was rejected.");
   }
   if (!response.ok) {
-    await response.body?.cancel();
+    const details = await providerFailureDetails(response);
+    const reason = [details.upstreamCode, details.upstreamParam].filter(Boolean).join(': ');
     throw providerError(
       models ? "model_list_unavailable" : "model_unavailable",
-      models
+      (models
         ? `The model list could not be loaded from this address (HTTP ${response.status}).`
-        : `The selected model could not complete a test request (HTTP ${response.status}).`,
-      { httpStatus: response.status },
+        : `The selected model could not complete a test request (HTTP ${response.status}).`) +
+        (reason ? ` ${reason}` : ''),
+      { httpStatus: response.status, ...details },
     );
   }
   if (Number(response.headers.get("content-length")) > RESPONSE_LIMIT) {
@@ -415,13 +443,15 @@ async function validateSelection(provider, stored) {
     ? {
         model: provider.models[0],
         input: "Reply OK.",
-        max_output_tokens: 1,
+        max_output_tokens: PROBE_OUTPUT_TOKENS,
         stream: false,
       }
     : {
         model: provider.models[0],
         messages: [{ role: "user", content: "Reply OK." }],
-        max_tokens: 1,
+        ...(completion.origin === 'https://api.openai.com'
+          ? { max_completion_tokens: PROBE_OUTPUT_TOKENS }
+          : { max_tokens: 1 }),
         stream: false,
       };
   const body = await requestJson(completion, {

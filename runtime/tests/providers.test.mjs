@@ -273,7 +273,16 @@ test("manual provider save discovers then verifies selected model before publish
 });
 
 test("saved base URLs preserve full completion endpoints and explicit API paths", async (t) => {
-  const api = await endpoint(t);
+  const api = await endpoint(t, (req, res, body) => {
+    if (req.url.endsWith('/responses') && body.max_output_tokens < 16) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: { code: 'integer_below_min_value', param: 'max_output_tokens' } }));
+      return;
+    }
+    res.end(JSON.stringify(req.url.endsWith('/models')
+      ? { data: [{ id: 'fixture-model' }] }
+      : { output_text: 'OK' }));
+  });
   for (const [urlPath, basePath, expected] of [
     ["", null, "/v1"],
     ["/v1/", null, "/v1"],
@@ -291,8 +300,53 @@ test("saved base URLs preserve full completion endpoints and explicit API paths"
     (await driverProvider(store.read().providers[0])).protocol,
     "openai-responses",
   );
-  assert.equal(api.requests.at(-1).body.max_output_tokens, 1);
+  assert.ok(api.requests.at(-1).body.max_output_tokens >= 16);
+  assert.ok(api.requests.at(-1).body.max_output_tokens <= 512);
   assert.equal(api.requests.at(-1).body.input, "Reply OK.");
+});
+
+test('official OpenAI chat probes use completion budgets without legacy max_tokens', async t => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    calls.push({ url: String(url), body });
+    if (body?.max_tokens !== undefined) return new Response(JSON.stringify({
+      error: { code: 'unsupported_parameter', param: 'max_tokens' },
+    }), { status: 400 });
+    return new Response(JSON.stringify(String(url).endsWith('/models')
+      ? { data: [{ id: 'fixture-model' }] }
+      : { choices: [{ message: { role: 'assistant', content: 'OK' } }] }),
+      { headers: { 'content-type': 'application/json' } });
+  });
+  const store = memoryStore();
+  await saveProvider(store, input('https://api.openai.com'));
+  const generated = calls.filter(call => call.body);
+  assert.equal(generated.length, 1);
+  assert.equal(generated[0].url, 'https://api.openai.com/v1/chat/completions');
+  assert.ok(generated[0].body.max_completion_tokens >= 16);
+  assert.ok(!Object.hasOwn(generated[0].body, 'max_tokens'));
+});
+
+test('failed probes preserve bounded error identifiers without echoing service messages', async t => {
+  const api = await endpoint(t, (req, res) => {
+    if (req.url.endsWith('/models')) {
+      res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
+      return;
+    }
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: { code: 'unsupported_parameter', param: 'max_tokens',
+      message: 'Do not expose this echoed credential: PRIVATE_FIXTURE_CREDENTIAL' } }));
+  });
+  const store = memoryStore();
+  await assert.rejects(saveProvider(store, input(api.url)), error => {
+    assert.equal(error.data.httpStatus, 400);
+    assert.equal(error.data.upstreamCode, 'unsupported_parameter');
+    assert.equal(error.data.upstreamParam, 'max_tokens');
+    assert.match(error.message, /unsupported_parameter: max_tokens/);
+    assert.ok(!JSON.stringify(error.data).includes('PRIVATE_FIXTURE_CREDENTIAL'));
+    return true;
+  });
+  assert.equal(store.read().providers.length, 0);
 });
 
 test("Ollama UI engine discovers tags and uses the compatible completion endpoint", async (t) => {

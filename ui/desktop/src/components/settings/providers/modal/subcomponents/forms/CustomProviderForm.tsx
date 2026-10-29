@@ -317,6 +317,7 @@ type CompactProviderPreset = {
   engine: 'openai_compatible' | 'ollama_compatible';
   displayName: string;
   apiUrl: string;
+  basePath?: string;
   requiresAuth: boolean;
 };
 
@@ -343,6 +344,7 @@ const COMPACT_PROVIDER_PRESETS: CompactProviderPreset[] = [
     engine: 'openai_compatible',
     displayName: 'OpenAI',
     apiUrl: 'https://api.openai.com',
+    basePath: '/v1/responses',
     requiresAuth: true,
   },
   {
@@ -933,7 +935,7 @@ export default function CustomProviderForm({
                     setCompactPresetId(preset.id);
                     setEngine(preset.engine);
                     setApiUrl(preset.apiUrl);
-                    setBasePath('');
+                    setBasePath(preset.basePath ?? '');
                     setDisplayName(preset.displayName);
                     setRequiresAuth(preset.requiresAuth);
                     setApiKey('');

@@ -259,7 +259,8 @@ test("manual provider save discovers then verifies selected model before publish
   assert.equal(saved.providerId, provider.id);
   assert.equal(api.requests.filter((req) => req.body).length, 1);
   assert.equal(api.requests.at(-1).body.model, "fixture-model");
-  assert.equal(api.requests.at(-1).body.max_tokens, 1);
+  assert.ok(api.requests.at(-1).body.max_tokens >= 16);
+  assert.ok(api.requests.at(-1).body.max_tokens <= 512);
   assert.equal(api.requests.at(-1).body.stream, false);
   assert.ok(!api.requests.some((req) => req.headers.authorization));
   zListProvidersResponse_unstable.parse({ entries: [inventory(provider)] });
@@ -347,6 +348,61 @@ test('failed probes preserve bounded error identifiers without echoing service m
     return true;
   });
   assert.equal(store.read().providers.length, 0);
+});
+
+test('empty, truncated and unfinished probes never publish a provider', async t => {
+  for (const [name, basePath, reply] of [
+    ['empty-chat', null, { choices: [{ message: { content: '  ' }, finish_reason: 'stop' }] }],
+    ['truncated-chat', null, { choices: [{ message: { content: 'O' }, finish_reason: 'length' }] }],
+    ['filtered-chat', null, { choices: [{ message: { content: 'O' }, finish_reason: 'content_filter' }] }],
+    ['reasoning-only', '/v1/responses', { status: 'completed', output: [{ type: 'reasoning', summary: [] }] }],
+    ['empty-responses', '/v1/responses', { status: 'completed', output_text: '' }],
+    ['truncated-responses', '/v1/responses', { status: 'incomplete', output_text: 'O', incomplete_details: { reason: 'max_output_tokens' } }],
+    ['unfinished-responses', '/v1/responses', { status: 'in_progress', output_text: 'OK' }],
+    ['malformed-responses', '/v1/responses', { output: [null, { type: 'message', role: 'assistant', content: [null] }] }],
+  ]) {
+    await t.test(name, async () => {
+      const api = await endpoint(t, (req, res) => res.end(JSON.stringify(req.url.endsWith('/models')
+        ? { data: [{ id: 'fixture-model' }] } : reply)));
+      const store = memoryStore();
+      await assert.rejects(saveProvider(store, input(api.url, { basePath })),
+        error => error.data?.code === 'custom_provider_model_unavailable');
+      assert.equal(store.read().providers.length, 0);
+    });
+  }
+});
+
+test('structured Responses assistant text verifies without an output_text convenience field', async t => {
+  const api = await endpoint(t, (req, res) => res.end(JSON.stringify(req.url.endsWith('/models')
+    ? { data: [{ id: 'fixture-model' }] }
+    : { status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'OK' }] }] })));
+  const store = memoryStore();
+  await saveProvider(store, input(api.url, { basePath: '/v1/responses' }));
+  assert.equal(store.read().providers.length, 1);
+});
+
+test('forbidden access is distinguished from rejected credentials during discovery and save', async t => {
+  for (const deniedAt of ['discovery', 'completion']) {
+    await t.test(deniedAt, async () => {
+      const api = await endpoint(t, (req, res) => {
+        if (deniedAt === 'completion' && req.url.endsWith('/models')) {
+          res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
+          return;
+        }
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: { code: 'permission_denied', message: 'PRIVATE_FIXTURE_CREDENTIAL' } }));
+      });
+      const store = memoryStore();
+      await assert.rejects(saveProvider(store, input(api.url)), error => {
+        assert.equal(error.data.code, 'custom_provider_permission_denied');
+        assert.equal(error.data.httpStatus, 403);
+        assert.equal(error.data.upstreamCode, 'permission_denied');
+        assert.ok(!JSON.stringify(error.data).includes('PRIVATE_FIXTURE_CREDENTIAL'));
+        return true;
+      });
+      assert.equal(store.read().providers.length, 0);
+    });
+  }
 });
 
 test("Ollama UI engine discovers tags and uses the compatible completion endpoint", async (t) => {

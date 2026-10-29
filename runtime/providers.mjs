@@ -254,9 +254,17 @@ async function requestJson(
       "Could not reach the model endpoint.",
     );
   }
-  if ([401, 403].includes(response.status)) {
+  if (response.status === 401) {
     await response.body?.cancel();
     throw providerError("invalid_credentials", "The API key was rejected.");
+  }
+  if (response.status === 403) {
+    const details = await providerFailureDetails(response);
+    throw providerError(
+      "permission_denied",
+      "The service denied access (HTTP 403). Check account permissions and service restrictions.",
+      { httpStatus: response.status, ...details },
+    );
   }
   if (!response.ok) {
     const details = await providerFailureDetails(response);
@@ -451,7 +459,7 @@ async function validateSelection(provider, stored) {
         messages: [{ role: "user", content: "Reply OK." }],
         ...(completion.origin === 'https://api.openai.com'
           ? { max_completion_tokens: PROBE_OUTPUT_TOKENS }
-          : { max_tokens: 1 }),
+          : { max_tokens: PROBE_OUTPUT_TOKENS }),
         stream: false,
       };
   const body = await requestJson(completion, {
@@ -459,10 +467,22 @@ async function validateSelection(provider, stored) {
     method: "POST",
     payload,
   });
+  const choice = Array.isArray(body.choices) ? body.choices[0] : undefined;
+  const truncated = responses
+    ? body.status === "incomplete" && body.incomplete_details?.reason === "max_output_tokens"
+    : choice?.finish_reason === "length";
+  if (truncated)
+    throw providerError(
+      "model_unavailable",
+      "The service responded, but the test reached its output limit. Model availability could not be verified.",
+    );
+  const hasText = value => typeof value === "string" && value.trim().length > 0;
   const completed = responses
-    ? (Array.isArray(body.output) && body.output.length > 0) ||
-      typeof body.output_text === "string"
-    : Array.isArray(body.choices) && body.choices.length > 0;
+    ? (!body.status || body.status === "completed") &&
+      (hasText(body.output_text) || (Array.isArray(body.output) && body.output.some(item =>
+        item?.type === "message" && item.role === "assistant" && Array.isArray(item.content) &&
+        item.content.some(part => part?.type === "output_text" && hasText(part.text)))))
+    : (!choice?.finish_reason || choice.finish_reason === "stop") && hasText(choice?.message?.content);
   if (!completed)
     throw providerError(
       "model_unavailable",

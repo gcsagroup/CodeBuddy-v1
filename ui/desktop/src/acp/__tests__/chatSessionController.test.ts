@@ -1489,33 +1489,37 @@ describe('acpChatSessionController.updateMessage', () => {
     expect(acpPromptSession).not.toHaveBeenCalled();
   });
 
-  it('ignores edits before truncating while a prompt is active', async () => {
-    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(
-      snapshotWithActivePrompt('attempt-1')
-    );
-    const existingMessage = userMessage();
-    const currentSnapshot: AcpChatSessionSnapshot = {
-      ...snapshotWithActivePrompt('attempt-1'),
-      messages: [existingMessage],
-    };
+  it.each([ChatState.Streaming, ChatState.Idle])(
+    'rejects edits before truncating while a prompt is active even if the UI state is %s',
+    async (chatState) => {
+      vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
+        ...snapshotWithActivePrompt('attempt-1'),
+        chatState,
+      });
+      const existingMessage = userMessage();
+      const currentSnapshot: AcpChatSessionSnapshot = {
+        ...snapshotWithActivePrompt('attempt-1'),
+        messages: [existingMessage],
+      };
 
-    await expect(
-      acpChatSessionController.updateMessage(SESSION_ID, existingMessage.id, 'Updated', 'edit', {
-        getCurrentSnapshot: () => currentSnapshot,
-        onFinish: vi.fn(),
-      })
-    ).resolves.toBeUndefined();
+      await expect(
+        acpChatSessionController.updateMessage(SESSION_ID, existingMessage.id, 'Updated', 'edit', {
+          getCurrentSnapshot: () => currentSnapshot,
+          onFinish: vi.fn(),
+        })
+      ).rejects.toThrow('Messages can only be edited after the current response has stopped');
 
-    expect(acpChatSessionActions.setChatState).not.toHaveBeenCalledWith(
-      SESSION_ID,
-      ChatState.Thinking
-    );
-    expect(acpTruncateSessionConversation).not.toHaveBeenCalled();
-    expect(acpChatSessionActions.setMessages).not.toHaveBeenCalled();
-    expect(acpPromptSession).not.toHaveBeenCalled();
-  });
+      expect(acpChatSessionActions.setChatState).not.toHaveBeenCalledWith(
+        SESSION_ID,
+        ChatState.Thinking
+      );
+      expect(acpTruncateSessionConversation).not.toHaveBeenCalled();
+      expect(acpChatSessionActions.setMessages).not.toHaveBeenCalled();
+      expect(acpPromptSession).not.toHaveBeenCalled();
+    }
+  );
 
-  it('waits for pending tool permission cancellation before truncating and rerunning', async () => {
+  it('rejects edits while awaiting tool permission without cancelling or truncating', async () => {
     const existingMessage = userMessage();
     const permissionMessage = pendingToolPermissionMessage();
     const activeSnapshot: AcpChatSessionSnapshot = {
@@ -1523,60 +1527,18 @@ describe('acpChatSessionController.updateMessage', () => {
       chatState: ChatState.WaitingForUserInput,
       messages: [existingMessage, permissionMessage],
     };
-    let storedSnapshot = activeSnapshot;
-    vi.mocked(acpChatSessionStore.getSnapshot).mockImplementation(() => storedSnapshot);
-    vi.mocked(acpChatSessionActions.startPromptCancellation).mockReturnValue({
-      ...activeSnapshot,
-      activePromptAttemptId: null,
-      pendingCancelPromptAttemptId: 'attempt-1',
-    });
-    vi.mocked(acpCancelPrompt).mockResolvedValue(undefined);
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(activeSnapshot);
 
-    let resolvePromptCancellation: () => void;
-    const promptCancellationSettled = new Promise<void>((resolve) => {
-      resolvePromptCancellation = resolve;
-    });
-    vi.mocked(acpChatSessionActions.waitForPromptCancellation).mockReturnValue(
-      promptCancellationSettled
-    );
-
-    const updatePromise = acpChatSessionController.updateMessage(
-      SESSION_ID,
-      existingMessage.id,
-      'Updated',
-      'edit',
-      {
+    await expect(
+      acpChatSessionController.updateMessage(SESSION_ID, existingMessage.id, 'Updated', 'edit', {
         getCurrentSnapshot: () => activeSnapshot,
         onFinish: vi.fn(),
-      }
-    );
+      })
+    ).rejects.toThrow('Messages can only be edited after the current response has stopped');
 
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(acpCancelPrompt).toHaveBeenCalledWith(SESSION_ID);
-    expect(acpChatSessionActions.waitForPromptCancellation).toHaveBeenCalledWith(
-      SESSION_ID,
-      'attempt-1'
-    );
+    expect(acpCancelPrompt).not.toHaveBeenCalled();
+    expect(acpChatSessionActions.startPromptCancellation).not.toHaveBeenCalled();
     expect(acpTruncateSessionConversation).not.toHaveBeenCalled();
     expect(acpPromptSession).not.toHaveBeenCalled();
-
-    storedSnapshot = {
-      ...snapshotWithActivePrompt(null),
-      messages: [existingMessage, permissionMessage],
-    };
-    resolvePromptCancellation!();
-    await updatePromise;
-
-    expect(acpTruncateSessionConversation).toHaveBeenCalledWith(
-      SESSION_ID,
-      existingMessage.created
-    );
-    expect(acpPromptSession).toHaveBeenCalled();
-    expect(acpChatSessionActions.clearPromptCancellation).not.toHaveBeenCalledWith(
-      SESSION_ID,
-      'attempt-1'
-    );
   });
 });

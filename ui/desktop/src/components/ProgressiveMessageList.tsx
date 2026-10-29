@@ -163,6 +163,7 @@ interface ProgressiveMessageListProps {
   messages: Message[];
   sessionType?: import('../types/session').SessionType;
   readOnly?: boolean;
+  messageEditingDisabled?: boolean;
   chat: Pick<ChatType, 'sessionId'>;
   activeRunId?: string | null;
   cancelling?: boolean;
@@ -474,6 +475,7 @@ function ProgressiveMessageListContent({
   messages,
   sessionType,
   readOnly = false,
+  messageEditingDisabled = false,
   chat,
   activeRunId,
   cancelling,
@@ -1615,7 +1617,7 @@ function ProgressiveMessageListContent({
                 !hasOnlyToolResponses(message) && (
                   <UserMessage
                     message={message}
-                    readOnly={readOnly}
+                    readOnly={readOnly || messageEditingDisabled}
                     onMessageUpdate={onMessageUpdate}
                     sessionType={sessionType}
                   />
@@ -1690,6 +1692,7 @@ function ProgressiveMessageListContent({
     onMessageUpdate,
     sessionType,
     readOnly,
+    messageEditingDisabled,
     toolCallChains,
     submitElicitationResponse,
     getPreviousResolvedModel,
@@ -1741,6 +1744,7 @@ function ProgressiveMessageListContent({
         renderRange={[start, end]}
         sessionType={sessionType}
         readOnly={readOnly}
+        messageEditingDisabled={messageEditingDisabled}
         chat={chat}
         activeRunId={activeRunId}
         cancelling={cancelling && turn[turn.length - 1] === messages[messages.length - 1]}

@@ -190,4 +190,53 @@ describe('UserMessage', () => {
     expect(onMessageUpdate).toHaveBeenCalledWith('short-message', 'Keep this draft', 'edit');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
+
+  it('locks edits across all turns while running and retains an open draft until idle', async () => {
+    const user = userEvent.setup();
+    const onMessageUpdate = vi.fn();
+    const messages: Message[] = [
+      message,
+      {
+        ...message,
+        id: 'previous-answer',
+        role: 'assistant',
+        created: message.created + 1,
+        content: [{ type: 'text', text: 'Previous answer' }],
+      },
+      {
+        ...message,
+        id: 'next-query',
+        created: message.created + 2,
+        content: [{ type: 'text', text: 'Next question' }],
+      },
+    ];
+    const view = (busy: boolean) => (
+      <ProgressiveMessageList
+        messages={messages}
+        chat={{ sessionId: 'edit-boundary' }}
+        isUserMessage={(item) => item.role === 'user'}
+        isStreamingMessage={busy}
+        messageEditingDisabled={busy}
+        onMessageUpdate={onMessageUpdate}
+      />
+    );
+    const { rerender } = render(view(false), { wrapper: IntlTestWrapper });
+    expect(screen.getAllByRole('button', { name: /^Edit message:/ })).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Edit message: 你好' }));
+    await user.clear(screen.getByRole('textbox', { name: 'Edit message content' }));
+    await user.type(screen.getByRole('textbox', { name: 'Edit message content' }), 'Retain draft');
+
+    rerender(view(true));
+    expect(screen.queryByRole('button', { name: /^Edit message:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Edit message content' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Copy' }).length).toBeGreaterThan(0);
+    expect(onMessageUpdate).not.toHaveBeenCalled();
+
+    rerender(view(false));
+    expect(screen.getByRole('textbox', { name: 'Edit message content' })).toHaveValue(
+      'Retain draft'
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit and resend message' }));
+    expect(onMessageUpdate).toHaveBeenCalledWith('short-message', 'Retain draft', 'edit');
+  });
 });

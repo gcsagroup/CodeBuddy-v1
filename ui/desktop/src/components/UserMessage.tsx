@@ -108,6 +108,7 @@ export default function UserMessage({
 
   // Handle edit button click
   const handleEditClick = useCallback(() => {
+    if (!canEdit) return;
     const newEditingState = !isEditing;
     setIsEditing(newEditingState);
 
@@ -126,7 +127,7 @@ export default function UserMessage({
         }
       }, 50);
     }
-  }, [isEditing, initializeEditMode]);
+  }, [canEdit, isEditing, initializeEditMode]);
 
   // Handle content changes in edit mode
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -136,6 +137,7 @@ export default function UserMessage({
   }, []);
 
   const handleSave = useCallback(() => {
+    if (!canEdit) return;
     if (editContent.trim().length === 0) {
       setError(intl.formatMessage(i18n.emptyError));
       return;
@@ -146,7 +148,7 @@ export default function UserMessage({
     if (onMessageUpdate && message.id) {
       onMessageUpdate(message.id, editContent, 'edit');
     }
-  }, [editContent, onMessageUpdate, message.id, intl]);
+  }, [canEdit, editContent, onMessageUpdate, message.id, intl]);
 
   // Handle cancel action
   const handleCancel = useCallback(() => {

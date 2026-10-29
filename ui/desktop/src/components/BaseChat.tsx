@@ -792,6 +792,13 @@ export default function BaseChat({
                       thinkingActivity={thinkingActivity}
                       onRenderingComplete={handleRenderingComplete}
                       onHistoryRendered={handleHistoryRendered}
+                      messageEditingDisabled={
+                        readonlyHistory ||
+                        acpRecovering ||
+                        cancelling ||
+                        chatState !== ChatState.Idle ||
+                        Boolean(activeRunId)
+                      }
                       onMessageUpdate={readonlyHistory ? undefined : onMessageUpdate}
                       submitElicitationResponse={
                         readonlyHistory ? undefined : submitElicitationResponse

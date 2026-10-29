@@ -12,7 +12,6 @@ import { acpErrorData, errorMessage } from '../utils/conversionUtils';
 import { showExtensionLoadResults } from '../utils/extensionErrorUtils';
 import {
   createUserMessage,
-  getPendingToolConfirmationIds,
   getTextAndImageContent,
   type Message,
 } from '../types/message';
@@ -765,47 +764,13 @@ async function updateMessage(
     throw new Error(`Unsupported message edit type: ${String(resolvedEditType)}`);
   }
 
-  const editSnapshot = currentSnapshot ?? storedSnapshot;
-  const isPendingToolPermission =
-    editSnapshot?.chatState === ChatState.WaitingForUserInput &&
-    getPendingToolConfirmationIds(editSnapshot?.messages ?? []).size > 0;
-  const isIdle = editSnapshot?.chatState === ChatState.Idle;
-  const pendingToolPermissionPromptAttemptId = isPendingToolPermission
-    ? activePromptAttemptId
-    : undefined;
-  const canEditInPlace = isIdle || pendingToolPermissionPromptAttemptId != null;
-
-  if (!canEditInPlace) {
-    return;
-  }
-
-  if (pendingToolPermissionPromptAttemptId != null) {
-    const cancellation = acpChatSessionActions.startPromptCancellation(
-      sessionId,
-      pendingToolPermissionPromptAttemptId
-    );
-    if (!cancellation) {
-      throw new Error('Cannot update message while prompt is active');
-    }
-
-    const promptCancellationSettled = acpChatSessionActions.waitForPromptCancellation(
-      sessionId,
-      pendingToolPermissionPromptAttemptId
-    );
-
-    try {
-      await acpCancelPrompt(sessionId);
-    } catch {
-      acpChatSessionActions.restorePromptCancellation(
-        sessionId,
-        pendingToolPermissionPromptAttemptId
-      );
-      throw new Error('Cannot update message because the active prompt could not be cancelled');
-    }
-
-    cancelAcpPermissionRequestsForSession(sessionId);
-    cancelAcpElicitationRequestsForSession(sessionId);
-    await promptCancellationSettled;
+  const editSnapshot = storedSnapshot ?? currentSnapshot;
+  if (
+    editSnapshot?.chatState !== ChatState.Idle ||
+    activePromptAttemptId ||
+    editSnapshot?.activeRunId
+  ) {
+    throw new Error('Messages can only be edited after the current response has stopped');
   }
 
   acpChatSessionActions.setChatState(sessionId, ChatState.Thinking);

@@ -2314,6 +2314,9 @@ export const zListSchedulesRequest_unstable = z.record(z.unknown());
 export const zScheduleWorkspaceMode = z.enum(["code", "codepro"]);
 
 export const zScheduledJobDto = z.object({
+  lastError: z.string().nullish(),
+  executionMode: z.enum(["new_session", "current_session"]).optional(),
+  targetSessionId: z.string().nullish(),
   id: z.string(),
   source: z.string(),
   cron: z.string(),
@@ -2362,6 +2365,8 @@ export const zListScheduleSessionsResponse_unstable = z.object({
 });
 
 export const zCreateScheduleRequest_unstable = z.object({
+  executionMode: z.enum(["new_session", "current_session"]).optional(),
+  targetSessionId: z.string().nullish(),
   id: z.string(),
   recipe: zRecipeDto,
   cron: z.string(),

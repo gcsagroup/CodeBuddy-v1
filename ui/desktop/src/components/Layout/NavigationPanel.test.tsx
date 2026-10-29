@@ -123,12 +123,11 @@ describe('NavigationHeaderSlot', () => {
 });
 
 describe('task-oriented navigation', () => {
-  it('exposes only the six user-facing destinations', () => {
+  it('exposes the five user-facing destinations without Common Tasks', () => {
     expect(
       [...NAV_ITEMS, SETTINGS_NAV_ITEM].map(({ id, path, label }) => ({ id, path, label }))
     ).toEqual([
       { id: 'home', path: '/', label: 'New Task' },
-      { id: 'recipes', path: '/recipes', label: 'Common Tasks' },
       { id: 'scheduler', path: '/schedules', label: 'Automatic Tasks' },
       { id: 'toolbox', path: '/toolbox', label: 'Toolbox' },
       { id: 'sessions', path: '/sessions', label: 'History' },
@@ -138,10 +137,10 @@ describe('task-oriented navigation', () => {
 
   it('keeps legacy product terms as search aliases instead of destinations', () => {
     expect(NAV_ITEMS.flatMap((item) => item.searchAliases ?? [])).toEqual(
-      expect.arrayContaining(['Recipes', 'Scheduler', 'Skills', 'Apps', 'Extensions'])
+      expect.arrayContaining(['Scheduler', 'Skills', 'Apps', 'Extensions'])
     );
     expect(NAV_ITEMS.map((item) => item.id)).not.toEqual(
-      expect.arrayContaining(['skills', 'apps', 'extensions'])
+      expect.arrayContaining(['recipes', 'skills', 'apps', 'extensions'])
     );
   });
 });

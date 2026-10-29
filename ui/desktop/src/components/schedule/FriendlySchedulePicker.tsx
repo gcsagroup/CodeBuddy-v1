@@ -22,9 +22,9 @@ export function FriendlySchedulePicker(props: FriendlySchedulePickerProps) {
   return (
     <div className="space-y-3">
       <CronPicker {...props} />
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+      <p className="px-1 text-xs leading-5 text-text-secondary">
         {intl.formatMessage(i18n.runtimeWarning)}
-      </div>
+      </p>
     </div>
   );
 }

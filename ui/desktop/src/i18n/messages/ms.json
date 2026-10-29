@@ -9253,5 +9253,38 @@
   },
   "businessApproval.workspace": {
     "defaultMessage": "Workspace"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Arahan tugas"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Terangkan tindakan, laporan dan masa untuk berhenti bagi setiap pelaksanaan."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Jalankan dalam"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Sembang baharu setiap kali"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Susulan dalam sembang semasa"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Menggunakan sejarah, model dan kebenaran sembang ini. Pelaksanaan dilangkau jika sembang sibuk. Memadam sembang menjeda tugas."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Setiap pelaksanaan bermula secara berasingan menggunakan model lalai yang dikonfigurasi."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Buka sembang dahulu untuk mencipta susulan."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Lanjutan"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Ulang"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Masa"
   }
 }

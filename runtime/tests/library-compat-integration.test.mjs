@@ -222,6 +222,39 @@ async function fixture(
   };
 }
 
+test('automatic follow-ups reuse the real Harness chat, model, context and ordinary session identity', async t => {
+  const { client, root, modelRequests, dataDir } = await fixture(t, { realHarness: true });
+  const session = await client.request('session/new', { cwd: root, mcpServers: [] });
+  await client.request('session/prompt', { sessionId: session.sessionId,
+    prompt: [{ type: 'text', text: 'Remember the marker PRIOR_CONTEXT_FOR_FOLLOWUP.' }] });
+  const count = (await client.request('session/list')).sessions.length;
+  const created = await client.request(method('schedules/create'), {
+    id: 'follow-current', cron: '* * * * *', executionMode: 'current_session',
+    targetSessionId: session.sessionId,
+    recipe: { title: 'Check progress', description: '', prompt: 'Report the next milestone.' },
+  });
+  for (let i = 0; i < 2; i++) {
+    const result = await client.request(method('schedules/run-now'), { scheduleId: created.job.id });
+    assert.equal(result.sessionId, session.sessionId);
+    assert.equal(result.status, 'completed');
+  }
+  const request = modelRequests.findLast(entry => entry.stream);
+  assert.equal(request.model, 'library-model');
+  assert.match(JSON.stringify(request.messages), /PRIOR_CONTEXT_FOR_FOLLOWUP/);
+  assert.match(JSON.stringify(request.messages), /Report the next milestone/);
+  assert.equal((await client.request('session/list')).sessions.length, count);
+  const info = await client.request(method('session/info'), { sessionId: session.sessionId });
+  assert.notEqual(info.session._meta.sessionType, 'scheduled');
+  const state = JSON.parse(await readFile(path.join(dataDir, 'state.json'), 'utf8'));
+  assert.equal(state.sessions.find(s => s.id === session.sessionId).scheduleId, undefined);
+  assert.equal(state.schedules[0].attempts.length, 2);
+  await client.request('session/delete', { sessionId: session.sessionId });
+  const job = (await client.request(method('schedules/list'))).jobs[0];
+  assert.equal(job.paused, true);
+  assert.equal(job.tested, false);
+  await assert.rejects(client.request(method('schedules/run-now'), { scheduleId: job.id }));
+});
+
 for (const workspaceMode of ["code", "codepro"])
 test(`actual ACP recipe startup renders task instructions and parameters, selects model/tools and protects secrets (${workspaceMode})`, async (t) => {
   const context = await fixture(t, {

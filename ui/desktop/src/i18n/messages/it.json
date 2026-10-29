@@ -9253,5 +9253,38 @@
   },
   "businessApproval.workspace": {
     "defaultMessage": "Workspace"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Istruzioni del compito"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Descrivi cosa fare, cosa riferire e quando fermarsi a ogni esecuzione."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Esegui in"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Una nuova chat ogni volta"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Prosegui nella chat corrente"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Usa cronologia, modello e autorizzazioni di questa chat. Se la chat è occupata, l’esecuzione viene saltata. Eliminare la chat mette in pausa il compito."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Ogni esecuzione inizia autonomamente con il modello predefinito configurato."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Apri prima una chat per creare un’attività di seguito."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Avanzate"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Ripetizione"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Ora"
   }
 }

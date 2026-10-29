@@ -27,8 +27,15 @@ import { schedulesForWorkspace } from '../../utils/scheduleWorkspace';
 import { trackScheduleCreated, trackScheduleDeleted, getErrorType } from '../../utils/analytics';
 import { defineMessages, useIntl } from '../../i18n';
 import { createTestedSchedule } from './createTestedSchedule';
+import { useChatContext } from '../../contexts/ChatContext';
+import { acpGetSessionListItem } from '../../acp/sessions';
 
 const i18n = defineMessages({
+  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'A new chat each time' },
+  currentSession: {
+    id: 'scheduleModal.currentSession',
+    defaultMessage: 'Follow up in the current chat',
+  },
   running: { id: 'schedulesView.running', defaultMessage: 'Running' },
   paused: { id: 'schedulesView.paused', defaultMessage: 'Paused' },
   lastRun: { id: 'schedulesView.lastRun', defaultMessage: 'Last run: {date}' },
@@ -43,8 +50,7 @@ const i18n = defineMessages({
   createSchedule: { id: 'schedulesView.createSchedule', defaultMessage: 'Create Schedule' },
   description: {
     id: 'schedulesView.description',
-    defaultMessage:
-      'Create and manage scheduled tasks to run recipes automatically at specified times.',
+    defaultMessage: 'Schedule recurring work and review the results of each run.',
   },
   errorPrefix: { id: 'schedulesView.errorPrefix', defaultMessage: 'Error: {error}' },
   noSchedules: { id: 'schedulesView.noSchedules', defaultMessage: 'No schedules yet' },
@@ -120,13 +126,13 @@ const ScheduleCard: React.FC<{
 
   return (
     <Card
-      className="py-2 px-4 mb-2 bg-background-primary border-none hover:bg-background-secondary cursor-pointer transition-all duration-150"
+      className="mb-3 cursor-pointer rounded-2xl border border-border-primary bg-background-primary px-5 py-4 shadow-none transition-colors duration-150 hover:bg-background-secondary"
       onClick={() => onNavigateToDetail(job.id)}
     >
       <div className="flex justify-between items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-base truncate max-w-[50vw]" title={job.id}>
+            <h3 className="max-w-[50vw] truncate text-sm font-medium" title={job.id}>
               {job.id}
             </h3>
             {job.currentlyRunning && (
@@ -145,6 +151,12 @@ const ScheduleCard: React.FC<{
           <p className="text-text-secondary text-sm mb-2 line-clamp-2" title={readableCron}>
             {readableCron}
           </p>
+          <p className="text-xs text-text-secondary mb-2">
+            {intl.formatMessage(
+              job.executionMode === 'current_session' ? i18n.currentSession : i18n.newSession
+            )}
+          </p>
+          {job.lastError && <p className="text-xs text-text-danger mb-2">{job.lastError}</p>}
           <div className="flex items-center text-xs text-text-secondary">
             <span>{intl.formatMessage(i18n.lastRun, { date: formattedLastRun })}</span>
           </div>
@@ -244,7 +256,27 @@ const ScheduleCard: React.FC<{
 
 const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
   const intl = useIntl();
+  const hubChat = useChatContext()?.chat;
   const location = useLocation();
+  const currentSessionId = location.state?.scheduleSessionId ?? hubChat?.sessionId;
+  const [currentChat, setCurrentChat] = useState<{ id: string; name: string }>();
+  useEffect(() => {
+    let disposed = false;
+    setCurrentChat(undefined);
+    if (typeof currentSessionId === 'string' && currentSessionId) {
+      acpGetSessionListItem(currentSessionId)
+        .then((session) => {
+          if (!disposed && !session.archivedAt)
+            setCurrentChat({ id: session.id, name: session.name });
+        })
+        .catch(() => {
+          /* A deleted chat cannot be offered as a follow-up target. */
+        });
+    }
+    return () => {
+      disposed = true;
+    };
+  }, [currentSessionId]);
   const workspaceMode = getWorkspaceModeFromPath(location.pathname);
   const [schedules, setSchedules] = useState<ScheduledJobDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -507,108 +539,108 @@ const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
     setViewingScheduleId(id);
   };
 
-  if (viewingScheduleId) {
-    return (
-      <ScheduleDetailView
-        scheduleId={viewingScheduleId}
-        onNavigateBack={() => setViewingScheduleId(null)}
-      />
-    );
-  }
-
   return (
     <>
-      <MainPanelLayout>
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="bg-background-primary px-8 pb-8 pt-16">
-            <div className="flex flex-col page-transition">
-              <div className="flex justify-between items-center mb-1">
-                <h1 className="text-4xl font-light">{intl.formatMessage(i18n.scheduler)}</h1>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleRefresh}
-                    disabled={isRefreshing || isLoading}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    {isRefreshing
-                      ? intl.formatMessage(i18n.refreshing)
-                      : intl.formatMessage(i18n.refresh)}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setSubmitApiError(null);
-                      setIsModalOpen(true);
-                    }}
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {intl.formatMessage(i18n.createSchedule)}
-                  </Button>
+      {viewingScheduleId ? (
+        <ScheduleDetailView
+          scheduleId={viewingScheduleId}
+          onNavigateBack={() => setViewingScheduleId(null)}
+        />
+      ) : (
+        <MainPanelLayout>
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="mx-auto w-full max-w-5xl bg-background-primary px-6 pb-6 pt-10">
+              <div className="flex flex-col page-transition">
+                <div className="flex justify-between items-center mb-1">
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    {intl.formatMessage(i18n.scheduler)}
+                  </h1>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleRefresh}
+                      disabled={isRefreshing || isLoading}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 rounded-full"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      {isRefreshing
+                        ? intl.formatMessage(i18n.refreshing)
+                        : intl.formatMessage(i18n.refresh)}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSubmitApiError(null);
+                        setIsModalOpen(true);
+                      }}
+                      size="sm"
+                      className="flex items-center gap-2 rounded-full"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {intl.formatMessage(i18n.createSchedule)}
+                    </Button>
+                  </div>
                 </div>
+                <p className="text-sm text-text-secondary mb-1">
+                  {intl.formatMessage(i18n.description)}
+                </p>
               </div>
-              <p className="text-sm text-text-secondary mb-1">
-                {intl.formatMessage(i18n.description)}
-              </p>
+            </div>
+
+            <div className="relative mx-auto min-h-0 w-full max-w-5xl flex-1 px-6">
+              <ScrollArea className="h-full">
+                <div className="h-full relative">
+                  {apiError && (
+                    <div className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md">
+                      <p className="text-text-danger text-sm">
+                        {intl.formatMessage(i18n.errorPrefix, { error: apiError })}
+                      </p>
+                    </div>
+                  )}
+
+                  {isLoading && schedules.length === 0 && (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"></div>
+                    </div>
+                  )}
+
+                  {!isLoading && !apiError && schedules.length === 0 && (
+                    <div className="flex flex-col pt-4 pb-12">
+                      <CircleDotDashed className="h-5 w-5 text-text-secondary mb-3.5" />
+                      <p className="text-base text-text-secondary font-light mb-2">
+                        {intl.formatMessage(i18n.noSchedules)}
+                      </p>
+                    </div>
+                  )}
+
+                  {schedules.length > 0 && (
+                    <div className="space-y-2 pb-8">
+                      {schedules.map((job) => (
+                        <ScheduleCard
+                          key={job.id}
+                          job={job}
+                          onNavigateToDetail={handleNavigateToDetail}
+                          onEdit={(schedule) => {
+                            setEditingSchedule(schedule);
+                            setSubmitApiError(null);
+                            setIsModalOpen(true);
+                          }}
+                          onPause={handlePauseSchedule}
+                          onUnpause={handleUnpauseSchedule}
+                          onKill={handleKillRunningJob}
+                          onInspect={handleInspectRunningJob}
+                          onDelete={handleDeleteSchedule}
+                          actionInProgress={actionsInProgress.has(job.id) || isSubmitting}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </div>
-
-          <div className="flex-1 min-h-0 relative px-8">
-            <ScrollArea className="h-full">
-              <div className="h-full relative">
-                {apiError && (
-                  <div className="mb-4 p-4 bg-background-danger border border-border-danger rounded-md">
-                    <p className="text-text-danger text-sm">
-                      {intl.formatMessage(i18n.errorPrefix, { error: apiError })}
-                    </p>
-                  </div>
-                )}
-
-                {isLoading && schedules.length === 0 && (
-                  <div className="flex justify-center items-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"></div>
-                  </div>
-                )}
-
-                {!isLoading && !apiError && schedules.length === 0 && (
-                  <div className="flex flex-col pt-4 pb-12">
-                    <CircleDotDashed className="h-5 w-5 text-text-secondary mb-3.5" />
-                    <p className="text-base text-text-secondary font-light mb-2">
-                      {intl.formatMessage(i18n.noSchedules)}
-                    </p>
-                  </div>
-                )}
-
-                {!isLoading && schedules.length > 0 && (
-                  <div className="space-y-2 pb-8">
-                    {schedules.map((job) => (
-                      <ScheduleCard
-                        key={job.id}
-                        job={job}
-                        onNavigateToDetail={handleNavigateToDetail}
-                        onEdit={(schedule) => {
-                          setEditingSchedule(schedule);
-                          setSubmitApiError(null);
-                          setIsModalOpen(true);
-                        }}
-                        onPause={handlePauseSchedule}
-                        onUnpause={handleUnpauseSchedule}
-                        onKill={handleKillRunningJob}
-                        onInspect={handleInspectRunningJob}
-                        onDelete={handleDeleteSchedule}
-                        actionInProgress={actionsInProgress.has(job.id) || isSubmitting}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-      </MainPanelLayout>
+        </MainPanelLayout>
+      )}
 
       <ScheduleModal
         isOpen={isModalOpen}
@@ -624,6 +656,7 @@ const SchedulesView: React.FC<SchedulesViewProps> = ({ onClose: _onClose }) => {
         apiErrorExternally={submitApiError}
         initialDeepLink={pendingDeepLink}
         workspaceMode={workspaceMode}
+        currentChat={currentChat}
       />
     </>
   );

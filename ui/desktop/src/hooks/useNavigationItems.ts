@@ -1,4 +1,4 @@
-import { Clock, FileText, History, MessageSquarePlus, Settings, Wrench } from 'lucide-react';
+import { Clock, History, MessageSquarePlus, Settings, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 
@@ -20,13 +20,6 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'New Task',
     icon: MessageSquarePlus,
     searchAliases: ['New Chat'],
-  },
-  {
-    id: 'recipes',
-    path: '/recipes',
-    label: 'Common Tasks',
-    icon: FileText,
-    searchAliases: ['Recipes'],
   },
   {
     id: 'scheduler',

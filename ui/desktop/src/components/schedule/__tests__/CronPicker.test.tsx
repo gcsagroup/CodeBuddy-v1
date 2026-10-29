@@ -1,4 +1,4 @@
-import { render, screen, type RenderOptions, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, type RenderOptions, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { ScheduledJobDto } from '@aaif/goose-sdk';
@@ -24,6 +24,15 @@ const scheduledJob = (cron: string): ScheduledJobDto => ({
 });
 
 describe('CronPicker', () => {
+  it('preserves midnight and noon in the compact time control', async () => {
+    const onChange = vi.fn();
+    renderWithIntl(<CronPicker schedule={null} onChange={onChange} isValid={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '00:05' } });
+    await waitFor(() => expect(getLastCron(onChange)).toBe('0 5 0 * * *'));
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '12:30' } });
+    await waitFor(() => expect(getLastCron(onChange)).toBe('0 30 12 * * *'));
+  });
+
   it('generates quarterly cron expressions from the quarter preset', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

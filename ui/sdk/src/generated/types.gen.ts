@@ -2655,6 +2655,9 @@ export type ListSchedulesResponse_unstable = {
 };
 
 export type ScheduledJobDto = {
+  lastError?: string | null;
+  executionMode?: "new_session" | "current_session";
+  targetSessionId?: string | null;
   id: string;
   source: string;
   cron: string;
@@ -2729,6 +2732,8 @@ export type SessionInfo = {
 export type SessionId = string;
 
 export type CreateScheduleRequest_unstable = {
+  executionMode?: "new_session" | "current_session";
+  targetSessionId?: string | null;
   id: string;
   recipe: RecipeDto;
   cron: string;

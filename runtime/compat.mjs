@@ -325,6 +325,7 @@ export class Compat {
       ? new ScheduleService(store, {
           run: (job, callbacks) => this.runSchedule(job, callbacks),
           stop: (sessionId) => this.request("session/cancel", { sessionId }),
+          isSessionBusy: (id) => this.active.has(id) || this.sessionMutations.has(id),
           sessionInfo: async (sessionId) => {
             const state = this.store.read();
             const session = state.sessions.find((entry) => entry.id === sessionId);
@@ -546,8 +547,7 @@ export class Compat {
     const root =
       process.env.CODEBUDDY_WORKSPACE_ROOT ??
       path.join(this.store.directory, "workspaces");
-    await mkdir(root, { recursive: true });
-    const cwd = path.join(root, `scheduled-${randomUUID()}`);
+    const followsChat = job.executionMode === "current_session";
     const connection = {
       sessionIds: new Set(),
       notify: (method, params) => {
@@ -567,54 +567,71 @@ export class Compat {
       background: true,
     };
     let sessionId;
+    let ownedTurn;
     const cancel = () => {
-      if (sessionId)
+      if (ownedTurn && this.active.get(sessionId) === ownedTurn)
         void this.request("session/cancel", { sessionId }).catch(() => {});
     };
     signal.addEventListener("abort", cancel, { once: true });
     try {
       signal.throwIfAborted();
-      const lease = await this.workspaces.acquire(
-        {
-          requestedPath: cwd,
-          expectedState: "missing",
-          expectedIdentity: workspaceIdentity(cwd),
-        },
-        connection,
-      );
-      const created = await this.request(
-        "session/new",
-        {
-          cwd,
-          mcpServers: [],
-          _meta: {
-            workspaceMode: job.workspaceMode,
-            workspaceLeaseId: lease.leaseId,
-            recipe: job.recipe,
-            recipeInteractive: false,
+      if (followsChat) {
+        const target = this.session(job.targetSessionId);
+        if (target.readonlyHistory || target.archivedAt)
+          throw invalid("The target chat is archived or read-only");
+        sessionId = target.id;
+      } else {
+        await mkdir(root, { recursive: true });
+        const cwd = path.join(root, `scheduled-${randomUUID()}`);
+        const lease = await this.workspaces.acquire(
+          {
+            requestedPath: cwd,
+            expectedState: "missing",
+            expectedIdentity: workspaceIdentity(cwd),
           },
-        },
-        connection,
-      );
-      sessionId = created.sessionId;
-      await this.store.update((state) => {
-        state.sessions.find((session) => session.id === sessionId).scheduleId = job.id;
-      });
+          connection,
+        );
+        const created = await this.request(
+          "session/new",
+          {
+            cwd,
+            mcpServers: [],
+            _meta: {
+              workspaceMode: job.workspaceMode,
+              workspaceLeaseId: lease.leaseId,
+              recipe: job.recipe,
+              recipeInteractive: false,
+            },
+          },
+          connection,
+        );
+        sessionId = created.sessionId;
+        await this.store.update((state) => {
+          state.sessions.find((session) => session.id === sessionId).scheduleId = job.id;
+        });
+      }
       await onSession(sessionId);
       signal.throwIfAborted();
       const s = this.session(sessionId);
-      const result = await this.prompt(
+      const previousTurn = this.active.get(sessionId);
+      const pending = this.prompt(
         {
           sessionId,
           prompt: [
             {
               type: "text",
-              text: s.recipe.prompt?.trim() || s.recipe.instructions,
+              text: followsChat
+                ? [job.recipe.instructions?.trim(), job.recipe.prompt?.trim()].filter(Boolean).join('\n\n')
+                : s.recipe.prompt?.trim() || s.recipe.instructions,
             },
           ],
         },
         connection,
       );
+      const admitted = this.active.get(sessionId);
+      if (admitted !== previousTurn) ownedTurn = admitted;
+      if (signal.aborted) cancel();
+      const result = await pending;
       if (result.stopReason === "cancelled")
         return { status: "cancelled", sessionId };
       if (
@@ -713,7 +730,8 @@ export class Compat {
   info(s, state = this.store.read(['schedules', 'codeproRuns'])) {
     // Scheduled origin is a UI contract, independent of the native execution
     // mode. Older sessions can recover it from the persisted schedule history.
-    const scheduled = s.scheduleId || state.schedules?.some((job) => job.sessions?.includes(s.id));
+    const scheduled = s.scheduleId || state.schedules?.some((job) =>
+      job.executionMode !== 'current_session' && job.sessions?.includes(s.id));
     return {
       sessionId: s.id,
       cwd: s.cwd,
@@ -1775,6 +1793,7 @@ export class Compat {
         this.driver.withConversationLock(p.sessionId, async () => {
           if (this.active.has(p.sessionId))
             throw invalid("Stop the session before deleting it");
+          await this.schedules?.stopSessionSchedules(p.sessionId);
           await this.releaseSession(this.session(p.sessionId));
           await this.store.update((state) => {
             state.sessions = state.sessions.filter((s) => s.id !== p.sessionId);

@@ -9253,5 +9253,38 @@
   },
   "businessApproval.workspace": {
     "defaultMessage": "Workspace"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Инструкции задачи"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Опишите действия, отчёт и условие остановки для каждого запуска."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Где выполнять"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Каждый раз в новом чате"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Продолжать в текущем чате"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Используются история, модель и разрешения этого чата. Если чат занят, запуск пропускается. Удаление чата приостанавливает задачу."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Каждый запуск начинается независимо с настроенной моделью по умолчанию."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Сначала откройте чат, чтобы создать задачу продолжения."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Дополнительно"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Повтор"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Время"
   }
 }

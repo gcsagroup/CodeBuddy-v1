@@ -25,6 +25,11 @@ import { defineMessages, useIntl } from '../../i18n';
 import { useNavigation } from '../../hooks/useNavigation';
 
 const i18n = defineMessages({
+  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'A new chat each time' },
+  followSession: {
+    id: 'scheduleModal.currentSession',
+    defaultMessage: 'Follow up in the current chat',
+  },
   scheduleNotFound: {
     id: 'scheduleDetailView.scheduleNotFound',
     defaultMessage: 'Schedule Not Found',
@@ -456,6 +461,24 @@ const ScheduleDetailView: React.FC<ScheduleDetailViewProps> = ({ scheduleId, onN
                     <span className="font-semibold">{intl.formatMessage(i18n.recipeSource)}</span>{' '}
                     {scheduleDetails.source}
                   </p>
+                  <p className="text-sm text-text-secondary">
+                    {intl.formatMessage(
+                      scheduleDetails.executionMode === 'current_session'
+                        ? i18n.followSession
+                        : i18n.newSession
+                    )}
+                    {scheduleDetails.targetSessionId && (
+                      <button
+                        className="ml-2 underline"
+                        onClick={() => openSession(scheduleDetails.targetSessionId!)}
+                      >
+                        {scheduleDetails.targetSessionId}
+                      </button>
+                    )}
+                  </p>
+                  {scheduleDetails.lastError && (
+                    <p className="text-sm text-text-danger">{scheduleDetails.lastError}</p>
+                  )}
                   <p className="text-sm text-text-primary">
                     <span className="font-semibold">{intl.formatMessage(i18n.lastRun)}</span>{' '}
                     {formatToLocalDateWithTimezone(scheduleDetails.lastRun)}

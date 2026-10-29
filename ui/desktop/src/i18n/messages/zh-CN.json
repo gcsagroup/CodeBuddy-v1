@@ -6555,7 +6555,7 @@
     "defaultMessage": "时钟"
   },
   "scheduleModal.createNewSchedule": {
-    "defaultMessage": "创建新计划"
+    "defaultMessage": "设置自动任务"
   },
   "scheduleModal.createSchedule": {
     "defaultMessage": "创建计划"
@@ -6615,7 +6615,7 @@
     "defaultMessage": "来源："
   },
   "scheduleModal.testAndEnable": {
-    "defaultMessage": "测试并启用"
+    "defaultMessage": "创建并启用"
   },
   "scheduleModal.updateSchedule": {
     "defaultMessage": "更新计划"
@@ -6633,13 +6633,13 @@
     "defaultMessage": "确定要删除计划“{id}”吗？"
   },
   "schedulesView.createSchedule": {
-    "defaultMessage": "创建计划"
+    "defaultMessage": "新建任务"
   },
   "schedulesView.createTestFailed": {
     "defaultMessage": "自动任务测试失败。技术详情：{error}"
   },
   "schedulesView.description": {
-    "defaultMessage": "创建和管理定时任务，在指定时间自动运行配方。"
+    "defaultMessage": "安排重复任务，并查看每次执行的结果。"
   },
   "schedulesView.edit": {
     "defaultMessage": "编辑"
@@ -9023,10 +9023,12 @@
   "workspacePanel.openWith": {
     "defaultMessage": "打开方式"
   },
-  "workspacePanel.codeEditor": { "defaultMessage": "在代码编辑器中打开" },
-  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更换默认代码编辑器…" },
-  "workspacePanel.codeEditor": { "defaultMessage": "在代码编辑器中打开" },
-  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更换默认代码编辑器…" },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "在代码编辑器中打开"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "更换默认代码编辑器…"
+  },
   "workspacePanel.chooseApplication": {
     "defaultMessage": "选择其他应用…"
   },
@@ -9257,5 +9259,38 @@
   },
   "businessApproval.workspace": {
     "defaultMessage": "工作区"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "任务内容"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "说明每次要做什么、汇报什么，以及何时停止。"
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "执行方式"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "每次新会话"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "当前聊天跟进"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "沿用此聊天的历史、模型和权限。聊天忙碌时跳过本次；删除聊天会暂停任务。"
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "每次独立开始，使用已配置的默认模型。"
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "请先打开一个聊天，再创建跟进任务。"
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "高级"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "重复"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "时间"
   }
 }

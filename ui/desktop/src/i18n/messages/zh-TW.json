@@ -6555,7 +6555,7 @@
     "defaultMessage": "Clock"
   },
   "scheduleModal.createNewSchedule": {
-    "defaultMessage": "建立新排程"
+    "defaultMessage": "設定自動任務"
   },
   "scheduleModal.createSchedule": {
     "defaultMessage": "建立排程"
@@ -6615,7 +6615,7 @@
     "defaultMessage": "來源："
   },
   "scheduleModal.testAndEnable": {
-    "defaultMessage": "測試並啟用"
+    "defaultMessage": "建立並啟用"
   },
   "scheduleModal.updateSchedule": {
     "defaultMessage": "更新排程"
@@ -6633,13 +6633,13 @@
     "defaultMessage": "移除排程「{id}」？食譜將會保留。"
   },
   "schedulesView.createSchedule": {
-    "defaultMessage": "建立排程"
+    "defaultMessage": "新增任務"
   },
   "schedulesView.createTestFailed": {
     "defaultMessage": "自動任務測試失敗。技術詳情：{error}"
   },
   "schedulesView.description": {
-    "defaultMessage": "建立並管理排程任務，以在指定時間自動執行食譜。"
+    "defaultMessage": "安排重複任務，並檢視每次執行的結果。"
   },
   "schedulesView.edit": {
     "defaultMessage": "編輯"
@@ -9023,8 +9023,12 @@
   "workspacePanel.openWith": {
     "defaultMessage": "開啟方式"
   },
-  "workspacePanel.codeEditor": { "defaultMessage": "在程式碼編輯器中開啟" },
-  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更換預設程式碼編輯器…" },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "在程式碼編輯器中開啟"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "更換預設程式碼編輯器…"
+  },
   "workspacePanel.chooseApplication": {
     "defaultMessage": "選擇其他應用程式…"
   },
@@ -9255,5 +9259,38 @@
   },
   "businessApproval.workspace": {
     "defaultMessage": "工作區"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "任務內容"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "說明每次要做什麼、回報什麼，以及何時停止。"
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "執行方式"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "每次新會話"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "目前聊天跟進"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "沿用此聊天的歷史、模型和權限。聊天忙碌時略過本次；刪除聊天會暫停任務。"
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "每次獨立開始，使用已設定的預設模型。"
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "請先開啟聊天，再建立跟進任務。"
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "進階"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "重複"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "時間"
   }
 }

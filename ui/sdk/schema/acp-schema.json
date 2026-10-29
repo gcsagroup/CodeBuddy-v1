@@ -7512,6 +7512,16 @@
     "ScheduledJobDto": {
       "type": "object",
       "properties": {
+        "executionMode": {
+          "type": "string",
+          "enum": ["new_session", "current_session"]
+        },
+        "targetSessionId": {
+          "type": ["string", "null"]
+        },
+        "lastError": {
+          "type": ["string", "null"]
+        },
         "id": {
           "type": "string"
         },
@@ -7662,6 +7672,13 @@
     "CreateScheduleRequest_unstable": {
       "type": "object",
       "properties": {
+        "executionMode": {
+          "type": "string",
+          "enum": ["new_session", "current_session"]
+        },
+        "targetSessionId": {
+          "type": ["string", "null"]
+        },
         "id": {
           "type": "string"
         },

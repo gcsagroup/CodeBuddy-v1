@@ -7,10 +7,9 @@ import { zRecipeDto } from "../ui/sdk/dist/generated/zod.gen.js";
 import { assertRecipeExecutable } from "./recipe-execution.mjs";
 // Schedule helpers transitively import subagents; establish its native contract
 // before that module graph is loaded, including the server's lazy driver path.
-import './harness/subagent-return-contract.mjs';
-const { createCronScheduleRecord, parseCronInput } = await import(
-  './harness/node_modules/@deepseek-ai/dsh-schedule/lib/index.js'
-);
+import "./harness/subagent-return-contract.mjs";
+const { createCronScheduleRecord, parseCronInput } =
+  await import("./harness/node_modules/@deepseek-ai/dsh-schedule/lib/index.js");
 
 const require = createRequire(
   new URL("../ui/desktop/package.json", import.meta.url),
@@ -81,6 +80,7 @@ export class ScheduleService {
       stop,
       sessionInfo,
       getRecipe,
+      isSessionBusy = () => false,
       now = Date.now,
       timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
       timers = true,
@@ -93,6 +93,7 @@ export class ScheduleService {
     this.stop = stop;
     this.sessionInfo = sessionInfo;
     this.getRecipe = getRecipe;
+    this.isSessionBusy = isSessionBusy;
     this.now = now;
     this.timeZone = timeZone;
     this.timers = timers;
@@ -151,6 +152,9 @@ export class ScheduleService {
       currentSessionId: row.currentSessionId ?? null,
       jobStartTime: row.jobStartTime ?? null,
       workspaceMode: row.workspaceMode,
+      executionMode: row.executionMode ?? "new_session",
+      targetSessionId: row.targetSessionId ?? null,
+      lastError: row.lastError ?? null,
     };
   }
   next(row, now = this.now()) {
@@ -246,11 +250,38 @@ export class ScheduleService {
     )
       throw invalid("Invalid schedule workspace mode");
     const recipe = recipeValue(input.recipe);
+    const executionMode = input.executionMode ?? "new_session";
+    if (!["new_session", "current_session"].includes(executionMode))
+      throw invalid("Invalid automatic task execution mode");
+    if (
+      executionMode === "current_session" &&
+      (recipe.settings ||
+        recipe.extensions?.length ||
+        recipe.parameters?.length)
+    )
+      throw invalid(
+        "Current-chat follow-ups use the chat's existing model and tools; enter plain task instructions",
+      );
+    if (executionMode === "new_session" && input.targetSessionId != null)
+      throw invalid("Only a current-chat task can bind a session");
     const timing = cronExpression(input.cron, this.timeZone);
     const id = input.id.trim();
     return this.serial(async () => {
       if (this.rows().some((row) => row.id === id))
         throw invalid("A task with this schedule name already exists");
+      let targetSessionId = null;
+      if (executionMode === "current_session") {
+        if (typeof input.targetSessionId !== "string" || !input.targetSessionId)
+          throw invalid("Choose a current chat for this automatic task");
+        const target = await this.sessionInfo?.(input.targetSessionId);
+        if (
+          !target ||
+          target._meta?.readonlyHistory ||
+          target._meta?.archivedAt
+        )
+          throw invalid("The target chat is missing, archived or read-only");
+        targetSessionId = input.targetSessionId;
+      }
       const protectedRecipeExtensions = recipe.extensions?.length
         ? await protectSecret(JSON.stringify(recipe.extensions))
         : null;
@@ -267,6 +298,8 @@ export class ScheduleService {
         expression: timing.expression,
         timeZone: timing.timeZone,
         workspaceMode: input.workspaceMode ?? "codepro",
+        executionMode,
+        targetSessionId,
         paused: input.paused ?? true,
         tested: false,
         currentlyRunning: false,
@@ -351,12 +384,14 @@ export class ScheduleService {
         throw invalid("Schedule session lookup is not configured");
       if (input.limit === 0) return { sessions: [] };
       return {
-        sessions: (await Promise.all(
-          (row.sessions ?? [])
-            .slice(-input.limit)
-            .reverse()
-            .map((sessionId) => this.sessionInfo(sessionId)),
-        )).filter((session) => session !== null),
+        sessions: (
+          await Promise.all(
+            (row.sessions ?? [])
+              .slice(-input.limit)
+              .reverse()
+              .map((sessionId) => this.sessionInfo(sessionId)),
+          )
+        ).filter((session) => session !== null),
       };
     }
     return this.serial(async () => {
@@ -415,10 +450,42 @@ export class ScheduleService {
         throw invalid("This scheduled task is already running");
       if (automatic && row.paused)
         throw invalid("This scheduled task is paused");
+      if (
+        row.executionMode === "current_session" &&
+        (this.isSessionBusy(row.targetSessionId) ||
+          [...this.active.values()].some(
+            (run) => run.targetSessionId === row.targetSessionId,
+          ))
+      ) {
+        if (!automatic)
+          throw invalid("The target chat is busy; try again when it finishes");
+        await this.store.update((state) => {
+          const stored = state.schedules.find((item) => item.id === id);
+          stored.nextRun = this.next(stored);
+          stored.lastOutcome = "skipped";
+          (stored.attempts ??= []).push({
+            id: randomUUID(),
+            status: "skipped",
+            trigger: "scheduled",
+            startedAt: new Date(this.now()).toISOString(),
+            finishedAt: new Date(this.now()).toISOString(),
+            reason: "target_busy",
+          });
+        });
+        return null;
+      }
       const attemptId = randomUUID();
       const startedAt = new Date(this.now()).toISOString();
       const controller = new AbortController();
-      const active = { id, attemptId, controller, sessionId: null, done: null };
+      const active = {
+        id,
+        attemptId,
+        controller,
+        sessionId: null,
+        done: null,
+        targetSessionId:
+          row.executionMode === "current_session" ? row.targetSessionId : null,
+      };
       await this.store.update((state) => {
         const stored = state.schedules.find((item) => item.id === id);
         stored.currentlyRunning = true;
@@ -457,6 +524,11 @@ export class ScheduleService {
         onSession: async (sessionId) => {
           if (typeof sessionId !== "string" || !sessionId)
             throw invalid("The schedule runner returned an invalid session id");
+          if (
+            job.executionMode === "current_session" &&
+            sessionId !== job.targetSessionId
+          )
+            throw invalid("The follow-up must run in its bound chat");
           active.sessionId = sessionId;
           await this.store.update((state) => {
             const row = state.schedules.find((entry) => entry.id === job.id);
@@ -494,6 +566,7 @@ export class ScheduleService {
       row.currentSessionId = null;
       row.jobStartTime = null;
       row.lastOutcome = status;
+      row.lastError = failure ? String(failure.message).slice(0, 500) : null;
       row.attempts.at(-1).status = status;
       row.attempts.at(-1).finishedAt = new Date(this.now()).toISOString();
       if (failure)
@@ -515,9 +588,34 @@ export class ScheduleService {
     const active = this.active.get(id);
     if (!active) return { message: "The scheduled task is not running" };
     active.controller.abort();
-    if (active.sessionId && this.stop) await this.stop(active.sessionId);
+    // Follow-ups share a chat with manual turns. Their runner owns scoped
+    // cancellation; a session-wide stop here could cancel a later manual turn.
+    if (active.sessionId && !active.targetSessionId && this.stop)
+      await this.stop(active.sessionId);
     await active.done;
     return { message: "The scheduled task was cancelled" };
+  }
+
+  async stopSessionSchedules(sessionId) {
+    await this.serial(() =>
+      this.store.update((state) => {
+        for (const row of state.schedules ?? []) {
+          if (
+            row.executionMode !== "current_session" ||
+            row.targetSessionId !== sessionId
+          )
+            continue;
+          if (row.currentlyRunning)
+            throw invalid(
+              "Stop the automatic follow-up before deleting its chat",
+            );
+          row.paused = true;
+          row.tested = false;
+          row.lastError = "The linked chat was deleted";
+        }
+      }),
+    );
+    this.arm();
   }
 
   async tick() {
@@ -567,10 +665,11 @@ export class ScheduleService {
     const runs = [...this.active.values()];
     for (const active of runs) {
       active.controller.abort();
-      if (active.sessionId && this.stop) await this.stop(active.sessionId);
+      if (active.sessionId && !active.targetSessionId && this.stop)
+        await this.stop(active.sessionId);
     }
     const results = await Promise.allSettled(runs.map((active) => active.done));
-    const failure = results.find(result => result.status === 'rejected');
+    const failure = results.find((result) => result.status === "rejected");
     if (failure) throw failure.reason;
   }
 }

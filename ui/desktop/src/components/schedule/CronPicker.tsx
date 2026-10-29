@@ -13,6 +13,8 @@ import {
 } from '../../utils/cronSchedule';
 
 const i18n = defineMessages({
+  repeat: { id: 'cronPicker.repeat', defaultMessage: 'Repeat' },
+  time: { id: 'cronPicker.time', defaultMessage: 'Time' },
   every: { id: 'cronPicker.every', defaultMessage: 'Every' },
   mode: { id: 'cronPicker.mode', defaultMessage: 'Mode' },
   minute: { id: 'cronPicker.minute', defaultMessage: 'Minute' },
@@ -188,16 +190,16 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
     customCron,
   ]);
 
-  const selectClassName = 'px-2 py-1 border rounded bg-white dark:bg-gray-800 dark:border-gray-600';
+  const selectClassName =
+    'min-h-8 max-w-full rounded-lg border-0 bg-transparent px-2 py-1 text-sm text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-primary';
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">
-          {intl.formatMessage(period === 'custom' ? i18n.mode : i18n.every)}
-        </span>
+    <div className="rounded-2xl border border-border-primary px-4">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-primary py-2">
+        <span className="text-sm text-text-primary">{intl.formatMessage(i18n.repeat)}</span>
         <select
           value={period}
+          aria-label={intl.formatMessage(i18n.repeat)}
           onChange={(e) => {
             const nextPeriod = e.target.value as Period;
             if (nextPeriod === 'custom' && period !== 'custom') {
@@ -218,7 +220,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
         </select>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 py-3 [&>div]:flex-wrap [&>div]:justify-between">
         {period === 'custom' && (
           <div className="space-y-1">
             <label htmlFor="custom-cron-expression" className="text-sm">
@@ -229,7 +231,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
               type="text"
               value={customCron}
               onChange={(e) => setCustomCron(e.target.value)}
-              className="w-full px-2 py-1 border rounded"
+              className="w-full rounded-lg border border-border-primary bg-transparent px-3 py-2 text-sm outline-none focus:border-text-secondary"
             />
           </div>
         )}
@@ -295,7 +297,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
               max={maxDayOfMonth}
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(e.target.value)}
-              className="w-16 px-2 py-1 border rounded"
+              className="w-14 rounded-lg border border-border-primary bg-transparent px-2 py-1 text-sm"
             />
           </div>
         )}
@@ -325,32 +327,23 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
           period === 'quarter' ||
           period === 'year') && (
           <div className="flex items-center gap-2">
-            <span className="text-sm">{intl.formatMessage(i18n.at)}</span>
+            <span className="mr-auto text-sm text-text-primary">
+              {intl.formatMessage(i18n.time)}
+            </span>
             <input
-              type="number"
-              min="1"
-              max="12"
-              value={hour12}
-              onChange={(e) => setHour12(parseInt(e.target.value) || 1)}
-              className="w-16 px-2 py-1 border rounded"
+              type="time"
+              aria-label={intl.formatMessage(i18n.time)}
+              value={`${to24Hour(hour12, isPM).toString().padStart(2, '0')}:${minute.padStart(2, '0')}`}
+              onChange={(event) => {
+                if (!event.target.value) return;
+                const [hour, minute] = event.target.value.split(':').map(Number);
+                const time = to12Hour(hour);
+                setHour12(time.hour);
+                setIsPM(time.isPM);
+                setMinute(String(minute));
+              }}
+              className="rounded-lg border-0 bg-transparent px-2 py-1 text-sm tabular-nums text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-primary"
             />
-            <span className="text-sm">:</span>
-            <input
-              type="number"
-              min="0"
-              max="59"
-              value={minute}
-              onChange={(e) => setMinute(e.target.value.padStart(2, '0'))}
-              className="w-16 px-2 py-1 border rounded"
-            />
-            <select
-              value={isPM ? 'PM' : 'AM'}
-              onChange={(e) => setIsPM(e.target.value === 'PM')}
-              className={selectClassName}
-            >
-              <option value="AM">{intl.formatMessage(i18n.am)}</option>
-              <option value="PM">{intl.formatMessage(i18n.pm)}</option>
-            </select>
           </div>
         )}
 
@@ -383,9 +376,14 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
         )}
       </div>
 
-      <div className={`text-xs mt-2 ${hasCronError ? 'text-text-danger' : 'text-gray-500'}`}>
-        {readableCron}
-      </div>
+      {(period === 'custom' || hasCronError) && (
+        <div
+          className={`pb-3 text-xs ${hasCronError ? 'text-text-danger' : 'text-text-secondary'}`}
+          aria-live="polite"
+        >
+          {readableCron}
+        </div>
+      )}
     </div>
   );
 };

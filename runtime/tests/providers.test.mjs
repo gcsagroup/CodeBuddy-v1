@@ -77,22 +77,23 @@ test('official endpoints resolve native catalog capabilities without guessing fr
   }
 });
 
-test('model lists prioritize catalog entries and service creation dates without changing the saved default', async t => {
+test('OpenAI numbered models sort by version even when alias creation dates are older, without changing the saved default', async t => {
   const rows = [
-    { id: 'gpt-4', created: 100 },
-    { id: 'tts-1', created: 999 },
+    { id: 'gpt-4', created: 1000 },
+    { id: 'tts-1', created: 9999 },
     { id: 'gpt-6.1-sol', created: 200 },
+    { id: 'gpt-6.1-terra', created: 150 },
     { id: 'unknown-model', created: 300 },
   ];
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: rows })));
   const provider = { ...input('https://api.openai.com'), models: rows.map(row => row.id) };
-  const expected = ['gpt-6.1-sol', 'gpt-4', 'tts-1', 'unknown-model'];
+  const expected = ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-4', 'tts-1', 'unknown-model'];
   assert.deepEqual(await discover(provider), expected);
   assert.deepEqual(inventory(provider).models.map(model => model.id), expected);
   assert.equal(inventory(provider).defaultModel, 'gpt-4');
   assert.deepEqual(provider.models, rows.map(row => row.id));
   const proxy = { ...provider, apiUrl: 'https://proxy.invalid', displayName: 'OpenAI' };
-  assert.deepEqual(await discover(proxy), ['tts-1', 'unknown-model', 'gpt-6.1-sol', 'gpt-4']);
+  assert.deepEqual(await discover(proxy), ['tts-1', 'gpt-4', 'unknown-model', 'gpt-6.1-sol', 'gpt-6.1-terra']);
 });
 
 test('local Ollama show metadata distinguishes vision, tool support and non-chat models', async t => {

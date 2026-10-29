@@ -144,9 +144,21 @@ function providerCatalog(provider) {
 }
 
 function orderedModels(provider, ids, created = {}) {
-  const catalog = new Set(catalogModelIds(providerCatalog(provider)));
-  return [...ids].sort((a, b) =>
-    Number(catalog.has(b)) - Number(catalog.has(a)) || (created[b] ?? 0) - (created[a] ?? 0));
+  const catalogProviderId = providerCatalog(provider);
+  const catalog = new Set(catalogModelIds(catalogProviderId));
+  // API entry creation can predate a newer model alias. Numbered GPT names
+  // have a useful display order; this must never establish capabilities.
+  const versions = new Map(ids.map(id => {
+    const match = catalogProviderId === 'openai' && /^gpt-(\d+)(?:\.(\d+))?/.exec(id);
+    return [id, match ? [Number(match[1]), Number(match[2] ?? 0)] : undefined];
+  }));
+  return [...ids].sort((a, b) => {
+    const first = versions.get(a), second = versions.get(b);
+    return Number(Boolean(second)) - Number(Boolean(first)) ||
+      (first && second ? second[0] - first[0] || second[1] - first[1] : 0) ||
+      Number(catalog.has(b)) - Number(catalog.has(a)) ||
+      (created[b] ?? 0) - (created[a] ?? 0);
+  });
 }
 
 function sameConnection(first, second) {

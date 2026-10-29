@@ -193,7 +193,7 @@ function show({ startAgent = true } = {}) {
   );
 }
 
-it('renders a file draft outside durable history and clears it when the turn is stopped', () => {
+it('keeps input preparation in the footer without appending a transient history row', async () => {
   fixture.readonly = false;
   fixture.state = 'streaming';
   fixture.activity = {
@@ -207,7 +207,10 @@ it('renders a file draft outside durable history and clears it when the turn is 
     },
   };
   const view = show();
-  expect(screen.getAllByText('Generating file contents').length).toBeGreaterThan(0);
+  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
+  expect(screen.getAllByText('Generating file contents')).toHaveLength(1);
+  expect(screen.getByTestId('loading-indicator')).toHaveTextContent('Generating file contents');
+  expect(view.container.querySelector('.codepro-chat-history [role="status"]')).toBeNull();
   expect(screen.queryByText('14 KB')).toBeNull();
   expect(screen.getByTestId('history-order')).not.toHaveTextContent('tool-preview');
   fixture.state = 'idle';
@@ -217,6 +220,7 @@ it('renders a file draft outside durable history and clears it when the turn is 
     </MemoryRouter>
   );
   expect(screen.queryByText('14 KB')).toBeNull();
+  expect(screen.queryByText('Generating file contents')).toBeNull();
 });
 
 it('projects pending input before stop receipts without changing execution history or leaking into another chat', () => {

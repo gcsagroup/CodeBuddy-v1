@@ -114,10 +114,21 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
     if (!ctx.get(service)) { await ctx.fiber.dispose(); throw new Error(`Harness required service did not activate: ${service}`); }
   }
   // A child's native persona replaces the deployment persona. Keep the shared
-  // conversation language outside that override, including for cold resumes.
+  // conversation guidance outside that override, including for cold resumes.
   ctx.systemPrompt.section({
     name: 'codebuddy:conversation-language', order: 102, interpolate: false,
     text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
+  });
+  ctx.systemPrompt.section({
+    name: 'codebuddy:progress-updates', order: 104, interpolate: false,
+    text: `<progress_updates>
+Keep progress updates brief, meaningful, and outcome-based.
+
+- Before lengthy operations, briefly explain what you're about to do and why.
+- During execution, proactively report meaningful progress, major findings, completed milestones, or blockers.
+- Avoid routine status narration and repetitive updates.
+- Prioritize actual results over descriptions of activity.
+</progress_updates>`,
   });
   ctx.on('system-prompt/assemble', async (_assembly, { agent, signal }, next) => {
     const assembly = await next();

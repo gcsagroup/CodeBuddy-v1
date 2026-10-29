@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "Tham chiếu chỉ đọc; không gian làm việc và quyền truy cập tệp không thay đổi."
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

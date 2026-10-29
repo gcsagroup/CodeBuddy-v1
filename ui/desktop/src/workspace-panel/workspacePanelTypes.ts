@@ -68,6 +68,7 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'list'; path: string }
   | { action: 'search'; query: string }
   | { action: 'read'; path: string }
+  | { action: 'read-reference'; path: string }
   | { action: 'inspect'; path: string }
   | { action: 'document-preview'; path: string; requestId: string }
   | { action: 'document-preview-cancel'; requestId: string }
@@ -99,6 +100,7 @@ export type PanelRequest = { scope: PanelScope } & (
   | { action: 'browser-close'; id: string }
 );
 export interface PanelReply {
+  reference?: { path: string; content: string };
   fileAction?: PanelFileMenuChoice | null;
   tabAction?: PanelTabAction;
   attachment?: { name: string; dataUrl: string };

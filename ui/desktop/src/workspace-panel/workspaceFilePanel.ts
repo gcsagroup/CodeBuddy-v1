@@ -25,6 +25,7 @@ export interface WorkspaceWebTarget {
 
 export function workspaceLinkPath(value: string): string | undefined {
   try {
+    value = value.replace(/#L[1-9]\d*(?:-L?[1-9]\d*)?$/, '');
     if (/^file:/i.test(value)) {
       const url = new URL(value);
       if (url.hostname || url.search || url.hash) return undefined;

@@ -1168,6 +1168,7 @@ function ProgressiveMessageListContent({
         ) {
           return (
             <CodeProWorkStep
+              sessionId={chat.sessionId}
               key={`step-${progressRequest.id}`}
               text={progressCall.arguments.text}
               settled={false}

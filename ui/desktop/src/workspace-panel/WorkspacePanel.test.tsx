@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspacePanel, WorkspacePanelContent } from './WorkspacePanel';
@@ -9,6 +9,47 @@ import type { MediaJob } from './WorkspaceGeneration';
 import { AppEvents } from '../constants/events';
 import { getSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
+
+it('shows an approved external source in a read-only preview without edit or save controls', async () => {
+  const previous = window.electron.workspacePanel;
+  const ipc = vi.fn(async (request: PanelRequest) =>
+    request.action === 'read-reference'
+      ? {
+          reference: {
+            path: 'C:/outside/source.mjs',
+            content: 'export const readonlyReference = true;',
+          },
+        }
+      : { entries: [] }
+  );
+  window.electron.workspacePanel = ipc as typeof previous;
+  try {
+    render(
+      <WorkspacePanelContent
+        scope={{ sessionId: 'read-reference-test', root: 'C:/fixture' }}
+        expanded
+        width={560}
+        onExpandedChange={vi.fn()}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent(
+      window,
+      new CustomEvent('codebuddy:open-workspace-file', {
+        detail: { sessionId: 'read-reference-test', filePath: '../outside/source.mjs' },
+      })
+    );
+    const preview = await screen.findByRole('dialog', { name: 'C:/outside/source.mjs' });
+    expect(preview).toHaveTextContent('readonlyReference');
+    expect(within(preview).queryByRole('textbox')).toBeNull();
+    expect(within(preview).queryByRole('button', { name: /Save|Edit/ })).toBeNull();
+    expect(ipc).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'read-reference', path: '../outside/source.mjs' })
+    );
+  } finally {
+    window.electron.workspacePanel = previous;
+  }
+});
 vi.mock('../acp/goals', () => ({ getSessionGoal: vi.fn(), changeSessionGoal: vi.fn() }));
 vi.mock('./dshDocumentRenderer', () => ({
   loadDshDocumentRenderer: vi.fn().mockResolvedValue({}),
@@ -271,7 +312,7 @@ beforeEach(() => {
   invoke.mockImplementation(async (r: PanelRequest) => {
     if (r.action === 'list')
       return { entries: [{ name: 'note.txt', path: 'note.txt', kind: 'file' }] };
-    if (r.action === 'read')
+    if (r.action === 'read' || r.action === 'read-reference')
       return { document: { path: 'note.txt', content: 'original', version: 'v1' } };
     if (r.action === 'save')
       return { document: { path: r.path, content: r.content, version: 'v2' } };
@@ -505,7 +546,9 @@ it('stops closing tabs to the right when an unsaved draft is kept, then closes o
   Object.assign(window.electron, { workspaceTabMenu: menu });
   const { scope } = panel();
   invoke.mockImplementation(async (r) =>
-    r.action === 'read' ? { document: { path: r.path, content: 'original', version: 'v1' } } : {}
+    r.action === 'read' || r.action === 'read-reference'
+      ? { document: { path: r.path, content: 'original', version: 'v1' } }
+      : {}
   );
   for (const name of ['left.txt', 'draft.txt', 'right.txt']) {
     fireEvent(
@@ -662,7 +705,7 @@ it('opens a separate image tab while keeping text-file tabs unique and adds an i
   const attached = vi.fn();
   window.addEventListener('codebuddy:attach-workspace-image', attached);
   invoke.mockImplementation(async (r: PanelRequest) =>
-    r.action === 'read'
+    r.action === 'read' || r.action === 'read-reference'
       ? {
           document: {
             path: r.path,
@@ -1131,7 +1174,7 @@ it('shows a binary document as read-only instead of an IPC error', async () => {
   invoke.mockImplementation(async (r: PanelRequest) => {
     if (r.action === 'list')
       return { entries: [{ name: 'school.db', path: 'school.db', kind: 'file' }] };
-    if (r.action === 'read')
+    if (r.action === 'read' || r.action === 'read-reference')
       return { document: { path: 'school.db', content: '', version: 'db1', binary: true } };
     return {};
   });
@@ -1156,7 +1199,7 @@ it('clears a previous error when returning to an existing file tab, keeping its 
 
 it('opens a local video in the right panel with playback controls and no editing controls', async () => {
   invoke.mockImplementation(async (request: PanelRequest) =>
-    request.action === 'read'
+    request.action === 'read' || request.action === 'read-reference'
       ? {
           document: {
             path: 'clip.mp4',

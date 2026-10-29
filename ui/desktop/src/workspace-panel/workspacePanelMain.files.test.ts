@@ -16,6 +16,7 @@ const hooks = vi.hoisted(() => ({
   copyImage: vi.fn(),
   external: vi.fn(),
   download: vi.fn(),
+  confirm: vi.fn(),
 }));
 vi.mock('electron', () => ({
   app: { on: vi.fn() },
@@ -26,11 +27,64 @@ vi.mock('electron', () => ({
   shell: { showItemInFolder: hooks.reveal, openPath: hooks.open, openExternal: hooks.external },
   clipboard: { writeText: hooks.copy, writeImage: hooks.copyImage },
   Menu: { buildFromTemplate: hooks.menu },
-  dialog: { showSaveDialog: hooks.save },
+  dialog: { showSaveDialog: hooks.save, showMessageBox: hooks.confirm },
   nativeImage: { createFromPath: hooks.image },
   WebContentsView: vi.fn(),
 }));
 import { registerWorkspacePanel } from './workspacePanelMain';
+
+it('confirms each external source preview and never grants workspace read or write access', async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-reference-'));
+  const root = path.join(base, 'workspace');
+  try {
+    await fs.mkdir(root);
+    const outside = path.join(base, 'source.mjs');
+    await fs.writeFile(outside, 'export const verified = true;');
+    const wc = Object.assign(new EventEmitter(), {
+      id: 1878,
+      mainFrame: {},
+      session: { protocol: { handle: vi.fn() } },
+    });
+    const win = Object.assign(new EventEmitter(), { webContents: wc });
+    hooks.from.mockReturnValue(win);
+    registerWorkspacePanel();
+    const ipc = hooks.ipc.mock.calls.find(([name]) => name === 'workspace-panel')![1];
+    const event = { sender: wc, senderFrame: wc.mainFrame };
+    const scope = { sessionId: 'external-reference', root };
+    await fs.writeFile(path.join(root, 'inside.mjs'), 'export const inside = true;');
+    const confirmations = hooks.confirm.mock.calls.length;
+    expect(
+      (await ipc(event, { scope, action: 'read-reference', path: 'inside.mjs' })).document?.content
+    ).toBe('export const inside = true;');
+    expect(hooks.confirm.mock.calls).toHaveLength(confirmations);
+    expect(() =>
+      ipc({ ...event, senderFrame: {} }, { scope, action: 'read-reference', path: '../source.mjs' })
+    ).toThrow('main frame');
+    hooks.confirm.mockResolvedValueOnce({ response: 1 });
+    expect(await ipc(event, { scope, action: 'read-reference', path: '../source.mjs' })).toEqual(
+      {}
+    );
+    hooks.confirm.mockResolvedValueOnce({ response: 0 });
+    const reply = await ipc(event, { scope, action: 'read-reference', path: '../source.mjs' });
+    expect(reply.reference).toEqual({
+      path: await fs.realpath(outside),
+      content: 'export const verified = true;',
+    });
+    expect(hooks.confirm).toHaveBeenLastCalledWith(
+      win,
+      expect.objectContaining({ detail: await fs.realpath(outside), cancelId: 1, defaultId: 1 })
+    );
+    await expect(ipc(event, { scope, action: 'read', path: '../source.mjs' })).rejects.toThrow(
+      'outside'
+    );
+    await expect(
+      ipc(event, { scope, action: 'save', path: '../source.mjs', content: 'changed', version: '' })
+    ).rejects.toThrow('outside');
+    expect(await fs.readFile(outside, 'utf8')).toBe('export const verified = true;');
+  } finally {
+    await fs.rm(base, { recursive: true, force: true });
+  }
+});
 
 it('reveals or copies only existing scoped files without executing them or trusting a guest frame', async () => {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-file-menu-'));

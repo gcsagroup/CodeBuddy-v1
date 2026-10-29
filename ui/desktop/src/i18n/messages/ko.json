@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "읽기 전용 참조입니다. 작업 공간과 파일 권한은 변경되지 않습니다."
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

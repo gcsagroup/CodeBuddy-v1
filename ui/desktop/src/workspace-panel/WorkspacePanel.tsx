@@ -36,6 +36,7 @@ import { WorkspaceMedia } from './WorkspaceMedia';
 import { SubagentAvatar } from '../components/SubagentAvatar';
 import { formatSubagentLabel } from '../components/toolActionPresentation';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
 import { WorkspaceDocument } from './WorkspaceDocument';
 import { BROWSER_TAB_EVENT, controlWorkspaceBrowser } from './browserControlClient';
@@ -318,6 +319,8 @@ export function WorkspacePanelContent({
   const [treeOpen, setTreeOpen] = useState(false);
   const [conversationRevision, setConversationRevision] = useState(0);
   const [wrap, setWrap] = useState(false);
+  const [reference, setReference] = useState<{ path: string; content: string } | null>(null);
+  useEffect(() => setReference(null), [scope.sessionId, scope.root]);
   const tabStrip = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(''),
     [results, setResults] = useState<PanelEntry[]>([]),
@@ -532,7 +535,7 @@ export function WorkspacePanelContent({
     [update]
   );
   const openFile = useCallback(
-    async (entry: PanelEntry, newImageTab = false) => {
+    async (entry: PanelEntry, newImageTab = false, referenceLink = false) => {
       const existing =
         !newImageTab &&
         latest.current.tabs.find(
@@ -572,11 +575,16 @@ export function WorkspacePanelContent({
           });
           return;
         }
-        const { document } = await window.electron.workspacePanel({
+        const reply = await window.electron.workspacePanel({
           scope,
-          action: 'read',
+          action: referenceLink ? 'read-reference' : 'read',
           path: entry.path,
         });
+        if (reply.reference && alive.current) {
+          setReference(reply.reference);
+          return;
+        }
+        const { document } = reply;
         if (!document || !alive.current) return;
         if (newImageTab && document.media?.kind !== 'image')
           throw new Error('Not a supported image');
@@ -630,7 +638,8 @@ export function WorkspacePanelContent({
             path: target.filePath,
             name: target.filePath.replace(/\\/g, '/').split('/').pop() || target.filePath,
           },
-          newImageTab
+          newImageTab,
+          true
         );
       };
       if (target.action) {
@@ -1606,6 +1615,25 @@ export function WorkspacePanelContent({
   );
   return (
     <>
+      <Dialog
+        open={!!reference}
+        onOpenChange={(open) => {
+          if (!open) setReference(null);
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          className="flex h-[85vh] w-[90vw] max-w-[90vw] sm:max-w-[90vw] flex-col"
+        >
+          <DialogTitle className="break-all pr-6 text-sm">{reference?.path}</DialogTitle>
+          <p className="text-xs text-text-secondary">{intl.formatMessage(m.readOnlyReference)}</p>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {reference && (
+              <WorkspaceCodePreview path={reference.path} content={reference.content} wrap={wrap} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       {!expanded && (
         <button
           className="absolute right-3 top-11 z-20 wb-icon bg-background-primary no-drag"

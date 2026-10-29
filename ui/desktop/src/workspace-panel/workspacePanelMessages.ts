@@ -1,5 +1,9 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  readOnlyReference: {
+    id: 'workspacePanel.readOnlyReference',
+    defaultMessage: 'Read-only reference; the workspace and file permissions are unchanged.',
+  },
   openFile: { id: 'workspacePanel.openFile', defaultMessage: 'Open file' },
   playVideo: { id: 'workspacePanel.playVideo', defaultMessage: 'Play video' },
   openImageTab: { id: 'workspacePanel.openImageTab', defaultMessage: 'Open image in new tab' },

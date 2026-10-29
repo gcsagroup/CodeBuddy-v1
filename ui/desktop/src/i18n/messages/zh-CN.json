@@ -9026,6 +9026,9 @@
   "workspacePanel.openEditor": {
     "defaultMessage": "在 VS Code 中打开"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "只读引用预览；不会扩大工作区或文件权限。"
+  },
   "workspacePanel.openFile": {
     "defaultMessage": "打开文件"
   },

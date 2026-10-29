@@ -9131,6 +9131,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "Read-only reference; the workspace and file permissions are unchanged."
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

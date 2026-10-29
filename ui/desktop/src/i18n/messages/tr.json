@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "Salt okunur başvuru; çalışma alanı ve dosya izinleri değişmez."
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

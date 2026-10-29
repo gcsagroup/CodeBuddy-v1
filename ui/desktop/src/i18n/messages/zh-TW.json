@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "在右側查看"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "唯讀參照；工作區與檔案權限保持不變。"
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "重新整理"
   },

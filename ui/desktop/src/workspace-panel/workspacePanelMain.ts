@@ -42,6 +42,7 @@ import {
   canOpenPanelFileExternally,
   isPanelEditorFile,
   panelPath,
+  inside,
   panelMedia,
   panelMediaType,
   isPanelDocument,
@@ -306,6 +307,36 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       const document = await readPanelFile(root, request.path);
       if (document.media) document.media.url = mediaFiles.grant(owner.id, root, request.path);
       return { document };
+    }
+    case 'read-reference': {
+      const requested = path.resolve(root, request.path);
+      const file = await fs.realpath(requested);
+      if (inside(root, file)) return dispatch(owner, { ...request, action: 'read' });
+      const stat = await fs.stat(file);
+      if (!stat.isFile() || stat.size > 2 * 1024 * 1024)
+        throw new Error('Reference must be a regular text file of at most 2 MiB');
+      const answer = await dialog.showMessageBox(owner.win, {
+        type: 'question',
+        title: '只读预览外部文件 / Read-only file preview',
+        message:
+          '此文件位于当前会话工作区之外。是否只读预览？ / Preview this file outside the workspace?',
+        detail: file,
+        buttons: ['只读预览 / Preview', '取消 / Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+      });
+      if (answer.response !== 0) return {};
+      if (
+        owners.get(owner.id) !== owner ||
+        owner.roots.get(scope) !== root ||
+        (await fs.realpath(requested)) !== file
+      )
+        throw new Error('Reference or conversation changed; open the link again');
+      const document = await readPanelFile(path.dirname(file), path.basename(file));
+      if (document.binary || document.media || document.image)
+        throw new Error('External reference preview supports text and source code only');
+      return { reference: { path: file, content: document.content } };
     }
     case 'inspect': {
       const file = await inspectPanelFile(root, request.path);

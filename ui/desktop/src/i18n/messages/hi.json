@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "केवल पढ़ने योग्य संदर्भ; कार्यक्षेत्र और फ़ाइल की अनुमतियाँ अपरिवर्तित हैं।"
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

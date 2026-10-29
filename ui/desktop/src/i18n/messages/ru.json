@@ -9047,6 +9047,9 @@
   "workspacePanel.previewMedia": {
     "defaultMessage": "View in right panel"
   },
+  "workspacePanel.readOnlyReference": {
+    "defaultMessage": "Ссылка только для чтения; рабочая область и права доступа к файлу не изменяются."
+  },
   "workspacePanel.refresh": {
     "defaultMessage": "Refresh"
   },

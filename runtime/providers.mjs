@@ -109,7 +109,9 @@ function endpoints(provider) {
   const pathname = configuredPath.replace(/^\/+|\/+$/g, "");
   const append = (suffix) =>
     pathname ? `/${pathname}/${suffix}` : `/${suffix}`;
-  const completionPath = /(?:chat\/completions|responses)$/.test(pathname)
+  const officialDefault = engine === 'openai_compatible' && parsed.origin === 'https://api.openai.com' &&
+    !provider.basePath?.trim() && ['', 'v1'].includes(pathname);
+  const completionPath = officialDefault ? '/v1/responses' : /(?:chat\/completions|responses)$/.test(pathname)
     ? `/${pathname}`
     : pathname.endsWith("v1")
       ? append("chat/completions")
@@ -278,7 +280,7 @@ async function requestJson(
   }
   if (response.status === 401) {
     await response.body?.cancel();
-    throw providerError("invalid_credentials", "The API key was rejected.");
+    throw providerError("invalid_credentials", "The API key was rejected.", { httpStatus: 401 });
   }
   if (response.status === 403) {
     const details = await providerFailureDetails(response);
@@ -296,7 +298,8 @@ async function requestJson(
       (models
         ? `The model list could not be loaded from this address (HTTP ${response.status}).`
         : `The selected model could not complete a test request (HTTP ${response.status}).`) +
-        (reason ? ` ${reason}` : ''),
+        (reason ? ` ${reason}` : '') + (!models && [400, 404, 422].includes(response.status)
+          ? ' Check the API base path, selected model, tool support and thinking settings; loading the model list does not verify generation.' : ''),
       { httpStatus: response.status, ...details },
     );
   }
@@ -457,8 +460,10 @@ export async function resolveImageCapability(provider, model) {
   return cachedModels(provider)?.inputs?.[model] ?? { imageInput: 'unknown', source: 'unknown' };
 }
 
-async function validateSelection(provider, stored) {
-  const available = await discover(provider, stored);
+async function validateSelection(provider, stored, legacyThinking) {
+  const auth = await credentials(provider, stored);
+  const resolved = { ...provider, apiKey: auth.key, headers: auth.customHeaders };
+  const available = await discover(resolved, stored, { authPending: Promise.resolve(auth) });
   if (
     !provider.models.length ||
     !provider.models.every((model) => available.includes(model))
@@ -469,22 +474,41 @@ async function validateSelection(provider, stored) {
     );
   }
   const { completion } = endpoints(provider);
-  const auth = await credentials(provider, stored);
   auth.requestHeaders.set("Content-Type", "application/json");
   const responses = completion.pathname.endsWith("/responses");
+  // Resolve the same capabilities and preference as chat. Listing a model says
+  // nothing about accepting function tools together with its thinking setting.
+  const native = await driverProvider(resolved, provider.models[0]);
+  const { applyModelThinking, modelThinkingPreference } = await import('./model-settings.mjs');
+  const selected = applyModelThinking(native, modelThinkingPreference(thinkingProfile(resolved, provider.models[0]),
+    provider.thinkingEfforts?.[provider.models[0]], legacyThinking));
+  const effort = selected.provider.reasoningEfforts?.[selected.thinkingEffort];
+  const reasoning = responses
+    ? typeof effort === 'string' ? { reasoning: { effort } } : {}
+    : selected.provider.compat?.thinkingFormat === 'chat-template'
+      ? { chat_template_kwargs: { enable_thinking: selected.thinkingEffort != null && selected.thinkingEffort !== 'off' } }
+      : typeof effort === 'string' ? { reasoning_effort: effort } : {};
+  const budget = selected.thinkingEffort && selected.thinkingEffort !== 'off' && effort !== 'none'
+    ? 4096 : PROBE_OUTPUT_TOKENS;
+  const tool = { name: 'connection_check', description: 'Connection check only; no action is performed.',
+    parameters: { type: 'object', properties: {}, required: [], additionalProperties: false } };
   const payload = responses
     ? {
         model: provider.models[0],
         input: "Reply OK.",
-        max_output_tokens: PROBE_OUTPUT_TOKENS,
+        max_output_tokens: budget,
+        tools: [{ type: 'function', ...tool }],
+        ...reasoning,
         stream: false,
       }
     : {
         model: provider.models[0],
         messages: [{ role: "user", content: "Reply OK." }],
         ...(completion.origin === 'https://api.openai.com'
-          ? { max_completion_tokens: PROBE_OUTPUT_TOKENS }
-          : { max_tokens: PROBE_OUTPUT_TOKENS }),
+          ? { max_completion_tokens: budget }
+          : { max_tokens: budget }),
+        tools: [{ type: 'function', function: tool }],
+        ...reasoning,
         stream: false,
       };
   const body = await requestJson(completion, {
@@ -546,6 +570,7 @@ export async function saveProvider(store, input, update = false) {
   const auth = await validateSelection(
     { ...provider, apiKey: input.apiKey, headers: input.headers },
     current,
+    store.read().preferences?.gooseThinkingEffort,
   );
   provider.secret = await protectSecret(auth.key);
   provider.headersProtected = Object.keys(auth.customHeaders).length

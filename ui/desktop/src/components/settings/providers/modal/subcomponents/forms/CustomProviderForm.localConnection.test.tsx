@@ -31,7 +31,7 @@ describe('CustomProviderForm local connection setup', () => {
     const discoverModels = vi.fn().mockResolvedValue(['gemini-3.6-flash', 'ollama-dev']);
     const onSubmit = vi
       .fn()
-      .mockRejectedValueOnce(new Error('The selected model could not complete a test request.'))
+      .mockRejectedValueOnce({ message: 'Validation failed', data: { code: 'custom_provider_model_unavailable' } })
       .mockResolvedValueOnce(undefined);
     render(
       <CustomProviderForm
@@ -47,13 +47,13 @@ describe('CustomProviderForm local connection setup', () => {
     await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Models loaded. The selected model will be verified when you save.'
+      'Model list loaded. Select a model, then verify the connection before adding it.'
     );
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('could not complete a test request');
     await user.selectOptions(screen.getByLabelText('Discovered models'), 'ollama-dev');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(discoverModels).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenNthCalledWith(
       1,
@@ -112,7 +112,7 @@ describe('CustomProviderForm local connection setup', () => {
     expect(screen.getByLabelText(/^API Key/)).toHaveValue('');
     expect(discoverModels).not.toHaveBeenCalled();
     expect(screen.queryByLabelText('Available Models (comma-separated)')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeDisabled();
 
     await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
@@ -126,9 +126,9 @@ describe('CustomProviderForm local connection setup', () => {
     expect(await screen.findByRole('option', { name: 'qwen3-coder' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'deepseek-r1' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Models loaded. The selected model will be verified when you save.'
+      'Model list loaded. Select a model, then verify the connection before adding it.'
     );
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeEnabled();
   });
 
   it('keeps save disabled and explains a failed connection', async () => {
@@ -153,7 +153,7 @@ describe('CustomProviderForm local connection setup', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('offline');
     expect(screen.queryByLabelText('Model ID')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeDisabled();
   });
 
   it('saves the model selected by the user as the primary model', async () => {
@@ -175,7 +175,7 @@ describe('CustomProviderForm local connection setup', () => {
     await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     await user.selectOptions(await screen.findByLabelText('Discovered models'), 'beta-model');
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ models: ['beta-model', 'alpha-model'] })
@@ -206,7 +206,7 @@ describe('CustomProviderForm local connection setup', () => {
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'My local model');
     await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
-    const createButton = screen.getByRole('button', { name: 'Create Provider' });
+    const createButton = screen.getByRole('button', { name: 'Verify and add' });
     const form = createButton.closest('form');
     expect(form).not.toBeNull();
     fireEvent.submit(form!);
@@ -214,6 +214,8 @@ describe('CustomProviderForm local connection setup', () => {
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(createButton).toBeDisabled();
+    expect(createButton).toHaveTextContent('Verifying…');
+    expect(screen.getByRole('textbox', { name: 'API URL' })).toBeDisabled();
     finishSubmit?.();
   });
 
@@ -239,13 +241,16 @@ describe('CustomProviderForm local connection setup', () => {
       { wrapper: IntlTestWrapper }
     );
 
-    expect(screen.getByRole('button', { name: 'Update Provider' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'Update Provider' }));
+    expect(screen.getByRole('button', { name: 'Verify and save' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Verify and save' }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ engine: 'ollama_compatible' }));
   });
 
-  it('shows a useful save error instead of hiding it behind a generic message', async () => {
+  it.each([
+    { error: { message: 'Validation failed', data: { code: 'custom_provider_invalid_credentials', httpStatus: 401 } }, expected: 'The API key was rejected.', outcome: 'The connection was not saved' },
+    { error: new Error('PRIVATE_ECHOED_KEY'), expected: 'Verification result unconfirmed', outcome: 'check the connection list before retrying' },
+  ])('shows structured validation evidence and treats missing save receipts as unconfirmed: $expected', async ({ error, expected, outcome }) => {
     const user = userEvent.setup();
     render(
       <CustomProviderForm
@@ -260,16 +265,19 @@ describe('CustomProviderForm local connection setup', () => {
         isEditable
         compactSetup
         discoverModels={vi.fn().mockResolvedValue(['remote-model'])}
-        onSubmit={vi.fn().mockRejectedValue(new Error('The API key was rejected.'))}
+        onSubmit={vi.fn().mockRejectedValue(error)}
         onCancel={vi.fn()}
       />,
       { wrapper: IntlTestWrapper }
     );
 
     await user.click(screen.getByRole('button', { name: 'Load models' }));
-    await user.click(screen.getByRole('button', { name: 'Update Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The API key was rejected.');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(expected);
+    expect(alert).toHaveTextContent(outcome);
+    expect(alert).not.toHaveTextContent('PRIVATE_ECHOED_KEY');
   });
 
   it('shows that a random API key was rejected instead of reporting success', async () => {
@@ -303,7 +311,7 @@ describe('CustomProviderForm local connection setup', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The API key was rejected. Check it and try again.'
     );
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeDisabled();
   });
 
   it('requires another connection test after the address changes', async () => {
@@ -323,9 +331,9 @@ describe('CustomProviderForm local connection setup', () => {
     await user.type(screen.getByRole('textbox', { name: 'Display Name' }), 'My local model');
     await chooseLocal(user);
     await user.click(screen.getByRole('button', { name: 'Load models' }));
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeEnabled();
     await user.type(screen.getByRole('textbox', { name: 'API URL' }), '/changed');
-    expect(screen.getByRole('button', { name: 'Create Provider' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeDisabled();
   });
 
   it('keeps a name the user entered when the provider preset changes', async () => {

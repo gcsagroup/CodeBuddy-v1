@@ -26,6 +26,7 @@ import type { ProviderDetails } from '../../../../types/providers';
 import { Button } from '../../../../components/ui/button';
 import { errorMessage } from '../../../../utils/conversionUtils';
 import { defineMessages, useIntl } from '../../../../i18n';
+import { toast } from 'react-toastify';
 import HuggingFaceSignInPrompt from '../../auth/HuggingFaceSignInPrompt';
 import {
   isRequiredProviderFieldSatisfied,
@@ -33,6 +34,10 @@ import {
 } from './providerConfigPolicy';
 
 const i18n = defineMessages({
+  deletedRefreshFailed: {
+    id: 'customProviderForm.deletedRefreshFailed',
+    defaultMessage: 'Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it.',
+  },
   deleteConfigHeader: {
     id: 'providerConfigurationModal.deleteConfigHeader',
     defaultMessage: 'Delete configuration for {providerName}',
@@ -295,11 +300,16 @@ export default function ProviderConfigurationModal({
       } else {
         await acpDeleteProviderConfig(provider.name);
       }
-      await refreshCurrentModelAndProvider();
-      onClose();
     } catch {
       setDeleteError(true);
+      return;
     }
+    try {
+      await refreshCurrentModelAndProvider();
+    } catch {
+      toast.warning(intl.formatMessage(i18n.deletedRefreshFailed));
+    }
+    onClose();
   };
 
   const getModalIcon = () => {

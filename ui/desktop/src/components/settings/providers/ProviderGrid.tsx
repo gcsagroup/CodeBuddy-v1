@@ -23,8 +23,17 @@ import { SwitchModelModal } from '../models/subcomponents/SwitchModelModal';
 import { useModelAndProvider } from '../../ModelAndProviderContext';
 import type { View } from '../../../utils/navigationUtils';
 import { defineMessages, useIntl } from '../../../i18n';
+import { toast } from 'react-toastify';
 
 const i18n = defineMessages({
+  deletedRefreshFailed: {
+    id: 'customProviderForm.deletedRefreshFailed',
+    defaultMessage: 'Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it.',
+  },
+  savedRefreshFailed: {
+    id: 'providerGrid.savedRefreshFailed',
+    defaultMessage: 'Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again.',
+  },
   addProvider: {
     id: 'providerGrid.addProvider',
     defaultMessage: 'Add Provider',
@@ -185,25 +194,28 @@ function ProviderCards({
 
       await acpUpdateCustomProviderFromRequest(editingProvider.id, data);
       if (refreshProviders) {
-        await refreshProviders();
+        try { await refreshProviders(); }
+        catch { toast.warning(intl.formatMessage(i18n.savedRefreshFailed)); }
       }
       setShowCustomProviderModal(false);
       setEditingProvider(null);
     },
-    [editingProvider, refreshProviders]
+    [editingProvider, refreshProviders, intl]
   );
 
   const handleDeleteCustomProvider = useCallback(async () => {
     if (!editingProvider) return;
 
     await acpDeleteCustomProvider(editingProvider.id);
-    await refreshCurrentModelAndProvider();
+    try {
+      await refreshCurrentModelAndProvider();
+      await refreshProviders?.();
+    } catch {
+      toast.warning(intl.formatMessage(i18n.deletedRefreshFailed));
+    }
     setShowCustomProviderModal(false);
     setEditingProvider(null);
-    if (refreshProviders) {
-      refreshProviders();
-    }
-  }, [editingProvider, refreshProviders, refreshCurrentModelAndProvider]);
+  }, [editingProvider, refreshProviders, refreshCurrentModelAndProvider, intl]);
 
   const handleCloseModal = useCallback(() => {
     setShowCustomProviderModal(false);
@@ -242,11 +254,12 @@ function ProviderCards({
     async (data: UpdateCustomProviderRequest) => {
       await acpCreateCustomProviderFromRequest(data);
       if (refreshProviders) {
-        await refreshProviders();
+        try { await refreshProviders(); }
+        catch { toast.warning(intl.formatMessage(i18n.savedRefreshFailed)); }
       }
       setShowCustomProviderModal(false);
     },
-    [refreshProviders]
+    [refreshProviders, intl]
   );
 
   const query = searchQuery.trim().toLowerCase();

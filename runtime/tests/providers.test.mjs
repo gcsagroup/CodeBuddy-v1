@@ -358,7 +358,7 @@ test('official OpenAI chat probes use completion budgets without legacy max_toke
       { headers: { 'content-type': 'application/json' } });
   });
   const store = memoryStore();
-  await saveProvider(store, input('https://api.openai.com'));
+  await saveProvider(store, input('https://api.openai.com', { basePath: '/v1/chat/completions' }));
   const generated = calls.filter(call => call.body);
   assert.equal(generated.length, 1);
   assert.equal(generated[0].url, 'https://api.openai.com/v1/chat/completions');
@@ -386,6 +386,102 @@ test('failed probes preserve bounded error identifiers without echoing service m
     return true;
   });
   assert.equal(store.read().providers.length, 0);
+});
+
+test('provider routes keep discovery, save and chat aligned without guessing a proxy protocol', async t => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    const body = options.body ? JSON.parse(options.body) : null;
+    calls.push({ url: String(url), body });
+    return new Response(JSON.stringify(String(url).endsWith('/models')
+      ? { data: [{ id: 'fixture-model' }] }
+      : String(url).endsWith('/responses') ? { output_text: 'OK' }
+        : { choices: [{ message: { content: 'OK' } }] }));
+  });
+  for (const [url, basePath, root, protocol] of [
+    ['https://api.openai.com', null, 'https://api.openai.com/v1', 'responses'],
+    ['https://api.openai.com/v1/', null, 'https://api.openai.com/v1', 'responses'],
+    ['https://api.openai.com', '/v1/chat/completions', 'https://api.openai.com/v1', 'chat/completions'],
+    ['https://api.deepseek.com', null, 'https://api.deepseek.com/v1', 'chat/completions'],
+    ['https://api.siliconflow.cn/v1', null, 'https://api.siliconflow.cn/v1', 'chat/completions'],
+    ['https://api.moonshot.cn/v1', null, 'https://api.moonshot.cn/v1', 'chat/completions'],
+    ['https://open.bigmodel.cn/api/paas/v4/chat/completions', null, 'https://open.bigmodel.cn/api/paas/v4', 'chat/completions'],
+    ['https://dashscope.aliyuncs.com/compatible-mode/v1', null, 'https://dashscope.aliyuncs.com/compatible-mode/v1', 'chat/completions'],
+    ['https://api.openai.com.proxy.invalid', null, 'https://api.openai.com.proxy.invalid/v1', 'chat/completions'],
+    ['https://proxy.invalid/unused', '/tenant/v2/responses', 'https://proxy.invalid/tenant/v2', 'responses'],
+  ]) {
+    calls.length = 0;
+    const store = memoryStore();
+    await saveProvider(store, input(url, { basePath }));
+    const generated = calls.filter(call => call.body);
+    assert.equal(generated.length, 1);
+    assert.equal(generated[0].url, `${root}/${protocol}`);
+    assert.equal(calls[0].url, `${root}/models`);
+    assert.equal(generated[0].body.tools.length, 1);
+    assert.equal(generated[0].body.reasoning_effort, undefined, 'Unknown models receive no invented thinking control');
+    const native = await driverProvider(store.read().providers[0], 'fixture-model');
+    assert.equal(native.baseUrl, root);
+    assert.equal(native.protocol, protocol === 'responses' ? 'openai-responses' : 'openai-completions');
+  }
+});
+
+test('a model listing cannot validate rejected tools or thinking parameters, and failed edits preserve the old connection', async t => {
+  for (const param of ['tools', 'reasoning_effort']) {
+    const api = await endpoint(t, (req, res, body) => {
+      if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
+      assert.equal(body.tools[0].function.name, 'connection_check');
+      assert.equal(body.reasoning_effort, 'high');
+      assert.equal(body.max_tokens, 4096);
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: { code: 'unsupported_parameter', param, message: 'PRIVATE_TOKEN' } }));
+    });
+    const provider = { ...input(api.url), id: 'existing', thinkingEfforts: { 'fixture-model': 'high' } };
+    const store = memoryStore();
+    await store.update(state => { state.providers.push(provider); });
+    const before = store.read();
+    assert.deepEqual(await discover(provider), ['fixture-model']);
+    await assert.rejects(saveProvider(store, { ...provider, providerId: provider.id }, true), error => {
+      assert.equal(error.data.upstreamParam, param);
+      assert.match(error.message, /loading the model list does not verify generation/);
+      assert.doesNotMatch(error.message, /PRIVATE_TOKEN/);
+      return true;
+    });
+    assert.deepEqual(store.read(), before);
+    assert.equal(api.requests.filter(req => req.body).length, 1, 'No hidden downgrade or protocol retry');
+  }
+});
+
+test('probe respects discovered Ollama thinking and tools capabilities', async t => {
+  const api = await endpoint(t, (req, res, body) => res.end(JSON.stringify(req.url.endsWith('/tags')
+    ? { models: [{ name: 'fixture-model' }] }
+    : req.url.endsWith('/show') ? { capabilities: ['completion', 'tools', 'thinking'], thinking: { values: [false, 'low', 'high'], default: 'high' } }
+      : { choices: [{ message: { content: 'OK' } }] })));
+  await saveProvider(memoryStore(), input(api.url, { engine: 'ollama_compatible' }));
+  const body = api.requests.at(-1).body;
+  assert.equal(body.reasoning_effort, 'high');
+  assert.equal(body.tools[0].function.name, 'connection_check');
+});
+
+test('Responses probe includes the same saved reasoning preference with function tools', async t => {
+  const api = await endpoint(t);
+  const store = memoryStore();
+  const provider = { ...input(api.url, { basePath: '/v1/responses' }), id: 'reasoning', thinkingEfforts: { 'fixture-model': 'none' } };
+  await store.update(state => { state.providers.push(provider); });
+  await saveProvider(store, { ...provider, providerId: provider.id }, true);
+  const body = api.requests.at(-1).body;
+  assert.deepEqual(body.reasoning, { effort: 'none' });
+  assert.equal(body.tools[0].name, 'connection_check');
+  assert.equal(body.reasoning_effort, undefined);
+  assert.equal(body.max_output_tokens, 128, 'Disabled thinking needs no expanded reasoning budget');
+});
+
+test('Gemma template probe does not invent an OpenAI reasoning_effort field', async t => {
+  const api = await endpoint(t, (req, res) => res.end(JSON.stringify(req.url.endsWith('/models')
+    ? { data: [{ id: 'gemma-4-local' }] } : { choices: [{ message: { content: 'OK' } }] })));
+  await saveProvider(memoryStore(), input(api.url, { models: ['gemma-4-local'] }));
+  const body = api.requests.at(-1).body;
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
+  assert.equal(body.reasoning_effort, undefined);
 });
 
 test('empty, truncated and unfinished probes never publish a provider', async t => {
@@ -449,7 +545,7 @@ test("Ollama UI engine discovers tags and uses the compatible completion endpoin
   await saveProvider(store, input(api.url, { engine: "ollama_compatible" }));
   assert.deepEqual(
     api.requests.map((req) => req.url),
-    ["/api/tags", "/v1/chat/completions"],
+    ["/api/tags", "/api/show", "/v1/chat/completions"],
   );
   assert.equal(
     (await driverProvider(store.read().providers[0])).baseUrl,

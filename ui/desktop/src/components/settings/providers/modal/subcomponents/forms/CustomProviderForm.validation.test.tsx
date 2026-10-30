@@ -43,7 +43,7 @@ describe('provider form validation feedback', () => {
     await user.selectOptions(await screen.findByLabelText('Discovered models'), 'beta');
     const name = screen.getByRole('textbox', { name: 'Display Name' });
     await user.clear(name);
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('Display name is required');
@@ -57,7 +57,7 @@ describe('provider form validation feedback', () => {
     await user.type(name, 'My connection');
     expect(name).toHaveAttribute('aria-invalid', 'false');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(discoverModels).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ display_name: 'My connection', models: ['beta', 'alpha'] })
@@ -78,7 +78,7 @@ describe('provider form validation feedback', () => {
     await user.clear(name);
     await user.type(name, '   ');
     await user.type(models, ' , , ');
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     await waitFor(() => expect(name).toHaveFocus());
     expect(screen.getByRole('alert')).toHaveTextContent('Display name is required');
     expect(url).toHaveAttribute('aria-invalid', 'true');
@@ -88,16 +88,16 @@ describe('provider form validation feedback', () => {
     await user.clear(name);
     await user.type(name, 'Manual connection');
     expect(screen.getByRole('alert')).toHaveTextContent('API URL is required');
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     await waitFor(() => expect(url).toHaveFocus());
     await user.type(url, 'http://127.0.0.1:11434');
     expect(screen.getByRole('alert')).toHaveTextContent('At least one model is required');
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     await waitFor(() => expect(models).toHaveFocus());
     await user.clear(models);
     await user.type(models, 'alpha');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
@@ -117,13 +117,13 @@ describe('provider form validation feedback', () => {
     );
     await user.click(screen.getByRole('checkbox', { name: 'This provider requires an API key' }));
     fireEvent.change(screen.getByLabelText(/^API Key/), { target: { value: '   ' } });
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     await waitFor(() => expect(screen.getByLabelText(/^API Key/)).toHaveFocus());
     expect(screen.getByRole('alert')).toHaveTextContent('API key is required');
     expect(onSubmit).not.toHaveBeenCalled();
     await user.click(screen.getByRole('checkbox', { name: 'This provider requires an API key' }));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });

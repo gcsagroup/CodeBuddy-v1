@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../../i18n/test-utils';
 import type { ProviderDetails } from '../../../types/providers';
 import ProviderGrid from './ProviderGrid';
+import { toast } from 'react-toastify';
 
 const providerApi = vi.hoisted(() => ({
   get: vi.fn(),
@@ -139,7 +140,7 @@ describe('ProviderGrid custom provider lifecycle', () => {
     expect(await screen.findByText('Edit Provider')).toBeInTheDocument();
     expect(screen.getByText('Local Ollama')).toBeInTheDocument();
 
-    const updateButton = screen.getByRole('button', { name: 'Update Provider' });
+    const updateButton = screen.getByRole('button', { name: 'Verify and save' });
     expect(updateButton).toBeEnabled();
     await user.click(updateButton);
     expect(providerApi.discover).not.toHaveBeenCalled();
@@ -178,14 +179,14 @@ describe('ProviderGrid custom provider lifecycle', () => {
     await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
     await user.click(screen.getByRole('button', { name: 'Load models' }));
     await user.selectOptions(await screen.findByLabelText('Discovered models'), 'ollama-dev');
-    await user.click(screen.getByRole('button', { name: 'Create Provider' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(providerApi.create).toHaveBeenCalledWith(
       expect.objectContaining({
         models: ['ollama-dev', 'gemini-3.6-flash'],
       })
     );
     expect(refreshProviders).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Create Provider' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify and add' })).not.toBeInTheDocument();
     expect(screen.queryByText('Choose model for custom_new_gateway')).not.toBeInTheDocument();
   });
 
@@ -214,6 +215,50 @@ describe('ProviderGrid custom provider lifecycle', () => {
     await user.click(screen.getByRole('option', { name: 'OpenAI-compatible API' }));
     expect(name).toHaveValue('My chosen name');
     expect(providerApi.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed verification in the form without creating a card or closing the dialog', async () => {
+    const user = userEvent.setup();
+    const refreshProviders = vi.fn();
+    providerApi.create.mockRejectedValueOnce({ error: { message: 'PRIVATE_ECHOED_KEY', data: {
+      code: 'custom_provider_model_unavailable', httpStatus: 404, upstreamCode: 'model_not_found',
+    } } });
+    render(<ProviderGrid providers={[]} isOnboarding={false} compactConnectionSetup refreshProviders={refreshProviders} />, { wrapper: IntlTestWrapper });
+    await user.click(screen.getByTestId('add-custom-provider-card'));
+    await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+    await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
+    await user.click(screen.getByRole('button', { name: 'Load models' }));
+    await user.click(screen.getByRole('button', { name: 'Verify and add' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Verification failed');
+    expect(alert).toHaveTextContent('The connection was not saved');
+    expect(alert).toHaveTextContent('Verify the API address, base path and model ID');
+    expect(alert).not.toHaveTextContent('PRIVATE_ECHOED_KEY');
+    await user.click(screen.getByText('Diagnostic details'));
+    expect(alert).toHaveTextContent('HTTP 404');
+    expect(alert).toHaveTextContent('model_not_found');
+    expect(refreshProviders).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'API URL' })).toHaveValue('http://127.0.0.1:11434');
+    expect(screen.getByLabelText('Discovered models')).toHaveValue('qwen3:8b');
+    expect(screen.getByRole('button', { name: 'Verify and add' })).toBeEnabled();
+  });
+
+  it('does not report verification failure when only refreshing the saved connection fails', async () => {
+    const warning = vi.spyOn(toast, 'warning').mockReturnValue('refresh-warning');
+    try {
+      const user = userEvent.setup();
+      providerApi.create.mockResolvedValueOnce({ provider_name: 'saved-connection' });
+      const refreshProviders = vi.fn().mockRejectedValue(new Error('Refresh unavailable'));
+      render(<ProviderGrid providers={[]} isOnboarding={false} compactConnectionSetup refreshProviders={refreshProviders} />, { wrapper: IntlTestWrapper });
+      await user.click(screen.getByTestId('add-custom-provider-card'));
+      await user.click(screen.getByRole('combobox', { name: 'Provider Type' }));
+      await user.click(screen.getByRole('option', { name: 'Local Ollama' }));
+      await user.click(screen.getByRole('button', { name: 'Load models' }));
+      await user.click(screen.getByRole('button', { name: 'Verify and add' }));
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('Connection verified and saved'));
+      expect(screen.queryByRole('button', { name: 'Verify and add' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Verification failed')).not.toBeInTheDocument();
+    } finally { warning.mockRestore(); }
   });
 
   it('deletes a saved default connection after confirmation without requiring the old settings selector', async () => {
@@ -255,8 +300,25 @@ describe('ProviderGrid custom provider lifecycle', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete Provider' }));
     await user.click(screen.getByRole('button', { name: 'Confirm Delete' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not delete this connection');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Verification failed');
     expect(screen.getByText('Edit Provider')).toBeInTheDocument();
     expect(providerApi.refreshDefaults).not.toHaveBeenCalled();
     expect(refreshProviders).not.toHaveBeenCalled();
+  });
+
+  it('does not report deletion failure after a successful delete when refreshing defaults fails', async () => {
+    const warning = vi.spyOn(toast, 'warning').mockReturnValue('delete-refresh-warning');
+    try {
+      providerApi.refreshDefaults.mockRejectedValueOnce(new Error('refresh failed'));
+      const user = userEvent.setup();
+      render(<ProviderGrid providers={[customProvider]} isOnboarding={false} compactConnectionSetup />, { wrapper: IntlTestWrapper });
+      await user.click(screen.getByTestId('provider-card-custom_office_local'));
+      await user.click(await screen.findByRole('button', { name: 'Delete Provider' }));
+      await user.click(screen.getByRole('button', { name: 'Confirm Delete' }));
+      await waitFor(() => expect(screen.queryByText('Edit Provider')).not.toBeInTheDocument());
+      expect(providerApi.remove).toHaveBeenCalledOnce();
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('Connection deleted'));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } finally { warning.mockRestore(); }
   });
 });

@@ -9,7 +9,7 @@ import { Plus, X, Trash2, ExternalLink, Search, Settings } from 'lucide-react';
 import { cn } from '../../../../../../utils';
 import ProviderCatalogPicker from '../ProviderCatalogPicker';
 import { defineMessages, useIntl } from '../../../../../../i18n';
-import { acpErrorCode, acpErrorMessage } from '../../../../../../acp/errors';
+import { acpErrorCode, acpErrorData, acpErrorMessage } from '../../../../../../acp/errors';
 
 const i18n = defineMessages({
   chooseSetup: {
@@ -99,7 +99,7 @@ const i18n = defineMessages({
   apiBasePathHint: {
     id: 'customProviderForm.apiBasePathHint',
     defaultMessage:
-      "Override the default API path. Leave blank to use the provider's default path.",
+      'Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path.',
   },
   authentication: {
     id: 'customProviderForm.authentication',
@@ -200,7 +200,55 @@ const i18n = defineMessages({
   },
   submitError: {
     id: 'customProviderForm.submitError',
-    defaultMessage: 'Failed to save provider. Please check your configuration and try again.',
+    defaultMessage: 'Connection verification did not complete. Check your connection settings and try again.',
+  },
+  verificationFailed: {
+    id: 'customProviderForm.verificationFailed',
+    defaultMessage: 'Verification failed',
+  },
+  verificationUnconfirmed: {
+    id: 'customProviderForm.verificationUnconfirmed',
+    defaultMessage: 'Verification result unconfirmed',
+  },
+  notSaved: {
+    id: 'customProviderForm.notSaved',
+    defaultMessage: 'The connection was not saved. Your entries are retained in this form.',
+  },
+  saveUnconfirmed: {
+    id: 'customProviderForm.saveUnconfirmed',
+    defaultMessage: 'The save result could not be confirmed. Your entries are retained; check the connection list before retrying.',
+  },
+  diagnosticDetails: {
+    id: 'customProviderForm.diagnosticDetails',
+    defaultMessage: 'Diagnostic details',
+  },
+  verifying: {
+    id: 'customProviderForm.verifying',
+    defaultMessage: 'Verifying…',
+  },
+  pathNotFound: {
+    id: 'customProviderForm.pathNotFound',
+    defaultMessage: 'The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID.',
+  },
+  requestRejected: {
+    id: 'customProviderForm.requestRejected',
+    defaultMessage: 'The service rejected the validation request. Verify the API format, tool support and thinking settings for this model.',
+  },
+  permissionDenied: {
+    id: 'customProviderForm.permissionDenied',
+    defaultMessage: 'Access was denied. Verify that this API key has permission to use the selected model.',
+  },
+  rateLimited: {
+    id: 'customProviderForm.rateLimited',
+    defaultMessage: 'The service limited this request. Check the account quota and request limits, then retry.',
+  },
+  serviceUnavailable: {
+    id: 'customProviderForm.serviceUnavailable',
+    defaultMessage: 'The model service returned a server error. Retry later or check the service status.',
+  },
+  toolsUnsupported: {
+    id: 'customProviderForm.toolsUnsupported',
+    defaultMessage: 'This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks.',
   },
   deleteFailed: {
     id: 'customProviderForm.deleteFailed',
@@ -221,11 +269,11 @@ const i18n = defineMessages({
   },
   updateProvider: {
     id: 'customProviderForm.updateProvider',
-    defaultMessage: 'Update Provider',
+    defaultMessage: 'Verify and save',
   },
   createProvider: {
     id: 'customProviderForm.createProvider',
-    defaultMessage: 'Create Provider',
+    defaultMessage: 'Verify and add',
   },
   testConnection: {
     id: 'customProviderForm.loadModels',
@@ -304,11 +352,11 @@ const i18n = defineMessages({
   connectionTestHint: {
     id: 'customProviderForm.modelDiscoveryHint',
     defaultMessage:
-      'Load the model list, then choose a model. Saving sends one minimal request to verify the selected model.',
+      'Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds.',
   },
   connectionReady: {
     id: 'customProviderForm.modelsLoaded',
-    defaultMessage: 'Models loaded. The selected model will be verified when you save.',
+    defaultMessage: 'Model list loaded. Select a model, then verify the connection before adding it.',
   },
 });
 
@@ -464,7 +512,8 @@ export default function CustomProviderForm({
     value: false,
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<{ message: string; details: string; rejected: boolean } | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitInFlightRef = useRef(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -485,6 +534,7 @@ export default function CustomProviderForm({
   };
 
   const resetConnectionTest = () => {
+    setSubmitError(null);
     if (!compactSetup) return;
     setDiscoveryStatus('idle');
     setDiscoveredModels([]);
@@ -763,13 +813,31 @@ export default function CustomProviderForm({
     try {
       await onSubmit({ ...buildRequest(orderedModelList), headers: headersObject });
     } catch (error) {
-      console.error('Failed to save custom provider:', error);
-      setSubmitError(
-        acpErrorMessage(error) ??
-          (error instanceof Error && error.message.trim()
-            ? error.message
-            : intl.formatMessage(i18n.submitError))
+      const data = acpErrorData(error);
+      const status = typeof data?.httpStatus === 'number' && Number.isInteger(data.httpStatus) && data.httpStatus >= 400 && data.httpStatus <= 599 ? data.httpStatus : undefined;
+      const code = acpErrorCode(error);
+      const byCode: Record<string, typeof i18n.submitError> = {
+        custom_provider_invalid_credentials: i18n.invalidCredentials,
+        custom_provider_api_key_required: i18n.apiKeyRequiredForConnection,
+        custom_provider_endpoint_unreachable: i18n.endpointUnreachable,
+        custom_provider_model_unavailable: i18n.modelUnavailable,
+        custom_provider_permission_denied: i18n.permissionDenied,
+        custom_provider_tools_unsupported: i18n.toolsUnsupported,
+        custom_provider_invalid_response: i18n.invalidResponse,
+        custom_provider_response_too_large: i18n.responseTooLarge,
+        custom_provider_model_list_unavailable: i18n.modelListUnavailable,
+      };
+      const reason = status === 404 ? i18n.pathNotFound
+        : status === 400 || status === 422 ? i18n.requestRejected
+          : status === 401 ? i18n.invalidCredentials : status === 403 ? i18n.permissionDenied
+            : status === 429 ? i18n.rateLimited : status && status >= 500 ? i18n.serviceUnavailable
+              : byCode[code ?? ''] ?? i18n.submitError;
+      // Only bounded structured identifiers belong in diagnostics. Upstream text
+      // can echo request headers or credentials and must not enter this panel.
+      const identifiers = [data?.upstreamCode, data?.upstreamParam].filter(
+        (value): value is string => typeof value === 'string' && /^[A-Za-z0-9_.\[\]-]{1,80}$/.test(value)
       );
+      setSubmitError({ message: intl.formatMessage(reason), details: [status ? `HTTP ${status}` : '', ...identifiers].filter(Boolean).join(' · '), rejected: code !== null && Object.prototype.hasOwnProperty.call(byCode, code) });
     } finally {
       submitInFlightRef.current = false;
       setIsSubmitting(false);
@@ -856,7 +924,8 @@ export default function CustomProviderForm({
 
   // -- Step: Form --
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+    <form onSubmit={handleSubmit} className="mt-4" aria-busy={isSubmitting}>
+      <fieldset disabled={isSubmitting} className="space-y-4 min-w-0">
       {/* Template info banner */}
       {selectedTemplate && (
         <div className="p-3 bg-surfaceHover border border-border rounded-lg">
@@ -1341,13 +1410,20 @@ export default function CustomProviderForm({
       )}
 
       {submitError && (
-        <p role="alert" className="text-red-500 text-sm">
-          {submitError}
-        </p>
+        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+          <p className="font-medium">{intl.formatMessage(submitError.rejected ? i18n.verificationFailed : i18n.verificationUnconfirmed)}</p>
+          <p className="mt-1">{submitError.message}</p>
+          <p className="mt-1">{intl.formatMessage(submitError.rejected ? i18n.notSaved : i18n.saveUnconfirmed)}</p>
+          {submitError.details && <details className="mt-2">
+            <summary className="cursor-pointer">{intl.formatMessage(i18n.diagnosticDetails)}</summary>
+            <p className="mt-1 break-words font-mono text-xs">{submitError.details}</p>
+          </details>}
+        </div>
       )}
 
       {showDeleteConfirmation ? (
         <div className="pt-4 space-y-3">
+          {deleteError && <p role="alert">{intl.formatMessage(i18n.deleteFailed)}</p>}
           <div className="px-4 py-3 bg-red-900/20 border border-red-500/30 rounded">
             <p className="text-red-400 text-sm">{intl.formatMessage(i18n.deleteConfirmation)}</p>
           </div>
@@ -1356,7 +1432,10 @@ export default function CustomProviderForm({
               type="button"
               variant="outline"
               disabled={isSubmitting}
-              onClick={() => setShowDeleteConfirmation(false)}
+              onClick={() => {
+                setDeleteError(false);
+                setShowDeleteConfirmation(false);
+              }}
             >
               {intl.formatMessage(i18n.cancel)}
             </Button>
@@ -1368,10 +1447,11 @@ export default function CustomProviderForm({
                 if (isSubmitting) return;
                 setIsSubmitting(true);
                 setSubmitError(null);
+                setDeleteError(false);
                 try {
                   await onDelete?.();
                 } catch {
-                  setSubmitError(intl.formatMessage(i18n.deleteFailed));
+                  setDeleteError(true);
                 } finally {
                   setIsSubmitting(false);
                 }
@@ -1402,12 +1482,13 @@ export default function CustomProviderForm({
             type="submit"
             disabled={isSubmitting || (compactSetup && !initialData && discoveryStatus !== 'ready')}
           >
-            {initialData
+            {isSubmitting ? intl.formatMessage(i18n.verifying) : initialData
               ? intl.formatMessage(i18n.updateProvider)
               : intl.formatMessage(i18n.createProvider)}
           </Button>
         </div>
       )}
+      </fieldset>
     </form>
   );
 }

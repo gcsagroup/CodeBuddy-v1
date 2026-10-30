@@ -9,7 +9,7 @@ test('production installer layout compiles, fits its pages and keeps internal pa
   const compilerTools = resolveCompiler();
   const repo = path.resolve(__dirname, '..');
   fs.mkdirSync(path.join(repo, 'target'), { recursive: true });
-  const root = fs.mkdtempSync(path.join(repo, 'target/installer-ui-test-'));
+  const root = fs.mkdtempSync(path.join(repo, 'target/installer-ui-test-[%]_-'));
   const fixtureAppId = `CodeBuddyVisualFixture-${path.basename(root)}`;
   const previousInstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${fixtureAppId}_is1`;
   const previousDirectory = path.join(root, 'previous-install');
@@ -60,9 +60,11 @@ begin if not Condition then RaiseException(Message); end;
 procedure CaptureUI(const Name: String);
 var Code: Integer;
 begin
+  Log('Starting native capture: ' + Name);
   WizardForm.Show;
   WizardForm.Repaint;
   RequireUI(Exec(ExpandConstant('{sys}\\WindowsPowerShell\\v1.0\\powershell.exe'), '-NoProfile -ExecutionPolicy Bypass -File "${capture}" ' + IntToStr(WizardForm.Handle) + ' "${root}\\' + Name + '.png"', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0), 'Native capture failed');
+  Log('Finished native capture: ' + Name);
 end;
 procedure VerifyLayout;
 begin
@@ -96,6 +98,8 @@ begin
   WizardForm.BackButton.Visible := False;
   WizardForm.CancelButton.Caption := '取消';
   CaptureUI('location');
+  { The running fixture installer is a real executable under this directory. }
+  RequireUI(Pos('CodeBuddy-Setup.exe', RunningCodeBuddyMessageForDirectory('${root}')) > 0, 'Running executables in the target directory prevent installation');
   WizardForm.DirEdit.Text := '${root}\\installed';
 end;
 procedure CaptureInstallingComponent;

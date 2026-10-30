@@ -19,7 +19,7 @@ import { SkillDownloader } from "./skill-download.mjs";
 import { assertRecipeExecutable } from "./recipe-execution.mjs";
 import { zRecipeDto } from "../ui/sdk/dist/generated/zod.gen.js";
 import { Context } from "./harness/node_modules/@deepseek-ai/cordis/lib/index.js";
-import { FileSystemSkillProvider } from "./harness/node_modules/@deepseek-ai/dsh-skill-filesystem/lib/index.js";
+import { SkillCatalog } from "./harness/skill-catalog.mjs";
 
 const require = createRequire(
   new URL("../ui/desktop/package.json", import.meta.url),
@@ -354,7 +354,11 @@ export class LibraryService {
             .map((entry) => ({
               name: entry.slash_command,
               description: entry.recipe.description,
-              _meta: { recipeId: entry.id, commandType: "Recipe", sourcePath: entry.file_path },
+              _meta: {
+                recipeId: entry.id,
+                commandType: "Recipe",
+                sourcePath: entry.file_path,
+              },
             })),
           ...skills.map((skill) => ({
             name: skill.name,
@@ -535,7 +539,7 @@ export class LibraryService {
     throw unsupported(`recipes/${action}`);
   }
 
-  async roots(projectDir) {
+  async roots(projectDir, snapshot) {
     const result = [
       { rootKind: "global", displayPath: this.globalSkills, readOnly: false },
     ];
@@ -544,9 +548,13 @@ export class LibraryService {
       await noLinks(projectDir);
       if (!(await stat(projectDir)).isDirectory())
         throw invalid("project_not_found");
+      const observed = snapshot ?? (await this.catalog(projectDir));
       result.push({
         rootKind: "project_agents",
-        displayPath: path.join(await realpath(projectDir), ".agents", "skills"),
+        displayPath:
+          observed.roots.find((root) => root.source === "project-agents")
+            ?.path ??
+          path.join(await realpath(projectDir), ".agents", "skills"),
         readOnly: false,
       });
     }
@@ -555,6 +563,75 @@ export class LibraryService {
       root.rootId = hash(path.resolve(root.displayPath)).slice(0, 24);
     }
     return result;
+  }
+
+  async catalog(projectDir) {
+    if (this.driver?.skillCatalog) return this.driver.skillCatalog(projectDir);
+    this.fallbackCatalog ??= new SkillCatalog(
+      new Context(),
+      { invalidate() {}, signal: new AbortController().signal },
+      {
+        dshHome: path.join(this.store.directory, "harness"),
+        agentsHome: path.join(this.store.directory, "harness", "agents"),
+        // Isolated library consumers do not implicitly import the OS user's skills.
+        sharedSkillDir: path.join(this.store.directory, "shared-skills"),
+      },
+    );
+    return this.fallbackCatalog.inventory(projectDir);
+  }
+
+  sharedManaged(candidate) {
+    return {
+      source: {
+        rootKind: "shared_user",
+        rootId: hash(candidate.catalogRoot.path).slice(0, 24),
+        relativePath:
+          path.relative(
+            candidate.catalogRoot.path,
+            candidate.locator.directory,
+          ) || path.basename(candidate.locator.path),
+      },
+      name: candidate.name,
+      description: candidate.description,
+      scope: "shared",
+      readOnly: true,
+      enabled: candidate.sharedEnabled && candidate.invocation.modelInvocable,
+      canToggle: true,
+      availability: candidate.shadowedBy
+        ? "shadowed"
+        : candidate.sharedEnabled
+          ? "available"
+          : "pending",
+      ...(candidate.shadowedBy ? { shadowedBy: candidate.shadowedBy } : {}),
+      displayPath: candidate.path,
+      version: hash(
+        JSON.stringify([
+          candidate.identity,
+          candidate.rawDocument,
+          candidate.sharedEnabled,
+        ]),
+      ),
+      rawDocument: candidate.rawDocument,
+      originalMetadata: {
+        name: candidate.name,
+        description: candidate.description,
+      },
+      displayMetadata: { locales: {} },
+      companionFiles: [],
+    };
+  }
+
+  externalManaged(candidate) {
+    return {
+      ...this.sharedManaged(candidate),
+      source: {
+        rootKind: "plugin",
+        rootId: hash(candidate.catalogRoot.path).slice(0, 24),
+        relativePath: candidate.name,
+      },
+      scope: candidate.source,
+      canToggle: false,
+    };
   }
 
   async sourcePath(projectDir, source) {
@@ -569,9 +646,38 @@ export class LibraryService {
   }
 
   async managedSkill(projectDir, source) {
+    if (source?.rootKind === "plugin") {
+      const catalog = await this.catalog(projectDir);
+      const item = catalog.candidates
+        .filter((c) => c.source !== "shared")
+        .map((c) => this.externalManaged(c))
+        .find(
+          (c) =>
+            c.source.rootId === source.rootId &&
+            c.source.relativePath === source.relativePath,
+        );
+      if (!item) throw invalid("source_not_found");
+      return item;
+    }
+    if (source?.rootKind === "shared_user") {
+      const catalog = await this.catalog(projectDir);
+      const item = catalog.candidates
+        .filter((c) => c.source === "shared")
+        .map((c) => this.sharedManaged(c))
+        .find(
+          (c) =>
+            c.source.rootId === source.rootId &&
+            c.source.relativePath === source.relativePath,
+        );
+      if (!item) throw invalid("source_not_found");
+      return item;
+    }
     if (source?.rootKind === "builtin") {
-      const skill = (await this.builtinManagedSkills(projectDir)).find(item =>
-        item.source.rootId === source.rootId && item.source.relativePath === source.relativePath);
+      const skill = (await this.builtinManagedSkills(projectDir)).find(
+        (item) =>
+          item.source.rootId === source.rootId &&
+          item.source.relativePath === source.relativePath,
+      );
       if (!skill) throw invalid("source_not_found");
       return skill;
     }
@@ -617,64 +723,76 @@ export class LibraryService {
   }
 
   async listSkills(projectDir) {
-    const roots = await this.roots(projectDir);
-    const controller = new AbortController();
-    const provider = new FileSystemSkillProvider(
-      new Context(),
-      { invalidate() {}, signal: controller.signal },
-      {
-        includeDefaultRoots: false,
-        customSkillDirs: roots.map((root) => root.displayPath),
-        watch: false,
-      },
-    );
-    try {
-      const observation = await provider.list({ cwd: projectDir });
-      if (!Array.isArray(observation) && !observation.complete)
-        throw invalid("skill_discovery_incomplete");
-      const skills = [];
-      for (const candidate of Array.isArray(observation)
-        ? observation
-        : observation.candidates) {
-        const root = roots.find((item) =>
-          candidate.path?.startsWith(item.displayPath + path.sep),
-        );
-        if (!root) continue;
-        const itemPath =
-          path.basename(candidate.path) === "SKILL.md"
-            ? path.dirname(candidate.path)
-            : candidate.path;
-        skills.push(
-          await this.managedSkill(projectDir, {
-            rootKind: root.rootKind,
-            rootId: root.rootId,
-            relativePath: path.relative(root.displayPath, itemPath),
-          }),
-        );
+    const observation = await this.catalog(projectDir);
+    const roots = await this.roots(projectDir, observation);
+    const skills = [];
+    const diagnostics = [...observation.diagnostics];
+    for (const candidate of observation.candidates) {
+      if (candidate.source === "shared") {
+        skills.push(this.sharedManaged(candidate));
+        continue;
       }
-      return { skills, destinationRoots: roots };
-    } finally {
-      controller.abort();
-      await provider.dispose();
+      const root = roots.find((item) =>
+        candidate.locator.path?.startsWith(item.displayPath + path.sep),
+      );
+      // Legacy Harness roots remain visible as read-only sources.
+      if (!root) {
+        skills.push(this.externalManaged(candidate));
+        continue;
+      }
+      const itemPath =
+        path.basename(candidate.path) === "SKILL.md"
+          ? path.dirname(candidate.path)
+          : candidate.path;
+      try {
+        const managed = await this.managedSkill(projectDir, {
+          rootKind: root.rootKind,
+          rootId: root.rootId,
+          relativePath: path.relative(root.displayPath, itemPath),
+        });
+        skills.push({
+          ...managed,
+          availability: candidate.shadowedBy ? "shadowed" : "available",
+          ...(candidate.shadowedBy
+            ? { shadowedBy: candidate.shadowedBy }
+            : {}),
+        });
+      } catch (error) {
+        diagnostics.push(`${candidate.path}: ${error.message}`);
+      }
     }
+    return { skills, destinationRoots: roots, diagnostics };
   }
 
   async builtinManagedSkills(projectDir) {
-    const definitions = await this.driver?.listBuiltinSkills?.(projectDir) ?? [];
-    return definitions.map(skill => ({
-      source: { rootKind: "builtin", rootId: skill.provider, relativePath: skill.name },
-      name: skill.name, description: skill.description, scope: "builtin",
-      readOnly: true, enabled: true, displayPath: `builtin/${skill.name}`,
-      version: hash(skill.content), rawDocument: skill.content,
+    const definitions =
+      (await this.driver?.listBuiltinSkills?.(projectDir)) ?? [];
+    return definitions.map((skill) => ({
+      source: {
+        rootKind: "builtin",
+        rootId: skill.provider,
+        relativePath: skill.name,
+      },
+      name: skill.name,
+      description: skill.description,
+      scope: "builtin",
+      readOnly: true,
+      enabled: true,
+      displayPath: `builtin/${skill.name}`,
+      version: hash(skill.content),
+      rawDocument: skill.content,
       originalMetadata: { name: skill.name, description: skill.description },
-      displayMetadata: { locales: {} }, companionFiles: [],
+      displayMetadata: { locales: {} },
+      companionFiles: [],
     }));
   }
 
   async skillRequest(action, input, connection) {
     if (action === "list") {
       const result = await this.listSkills(input.projectDir);
-      result.skills.push(...await this.builtinManagedSkills(input.projectDir));
+      result.skills.push(
+        ...(await this.builtinManagedSkills(input.projectDir)),
+      );
       return result;
     }
     if (action === "read")
@@ -725,6 +843,23 @@ export class LibraryService {
         throw invalid("stale_source");
       source = change.source;
       target = current.displayPath;
+      if (
+        current.source.rootKind === "shared_user" &&
+        operation === "set_enabled"
+      ) {
+        if (typeof change.enabled !== "boolean")
+          throw invalid("invalid_preview");
+        return {
+          operation,
+          current,
+          target,
+          source,
+          sharedEnabled: change.enabled,
+          identity: await realpath(target),
+          hasConflict: false,
+          requiresConfirmation: change.enabled,
+        };
+      }
       if (current.readOnly && operation !== "copy") throw invalid("read_only");
     }
     if (change.destination) {
@@ -1056,7 +1191,25 @@ export class LibraryService {
               : "destination_conflict",
           );
         let result;
-        if (fresh.operation === "delete") {
+        if (fresh.sharedEnabled !== undefined) {
+          if (this.driver?.setSharedSkillEnabled)
+            await this.driver.setSharedSkillEnabled(
+              pending.projectDir,
+              fresh.target,
+              fresh.current.version,
+              fresh.sharedEnabled,
+            );
+          else
+            await this.fallbackCatalog.setEnabled(
+              pending.projectDir,
+              fresh.target,
+              fresh.current.version,
+              fresh.sharedEnabled,
+            );
+          result = {
+            skill: await this.managedSkill(pending.projectDir, fresh.source),
+          };
+        } else if (fresh.operation === "delete") {
           const recoveryRef = randomUUID();
           const folder = inside(this.recoveryRoot, recoveryRef);
           const record = {
@@ -1123,12 +1276,21 @@ export class LibraryService {
     const type = input.type ?? importedType ?? "skill";
     if (type === "agent") return this.agentSourceRequest(action, input);
     if (type === "builtinSkill" && action === "list") {
-      const skills = await this.driver?.listBuiltinSkills?.(input.projectDir) ?? [];
-      return { sources: skills.map(skill => ({
-        type: "builtinSkill", name: skill.name, description: skill.description,
-        content: skill.content, path: `builtin/${skill.name}`, global: true,
-        writable: false, supportingFiles: [], properties: { provider: skill.provider },
-      })) };
+      const skills =
+        (await this.driver?.listBuiltinSkills?.(input.projectDir)) ?? [];
+      return {
+        sources: skills.map((skill) => ({
+          type: "builtinSkill",
+          name: skill.name,
+          description: skill.description,
+          content: skill.content,
+          path: `builtin/${skill.name}`,
+          global: true,
+          writable: false,
+          supportingFiles: [],
+          properties: { provider: skill.provider },
+        })),
+      };
     }
     if (type !== "skill") throw unsupported(`sources/${type}/${action}`);
     const projectDir =
@@ -1388,5 +1550,6 @@ export class LibraryService {
     for (const download of this.downloads) download.controller.abort();
     this.previews.clear();
     await this.tail;
+    await this.fallbackCatalog?.dispose();
   }
 }

@@ -456,6 +456,19 @@ describe('acpChatSessionController.submitMessage', () => {
     vi.mocked(acpChatSessionActions.finishPromptAttemptIfCurrent).mockReturnValue(true);
   });
 
+  it('reports a native output limit instead of silently completing or automatically retrying', async () => {
+    vi.mocked(acpPromptSession).mockResolvedValue({ stopReason: 'max_tokens' } as never);
+    const onFinish = vi.fn();
+    await acpChatSessionController.submitMessage(SESSION_ID, userMessage(), {
+      getCurrentSnapshot: () => snapshotWithActivePrompt(null), onFinish,
+    });
+    expect(acpChatSessionActions.finishPromptAttemptIfCurrent).toHaveBeenCalledWith(
+      SESSION_ID, expect.any(String), expect.stringContaining('输出长度限制'),
+    );
+    expect(onFinish).toHaveBeenCalledWith(expect.stringContaining('已执行的操作请先核对'));
+    expect(acpPromptSession).toHaveBeenCalledOnce();
+  });
+
   it('rejects another prompt locally while the prior RPC remains occupied after terminal display', async () => {
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue({
       ...snapshotWithActivePrompt(null),

@@ -14,6 +14,7 @@ import type { IntlShape } from 'react-intl';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { SourceEntry } from '@aaif/goose-sdk';
 import { defineMessages, useIntl } from '../../i18n';
+import { composerMessages } from '../composerCommands';
 import { getInitialWorkingDir } from '../../utils/workingDir';
 import { errorMessage } from '../../utils/conversionUtils';
 import { MainPanelLayout } from '../Layout/MainPanelLayout';
@@ -51,6 +52,23 @@ import {
 } from '../../acp/skillConfirmationRequests';
 
 const i18n = defineMessages({
+  shared: { id: 'skillManager.shared', defaultMessage: 'Shared on this computer' },
+  pending: { id: 'skillManager.pending', defaultMessage: 'Not enabled in CodeBuddy' },
+  shadowed: {
+    id: 'skillManager.shadowed',
+    defaultMessage: 'Another source takes precedence: {path}',
+  },
+  sharedHelp: {
+    id: 'skillManager.sharedHelp',
+    defaultMessage:
+      'Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions.',
+  },
+  trustTitle: { id: 'skillManager.trustTitle', defaultMessage: 'Enable this shared skill?' },
+  trustMessage: {
+    id: 'skillManager.trustMessage',
+    defaultMessage:
+      'Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile.',
+  },
   title: { id: 'skillManager.title', defaultMessage: 'Skills' },
   description: {
     id: 'skillManager.description',
@@ -275,6 +293,7 @@ function skillPresentation(skill: ManagedSkill, intl: IntlShape) {
 }
 
 function scopeLabel(skill: ManagedSkill, intl: IntlShape) {
+  if (skill.source.rootKind === 'shared_user') return intl.formatMessage(i18n.shared);
   if (skill.source.rootKind === 'global') return intl.formatMessage(i18n.global);
   if (skill.source.rootKind === 'plugin') return intl.formatMessage(i18n.plugin);
   if (skill.source.rootKind === 'builtin') return intl.formatMessage(i18n.builtin);
@@ -366,6 +385,7 @@ export default function SkillManager({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [diagnostics, setDiagnostics] = useState<string[]>([]);
   const [editor, setEditor] = useState<EditorState>();
   const [preview, setPreview] = useState<SkillManagementPreview>();
 
@@ -378,6 +398,7 @@ export default function SkillManager({
         listSkillRecoveries(projectDir),
       ]);
       setSkills(managed.skills);
+      setDiagnostics(managed.diagnostics ?? []);
       setRoots(managed.destinationRoots);
       setRecoveries(deleted);
     } catch (cause) {
@@ -388,6 +409,13 @@ export default function SkillManager({
   }, [intl, projectDir]);
 
   useEffect(() => void load(), [load]);
+  useEffect(() => {
+    const refresh = () => {
+      if (!busy && !editor && !preview) void load();
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [load, busy, editor, preview]);
   useEffect(() => {
     if (loading || dialogOnly || searchParams.get('create') !== '1') return;
     setEditor({ ...emptyEditor });
@@ -439,7 +467,11 @@ export default function SkillManager({
     const prefix = location.pathname.startsWith('/codepro') ? '/codepro' : '';
     navigate(`${prefix}/pair`, {
       state: {
-        initialMessage: { msg: `/${skill.name} `, images: [] },
+        initialMessage: {
+          msg: intl.formatMessage(composerMessages.useSkill, { name: skill.name }),
+          images: [],
+        },
+        draftOnly: true,
         noAutoSubmit: true,
         ...(skill.scope === 'project' ? { workingDir: projectDir } : {}),
       },
@@ -452,10 +484,17 @@ export default function SkillManager({
     try {
       const next = await previewSkillChange(operation, projectDir);
       if (next.hasConflict) throw new Error('destination_conflict');
+      if (operation.operation === 'set_enabled' && operation.source.rootKind === 'shared_user') {
+        await applySkillChange(next.previewToken);
+        await load();
+        onChanged?.();
+        return;
+      }
       setPreview(next);
       setEditor(undefined);
     } catch (cause) {
-      setError(localizedError(cause, intl));
+      if (skillManagementErrorReason(cause) !== 'confirmation_cancelled')
+        setError(localizedError(cause, intl));
     } finally {
       setBusy(false);
     }
@@ -559,6 +598,13 @@ export default function SkillManager({
                     </Button>
                   </div>
                 )}
+                {diagnostics.length > 0 && (
+                  <div role="status" className="mb-3 text-sm text-text-secondary">
+                    {diagnostics.map((message) => (
+                      <p key={message}>{message}</p>
+                    ))}
+                  </div>
+                )}
                 {loading ? (
                   <p className="text-sm text-text-secondary">{intl.formatMessage(i18n.loading)}</p>
                 ) : filtered.length === 0 ? (
@@ -600,7 +646,13 @@ export default function SkillManager({
                                   </span>
                                 )}
                                 <span className="rounded bg-background-secondary px-2 py-0.5 text-xs text-text-secondary">
-                                  {intl.formatMessage(skill.enabled ? i18n.enabled : i18n.disabled)}
+                                  {intl.formatMessage(
+                                    skill.availability === 'pending'
+                                      ? i18n.pending
+                                      : skill.enabled
+                                        ? i18n.enabled
+                                        : i18n.disabled
+                                  )}
                                 </span>
                               </div>
                               <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
@@ -611,7 +663,7 @@ export default function SkillManager({
                               </p>
                             </div>
                             <div className="flex shrink-0 gap-1">
-                              {!skill.readOnly && (
+                              {(!skill.readOnly || skill.canToggle) && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -734,6 +786,19 @@ export default function SkillManager({
                 <DialogDescription className="whitespace-pre-wrap leading-6">
                   {skillPresentation(selectedSkill, intl).description}
                 </DialogDescription>
+                {selectedSkill.source.rootKind === 'shared_user' && (
+                  <p className="text-sm text-text-secondary">
+                    {intl.formatMessage(i18n.sharedHelp)}
+                  </p>
+                )}
+                {selectedSkill.availability === 'pending' && (
+                  <p role="status">{intl.formatMessage(i18n.pending)}</p>
+                )}
+                {selectedSkill.shadowedBy && (
+                  <p role="status">
+                    {intl.formatMessage(i18n.shadowed, { path: selectedSkill.shadowedBy })}
+                  </p>
+                )}
                 <div>
                   <p className="text-xs font-medium text-text-muted">
                     {intl.formatMessage(i18n.source)}
@@ -753,7 +818,7 @@ export default function SkillManager({
                 <Button variant="outline" onClick={closeDetails}>
                   {intl.formatMessage(i18n.close)}
                 </Button>
-                {!selectedSkill.readOnly && (
+                {(!selectedSkill.readOnly || selectedSkill.canToggle) && (
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -817,7 +882,7 @@ export default function SkillManager({
                   </Button>
                 )}
                 <Button
-                  disabled={!selectedSkill.enabled}
+                  disabled={!selectedSkill.enabled || selectedSkill.availability === 'shadowed'}
                   onClick={() => openSkillConversation(selectedSkill)}
                 >
                   {intl.formatMessage(i18n.use)}
@@ -988,12 +1053,19 @@ export default function SkillManager({
       </Dialog>
       <ConfirmationModal
         isOpen={!!confirmation}
-        title={intl.formatMessage(i18n.deleteTitle)}
-        message={intl.formatMessage(i18n.deleteMessage, { target: confirmation?.target ?? '' })}
+        title={intl.formatMessage(
+          confirmation?.operation === 'set_enabled' ? i18n.trustTitle : i18n.deleteTitle
+        )}
+        message={intl.formatMessage(
+          confirmation?.operation === 'set_enabled' ? i18n.trustMessage : i18n.deleteMessage,
+          { target: confirmation?.target ?? '' }
+        )}
         detail={confirmation?.target}
-        confirmLabel={intl.formatMessage(i18n.confirmDelete)}
+        confirmLabel={intl.formatMessage(
+          confirmation?.operation === 'set_enabled' ? i18n.enable : i18n.confirmDelete
+        )}
         cancelLabel={intl.formatMessage(i18n.cancel)}
-        confirmVariant="destructive"
+        confirmVariant={confirmation?.operation === 'set_enabled' ? 'default' : 'destructive'}
         onConfirm={() =>
           confirmation && resolveSkillManagementConfirmation(confirmation.previewToken, 'confirm')
         }

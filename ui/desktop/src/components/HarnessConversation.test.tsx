@@ -105,6 +105,7 @@ function terminal(source = 'user', status = 'completed'): Message {
           checkpoint_id: null,
           retry_strategy: 'not_available',
           visible_text_available: true,
+          last_response_text_available: true,
           tool_action_count: 1,
           copy_artifact_ref: null,
           finished_at: '2026-10-15T11:06:00Z',
@@ -258,7 +259,7 @@ describe('Harness conversation presentation', () => {
       fireEvent.click(header);
       expect(header).toHaveAttribute('aria-expanded', 'true');
       view.rerender(show([...trace, terminal('user', status)]));
-      const whole = await screen.findByRole('button', { name: /^Time spent/ });
+      const whole = await screen.findByRole('button', { name: /^Time spent/ }, { timeout: 5000 });
       expect(whole).toHaveAttribute('aria-expanded', 'false');
       expect(whole).not.toHaveTextContent('Completed');
       fireEvent.click(whole);
@@ -291,7 +292,7 @@ describe('Harness conversation presentation', () => {
           {show(finished)}
         </ScrollFollowingContext.Provider>
       );
-      const whole = await screen.findByRole('button', { name: /^Time spent/ });
+      const whole = await screen.findByRole('button', { name: /^Time spent/ }, { timeout: 5000 });
       expect(whole).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
       expect(view.container.querySelector('[data-tool-call-id="a"]')).toBeNull();

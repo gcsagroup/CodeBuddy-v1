@@ -759,10 +759,10 @@
     "defaultMessage": "Download Git"
   },
   "codeProGit.downloadOpened": {
-    "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
+    "defaultMessage": "After installing Git, refresh the repository to check again."
   },
   "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+    "defaultMessage": "CodeBuddy could not locate Git in its command environment. If Git is already installed, check its PATH or installation location and refresh. Otherwise, you can download it."
   },
   "codeProGit.gitRequired": {
     "defaultMessage": "Git is required for repository operations."
@@ -2112,7 +2112,7 @@
     "defaultMessage": "API Base Path (optional)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Override the default API path. Leave blank to use the provider's default path."
+    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "e.g., v1/chat/completions or project_id/v1"
@@ -2181,7 +2181,7 @@
     "defaultMessage": "The address returned too much data. Check that this is a model API address."
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "Create Provider"
+    "defaultMessage": "Verify and add"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address."
@@ -2206,6 +2206,12 @@
   },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Delete Provider"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "Diagnostic details"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "Discovered models"
@@ -2259,7 +2265,7 @@
     "defaultMessage": "Local Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "Load the model list, then choose a model. Saving sends one minimal request to verify the selected model."
+    "defaultMessage": "Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds."
   },
   "customProviderForm.modelId": {
     "defaultMessage": "Model ID"
@@ -2271,7 +2277,7 @@
     "defaultMessage": "The selected model could not complete a test request."
   },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "Models loaded. The selected model will be verified when you save."
+    "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2282,20 +2288,41 @@
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
   },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "The connection was not saved. Your entries are retained in this form."
+  },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Ollama Compatible"
   },
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "OpenAI Compatible"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID."
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "Access was denied. Verify that this API key has permission to use the selected model."
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "Provider Type"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "The service limited this request. Check the account quota and request limits, then retry."
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "Reasoning"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "The service rejected the validation request. Verify the API format, tool support and thinking settings for this model."
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "This provider requires an API key"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "The save result could not be confirmed. Your entries are retained; check the connection list before retrying."
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "The model service returned a server error. Retry later or check the service status."
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "Start from a provider template"
@@ -2304,7 +2331,7 @@
     "defaultMessage": "Pick a known provider and we'll auto-fill the configuration"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "Failed to save provider. Please check your configuration and try again."
+    "defaultMessage": "Connection verification did not complete. Check your connection settings and try again."
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "Provider supports streaming responses"
@@ -2312,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "Tool calling"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks."
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "Update Provider"
+    "defaultMessage": "Verify and save"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "Using template: {name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "Value"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "Verification failed"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "Verification result unconfirmed"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "Verifying…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "Configure {name} settings"
@@ -5344,7 +5383,7 @@
     "defaultMessage": "Observe and control desktop applications."
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "Computer control"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "Read, write, and edit files, and run shell commands."
@@ -5876,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "No providers match \"{query}\""
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again."
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "Search providers..."
@@ -6846,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "Session JSON copied"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Text copied"
   },
@@ -6867,6 +6906,21 @@
   "sessionActionsHeader.duplicated": {
     "defaultMessage": "Session duplicated"
   },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "Export logs"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "Failed to export logs: {error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "Session log saved"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "The log file could not be saved."
+  },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Text value"
   },
@@ -6878,12 +6932,6 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Loading JSON..."
-  },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Failed to rename session: {error}"
@@ -6908,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "View session JSON"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Copying is unavailable for this session. Start a new task to work independently."
@@ -7545,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "No matching skills found"
   },
+  "skillManager.pending": {
+    "defaultMessage": "Not enabled in CodeBuddy"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "Files: {files}"
   },
@@ -7584,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "Search skills..."
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "Another source takes precedence: {path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "Shared on this computer"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions."
+  },
   "skillManager.source": {
     "defaultMessage": "Source"
   },
@@ -7592,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "Skills"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile."
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "Enable this shared skill?"
   },
   "skillManager.use": {
     "defaultMessage": "Use skill"
@@ -8304,8 +8367,17 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope,select,task{Allow for this task} session{Allow this tool for this session} other{Always Allow}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "Allow computer control for this session"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "Allow {name} for this session"
+  },
   "toolApprovalButtons.allowOnce": {
     "defaultMessage": "Allow Once"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "Allow public web reading for this session"
   },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope,select,task{Allowed for this task} session{Tool allowed for this session} other{Always allowed}}"
@@ -8322,6 +8394,12 @@
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "Cancelled"
   },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "Computer control allowed for this session"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice."
+  },
   "toolApprovalButtons.denied": {
     "defaultMessage": "Denied"
   },
@@ -8334,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope,select,task{Deny for this task} session{Deny for this session} other{Always Deny}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again."
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "{name} allowed for this session"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "Public web reading allowed for this session"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice."
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8495,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "Code"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "Loading spinner"
@@ -8720,6 +8822,45 @@
   },
   "toolbox.sections": {
     "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "Add to this conversation"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "Check connection"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "Tools for this conversation"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "Enable this tool first"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "Loading into this conversation…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "Return to conversation"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "Current conversation"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "Added to this conversation · connection not checked"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "Conversation status unavailable; refresh to retry"
   },
   "toolbox.sourceInstalled": {
     "defaultMessage": "Installed"

@@ -12,6 +12,11 @@ import zhCN from '../../i18n/messages/zh-CN.json';
 import zhTW from '../../i18n/messages/zh-TW.json';
 import { buildToolboxModel } from './toolboxModel';
 import { applySkillChange, previewSkillChange } from '../../acp/skillManagement';
+import { getSessionExtensions, addSessionExtension } from '../../acp/session-extensions';
+import { listTools } from '../../acp/permissions';
+
+vi.mock('../../acp/session-extensions', () => ({ getSessionExtensions: vi.fn(), addSessionExtension: vi.fn() }));
+vi.mock('../../acp/permissions', () => ({ listTools: vi.fn() }));
 
 const configContext = vi.hoisted(() => ({ setExtensionEnabled: vi.fn() }));
 vi.mock('../settings/auth/RepositoryConnections', () => ({
@@ -21,7 +26,8 @@ vi.mock('../settings/auth/RepositoryConnections', () => ({
 vi.mock('../../acp/toolbox', () => ({ loadToolbox: vi.fn() }));
 vi.mock('../../acp/extensions', () => ({ testConfigExtension: vi.fn() }));
 vi.mock('../ConfigContext', () => ({ useConfig: () => configContext }));
-vi.mock('../../acp/skillManagement', () => ({
+vi.mock('../../acp/skillManagement', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../acp/skillManagement')>()),
   applySkillChange: vi.fn(),
   previewSkillChange: vi.fn(),
 }));
@@ -77,6 +83,23 @@ function CurrentPath() {
 
 describe('ToolboxView', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('shows per-conversation selections, adds custom MCP, and preserves the return link', async () => {
+    const computer = { type: 'builtin' as const, name: 'qwen_computer', enabled: true };
+    const custom = { type: 'stdio' as const, name: 'custom_fixture', enabled: true, cmd: 'node', args: ['fixture.cjs'], envs: {} };
+    vi.mocked(loadToolbox).mockResolvedValue({ model: buildToolboxModel({ skills: [], apps: [], extensions: [computer, custom] }), errors: {}, warnings: [] });
+    vi.mocked(getSessionExtensions).mockResolvedValue([computer]);
+    vi.mocked(addSessionExtension).mockImplementation(async () => { vi.mocked(getSessionExtensions).mockResolvedValue([computer, custom]); });
+    vi.mocked(listTools).mockResolvedValue([{ name: 'custom_fixture__alpha' }] as never);
+    renderView('/codepro/toolbox?sessionId=existing');
+    expect(await screen.findByText('Added to this conversation · connection not checked')).toBeVisible();
+    expect(screen.getByText('Not loaded in this conversation')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Return to conversation' })).toHaveAttribute('href', '/codepro/pair?resumeSessionId=existing');
+    await userEvent.click(screen.getByRole('button', { name: 'Add to this conversation' }));
+    expect(await screen.findByText('Loaded · 1 tools available')).toBeVisible();
+    expect(addSessionExtension).toHaveBeenCalledWith('existing', expect.objectContaining({ name: 'custom_fixture', type: 'stdio' }));
+    expect(listTools).toHaveBeenCalledWith('existing', 'custom_fixture');
+  });
   it.each(['builtin:git', 'external:github_official', 'builtin:repository'])(
     'opens the unified controls from the %s link without changing settings',
     async (id) => {
@@ -135,10 +158,10 @@ describe('ToolboxView', () => {
     });
     renderView();
     const tools = await screen.findByRole('region', { name: 'Built-in capabilities' });
-    expect(within(tools).getByRole('button', { name: 'Computer control' })).toBeVisible();
+    expect(within(tools).getByRole('button', { name: 'Computer Use' })).toBeVisible();
     expect(within(tools).queryByRole('button', { name: 'Code repositories' })).toBeNull();
     expect(
-      within(tools).getByRole('switch', { name: 'Enable Computer control' })
+      within(tools).getByRole('switch', { name: 'Enable Computer Use' })
     ).not.toBeChecked();
     const skills = screen.getByRole('region', { name: 'Skills' });
     expect(within(skills).getByRole('button', { name: 'Code repositories' })).toBeVisible();
@@ -543,7 +566,7 @@ describe('ToolboxView', () => {
             id: 'skill:computer-control',
             kind: 'skill',
             source: 'source',
-            name: 'Computer control',
+            name: 'Computer Use',
             description: 'Desktop control skill',
             status: 'ready',
             actions: ['inspect'],
@@ -557,7 +580,7 @@ describe('ToolboxView', () => {
     });
 
     renderView();
-    expect(await screen.findByText('Computer control')).toBeVisible();
+    expect(await screen.findByText('Computer Use')).toBeVisible();
     expect(screen.getByText('apps unavailable')).toBeVisible();
     expect(screen.getByRole('tab', { name: 'Skills' })).toBeVisible();
     expect(screen.getByRole('tab', { name: 'External MCP' })).toBeVisible();
@@ -619,32 +642,34 @@ describe('ToolboxView', () => {
 
     renderView('/toolbox?section=capabilities');
 
-    const card = await screen.findByRole('button', { name: 'Computer control' });
-    expect(screen.getByRole('switch', { name: 'Disable Computer control' })).toBeChecked();
+    const card = await screen.findByRole('button', { name: 'Computer Use' });
+    expect(screen.getByRole('switch', { name: 'Disable Computer Use' })).toBeChecked();
     expect(
       screen.queryByRole('button', { name: /delete computer control/i })
     ).not.toBeInTheDocument();
 
     await userEvent.click(card);
-    expect(screen.getByRole('dialog')).toHaveTextContent('Computer Use (qwen_computer)');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Computer Use');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('qwen_computer');
     expect(screen.getByRole('dialog')).toHaveTextContent('Example use');
     expect(screen.getByRole('dialog')).toHaveTextContent('list_apps');
     expect(screen.getByRole('dialog')).toHaveTextContent('click');
     expect(screen.getByRole('dialog')).toHaveTextContent('Not verified for this installation');
     vi.mocked(testConfigExtension).mockResolvedValue({
       success: true,
-      tools: ['get_app_state'],
+      tools: ['mcp__qwen_computer__get_app_state'],
       latencyMs: 1,
       resourceCount: 0,
       supportsResources: false,
     });
     await userEvent.click(screen.getByRole('button', { name: 'Read tool inventory' }));
-    expect(await screen.findByText('get_app_state')).toBeVisible();
+    expect(await screen.findByText('computer__get_app_state')).toBeVisible();
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('mcp__qwen');
     expect(screen.getByRole('dialog')).toHaveTextContent('not successful execution');
     expect(screen.getByRole('dialog')).toHaveTextContent('Observe and control');
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Disable Computer control' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Disable Computer Use' }));
     await waitFor(() =>
       expect(configContext.setExtensionEnabled).toHaveBeenCalledWith('qwen_computer', false)
     );
@@ -682,8 +707,8 @@ describe('ToolboxView', () => {
     );
     renderView('/toolbox?section=capabilities');
 
-    const card = await screen.findByRole('button', { name: 'Computer control' });
-    const control = screen.getByRole('switch', { name: 'Disable Computer control' });
+    const card = await screen.findByRole('button', { name: 'Computer Use' });
+    const control = screen.getByRole('switch', { name: 'Disable Computer Use' });
     await userEvent.click(control);
 
     expect(await screen.findByText('Stopping…')).toBeVisible();
@@ -693,8 +718,8 @@ describe('ToolboxView', () => {
 
     await act(async () => finishShutdown());
     expect(await screen.findByText('Disabled')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Computer control' })).toBe(card);
-    expect(screen.getByRole('switch', { name: 'Enable Computer control' })).toBe(control);
+    expect(screen.getByRole('button', { name: 'Computer Use' })).toBe(card);
+    expect(screen.getByRole('switch', { name: 'Enable Computer Use' })).toBe(control);
     expect(control).toBeEnabled();
   });
 
@@ -753,7 +778,7 @@ describe('ToolboxView', () => {
     });
     vi.mocked(loadToolbox).mockResolvedValueOnce(snapshot(true));
     renderView('/toolbox?section=capabilities');
-    const card = await screen.findByRole('button', { name: 'Computer control' });
+    const card = await screen.findByRole('button', { name: 'Computer Use' });
     let resolveOlder!: (value: ToolboxLoadResult) => void;
     let resolveNewer!: (value: ToolboxLoadResult) => void;
     vi.mocked(loadToolbox)
@@ -775,7 +800,7 @@ describe('ToolboxView', () => {
     expect(screen.getByRole('switch')).not.toBeChecked();
     await act(async () => resolveOlder(snapshot(true)));
     expect(screen.getByRole('switch')).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Computer control' })).toBe(card);
+    expect(screen.getByRole('button', { name: 'Computer Use' })).toBe(card);
   });
 
   it('locks required built-in tools on', async () => {
@@ -847,7 +872,7 @@ describe('ToolboxView', () => {
 
     renderView('/toolbox?section=all');
 
-    expect(await screen.findByRole('heading', { name: 'Computer control' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Computer Use' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'review' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Filesystem' })).toBeVisible();
     expect(screen.getAllByRole('switch')).toHaveLength(3);

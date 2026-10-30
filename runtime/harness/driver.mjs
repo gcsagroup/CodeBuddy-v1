@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
+import { flushLiveSessionLog, readSessionLogText } from '@deepseek-ai/dsh-session-log-export';
 import { isDeepStrictEqual } from 'node:util';
 import { boot } from '@deepseek-ai/dsh-app-boot';
 import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm';
@@ -18,9 +19,13 @@ import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
 import { profileEntries, CODEBUDDY_BEHAVIOR } from './profile.mjs';
+
+import { ensureGitEnvironment } from '../git-environment.mjs';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
 import { toolSessionApprovalScope, sameToolSessionScope } from '../tool-session-approval.mjs';
 import { MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
+import { extensionConfigKey } from '../session-extensions.mjs';
+import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
@@ -51,14 +56,15 @@ function abortable(promise, signal) {
 }
 
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
-export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome } = {}) {
+export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
+  await ensureGitEnvironment();
   // The public entry establishes the alpha2 contracts before loading this driver.
   const { foldSubagentDescriptor } = await import('@deepseek-ai/dsh-subagent');
   const root = resolve(dataDir);
   await mkdir(root, { recursive: true });
   const configPath = join(root, 'codebuddy-host.json');
-  await writeFile(configPath, JSON.stringify(profileEntries(root, resolve(cwd), resolve(instructionsHome ?? root)), null, 2));
+  await writeFile(configPath, JSON.stringify(profileEntries(root, resolve(cwd), resolve(instructionsHome ?? root), sharedSkillDir), null, 2));
   const runs = new Map();
   const maintenanceRuns = new Map();
   const credentials = new Map();
@@ -72,6 +78,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const directCalls = new Map();
   const toolReceipts = new Map();
   const hostImageReceipts = new WeakMap();
+  const desktopOutcomes = new WeakMap();
   const configurationQueues = new Map();
   const extensionStates = new Map();
   const childOwners = new Map();
@@ -206,18 +213,16 @@ Keep progress updates brief, meaningful, and outcome-based.
     let url;
     try { url = new URL(exec.arguments.url); } catch { return undefined; }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return undefined;
-    let origins = webApprovals.get(rootAgent);
-    if (!origins) { origins = new Map(); webApprovals.set(rootAgent, origins); }
-    let binding = origins.get(url.origin);
+    let binding = webApprovals.get(rootAgent);
     if (!binding) {
-      binding = { identity: Object.freeze({}), extensionSource: 'builtin', targetOrigin: url.origin };
-      origins.set(url.origin, binding);
+      binding = { identity: Object.freeze({}), extensionSource: 'builtin', webRead: true };
+      webApprovals.set(rootAgent, binding);
     }
     return {
       ...binding,
       isCurrent: () => ctx.web[symbols.original] === webService &&
         ctx.tools.get(exec.name, exec.agent) === webFetchDefinition &&
-        webApprovals.get(rootAgent)?.get(url.origin) === binding,
+        webApprovals.get(rootAgent) === binding,
     };
   }
 
@@ -268,6 +273,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   // share a standing MCP connection. Routing never belongs to the connection.
   ctx.provide('codebuddyMcpRequestMetadata', {
     get(serverName, exec) {
+      if (serverName === 'qwen_computer') return (directCalls.get(exec.callId) ?? runFor(exec.agent))?.desktopMetadata?.();
       return settingsFor(exec.agent)?.mcpRequestMetadata?.(serverName);
     },
   });
@@ -420,9 +426,11 @@ Keep progress updates brief, meaningful, and outcome-based.
       let owner = approvalOwners.get(rootAgent);
       if (!owner) { owner = Object.freeze({}); approvalOwners.set(rootAgent, owner); }
       sessionApproval = {
-        owner, tool: binding.identity, extensionSource: binding.extensionSource,
+        owner, tool: business ? binding.identity : (binding.group?.identity ?? binding.identity), extensionSource: binding.extensionSource,
+        ...(binding.group && !business ? { group: binding.group.kind, module: { name: binding.group.name, displayName: binding.group.displayName } } : {}),
         ...(business ? { business } : {}),
         ...(binding.targetOrigin ? { targetOrigin: binding.targetOrigin } : {}),
+        ...(binding.webRead ? { group: 'web_read' } : {}),
         isCurrent: () => ctx.agents.get(active.sessionId) === rootAgent && approvalOwners.get(rootAgent) === owner &&
           (mcpBinding ? currentMcpBinding() === binding : binding.isCurrent()),
       };
@@ -445,8 +453,14 @@ Keep progress updates brief, meaningful, and outcome-based.
     };
     if (request.signal) await abortable(active.events, request.signal);
     else await active.events;
-    const accepted = await active.onPermission({ ...call, reason: request.reason, signal: request.signal });
-    return accepted === true ? 'allowed-once' : 'rejected';
+    try {
+      const accepted = await active.onPermission({ ...call, reason: request.reason, signal: request.signal });
+      return accepted === true ? 'allowed-once' : 'rejected';
+    } catch (error) {
+      if (error.desktopOutcome !== 'stopped') throw error;
+      call.desktopOutcome = 'stopped';
+      return 'rejected';
+    }
   });
   ctx.on('tools/pre-execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
@@ -473,22 +487,40 @@ Keep progress updates brief, meaningful, and outcome-based.
       return gate.kind === 'allow' ? next() : gate;
     } catch (error) {
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };
+      if (error.desktopOutcome === 'stopped') {
+        desktopOutcomes.set(exec, 'stopped');
+        return { kind: 'deny', reason: error.message };
+      }
       return { kind: 'deny', reason: 'Tool approval did not complete.' };
     }
   });
   ctx.on('tools/execute', async (exec, next) => {
     const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
-    await active?.onToolStart?.(approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? await permissionCall(exec, active));
-    return next();
+    const call = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`) ?? await permissionCall(exec, active);
+    const dispatch = async () => {
+      await active?.onToolStart?.(call);
+      try { return await next(); }
+      finally { call.desktopControlReceipt = mcpPlugin.takeDesktopControlReceipt(exec); }
+    };
+    try {
+      return await (active?.onDesktopTool ? active.onDesktopTool(call, dispatch) : dispatch());
+    } catch (error) {
+      if (['paused', 'stale', 'withdrawn', 'stopped'].includes(error.desktopOutcome)) desktopOutcomes.set(exec, error.desktopOutcome);
+      throw error;
+    }
   });
   ctx.on('tools/result', (exec, result) => {
+    const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
+    if (stoppedApproval) desktopOutcomes.set(exec, 'stopped');
     approvalCalls.delete(`${exec.agent.id}\0${exec.callId}`);
     const metadata = mcpPlugin.takeMcpResultMetadata(exec, result);
     const presentationContent = !result.isError ? hostImageReceipts.get(exec) : undefined;
     hostImageReceipts.delete(exec);
     const receipt = { name: exec.name, arguments: exec.arguments, internalControl: isInternalControl(exec.agent, exec.name), structuredContent: result.value, error: result.error, ...metadata,
+      ...(desktopOutcomes.has(exec) ? { desktopOutcome: desktopOutcomes.get(exec) } : {}),
       ...(presentationContent ? { presentationContent } : {}),
     };
+    desktopOutcomes.delete(exec);
     const direct = directCalls.get(exec.callId);
     if (direct) direct.receipt = receipt;
     else if (runFor(exec.agent)) toolReceipts.set(`${exec.agent.id}\0${exec.callId}`, receipt);
@@ -961,6 +993,12 @@ Keep progress updates brief, meaningful, and outcome-based.
     version: HARNESS_VERSION,
     referenceSourceCommit: HARNESS_REFERENCE_COMMIT,
     dataDir: root,
+    async exportSessionLog(sessionId) {
+      await flushLiveSessionLog({ sessions: ctx.sessions }, sessionId);
+      const data = await readSessionLogText(ctx.sessionPersistence, sessionId);
+      if (data === undefined) throw new Error('该会话尚无 Harness 日志；旧版导入的聊天仅支持查看会话 JSON。');
+      return data;
+    },
     async permissions(sessionId, { cwd: workingDirectory, initialPreset, preset } = {}) {
       if (preset !== undefined) ctx.permissionPresets.resolve(preset);
       if (!ctx.agents.get(sessionId) && workingDirectory) {
@@ -984,7 +1022,20 @@ Keep progress updates brief, meaningful, and outcome-based.
         approvalPolicy: ctx.approval.effectivePolicy(agent.session),
       };
     },
-    invalidateMcpServers(configKeys) { return mcpPresets.invalidate(configKeys); },
+    invalidateMcpServers(configKeys) {
+      const keys = new Set(configKeys.map(extensionConfigKey));
+      const scopes = new Set([ctx.root]);
+      for (const id of sessionSettings.keys()) {
+        const agent = ctx.agents.get(id);
+        if (!agent) continue;
+        for (const scope of scopeChainOf(agent)) scopes.add(scope);
+        for (const name of builtinApprovals.get(agent)?.keys() ?? [])
+          if (keys.has(hostToolExtensionName(name))) builtinApprovals.get(agent).delete(name);
+        if (keys.has('developer')) webApprovals.delete(agent);
+      }
+      for (const scope of scopes) mcpPlugin.invalidateMcpApprovals(scope, name => keys.has(extensionConfigKey(name)));
+      return mcpPresets.invalidate(configKeys);
+    },
     async warmMcpServers(servers) {
       if (servers.some(server => server.transport !== 'streamable-http')) throw new TypeError('Startup preparation accepts remote MCP connections only');
       const lease = await mcpPresets.acquire(servers);
@@ -1023,18 +1074,21 @@ Keep progress updates brief, meaningful, and outcome-based.
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode } = {}) {
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode } = {}) {
       if (runs.has(sessionId)) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
       signal?.throwIfAborted();
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onUserQuestions, events: Promise.resolve(), steps: 0, sessionId, requestId };
+      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, events: Promise.resolve(), steers: new Set(), acceptingInput: true, steps: 0, sessionId, requestId };
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
       try {
+        await ensureGitEnvironment();
+        const skillAgent = await resolveAgent(sessionId);
+        await ctx.get('codebuddySkillCatalog').inventory(ctx.workingDirectory.get(skillAgent.session));
         if (resumeGoal) {
           const current = ctx.goals.get(await resolveAgent(sessionId));
           if (!current || current.id !== resumeGoal.goalId || current.revision !== resumeGoal.revision) throw new Error('Goal changed before resume; refresh its current state');
@@ -1067,10 +1121,14 @@ Keep progress updates brief, meaningful, and outcome-based.
         if (signal?.aborted) cancel();
         const result = await completion.promise;
         const agent = await resolveAgent(sessionId);
-        await agent.whenIdle();
-        // Official subagent runtime owns child completion and reply delivery.
-        // Recheck the root after children settle because their replies may wake it.
-        while (await ctx.subagents.waitForChildren(agent)) await agent.whenIdle();
+        // Keep callbacks alive until all already-admitted steering has reached
+        // the native inbox and its resulting work has settled.
+        do {
+          await Promise.allSettled([...run.steers]);
+          await agent.whenIdle();
+          while (await ctx.subagents.waitForChildren(agent)) await agent.whenIdle();
+        } while (run.steers.size || agent.status !== 'idle');
+        run.acceptingInput = false;
         const jobs = run.jobSettlement ? await run.jobSettlement : [];
         await run.events;
         if (run.error) throw run.error;
@@ -1081,6 +1139,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         if (signal?.aborted || run.cancelRequested || run.lastResult?.stopReason === 'cancelled') return { stopReason: 'cancelled', reason: run.lastResult?.reason, jobs, ...(goal ? { goal } : {}) };
         return { ...(run.lastResult ?? result), ...(jobs.length ? { jobs } : {}), ...(goal ? { goal } : {}) };
       } catch (error) {
+        const cancelledBeforeAdmission = signal?.aborted && error === signal.reason;
         driver.cancel(sessionId);
         const agent = ctx.agents.get(sessionId);
         if (agent) {
@@ -1089,6 +1148,12 @@ Keep progress updates brief, meaningful, and outcome-based.
         }
         await run.jobSettlement;
         await run.events.catch(() => {});
+        // Host preparation can yield before native admission. An aborted input
+        // has no native turn to finish; return cancellation without inventing one.
+        if (cancelledBeforeAdmission) {
+          if (agent) await ctx.sessions.flush(agent.session);
+          return { stopReason: 'cancelled', reason: run.lastResult?.reason };
+        }
         throw error;
       } finally {
         try {
@@ -1129,8 +1194,14 @@ Keep progress updates brief, meaningful, and outcome-based.
       });
     },
     async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID() } = {}) {
-      if (!runs.has(sessionId)) throw new Error('Steering requires an active prompt; use prompt for an idle session');
-      return ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);
+      const run = runs.get(sessionId);
+      if (!run || !run.acceptingInput || run.cancelRequested) throw Object.assign(
+        new Error('Steering requires an active prompt; use prompt for an idle session'),
+        { harnessCode: 'PROMPT_IDLE' },
+      );
+      const admission = ctx.sessionController.prompt({ sessionId, requestId, mode: 'steer', content: typeof content === 'string' ? [{ type: 'text', text: content }] : content, clientTimeZone: 'Asia/Shanghai' }, signal);
+      run.steers.add(admission);
+      try { return await admission; } finally { run.steers.delete(admission); }
     },
     async listTools(sessionId) {
       const agent = sessionId ? await resolveAgent(sessionId) : undefined;
@@ -1139,13 +1210,14 @@ Keep progress updates brief, meaningful, and outcome-based.
         return metadata ? { ...tool, ...(metadata._meta ? { _meta: metadata._meta } : {}), ...(metadata.outputSchema ? { outputSchema: metadata.outputSchema } : {}), ...(metadata.mcpApp ? { mcpApp: metadata.mcpApp } : {}) } : tool;
       });
     },
-    async callTool(sessionId, name, args, { onPermission, onToolPolicy, onToolStart, onEvent, signal = new AbortController().signal } = {}) {
+    async callTool(sessionId, name, args, { onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onEvent, signal = new AbortController().signal } = {}) {
       const agent = await resolveAgent(sessionId);
       if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Direct tool calls require an idle session');
+      await ensureGitEnvironment();
       const callId = randomUUID();
       const completion = Promise.withResolvers();
       completion.promise.catch(() => {});
-      const run = { ...completion, onPermission, onToolPolicy, onToolStart, onEvent, events: Promise.resolve(), sessionId };
+      const run = { ...completion, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onEvent, events: Promise.resolve(), sessionId };
       directCalls.set(callId, run);
       try {
         return await agent.runMaintenance(async maintenanceSignal => {
@@ -1178,7 +1250,12 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async listSkills(sessionId) {
       const agent = await resolveAgent(sessionId);
+      await ctx.get('codebuddySkillCatalog').inventory(ctx.workingDirectory.get(agent.session));
       return ctx.skills.list({ cwd: ctx.workingDirectory.get(agent.session), scope: agent });
+    },
+    skillCatalog(cwd) { return ctx.get('codebuddySkillCatalog').inventory(cwd); },
+    setSharedSkillEnabled(cwd, file, version, enabled) {
+      return ctx.get('codebuddySkillCatalog').setEnabled(cwd, file, version, enabled);
     },
     async listBuiltinSkills(workingDirectory) {
       const options = { cwd: resolve(workingDirectory ?? cwd) };

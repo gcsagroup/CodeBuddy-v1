@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "Xóa thông tin xác thực"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "Đã xóa thông tin xác thực"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "Xóa thông tin xác thực {name} cho {provider}?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "Xóa thông tin xác thực"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "Đã xóa thông tin xác thực"
   },
   "authSettings.description": {
     "defaultMessage": "Quản lý thông tin xác thực nhà cung cấp được CodeBuddy lưu trữ cục bộ."
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "Cấp quyền lại"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "Đã cấu hình thông tin xác thực"
-  },
   "authSettings.signIn": {
     "defaultMessage": "Đăng nhập"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "Đã cấu hình thông tin xác thực"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "Bộ nhớ đệm nhà cung cấp"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "Mất kết nối. Đang kết nối lại…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "Tiện ích mở rộng cho các cuộc trò chuyện mới"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "Tiện ích mở rộng cho phiên trò chuyện này"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Đã cập nhật tiện ích mở rộng"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} sẽ được bật trong các cuộc trò chuyện mới"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "Tiện ích mở rộng cho các cuộc trò chuyện mới"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "Tiện ích mở rộng cho phiên trò chuyện này"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "quản lý tiện ích mở rộng"
@@ -214,6 +214,42 @@
   },
   "builtInExtension.memory.name": {
     "defaultMessage": "Memory"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
   },
   "cardButtons.configure": {
     "defaultMessage": "Cấu hình"
@@ -725,6 +761,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -739,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -803,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1547,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "Conversation export started."
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1610,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -2076,7 +2112,7 @@
     "defaultMessage": "Đường dẫn API cơ sở (tùy chọn)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Ghi đè đường dẫn API mặc định. Để trống để sử dụng đường dẫn mặc định của nhà cung cấp."
+    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "ví dụ: v1/chat/completions hoặc project_id/v1"
@@ -2108,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "Tệp đính kèm"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "Xác thực"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Các LLM cục bộ như Ollama thường không yêu cầu khóa API."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "Xác thực"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "Các mô hình khả dụng (phân tách bằng dấu phẩy)"
@@ -2122,9 +2158,6 @@
   },
   "customProviderForm.cancel": {
     "defaultMessage": "Hủy"
-  },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "Bạn không thể xóa nhà cung cấp này khi nó đang được sử dụng. Vui lòng chuyển sang mô hình khác trước."
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "Chọn cách bạn muốn thiết lập nhà cung cấp của mình."
@@ -2148,7 +2181,7 @@
     "defaultMessage": "The address returned too much data. Check that this is a model API address."
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "Tạo nhà cung cấp"
+    "defaultMessage": "Verify and add"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address."
@@ -2168,8 +2201,17 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bạn có chắc chắn muốn xóa nhà cung cấp tùy chỉnh này không? Thao tác này sẽ xóa vĩnh viễn nhà cung cấp và khóa API đã lưu trữ của nó. Hành động này không thể hoàn tác."
   },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
+  },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Xóa nhà cung cấp"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "Diagnostic details"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "Discovered models"
@@ -2210,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2223,7 +2265,7 @@
     "defaultMessage": "Local Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "Load the model list, then choose a model. Saving sends one minimal request to verify the selected model."
+    "defaultMessage": "Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds."
   },
   "customProviderForm.modelId": {
     "defaultMessage": "Model ID"
@@ -2231,8 +2273,11 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "Models loaded. The selected model will be verified when you save."
+    "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2240,11 +2285,11 @@
   "customProviderForm.modelsRequired": {
     "defaultMessage": "Cần có ít nhất một mô hình"
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
-  },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
+  },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "The connection was not saved. Your entries are retained in this form."
   },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Tương thích Ollama"
@@ -2252,14 +2297,32 @@
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "Tương thích OpenAI"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID."
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "Access was denied. Verify that this API key has permission to use the selected model."
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "Loại nhà cung cấp"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "The service limited this request. Check the account quota and request limits, then retry."
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "Suy luận"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "The service rejected the validation request. Verify the API format, tool support and thinking settings for this model."
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "Nhà cung cấp này yêu cầu khóa API"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "The save result could not be confirmed. Your entries are retained; check the connection list before retrying."
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "The model service returned a server error. Retry later or check the service status."
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "Bắt đầu từ mẫu nhà cung cấp"
@@ -2268,7 +2331,7 @@
     "defaultMessage": "Chọn một nhà cung cấp đã biết và chúng tôi sẽ tự động điền cấu hình"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "Không thể lưu nhà cung cấp. Vui lòng kiểm tra cấu hình của bạn và thử lại."
+    "defaultMessage": "Connection verification did not complete. Check your connection settings and try again."
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "Nhà cung cấp hỗ trợ phản hồi theo luồng (streaming)"
@@ -2276,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "Gọi công cụ"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks."
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "Cập nhật nhà cung cấp"
+    "defaultMessage": "Verify and save"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "Đang dùng mẫu: {name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "Giá trị"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "Verification failed"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "Verification result unconfirmed"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "Verifying…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "Cấu hình thiết lập {name}"
@@ -2492,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Đang chờ phản hồi của bạn (còn {timeRemaining})"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Dev"
-  },
   "envVarsSection.add": {
     "defaultMessage": "Thêm"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "Phải nhập cả tên biến và giá trị"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "Biến môi trường"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "Thêm các cặp khóa-giá trị cho biến môi trường. Nhấp vào nút \"+\" để thêm sau khi đã điền cả hai trường. Đối với các giá trị bí mật hiện có, nhấp vào nút chỉnh sửa để sửa đổi."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "Biến môi trường"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "Tên biến không được chứa khoảng trắng"
@@ -2515,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "Tên biến"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Dev"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "Đã xảy ra lỗi."
@@ -2696,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "Bạn có các thay đổi chưa lưu đối với cấu hình tiện ích mở rộng. Bạn có chắc chắn muốn đóng mà không lưu không?"
@@ -2738,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "Thời gian chờ"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "Thêm tiện ích mở rộng tùy chỉnh"
   },
@@ -2767,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "Tìm kiếm tiện ích mở rộng..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "Thời gian chờ"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "Dấu vân tay chứng chỉ (tùy chọn)"
@@ -3488,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "Đã dừng"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "Đã giữ lại {count} hành động công cụ."
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Đóng"
   },
@@ -3550,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "Đã dừng"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "Đã giữ lại {count} hành động công cụ."
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "Hỏi CodeBuddy"
@@ -3674,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Không thể đăng nhập vào Hugging Face: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Đã đăng nhập Hugging Face"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "Đăng nhập"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Đã đăng nhập Hugging Face"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "Đang đăng nhập..."
@@ -3722,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "Cấu trúc công thức dự kiến"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "Đang nhập..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "Nhập công thức"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "Nhập công thức"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "Đang nhập..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "HOẶC"
@@ -3838,6 +3913,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "Gửi"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "Thêm giá trị được cấu hình sẵn"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "Tên tham số..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "Giá trị tham số..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "Xóa giá trị được cấu hình sẵn {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "Bật/tắt cửa sổ luôn ở trên cùng"
@@ -3983,18 +4070,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "Bật/tắt điều hướng"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "Thêm giá trị được cấu hình sẵn"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "Tên tham số..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "Giá trị tham số..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "Xóa giá trị được cấu hình sẵn {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "Hỏi CodeBuddy bất cứ điều gì..."
   },
@@ -4040,17 +4115,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "Đã hủy tải xuống"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "Các mô hình đã tải xuống"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "Tải xuống thất bại"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "Đang tải xuống"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "Các mô hình đã tải xuống"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "Đang tải xuống"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4136,14 +4211,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "Đang kiểm tra các mô hình khả dụng..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "Đang tải xuống {modelId}"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "Tải xuống {modelId} ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "Đang tải xuống {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "Không tải được các mô hình khả dụng. Vui lòng thử lại."
@@ -4460,11 +4535,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "Tốc độ"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "Tổng"
@@ -4501,6 +4576,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "Kiểm tra"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "Tự động"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "Tương tác với nhà cung cấp đã chọn mà không sử dụng công cụ hoặc tiện ích mở rộng."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "Chỉ trò chuyện"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4630,102 +4729,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "Mô hình và kết nối"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "Dung lượng ngữ cảnh"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "Điều chỉnh giới hạn ngữ cảnh khi thiếu thông tin từ dịch vụ."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "Tạo hình ảnh và video"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "Cấu hình dịch vụ tạo hình ảnh và video."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "Tác nhân con"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "Tạo tác nhân tái sử dụng với tên, mô hình và chỉ dẫn."
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "Hiểu hình ảnh"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Ưu tiên mô hình chính, dùng mô hình dự phòng khi cần."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "Đang tải mô hình..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "Không có mô hình phù hợp"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Tìm mô hình hoặc kết nối"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "Chọn mô hình"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "Hiển thị ít hơn"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "Hiển thị thêm {count}"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "Chuyển đổi thất bại"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Cấu hình nhà cung cấp"
@@ -4904,29 +4907,101 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Tự động"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Tương tác với nhà cung cấp đã chọn mà không sử dụng công cụ hoặc tiện ích mở rộng."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Chỉ trò chuyện"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Mô hình và kết nối"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Dung lượng ngữ cảnh"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Điều chỉnh giới hạn ngữ cảnh khi thiếu thông tin từ dịch vụ."
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Tạo hình ảnh và video"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Cấu hình dịch vụ tạo hình ảnh và video."
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Tác nhân con"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Tạo tác nhân tái sử dụng với tên, mô hình và chỉ dẫn."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Hiểu hình ảnh"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Ưu tiên mô hình chính, dùng mô hình dự phòng khi cần."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "Đang tải mô hình..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Không có mô hình phù hợp"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Tìm mô hình hoặc kết nối"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "Chọn mô hình"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Hiển thị ít hơn"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "Hiển thị thêm {count}"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Chuyển đổi thất bại"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "Trò chuyện mới"
@@ -5019,11 +5094,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5308,7 +5383,7 @@
     "defaultMessage": "Observe and control desktop applications with bounded actions."
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "Computer control"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "Read, write, and edit files, and run shell commands."
@@ -5508,11 +5583,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "Không có"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "Không được đánh dấu (không đáng tin cậy)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "Không có"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "Không được đánh dấu (không đáng tin cậy)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "Yêu cầu lưu bộ nhớ dự án"
@@ -5634,11 +5709,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "Chỉnh sửa"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "Đang chỉnh sửa: {name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "Chỉnh sửa: {name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "Đang chỉnh sửa: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "Nhập nội dung lời nhắc..."
@@ -5748,11 +5823,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Bạn chưa có khóa API?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "Đang đăng nhập..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "Đăng nhập bằng {providerName}"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "Đang đăng nhập..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "Thêm khóa API của bạn cho nhà cung cấp này để tích hợp vào CodeBuddy"
@@ -5762,9 +5837,6 @@
   },
   "providerConfigurationModal.cancel": {
     "defaultMessage": "Hủy"
-  },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "Bạn không thể xóa nhà cung cấp này trong khi nó đang được sử dụng. Vui lòng chuyển sang mô hình khác trước."
   },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Kiểm tra lại cấu hình của bạn để sử dụng nhà cung cấp này."
@@ -5814,11 +5886,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "Xem <link>tài liệu</link> để biết thêm chi tiết."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "Đang đăng nhập..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "Đăng nhập bằng {providerName}"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "Đang đăng nhập..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "Thêm nhà cung cấp"
@@ -5843,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "Không có nhà cung cấp nào khớp với \"{query}\""
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again."
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "Tìm kiếm nhà cung cấp..."
@@ -5871,9 +5946,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "Hủy"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "Bạn không thể xóa {providerName} trong khi nó đang được sử dụng. Vui lòng chuyển sang mô hình khác trước khi xóa nhà cung cấp này."
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "Xác nhận xóa"
   },
@@ -5885,9 +5957,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "Bật nhà cung cấp"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "Ok"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "Gửi"
@@ -6042,6 +6111,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "Sẽ được định dạng tự động (chữ thường, dấu gạch ngang thay cho khoảng trắng)"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "Hủy"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "Mô tả:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "Bạn sắp thực thi một công thức mà bạn chưa từng chạy trước đây."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "Công thức này chứa các ký tự ẩn sẽ bị bỏ qua vì sự an toàn của bạn, vì chúng có thể được sử dụng cho mục đích độc hại."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "Hướng dẫn:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ Cảnh báo công thức mới"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "Xem trước công thức:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ Cảnh báo bảo mật"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "Tiêu đề:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "Tin cậy và thực thi"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "Chỉ tiếp tục nếu bạn tin cậy nguồn của công thức này."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "Thêm lịch"
   },
@@ -6195,14 +6297,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "Xóa lịch trình"
   },
-  "recipesView.runs": {
-    "defaultMessage": "Chạy {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "Chạy {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "Lưu"
@@ -6272,39 +6374,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "Tệp YAML"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "Hủy"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "Mô tả:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "Bạn sắp thực thi một công thức mà bạn chưa từng chạy trước đây."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "Công thức này chứa các ký tự ẩn sẽ bị bỏ qua vì sự an toàn của bạn, vì chúng có thể được sử dụng cho mục đích độc hại."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "Hướng dẫn:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ Cảnh báo công thức mới"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "Xem trước công thức:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ Cảnh báo bảo mật"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "Tiêu đề:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "Tin cậy và thực thi"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "Chỉ tiếp tục nếu bạn tin cậy nguồn của công thức này."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "Đặt lại nhà cung cấp và mô hình"
@@ -6411,11 +6480,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Biểu thức Cron:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "Đang chạy"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "Phiên hiện tại:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "Đang chạy"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "Thư mục: {path}"
@@ -6474,6 +6543,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "Không tìm thấy phiên nào cho lịch trình này."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "Tạm dừng lịch trình"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "Lỗi tạm dừng/tiếp tục"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "Đã tạm dừng"
   },
@@ -6482,12 +6557,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "Lịch trình này đang tạm dừng và sẽ không chạy tự động. Dùng \"Chạy lịch trình ngay\" để kích hoạt thủ công hoặc tiếp tục để khôi phục chạy tự động."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "Tạm dừng lịch trình"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "Lỗi tạm dừng/tiếp tục"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "Tiến trình đã bắt đầu:"
@@ -6534,17 +6603,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "ID phiên: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "Đã tiếp tục \"{id}\""
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "Tiếp tục lịch trình"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "Đã cập nhật \"{id}\""
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "Đã tiếp tục \"{id}\""
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "Lỗi cập nhật lịch trình"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "Đã cập nhật \"{id}\""
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Đang xem ID lịch trình: {id}"
@@ -6681,11 +6750,11 @@
   "schedulesView.pause": {
     "defaultMessage": "Tạm dừng"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "Đã tạm dừng"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "Lỗi tạm dừng lịch trình"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "Đã tạm dừng"
   },
   "schedulesView.refresh": {
     "defaultMessage": "Làm mới"
@@ -6705,9 +6774,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "Đã tạm dừng lịch trình \"{id}\" thành công"
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "Bộ lập lịch"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "Đã tiếp tục lịch trình"
   },
@@ -6719,6 +6785,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "Đã cập nhật lịch trình \"{id}\" thành công"
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "Bộ lập lịch"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "Lỗi tiếp tục lịch trình"
@@ -6819,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "Đã sao chép JSON của phiên"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Đã sao chép văn bản"
   },
@@ -6831,14 +6897,29 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Sao chép văn bản"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Đã nhân bản phiên"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "Không thể nhân bản phiên: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Nhân bản phiên"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Đã nhân bản phiên"
+  },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "Export logs"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "Failed to export logs: {error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "Session log saved"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "The log file could not be saved."
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Giá trị văn bản"
@@ -6852,15 +6933,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Đang tải JSON..."
   },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Đã đổi tên phiên"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Không thể đổi tên phiên: {error}"
   },
@@ -6873,6 +6945,9 @@
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Đổi tên phiên"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Đã đổi tên phiên"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "Lưu"
   },
@@ -6881,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "Xem JSON của phiên"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Không thể sao chép phiên này. Hãy bắt đầu nhiệm vụ mới để làm việc độc lập."
@@ -6944,6 +7016,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "Quyền không gian làm việc chưa được đồng bộ."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "Phiên này không chứa tin nhắn nào"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "Không tìm thấy tin nhắn nào"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "Lỗi khi tải chi tiết phiên"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "Thử lại"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "Bạn"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7044,9 +7134,6 @@
   "sessions.import": {
     "defaultMessage": "Nhập phiên"
   },
-  "sessions.importing": {
-    "defaultMessage": "Đang nhập..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "Nhập liên kết"
   },
@@ -7058,6 +7145,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Nhập phiên Nostr"
+  },
+  "sessions.importing": {
+    "defaultMessage": "Đang nhập..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "Đang tải thêm phiên..."
@@ -7083,38 +7173,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "Liên kết chia sẻ Nostr được mã hóa"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Đã sao chép vào bộ nhớ tạm"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "Đã xóa phiên làm việc thành công"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "Không thể xóa phiên làm việc \"{name}\": {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "Đã nhân bản phiên làm việc \"{name}\" thành công"
+  "sessions.toast.deleted": {
+    "defaultMessage": "Đã xóa phiên làm việc thành công"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "Không thể nhân bản phiên làm việc: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "Đã xuất phiên làm việc thành công"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "Đã nhân bản phiên làm việc \"{name}\" thành công"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "Đã nhập phiên làm việc thành công"
+  "sessions.toast.exported": {
+    "defaultMessage": "Đã xuất phiên làm việc thành công"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "Không thể nhập phiên làm việc: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "Đã nhập phiên làm việc thành công"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "Đã tạo liên kết chia sẻ Nostr được mã hóa"
@@ -7125,29 +7215,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "Đã cập nhật mô tả phiên làm việc thành công"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Không thể cập nhật mô tả phiên làm việc: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "Phiên này không chứa tin nhắn nào"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "Không tìm thấy tin nhắn nào"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "Lỗi khi tải chi tiết phiên"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "Thử lại"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "Bạn"
+  "sessions.toast.updated": {
+    "defaultMessage": "Đã cập nhật mô tả phiên làm việc thành công"
   },
   "settings.appearance.description": {
     "defaultMessage": "Định cấu hình cách CodeBuddy hiển thị trên hệ thống của bạn"
@@ -7518,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "No matching skills found"
   },
+  "skillManager.pending": {
+    "defaultMessage": "Not enabled in CodeBuddy"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "Files: {files}"
   },
@@ -7557,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "Search skills..."
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "Another source takes precedence: {path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "Shared on this computer"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions."
+  },
   "skillManager.source": {
     "defaultMessage": "Nguồn"
   },
@@ -7565,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "Skills"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile."
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "Enable this shared skill?"
   },
   "skillManager.use": {
     "defaultMessage": "Dùng kỹ năng"
@@ -7595,6 +7685,99 @@
   },
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "phải được cài đặt trên máy của bạn và đang mở, hoặc bạn phải nhập một giá trị cho OLLAMA_HOST."
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "Thêm hiện có"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "Tạo công thức con mới"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "Xóa công thức con {name}"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "Công thức con là các công thức có thể được gọi như công cụ trong quá trình thực thi. Chúng cho phép quy trình làm việc nhiều bước và các thành phần có thể tái sử dụng."
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "Tên trùng lặp"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "Đã tồn tại một công thức con có tên \"{name}\". Vui lòng sử dụng một tên duy nhất."
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "Chỉnh sửa công thức con {name}"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "Công thức con"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "Giá trị được cấu hình sẵn:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "Tuần tự"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "Thêm công thức con"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "Áp dụng"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "Duyệt"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "Hủy"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "Đóng hộp thoại công thức con"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "Định cấu hình công thức con"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "Mô tả"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "Mô tả tùy chọn về chức năng của công thức con này..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "Tệp không hợp lệ"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "Vui lòng chọn một tệp YAML (.yaml hoặc .yml)."
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "Định danh duy nhất được dùng để tạo tên công cụ"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "Tên"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "ví dụ: security_scan"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "Duyệt tìm một tệp công thức hiện có hoặc nhập đường dẫn theo cách thủ công"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "Đường dẫn"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "ví dụ: ./subrecipes/security-analysis.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "Giá trị được cấu hình sẵn"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "Giá trị tham số tùy chọn luôn được truyền vào công thức con"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(Buộc thực thi tuần tự nhiều phiên bản của công thức con)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "Tuần tự khi lặp lại"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "Định cấu hình một công thức con có thể được gọi như công cụ trong quá trình thực thi công thức"
   },
   "subagentLifecycle.end": {
     "defaultMessage": "đã kết thúc"
@@ -7706,99 +7889,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Tác tử phụ mới"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "Thêm hiện có"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "Tạo công thức con mới"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "Xóa công thức con {name}"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "Công thức con là các công thức có thể được gọi như công cụ trong quá trình thực thi. Chúng cho phép quy trình làm việc nhiều bước và các thành phần có thể tái sử dụng."
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "Tên trùng lặp"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "Đã tồn tại một công thức con có tên \"{name}\". Vui lòng sử dụng một tên duy nhất."
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "Chỉnh sửa công thức con {name}"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "Công thức con"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "Giá trị được cấu hình sẵn:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "Tuần tự"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "Thêm công thức con"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "Áp dụng"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "Duyệt"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "Hủy"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "Đóng hộp thoại công thức con"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "Định cấu hình công thức con"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "Mô tả"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "Mô tả tùy chọn về chức năng của công thức con này..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "Tệp không hợp lệ"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "Vui lòng chọn một tệp YAML (.yaml hoặc .yml)."
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "Định danh duy nhất được dùng để tạo tên công cụ"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "Tên"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "ví dụ: security_scan"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "Duyệt tìm một tệp công thức hiện có hoặc nhập đường dẫn theo cách thủ công"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "Đường dẫn"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "ví dụ: ./subrecipes/security-analysis.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "Giá trị được cấu hình sẵn"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "Giá trị tham số tùy chọn luôn được truyền vào công thức con"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(Buộc thực thi tuần tự nhiều phiên bản của công thức con)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "Tuần tự khi lặp lại"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "Định cấu hình một công thức con có thể được gọi như công cụ trong quá trình thực thi công thức"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8277,14 +8367,23 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "Allow computer control for this session"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "Allow {name} for this session"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "Cho phép một lần"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "Allow public web reading for this session"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "Đã cho phép một lần"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "Cho phép một lần"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "Luôn cho phép"
@@ -8294,6 +8393,12 @@
   },
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "Đã hủy"
+  },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "Computer control allowed for this session"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice."
   },
   "toolApprovalButtons.denied": {
     "defaultMessage": "Đã từ chối"
@@ -8307,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {Deny for this task} session {Deny for this session} other {Always Deny}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again."
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "{name} allowed for this session"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Yêu cầu phê duyệt này không còn hiệu lực."
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "Public web reading allowed for this session"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice."
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8334,11 +8451,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8454,162 +8571,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "Kết quả gọi công cụ"
   },
-  "toolbox.addSkill": {
-    "defaultMessage": "Thêm kỹ năng"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.capabilitiesHelp": {
-    "defaultMessage": "Công cụ thực hiện các thao tác như điều khiển máy tính và Git cục bộ."
-  },
-  "toolbox.computerGuide": {
-    "defaultMessage": "Hướng dẫn thao tác máy tính"
-  },
-  "toolbox.computerGuideDescription": {
-    "defaultMessage": "Hướng dẫn mô hình quan sát, nhập dữ liệu và xác minh kết quả. Sử dụng các công cụ điều khiển máy tính."
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "Quản lý các kỹ năng đã cài đặt và máy chủ MCP bên ngoài đã kết nối."
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.externalHelp": {
-    "defaultMessage": "Kết nối đến dịch vụ bên ngoài như kho mã, vấn đề và yêu cầu hợp nhất trên GitHub."
-  },
-  "toolbox.githubDescription": {
-    "defaultMessage": "Kết nối GitHub để quản lý kho mã từ xa, vấn đề, yêu cầu hợp nhất và CI."
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.localGit": {
-    "defaultMessage": "Git cục bộ"
-  },
-  "toolbox.localGitDescription": {
-    "defaultMessage": "Kiểm tra thay đổi cục bộ và quản lý vùng tạm, commit và nhánh."
-  },
-  "toolbox.methodsHelp": {
-    "defaultMessage": "Hướng dẫn mà mô hình tải để sử dụng công cụ. Kỹ năng không tự bật các công cụ bên dưới."
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Tài liệu Office"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "Tất cả"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "MCP bên ngoài"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "Kỹ năng"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "Đã cài đặt"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "Đang khởi động…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "Đang dừng…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Trạng thái công cụ: {status}"
   },
@@ -8624,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "Mã"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "Biểu tượng tải"
@@ -8727,6 +8700,201 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "Thêm kỹ năng"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "Công cụ thực hiện các thao tác như điều khiển máy tính và Git cục bộ."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "Hướng dẫn thao tác máy tính"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "Hướng dẫn mô hình quan sát, nhập dữ liệu và xác minh kết quả. Sử dụng các công cụ điều khiển máy tính."
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "Quản lý các kỹ năng đã cài đặt và máy chủ MCP bên ngoài đã kết nối."
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "Kết nối đến dịch vụ bên ngoài như kho mã, vấn đề và yêu cầu hợp nhất trên GitHub."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "Kết nối GitHub để quản lý kho mã từ xa, vấn đề, yêu cầu hợp nhất và CI."
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "Git cục bộ"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "Kiểm tra thay đổi cục bộ và quản lý vùng tạm, commit và nhánh."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "Hướng dẫn mà mô hình tải để sử dụng công cụ. Kỹ năng không tự bật các công cụ bên dưới."
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Tài liệu Office"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "Tất cả"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "MCP bên ngoài"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "Kỹ năng"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "Add to this conversation"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "Check connection"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "Managing tools for the conversation you came from"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "Enable this tool first"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "Loading into this conversation…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "Return to conversation"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "Current conversation"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "Added to this conversation · connection not checked"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "Conversation status unavailable; refresh to retry"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "Đã cài đặt"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "Đang khởi động…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "Đang dừng…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "userMessage.cancel": {
     "defaultMessage": "Hủy"
   },
@@ -8777,6 +8945,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Đang chờ xác nhận"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Đang chờ dịch vụ mô hình"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -8904,11 +9120,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Thư mục gốc có thể ghi"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "Web address"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "Thêm vào cuộc trò chuyện"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "Web address"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -8921,6 +9137,12 @@
   },
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
+  },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
   },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
@@ -8939,6 +9161,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Sao chép nội dung tệp"
@@ -8979,17 +9204,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "Không thể hoàn tất thao tác với tệp. Hãy thử lại. Cần có VS Code để mở tệp mã."
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9027,9 +9249,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Mở trong VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Mở tệp"
   },
@@ -9038,6 +9257,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Mở trong thẻ mới"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -9173,89 +9395,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Đang chờ dịch vụ mô hình"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Dịch vụ mô hình chưa trả về nội dung. Bạn có thể tiếp tục chờ hoặc dừng yêu cầu này."
-  },
-  "businessApproval.allowSession": {
-    "defaultMessage": "Allow {business} for this session"
-  },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "{business} allowed for this session"
-  },
-  "businessApproval.computer": {
-    "defaultMessage": "computer use"
-  },
-  "businessApproval.computerScope": {
-    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
-  },
-  "businessApproval.image": {
-    "defaultMessage": "image generation"
-  },
-  "businessApproval.lifetime": {
-    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
-  },
-  "businessApproval.mediaScope": {
-    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
-  },
-  "businessApproval.operations": {
-    "defaultMessage": "Included operations"
-  },
-  "businessApproval.output": {
-    "defaultMessage": "Output folder"
-  },
-  "businessApproval.service": {
-    "defaultMessage": "Service"
-  },
-  "businessApproval.video": {
-    "defaultMessage": "video generation"
-  },
-  "businessApproval.workspace": {
-    "defaultMessage": "Workspace"
   }
 }

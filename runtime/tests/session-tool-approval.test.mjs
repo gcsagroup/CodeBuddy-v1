@@ -11,7 +11,7 @@ import { openStore } from '../store.mjs';
 import { SafetyPolicy } from '../safety-policy.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
 
-test('one session approval covers four native MCP queries, later turns and only that live tool', { timeout: 30000 }, async t => {
+test('one session approval covers four native MCP queries, later turns and only that live module', { timeout: 30000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'codebuddy-session-approval-'));
   const project = join(root, 'project');
   await mkdir(project);
@@ -72,7 +72,7 @@ test('one session approval covers four native MCP queries, later turns and only 
     store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store),
   });
   const provider = { id: 'local-approval-fixture', baseUrl: `${base}/v1`, apiKey: 'fixture-only', protocol: 'openai-completions' };
-  const nativeOptions = endpoint => ({ mcpServers: [{ serverName: 'web', transport: 'streamable-http', url: base + endpoint, reconnect: { enabled: false } }] });
+  const nativeOptions = endpoint => ({ mcpServers: [{ serverName: 'web', transport: 'streamable-http', sessionApprovalScope: 'module', url: base + endpoint, reconnect: { enabled: false } }] });
   async function session(id = randomUUID()) {
     const s = { id, cwd: project, mode: 'approve', type: 'code_pro', workspaceBinding: 'writable_project', updates: [], mcpServers: [{ name: 'web', type: 'http', url: base + '/mcp', headers: [] }] };
     await store.update(state => state.sessions.push(s));
@@ -121,13 +121,13 @@ test('one session approval covers four native MCP queries, later turns and only 
   assert.equal(executions.length, 16, 'The same child reuses the same grant in a later parent turn');
   assert.equal(questions.length, 1);
 
-  // Another conversation, another tool, and an explicitly destructive tool do not inherit it.
+  // Other conversations and destructive tools stay separate; a sibling tool shares the module.
   const b = await session();
   assert.equal((await driver.callTool(b.id, 'mcp__web__search', { query: 'other-chat' }, callbacks(b))).isError, true);
-  assert.equal((await driver.callTool(a.id, 'mcp__web__other_search', { query: 'other-tool' }, callbacks(a))).isError, true);
+  assert.equal((await driver.callTool(a.id, 'mcp__web__other_search', { query: 'other-tool' }, callbacks(a))).isError, false);
   assert.equal((await driver.callTool(a.id, 'mcp__web__destructive', { query: 'must-not-run' }, callbacks(a))).isError, true);
   assert.equal(questions.at(-1).options.some(option => option.kind === 'allow_always'), false);
-  assert.equal(executions.length, 16);
+  assert.equal(executions.length, 17);
   await store.update(state => { state.toolPermissions = { mcp__web__search: 'never_allow' }; });
   const beforeDeny = questions.length;
   assert.equal((await driver.callTool(a.id, 'mcp__web__search', { query: 'explicit-deny' }, callbacks(a))).isError, true);
@@ -140,7 +140,7 @@ test('one session approval covers four native MCP queries, later turns and only 
   const beforeReplacement = questions.length;
   assert.equal((await driver.callTool(a.id, 'mcp__web__search', { query: 'same-name-new-connection' }, callbacks(a))).isError, true);
   assert.equal(questions.length, beforeReplacement + 1);
-  assert.equal(executions.length, 16, 'A replaced binding must ask again before execution');
+  assert.equal(executions.length, 17, 'A replaced binding must ask again before execution');
 });
 
 test('cancelled or superseded approval never grants later queries, and native commands stay once-only', async t => {

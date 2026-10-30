@@ -3,6 +3,13 @@ import path from 'path';
 import { app } from 'electron';
 
 const MAX_RECENT_DIRS = 10;
+const listeners = new Set<() => void>();
+export function onRecentDirsChanged(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 function recentDirsFile(): string {
   return path.join(app.getPath('userData'), 'recent-dirs.json');
@@ -84,6 +91,7 @@ export function addRecentDir(dir: string): void {
     dirs = dirs.slice(0, MAX_RECENT_DIRS);
 
     fs.writeFileSync(recentDirsFile(), JSON.stringify({ dirs }, null, 2));
+    listeners.forEach((listener) => listener());
   } catch (error) {
     console.error('Error saving recent directory:', error);
   }

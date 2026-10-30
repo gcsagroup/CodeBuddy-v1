@@ -23,7 +23,7 @@ const i18n = defineMessages({
 
 interface MessageCopyLinkProps {
   text: string;
-  contentRef: React.RefObject<HTMLDivElement | null>;
+  contentRef?: React.RefObject<HTMLDivElement | null>;
   onRetry?: () => void;
   alwaysVisible?: boolean;
 }

@@ -100,7 +100,7 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
       if (!('id' in m)) { res.writeHead(202).end(); return; }
       let result;
       if (m.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'screen', version: '1' } };
-      else if (m.method === 'tools/list') result = { tools: [{ name: 'observe', description: 'Observe test screen', inputSchema: { type: 'object', properties: {} } }] };
+      else if (m.method === 'tools/list') result = { tools: [{ name: 'get_app_state', description: 'Observe test screen', inputSchema: { type: 'object', properties: {} } }] };
       else if (m.method === 'tools/call') { calls.push(m); result = { content: [{ type: 'text', text: 'window=test; observation=current' }, image] }; }
       else { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, error: { code: -32601, message: 'Unsupported fixture method' } })); return; }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: m.id, result })); return;
@@ -109,7 +109,7 @@ test('ACP computer screenshot uses saved auxiliary settings; renderer retains or
     requests.push(m); res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'screenshot', object: 'chat.completion.chunk', model: m.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (m.model === 'vision') { emit({ role: 'assistant', content: 'BLUE_RECTANGLE_VISIBLE' }); emit({}, 'stop'); }
-    else if (!m.messages.some(x => x.role === 'tool')) { emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'observe', type: 'function', function: { name: 'mcp__qwen_computer__observe', arguments: '{}' } }] }); emit({}, 'tool_calls'); }
+    else if (!m.messages.some(x => x.role === 'tool')) { emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'observe', type: 'function', function: { name: 'mcp__qwen_computer__get_app_state', arguments: '{}' } }] }); emit({}, 'tool_calls'); }
     else { emit({ role: 'assistant', content: 'Observed blue rectangle' }); emit({}, 'stop'); }
     res.end('data: [DONE]\n\n');
   });

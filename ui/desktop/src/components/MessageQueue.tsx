@@ -45,6 +45,7 @@ export interface QueuedMessage {
   id: string;
   content: string;
   timestamp: number;
+  desktopGeneration?: string;
   images: ImageData[];
   delivery?: 'pending' | 'submitting';
   presentation?: { afterMessageId: string };

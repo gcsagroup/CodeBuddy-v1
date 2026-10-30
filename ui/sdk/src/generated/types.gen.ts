@@ -885,11 +885,15 @@ export type SkillManagementListRequest_unstable = {
 };
 
 export type SkillManagementListResponse_unstable = {
+  diagnostics?: Array<string>;
   skills: Array<ManagedSkill>;
   destinationRoots: Array<SkillDestinationRoot>;
 };
 
 export type ManagedSkill = {
+  canToggle?: boolean;
+  availability?: "available" | "pending" | "shadowed";
+  shadowedBy?: string;
   source: SkillSourceRef;
   name: string;
   description: string;
@@ -911,6 +915,7 @@ export type SkillSourceRef = {
 };
 
 export type SkillRootKind =
+  | "shared_user"
   | "project_agents"
   | "project_goose"
   | "project_claude"

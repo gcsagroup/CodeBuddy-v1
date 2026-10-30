@@ -2,25 +2,38 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppEvents } from '../constants/events';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn(), location: { pathname: '/codepro', search: '' } }));
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
-  useLocation: () => ({ pathname: '/codepro' }),
-  useSearchParams: () => [new URLSearchParams()],
+  useLocation: () => mocks.location,
+  useSearchParams: () => [new URLSearchParams(mocks.location.search)],
 }));
 vi.mock('../contexts/ChatContext', () => ({ useChatContext: () => null }));
 vi.mock('../sessions', () => ({ getSessionDisplayName: () => 'Test session' }));
 vi.mock('../acp/sessions', () => ({
   acpListRecentSessions: mocks.list,
-  acpGetSessionListItem: vi.fn(),
+  acpGetSessionListItem: vi.fn().mockResolvedValue({ id: 'existing', workingDir: 'D:/fixture', name: 'Existing', messageCount: 1 }),
   resolveSessionWorkspaceMode: () => 'codepro',
   sessionTypeMatchesWorkspace: () => true,
 }));
 import { useNavigationSessions } from './useNavigationSessions';
 
 describe('new session sidebar refresh', () => {
-  beforeEach(() => { vi.useFakeTimers(); mocks.list.mockReset(); });
+  beforeEach(() => { vi.useFakeTimers(); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
   afterEach(() => { vi.useRealTimers(); });
+
+  it.each(['/codepro', '/codepro/pair', '/pair'])('keeps the current conversation when opening toolbox from %s', async pathname => {
+    mocks.location = { pathname, search: '?resumeSessionId=existing' };
+    const hook = renderHook(() => useNavigationSessions());
+    await act(async () => hook.result.current.handleNavClick('/toolbox'));
+    expect(mocks.navigate).toHaveBeenCalledWith(`${pathname.startsWith('/codepro') ? '/codepro' : ''}/toolbox?sessionId=existing`);
+  });
+
+  it('does not attach an unrelated conversation from the sidebar to a new task', () => {
+    const hook = renderHook(() => useNavigationSessions());
+    act(() => hook.result.current.handleNavClick('/toolbox'));
+    expect(mocks.navigate).toHaveBeenCalledWith('/codepro/toolbox');
+  });
 
   it('includes slow requests in the ten second refresh window', async () => {
     let finish!: (value: []) => void;

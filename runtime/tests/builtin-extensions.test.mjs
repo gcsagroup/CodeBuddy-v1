@@ -7,11 +7,13 @@ import {
   realpath,
   rm,
   symlink,
+  writeFile,
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import {
   builtinMcp,
   builtinToolNames,
@@ -23,6 +25,7 @@ import { createHarnessDriver } from "../harness/index.mjs";
 import { openStore } from "../store.mjs";
 import { commonQueryMetadata, COMMON_QUERY_KEY } from "../common-query-settings.mjs";
 import { builtinArtifacts } from '../builtin-artifacts.mjs';
+import { desktopDirectory } from '../desktop-coordinator.mjs';
 
 const nativeArtifactsPrepared = process.platform === 'win32' && process.arch === 'x64' ||
   process.platform === 'darwin' && ['arm64', 'x64'].includes(process.arch) &&
@@ -65,6 +68,43 @@ async function fixture(t) {
   });
   return { root, cwd, dataDir };
 }
+
+test('computer MCP shares the host control directory outside its isolated HOME', { skip: !nativeArtifactsPrepared }, async t => {
+  const options = await fixture(t);
+  const previous = process.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY;
+  const shared = path.join(options.root, 'shared-control');
+  process.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY = shared;
+  t.after(() => {
+    if (previous === undefined) delete process.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY;
+    else process.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY = previous;
+  });
+  const config = await builtinMcp({ type: 'builtin', name: 'qwen_computer' }, options);
+  assert.equal(config.env.CODEBUDDY_DESKTOP_MANAGED, '1');
+  assert.equal(config.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY, desktopDirectory());
+  assert.equal(config.env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY, shared);
+  assert.notEqual(config.env.HOME, os.homedir(), 'private tool HOME remains isolated');
+  assert.ok(!shared.startsWith(config.env.HOME + path.sep), 'desktop ownership is not private to one tool');
+  await mkdir(shared);
+  await writeFile(path.join(shared, 'lease.json'), JSON.stringify({ version: 1, token: 'probe', generation: 'one' }));
+  // Exercise the shipped Go dispatcher without invoking any desktop operation.
+  // Reaching its unknown-tool branch proves the real lease gate accepted the
+  // same path and identity as the host, despite the private tool environment.
+  const input = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+    { jsonrpc: '2.0', id: 2, method: 'tools/call', params: {
+      name: '__lease_contract_probe__', arguments: {},
+      _meta: { 'codebuddy/desktop-control': { token: 'probe', generation: 'one' } },
+    } },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'list_apps', arguments: {} } },
+  ].map(value => JSON.stringify(value)).join('\n') + '\n';
+  const child = spawnSync(config.command, config.args, {
+    env: { ...process.env, ...config.env }, cwd: config.cwd, input, encoding: 'utf8', timeout: 10000,
+  });
+  assert.equal(child.status, 0, child.stderr);
+  const replies = child.stdout.trim().split('\n').map(line => JSON.parse(line));
+  assert.match(JSON.stringify(replies.find(reply => reply.id === 2)), /unsupportedTool/);
+  assert.equal(replies.find(reply => reply.id === 3).result.structuredContent.desktop_control.outcome, 'control_unavailable');
+});
 
 test("legacy document configuration reconnects with residual tools and upstream Office skills", { skip: !nativeArtifactsPrepared, timeout: 60_000 }, async t => {
   const options = await fixture(t);
@@ -137,7 +177,10 @@ test("bundled catalog validates pinned artifacts and reports unsupported platfor
   const pinnedTools = (await builtinArtifacts()).tools;
   assert.equal(toolsArtifact.sha256, pinnedTools.sha256);
   assert.equal(toolsArtifact.bytes, pinnedTools.bytes);
-  assert.equal(provenance.artifacts.find(artifact => artifact.name === "qwen-computer-use").rebuiltForThisRevision, false);
+  const computerArtifact = provenance.artifacts.find(artifact => artifact.name === "qwen-computer-use");
+  const pinnedComputer = (await builtinArtifacts()).computer;
+  assert.equal(computerArtifact.sha256, pinnedComputer.sha256);
+  assert.equal(computerArtifact.bytes, pinnedComputer.bytes);
   assert.deepEqual(provenance.artifacts.map((row) => row.license).sort(), [
     "Apache-2.0",
     "MIT",

@@ -122,3 +122,16 @@ test('releasing session capabilities invalidates all builtin grants before react
   for (const [name, args] of cases) assert.equal((await f.invoke(s, name, args)).isError, true);
   assert.equal(f.questions.length, cases.length * 2);
 });
+
+test('module settings revoke affected host grants while unrelated MCP settings retain them', async t => {
+  const f = await fixture(t), s = await f.session();
+  for (const [name, args] of cases) await f.invoke(s, name, args);
+  await f.driver.invalidateMcpServers(['custom_mcp']);
+  await f.driver.configureSession(s.id, { tools: f.tools(s) });
+  for (const [name, , args] of cases) await f.invoke(s, name, args);
+  assert.equal(f.questions.length, 3);
+  await f.driver.invalidateMcpServers(['developer']);
+  await f.driver.configureSession(s.id, { tools: f.tools(s) });
+  for (const [name, , args] of cases) await f.invoke(s, name, args);
+  assert.equal(f.questions.length, 5, 'Browser and pet reset; project memory stays authorized');
+});

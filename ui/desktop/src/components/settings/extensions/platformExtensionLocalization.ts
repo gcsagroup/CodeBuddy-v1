@@ -39,7 +39,7 @@ const messages = defineMessages({
     id: 'platformExtension.apps.description',
     defaultMessage: 'Create and manage small apps that run in isolated windows.',
   },
-  computerName: { id: 'platformExtension.computer.name', defaultMessage: 'Computer control' },
+  computerName: { id: 'platformExtension.computer.name', defaultMessage: 'Computer Use' },
   computerDescription: {
     id: 'platformExtension.computer.description',
     defaultMessage: 'Observe and control desktop applications.',

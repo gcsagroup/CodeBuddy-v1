@@ -46,6 +46,7 @@ export async function loadToolbox(
     }),
     errors,
     warnings: [
+      ...(skillsResult.status === 'fulfilled' ? skillsResult.value.diagnostics ?? [] : []),
       ...extensions.warnings,
       ...(usageResult.status === 'fulfilled' && usageResult.value.warning
         ? [usageResult.value.warning]

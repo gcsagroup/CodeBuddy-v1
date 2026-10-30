@@ -9,6 +9,7 @@ const sdk = vi.hoisted(() => {
   class MockGooseClient {
     readonly callbacks: GooseClientCallbacks;
     readonly initialize = initialize;
+    readonly extMethod = vi.fn(async () => ({ paused: false, revision: null, generation: 'current-desktop', owner: null, queue: [] }));
     readonly closed: Promise<void>;
     resolveClosed: () => void = () => undefined;
 
@@ -66,6 +67,8 @@ describe('ACP connection ownership', () => {
     expect(sdk.instances).toHaveLength(1);
     expect(sdk.initialize).toHaveBeenCalledTimes(1);
     expect(transport.createWebSocketStream).toHaveBeenCalledTimes(1);
+    const { getDesktopOwnership } = await import('../../desktopOwnership');
+    expect(getDesktopOwnership().generation).toBe('current-desktop');
   });
 
   it('dismisses only recipe forms owned by the closed connection', async () => {

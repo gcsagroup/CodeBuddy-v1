@@ -608,6 +608,13 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
   ) => {
     const entry = sessionsById.get(sessionId);
     if (!entry || entry.activePromptAttemptId !== promptAttemptId) {
+      // A terminal notification may close the display before its RPC returns.
+      // The request barrier still identifies the only result allowed to add an error.
+      if (entry && error && entry.activePromptAttemptId === null && entry.promptRequestId === promptAttemptId) {
+        entry.promptError = error;
+        notify(sessionId, entry);
+        return true;
+      }
       return false;
     }
 

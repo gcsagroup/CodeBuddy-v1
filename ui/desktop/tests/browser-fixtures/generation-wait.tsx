@@ -56,8 +56,8 @@ function Fixture() {
   const job: MediaJob = {
     job_id: 'fixture',
     kind: params.has('video') ? 'video' : 'image',
-    created_at: new Date(Date.now() - 23000).toISOString(),
-    status: state,
+    created_at: new Date(Date.now() - (state === 'quiet' ? 2583000 : 23000)).toISOString(),
+    status: state === 'quiet' ? 'running' : state,
     workflow: { id: 'fixture', label: '生成任务' },
     live:
       state === 'queued'
@@ -67,6 +67,7 @@ function Fixture() {
             stage: 'sample',
             step: 11,
             total: 18,
+            updatedAt: Date.now() - (state === 'quiet' ? 180000 : 0),
             ...{ preview: 'data:image/png;base64,legacy-preview-must-not-load' },
           },
     images: [{ path: 'result.png' }],
@@ -83,7 +84,7 @@ function Fixture() {
       }}
     >
       <nav>
-        {['running', 'queued', 'completed', 'failed', 'cancelled'].map((value) => (
+        {['running', 'quiet', 'queued', 'completed', 'failed', 'cancelled'].map((value) => (
           <button key={value} onClick={() => setState(value)} style={{ padding: 6 }}>
             {value}
           </button>

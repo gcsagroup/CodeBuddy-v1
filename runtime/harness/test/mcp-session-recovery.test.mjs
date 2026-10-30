@@ -7,6 +7,9 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
 import { statefulMcp, until } from './fixtures/stateful-mcp.mjs';
+import { Compat } from '../../compat.mjs';
+import { openStore } from '../../store.mjs';
+import { SafetyPolicy } from '../../safety-policy.mjs';
 
 async function fixture(t, options) {
   const remote = await statefulMcp(t, options);
@@ -20,8 +23,28 @@ async function fixture(t, options) {
   const mcp = { serverName: 'Hex', transport: 'streamable-http', url: `${remote.baseUrl}/mcp`, reconnect: { initialDelayMs: 100, maxDelayMs: 400, maxAttempts: 3 }, headers: { 'Mcp-Session-Id': 'obsolete-saved-id', Authorization: 'Bearer fixture' } };
   const session = async (servers = [mcp]) => (await driver.createSession({ sessionId: randomUUID(), cwd: root, provider: { id: 'fixture', baseUrl: `${remote.baseUrl}/v1`, apiKey: 'fixture' }, model: 'fixture', options: { mcpServers: servers } })).sessionId;
   const call = id => driver.callTool(id, 'mcp__Hex__health', {}, { onPermission: async () => true });
-  return { ...remote, driver, mcp, session, call };
+  return { ...remote, root, driver, mcp, session, call };
 }
+
+test('resource-only MCP reconnect revokes the module grant even when both tool catalogs are empty', async t => {
+  const f = await fixture(t, { resourcesOnly: true }), id = await f.session();
+  const store = await openStore(path.join(f.root, 'host'));
+  const s = { id, cwd: f.root, mcpServers: [{ name: 'Hex', url: f.mcp.url }] };
+  await store.update(state => state.sessions.push(s));
+  const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store) });
+  let questions = 0;
+  const call = () => f.driver.callTool(id, 'list_mcp_resources', { server: 'Hex' }, {
+    onToolPolicy: tool => host.toolPolicy(s, tool, tool.signal),
+    onPermission: tool => host.approveTool(s, tool, { async ask() { return { outcome: { outcome: 'selected', optionId: ++questions === 1 ? 'allow_always' : 'reject_once' } }; } }, tool.signal),
+  });
+  assert.equal((await call()).isError, false);
+  assert.equal((await call()).isError, false);
+  assert.equal(questions, 1);
+  f.expire(); assert.equal((await call()).isError, true);
+  await until(() => f.initializations() === 2 && f.driver.extensionStatus(id)[0].status === 'ready');
+  assert.equal((await call()).isError, true, 'Reconnected resource access requires fresh consent');
+  assert.equal(questions, 2);
+});
 
 for (const status of [404, 400]) test(`HTTP ${status} expiry reconnects once, refreshes schemas and does not replay calls`, async t => {
   const f = await fixture(t), id = await f.session();
@@ -29,6 +52,7 @@ for (const status of [404, 400]) test(`HTTP ${status} expiry reconnects once, re
   f.control.status = status; f.expire();
   assert.equal((await f.call(id)).isError, true);
   assert.equal(f.driver.extensionStatus(id)[0].status, 'error');
+  assert.ok(!(await f.driver.listTools(id)).some(tool => tool.name === 'mcp__Hex__health'), 'Disconnected tools are removed during recovery');
   await until(() => f.driver.extensionStatus(id)[0].status === 'ready' && f.initializations() === 2);
   assert.equal(f.wire.filter(x => x.method === 'tools/call').length, 2, 'recovery must not replay the rejected call');
   assert.equal(f.executions(), 1);

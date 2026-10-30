@@ -89,7 +89,6 @@ export default function UserMessage({
   readOnly = false,
 }: UserMessageProps) {
   const intl = useIntl();
-  const contentRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
@@ -241,7 +240,7 @@ export default function UserMessage({
               <div className="flex flex-col group">
                 {textContent.trim() && (
                   <div className="flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4">
-                    <div ref={contentRef}>
+                    <div>
                       <MarkdownContent
                         content={textContent}
                         className="!text-inherit prose-a:!text-inherit prose-headings:!text-inherit prose-strong:!text-inherit prose-em:!text-inherit prose-li:!text-inherit prose-p:!text-inherit user-message"
@@ -288,7 +287,7 @@ export default function UserMessage({
                         <span>{intl.formatMessage(i18n.editButton)}</span>
                       </button>
                     )}
-                    <MessageCopyLink text={textContent} contentRef={contentRef} alwaysVisible />
+                    <MessageCopyLink text={textContent} alwaysVisible />
                   </div>
                 </div>
               </div>

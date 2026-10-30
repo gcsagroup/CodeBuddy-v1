@@ -1,5 +1,7 @@
 # CodeBuddy data directory
 
+Right-click a conversation and choose **Export logs** to save its native Harness event journal as `.jsonl`. Harness flushes existing events before reading without stopping the task. The export is a snapshot; later events are not appended to it. It contains only the current session, not subagent journals, attachment files, configuration or the project. Journal content may contain conversations and tool output; review before sharing. Imported read-only history has no native Harness journal; use **View session JSON** instead. Cancelling does not write a file, and read or save errors are reported.
+
 The default root is `~/.CodeBuddy` (`C:\Users\<username>\.CodeBuddy` on Windows). Source previews and packaged apps share this default; the runtime lock protects the data root from concurrent writers. Tests and parallel development must explicitly select isolated directories.
 
 New workspaces use `workspaces/<task>`. Generated images and videos stay in that workspace's `generated-images` and `generated-videos` directories. Pets and selection preferences remain in `state/electron-app/pets`. Sessions, model settings, schedules and tool receipts retain the existing `backend` layout. Profile/browser data and caches use `profiles/local` and `state/electron-app`; logs use `logs` and `state/electron-app/logs`. Plugin packages and migration records use `plugins/packages` and `migrations` when needed.

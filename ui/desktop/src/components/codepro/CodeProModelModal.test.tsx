@@ -871,7 +871,7 @@ it('does not turn the first model from a newly created connection into an image 
     provider,
     { ...provider, name: 'new-plain' },
   ]);
-  fireEvent.click(screen.getByRole('button', { name: 'Create Provider' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Verify and add' }));
   await screen.findByRole('button', { name: 'Add an image model connection' });
   expect(acpCreateCustomProviderFromRequest).toHaveBeenCalledOnce();
   expect(screen.queryByRole('radio', { name: 'plain-chat' })).toBeNull();

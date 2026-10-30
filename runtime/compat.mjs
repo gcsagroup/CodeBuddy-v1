@@ -1,4 +1,6 @@
 import { agentProfileRequest, workspaceAgent, agentAllowsTool } from './agent-profiles.mjs';
+import { desktopControlPresentation, matchesDesktopCancel } from './desktop-control.mjs';
+import { DesktopCoordinator } from './desktop-coordinator.mjs';
 import { closeMediaStreams } from './comfyui-live.mjs';
 import { readMediaLibrary, deleteMediaLibrary } from './media-library.mjs';
 import { MCP_RESOURCE_TOOL_NAMES } from './mcp-settings.mjs';
@@ -126,7 +128,8 @@ async function toolResultUpdate(event, metadata, driver) {
       text: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? ""),
     } }],
     rawOutput: event.mcpResult ? event.mcpResult.structuredContent : event.structuredContent ?? event.result,
-    _meta: { goose: { ...metadata, ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}) } },
+    _meta: { goose: { ...metadata, ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}),
+      ...(event.desktopOutcome ? { desktopOutcome: event.desktopOutcome } : {}) } },
   };
 }
 
@@ -284,6 +287,12 @@ export class Compat {
     this.thinking = new Map();
     this.sessionMutations = new Map();
     this.connections = new Set();
+    this.desktop = new DesktopCoordinator({ notify: state => {
+      for (const connection of this.connections) { try { connection.notify?.('_goose/unstable/session/update', {
+        sessionId: state.owner?.sessionId ?? '', update: { sessionUpdate: 'status_message',
+          status: { type: 'progress', message: '', data: { event: 'desktop_control_ownership', ...state } } },
+      }); } catch { /* A detached observer cannot interrupt desktop cleanup. */ } }
+    } });
     this.clientLocales = new Map();
     this.subagentViews = new Map();
     this.workspaces = new WorkspaceService(store);
@@ -314,7 +323,8 @@ export class Compat {
         this.configurationRevision += 1;
         this.initialized.clear();
         if (change?.extensionConfigKeys) await this.driver.invalidateMcpServers?.(change.extensionConfigKeys);
-        if (change?.kind !== 'model-thinking') this.sessionToolApprovals = new WeakMap();
+        // Grants follow live capability identities. Unrelated settings must not
+        // erase consent; affected MCP bindings are revoked by the driver above.
       },
       testExtension: (p) => this.testExtension(p),
       checkProviderMutation: (id) => this.checkProviderMutation(id),
@@ -1051,9 +1061,11 @@ Use this role throughout this workspace.` : basePrompt,
           sessionId: s.id,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
-            ...(reusable ? { codepro: { authorizationScope: 'session', extensionSource: business ? 'builtin' : approval.extensionSource,
+            ...(reusable ? { codepro: { authorizationScope: 'session', authorizationTarget: approval.targetOrigin ?? tool.name, extensionSource: business ? 'builtin' : approval.extensionSource,
               ...(business ? { permissionClass: 'external_write', businessApproval: business.presentation } : {}),
-              ...(approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
+              ...(approval.group && !business ? { authorizationGroup: approval.group } : {}),
+              ...(approval.module && !business ? { authorizationModule: approval.module } : {}),
+              ...(approval.group === 'web_read' || approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
           },
           toolCall: {
             toolCallId: tool.id ?? randomUUID(),
@@ -1061,13 +1073,14 @@ Use this role throughout this workspace.` : basePrompt,
             status: "pending",
             kind: "execute",
             rawInput: tool.arguments,
-            ...(safety.requiresApproval || approval?.targetOrigin
+            ...(safety.requiresApproval || approval?.targetOrigin || approval?.group === 'web_read'
               ? {
                   content: [
                     {
                       type: "content",
                       content: { type: "text", text: [
                         ...(safety.requiresApproval ? [safety.explanation] : []),
+                        ...(approval?.group === 'web_read' ? ['允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
                         ...(approval?.targetOrigin
                           ? [`允许本会话访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
                           : []),
@@ -1082,8 +1095,10 @@ Use this role throughout this workspace.` : basePrompt,
             ...(reusable
               ? [
                   {
-                    optionId: business ? 'allow_business_session' : "allow_always",
-                    name: business ? `Allow ${business.presentation.id} for this session` : approval.targetOrigin
+                    optionId: business ? 'allow_business_session' : 'allow_always',
+                    name: business ? 'Allow ' + business.presentation.id + ' for this session' : approval.group === 'web_read' ? 'Allow public web reading for this session' : approval.module
+                      ? 'Allow ' + (approval.module.displayName === approval.module.name ? approval.module.name : approval.module.displayName + ' (' + approval.module.name + ')') + ' for this session'
+                      : approval.targetOrigin
                       ? `Allow ${approval.targetOrigin} for this session`
                       : "Allow this tool for this session",
                     kind: "allow_always",
@@ -1731,12 +1746,52 @@ Use this role throughout this workspace.` : basePrompt,
     if (method === "session/cancel") {
       this.session(p.sessionId);
       const active = this.active.get(p.sessionId);
+      const desktopToken = p._meta?.['codebuddy/desktop-control-token'];
+      // Escape stops desktop use, not the owning Harness task.
+      if (desktopToken !== undefined) {
+        if (matchesDesktopCancel(active, desktopToken)) this.desktop.pause(p.sessionId, desktopToken, 'escape');
+        return {};
+      }
       if (active) {
         active.userRequestedStop = true; // Presentation only; native cancellation still owns settlement.
         active.controller.abort();
         if (active.driverStarted) await this.driver.cancel(p.sessionId);
       }
       return {};
+    }
+    if (method === '_goose/unstable/desktop/control') {
+      if (p.action === 'state') return this.desktop.state();
+      if (p.action === 'pause') {
+        this.session(p.sessionId);
+        this.desktop.pause(p.sessionId, p.token, p.reason);
+        return this.desktop.state();
+      }
+      if (p.action === 'resume') {
+        if (p.expectedSessionId !== undefined && (this.desktop.state().owner?.sessionId ?? null) !== p.expectedSessionId)
+          throw invalid('电脑控制所属对话已变化，请刷新状态后重试。');
+        const state = await this.desktop.resume(p.revision);
+        const sessionId = state.pausedSessionId;
+        if (!sessionId || !this.store.readSession(sessionId)) return state;
+        const active = this.active.get(sessionId);
+        if (active && !active.controller.signal.aborted) {
+          try {
+            await this.request('_goose/unstable/session/steer', { sessionId, expectedRunId: active.run?.runId ?? active.desktopControlToken,
+              prompt: [{ type: 'text', text: '我已恢复电脑控制。继续原任务，先重新观察目标；不要重放结果未知的输入。' }] }, connection);
+            return { ...this.desktop.state(), resumedSessionId: sessionId };
+          } catch (error) {
+            // Only a structured pre-admission rejection permits continuation.
+            // A transport/unknown error must never replay a possibly accepted input.
+            if (error.harnessCode !== 'PROMPT_IDLE') throw error;
+            await active.done;
+            return { ...this.desktop.state(), continueSessionId:
+              !active.controller.signal.aborted && !this.active.has(sessionId) && this.store.readSession(sessionId)
+                ? sessionId : null };
+          }
+        }
+        return { ...state, continueSessionId: active ? null : sessionId };
+      }
+      if (p.action === 'withdraw') { this.session(p.sessionId); return this.desktop.withdraw(p.sessionId, p.token); }
+      throw invalid('Unknown desktop control action');
     }
     if (method === "session/close") {
       return this.mutateSession(p.sessionId, async () => {
@@ -2087,12 +2142,19 @@ Use this role throughout this workspace.` : basePrompt,
         };
         let result;
         let internalControl = false;
+        const desktopToken = randomUUID();
+        const directFeedback = desktopControlPresentation({ sessionId: s.id, token: desktopToken,
+          notify: (method, params) => connection.notify(method, params) });
+        const directDesktop = this.desktop.begin({ sessionId: s.id, token: desktopToken, title: s.title,
+          present: state => directFeedback.update(state) });
         try {
           result = await this.driver.callTool(
             s.id,
             harnessToolName(p.name),
             p.arguments ?? {},
             {
+              onDesktopTool: (tool, next) => directDesktop.execute(tool, next),
+              desktopMetadata: () => directDesktop.metadata(),
               onEvent: async (event) => {
                 await this.recordCapabilityUsage(s, event);
                 if (event.internalControl === true) internalControl = true;
@@ -2128,6 +2190,7 @@ Use this role throughout this workspace.` : basePrompt,
             },
           );
         } finally {
+          await directDesktop.end();
           if (writer) await writer.finalize();
           else if (updates.length) await this.store.update((state) => {
             const saved = state.sessions.find((item) => item.id === s.id);
@@ -2171,8 +2234,9 @@ Use this role throughout this workspace.` : basePrompt,
       case "session/steer": {
         const s = this.session(p.sessionId);
         const active = this.active.get(s.id);
-        if (!active?.run || active.run.runId !== p.expectedRunId)
-          throw invalid("Run changed or is no longer active");
+        const runId = active?.run?.runId ?? active?.desktopControlToken;
+        if (!active?.notify || !runId || runId !== p.expectedRunId)
+          throw Object.assign(invalid("Run changed or is no longer active"), { harnessCode: 'PROMPT_IDLE' });
         const prepared = await this.prepareModelContent(
           s,
           harnessPrompt(p.prompt),
@@ -2182,12 +2246,13 @@ Use this role throughout this workspace.` : basePrompt,
           this.active.get(s.id) !== active ||
           active.controller.signal.aborted
         )
-          throw invalid("Run ended before the input could be added");
+          throw Object.assign(invalid("Run ended before the input could be added"), { harnessCode: 'PROMPT_IDLE' });
         const messageId = randomUUID();
         await this.driver.steer(s.id, prepared.content, {
           requestId: messageId,
           signal: active.controller.signal,
         });
+        await this.desktop.preparePrompt(s.id, { activeInput: true, token: active.desktopControlToken });
         const created = Math.floor(Date.now() / 1000);
         for (const content of p.prompt)
           await active.notify({
@@ -2199,7 +2264,7 @@ Use this role throughout this workspace.` : basePrompt,
         active.userMessages.push(
           ...p.prompt.filter((c) => c.type === "text").map((c) => c.text),
         );
-        return { runId: active.run.runId, messageId };
+        return { runId, messageId };
       }
       case "diagnostics/get": {
         const s = this.session(p.sessionId);
@@ -2212,6 +2277,11 @@ Use this role throughout this workspace.` : basePrompt,
             cwd: s.cwd,
           },
         };
+      }
+      case "session/log/export": {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory) throw invalid("旧版导入的聊天没有 Harness 日志，请使用查看会话 JSON。");
+        return { data: await this.driver.exportSessionLog(s.id) };
       }
       case "session/info":
         return { session: this.info(this.session(p.sessionId, { fields: sessionInfoFields })) };
@@ -2525,6 +2595,11 @@ Use this role throughout this workspace.` : basePrompt,
     }));
     let promptError;
     let result;
+    promptEntry.desktopControlToken = promptScope;
+    const desktopControl = desktopControlPresentation({ sessionId: s.id, token: promptScope,
+      notify: (method, params) => connection.notify(method, params) });
+    const desktopTurn = this.desktop.begin({ sessionId: s.id, token: promptScope, title: s.title,
+      signal: controller.signal, present: state => desktopControl.update(state) });
     const projectWorkStatus = workStatusUpdates({
       sessionId: s.id, sourceMessageId: userId,
       runId: () => promptEntry.run?.runId ?? promptScope, signal: controller.signal,
@@ -2546,6 +2621,9 @@ Use this role throughout this workspace.` : basePrompt,
           .slice(0, 80),
       });
       trace('journal_ready');
+      if (!connection.background && !manualCompact) await this.desktop.preparePrompt(s.id, {
+        token: promptScope, generation: p._meta?.['codebuddy/desktop-generation'],
+      });
       // The frozen renderer needs this acknowledgement before remote services
       // become ready, so sending a message is visible immediately.
       replay.users = users;
@@ -2629,8 +2707,10 @@ Use this role throughout this workspace.` : basePrompt,
           : ["paused", "blocked"].includes(nativeGoal?.phase)
           ? { resumeGoal: { goalId: nativeGoal.id, revision: nativeGoal.revision } }
           : {}),
-        onToolPolicy: tool => this.toolPolicy(s, tool, controller.signal),
-        onPermission: tool => this.approveTool(s, tool, connection, controller.signal),
+        onToolPolicy: tool => desktopTurn.admit(tool, signal => this.toolPolicy(s, tool, signal)),
+        onDesktopTool: (tool, next) => desktopTurn.execute(tool, next),
+        desktopMetadata: () => desktopTurn.metadata(),
+        onPermission: tool => desktopTurn.admit(tool, signal => this.approveTool(s, tool, connection, signal)),
         onToolStart: async (tool) => {
           if (active.run) {
             await this.runs.recordToolStart({
@@ -2871,6 +2951,8 @@ Use this role throughout this workspace.` : basePrompt,
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
     } finally {
+      await desktopTurn.end();
+      desktopControl.end();
       try {
         const active = this.active.get(s.id);
         if (active?.run && active.attemptId)
@@ -3018,7 +3100,9 @@ Use this role throughout this workspace.` : basePrompt,
           },
         });
       } finally {
-        release();
+        try {
+          if (controller.signal.aborted) this.desktop.discardContinuation(s.id, promptScope);
+        } finally { release(); }
       }
     }
     if (controller.signal.aborted) return { stopReason: "cancelled" };

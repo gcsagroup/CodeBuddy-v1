@@ -1,5 +1,7 @@
 # CodeBuddy 資料目錄
 
+右鍵聊天選擇「匯出日誌」，可將目前會話的 Harness 原始事件日誌另存為 `.jsonl`。匯出前由 Harness 儲存已有事件，不中斷工作；匯出檔案是讀取當時的快照，後續事件不會自動附加。僅包含目前會話，不打包子 Agent 日誌、附件實體、設定或整個專案。日誌正文可能含對話與工具輸出，分享前請檢查。舊版匯入的唯讀歷史沒有 Harness 日誌，仍可使用「檢視會話 JSON」。取消儲存不寫檔；讀取或儲存失敗會明確提示。
+
 預設根目錄為 `~/.CodeBuddy`，Windows 為 `C:\Users\<使用者名稱>\.CodeBuddy`。開發版與安裝版共用此預設規則；執行階段鎖保護同一資料根。測試及並行開發須明確指定隔離目錄。
 
 新工作區位於 `workspaces/<任務目錄>`，圖片和影片保存在對應工作區的 `generated-images`、`generated-videos`。寵物與選中項位於 `state/electron-app/pets`；聊天、模型設定、自動任務及工具回執沿用 `backend`；設定檔和快取位於 `profiles/local`、`state/electron-app`；日誌位於 `logs`、`state/electron-app/logs`；外掛與遷移記錄按需放在 `plugins/packages`、`migrations`。

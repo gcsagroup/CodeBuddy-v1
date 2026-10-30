@@ -89,8 +89,8 @@ export async function extractVideoFrames(file: File): Promise<string[]> {
   }
 }
 
-export const useFileDrop = () => {
-  const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
+export const useFileDrop = (initialFiles: DroppedFile[] = []) => {
+  const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>(initialFiles);
   const activeReadersRef = useRef<Set<FileReader>>(new Set());
 
   // Cleanup effect to prevent memory leaks
@@ -110,9 +110,7 @@ export const useFileDrop = () => {
     };
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
+  const addFiles = useCallback(async (files: FileList) => {
     if (files.length > 0) {
       const droppedFileObjects: DroppedFile[] = [];
 
@@ -227,6 +225,14 @@ export const useFileDrop = () => {
     }
   }, []);
 
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      return addFiles(e.dataTransfer.files);
+    },
+    [addFiles]
+  );
+
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   }, []);
@@ -236,5 +242,6 @@ export const useFileDrop = () => {
     setDroppedFiles,
     handleDrop,
     handleDragOver,
+    addFiles,
   };
 };

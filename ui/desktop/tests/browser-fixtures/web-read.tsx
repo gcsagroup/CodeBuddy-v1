@@ -1,0 +1,20 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { IntlProvider } from 'react-intl';
+import '../../src/styles/main.css';
+import { applyThemeTokens } from '../../src/theme/theme-tokens';
+import messages from '../../src/i18n/messages/zh-CN.json';
+import type { Message } from '../../src/types/message';
+
+Object.assign(window, { appConfig: { get: () => undefined }, electron: { platform: 'win32', getSetting: async () => undefined, setSetting: async () => {}, logInfo: () => {}, on: () => () => {} } });
+applyThemeTokens('light');
+document.documentElement.classList.add('light');
+const { default: ProgressiveMessageList } = await import('../../src/components/ProgressiveMessageList');
+const { default: ToolApprovalButtons } = await import('../../src/components/ToolApprovalButtons');
+const { requestAcpPermission } = await import('../../src/acp/permissionRequests');
+const meta = { authorizationScope: 'session' as const, authorizationGroup: 'web_read' as const, permissionClass: 'read_only' as const };
+const id = 'web-fixture', sessionId = 'web-browser-fixture';
+void requestAcpPermission({ sessionId, _meta: { codepro: meta }, toolCall: { toolCallId: id, title: 'web_fetch', kind: 'fetch', status: 'pending' }, options: [{ optionId: 'once', name: 'Once', kind: 'allow_once' }, { optionId: 'session', name: 'Session', kind: 'allow_always' }, { optionId: 'reject', name: 'Reject', kind: 'reject_once' }] }).then(result => { document.getElementById('receipt')!.textContent = JSON.stringify(result.outcome); });
+const thought = (id: string, text: string): Message => ({ id, role: 'assistant', created: 1, metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'thinking', thinking: text, signature: '' }] });
+const trace: Message[] = [thought('first', '第一段分析。'), thought('second', '继续分析。'), { ...thought('discovery', ''), content: [{ type: 'toolRequest', id: 'find', toolCall: { status: 'success', value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } } } }] }, thought('third', '找到可用工具后分析。')];
+createRoot(document.getElementById('root')!).render(<IntlProvider locale="zh-CN" messages={Object.fromEntries(Object.entries(messages).map(([key, value]) => [key, value.defaultMessage]))}><main style={{ maxWidth: 850, margin: '40px auto', padding: 20 }}><ProgressiveMessageList messages={trace} chat={{ sessionId }} sessionType="code_pro" isUserMessage={() => false} isStreamingMessage activeToolCallIds={['find']} /><ToolApprovalButtons data={{ id, sessionId, toolName: 'web_fetch', ...meta, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} /><output id="receipt" /></main></IntlProvider>);

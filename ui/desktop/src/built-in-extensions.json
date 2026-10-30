@@ -10,7 +10,7 @@
   },
   {
     "id": "qwen_computer",
-    "name": "Computer Use MCP",
+    "name": "Computer Use",
     "description": "Standalone Windows computer control through MCP.",
     "enabled": false,
     "type": "builtin",

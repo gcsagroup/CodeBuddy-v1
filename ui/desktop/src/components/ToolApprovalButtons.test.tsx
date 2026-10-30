@@ -34,9 +34,80 @@ const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
 const resolveAcpPermissionRequestMock = vi.mocked(resolveAcpPermissionRequest);
 
 describe('ToolApprovalButtons', () => {
+  it('uses the built-in module name without exposing its compatibility identifier', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    renderWithIntl(<ToolApprovalButtons data={{ id: 'builtin-module', sessionId: 'builtin-session', toolName: 'mcp__qwen_computer__list_apps', authorizationScope: 'session', authorizationGroup: 'mcp_module', authorizationModule: { name: 'qwen_computer', displayName: 'Computer Use' }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />);
+    expect(screen.queryByText(/qwen_computer/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Allow Computer Use for this session' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledWith('builtin-session', 'builtin-module', 'always_allow');
+  });
+  it('names public web scope and preserves once and reject without relabeling old origin grants', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    renderWithIntl(<ToolApprovalButtons data={{ id: 'web-read', sessionId: 'web-session', toolName: 'web_fetch', permissionClass: 'read_only', authorizationScope: 'session', authorizationGroup: 'web_read', authorizationTarget: 'web_fetch', availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />);
+    expect(screen.getByText(/Anonymous public web reading across websites/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Deny Once' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Allow public web reading for this session' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledWith('web-session', 'web-read', 'always_allow');
+    expect(screen.getByText(/Public web reading allowed for this session/)).toBeVisible();
+  });
+  it('names a custom MCP and discloses all module tools while retaining once and deny', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    renderWithIntl(<ToolApprovalButtons data={{ id: 'custom-module', sessionId: 'custom-session', toolName: 'mcp__custom__read', authorizationScope: 'session', authorizationGroup: 'mcp_module', authorizationModule: { name: 'custom', displayName: 'My tools' }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />);
+    expect(screen.getByText(/current tools and resource access of My tools/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Deny Once' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Allow My tools (custom) for this session' }));
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledWith('custom-session', 'custom-module', 'always_allow');
+    expect(screen.getByText(/My tools \(custom\) allowed for this session/)).toBeVisible();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     permissionRegistry.pending = true;
+  });
+
+  it('discloses module scope and resolves the existing session approval choice', async () => {
+    resolveAcpPermissionRequestMock.mockReturnValueOnce(true);
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'computer-group',
+          toolName: 'mcp__qwen_computer__list_apps',
+          sessionId: 'group-session',
+          authorizationScope: 'session',
+          authorizationGroup: 'computer_control',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        }}
+      />
+    );
+    expect(screen.getByText(/All computer-control tools in this conversation/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow Once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Deny Once' })).toBeVisible();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Allow computer control for this session' })
+    );
+    expect(resolveAcpPermissionRequestMock).toHaveBeenCalledExactlyOnceWith(
+      'group-session',
+      'computer-group',
+      'always_allow'
+    );
+    expect(screen.getByText(/Computer control allowed for this session/)).toBeVisible();
+  });
+
+  it('does not infer a module grant from a computer tool name in an older request', () => {
+    renderWithIntl(
+      <ToolApprovalButtons
+        data={{
+          id: 'old-computer',
+          toolName: 'mcp__qwen_computer__click',
+          sessionId: 'old-session',
+          authorizationScope: 'session',
+          availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        }}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Allow this tool for this session' })).toBeVisible();
+    expect(screen.queryByText(/All computer-control tools/)).not.toBeInTheDocument();
   });
 
   it.each([

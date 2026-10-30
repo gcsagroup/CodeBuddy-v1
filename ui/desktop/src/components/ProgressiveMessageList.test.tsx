@@ -26,7 +26,16 @@ function compactGroups() {
     .filter((element) => element.querySelector('.codepro-group-heading'));
 }
 
-function openProcess(group = compactGroups()[0]) {
+function openTurnHistory() {
+  const toggle = document.querySelector('[data-turn-process-summary] > [data-slot="collapsible"] > div > button');
+  if (!toggle) throw new Error('Missing turn history disclosure');
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+  return toggle;
+}
+
+function openProcess(group?: HTMLElement) {
+  if (!group && compactGroups().length === 0) openTurnHistory();
+  group ??= compactGroups()[0];
   const toggle = group.querySelector('.codepro-group-heading')?.closest('button');
   if (!toggle) throw new Error('Missing process disclosure');
   if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
@@ -514,11 +523,11 @@ describe('work / answer presentation boundary', () => {
     />
   );
 
-  it('folds the settled process while keeping both public replies visible during answer streaming', async () => {
+  it('folds the settled process while keeping the final reply visible during answer streaming', async () => {
     const view = render(show(work), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
     view.rerender(show([...work, boundary(), answer]));
-    await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
+    await waitFor(() => expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument());
     expect(
       await screen.findByText(
         (_, element) =>
@@ -527,7 +536,7 @@ describe('work / answer presentation boundary', () => {
         { timeout: 3000 }
       )
     ).toBeVisible();
-    const toggle = view.container.querySelector('[data-process-group] button')!;
+    const toggle = view.container.querySelector('[data-turn-process-summary] button')!;
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
@@ -553,11 +562,13 @@ describe('work / answer presentation boundary', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('keeps public replies outside disclosures even at a host answer boundary', async () => {
+  it('keeps the final reply outside history and preserves earlier prose on expansion', async () => {
     const view = render(show([sourceUserMessage, stage, boundary(), answer]), {
       wrapper: IntlTestWrapper,
     });
     expect(view.container.querySelector('[data-process-group]')).toBeNull();
+    expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument();
+    openTurnHistory();
     await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
     expect(
       await screen.findByText(
@@ -570,7 +581,7 @@ describe('work / answer presentation boundary', () => {
   });
 
   it.each(['cancelled', 'failed', 'interrupted'] as const)(
-    'keeps public replies and a bound %s receipt visible before the first tool and during stream teardown',
+    'keeps a bound %s receipt visible and earlier prose accessible through stream teardown',
     async (status) => {
       const terminal = terminalMessage('not_available');
       terminal.content = terminal.content.map((content) =>
@@ -582,7 +593,6 @@ describe('work / answer presentation boundary', () => {
       const trace = [sourceUserMessage, stage, terminal];
       const view = render(show(trace), { wrapper: IntlTestWrapper });
       expect(view.container.querySelector('[data-process-group]')).toBeNull();
-      await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
       expect(
         await screen.findByText(
           (_, element) =>
@@ -592,10 +602,15 @@ describe('work / answer presentation boundary', () => {
           { timeout: 3000 }
         )
       ).toBeVisible();
+      openTurnHistory();
+      expect(await screen.findByText('Checking the saved changes.')).toBeVisible();
       // A real call before the terminal must not require a separate answer-phase event.
       view.rerender(show([...work, terminal]));
-      await waitFor(() => expect(screen.getByText('Checking the saved changes.')).toBeVisible());
+      await screen.findByRole('button', { name: 'Work history 1 operations' });
+      openTurnHistory();
+      expect(await screen.findByText('Checking the saved changes.')).toBeVisible();
       view.rerender(show(JSON.parse(JSON.stringify(trace)), false));
+      openTurnHistory();
       expect(view.container.querySelector('[data-process-group]')).toBeNull();
       expect(screen.getByText('Checking the saved changes.')).toBeVisible();
       expect(
@@ -681,7 +696,7 @@ describe('work / answer presentation boundary', () => {
   it('replays the same presentation without treating the boundary as a terminal', () => {
     const trace = JSON.parse(JSON.stringify([...work, boundary(), answer])) as Message[];
     const view = render(show(trace, false), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelector('[data-process-group] button')).toHaveAttribute(
+    expect(view.container.querySelector('[data-turn-process-summary] button')).toHaveAttribute(
       'aria-expanded',
       'false'
     );
@@ -745,7 +760,7 @@ describe('CodePro ordinary tool message presentation', () => {
         />
       );
       const view = render(show(false), { wrapper: IntlTestWrapper });
-      expect(screen.getByRole('button', { name: 'Thinking' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
         'aria-expanded',
         'false'
       );
@@ -914,7 +929,7 @@ describe('CodePro ordinary tool message presentation', () => {
         { wrapper: IntlTestWrapper }
       );
       const group = compactGroups()[0].querySelector('.codepro-group-heading')!;
-      expect(group).toHaveTextContent('Failed');
+      expect(group).toHaveTextContent('Run command');
       expect(group).not.toHaveTextContent('unsuccessful');
       expect(screen.queryByText(/Completed .*other operation/)).not.toBeInTheDocument();
       openProcess();
@@ -1006,6 +1021,27 @@ describe('CodePro ordinary tool message presentation', () => {
       showLoadingThreshold={400}
     />
   );
+
+  it('preserves all thoughts in the combined process while hiding successful internal discovery', () => {
+    const thought = (index: number, text: string): Message => ({ ...message(index), content: [{ type: 'thinking', thinking: text, signature: '' }] });
+    const discovery = toolTransportMessage(3, 'discovery', 'request');
+    const request = discovery.content[0];
+    if (request.type !== 'toolRequest') throw Error('Expected tool request');
+    request.toolCall = { status: 'success', value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } } };
+    const records = [thought(1, 'First thought.'), thought(2, 'Continued thought.'), discovery, toolTransportMessage(4, 'discovery', 'response'), thought(5, 'After discovery.')];
+    const original = structuredClone(records);
+    render(renderTrace(records, ['discovery']), { wrapper: IntlTestWrapper });
+    expect(compactGroups()).toHaveLength(1);
+    openProcess();
+    expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+    for (const toggle of screen.getAllByRole('button', { name: /^Thinking(?: \(updating\))?$/ })) {
+      if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+    }
+    for (const text of ['First thought.', 'Continued thought.', 'After discovery.'])
+      expect(screen.getByText(text)).toBeVisible();
+    expect(records).toEqual(original);
+  });
 
   it('[retest-20261016] keeps whitespace and thinking between tool batches in one live collapsible group', async () => {
     const first = toolTransportMessage(1, 'first-batch', 'request');
@@ -1281,7 +1317,7 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('npm.cmd test')).not.toBeInTheDocument();
     expect(screen.queryByText('Permission rejected')).not.toBeInTheDocument();
     const currentProcess = compactGroups()[1];
-    expect(currentProcess.querySelector('.codepro-group-heading')).toHaveTextContent('Failed');
+    expect(currentProcess.querySelector('.codepro-group-heading')).toHaveTextContent('Running: Run command npm.cmd test');
     openProcess(currentProcess);
     expect(screen.getByText('Unsuccessful')).toBeVisible();
     fireEvent.click(
@@ -1294,6 +1330,22 @@ describe('CodePro ordinary tool message presentation', () => {
       screen.getByRole('button', { name: 'Completed 1 operation Read 1 file' })
     ).toHaveAttribute('aria-expanded', 'false');
     expect(compactGroups()).toHaveLength(2);
+  });
+
+  it('includes unsuccessful receipts beside successful work in a mixed group', () => {
+    const failed = toolTransportMessage(7, 'failed-call', 'response');
+    failed.content = [{ type: 'toolResponse', id: 'failed-call',
+      toolResult: { status: 'success', value: { content: [], isError: true } } }];
+    render(renderTrace([
+      ...changeTrace,
+      toolTransportMessage(6, 'failed-call', 'request'), failed,
+    ]), { wrapper: IntlTestWrapper });
+    const toggle = screen.getByRole('button', {
+      name: 'Read file README.md',
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(screen.getByText('Unsuccessful')).toBeVisible();
   });
 
   it('shows a hundred action labels in one bounded scroll region without opening code', () => {

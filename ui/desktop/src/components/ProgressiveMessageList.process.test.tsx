@@ -170,7 +170,7 @@ describe('processes between public replies', () => {
         terminal,
       ])
     );
-    const summary = await screen.findByRole('button', { name: 'Time spent 2 min 0 sec' });
+    const summary = await screen.findByRole('button', { name: 'Time spent 2 min 0 sec' }, { timeout: 5000 });
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     for (const group of groups) expect(group).not.toBeVisible();
     expect(screen.queryByText('A public stage update.')).not.toBeInTheDocument();

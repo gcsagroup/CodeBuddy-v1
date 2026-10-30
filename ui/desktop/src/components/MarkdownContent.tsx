@@ -13,6 +13,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
 import { remarkStreamReveal } from './remarkStreamReveal';
+import { remarkWindowsFileLinks } from './remarkWindowsFileLinks';
 import { rehypeIncomingText } from './rehypeIncomingText';
 import { StreamingMarkdownBlocks } from './streamingMarkdown';
 import './ui/stream-prose.css';
@@ -514,6 +515,7 @@ const MarkdownContent = memo(function MarkdownContent({
         key={key}
         urlTransform={urlTransform}
         remarkPlugins={[
+          remarkWindowsFileLinks,
           [remarkGfm, { singleTilde: false }],
           [remarkMath, { singleDollarTextMath: false }],
           ...(revealAt !== undefined && canRevealTree
@@ -627,6 +629,7 @@ const StreamingBlock = memo(function StreamingBlock({
       components={components}
       urlTransform={urlTransform}
       remarkPlugins={[
+        remarkWindowsFileLinks,
         [remarkGfm, { singleTilde: false }],
         [remarkMath, { singleDollarTextMath: false }],
         remarkBreaks,

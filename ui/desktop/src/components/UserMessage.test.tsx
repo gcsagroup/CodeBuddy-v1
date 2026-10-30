@@ -16,6 +16,27 @@ describe('UserMessage', () => {
     metadata: { agentVisible: true, userVisible: true },
   };
 
+  it.each([
+    'https://github.com/Panniatong/Agent-Reach分析一下和这个网址里面的是什么',
+    '  中文 🙂\n[文档](https://example.com/文档?q=中文)\n`code`  ',
+  ])('copies user source verbatim without HTML that changes pasted links: %s', async (text) => {
+    const user = userEvent.setup();
+    const copyText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const copyRichText = vi.spyOn(navigator.clipboard, 'write').mockResolvedValue(undefined);
+    try {
+      render(<UserMessage message={{ ...message, content: [{ type: 'text', text }] }} />, {
+        wrapper: IntlTestWrapper,
+      });
+      await user.click(screen.getByRole('button', { name: 'Copy' }));
+      expect(copyText).toHaveBeenCalledExactlyOnceWith(text);
+      expect(copyRichText).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Copy' })).toHaveTextContent('Copied!');
+    } finally {
+      copyText.mockRestore();
+      copyRichText.mockRestore();
+    }
+  });
+
   it('marks unadmitted input without offering edit-and-resend, then clears the mark on acknowledgement', () => {
     const view = render(
       <UserMessage

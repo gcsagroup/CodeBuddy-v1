@@ -18,9 +18,9 @@ vi.mock('../elicitationRequests', () => ({ cancelAcpElicitationRequestsForSessio
 
 const id = 'isolated-request-barrier';
 function pendingPrompt(acknowledged = true) {
-  let resolve!: (value: { stopReason: 'end_turn' | 'cancelled' }) => void;
+  let resolve!: (value: { stopReason: 'end_turn' | 'cancelled' | 'max_tokens' }) => void;
   let reject!: (reason: unknown) => void;
-  const promise = new Promise<{ stopReason: 'end_turn' | 'cancelled' }>((yes, no) => {
+  const promise = new Promise<{ stopReason: 'end_turn' | 'cancelled' | 'max_tokens' }>((yes, no) => {
     resolve = yes;
     reject = no;
   });
@@ -84,7 +84,7 @@ describe('session prompt request barrier with the real chat store', () => {
     expect(acpPromptSession).toHaveBeenCalledTimes(2);
   });
 
-  it('ends display on terminal but rejects another prompt until the original RPC settles', async () => {
+  it.each(['end_turn', 'max_tokens'] as const)('ends display on terminal but retains the original RPC result %s', async (stopReason) => {
     const first = pendingPrompt();
     expect(first.onAccepted).toHaveBeenCalledOnce();
     acpChatSessionActions.applyAcpGooseSessionNotification({
@@ -125,9 +125,11 @@ describe('session prompt request barrier with the real chat store', () => {
     });
     expect(acpPromptSession).toHaveBeenCalledOnce();
     expect(onRejectedBeforeAcceptance).toHaveBeenCalledOnce();
-    first.resolve({ stopReason: 'end_turn' });
+    first.resolve({ stopReason });
     await first.submission;
     expect(acpChatSessionStore.getSnapshot(id)?.promptRequestId).toBeNull();
+    if (stopReason === 'max_tokens')
+      expect(acpChatSessionStore.getSnapshot(id)?.promptError).toContain('输出长度限制');
     vi.mocked(acpPromptSession).mockResolvedValueOnce({ stopReason: 'end_turn' });
     await acpChatSessionController.submitMessage(id, createUserMessage('explicit next request'), {
       getCurrentSnapshot: () => acpChatSessionStore.getSnapshot(id),

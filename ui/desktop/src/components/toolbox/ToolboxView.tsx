@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   BookOpenCheck,
+  ArrowLeft,
+  MessageSquare,
   ChevronRight,
   LockKeyhole,
   MonitorCog,
@@ -11,7 +13,9 @@ import {
   Search,
   Wrench,
 } from 'lucide-react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, Link } from 'react-router-dom';
+import { getSessionExtensions } from '../../acp/session-extensions';
+import { SessionToolAccess } from './SessionToolAccess';
 import { loadToolbox, type ToolboxLoadResult } from '../../acp/toolbox';
 import { testConfigExtension } from '../../acp/extensions';
 import { getInitialWorkingDir } from '../../utils/workingDir';
@@ -26,7 +30,7 @@ import { defineMessages, useIntl } from '../../i18n';
 import ExtensionsSection from '../settings/extensions/ExtensionsSection';
 import SkillManager, { type SkillManagerRequest } from '../skills/SkillManager';
 import { useConfig } from '../ConfigContext';
-import { applySkillChange, previewSkillChange, type ManagedSkill } from '../../acp/skillManagement';
+import { applySkillChange, previewSkillChange, skillManagementErrorReason, type ManagedSkill } from '../../acp/skillManagement';
 import { localizeToolboxItem } from './toolboxLocalization';
 import { capabilityExample } from './capabilityExamples';
 import { groupRepositoryTools } from './toolboxModel';
@@ -168,11 +172,13 @@ function ItemCard({
   onOpen,
   onToggle,
   toggling,
+  sessionControl,
 }: {
   item: ToolboxItem;
   onOpen: (item: ToolboxItem) => void;
   onToggle: (item: ToolboxItem) => void;
   toggling: boolean;
+  sessionControl?: ReactNode;
 }) {
   const intl = useIntl();
   const statusMessages = {
@@ -184,6 +190,8 @@ function ItemCard({
     failed: i18n.statusFailed,
   };
   const builtIn = isBuiltInSkill(item);
+  const shared =
+    item.skillSource && 'scope' in item.skillSource && item.skillSource.scope === 'shared';
   const ItemIcon =
     item.kind === 'builtin'
       ? MonitorCog
@@ -197,9 +205,16 @@ function ItemCard({
     ? enabled
       ? i18n.statusStopping
       : i18n.statusStarting
-    : item.kind === 'builtin' && item.status === 'configured'
-      ? i18n.enabledUnverified
-      : statusMessages[item.status];
+    : item.skillSource && 'availability' in item.skillSource && item.skillSource.availability === 'shadowed'
+      ? { id: 'skillManager.shadowedShort', defaultMessage: 'Overridden by another source' }
+    : shared &&
+        item.skillSource &&
+        'availability' in item.skillSource &&
+        item.skillSource.availability === 'pending'
+      ? { id: 'skillManager.pending', defaultMessage: 'Not enabled in CodeBuddy' }
+      : (item.kind === 'builtin' || shared) && item.status === 'configured'
+        ? i18n.enabledUnverified
+        : statusMessages[item.status];
   const toggleable = item.actions.includes(enabled ? 'disable' : 'enable');
   return (
     <Card className="group overflow-hidden border-border-secondary bg-background-primary py-0 shadow-none transition-colors hover:border-border-primary hover:bg-background-secondary">
@@ -218,7 +233,12 @@ function ItemCard({
               <h3 className="truncate text-sm font-medium">{item.name}</h3>
               {item.kind === 'skill' && (
                 <span className="rounded-md border border-border-secondary px-1.5 py-0.5 text-[11px] text-text-muted">
-                  {intl.formatMessage(builtIn ? i18n.builtIn : i18n.installed)}
+                  {shared
+                    ? intl.formatMessage({
+                        id: 'skillManager.shared',
+                        defaultMessage: 'Shared on this computer',
+                      })
+                    : intl.formatMessage(builtIn ? i18n.builtIn : i18n.installed)}
                 </span>
               )}
               {item.kind === 'builtin' && (
@@ -267,6 +287,7 @@ function ItemCard({
           </div>
         )}
       </div>
+      {sessionControl}
     </Card>
   );
 }
@@ -298,7 +319,11 @@ function BuiltInToolDetails({ item, onClose }: { item?: ToolboxItem; onClose: ()
   };
   if (!item) return null;
   const technicalName =
-    item.reference?.value === 'qwen_computer' ? 'Computer Use (qwen_computer)' : item.name;
+    item.reference?.value === 'qwen_computer' ? 'Computer Use' : item.name;
+  const displayToolName = (name: string) =>
+    item.reference?.value === 'qwen_computer' && name.startsWith('mcp__qwen_computer__')
+      ? name.slice('mcp__qwen_'.length)
+      : name;
   const example = capabilityExample(item.reference?.value ?? item.name, intl.locale);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -319,7 +344,7 @@ function BuiltInToolDetails({ item, onClose }: { item?: ToolboxItem; onClose: ()
             {item.tools?.length ? (
               <ul className="mt-1 list-inside list-disc break-all">
                 {item.tools.map((tool) => (
-                  <li key={tool}>{tool}</li>
+                  <li key={tool}>{displayToolName(tool)}</li>
                 ))}
               </ul>
             ) : (
@@ -345,7 +370,7 @@ function BuiltInToolDetails({ item, onClose }: { item?: ToolboxItem; onClose: ()
                   <p>{intl.formatMessage(i18n.inventoryOnly)}</p>
                   <ul className="mt-2 list-inside list-disc break-all">
                     {inventory.tools.map((tool) => (
-                      <li key={tool}>{tool}</li>
+                      <li key={tool}>{displayToolName(tool)}</li>
                     ))}
                   </ul>
                 </div>
@@ -378,6 +403,25 @@ export default function ToolboxView() {
   const { extensionsList, setExtensionEnabled } = useConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const sessionId = searchParams.get('sessionId');
+  const [sessionExtensions, setSessionExtensions] = useState<string[]>();
+  const sessionReadVersion = useRef(0);
+  const refreshSession = useCallback(async () => {
+    const version = ++sessionReadVersion.current;
+    if (!sessionId) { setSessionExtensions(undefined); return; }
+    try {
+      const entries = await getSessionExtensions(sessionId);
+      if (version === sessionReadVersion.current) setSessionExtensions(entries.map(entry => entry.name));
+    } catch {
+      if (version === sessionReadVersion.current) setSessionExtensions(undefined);
+    }
+  }, [sessionId]);
+  useEffect(() => {
+    const requestVersion = sessionReadVersion;
+    setSessionExtensions(undefined);
+    void refreshSession();
+    return () => { requestVersion.current++; };
+  }, [refreshSession, extensionsList]);
   const projectDir =
     typeof location.state?.toolboxProjectDir === 'string'
       ? location.state.toolboxProjectDir
@@ -436,6 +480,11 @@ export default function ToolboxView() {
   useEffect(() => {
     void refresh();
   }, [refresh, extensionsList]);
+  useEffect(() => {
+    const onFocus = () => { void refresh(); void refreshSession(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refresh, refreshSession]);
 
   const items = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -516,7 +565,7 @@ export default function ToolboxView() {
       const enabled = item.status === 'disabled';
       if (item.kind === 'skill') {
         const skill = managedSkillFor(item);
-        if (!skill || skill.readOnly) return;
+        if (!skill || (skill.readOnly && !skill.canToggle)) return;
         const preview = await previewSkillChange(
           {
             operation: 'set_enabled',
@@ -526,7 +575,10 @@ export default function ToolboxView() {
           },
           getInitialWorkingDir()
         );
-        if (preview.hasConflict || preview.requiresConfirmation) {
+        if (
+          preview.hasConflict ||
+          (preview.requiresConfirmation && skill.source.rootKind !== 'shared_user')
+        ) {
           setSkillRequest({ type: 'detail', skill });
           return;
         }
@@ -537,6 +589,9 @@ export default function ToolboxView() {
         await setExtensionEnabled(configKey, enabled);
       }
       await refresh();
+    } catch (error) {
+      if (skillManagementErrorReason(error) !== 'confirmation_cancelled')
+        setResult((current) => ({ ...current, warnings: [...current.warnings, String(error)] }));
     } finally {
       setTogglingId(undefined);
     }
@@ -551,6 +606,14 @@ export default function ToolboxView() {
           onOpen={openItem}
           onToggle={(entry) => void toggleItem(entry)}
           toggling={togglingId === item.id}
+          sessionControl={sessionId && (item.extensionSource || item.repositoryMembers) ?
+            (item.repositoryMembers ?? [item]).filter(member => member.extensionSource).map(member =>
+              <SessionToolAccess key={`${sessionId}:${member.id}`} sessionId={sessionId}
+                extension={member.extensionSource!}
+                enabled={member.status !== 'disabled'}
+                label={item.repositoryMembers ? member.name : undefined}
+                selected={sessionExtensions === undefined ? undefined : sessionExtensions.includes(member.extensionSource!.name)}
+                refresh={refreshSession} />) : undefined}
         />
       ))}
     </div>
@@ -595,6 +658,29 @@ export default function ToolboxView() {
     <MainPanelLayout>
       <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-12 lg:px-10">
         <div className="mx-auto max-w-6xl">
+          {sessionId && (
+            <section aria-label={intl.formatMessage({ id: 'toolbox.session.context', defaultMessage: 'Tools for this conversation' })}
+              className="mb-6 flex w-fit max-w-full flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border-primary bg-background-secondary px-4 py-3 text-sm">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-primary bg-background-primary text-text-secondary">
+                  <MessageSquare className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-text-primary">{intl.formatMessage({ id: 'toolbox.session.context', defaultMessage: 'Tools for this conversation' })}</p>
+                  <p className="mt-1 text-xs leading-5 text-text-secondary">{selectNativeText(intl.locale,
+                    'Add tools here, then return to the same conversation. No new chat needed.',
+                    '添加工具后可返回原对话使用，无需新建对话。',
+                    '新增工具後可返回原對話使用，無需建立新對話。')}</p>
+                </div>
+              </div>
+              <Button asChild variant="outline" size="sm" className="shrink-0 gap-2 bg-background-primary">
+                <Link to={`${location.pathname.startsWith('/codepro') ? '/codepro' : ''}/pair?resumeSessionId=${encodeURIComponent(sessionId)}`}>
+                  <ArrowLeft className="size-3.5" aria-hidden="true" />
+                  {intl.formatMessage({ id: 'toolbox.session.return', defaultMessage: 'Return to conversation' })}
+                </Link>
+              </Button>
+            </section>
+          )}
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -620,7 +706,7 @@ export default function ToolboxView() {
               )}
               <Button
                 variant="ghost"
-                onClick={() => void refresh()}
+                onClick={() => { void refresh(); void refreshSession(); }}
                 aria-label={intl.formatMessage(i18n.retry)}
               >
                 <RefreshCw className="size-4" />

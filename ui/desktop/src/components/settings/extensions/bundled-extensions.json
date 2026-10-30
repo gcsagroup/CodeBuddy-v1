@@ -18,7 +18,7 @@
     "type": "builtin",
     "env_keys": [],
     "timeout": 60,
-    "display_name": "Computer Use MCP",
+    "display_name": "Computer Use",
     "bundled": true
   },
   {

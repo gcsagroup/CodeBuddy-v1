@@ -21,6 +21,7 @@ import { createSession } from '../../sessions';
 import type { MessageDescriptor } from 'react-intl';
 import { recordCommonTaskSessionStarted } from '../../acp/capabilityUsage';
 import { PermissionPicker, useInitialPermissionPreset } from '../SessionPermissionSummary';
+import { readNewTaskDraft, updateNewTaskDraft, clearNewTaskDraft } from '../../utils/newTaskDraft';
 
 type CodeProSetupMessageKey =
   | 'workspaceInspectionFailed'
@@ -140,7 +141,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const navigate = useNavigate();
   const setView = useNavigation();
   const { extensionsList } = useConfig();
-  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset('codepro');
   const [extensionDraft, setExtensionDraft] = useState<NextChatExtensionDraft>();
   const draftForMenu = extensionDraft ?? createNextChatExtensionDraft(extensionsList);
   const sessionExtensions = useMemo(
@@ -155,9 +156,14 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   );
   // Keep an explicit folder choice separate from the host process directory and prior chats.
   // When absent, the host allocates a fresh workspace for this conversation.
-  const [workingDir, setWorkingDir] = useState(launchIntent?.workingDir ?? '');
+  const [workingDir, setWorkingDir] = useState(
+    () => launchIntent?.workingDir ?? readNewTaskDraft('codepro').workingDir ?? ''
+  );
   const [permissionOpenRequest, setPermissionOpenRequest] = useState(0);
   const [rootContainer, setRootContainer] = useState<string | null>(null);
+  useEffect(() => {
+    updateNewTaskDraft('codepro', { workingDir: workingDir || rootContainer || '' });
+  }, [workingDir, rootContainer]);
   const [isInspecting, setIsInspecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [setupError, setSetupError] = useState<CodeProSetupMessageKey | null>(null);
@@ -181,6 +187,11 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         intent.initialMessage ??
         (recipePrompt?.trim() ? { msg: recipePrompt, images: [] } : undefined);
       submissionLifecycleRef.current?.onAccepted();
+      clearNewTaskDraft('codepro');
+      // A user can return home before the conversation route finishes rendering.
+      // Do not leave that still-mounted composer locked in the creation state.
+      setIsCreating(false);
+      setDraftMessage('');
       submissionLifecycleRef.current = undefined;
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED, { detail: { session } }));
       window.dispatchEvent(
@@ -436,6 +447,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
                 chatState={ChatState.Idle}
                 onStop={() => {}}
                 initialValue={draftMessage}
+                newTaskDraftKey="codepro"
                 setView={setView}
                 totalTokens={0}
                 accumulatedInputTokens={0}

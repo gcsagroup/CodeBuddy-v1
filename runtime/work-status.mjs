@@ -2,6 +2,8 @@
 // alone cannot establish whether the user's network or the service is at fault.
 function requestFailureMessage(failure, observation) {
   const status = observation?.status;
+  if (status === 400 || status === 422) return `模型服务拒绝了请求参数（HTTP ${status}）。请在模型连接设置中检查 API 基础路径、工具调用支持和思考强度`;
+  if (status === 404) return '模型或 API 路径不存在，或当前账号无权访问（HTTP 404）。请检查模型名称和 API 基础路径';
   if (status === 401) return '模型服务未通过身份验证（HTTP 401）';
   if (status === 403) return '模型服务拒绝访问（HTTP 403）';
   if (status === 429) return '模型服务限制了请求（HTTP 429）';
@@ -24,6 +26,7 @@ function requestFailureMessage(failure, observation) {
     TIMEOUT: '模型请求超时，原因尚未确认',
     TRANSPORT: '模型连接发生错误，原因尚未确认',
     CONTEXT_WINDOW_EXCEEDED: '模型服务报告上下文超出限制',
+    INVALID_REQUEST: '模型服务拒绝了请求。请检查模型、API 基础路径、工具调用支持和思考强度',
   })[failure?.code] ?? '请求失败，具体原因尚未确认';
 }
 

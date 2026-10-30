@@ -462,6 +462,14 @@ async function submitMessage(
       void options.onFinish();
       return;
     }
+    const stopError = response.stopReason === 'max_tokens'
+      ? '模型因输出长度限制结束，本轮未正常完成。已执行的操作请先核对，再决定是否继续。'
+      : undefined;
+    if (stopError) {
+      if (acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId, stopError))
+        void options.onFinish(stopError);
+      return;
+    }
     if (!acpChatSessionActions.finishPromptAttemptIfCurrent(sessionId, promptAttemptId)) {
       return;
     }

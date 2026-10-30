@@ -143,6 +143,9 @@ export type ActionRequiredData =
       permissionClass?: ToolPermissionClass;
       extensionSource?: ToolExtensionSource;
       authorizationScope?: ToolAuthorizationScope;
+      authorizationGroup?: 'computer_control' | 'mcp_module' | 'web_read';
+      authorizationModule?: { name: string; displayName: string };
+      authorizationTarget?: string;
       taskWorkspaceRoot?: string;
       businessApproval?: BusinessApproval;
       availableActions?: ToolPermissionAction[];
@@ -219,6 +222,7 @@ export type MessageUsage = {
 };
 
 export type MessageMetadata = {
+  desktopGeneration?: string;
   goalRequest?: GoalRequest;
   planMode?: boolean;
   agentVisible: boolean;
@@ -303,6 +307,7 @@ export interface ImageData {
 }
 
 export interface UserInput {
+  desktopGeneration?: string;
   msg: string;
   images: ImageData[];
   goalRequest?: GoalRequest;
@@ -436,6 +441,9 @@ export interface ToolConfirmationData {
   permissionClass?: ToolPermissionClass;
   extensionSource?: ToolExtensionSource;
   authorizationScope?: ToolAuthorizationScope;
+  authorizationGroup?: 'computer_control' | 'mcp_module' | 'web_read';
+  authorizationModule?: { name: string; displayName: string };
+  authorizationTarget?: string;
   taskWorkspaceRoot?: string;
   businessApproval?: BusinessApproval;
   availableActions?: ToolPermissionAction[];
@@ -462,6 +470,9 @@ export function getAnyToolConfirmationData(message: Message): ToolConfirmationDa
       permissionClass: actionRequired.data.permissionClass,
       extensionSource: actionRequired.data.extensionSource,
       authorizationScope: actionRequired.data.authorizationScope,
+      authorizationGroup: actionRequired.data.authorizationGroup,
+      authorizationModule: actionRequired.data.authorizationModule,
+      authorizationTarget: actionRequired.data.authorizationTarget,
       taskWorkspaceRoot: actionRequired.data.taskWorkspaceRoot,
       businessApproval: actionRequired.data.businessApproval,
       availableActions: actionRequired.data.availableActions,

@@ -208,6 +208,9 @@ export function useNavigationSessions() {
         } else {
           navigate(withWorkspaceMode('/', workspaceMode));
         }
+      } else if (path === '/toolbox') {
+        const sessionId = activeSessionId || new URLSearchParams(location.search).get('sessionId');
+        navigate(withWorkspaceMode(`${path}${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`, workspaceMode));
       } else if (path === '/settings') {
         navigate(withWorkspaceMode(path, workspaceMode), {
           state: { backgroundLocation: location },
@@ -216,7 +219,7 @@ export function useNavigationSessions() {
         navigate(withWorkspaceMode(path, workspaceMode));
       }
     },
-    [navigate, currentSessionId, chatContext?.chat?.sessionId, workspaceMode, location]
+    [navigate, currentSessionId, activeSessionId, chatContext?.chat?.sessionId, workspaceMode, location]
   );
 
   const handleSessionClick = useCallback(

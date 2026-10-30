@@ -13,6 +13,7 @@ import { ChatState } from '../../types/chatState';
 import { getHostProcessWorkingDir } from '../../utils/workingDir';
 import { AppEvents } from '../../constants/events';
 import { CodeProHub } from './CodeProHub';
+import { clearNewTaskDraft } from '../../utils/newTaskDraft';
 import { readPreferences } from '../../acp/preferences';
 import type { FixedExtensionEntry } from '../ConfigContext';
 
@@ -119,6 +120,7 @@ const session = {
 
 describe('CodeProHub', () => {
   beforeEach(() => {
+    clearNewTaskDraft('codepro');
     configFixture.extensions = [];
     vi.clearAllMocks();
     vi.mocked(readPreferences).mockResolvedValue({
@@ -154,9 +156,11 @@ describe('CodeProHub', () => {
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
     expect(await screen.findByText('Workspace write')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Submit development goal' }));
-    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledWith(
-      expect.objectContaining({ initialPermissionPreset: 'workspace-write' })
-    ));
+    await waitFor(() =>
+      expect(startCodeProSession).toHaveBeenCalledWith(
+        expect.objectContaining({ initialPermissionPreset: 'workspace-write' })
+      )
+    );
   });
 
   it('passes the chosen approval mode to the new task before its first prompt', async () => {
@@ -430,14 +434,20 @@ describe('CodeProHub', () => {
       <CodeProHub
         launchIntent={{
           initialMessage: { msg: '/demo ', images: [] },
+          draftOnly: true,
           noAutoSubmit: true,
           workingDir: 'D:\\SkillProject',
         }}
       />,
       { wrapper: IntlTestWrapper }
     );
-    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
+    await act(async () => {});
+    expect(screen.getByTestId('draft-message')).toHaveTextContent('/demo');
+    expect(startCodeProSession).not.toHaveBeenCalled();
+    expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
     expect(window.electron.defaultCodeProWorkspacePath).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Submit development goal' }));
+    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(window.electron.inspectCodeProWorkspace).toHaveBeenCalledWith({
       prompt: '',
       selectedWorkingDir: 'D:\\SkillProject',

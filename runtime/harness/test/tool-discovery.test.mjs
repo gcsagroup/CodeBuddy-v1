@@ -1,13 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {mkdtemp} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHarnessDriver} from '../index.mjs';
 
 // Load native SDK consumers after the same serialized bootstrap as the driver.
 const {installToolDiscovery, projectOptionalValues} = await import('../tool-discovery.mjs');
+
+test('a failed undiscovered native call exposes its schema without replaying or granting execution', {timeout:60000}, async t => {
+ const shell=process.platform==='win32'?'pwsh':'bash', requests=[];
+ const server=http.createServer(async(req,res)=>{
+  let raw='';for await(const chunk of req)raw+=chunk;
+  const request=JSON.parse(raw);requests.push(request);
+  const user=request.messages.findLastIndex(message=>message.role==='user');
+  const results=request.messages.slice(user+1).filter(message=>message.role==='tool');
+  res.writeHead(200,{'content-type':'text/event-stream'});
+  const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'schema-repair',object:'chat.completion.chunk',created:1,model:request.model,choices:[{index:0,delta,finish_reason}]})}\n\n`);
+  if(results.length<2){
+   const args={command:'echo DISCOVERY_SCHEMA_OK >> proof.txt',...(results.length?{description:'Write the isolated regression marker once'}:{})};
+   emit({tool_calls:[{index:0,id:'shell-'+results.length,type:'function',function:{name:shell,arguments:JSON.stringify(args)}}]});emit({},'tool_calls');
+  }else{emit({content:'done'});emit({},'stop');}
+  res.end('data: [DONE]\n\n');
+ });
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const root=await mkdtemp(path.join(tmpdir(),'harness-schema-repair-'));
+ const driver=await createHarnessDriver({dataDir:path.join(root,'state'),cwd:root});
+ t.after(async()=>{await driver.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));});
+ for(const allow of [true,false]){
+  const cwd=path.join(root,allow?'allowed':'denied');await mkdir(cwd);
+  const session=await driver.createSession({cwd,provider:{id:'fixture',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,contextWindow:65536},model:'fixture'});
+  const start=requests.length, approvals=[];
+  await driver.prompt(session.sessionId,'Run the isolated schema repair fixture',{
+   onToolPolicy:()=>({kind:'ask'}),onPermission:async({name})=>{approvals.push(name);return allow;},
+  });
+  const turns=requests.slice(start);
+  assert.equal(turns[0].tools.some(tool=>tool.function.name===shell),false);
+  const schema=turns[1].tools.find(tool=>tool.function.name===shell)?.function.parameters;
+  assert.ok(schema?.required.includes('description'),'validation failure must reveal the canonical required field on the next request');
+  assert.deepEqual(approvals,[shell,shell],'both proposals retain the normal execution approval gate');
+  if(allow)assert.equal((await readFile(path.join(cwd,'proof.txt'),'utf8')).trim(),'DISCOVERY_SCHEMA_OK','invalid calls are not dispatched or replayed');
+  else await assert.rejects(readFile(path.join(cwd,'proof.txt')), {code:'ENOENT'});
+ }
+});
+
+test('result-driven discovery respects agent and registry boundaries', async()=>{
+ let catalog=[{name:'bash',parameters:{type:'object'}}];const hooks=new Map();
+ const ctx={tools:{schemas:()=>catalog,get(){},register(){}},systemPrompt:{section(){}},on(name,hook){hooks.set(name,hook);}};
+ const agent={id:'owner',session:{requestHeader:()=>undefined}};
+ installToolDiscovery(ctx,agent);
+ const assemble=()=>hooks.get('system-prompt/assemble')({}, {}, async()=>({tools:catalog}));
+ hooks.get('tools/result')({agent:{id:'peer'},name:'bash'},{isError:true});
+ assert.deepEqual((await assemble()).tools,[]);
+ hooks.get('tools/result')({agent,name:'bash'},{isError:true});
+ assert.deepEqual((await assemble()).tools,catalog);
+ catalog=[];
+ assert.deepEqual((await assemble()).tools,[],'remembered selection cannot restore a revoked tool');
+});
 
 test('Ollama optional-value declarations preserve required nulls, payload data and the registry', async () => {
  const parameters = {type:'object',properties:{
@@ -161,7 +211,10 @@ test('MCP discovery reduces first request, loads callable schemas, preserves per
  assert.doesNotMatch(JSON.stringify(requests.at(-1).messages),/SERVER_GUIDANCE_ONLY_WHEN_LOADED/);
  assert.ok(JSON.stringify(requests.at(-1)).length<50000);
  assert.equal((await driver.listTools(a.sessionId)).filter(x=>x.name.startsWith('mcp__')).length,200);
- await driver.prompt(a.sessionId,'discover verification marker',{onPermission:async()=>true});
+ const events=[];
+ await driver.prompt(a.sessionId,'discover verification marker',{onPermission:async()=>true,onEvent:event=>events.push(event)});
+ assert.ok(events.some(event=>event.type==='tool_call'&&event.name==='search_mcp_tools'&&event.internalControl), 'Schema discovery remains an internal receipt, not a project operation');
+ assert.ok(events.some(event=>event.type==='tool_call'&&event.name==='mcp__catalog__tool_137'&&!event.internalControl), 'The discovered tool execution remains visible');
  assert.ok(calls.includes('tool_137'));
  assert.match(JSON.stringify(requests.at(-1).messages),/SERVER_GUIDANCE_ONLY_WHEN_LOADED/);
  assert.equal(requests.at(-1).tools.filter(x=>x.function.name.startsWith('mcp__')).length,1);

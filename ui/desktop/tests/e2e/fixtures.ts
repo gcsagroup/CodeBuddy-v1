@@ -486,6 +486,7 @@ type GooseTestFixtures = {
   isolatedProfileRoot: string;
   initialWorkingDir: string;
   executablePathPrefix: string;
+  commandPathOverride: string | undefined;
   registerArtifactCleanup: (path: string) => void;
 };
 
@@ -494,6 +495,7 @@ export const test = base.extend<GooseTestFixtures>({
   storageFixtureMode: ['fresh', { option: true }],
   initialWorkingDir: ['', { option: true }],
   executablePathPrefix: ['', { option: true }],
+  commandPathOverride: [undefined, { option: true }],
 
   registerArtifactCleanup: async ({}, use) => {
     const paths: string[] = [];
@@ -528,6 +530,7 @@ export const test = base.extend<GooseTestFixtures>({
       isolatedProfileRoot,
       initialWorkingDir,
       executablePathPrefix,
+      commandPathOverride,
       registerArtifactCleanup: _registerArtifactCleanup,
     },
     use,
@@ -703,6 +706,11 @@ export const test = base.extend<GooseTestFixtures>({
       }
     }
 
+    if (commandPathOverride !== undefined) {
+      for (const key of Object.keys(childEnvironment))
+        if (key.toLowerCase() === 'path') delete childEnvironment[key];
+      childEnvironment.PATH = commandPathOverride;
+    }
     if (executablePathPrefix) {
       childEnvironment.PATH = [executablePathPrefix, childEnvironment.PATH]
         .filter(Boolean)
@@ -711,12 +719,14 @@ export const test = base.extend<GooseTestFixtures>({
 
     const debugPort = await allocateLoopbackPort();
     childEnvironment.PLAYWRIGHT_DEBUG_PORT = String(debugPort);
+    childEnvironment.CODEBUDDY_PREVIEW_DEVTOOLS_PORT = String(debugPort);
+    childEnvironment.CODEBUDDY_NODE = process.execPath;
 
     const command =
       process.platform === 'win32'
         ? {
-            executable: childEnvironment.ComSpec ?? 'cmd.exe',
-            args: ['/d', '/s', '/c', 'pnpm run start-gui'],
+            executable: 'powershell.exe',
+            args: ['-NoProfile', '-File', join(__dirname, '../../../../start-preview.ps1')],
           }
         : {
             executable: 'pnpm',

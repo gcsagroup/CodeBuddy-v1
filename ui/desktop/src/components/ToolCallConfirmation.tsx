@@ -240,6 +240,9 @@ export default function ToolConfirmation({
     permissionClass = 'legacy',
     extensionSource = 'unknown',
     authorizationScope = 'unknown',
+    authorizationGroup,
+    authorizationModule,
+    authorizationTarget,
     taskWorkspaceRoot,
     businessApproval,
     availableActions,
@@ -340,6 +343,9 @@ export default function ToolConfirmation({
           permissionClass,
           authorizationScope,
           businessApproval,
+          authorizationGroup,
+          authorizationModule,
+          authorizationTarget,
           availableActions: filteredActions,
         }}
       />

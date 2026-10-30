@@ -100,9 +100,9 @@ function PageViewTracker() {
 }
 
 // Route Components
-const HubRouteWrapper = () => {
+const HubRouteWrapper = (props: { initialValue?: string; initialWorkingDir?: string }) => {
   const setView = useNavigation();
-  return <Hub setView={setView} />;
+  return <Hub setView={setView} {...props} />;
 };
 
 export function resolveSessionInitialMessage(
@@ -159,11 +159,11 @@ export const PairRouteWrapper = ({
   const hasFreshCodeProLaunchIntent =
     workspaceMode === 'codepro' &&
     !resumeSessionId &&
-    Boolean(initialMessage || recipeDeeplink || recipeId);
+    Boolean(initialMessage || recipeDeeplink || recipeId || routeState.draftOnly);
 
   // Create session if we have an initialMessage, recipeDeeplink, or recipeId but no sessionId
   useEffect(() => {
-    if (hasFreshCodeProLaunchIntent) return;
+    if (hasFreshCodeProLaunchIntent || routeState.draftOnly) return;
     if (
       (initialMessage || recipeDeeplink || recipeId) &&
       !resumeSessionId &&
@@ -233,6 +233,7 @@ export const PairRouteWrapper = ({
     workspaceMode,
     hasFreshCodeProLaunchIntent,
     launchWorkingDir,
+    routeState.draftOnly,
   ]);
 
   // Add resumed session to active sessions if not already there
@@ -262,6 +263,16 @@ export const PairRouteWrapper = ({
           noAutoSubmit,
           ...(launchWorkingDir ? { workingDir: launchWorkingDir } : {}),
         }}
+      />
+    );
+  }
+
+  if (routeState.draftOnly && !resumeSessionId) {
+    return (
+      <HubRouteWrapper
+        key={location.key}
+        initialValue={initialMessage?.msg}
+        initialWorkingDir={launchWorkingDir}
       />
     );
   }
@@ -714,7 +725,13 @@ export function AppInner() {
   }, [codeProUnifiedMode, navigate, isSettingsRoute, settingsBackgroundLocation, location]);
 
   useEffect(() => {
-    const handleNewChat = (_event: IpcRendererEvent, ..._args: unknown[]) => {
+    const handleNewChat = (_event: IpcRendererEvent, directory?: unknown) => {
+      if (typeof directory === 'string' && directory.trim()) {
+        navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
+          state: { draftOnly: true, workingDir: directory, noAutoSubmit: true },
+        });
+        return;
+      }
       navigate(resolveCodeProEntryPath('/', codeProUnifiedMode));
     };
 

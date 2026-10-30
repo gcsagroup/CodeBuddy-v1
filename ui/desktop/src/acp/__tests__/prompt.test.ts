@@ -53,6 +53,19 @@ describe('messageToAcpPromptContent', () => {
 });
 
 describe('acpPromptSession', () => {
+  it('preserves the queued desktop fence as metadata without changing task content', async () => {
+    const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
+    vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);
+    await acpPromptSession('parent', {
+      id: 'queued', role: 'user', created: 1,
+      content: [{ type: 'text', text: 'Observe then write my file' }],
+      metadata: { userVisible: true, agentVisible: true, desktopGeneration: 'before-escape' },
+    });
+    expect(prompt).toHaveBeenCalledWith(expect.objectContaining({
+      prompt: [{ type: 'text', text: 'Observe then write my file' }],
+      _meta: expect.objectContaining({ 'codebuddy/desktop-generation': 'before-escape' }),
+    }));
+  });
   it('sends a display anchor only as metadata, never as model prompt content', async () => {
     const prompt = vi.fn().mockResolvedValue({ stopReason: 'end_turn' });
     vi.mocked(getAcpClient).mockResolvedValue({ prompt } as never);

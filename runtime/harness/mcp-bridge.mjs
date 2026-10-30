@@ -16,14 +16,40 @@ import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
   allowedTools: Schema.union([Schema.const(null), Schema.array(String)]).default(null),
+  selectedTools: Schema.union([Schema.const(null), Schema.array(String)]).default(null),
   deniedTools: Schema.array(String).default([]),
+  displayName: Schema.string().default(''),
+  sessionApprovalScope: Schema.union(['tool', 'module']).default('tool'),
 })));
 export const name = 'codebuddy-mcp-client', inject = ['tools'];
 const scopes = new WeakMap(), receipts = new Map();
+const desktopReceipts = new WeakMap();
+// Preserve native facts before upstream converts an MCP error into plain Error.
+// Each invocation is consumed once; this transport layer makes no policy decision.
+export function takeDesktopControlReceipt(exec) {
+  const receipt = desktopReceipts.get(exec);
+  desktopReceipts.delete(exec);
+  return receipt;
+}
 const clone = value => structuredClone(value);
 const MAX_META_BYTES = 16 * 1024 * 1024;
 
 export const mcpConnectionStatus = (scope, serverName) => scopes.get(scope)?.get(serverName)?.status;
+
+function renewApprovalGroup(entry, serverName, displayName) {
+  const group = Object.freeze({ kind: 'mcp_module', name: serverName, displayName: displayName?.trim().slice(0, 160) || serverName, identity: Object.freeze({}) });
+  entry.approvalGroup = group;
+  for (const bindings of [entry.approvals, entry.resourceApprovals])
+    for (const [name, binding] of bindings) bindings.set(name, { ...binding, group });
+  return group;
+}
+
+// Revoke only the edited module, including late answers against still-leased
+// connections. Connection disposal and reconnect remain owned by the registry.
+export function invalidateMcpApprovals(scope, matches) {
+  for (const [name, entry] of scopes.get(scope) ?? [])
+    if (matches(name) && entry.approvalGroup) renewApprovalGroup(entry, name, entry.approvalGroup.displayName);
+}
 
 function sessionExpired(error) {
   if (!(error instanceof SdkHttpError)) return false;
@@ -132,11 +158,13 @@ export async function apply(ctx, config) {
       if (disposed || generation !== current || current.down) return;
       const definitions = new Map(), metadata = new Map(), approvals = new Map(), snapshots = new Map();
       for (const tool of response.tools) {
+        // User selection uses server-native names; role filters below use public names.
+        if (config.selectedTools !== null && config.selectedTools !== undefined && !config.selectedTools.includes(tool.name)) continue;
         const name = publicName(config.serverName, tool.name), mcpApp = appMetadata(config.serverName, tool);
         if ((allowedTools !== null && !allowedTools.includes(name)) || deniedTools.includes(name)) continue;
         if (definitions.has(name)) throw Error(`Duplicate MCP tool: ${tool.name}`);
-        // An unrelated list update must not revoke an unchanged tool's grant.
-        // Reconnects and any definition/metadata change still get a new identity.
+        // Reuse unchanged definitions within this connection. Module consent
+        // below still follows the entire catalog, including added/removed tools.
         const previous = entry.snapshots.get(name);
         if (previous?.current === current && isDeepStrictEqual(previous.source, tool)) {
           definitions.set(name, previous.definition);
@@ -152,7 +180,12 @@ export async function apply(ctx, config) {
             if (!live(current)) throw Error(`MCP server ${config.serverName} is disconnected`);
             const metadata = await ctx.get('codebuddyMcpRequestMetadata')?.get(config.serverName, exec);
             const raw = await current.client.callTool({ name: tool.name, arguments: args, ...(metadata ? { _meta: metadata } : {}) }, { signal: exec.signal, timeout, toolDefinition: tool });
+            // Takeover fences observation too, before an auxiliary vision model
+            // can receive a screenshot returned by an already-running request.
+            if (config.serverName === 'qwen_computer') await ctx.get('codebuddyMcpRequestMetadata')?.get(config.serverName, exec);
             const parsed = specTypeSchemas.CallToolResult['~standard'].validate(raw);
+            if (!parsed.issues && config.serverName === 'qwen_computer')
+              desktopReceipts.set(exec, clone(parsed.value.structuredContent?.desktop_control));
             if (!parsed.issues && !parsed.value.isError) {
               const result = parsed.value;
               if (Buffer.byteLength(JSON.stringify(result)) > MAX_META_BYTES) throw Error('MCP tool result exceeds the host app limit');
@@ -189,6 +222,18 @@ export async function apply(ctx, config) {
           extensionSource: config.transport === 'streamable-http' ? 'external_http' : 'external_stdio',
         });
       }
+      if (config.sessionApprovalScope === 'module') {
+        // A module grant covers this exact live catalog, never a future tool or
+        // a same-name replacement connection. Unchanged refreshes retain it.
+        const unchanged = entry.approvalGeneration === current && snapshots.size === entry.snapshots.size &&
+          [...snapshots].every(([name, snapshot]) => entry.snapshots.get(name) === snapshot);
+        const group = unchanged && entry.approvalGroup ? entry.approvalGroup :
+          renewApprovalGroup(entry, config.serverName, config.displayName);
+        entry.approvalGroup = group;
+        entry.approvalGeneration = current;
+        for (const [name, binding] of approvals)
+          if (binding.group !== group) approvals.set(name, { ...binding, group });
+      }
       clearTools();
       try { for (const definition of definitions.values()) registrations.push(ctx.tools.register(definition)); entry.tools = metadata; entry.approvals = approvals; entry.snapshots = snapshots; }
       catch (error) { clearTools(); throw error; }
@@ -213,6 +258,7 @@ export async function apply(ctx, config) {
   function disconnected(current) {
     if (disposed || generation !== current || current.down) return;
     current.down = true; current.ready = false; instructions = '';
+    clearTools();
     entry.status = 'error';
     if (connectedAt && Date.now() - connectedAt >= policy.maxDelayMs) failures = 0;
     connectedAt = undefined;
@@ -254,6 +300,7 @@ export async function apply(ctx, config) {
       current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution; entry.status = 'ready';
       entry.resourceApprovals = new Map([...entry.resourceDefinitions].map(([name, definition]) => [name, {
         definition, identity: Object.freeze({}), live: () => live(current),
+        group: entry.approvalGroup,
         extensionSource: config.transport === 'streamable-http' ? 'external_http' : 'external_stdio',
       }]));
     } catch (error) {

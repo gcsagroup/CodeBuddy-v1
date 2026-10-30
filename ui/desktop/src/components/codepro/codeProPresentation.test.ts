@@ -74,7 +74,7 @@ describe('CodePro locale presentation', () => {
   });
 
   it('formats activity summaries without changing technical targets', () => {
-    expect(formatCodeProActivitySummary(enIntl, activity)).toBe('Run pnpm test · Failed');
+    expect(formatCodeProActivitySummary(enIntl, activity)).toBe('Run pnpm test Failed');
     expect(formatCodeProActivitySummary(zhIntl, activity)).toBe('运行 pnpm test · 失败');
     expect(formatCodeProActivitySummary(enIntl, activity)).toContain('pnpm test');
   });
@@ -115,7 +115,7 @@ describe('CodePro locale presentation', () => {
         ...activity,
         failureKind: 'outside_workspace',
       })
-    ).toBe('Run pnpm test · Waiting for workspace authorization');
+    ).toBe('Run pnpm test Waiting for workspace authorization');
     expect(formatCodeProFailureKind(enIntl, 'policy_denied')).toBe('Action needs adjustment');
   });
 

@@ -8,6 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import SuspenseLoader from './suspense-loader';
 import { applyThemeTokens } from './theme/theme-tokens';
 import { currentLocale, currentMessageLocale, loadMessages } from './i18n';
+import { initializeNewTaskDrafts } from './utils/newTaskDraft';
 
 // Apply theme tokens to :root before first paint.
 applyThemeTokens();
@@ -33,7 +34,10 @@ function handleIntlError(err: { code: string; message?: string }) {
     ReactDOM.createRoot(document.getElementById('root')!).render(<DesktopPet />);
     return;
   }
-  const messages = await loadMessages(currentMessageLocale);
+  const [messages] = await Promise.all([
+    loadMessages(currentMessageLocale),
+    initializeNewTaskDrafts(),
+  ]);
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

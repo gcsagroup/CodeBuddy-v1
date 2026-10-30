@@ -109,6 +109,19 @@ test('cancelled requests cannot publish late activity or execution conclusions',
   assert.deepEqual(project({ type: 'subagent_start', sessionId: 'parent', childSessionId: 'late' }), []);
 });
 
+test('request errors give provider-neutral configuration guidance without leaking upstream messages', () => {
+  for (const status of [400, 404, 422]) {
+    const project = workStatusUpdates({ sessionId: 'parent' });
+    project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'end', status });
+    const [result] = project({ type: 'harness_event', sessionId: 'parent', event: {
+      type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'INVALID_REQUEST', message: 'PRIVATE_TOKEN' } } },
+    } });
+    assert.match(result.status.message, new RegExp(`HTTP ${status}`));
+    assert.match(result.status.message, /API 基础路径/);
+    assert.doesNotMatch(result.status.message, /PRIVATE_TOKEN|OpenAI|原因尚未确认/);
+  }
+});
+
 test('image observation stages share the existing activity channel and retain child and cancellation facts', () => {
   let runId = 'preparation'; const controller = new AbortController();
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: () => runId, signal: controller.signal });

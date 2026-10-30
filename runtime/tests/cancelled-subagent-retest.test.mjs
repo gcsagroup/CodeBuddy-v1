@@ -173,7 +173,7 @@ for (const [restart, customTemplate] of [[false, false], [true, false], [true, t
   assert.deepEqual(f.failures, []);
 });
 
-test('immediate cancellation retires only its unclaimed prompt and returns a native terminal before a new user turn', { timeout: 30_000 }, async t => {
+test('cancellation during host preparation starts no native turn and cannot leak into a new user turn', { timeout: 30_000 }, async t => {
   const f = await fixture(t);
   const controller = new AbortController();
   const pending = f.driver.prompt(f.sessionId, 'PARENT_DELEGATE_RETEST', { requestId: 'cancelled-admission', signal: controller.signal });
@@ -181,7 +181,7 @@ test('immediate cancellation retires only its unclaimed prompt and returns a nat
   assert.equal((await pending).stopReason, 'cancelled');
   assert.equal(f.requests.length, 0);
   const history = await f.driver.history(f.sessionId);
-  assert.ok(history.events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted'));
+  assert.equal(history.events.some(event => event.type === 'turn/start'), false, 'Pre-admission cancellation must not manufacture a native turn');
   await f.driver.prompt(f.sessionId, 'FRESH_USER_TURN: no old task is authorized.', { onPermission: () => true });
   assert.equal(f.requests[0].fresh, true);
   assert.ok(!JSON.stringify(f.requests[0].body.messages).includes('PARENT_DELEGATE_RETEST'), 'The cancelled unclaimed task cannot execute in a later turn');

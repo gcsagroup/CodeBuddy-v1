@@ -45,7 +45,7 @@ describe('toolbox localization', () => {
     });
     expect(model.capabilities).toHaveLength(1);
     const item = localizeToolboxItem(model.capabilities[0], intl);
-    expect(item.name).toBe('电脑控制');
+    expect(item.name).toBe('Computer Use');
     expect(item.description).toBe('观察和控制桌面应用。');
     expect(item.description).not.toContain('MCP');
     expect(item.extensionSource?.name).toBe('qwen_computer');

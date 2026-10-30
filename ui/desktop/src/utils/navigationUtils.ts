@@ -111,12 +111,17 @@ export const createNavigationHandler = (
       case 'skills':
         navigateWithinWorkspace('/skills', options);
         break;
-      case 'toolbox':
+      case 'toolbox': {
+        const toolboxParams = new URLSearchParams();
+        if (options?.toolboxItemId) toolboxParams.set('item', options.toolboxItemId);
+        const toolboxSession = options?.resumeSessionId || new URLSearchParams(currentLocation?.search).get('resumeSessionId');
+        if (toolboxSession) toolboxParams.set('sessionId', toolboxSession);
         navigateWithinWorkspace(
-          `/toolbox${options?.toolboxItemId ? `?item=${encodeURIComponent(options.toolboxItemId)}` : ''}`,
+          `/toolbox${toolboxParams.size ? `?${toolboxParams}` : ''}`,
           options
         );
         break;
+      }
       case 'permission':
         navigateWithinWorkspace('/permission', options);
         break;

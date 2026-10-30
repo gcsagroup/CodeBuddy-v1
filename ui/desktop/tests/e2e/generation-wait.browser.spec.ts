@@ -37,7 +37,12 @@ for (const kind of ['image', 'video']) {
       await expect(page.locator('img, video')).toHaveCount(0);
       await expect(page.getByTestId('generation-wait')).toBeVisible();
       await page.screenshot({ path: test.info().outputPath('generation-wait.png') });
+      await page.getByRole('button', { name: 'quiet', exact: true }).click();
+      await expect(page.getByTestId('generation-quiet')).toContainText('进度未更新 3 分');
+      await expect(page.getByText(/已等待 43 分/)).toBeVisible();
+      await page.screenshot({ path: test.info().outputPath('generation-quiet.png') });
       await page.getByRole('button', { name: 'queued', exact: true }).click();
+      await expect(page.getByTestId('generation-quiet')).toHaveCount(0);
       await expect(page.getByRole('progressbar')).toHaveCount(0);
       await expect(page.getByTestId('generation-wait')).toContainText('请稍候');
       for (const state of ['failed', 'cancelled']) {
@@ -69,6 +74,8 @@ for (const kind of ['image', 'video']) {
         `${server.resolvedUrls!.local[0]}tests/browser-fixtures/generation-wait.html?${kind}&dark`
       );
       await expect(page.getByTestId('generation-wait')).toBeVisible();
+      await page.getByRole('button', { name: 'quiet', exact: true }).click();
+      await expect(page.getByTestId('generation-quiet')).toBeVisible();
       await expect(page.locator('.generation-wait-sweep')).toHaveCSS('animation-name', 'none');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true

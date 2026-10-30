@@ -8,6 +8,7 @@ import { all_goose_modes } from './settings/mode/ModeSelectionItem';
 import { parseSessionMode } from '../utils/sessionMode';
 import { readPreferences } from '../acp/preferences';
 import { DropdownChevron } from './ui/DropdownChevron';
+import { readNewTaskDraft, updateNewTaskDraft, type NewTaskDraftKey } from '../utils/newTaskDraft';
 
 const i18n = defineMessages({
   projectContainer: {
@@ -105,9 +106,11 @@ type PermissionPreset = NonNullable<Session['goose_mode']>;
 
 // Before a session exists this is only a user draft. It becomes execution
 // authority after session/new returns the preset committed by DSH.
-export function useInitialPermissionPreset() {
-  const [preset, setPreset] = useState<PermissionPreset>();
-  const selected = useRef(false);
+export function useInitialPermissionPreset(key: NewTaskDraftKey) {
+  const [preset, setPreset] = useState<PermissionPreset | undefined>(() =>
+    parseSessionMode(readNewTaskDraft(key).permissionPreset)
+  );
+  const selected = useRef(Boolean(preset));
   useEffect(() => {
     let cancelled = false;
     void readPreferences(['gooseMode'])
@@ -127,6 +130,7 @@ export function useInitialPermissionPreset() {
     preset,
     (value: PermissionPreset) => {
       selected.current = true;
+      updateNewTaskDraft(key, { permissionPreset: value });
       setPreset(value);
     },
   ] as const;

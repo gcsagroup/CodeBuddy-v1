@@ -56,9 +56,9 @@ async function fixture(t) {
 }
 async function until(predicate) { for (let i = 0; i < 100 && !predicate(); i++) await delay(20); assert.ok(predicate(), 'fixture reached expected phase'); }
 
-test('MCP resource approvals are reusable per live server and operation, including template discovery', async t => {
+test('MCP resource approvals are reusable per live server, including template discovery', async t => {
   const { root, driver, session, mcp, calls } = await fixture(t);
-  const servers = [mcp, { ...mcp, serverName: 'other' }];
+  const servers = [mcp, { ...mcp, serverName: 'other' }].map(server => ({ ...server, sessionApprovalScope: 'module' }));
   const id = await session({ mcpServers: servers });
   const store = await openStore(path.join(root, 'approval-host'));
   const s = { id, cwd: root, extensions: [], mcpServers: servers.map(server => ({ name: server.serverName, url: server.url })) };
@@ -75,14 +75,13 @@ test('MCP resource approvals are reusable per live server and operation, includi
     } }, call.signal),
   });
   for (const name of ['list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource']) {
-    const before = questions.length;
     const first = await invoke(name);
     assert.equal(first.isError, false, JSON.stringify(first));
     assert.equal((await invoke(name)).isError, false);
-    assert.equal(questions.length, before + 1);
+    assert.equal(questions.length, 1);
     await driver.configureSession(id, { mcpServers: servers });
     assert.equal((await invoke(name)).isError, false);
-    assert.equal(questions.length, before + 1, 'Equivalent next-turn configuration preserves the resource grant');
+    assert.equal(questions.length, 1, 'Equivalent next-turn configuration preserves the resource grant');
   }
   choice = 'reject_once';
   const before = calls.filter(call => call.method === 'resources/read').length;
@@ -207,10 +206,10 @@ test('failed shared startup is not cached and later new sessions recover without
   assert.equal((await driver.extensionStatus(first))[0].status, 'ready');
 });
 
-test('unrelated MCP list refresh preserves an existing session grant, changed metadata revokes it', async t => {
-  const { root, driver, session, controls, streams } = await fixture(t);
+test('MCP catalog growth and changed metadata revoke module grants', async t => {
+  const { root, driver, session, controls, streams, mcp } = await fixture(t);
   controls.liveNotifications = true;
-  const id = await session();
+  const id = await session({ mcpServers: [{ ...mcp, sessionApprovalScope: 'module' }] });
   const store = await openStore(path.join(root, 'approval-store'));
   const s = { id, cwd: root, type: 'code_pro', workspaceBinding: 'writable_project', mcpServers: [{ name: 'chart', type: 'http', url: 'http://fixture' }] };
   await store.update(state => state.sessions.push(s));
@@ -230,12 +229,12 @@ test('unrelated MCP list refresh preserves an existing session grant, changed me
   for (let i = 0; i < 100; i++) { if ((await driver.listTools(id)).some(tool => tool.name === 'mcp__chart__extra')) break; await delay(20); }
   assert.ok((await driver.listTools(id)).some(tool => tool.name === 'mcp__chart__extra'));
   assert.equal((await invoke()).isError, false);
-  assert.equal(asked, 1, 'An unrelated added tool must not erase the unchanged tool grant');
+  assert.equal(asked, 2, 'A module grant must not silently expand to added tools');
   controls.noApp = true; refresh();
   for (let i = 0; i < 100; i++) { if (!(await driver.listTools(id)).find(tool => tool.name === 'mcp__chart__chart').mcpApp) break; await delay(20); }
   assert.equal((await driver.listTools(id)).find(tool => tool.name === 'mcp__chart__chart').mcpApp, undefined);
   assert.equal((await invoke()).isError, false);
-  assert.equal(asked, 2, 'Changed tool metadata requires a fresh explicit grant');
+  assert.equal(asked, 3, 'Changed tool metadata requires a fresh explicit grant');
 });
 
 test('shared MCP tool-list changes reach every restricted session without reconnecting or exposing disabled native tools', async t => {

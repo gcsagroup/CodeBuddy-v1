@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../harness/index.mjs';
-import { Config } from '../harness/mcp-bridge.mjs';
+const { Config } = await import('../harness/mcp-bridge.mjs');
 import { harnessMcpServer } from '../session-extensions.mjs';
 import { Compat } from '../compat.mjs';
 

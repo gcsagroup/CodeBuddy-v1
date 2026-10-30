@@ -32,7 +32,9 @@ export function workspaceLinkPath(value: string): string | undefined {
       if (url.hostname || url.search || url.hash) return undefined;
       return decodeURIComponent(url.pathname).replace(/^\/([a-z]:\/)/i, '$1');
     }
-    if (/^(?:[a-z]:[\\/]|\/(?!\/))/i.test(value)) return decodeURI(value);
+    // Markdown encodes Windows backslashes as %5C before URL transformation.
+    const decoded = decodeURI(value);
+    if (/^(?:[a-z]:[\\/]|\/(?!\/))/i.test(decoded)) return decoded;
     if (!value || /^(?:[\\/]|[a-z][a-z0-9+.-]*:)/i.test(value)) return undefined;
     const relative = new URL(value, 'file:///workspace/');
     if (relative.hostname || relative.search || relative.hash) return undefined;

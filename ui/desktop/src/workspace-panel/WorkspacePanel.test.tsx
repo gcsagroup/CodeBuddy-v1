@@ -465,6 +465,17 @@ it('isolates workbench tabs and drafts on route and workspace changes while keep
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('second chat draft');
 });
 
+it('shows an absolute Windows file path without prefixing the workspace again', async () => {
+  const filePath = String.raw`D:\fixture\note.txt`;
+  invoke.mockResolvedValue({ document: { path: filePath, content: 'original', version: 'v1' } });
+  const { scope } = panel();
+  fireEvent(window, new CustomEvent('codebuddy:open-workspace-file', {
+    detail: { sessionId: scope.sessionId, filePath },
+  }));
+  expect(await screen.findByText(filePath, { selector: 'span' })).toBeVisible();
+  expect(screen.queryByText(`${scope.root}/${filePath}`)).toBeNull();
+});
+
 it('invalidates retired child views after a confirmed edit, preserving file drafts and other chats', async () => {
   const { scope } = panel();
   fireEvent(

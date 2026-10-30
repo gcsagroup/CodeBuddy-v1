@@ -197,6 +197,10 @@ async function startPreview(options = {}) {
   const port = await reservePort();
   const secret = crypto.randomBytes(32).toString('hex');
   const env = previewEnvironment(repoRoot, port, secret, options.env, options.dataDirectory);
+  // Forge also checks Git before opening Electron. Prepare the shared child
+  // environment once so the desktop and Harness do not inherit different PATHs.
+  const { ensureGitEnvironment } = await import('../runtime/git-environment.mjs');
+  await ensureGitEnvironment(env);
   const logRoot = path.join(env.CODEBUDDY_HOME, 'logs', 'preview');
   fs.mkdirSync(logRoot, { recursive: true });
   fs.mkdirSync(env.CODEBUDDY_USER_DATA_DIR, { recursive: true });

@@ -8,6 +8,7 @@ export interface BusinessApproval {
 
 export const BUSINESS_SESSION_OPTION = 'allow_business_session';
 const computerTools = new Set([
+  'open_path',
   'click',
   'drag',
   'get_app_state',

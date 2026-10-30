@@ -206,6 +206,9 @@ export async function harnessMcpServer(
   if (server.command)
     return {
       serverName: server.name,
+      selectedTools: ext.available_tools?.length ? ext.available_tools : null,
+      ...(ext.display_name ? { displayName: ext.display_name } : {}),
+      sessionApprovalScope: 'module',
       toolCallTimeoutMs,
       transport: "stdio",
       cwd: server._meta?.cwd ? path.resolve(cwd, server._meta.cwd) : cwd,
@@ -245,7 +248,7 @@ export async function harnessMcpServer(
     features.add('mcp_apps_disable_form_deferral');
     headers[key] = [...features].join(',');
   }
-  return { serverName: server.name, toolCallTimeoutMs, transport: "streamable-http", url, headers };
+  return { serverName: server.name, selectedTools: ext.available_tools?.length ? ext.available_tools : null, ...(ext.display_name ? { displayName: ext.display_name } : {}), sessionApprovalScope: 'module', toolCallTimeoutMs, transport: "streamable-http", url, headers };
 }
 
 // Session preparation reports an unavailable extension through the existing

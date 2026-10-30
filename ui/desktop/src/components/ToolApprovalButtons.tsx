@@ -1,5 +1,6 @@
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Button } from './ui/button';
+import { localizePlatformExtension } from './settings/extensions/platformExtensionLocalization';
 import { formatToolAction } from './toolActionPresentation';
 import type { Permission } from '../types/permissions';
 import type {
@@ -42,6 +43,35 @@ const i18n = defineMessages({
     id: 'toolApprovalButtons.sessionAllowHint',
     defaultMessage:
       'Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice.',
+  },
+  allowWebRead: { id: 'toolApprovalButtons.allowWebRead', defaultMessage: 'Allow public web reading for this session' },
+  webReadAllowed: { id: 'toolApprovalButtons.webReadAllowed', defaultMessage: 'Public web reading allowed for this session' },
+  webReadHint: { id: 'toolApprovalButtons.webReadHint', defaultMessage: 'Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice.' },
+  allowNamed: {
+    id: 'toolApprovalButtons.allowNamed',
+    defaultMessage: 'Allow {name} for this session',
+  },
+  namedAllowed: {
+    id: 'toolApprovalButtons.namedAllowed',
+    defaultMessage: '{name} allowed for this session',
+  },
+  moduleHint: {
+    id: 'toolApprovalButtons.moduleHint',
+    defaultMessage:
+      'Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again.',
+  },
+  allowComputer: {
+    id: 'toolApprovalButtons.allowComputer',
+    defaultMessage: 'Allow computer control for this session',
+  },
+  computerAllowed: {
+    id: 'toolApprovalButtons.computerAllowed',
+    defaultMessage: 'Computer control allowed for this session',
+  },
+  computerHint: {
+    id: 'toolApprovalButtons.computerHint',
+    defaultMessage:
+      'All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice.',
   },
   deny: {
     id: 'toolApprovalButtons.deny',
@@ -103,6 +133,9 @@ export interface ToolApprovalData {
   isClicked?: boolean;
   permissionClass?: ToolPermissionClass;
   authorizationScope?: ToolAuthorizationScope;
+  authorizationGroup?: 'computer_control' | 'mcp_module' | 'web_read';
+  authorizationModule?: { name: string; displayName: string };
+  authorizationTarget?: string;
   availableActions?: ToolPermissionAction[];
   businessApproval?: BusinessApproval;
 }
@@ -116,6 +149,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
     isClicked: initialIsClicked,
     permissionClass = 'legacy',
     authorizationScope = 'unknown',
+    authorizationGroup,
+    authorizationModule,
+    authorizationTarget,
     availableActions = ['allow_once', 'deny_once'],
     businessApproval,
   } = data;
@@ -150,15 +186,38 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
       permissionClass !== 'legacy');
   const canAllowOnce = allowActionsVisible && actions.has('allow_once');
   const canAllowScope = allowActionsVisible && scopedLongTermAllow && actions.has('always_allow');
-  const scopeLabel = businessApproval
-    ? intl.formatMessage(i18n.allowBusiness, {
-        business: businessApprovalName(intl, businessApproval),
-      })
-    : intl.formatMessage(i18n.allowByScope, { scope: authorizationScope });
-  const scopeHint =
-    authorizationScope === 'session' && !businessApproval
-      ? intl.formatMessage(i18n.sessionAllowHint)
+  const webReadGroup = authorizationScope === 'session' && authorizationGroup === 'web_read' && permissionClass === 'read_only';
+  const computerGroup =
+    authorizationScope === 'session' && authorizationGroup === 'computer_control';
+  const moduleGroup =
+    authorizationScope === 'session' && authorizationGroup === 'mcp_module' && authorizationModule;
+  const localizedModule = moduleGroup
+    ? localizePlatformExtension({ type: 'platform', name: moduleGroup.name }, intl)
+    : undefined;
+  const moduleName = moduleGroup
+    ? (localizedModule?.name ?? moduleGroup.displayName)
+    : undefined;
+  const targetName = moduleGroup
+    ? localizedModule || moduleName === moduleGroup.name
+      ? moduleName
+      : moduleName + ' (' + moduleGroup.name + ')'
+    : authorizationScope === 'session' && authorizationTarget
+      ? authorizationTarget === toolName
+        ? formatToolAction(intl, toolName, {}, undefined, 'name')
+        : authorizationTarget
       : undefined;
+  const scopeLabel = businessApproval ? intl.formatMessage(i18n.allowBusiness, { business: businessApprovalName(intl, businessApproval) }) : webReadGroup ? intl.formatMessage(i18n.allowWebRead) : targetName
+    ? intl.formatMessage(i18n.allowNamed, { name: targetName })
+    : computerGroup
+      ? intl.formatMessage(i18n.allowComputer)
+      : intl.formatMessage(i18n.allowByScope, { scope: authorizationScope });
+  const scopeHint = businessApproval ? undefined : webReadGroup ? intl.formatMessage(i18n.webReadHint) : moduleGroup
+    ? intl.formatMessage(i18n.moduleHint, { name: targetName })
+    : computerGroup
+      ? intl.formatMessage(i18n.computerHint)
+      : authorizationScope === 'session'
+        ? intl.formatMessage(i18n.sessionAllowHint)
+        : undefined;
 
   const setResolvedDecision = (action: Permission) => {
     setApprovalState({ key: stateKey, decision: action, isClicked: true });
@@ -197,13 +256,13 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
   };
 
   if (!isPending && isClicked && decision) {
-    const scopedAllowed = businessApproval
-      ? intl.formatMessage(i18n.allowedBusiness, {
-          business: businessApprovalName(intl, businessApproval),
-        })
-      : intl.formatMessage(i18n.allowedByScope, {
-          scope: authorizationScope,
-        });
+    const scopedAllowed = businessApproval ? intl.formatMessage(i18n.allowedBusiness, { business: businessApprovalName(intl, businessApproval) }) : webReadGroup ? intl.formatMessage(i18n.webReadAllowed) : targetName
+      ? intl.formatMessage(i18n.namedAllowed, { name: targetName })
+      : computerGroup
+        ? intl.formatMessage(i18n.computerAllowed)
+        : intl.formatMessage(i18n.allowedByScope, {
+            scope: authorizationScope,
+          });
     const statusMessages: Record<Permission, string> = {
       allow_once: intl.formatMessage(i18n.allowedOnce),
       always_allow: scopedLongTermAllow ? scopedAllowed : intl.formatMessage(i18n.alwaysAllowed),
@@ -230,6 +289,9 @@ export default function ToolApprovalButtons({ data }: { data: ToolApprovalData }
 
   return (
     <>
+      {(moduleGroup || computerGroup || webReadGroup) && canAllowScope && (
+        <p className="mt-3 text-sm text-text-secondary">{scopeHint}</p>
+      )}
       <div
         className="flex flex-wrap items-center justify-end gap-2 mt-4"
         data-testid="tool-approval-actions"

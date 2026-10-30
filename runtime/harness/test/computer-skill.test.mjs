@@ -5,6 +5,25 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHarnessDriver } from '../index.mjs';
+const { installToolDiscovery } = await import('../tool-discovery.mjs');
+
+test('desktop skill revelation respects scoped registries and the originating agent', async () => {
+  const hooks = new Map();
+  const catalog = [{ name: 'mcp__qwen_computer__list_apps', parameters: { type: 'object' } }];
+  const agent = { id: 'observer', session: { requestHeader: () => undefined } };
+  const ctx = { tools: { schemas: () => catalog, register() {}, get() {} },
+    systemPrompt: { section() {} }, on: (name, fn) => hooks.set(name, fn) };
+  installToolDiscovery(ctx, agent);
+  const assemble = () => hooks.get('system-prompt/assemble')({}, {}, async () => ({ tools: catalog }));
+  const loaded = { value: { name: 'computer-use', provider: 'codebuddy-computer-skill' } };
+  hooks.get('tools/result')({ agent: { id: 'other' }, name: 'skill' }, loaded);
+  assert.equal((await assemble()).tools.length, 0, 'another agent cannot alter this observer');
+  hooks.get('tools/result')({ agent, name: 'skill' }, { ...loaded, isError: true });
+  assert.equal((await assemble()).tools.length, 0, 'failed skill loads reveal nothing');
+  hooks.get('tools/result')({ agent, name: 'skill' }, loaded);
+  assert.deepEqual((await assemble()).tools.map(tool => tool.name), ['mcp__qwen_computer__list_apps'],
+    'masked launch/input tools are not added to a restricted observer');
+});
 
 test('first request exposes the desktop skill; loading it preserves deferred tools and input permissions', { timeout: 60000 }, async t => {
   const requests = [], desktopCalls = [];
@@ -16,7 +35,7 @@ test('first request exposes the desktop skill; loading it preserves deferred too
       if (!('id' in message)) { res.writeHead(202).end(); return; }
       let result = {};
       if (message.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'desktop-fixture', version: '1' } };
-      if (message.method === 'tools/list') result = { tools: ['list_apps', 'get_app_state', 'press_key'].map(name => ({ name, description: 'Desktop window operation', inputSchema: { type: 'object', properties: {} } })) };
+      if (message.method === 'tools/list') result = { tools: ['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'].map(name => ({ name, description: 'Desktop window operation', inputSchema: name === 'drag' ? { type: 'object', properties: { app: { type: 'string' }, from_x: { type: 'number' }, from_y: { type: 'number' }, to_x: { type: 'number' }, to_y: { type: 'number' } }, required: ['app', 'from_x', 'from_y', 'to_x', 'to_y'] } : { type: 'object', properties: {} } })) };
       if (message.method === 'tools/call') { desktopCalls.push(message.params.name); result = { content: [{ type: 'text', text: 'fixture' }] }; }
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result })); return;
     }
@@ -42,6 +61,11 @@ test('first request exposes the desktop skill; loading it preserves deferred too
   assert.equal(requests.length, 2, 'model-selected skill completes within the first user turn');
   assert.match(JSON.stringify(requests[1].messages), /Tool exit code 0.*not completion evidence/);
   assert.equal(desktopCalls.length, 0, 'loading instructions does not perform desktop actions');
+  for (const name of ['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'])
+    assert.ok(requests[1].tools.some(tool => tool.function.name === `mcp__qwen_computer__${name}`), 'skill load removes the extra discovery round');
+  assert.deepEqual(requests[1].tools.find(tool => tool.function.name === 'mcp__qwen_computer__drag').function.parameters.required,
+    ['app', 'from_x', 'from_y', 'to_x', 'to_y'], 'the first post-skill model request receives the actual drag schema, not just its name');
+  assert.match(JSON.stringify(requests[1].messages), /Entry tool schemas are loaded/);
   assert.ok(requests[0].tools.some(tool => tool.function.name === 'skill'), 'first-turn instructions loader must be directly callable');
   assert.match(JSON.stringify(requests[0].messages), /computer-use.*Desktop computer use/);
   assert.match(JSON.stringify(requests[0].messages), /do not substitute shell UI scripts/);
@@ -59,5 +83,11 @@ test('first request exposes the desktop skill; loading it preserves deferred too
   await driver.callTool(sessionId, 'mcp__qwen_computer__list_apps', {}, { onPermission: async () => true });
   const denied = await driver.callTool(sessionId, 'mcp__qwen_computer__press_key', {}, { onPermission: async () => false });
   assert.equal(denied.isError, true);
+  const deniedLaunch = await driver.callTool(sessionId, 'mcp__qwen_computer__open_path', {}, { onPermission: async () => false });
+  assert.equal(deniedLaunch.isError, true, 'revealing a launch schema never grants launch permission');
   assert.deepEqual(desktopCalls, ['list_apps'], 'skill loading must not authorize input');
+  await driver.callTool(other.sessionId, 'skill', { name: 'computer-use' }, { onPermission: async () => true });
+  await driver.prompt(other.sessionId, '继续');
+  assert.match(JSON.stringify(requests.at(-1).messages), /no computer-control tools are available/);
+  assert.equal(requests.at(-1).tools.some(tool => tool.function.name.startsWith('mcp__qwen_computer__')), false, 'offline skill never creates a connection');
 });

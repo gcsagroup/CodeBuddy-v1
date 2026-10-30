@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "Eliminar credencial"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "Credencial eliminada"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "¿Eliminar la credencial {name} de {provider}?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "Eliminar credencial"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "Credencial eliminada"
   },
   "authSettings.description": {
     "defaultMessage": "Gestiona las credenciales de proveedores que CodeBuddy guarda localmente."
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "Volver a autorizar"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "Credencial configurada"
-  },
   "authSettings.signIn": {
     "defaultMessage": "Iniciar sesión"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "Credencial configurada"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "Caché del proveedor"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "Conexión perdida. Reconectando…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "Extensiones para chats nuevos"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "Extensiones para esta sesión de chat"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Extensión actualizada"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} se activará en los chats nuevos"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "Extensiones para chats nuevos"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "Extensiones para esta sesión de chat"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "administrar extensiones"
@@ -214,6 +214,42 @@
   },
   "builtInExtension.memory.name": {
     "defaultMessage": "Memory"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
   },
   "cardButtons.configure": {
     "defaultMessage": "Configurar"
@@ -725,6 +761,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -739,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -803,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1547,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "Conversation export started."
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1610,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -2076,7 +2112,7 @@
     "defaultMessage": "Ruta base de la API (opcional)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Sobrescribe la ruta predeterminada de la API. Déjala en blanco para usar la ruta predeterminada del proveedor."
+    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "ej., v1/chat/completions o project_id/v1"
@@ -2108,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "Adjuntos"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "Autenticación"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Los LLM locales como Ollama normalmente no requieren una API key."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "Autenticación"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "Modelos disponibles (separados por comas)"
@@ -2122,9 +2158,6 @@
   },
   "customProviderForm.cancel": {
     "defaultMessage": "Cancelar"
-  },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "No puedes eliminar este proveedor mientras está en uso. Cambia primero a un modelo diferente."
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "Elige cómo quieres configurar tu proveedor."
@@ -2148,7 +2181,7 @@
     "defaultMessage": "The address returned too much data. Check that this is a model API address."
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "Crear proveedor"
+    "defaultMessage": "Verify and add"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address."
@@ -2168,8 +2201,17 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "¿Seguro que quieres eliminar este proveedor personalizado? Esto eliminará de forma permanente el proveedor y su API key almacenada. Esta acción no se puede deshacer."
   },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
+  },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Eliminar proveedor"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "Diagnostic details"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "Discovered models"
@@ -2210,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2223,7 +2265,7 @@
     "defaultMessage": "Local Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "Load the model list, then choose a model. Saving sends one minimal request to verify the selected model."
+    "defaultMessage": "Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds."
   },
   "customProviderForm.modelId": {
     "defaultMessage": "Model ID"
@@ -2231,8 +2273,11 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "Models loaded. The selected model will be verified when you save."
+    "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2240,11 +2285,11 @@
   "customProviderForm.modelsRequired": {
     "defaultMessage": "Se requiere al menos un modelo"
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
-  },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
+  },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "The connection was not saved. Your entries are retained in this form."
   },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Compatible con Ollama"
@@ -2252,14 +2297,32 @@
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "Compatible con OpenAI"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID."
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "Access was denied. Verify that this API key has permission to use the selected model."
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "Tipo de proveedor"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "The service limited this request. Check the account quota and request limits, then retry."
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "Razonamiento"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "The service rejected the validation request. Verify the API format, tool support and thinking settings for this model."
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "Este proveedor requiere una API key"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "The save result could not be confirmed. Your entries are retained; check the connection list before retrying."
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "The model service returned a server error. Retry later or check the service status."
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "Empezar desde una plantilla de proveedor"
@@ -2268,7 +2331,7 @@
     "defaultMessage": "Elige un proveedor conocido y completaremos la configuración automáticamente"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "No se pudo guardar el proveedor. Revisa tu configuración e inténtalo de nuevo."
+    "defaultMessage": "Connection verification did not complete. Check your connection settings and try again."
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "El proveedor admite respuestas en streaming"
@@ -2276,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "Llamada a herramientas"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks."
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "Actualizar proveedor"
+    "defaultMessage": "Verify and save"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "Usando la plantilla: {name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "Valor"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "Verification failed"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "Verification result unconfirmed"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "Verifying…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "Configurar los ajustes de {name}"
@@ -2492,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Esperando tu respuesta ({timeRemaining} restantes)"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Dev"
-  },
   "envVarsSection.add": {
     "defaultMessage": "Añadir"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "Debes introducir tanto el nombre como el valor de la variable"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "Variables de entorno"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "Añade pares clave-valor para variables de entorno. Haz clic en el botón \"+\" para añadir después de rellenar ambos campos. Para valores secretos existentes, haz clic en el botón de editar para modificarlos."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "Variables de entorno"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "El nombre de la variable no puede contener espacios"
@@ -2515,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "Nombre de la variable"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Dev"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "Ocurrió un error."
@@ -2696,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "Tienes cambios sin guardar en la configuración de la extensión. ¿Seguro que quieres cerrar sin guardar?"
@@ -2738,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "Tiempo de espera"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "Añadir extensión personalizada"
   },
@@ -2767,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "Buscar extensiones..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "Tiempo de espera"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "Huella del certificado (opcional)"
@@ -3488,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "Detenido"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count,plural,one{Se conservó # acción de herramienta.} other{Se conservaron # acciones de herramientas.}}"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Cerrar"
   },
@@ -3550,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "Detenido"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count,plural,one{Se conservó # acción de herramienta.} other{Se conservaron # acciones de herramientas.}}"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "Pregunta a CodeBuddy"
@@ -3674,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "No se pudo iniciar sesión en Hugging Face: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Sesión iniciada en Hugging Face"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "Iniciar sesión"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Sesión iniciada en Hugging Face"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "Iniciando sesión..."
@@ -3722,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "Estructura esperada de la receta"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "Importando..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "Importar receta"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "Importar receta"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "Importando..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "O"
@@ -3838,6 +3913,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "Enviar"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "Añadir valor preconfigurado"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "Nombre del parámetro..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "Valor del parámetro..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "Quitar valor preconfigurado {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "Alternar ventana siempre visible"
@@ -3983,18 +4070,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "Alternar navegación"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "Añadir valor preconfigurado"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "Nombre del parámetro..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "Valor del parámetro..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "Quitar valor preconfigurado {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "Pregúntale lo que sea a CodeBuddy..."
   },
@@ -4040,17 +4115,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "Descarga cancelada"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "Modelos descargados"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "La descarga falló"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "Descargando"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "Modelos descargados"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "Descargando"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4136,14 +4211,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "Comprobando modelos disponibles..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "Descargando {modelId}"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "Descargar {modelId} ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "Descargando {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "No se pudieron cargar los modelos disponibles. Inténtalo de nuevo."
@@ -4460,11 +4535,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "Velocidad"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "Total"
@@ -4501,6 +4576,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "Probar"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "Autónomo"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "Interactúa con el proveedor seleccionado sin usar herramientas ni extensiones."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "Solo chat"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4630,102 +4729,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "Modelos y conexiones"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "Capacidad de contexto"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "Ajusta los límites de contexto si falta información del servicio."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "Generación de imágenes y vídeos"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "Configura el servicio para generar imágenes y vídeos."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "Subagentes"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "Crea agentes reutilizables con nombre, modelo e instrucciones."
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "Comprensión de imágenes"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Usa primero el modelo principal y uno de respaldo si es necesario."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "Cargando modelo..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "No hay modelos coincidentes"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Buscar modelos o conexiones"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "Seleccionar modelo"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "Mostrar menos"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "Mostrar {count} más"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "Error al cambiar"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Configurar proveedores"
@@ -4904,29 +4907,101 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Autónomo"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Interactúa con el proveedor seleccionado sin usar herramientas ni extensiones."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Solo chat"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Modelos y conexiones"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Capacidad de contexto"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Ajusta los límites de contexto si falta información del servicio."
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Generación de imágenes y vídeos"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Configura el servicio para generar imágenes y vídeos."
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Subagentes"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Crea agentes reutilizables con nombre, modelo e instrucciones."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Comprensión de imágenes"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Usa primero el modelo principal y uno de respaldo si es necesario."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "Cargando modelo..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "No hay modelos coincidentes"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Buscar modelos o conexiones"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "Seleccionar modelo"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Mostrar menos"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "Mostrar {count} más"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Error al cambiar"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "Nuevo chat"
@@ -5019,11 +5094,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5308,7 +5383,7 @@
     "defaultMessage": "Observe and control desktop applications with bounded actions."
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "Computer control"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "Read, write, and edit files, and run shell commands."
@@ -5508,11 +5583,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "Ninguna"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "Sin marcar (no fiable)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "Ninguno"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "Sin marcar (no fiable)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "Solicitud para guardar memoria del proyecto"
@@ -5634,11 +5709,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "Editar"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "Editando: {name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "Editar: {name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "Editando: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "Introduce el contenido del prompt..."
@@ -5748,11 +5823,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "¿No tienes una clave de API?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "Iniciando sesión..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "Iniciar sesión con {providerName}"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "Iniciando sesión..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "Añade tu(s) clave(s) de API de este proveedor para integrarlo en CodeBuddy"
@@ -5762,9 +5837,6 @@
   },
   "providerConfigurationModal.cancel": {
     "defaultMessage": "Cancelar"
-  },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "No puedes eliminar este proveedor mientras está en uso. Cambia primero a un modelo diferente."
   },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Vuelve a comprobar tu configuración para usar este proveedor."
@@ -5814,11 +5886,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "Consulta la <link>documentación</link> para más detalles."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "Iniciando sesión..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "Iniciar sesión con {providerName}"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "Iniciando sesión..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "Añadir proveedor"
@@ -5843,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "Ningún proveedor coincide con \"{query}\""
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again."
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "Buscar proveedores..."
@@ -5871,9 +5946,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "Cancelar"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "No puedes eliminar {providerName} mientras está en uso. Cambia a un modelo diferente antes de eliminar este proveedor."
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "Confirmar eliminación"
   },
@@ -5885,9 +5957,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "Activar proveedor"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "Aceptar"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "Enviar"
@@ -6042,6 +6111,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "Se formateará automáticamente (minúsculas, guiones en lugar de espacios)"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "Descripción:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "Estás a punto de ejecutar una receta que no has ejecutado antes."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "Esta receta contiene caracteres ocultos que se ignorarán por tu seguridad, ya que podrían usarse con fines maliciosos."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "Instrucciones:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ Advertencia de receta nueva"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "Vista previa de la receta:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ Advertencia de seguridad"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "Título:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "Confiar y ejecutar"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "Continúa solo si confías en el origen de esta receta."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "Añadir programación"
   },
@@ -6195,14 +6297,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "Quitar programación"
   },
-  "recipesView.runs": {
-    "defaultMessage": "Se ejecuta {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "Se ejecuta {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "Guardar"
@@ -6272,39 +6374,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "Archivos YAML"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "Cancelar"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "Descripción:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "Estás a punto de ejecutar una receta que no has ejecutado antes."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "Esta receta contiene caracteres ocultos que se ignorarán por tu seguridad, ya que podrían usarse con fines maliciosos."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "Instrucciones:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ Advertencia de receta nueva"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "Vista previa de la receta:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ Advertencia de seguridad"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "Título:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "Confiar y ejecutar"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "Continúa solo si confías en el origen de esta receta."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "Restablecer proveedor y modelo"
@@ -6411,11 +6480,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Expresión cron:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "Ejecutándose ahora"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "Sesión actual:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "Ejecutándose ahora"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "Dir: {path}"
@@ -6474,6 +6543,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "No se encontraron sesiones para esta programación."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "Pausar programación"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "Error al pausar/reanudar"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "En pausa"
   },
@@ -6482,12 +6557,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "Esta programación está en pausa y no se ejecutará automáticamente. Usa \"Ejecutar programación ahora\" para activarla manualmente o reanúdala para retomar la ejecución automática."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "Pausar programación"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "Error al pausar/reanudar"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "Proceso iniciado:"
@@ -6534,17 +6603,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "ID de sesión: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "Reanudada \"{id}\""
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "Reanudar programación"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "Actualizada \"{id}\""
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "Reanudada \"{id}\""
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "Error al actualizar la programación"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "Actualizada \"{id}\""
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Viendo el ID de programación: {id}"
@@ -6681,11 +6750,11 @@
   "schedulesView.pause": {
     "defaultMessage": "Pausar"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "En pausa"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "Error al pausar la programación"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "En pausa"
   },
   "schedulesView.refresh": {
     "defaultMessage": "Actualizar"
@@ -6705,9 +6774,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "Se pausó correctamente la programación \"{id}\""
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "Programador"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "Programación reanudada"
   },
@@ -6719,6 +6785,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "Se actualizó correctamente la programación \"{id}\""
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "Programador"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "Error al reanudar la programación"
@@ -6819,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "JSON de la sesión copiado"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Texto copiado"
   },
@@ -6831,14 +6897,29 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copiar texto"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Sesión duplicada"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "No se pudo duplicar la sesión: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicar sesión"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Sesión duplicada"
+  },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "Export logs"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "Failed to export logs: {error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "Session log saved"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "The log file could not be saved."
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Valor del texto"
@@ -6852,15 +6933,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Cargando JSON..."
   },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Sesión renombrada"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "No se pudo renombrar la sesión: {error}"
   },
@@ -6873,6 +6945,9 @@
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Renombrar sesión"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Sesión renombrada"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "Guardar"
   },
@@ -6881,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "Ver el JSON de la sesión"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Esta sesión no se puede copiar. Inicia una nueva tarea para trabajar de forma independiente."
@@ -6944,6 +7016,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "Los permisos del espacio de trabajo aún no se han sincronizado."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "Esta sesión no contiene ningún mensaje"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "No se encontraron mensajes"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "Error al cargar los detalles de la sesión"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "Reintentar"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "Tú"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7044,9 +7134,6 @@
   "sessions.import": {
     "defaultMessage": "Importar sesión"
   },
-  "sessions.importing": {
-    "defaultMessage": "Importando..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "Importar enlace"
   },
@@ -7058,6 +7145,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Importar sesión de Nostr"
+  },
+  "sessions.importing": {
+    "defaultMessage": "Importando..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "Cargando más sesiones..."
@@ -7083,38 +7173,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "Enlace cifrado de Nostr para compartir"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Copiado al portapapeles"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "Sesión eliminada correctamente"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "No se pudo eliminar la sesión \"{name}\": {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "Sesión \"{name}\" duplicada correctamente"
+  "sessions.toast.deleted": {
+    "defaultMessage": "Sesión eliminada correctamente"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "No se pudo duplicar la sesión: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "Sesión exportada correctamente"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "Sesión \"{name}\" duplicada correctamente"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "Sesión importada correctamente"
+  "sessions.toast.exported": {
+    "defaultMessage": "Sesión exportada correctamente"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "No se pudo importar la sesión: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "Sesión importada correctamente"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "Enlace cifrado de Nostr creado para compartir"
@@ -7125,29 +7215,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "Descripción de la sesión actualizada correctamente"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "No se pudo actualizar la descripción de la sesión: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "Esta sesión no contiene ningún mensaje"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "No se encontraron mensajes"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "Error al cargar los detalles de la sesión"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "Reintentar"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "Tú"
+  "sessions.toast.updated": {
+    "defaultMessage": "Descripción de la sesión actualizada correctamente"
   },
   "settings.appearance.description": {
     "defaultMessage": "Configura cómo se ve CodeBuddy en tu sistema"
@@ -7518,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "No matching skills found"
   },
+  "skillManager.pending": {
+    "defaultMessage": "Not enabled in CodeBuddy"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "Files: {files}"
   },
@@ -7557,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "Search skills..."
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "Another source takes precedence: {path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "Shared on this computer"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions."
+  },
   "skillManager.source": {
     "defaultMessage": "Origen"
   },
@@ -7565,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "Skills"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile."
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "Enable this shared skill?"
   },
   "skillManager.use": {
     "defaultMessage": "Usar habilidad"
@@ -7595,6 +7685,99 @@
   },
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "debe estar instalada en tu máquina y abierta, o debes ingresar un valor para OLLAMA_HOST."
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "Agregar existente"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "Crear nueva subreceta"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "Eliminar subreceta {name}"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "Las subrecetas son recetas que se pueden invocar como herramientas durante la ejecución. Permiten flujos de trabajo de varios pasos y componentes reutilizables."
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "Nombre duplicado"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "Ya existe una subreceta llamada \"{name}\". Usa un nombre único."
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "Editar subreceta {name}"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "Subrecetas"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "Valores preconfigurados:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "Secuencial"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "Agregar subreceta"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "Aplicar"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "Explorar"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "Cancelar"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "Cerrar la ventana de subreceta"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "Configurar subreceta"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "Descripción"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "Descripción opcional de lo que hace esta subreceta..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "Archivo no válido"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "Selecciona un archivo YAML (.yaml o .yml)."
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "Identificador único usado para generar el nombre de la herramienta"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "Nombre"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "p. ej., security_scan"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "Explora un archivo de receta existente o ingresa una ruta manualmente"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "Ruta"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "p. ej., ./subrecipes/security-analysis.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "Valores preconfigurados"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "Valores de parámetros opcionales que siempre se pasan a la subreceta"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(Fuerza la ejecución secuencial de múltiples instancias de la subreceta)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "Secuencial cuando se repite"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "Configura una subreceta que se pueda invocar como herramienta durante la ejecución de la receta"
   },
   "subagentLifecycle.end": {
     "defaultMessage": "ha finalizado"
@@ -7706,99 +7889,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Nuevo subagente"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "Agregar existente"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "Crear nueva subreceta"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "Eliminar subreceta {name}"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "Las subrecetas son recetas que se pueden invocar como herramientas durante la ejecución. Permiten flujos de trabajo de varios pasos y componentes reutilizables."
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "Nombre duplicado"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "Ya existe una subreceta llamada \"{name}\". Usa un nombre único."
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "Editar subreceta {name}"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "Subrecetas"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "Valores preconfigurados:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "Secuencial"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "Agregar subreceta"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "Aplicar"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "Explorar"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "Cancelar"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "Cerrar la ventana de subreceta"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "Configurar subreceta"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "Descripción"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "Descripción opcional de lo que hace esta subreceta..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "Archivo no válido"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "Selecciona un archivo YAML (.yaml o .yml)."
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "Identificador único usado para generar el nombre de la herramienta"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "Nombre"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "p. ej., security_scan"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "Explora un archivo de receta existente o ingresa una ruta manualmente"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "Ruta"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "p. ej., ./subrecipes/security-analysis.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "Valores preconfigurados"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "Valores de parámetros opcionales que siempre se pasan a la subreceta"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(Fuerza la ejecución secuencial de múltiples instancias de la subreceta)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "Secuencial cuando se repite"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "Configura una subreceta que se pueda invocar como herramienta durante la ejecución de la receta"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8277,14 +8367,23 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "Allow computer control for this session"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "Allow {name} for this session"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "Permitir una vez"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "Allow public web reading for this session"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "Permitido una vez"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "Permitir una vez"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "Permitir siempre"
@@ -8294,6 +8393,12 @@
   },
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "Cancelado"
+  },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "Computer control allowed for this session"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice."
   },
   "toolApprovalButtons.denied": {
     "defaultMessage": "Denegado"
@@ -8307,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {Deny for this task} session {Deny for this session} other {Always Deny}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again."
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "{name} allowed for this session"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "Public web reading allowed for this session"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice."
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8334,11 +8451,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8454,162 +8571,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "Resultado de la llamada a la herramienta"
   },
-  "toolbox.addSkill": {
-    "defaultMessage": "Añadir habilidad"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.capabilitiesHelp": {
-    "defaultMessage": "Herramientas para acciones como controlar el escritorio y operar con Git local."
-  },
-  "toolbox.computerGuide": {
-    "defaultMessage": "Guía de uso del escritorio"
-  },
-  "toolbox.computerGuideDescription": {
-    "defaultMessage": "Guía al modelo para observar, introducir datos y verificar resultados. Usa las herramientas de control del equipo."
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "Gestiona las habilidades instaladas y los servidores MCP externos conectados."
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.externalHelp": {
-    "defaultMessage": "Conexiones a servicios externos como repositorios, incidencias y solicitudes de cambios de GitHub."
-  },
-  "toolbox.githubDescription": {
-    "defaultMessage": "Conecta GitHub para gestionar repositorios remotos, incidencias, solicitudes de cambios y CI."
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.localGit": {
-    "defaultMessage": "Git local"
-  },
-  "toolbox.localGitDescription": {
-    "defaultMessage": "Revisa cambios locales y gestiona el área de preparación, commits y ramas."
-  },
-  "toolbox.methodsHelp": {
-    "defaultMessage": "Guías que el modelo carga para usar herramientas. Una habilidad no activa las herramientas subyacentes."
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Documentos de Office"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "Todo"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "MCP externo"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "Habilidades"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "Instalado"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "Iniciando…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "Deteniendo…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Estado de la herramienta: {status}"
   },
@@ -8624,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "Código"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "Indicador de carga"
@@ -8727,6 +8700,201 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "Añadir habilidad"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "Herramientas para acciones como controlar el escritorio y operar con Git local."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "Guía de uso del escritorio"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "Guía al modelo para observar, introducir datos y verificar resultados. Usa las herramientas de control del equipo."
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "Gestiona las habilidades instaladas y los servidores MCP externos conectados."
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "Conexiones a servicios externos como repositorios, incidencias y solicitudes de cambios de GitHub."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "Conecta GitHub para gestionar repositorios remotos, incidencias, solicitudes de cambios y CI."
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "Git local"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "Revisa cambios locales y gestiona el área de preparación, commits y ramas."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "Guías que el modelo carga para usar herramientas. Una habilidad no activa las herramientas subyacentes."
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Documentos de Office"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "Todo"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "MCP externo"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "Habilidades"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "Add to this conversation"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "Check connection"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "Managing tools for the conversation you came from"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "Enable this tool first"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "Loading into this conversation…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "Return to conversation"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "Current conversation"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "Added to this conversation · connection not checked"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "Conversation status unavailable; refresh to retry"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "Instalado"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "Iniciando…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "Deteniendo…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "userMessage.cancel": {
     "defaultMessage": "Cancelar"
   },
@@ -8777,6 +8945,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Pendiente de confirmación"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Esperando al servicio del modelo"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "El servicio del modelo aún no ha devuelto contenido. Puedes seguir esperando o detener esta solicitud."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -8904,11 +9120,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Raíz con escritura"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "Web address"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "Añadir al chat"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "Web address"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -8921,6 +9137,12 @@
   },
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
+  },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
   },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
@@ -8939,6 +9161,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Copiar contenido del archivo"
@@ -8979,17 +9204,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "No se pudo completar la acción del archivo. Inténtalo de nuevo. Para abrir archivos de código se necesita VS Code."
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9027,9 +9249,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Abrir en VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Abrir archivo"
   },
@@ -9038,6 +9257,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Abrir en una pestaña nueva"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -9173,89 +9395,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Esperando al servicio del modelo"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "El servicio del modelo aún no ha devuelto contenido. Puedes seguir esperando o detener esta solicitud."
-  },
-  "businessApproval.allowSession": {
-    "defaultMessage": "Allow {business} for this session"
-  },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "{business} allowed for this session"
-  },
-  "businessApproval.computer": {
-    "defaultMessage": "computer use"
-  },
-  "businessApproval.computerScope": {
-    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
-  },
-  "businessApproval.image": {
-    "defaultMessage": "image generation"
-  },
-  "businessApproval.lifetime": {
-    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
-  },
-  "businessApproval.mediaScope": {
-    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
-  },
-  "businessApproval.operations": {
-    "defaultMessage": "Included operations"
-  },
-  "businessApproval.output": {
-    "defaultMessage": "Output folder"
-  },
-  "businessApproval.service": {
-    "defaultMessage": "Service"
-  },
-  "businessApproval.video": {
-    "defaultMessage": "video generation"
-  },
-  "businessApproval.workspace": {
-    "defaultMessage": "Workspace"
   }
 }

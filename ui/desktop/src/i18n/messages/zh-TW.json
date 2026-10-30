@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "刪除憑證"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "憑證已刪除"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "要刪除 {provider} 的 {name} 憑證嗎？"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "刪除憑證"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "憑證已刪除"
   },
   "authSettings.description": {
     "defaultMessage": "管理 CodeBuddy 在本機儲存的供應商憑證。"
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "重新授權"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "憑證已設定"
-  },
   "authSettings.signIn": {
     "defaultMessage": "登入"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "憑證已設定"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "供應商快取"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "連線已中斷。正在重新連線…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "新聊天的擴充功能"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "此聊天工作階段的擴充功能"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "擴充功能已更新"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} 將在新的聊天中啟用"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "新聊天的擴充功能"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "此聊天工作階段的擴充功能"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "管理擴充功能"
@@ -214,6 +214,42 @@
   },
   "builtInExtension.memory.name": {
     "defaultMessage": "舊版全域記憶"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "本對話允許{business}"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "本對話已允許{business}"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "電腦操作"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "允許讀取桌面視窗與截圖，以及使用滑鼠和鍵盤。範圍是目前桌面，不限於單一應用程式，也不限於唯讀操作。"
+  },
+  "businessApproval.image": {
+    "defaultMessage": "圖片生成"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "僅用於目前對話中的這類業務。工具重新連線、更換服務或工作區、重新啟動應用程式後需重新授權。既有安全檢查、工具停用規則及逐次確認規則仍然生效。"
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "允許查看服務工作流程、上傳目前工作區的 PNG 參考圖、生成內容、查詢狀態、取消單一生成任務，並儲存結果。對話授權包含後續再次生成和修改參數。"
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "包含的操作"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "輸出目錄"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "服務位址"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "影片生成"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "工作區"
   },
   "cardButtons.configure": {
     "defaultMessage": "設定"
@@ -723,7 +759,13 @@
     "defaultMessage": "下載 Git"
   },
   "codeProGit.downloadOpened": {
-    "defaultMessage": "請安裝 Git，然後重新啟動 CodePro。啟動時將再次偵測 Git。"
+    "defaultMessage": "安裝 Git 後，重新整理儲存庫即可再次偵測。"
+  },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "CodeBuddy 的命令環境暫未找到 Git。如果已經安裝，請檢查 PATH 或安裝位置後重新整理；尚未安裝時，可以下載 Git。"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "儲存庫操作需要 Git。"
   },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "請從此處安裝 GitHub CLI："
@@ -739,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI 尚未登入。"
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "這台電腦上未偵測到 Git。是否要下載？"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "儲存庫操作需要 Git。"
   },
   "codeProGit.loading": {
     "defaultMessage": "正在載入儲存庫…"
@@ -803,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "選擇 {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "暫存所選項（{count}）"
+  },
   "codeProGit.staged": {
     "defaultMessage": "已暫存"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "已暫存差異"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "暫存所選項（{count}）"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "切換分支"
@@ -1547,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "等待繼續"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "目標已更新。"
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "編輯目標"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "輸入 /goal edit 後填寫修改後的目標。"
   },
+  "composerCommands.edited": {
+    "defaultMessage": "目標已更新。"
+  },
   "composerCommands.export": {
     "defaultMessage": "匯出對話"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "已開始匯出對話。"
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "將目前對話下載為 JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "已開始匯出對話。"
   },
   "composerCommands.failure": {
     "defaultMessage": "命令未完成，已保留輸入。請檢查連線後重試。"
@@ -1610,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "暫停目標"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "暫停已儲存的目標並停止目前執行"
+  },
   "composerCommands.paused": {
     "defaultMessage": "目標已暫停，輸入 /goal resume 可繼續。"
   },
   "composerCommands.pausedState": {
     "defaultMessage": "已暫停"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "暫停已儲存的目標並停止目前執行"
   },
   "composerCommands.permission": {
     "defaultMessage": "權限"
@@ -2076,7 +2112,7 @@
     "defaultMessage": "API 基底路徑（選用）"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "覆寫預設的 API 路徑。留空則使用供應商的預設路徑。"
+    "defaultMessage": "依服務商要求填寫生成介面路徑。留空時，OpenAI 官方位址使用 Responses，其他相容服務使用 Chat Completions。取得模型清單不代表此路徑已驗證。"
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "例如：v1/chat/completions 或 project_id/v1"
@@ -2108,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "附件"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "驗證"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Ollama 等本機 LLM 通常不需要 API 金鑰。"
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "驗證"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "可用模型（以逗號分隔）"
@@ -2122,9 +2158,6 @@
   },
   "customProviderForm.cancel": {
     "defaultMessage": "取消"
-  },
-  "customProviderForm.deleteFailed": {
-    "defaultMessage": "無法刪除此連線。請停止正在使用它的任務後重試。"
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "選擇您要設定供應商的方式。"
@@ -2148,7 +2181,7 @@
     "defaultMessage": "此位址傳回的資料過多。請確認填寫的是模型 API 位址。"
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "建立供應商"
+    "defaultMessage": "驗證並新增"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "此位址不使用 API 金鑰也能存取，因此無法驗證金鑰。請關閉驗證，或使用服務商提供的驗證 API 位址。"
@@ -2168,8 +2201,17 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "您確定要刪除這個自訂供應商嗎？這會永久移除該供應商及其儲存的 API 金鑰。此動作無法復原。"
   },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "無法刪除此連線。請停止正在使用它的任務後重試。"
+  },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "刪除供應商"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "連線已刪除，但模型清單重新整理失敗。請重新開啟設定以重新整理清單。"
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "診斷資訊"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "探索到的模型"
@@ -2210,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "API 金鑰遭到拒絕。請檢查後重試。"
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "正在取得模型清單…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "取得模型清單"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "正在取得模型清單…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "本機連線"
@@ -2223,7 +2265,7 @@
     "defaultMessage": "本機 Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "先取得模型清單，再選擇模型。儲存時會傳送一次最小請求，驗證所選模型能否使用。"
+    "defaultMessage": "驗證將發起一次真實模型請求，可能消耗少量 Token。驗證通過後才會儲存連線。"
   },
   "customProviderForm.modelId": {
     "defaultMessage": "模型 ID"
@@ -2231,8 +2273,11 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "此位址有回應，但無法載入模型清單。"
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "所選模型無法完成測試請求。"
+  },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "已取得模型清單。儲存時將驗證你選擇的模型。"
+    "defaultMessage": "已取得模型清單。請選擇模型並驗證連線後新增。"
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2240,11 +2285,11 @@
   "customProviderForm.modelsRequired": {
     "defaultMessage": "至少需要一個模型"
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "所選模型無法完成測試請求。"
-  },
   "customProviderForm.noModels": {
     "defaultMessage": "服務已連線，但沒有可用模型。"
+  },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "連線未儲存。已保留目前表單中的填寫內容。"
   },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Ollama 相容"
@@ -2252,14 +2297,32 @@
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "OpenAI 相容"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "模型介面不存在，或目前帳號無存取權限。請核對 API 位址、基礎路徑和模型 ID。"
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "存取遭拒。請確認 API 金鑰具有所選模型的使用權限。"
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "供應商類型"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "伺服器限制了本次請求。請檢查帳號額度及請求頻率限制後重試。"
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "推理"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "伺服器拒絕了驗證請求。請核對該模型支援的 API 格式、工具呼叫和思考設定。"
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "此供應商需要 API 金鑰"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "儲存結果尚未確認。已保留填寫內容，請先檢查連線清單再重試。"
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "模型服務回傳伺服器錯誤。請稍後重試或檢查服務狀態。"
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "從供應商範本開始"
@@ -2268,7 +2331,7 @@
     "defaultMessage": "選擇一個已知的供應商，我們會自動填入設定"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "無法儲存供應商。請檢查您的設定後再試一次。"
+    "defaultMessage": "連線驗證未完成。請檢查連線設定後重試。"
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "供應商支援串流回應"
@@ -2276,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "工具呼叫"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "該模型不支援工具呼叫。請選擇支援工具呼叫的模型執行 CodeBuddy 任務。"
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "更新供應商"
+    "defaultMessage": "驗證並儲存"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "使用範本：{name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "值"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "連線驗證未通過"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "驗證結果未確認"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "正在驗證…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "設定 {name} 設定"
@@ -2492,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "正在等待您的回應（剩餘 {timeRemaining}）"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "開發"
-  },
   "envVarsSection.add": {
     "defaultMessage": "新增"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "必須同時輸入變數名稱與值"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "環境變數"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "密鑰明文不會顯示。•••••••• 表示已經儲存；按一下編輯可取代密鑰，接著出現的空白欄位用來輸入新值。"
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "環境變數"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "變數名稱不可包含空格"
@@ -2515,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "變數名稱"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "開發"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "發生錯誤。"
@@ -2696,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "測試連線"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "正在測試…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "已連線 · {latency} 毫秒 · {tools} 個工具 · {resources} 個資源"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "正在測試…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "您對擴充功能設定有尚未儲存的變更。您確定要不儲存就關閉嗎？"
@@ -2738,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "正在移除 {name} 擴展…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "請輸入有效的逾時時間"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "逾時"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "新增自訂擴充功能"
   },
@@ -2767,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "搜尋擴充功能…"
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "請輸入有效的逾時時間"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "逾時"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "憑證指紋（選填）"
@@ -3488,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "有未儲存的修改"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "已按你的要求停止。已經執行的操作不會自動撤銷；未確認的結果仍需核對。"
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "這輪執行已中斷，尚未確認完成。你可以往上查看保留的對話和操作紀錄。"
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "已停止"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "已保留 {count} 個工具動作。"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "關閉"
   },
@@ -3550,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "專案說明（AGENTS.md）"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "已按你的要求停止。已經執行的操作不會自動撤銷；未確認的結果仍需核對。"
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "這輪執行已中斷，尚未確認完成。你可以往上查看保留的對話和操作紀錄。"
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "已停止"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "已保留 {count} 個工具動作。"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "詢問 CodeBuddy"
@@ -3674,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "登入 Hugging Face 失敗：{error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "已登入 Hugging Face"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "登入"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "已登入 Hugging Face"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "正在登入…"
@@ -3722,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "預期的食譜結構"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "正在匯入…"
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "匯入食譜"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "匯入食譜"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "正在匯入…"
   },
   "importRecipeForm.or": {
     "defaultMessage": "或"
@@ -3838,6 +3913,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "提交"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "新增預先設定的值"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "參數名稱…"
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "參數值…"
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "移除預先設定的值 {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "切換視窗永遠在最上層"
@@ -3983,18 +4070,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "切換導覽"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "新增預先設定的值"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "參數名稱…"
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "參數值…"
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "移除預先設定的值 {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "向 CodeBuddy 詢問任何問題…"
   },
@@ -4040,17 +4115,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "下載已取消"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "已下載的模型"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "下載失敗"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "下載中"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total}（{percent}%）"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "已下載的模型"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "下載中"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4136,14 +4211,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "正在檢查可用的模型…"
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "正在下載 {modelId}"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "下載 {modelId}（{size}）"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "正在下載 {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "載入可用模型失敗。請再試一次。"
@@ -4460,11 +4535,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "速度"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "總計"
@@ -4501,6 +4576,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "測試"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效；需要額外審批的操作無法發起審批。"
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "完全存取"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "與選定的供應商互動，不使用工具或擴充功能。"
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "僅對話"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "在唯讀沙箱內讀取檔案、執行命令。超出沙箱範圍的操作可能請求審批。"
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "僅可檢視"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "讀取檔案、執行命令，寫入限制在工作區與平台暫存目錄內。超出沙箱範圍的操作可能請求審批。"
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "工作區內修改"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "模型服務需要憑據或拒絕了目前憑據，請在設定中檢查該提供商。"
@@ -4630,102 +4729,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "手動確認：僅文字"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "備用識圖模型設定"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy 模型"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "CodeBuddy 自有模型仍在開發中。"
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "模型與連線"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "無法載入自訂連線。已儲存的設定沒有被變更。"
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "上下文容量"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "服務資訊缺失時，校正模型的上下文上限。"
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "自訂模型連線"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "連接本機、區域網路或自建端點。日常設定不顯示內建廠商目錄。"
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "圖片與影片生成"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "設定生成圖片和影片所用的服務。"
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "開發中"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "正在載入自訂連線…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "重試"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "子 Agent"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "設定名稱、模型和提示詞，建立可重複使用的子 Agent。"
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "圖像理解"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "優先使用主模型，必要時使用備用識圖模型。"
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "暫無已設定模型"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "模型清單載入失敗。"
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "正在載入模型…"
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "管理模型連線"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "沒有符合的模型"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "重試"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "搜尋模型或連線"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "選擇模型"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "選擇或更改模型"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "收起模型"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "展開其餘 {count} 個模型"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "模型切換失敗，請重試。"
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "切換失敗"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "正在切換模型…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "設定供應商"
@@ -4904,29 +4907,101 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效；需要額外審批的操作無法發起審批。"
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "備用識圖模型設定"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "完全存取"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy 模型"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "與選定的供應商互動，不使用工具或擴充功能。"
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "CodeBuddy 自有模型仍在開發中。"
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "僅對話"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "模型與連線"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "在唯讀沙箱內讀取檔案、執行命令。超出沙箱範圍的操作可能請求審批。"
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "無法載入自訂連線。已儲存的設定沒有被變更。"
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "僅可檢視"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "上下文容量"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "讀取檔案、執行命令，寫入限制在工作區與平台暫存目錄內。超出沙箱範圍的操作可能請求審批。"
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "服務資訊缺失時，校正模型的上下文上限。"
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "工作區內修改"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "自訂模型連線"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "連接本機、區域網路或自建端點。日常設定不顯示內建廠商目錄。"
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "圖片與影片生成"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "設定生成圖片和影片所用的服務。"
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "開發中"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "正在載入自訂連線…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "重試"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "子 Agent"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "設定名稱、模型和提示詞，建立可重複使用的子 Agent。"
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "圖像理解"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "優先使用主模型，必要時使用備用識圖模型。"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "暫無已設定模型"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "模型清單載入失敗。"
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "正在載入模型…"
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "管理模型連線"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "沒有符合的模型"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "重試"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "搜尋模型或連線"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "選擇模型"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "選擇或更改模型"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "收起模型"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "展開其餘 {count} 個模型"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "模型切換失敗，請重試。"
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "切換失敗"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "正在切換模型…"
   },
   "navigation.itemHome": {
     "defaultMessage": "新任務"
@@ -5019,11 +5094,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "此任務未能重新取得專案確認。請檢查任務是否仍在等待專案目錄。"
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "正在重新整理…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "請同時更新應用程式與後端，以重新取得此專案確認。"
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "正在重新整理…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "工作區存取遭拒。恢復存取權後可使用原確認重試。"
@@ -5308,7 +5383,7 @@
     "defaultMessage": "觀察及控制桌面應用程式。"
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "電腦控制"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "讀取、寫入及編輯檔案，並執行終端命令。"
@@ -5508,11 +5583,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "無"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "未標記（不受信任）"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "無"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "未標記（不受信任）"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "專案記憶儲存請求"
@@ -5634,11 +5709,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "編輯"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "正在編輯：{name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "編輯：{name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "正在編輯：{name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "輸入提示內容..."
@@ -5748,11 +5823,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "沒有 API 金鑰嗎？"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "正在登入..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "使用 {providerName} 登入"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "正在登入..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "新增此提供者的 API 金鑰以整合至 CodeBuddy"
@@ -5762,9 +5837,6 @@
   },
   "providerConfigurationModal.cancel": {
     "defaultMessage": "取消"
-  },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "此提供者目前正在使用中，您無法將其刪除。請先切換到其他模型。"
   },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "再次檢查您的組態以使用此提供者。"
@@ -5814,11 +5886,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "如需更多詳細資料，請參閱<link>說明文件</link>。"
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "正在登入..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "使用 {providerName} 登入"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "正在登入..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "新增提供者"
@@ -5843,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "沒有符合 \"{query}\" 的提供者"
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "連線已驗證並儲存，但模型清單重新整理失敗。請重新開啟設定更新清單，無需重複新增。"
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "搜尋提供者..."
@@ -5871,9 +5946,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "取消"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "{providerName} 目前正在使用中，您無法將其刪除。請先切換到其他模型再刪除此提供者。"
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "確認刪除"
   },
@@ -5885,9 +5957,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "啟用提供者"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "確定"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "提交"
@@ -6042,6 +6111,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "將自動格式化（小寫，空格以連字號取代）"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "取消"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "說明："
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "您即將執行一個尚未執行過的配方。"
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "為了您的安全，此配方包含的隱藏字元將被忽略，因為它們可能被用於惡意目的。"
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "指示："
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ 新配方警告"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "配方預覽："
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ 安全性警告"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "標題："
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "信任並執行"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "只有在您信任此配方的來源時才繼續進行。"
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "設為自動"
   },
@@ -6195,14 +6297,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "移除排程"
   },
-  "recipesView.runs": {
-    "defaultMessage": "執行 {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "請檢查已聲明的模型、工具、檔案與權限。執行時的權限確認仍然有效。"
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "執行前檢查"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "執行 {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "儲存"
@@ -6272,39 +6374,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "YAML 檔案"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "取消"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "說明："
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "您即將執行一個尚未執行過的配方。"
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "為了您的安全，此配方包含的隱藏字元將被忽略，因為它們可能被用於惡意目的。"
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "指示："
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ 新配方警告"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "配方預覽："
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ 安全性警告"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "標題："
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "信任並執行"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "只有在您信任此配方的來源時才繼續進行。"
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "重設供應商與模型"
@@ -6411,11 +6480,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Cron 運算式："
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "目前正在執行"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "目前工作階段："
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "目前正在執行"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "目錄：{path}"
@@ -6474,6 +6543,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "找不到此排程的工作階段。"
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "暫停排程"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "暫停／取消暫停錯誤"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "已暫停"
   },
@@ -6482,12 +6557,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "此排程已暫停，將不會自動執行。請使用「立即執行排程」手動觸發，或取消暫停以恢復自動執行。"
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "暫停排程"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "暫停／取消暫停錯誤"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "程序已啟動："
@@ -6534,17 +6603,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "工作階段 ID：{id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "已取消暫停「{id}」"
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "取消暫停排程"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "已更新「{id}」"
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "已取消暫停「{id}」"
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "更新排程錯誤"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "已更新「{id}」"
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "正在檢視排程 ID：{id}"
@@ -6681,11 +6750,11 @@
   "schedulesView.pause": {
     "defaultMessage": "暫停"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "已暫停"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "暫停排程錯誤"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "已暫停"
   },
   "schedulesView.refresh": {
     "defaultMessage": "重新整理"
@@ -6705,9 +6774,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "已成功暫停排程「{id}」"
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "自動任務"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "排程已取消暫停"
   },
@@ -6719,6 +6785,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "已成功更新排程「{id}」"
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "自動任務"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "取消暫停排程錯誤"
@@ -6819,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "工作階段 JSON 已複製"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "文字已複製"
   },
@@ -6831,14 +6897,29 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "複製文字"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "工作階段已複製"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "複製工作階段失敗：{error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "複製工作階段"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "工作階段已複製"
+  },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "匯出日誌"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "匯出日誌失敗：{error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "包含對話內容和工具結果，分享前請檢查。"
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "會話日誌已儲存"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "日誌檔案儲存失敗。"
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "文字值"
@@ -6852,15 +6933,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "正在載入 JSON…"
   },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "工作階段已重新命名"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "重新命名工作階段失敗：{error}"
   },
@@ -6873,6 +6945,9 @@
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "重新命名工作階段"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "工作階段已重新命名"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "儲存"
   },
@@ -6881,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "檢視工作階段 JSON"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "此對話不支援複製。請新增任務以獨立進行工作。"
@@ -6944,6 +7016,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "工作區權限尚未同步。"
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "此工作階段不包含任何訊息"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "找不到訊息"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "載入工作階段詳細資料時發生錯誤"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "再試一次"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "您"
   },
   "sessions.action.archive": {
     "defaultMessage": "封存會話"
@@ -7044,9 +7134,6 @@
   "sessions.import": {
     "defaultMessage": "匯入工作階段"
   },
-  "sessions.importing": {
-    "defaultMessage": "正在匯入…"
-  },
   "sessions.importNostr": {
     "defaultMessage": "匯入連結"
   },
@@ -7058,6 +7145,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "匯入 Nostr 工作階段"
+  },
+  "sessions.importing": {
+    "defaultMessage": "正在匯入…"
   },
   "sessions.loadingMore": {
     "defaultMessage": "正在載入更多工作階段…"
@@ -7083,38 +7173,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "加密的 Nostr 分享連結"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "會話已封存"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "無法更新會話封存狀態：{error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "會話已封存"
   },
   "sessions.toast.copied": {
     "defaultMessage": "已複製到剪貼簿"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "已成功刪除工作階段"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "無法刪除工作階段「{name}」：{error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "已成功複製工作階段「{name}」"
+  "sessions.toast.deleted": {
+    "defaultMessage": "已成功刪除工作階段"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "無法複製工作階段：{error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "已成功匯出工作階段"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "已成功複製工作階段「{name}」"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "匯出對話失敗：{error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "已成功匯入工作階段"
+  "sessions.toast.exported": {
+    "defaultMessage": "已成功匯出工作階段"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "無法匯入工作階段：{error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "已成功匯入工作階段"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "已建立加密的 Nostr 分享連結"
@@ -7125,29 +7215,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "會話已還原"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "已成功更新工作階段描述"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "無法更新工作階段描述：{error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "此工作階段不包含任何訊息"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "找不到訊息"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "載入工作階段詳細資料時發生錯誤"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "再試一次"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "您"
+  "sessions.toast.updated": {
+    "defaultMessage": "已成功更新工作階段描述"
   },
   "settings.appearance.description": {
     "defaultMessage": "設定 CodeBuddy 在您系統上的顯示方式"
@@ -7518,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "沒有相符的技能"
   },
+  "skillManager.pending": {
+    "defaultMessage": "尚未在 CodeBuddy 啟用"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "檔案：{files}"
   },
@@ -7557,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "搜尋技能…"
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "目前使用同名技能：{path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "本機共用技能"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "從共用技能目錄發現。啟用後，CodeBuddy 可載入這份技能說明，執行命令仍遵循目前權限。"
+  },
   "skillManager.source": {
     "defaultMessage": "來源"
   },
@@ -7565,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "技能"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "允許 CodeBuddy 使用 {target} 中的技能。此選擇會儲存在目前 CodeBuddy 設定中。"
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "啟用這個共用技能？"
   },
   "skillManager.use": {
     "defaultMessage": "使用技能"
@@ -7595,6 +7685,99 @@
   },
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "必須安裝在您的電腦上並開啟，或者您必須輸入 OLLAMA_HOST 的值。"
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "新增現有項目"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "建立新的子配方"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "刪除子配方 {name}"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "子配方是可在執行期間作為工具呼叫的配方。它們可實現多步驟工作流程與可重複使用的元件。"
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "名稱重複"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "名為「{name}」的子配方已存在。請使用唯一的名稱。"
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "編輯子配方 {name}"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "子配方"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "預先設定的值："
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "循序"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "新增子配方"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "套用"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "瀏覽"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "取消"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "關閉子配方對話方塊"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "設定子配方"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "描述"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "選填，說明此子配方的功能..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "無效的檔案"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "請選擇 YAML 檔案（.yaml 或 .yml）。"
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "用於產生工具名稱的唯一識別碼"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "名稱"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "例如：security_scan"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "瀏覽現有的配方檔案或手動輸入路徑"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "路徑"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "例如：./subrecipes/security-analysis.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "預先設定的值"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "選填，一律會傳遞給子配方的參數值"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "（強制循序執行多個子配方執行個體）"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "重複時循序執行"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "設定可在配方執行期間作為工具呼叫的子配方"
   },
   "subagentLifecycle.end": {
     "defaultMessage": "已結束"
@@ -7706,99 +7889,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "新子 Agent"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "新增現有項目"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "建立新的子配方"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "刪除子配方 {name}"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "子配方是可在執行期間作為工具呼叫的配方。它們可實現多步驟工作流程與可重複使用的元件。"
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "名稱重複"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "名為「{name}」的子配方已存在。請使用唯一的名稱。"
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "編輯子配方 {name}"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "子配方"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "預先設定的值："
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "循序"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "新增子配方"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "套用"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "瀏覽"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "取消"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "關閉子配方對話方塊"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "設定子配方"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "描述"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "選填，說明此子配方的功能..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "無效的檔案"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "請選擇 YAML 檔案（.yaml 或 .yml）。"
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "用於產生工具名稱的唯一識別碼"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "名稱"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "例如：security_scan"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "瀏覽現有的配方檔案或手動輸入路徑"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "路徑"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "例如：./subrecipes/security-analysis.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "預先設定的值"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "選填，一律會傳遞給子配方的參數值"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "（強制循序執行多個子配方執行個體）"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "重複時循序執行"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "設定可在配方執行期間作為工具呼叫的子配方"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8277,14 +8367,23 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {本任務允許} session {本會話允許此工具} other {始終允許}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "本對話允許電腦控制"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "本對話允許使用{name}"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "允許一次"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "本對話允許網頁讀取"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {本任務已允許} session {本會話已允許此工具} other {已設為始終允許}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "已允許一次"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "允許一次"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "一律允許"
@@ -8294,6 +8393,12 @@
   },
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "已取消"
+  },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "本對話已允許電腦控制"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "允許本對話使用全部電腦控制工具：讀取畫面、點擊、鍵盤輸入、拖曳、捲動和開啟本機路徑。應用程式重啟、重新連線或工具清單變更後重新確認。"
   },
   "toolApprovalButtons.denied": {
     "defaultMessage": "已拒絕"
@@ -8307,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {本任務拒絕} session {本會話拒絕} other {始終拒絕}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "允許本對話使用{name}目前的工具及資源存取能力。個別設定的工具規則及需逐次確認的操作仍然生效。應用程式重啟、重新連線、停用、設定或工具清單變更後重新確認。"
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "本對話已允許使用{name}"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "僅限目前會話的此工具；應用程式重啟或工具重新連線後失效。"
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "此核准要求已不再有效。"
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "本對話已允許網頁讀取"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "允許本對話跨網站匿名讀取公開網頁，不包括登入、提交、攜帶憑證或存取內網。重新啟動應用程式後需再次確認。"
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8334,11 +8451,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "安全檢查"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "安全檢查"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8454,162 +8571,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "工具呼叫結果"
   },
-  "toolbox.addSkill": {
-    "defaultMessage": "新增技能"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "進階與相容能力"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "可用範圍"
-  },
-  "toolbox.capabilitiesHelp": {
-    "defaultMessage": "執行實際操作的工具，例如桌面控制、本機 Git 操作。"
-  },
-  "toolbox.computerGuide": {
-    "defaultMessage": "桌面操作指南"
-  },
-  "toolbox.computerGuideDescription": {
-    "defaultMessage": "指導模型觀察介面、輸入並核對結果，搭配「電腦控制」工具使用。"
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "電腦控制可以觀察視窗、檢查控制項、擷取螢幕，並執行有邊界的滑鼠和鍵盤操作。高風險操作仍需單獨授權。"
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "設定的工具範圍"
-  },
-  "toolbox.description": {
-    "defaultMessage": "管理內建工具、操作技能和外部 MCP 服務。"
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "驗收狀態"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "使用範例"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "包含的工具"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "未限定工具範圍，可點擊下方按鈕讀取實際工具清單。"
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "目前安裝的功能驗收尚未驗證。啟用不代表操作一定成功，每次呼叫仍需核對權限和連線條件。"
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "關閉{name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "讀取工具清單失敗"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "已啟用 · 未驗證"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "開啟{name}"
-  },
-  "toolbox.externalHelp": {
-    "defaultMessage": "連接外部服務，例如 GitHub 遠端儲存庫、議題和提取請求。"
-  },
-  "toolbox.githubDescription": {
-    "defaultMessage": "連接 GitHub，管理遠端儲存庫、議題、提取請求與 CI。"
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "此開關控制新任務的預設可用狀態。"
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "實作方式"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "讀取工具清單"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "工具探索成功。這只驗證工具清單，不代表這些工具的功能已通過實際操作驗收。"
-  },
-  "toolbox.loading": {
-    "defaultMessage": "正在載入工具…"
-  },
-  "toolbox.localGit": {
-    "defaultMessage": "本機 Git"
-  },
-  "toolbox.localGitDescription": {
-    "defaultMessage": "查看本機儲存庫變更，管理暫存、提交和分支。"
-  },
-  "toolbox.methodsHelp": {
-    "defaultMessage": "模型按需載入的操作指南；技能本身不會啟用對應工具。"
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "此分類中尚未設定任何內容。"
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "沒有相符的工具"
-  },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Office 文件"
-  },
-  "toolbox.required": {
-    "defaultMessage": "必要"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name}是必要工具"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "重試"
-  },
-  "toolbox.search": {
-    "defaultMessage": "搜尋工具"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "全部"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "我的小工具"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "內建能力"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "外部 MCP"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "技能"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "工具箱分類"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "已安裝"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "已啟用，未驗證連線"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "已停用"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "失敗"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "需要權限"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "可用"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "需要設定"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "正在啟動…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "正在停止…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "工具箱"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "已成功使用 {count} 次"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "工具狀態：{status}"
   },
@@ -8624,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "程式碼"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "電腦操作已暫停"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "觀察已過期，等待重新觀察"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "電腦控制已停止"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "已退出排隊"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "載入指示器"
@@ -8727,6 +8700,201 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "新增技能"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "進階與相容能力"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "可用範圍"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "執行實際操作的工具，例如桌面控制、本機 Git 操作。"
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "桌面操作指南"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "指導模型觀察介面、輸入並核對結果，搭配「電腦控制」工具使用。"
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "電腦控制可以觀察視窗、檢查控制項、擷取螢幕，並執行有邊界的滑鼠和鍵盤操作。高風險操作仍需單獨授權。"
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "設定的工具範圍"
+  },
+  "toolbox.description": {
+    "defaultMessage": "管理內建工具、操作技能和外部 MCP 服務。"
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "驗收狀態"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "使用範例"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "包含的工具"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "未限定工具範圍，可點擊下方按鈕讀取實際工具清單。"
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "目前安裝的功能驗收尚未驗證。啟用不代表操作一定成功，每次呼叫仍需核對權限和連線條件。"
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "關閉{name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "讀取工具清單失敗"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "開啟{name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "已啟用 · 未驗證"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "連接外部服務，例如 GitHub 遠端儲存庫、議題和提取請求。"
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "連接 GitHub，管理遠端儲存庫、議題、提取請求與 CI。"
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "此開關控制新任務的預設可用狀態。"
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "實作方式"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "讀取工具清單"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "工具探索成功。這只驗證工具清單，不代表這些工具的功能已通過實際操作驗收。"
+  },
+  "toolbox.loading": {
+    "defaultMessage": "正在載入工具…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "本機 Git"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "查看本機儲存庫變更，管理暫存、提交和分支。"
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "模型按需載入的操作指南；技能本身不會啟用對應工具。"
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "此分類中尚未設定任何內容。"
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "沒有相符的工具"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Office 文件"
+  },
+  "toolbox.required": {
+    "defaultMessage": "必要"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name}是必要工具"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "重試"
+  },
+  "toolbox.search": {
+    "defaultMessage": "搜尋工具"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "全部"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "我的小工具"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "內建能力"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "外部 MCP"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "技能"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "工具箱分類"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "新增至目前對話"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "檢查連線"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "目前對話的工具"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "請先啟用此工具"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "已新增 · 尚未發現可用工具"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "載入未完成。如任務正在執行，請先停止，再重試。"
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "正在載入目前對話…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "目前對話未載入"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "已載入 · {count} 個工具可用"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "返回對話"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "目前對話"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "目前對話已新增 · 連線待驗證"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "對話狀態讀取失敗，請重新整理"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "已安裝"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "已啟用，未驗證連線"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "已停用"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "失敗"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "需要權限"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "可用"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "需要設定"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "正在啟動…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "正在停止…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "工具箱"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "已成功使用 {count} 次"
+  },
   "userMessage.cancel": {
     "defaultMessage": "取消"
   },
@@ -8777,6 +8945,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "待確認"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "請確認：{action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "正在停止目前操作"
+  },
+  "workStatus.check": {
+    "defaultMessage": "正在核對執行結果"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "正在彙整結果"
+  },
+  "workStatus.children": {
+    "defaultMessage": "{count} 個助手正在處理任務"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "正在連線"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds} 秒"
+  },
+  "workStatus.first": {
+    "defaultMessage": "正在處理你的請求"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "正在準備"
+  },
+  "workStatus.question": {
+    "defaultMessage": "需要你的回覆或確認"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "正在組織回覆"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "等待模型服務回應"
+  },
+  "workStatus.text": {
+    "defaultMessage": "正在撰寫回覆"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "正在思考"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "正在整理工具結果"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
   },
   "workspaceChanges.all": {
     "defaultMessage": "全部輪次"
@@ -8904,11 +9120,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "可寫入根目錄"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "網頁位址"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "新增至聊天"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "網頁位址"
   },
   "workspacePanel.back": {
     "defaultMessage": "上一頁"
@@ -8921,6 +9137,12 @@
   },
   "workspacePanel.browserHint": {
     "defaultMessage": "瀏覽網頁"
+  },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "選擇其他應用程式…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "更換預設程式碼編輯器…"
   },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "清除終端畫面"
@@ -8939,6 +9161,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "關閉此終端機並結束其中執行的命令？"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "在程式碼編輯器中開啟"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "複製檔案內容"
@@ -8979,14 +9204,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "已結束"
   },
+  "workspacePanel.fileTree": {
+    "defaultMessage": "工作區檔案樹"
+  },
   "workspacePanel.files": {
     "defaultMessage": "工作區檔案"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "瀏覽目前會話工作區的檔案"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "工作區檔案樹"
   },
   "workspacePanel.forward": {
     "defaultMessage": "下一頁"
@@ -9024,14 +9249,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "在預設應用程式中開啟"
   },
-  "workspacePanel.openWith": {
-    "defaultMessage": "開啟方式"
-  },
-  "workspacePanel.codeEditor": { "defaultMessage": "在程式碼編輯器中開啟" },
-  "workspacePanel.chooseCodeEditor": { "defaultMessage": "更換預設程式碼編輯器…" },
-  "workspacePanel.chooseApplication": {
-    "defaultMessage": "選擇其他應用程式…"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "開啟檔案"
   },
@@ -9040,6 +9257,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "在新分頁中開啟"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "開啟方式"
   },
   "workspacePanel.panel": {
     "defaultMessage": "工作區"
@@ -9175,89 +9395,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "請確認：{action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "正在停止目前操作"
-  },
-  "workStatus.check": {
-    "defaultMessage": "正在核對執行結果"
-  },
-  "workStatus.children": {
-    "defaultMessage": "{count} 個助手正在處理任務"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "正在彙整結果"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "正在連線"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds} 秒"
-  },
-  "workStatus.first": {
-    "defaultMessage": "正在處理你的請求"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "正在準備"
-  },
-  "workStatus.question": {
-    "defaultMessage": "需要你的回覆或確認"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "正在組織回覆"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "等待模型服務回應"
-  },
-  "workStatus.text": {
-    "defaultMessage": "正在撰寫回覆"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "正在思考"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "正在整理工具結果"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "模型服務尚未傳回內容，你可以繼續等待，也可以停止本次請求。"
-  },
-  "businessApproval.allowSession": {
-    "defaultMessage": "本對話允許{business}"
-  },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "本對話已允許{business}"
-  },
-  "businessApproval.computer": {
-    "defaultMessage": "電腦操作"
-  },
-  "businessApproval.computerScope": {
-    "defaultMessage": "允許讀取桌面視窗與截圖，以及使用滑鼠和鍵盤。範圍是目前桌面，不限於單一應用程式，也不限於唯讀操作。"
-  },
-  "businessApproval.image": {
-    "defaultMessage": "圖片生成"
-  },
-  "businessApproval.lifetime": {
-    "defaultMessage": "僅用於目前對話中的這類業務。工具重新連線、更換服務或工作區、重新啟動應用程式後需重新授權。既有安全檢查、工具停用規則及逐次確認規則仍然生效。"
-  },
-  "businessApproval.mediaScope": {
-    "defaultMessage": "允許查看服務工作流程、上傳目前工作區的 PNG 參考圖、生成內容、查詢狀態、取消單一生成任務，並儲存結果。對話授權包含後續再次生成和修改參數。"
-  },
-  "businessApproval.operations": {
-    "defaultMessage": "包含的操作"
-  },
-  "businessApproval.output": {
-    "defaultMessage": "輸出目錄"
-  },
-  "businessApproval.service": {
-    "defaultMessage": "服務位址"
-  },
-  "businessApproval.video": {
-    "defaultMessage": "影片生成"
-  },
-  "businessApproval.workspace": {
-    "defaultMessage": "工作區"
   }
 }

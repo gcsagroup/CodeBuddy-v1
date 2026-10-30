@@ -314,11 +314,28 @@ describe('App Component - Brand New State', () => {
     expect(await screen.findByRole('button', { name: 'Choose folder' })).toBeInTheDocument();
   });
 
+  it('routes an ordinary skill draft to the new-chat composer without creating a session or selecting a folder', async () => {
+    mockLocationState = {
+      initialMessage: { msg: '/comfyui ', images: [] },
+      draftOnly: true,
+      noAutoSubmit: true,
+    };
+    mockLocationPath = '/pair';
+    render(<PairRouteWrapper activeSessions={[]} setActiveSessions={vi.fn()} />, {
+      wrapper: AppInnerTestWrapper,
+    });
+    expect(await screen.findByTestId('chat-input')).toHaveValue('/comfyui ');
+    expect(createSession).not.toHaveBeenCalled();
+    expect(mockElectron.directoryChooser).not.toHaveBeenCalled();
+    expect(mockSetSearchParams).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       label: 'project skill workspace',
       routeState: {
         initialMessage: { msg: '/project-skill ', images: [] },
+        draftOnly: true,
         noAutoSubmit: true,
         workingDir: 'D:\\SkillProject',
       },
@@ -327,6 +344,7 @@ describe('App Component - Brand New State', () => {
       resumeSessionId: null,
       expectedIntent: {
         initialMessage: { msg: '/project-skill ', images: [] },
+        draftOnly: true,
         noAutoSubmit: true,
         workingDir: 'D:\\SkillProject',
       },
@@ -494,6 +512,17 @@ describe('App Component - Brand New State', () => {
     newChatHandler?.({} as any);
 
     expect(mockNavigate).toHaveBeenCalledWith('/codepro');
+  });
+
+  it('stages a menu-selected directory in the current window without creating a session', async () => {
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(([channel]) => channel === 'new-chat')?.[1];
+    handler?.({} as any, 'D:\\中文项目');
+    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
+      state: { draftOnly: true, workingDir: 'D:\\中文项目', noAutoSubmit: true },
+    });
+    expect(createSession).not.toHaveBeenCalled();
   });
 
   it('should route a settings section from the main process through CodePro', async () => {

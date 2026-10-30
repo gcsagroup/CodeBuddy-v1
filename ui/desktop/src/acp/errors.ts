@@ -56,6 +56,10 @@ export function acpErrorCode(error: unknown): string | null {
   return typeof jsonRpcError?.data?.code === 'string' ? jsonRpcError.data.code : null;
 }
 
+export function acpErrorData(error: unknown): Record<string, unknown> | null {
+  return asAcpJsonRpcError(error)?.data ?? null;
+}
+
 export function acpErrorMessage(error: unknown): string | null {
   if (!isRecord(error)) {
     return null;

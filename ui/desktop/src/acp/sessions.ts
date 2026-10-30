@@ -466,6 +466,15 @@ export async function acpExportSession(sessionId: string): Promise<string> {
   return response.data;
 }
 
+export async function acpExportSessionLog(sessionId: string): Promise<string> {
+  const client = await getAcpClient();
+  const response = (await client.extMethod('_goose/unstable/session/log/export', {
+    sessionId,
+  })) as { data?: unknown };
+  if (typeof response?.data !== 'string') throw new Error('Invalid session log response');
+  return response.data;
+}
+
 export async function acpImportSession(input: string, source: SessionImportSource): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionImport_unstable({ input, source });

@@ -20,6 +20,9 @@ export function harnessToolName(name) {
   if (!name.startsWith("mcp__") && name.includes("__")) return `mcp__${name}`;
   return name;
 }
+export function hostToolExtensionName(name) {
+  return name === 'project_memory' ? 'projectmemory' : GIT_TOOL_NAMES.includes(name) ? 'git' : 'developer';
+}
 export async function toolEnabled(session, settings, name, resolved) {
   if (!agentAllowsTool(session.agentProfile, name)) return false;
   if (name === "codebuddy_task") return session.type === "code_pro";
@@ -56,12 +59,7 @@ export async function toolEnabled(session, settings, name, resolved) {
       name.startsWith(`mcp__${server.name}__`),
     );
   }
-  const owner =
-    name === "project_memory"
-      ? "projectmemory"
-      : GIT_TOOL_NAMES.includes(name)
-        ? "git"
-        : "developer";
+  const owner = hostToolExtensionName(name);
   const entry = entries.find(
     (e) => e.configKey === owner || extensionName(e.extension) === owner,
   );

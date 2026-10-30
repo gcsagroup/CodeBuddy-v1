@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "Удалить учетные данные"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "Учетные данные удалены"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "Удалить учетные данные {name} для {provider}?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "Удалить учетные данные"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "Учетные данные удалены"
   },
   "authSettings.description": {
     "defaultMessage": "Управляйте учетными данными провайдеров, сохраненными локально в CodeBuddy."
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "Авторизоваться снова"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "Учетные данные настроены"
-  },
   "authSettings.signIn": {
     "defaultMessage": "Войти"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "Учетные данные настроены"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "Кэш провайдера"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "Соединение потеряно. Повторное подключение…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "Расширения для новых чатов"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "Расширения для этого чата"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Расширение обновлено"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} будет включено в новых чатах"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "Расширения для новых чатов"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "Расширения для этого чата"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "управлять расширениями"
@@ -214,6 +214,42 @@
   },
   "builtInExtension.memory.name": {
     "defaultMessage": "Memory"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
   },
   "cardButtons.configure": {
     "defaultMessage": "Настроить"
@@ -725,6 +761,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -739,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -803,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1547,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "Conversation export started."
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1610,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -2076,7 +2112,7 @@
     "defaultMessage": "Базовый путь API (необязательно)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Переопределите путь API по умолчанию. Оставьте пустым, чтобы использовать путь провайдера по умолчанию."
+    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "например, v1/chat/completions или project_id/v1"
@@ -2108,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "Вложения"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "Аутентификация"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Локальные LLM, такие как Ollama, обычно не требуют API-ключа."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "Аутентификация"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "Доступные модели (через запятую)"
@@ -2122,9 +2158,6 @@
   },
   "customProviderForm.cancel": {
     "defaultMessage": "Отмена"
-  },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "Нельзя удалить этого провайдера, пока он используется. Сначала переключитесь на другую модель."
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "Выберите способ настройки провайдера."
@@ -2148,7 +2181,7 @@
     "defaultMessage": "The address returned too much data. Check that this is a model API address."
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "Создать провайдера"
+    "defaultMessage": "Verify and add"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address."
@@ -2168,8 +2201,17 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Удалить этого пользовательского провайдера? Провайдер и сохраненный API-ключ будут удалены навсегда. Это действие нельзя отменить."
   },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
+  },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Удалить провайдера"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "Diagnostic details"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "Discovered models"
@@ -2210,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2223,7 +2265,7 @@
     "defaultMessage": "Local Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "Load the model list, then choose a model. Saving sends one minimal request to verify the selected model."
+    "defaultMessage": "Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds."
   },
   "customProviderForm.modelId": {
     "defaultMessage": "Model ID"
@@ -2231,8 +2273,11 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "Models loaded. The selected model will be verified when you save."
+    "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2240,11 +2285,11 @@
   "customProviderForm.modelsRequired": {
     "defaultMessage": "Требуется хотя бы одна модель"
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
-  },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
+  },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "The connection was not saved. Your entries are retained in this form."
   },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Совместимо с Ollama"
@@ -2252,14 +2297,32 @@
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "Совместимо с OpenAI"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID."
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "Access was denied. Verify that this API key has permission to use the selected model."
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "Тип провайдера"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "The service limited this request. Check the account quota and request limits, then retry."
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "Рассуждение"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "The service rejected the validation request. Verify the API format, tool support and thinking settings for this model."
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "Этот провайдер требует API-ключ"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "The save result could not be confirmed. Your entries are retained; check the connection list before retrying."
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "The model service returned a server error. Retry later or check the service status."
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "Начать с шаблона провайдера"
@@ -2268,7 +2331,7 @@
     "defaultMessage": "Выберите известного провайдера, и мы автоматически заполним конфигурацию"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "Не удалось сохранить провайдера. Проверьте конфигурацию и повторите попытку."
+    "defaultMessage": "Connection verification did not complete. Check your connection settings and try again."
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "Провайдер поддерживает потоковые ответы"
@@ -2276,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "Вызов инструментов"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks."
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "Обновить провайдера"
+    "defaultMessage": "Verify and save"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "Используется шаблон: {name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "Значение"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "Verification failed"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "Verification result unconfirmed"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "Verifying…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "Настроить параметры {name}"
@@ -2492,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Ожидание вашего ответа (осталось {timeRemaining})"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Разработка"
-  },
   "envVarsSection.add": {
     "defaultMessage": "Добавить"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "Необходимо ввести имя переменной и значение"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "Переменные окружения"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "Добавьте пары ключ-значение для переменных окружения. После заполнения обоих полей нажмите «+», чтобы добавить. Для существующих секретных значений нажмите кнопку редактирования."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "Переменные окружения"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "Имя переменной не может содержать пробелы"
@@ -2515,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "Имя переменной"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Разработка"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "Произошла ошибка."
@@ -2696,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "У вас есть несохраненные изменения конфигурации расширения. Закрыть без сохранения?"
@@ -2738,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "Тайм-аут"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "Добавить пользовательское расширение"
   },
@@ -2767,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "Поиск расширений..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "Тайм-аут"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "Отпечаток сертификата (необязательно)"
@@ -3488,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "Остановлено"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count,plural,one{Сохранено # действие инструмента.} few{Сохранено # действия инструмента.} many{Сохранено # действий инструментов.} other{Сохранено # действия инструмента.}}"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Закрыть"
   },
@@ -3550,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "Остановлено"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count,plural,one{Сохранено # действие инструмента.} few{Сохранено # действия инструмента.} many{Сохранено # действий инструментов.} other{Сохранено # действия инструмента.}}"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "Спросить CodeBuddy"
@@ -3674,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Не удалось войти в Hugging Face: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Вход в Hugging Face выполнен"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "Войти"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Вход в Hugging Face выполнен"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "Выполняется вход..."
@@ -3722,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "Ожидаемая структура рецепта"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "Импорт..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "Импортировать рецепт"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "Импортировать рецепт"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "Импорт..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "ИЛИ"
@@ -3838,6 +3913,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "Отправить"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "Добавить предварительно настроенное значение"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "Имя параметра..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "Значение параметра..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "Удалить предварительно настроенное значение {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "Переключить окно поверх всех"
@@ -3983,18 +4070,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "Переключить навигацию"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "Добавить предварительно настроенное значение"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "Имя параметра..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "Значение параметра..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "Удалить предварительно настроенное значение {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "Спросите CodeBuddy о чем угодно..."
   },
@@ -4040,17 +4115,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "Скачивание отменено"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "Скачанные модели"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "Скачивание не удалось"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "Скачивание"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "Скачанные модели"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "Скачивание"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4136,14 +4211,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "Проверка доступных моделей..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "Скачивание {modelId}"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "Скачать {modelId} ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "Скачивание {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "Не удалось загрузить доступные модели. Повторите попытку."
@@ -4460,11 +4535,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "Скорость"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "Всего"
@@ -4501,6 +4576,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "Проверить"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "Автономный"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "Работать с выбранным провайдером без использования инструментов или расширений."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "Только чат"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4630,102 +4729,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "Модели и подключения"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "Объём контекста"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "Настройте лимиты контекста, если сервис не предоставляет данные."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "Генерация изображений и видео"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "Настройте сервис для генерации изображений и видео."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "Субагенты"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "Создавайте многоразовых агентов с именем, моделью и инструкциями."
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "Понимание изображений"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Сначала используйте основную модель, при необходимости — резервную."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "Загрузка модели..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "Подходящие модели не найдены"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Поиск моделей или подключений"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "Выбрать модель"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "Показать меньше"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "Показать ещё {count}"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "Не удалось переключить"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Настроить провайдеров"
@@ -4904,29 +4907,101 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Автономный"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Работать с выбранным провайдером без использования инструментов или расширений."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Только чат"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Модели и подключения"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Объём контекста"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Настройте лимиты контекста, если сервис не предоставляет данные."
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Генерация изображений и видео"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Настройте сервис для генерации изображений и видео."
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Субагенты"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Создавайте многоразовых агентов с именем, моделью и инструкциями."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Понимание изображений"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Сначала используйте основную модель, при необходимости — резервную."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "Загрузка модели..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Подходящие модели не найдены"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Поиск моделей или подключений"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "Выбрать модель"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Показать меньше"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "Показать ещё {count}"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Не удалось переключить"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "Новый чат"
@@ -5019,11 +5094,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5308,7 +5383,7 @@
     "defaultMessage": "Observe and control desktop applications with bounded actions."
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "Computer control"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "Read, write, and edit files, and run shell commands."
@@ -5508,11 +5583,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "Нет"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "Не отмечено (ненадёжно)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "Нет"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "Не отмечено (ненадёжно)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "Запрос на сохранение памяти проекта"
@@ -5634,11 +5709,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "Изменить"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "Редактирование: {name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "Изменить: {name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "Редактирование: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "Введите содержимое промпта..."
@@ -5748,11 +5823,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Нет API-ключа?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "Вход..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "Войти через {providerName}"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "Вход..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "Добавьте API-ключи для этого провайдера, чтобы интегрировать его в CodeBuddy"
@@ -5762,9 +5837,6 @@
   },
   "providerConfigurationModal.cancel": {
     "defaultMessage": "Отмена"
-  },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "Нельзя удалить этого провайдера, пока он используется. Сначала переключитесь на другую модель."
   },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Проверьте конфигурацию еще раз, чтобы использовать этого провайдера."
@@ -5814,11 +5886,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "Подробнее см. в <link>документации</link>."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "Вход..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "Войти через {providerName}"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "Вход..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "Добавить провайдера"
@@ -5843,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "Нет провайдеров, соответствующих \"{query}\""
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again."
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "Поиск провайдеров..."
@@ -5871,9 +5946,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "Отмена"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "Нельзя удалить {providerName}, пока он используется. Перед удалением провайдера переключитесь на другую модель."
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "Подтвердить удаление"
   },
@@ -5885,9 +5957,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "Включить провайдера"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "ОК"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "Отправить"
@@ -6042,6 +6111,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "Будет автоматически отформатировано (нижний регистр, дефисы вместо пробелов)"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "Описание:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "Вы собираетесь выполнить рецепт, который еще не запускали."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "Этот рецепт содержит скрытые символы, которые будут проигнорированы для вашей безопасности, так как их могут использовать во вредоносных целях."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "Инструкции:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ Предупреждение о новом рецепте"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "Предпросмотр рецепта:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ Предупреждение безопасности"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "Название:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "Доверять и выполнить"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "Продолжайте только если доверяете источнику этого рецепта."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "Добавить расписание"
   },
@@ -6195,14 +6297,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "Удалить расписание"
   },
-  "recipesView.runs": {
-    "defaultMessage": "Запускается {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "Запускается {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "Сохранить"
@@ -6272,39 +6374,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "Файлы YAML"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "Отмена"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "Описание:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "Вы собираетесь выполнить рецепт, который еще не запускали."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "Этот рецепт содержит скрытые символы, которые будут проигнорированы для вашей безопасности, так как их могут использовать во вредоносных целях."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "Инструкции:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ Предупреждение о новом рецепте"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "Предпросмотр рецепта:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ Предупреждение безопасности"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "Название:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "Доверять и выполнить"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "Продолжайте только если доверяете источнику этого рецепта."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "Сбросить провайдера и модель"
@@ -6411,11 +6480,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Cron-выражение:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "Сейчас выполняется"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "Текущий сеанс:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "Сейчас выполняется"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "Каталог: {path}"
@@ -6474,6 +6543,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "Сеансы для этого расписания не найдены."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "Приостановить расписание"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "Ошибка паузы/возобновления"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "На паузе"
   },
@@ -6482,12 +6557,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "Это расписание приостановлено и не будет запускаться автоматически. Используйте «Запустить расписание сейчас», чтобы запустить вручную, или снимите паузу для возобновления автоматического выполнения."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "Приостановить расписание"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "Ошибка паузы/возобновления"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "Процесс запущен:"
@@ -6534,17 +6603,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "ID сеанса: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "«{id}» возобновлено"
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "Возобновить расписание"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "«{id}» обновлено"
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "«{id}» возобновлено"
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "Ошибка обновления расписания"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "«{id}» обновлено"
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Просмотр ID расписания: {id}"
@@ -6681,11 +6750,11 @@
   "schedulesView.pause": {
     "defaultMessage": "Пауза"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "На паузе"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "Ошибка приостановки расписания"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "На паузе"
   },
   "schedulesView.refresh": {
     "defaultMessage": "Обновить"
@@ -6705,9 +6774,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "Расписание «{id}» успешно приостановлено"
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "Планировщик"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "Расписание возобновлено"
   },
@@ -6719,6 +6785,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "Расписание «{id}» успешно обновлено"
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "Планировщик"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "Ошибка возобновления расписания"
@@ -6819,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "Session JSON copied"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Text copied"
   },
@@ -6831,14 +6897,29 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copy text"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Session duplicated"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "Failed to duplicate session: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicate session"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Session duplicated"
+  },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "Export logs"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "Failed to export logs: {error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "Session log saved"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "The log file could not be saved."
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Text value"
@@ -6852,15 +6933,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Loading JSON..."
   },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Session renamed"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Failed to rename session: {error}"
   },
@@ -6873,6 +6945,9 @@
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Rename Session"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Session renamed"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "Save"
   },
@@ -6881,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "View session JSON"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Эту сессию нельзя скопировать. Создайте новую задачу для независимой работы."
@@ -6944,6 +7016,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "Разрешения рабочей области ещё не синхронизированы."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "Этот сеанс не содержит сообщений"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "Сообщения не найдены"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "Ошибка загрузки сведений о сеансе"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "Повторить попытку"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "Вы"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7044,9 +7134,6 @@
   "sessions.import": {
     "defaultMessage": "Импортировать сеанс"
   },
-  "sessions.importing": {
-    "defaultMessage": "Импорт..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "Импортировать ссылку"
   },
@@ -7058,6 +7145,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Импортировать сеанс Nostr"
+  },
+  "sessions.importing": {
+    "defaultMessage": "Импорт..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "Загрузка дополнительных сеансов..."
@@ -7083,38 +7173,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "Зашифрованная ссылка общего доступа Nostr"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Скопировано в буфер обмена"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "Сеанс успешно удален"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "Не удалось удалить сеанс «{name}»: {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "Сеанс «{name}» успешно дублирован"
+  "sessions.toast.deleted": {
+    "defaultMessage": "Сеанс успешно удален"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "Не удалось дублировать сеанс: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "Сеанс успешно экспортирован"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "Сеанс «{name}» успешно дублирован"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "Сеанс успешно импортирован"
+  "sessions.toast.exported": {
+    "defaultMessage": "Сеанс успешно экспортирован"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "Не удалось импортировать сеанс: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "Сеанс успешно импортирован"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "Зашифрованная ссылка Nostr создана"
@@ -7125,29 +7215,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "Описание сеанса успешно обновлено"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Не удалось обновить описание сеанса: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "Этот сеанс не содержит сообщений"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "Сообщения не найдены"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "Ошибка загрузки сведений о сеансе"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "Повторить попытку"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "Вы"
+  "sessions.toast.updated": {
+    "defaultMessage": "Описание сеанса успешно обновлено"
   },
   "settings.appearance.description": {
     "defaultMessage": "Настройте, как CodeBuddy отображается в вашей системе"
@@ -7518,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "No matching skills found"
   },
+  "skillManager.pending": {
+    "defaultMessage": "Not enabled in CodeBuddy"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "Files: {files}"
   },
@@ -7557,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "Search skills..."
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "Another source takes precedence: {path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "Shared on this computer"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions."
+  },
   "skillManager.source": {
     "defaultMessage": "Источник"
   },
@@ -7565,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "Skills"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile."
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "Enable this shared skill?"
   },
   "skillManager.use": {
     "defaultMessage": "Использовать навык"
@@ -7595,6 +7685,99 @@
   },
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "должно быть установлено на вашем компьютере и открыто, либо нужно ввести значение для OLLAMA_HOST."
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "Добавить существующий"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "Создать новый подрецепт"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "Удалить подрецепт {name}"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "Подрецепты — это рецепты, которые можно вызывать как инструменты во время выполнения. Они позволяют создавать многошаговые процессы и переиспользуемые компоненты."
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "Повторяющееся имя"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "Подрецепт с именем «{name}» уже существует. Используйте уникальное имя."
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "Изменить подрецепт {name}"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "Подрецепты"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "Предварительно настроенные значения:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "Последовательно"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "Добавить подрецепт"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "Применить"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "Обзор"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "Закрыть окно подрецепта"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "Настроить подрецепт"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "Описание"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "Необязательное описание того, что делает этот подрецепт..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "Неверный файл"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "Выберите YAML-файл (.yaml или .yml)."
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "Уникальный идентификатор, используемый для создания имени инструмента"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "Имя"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "например, security_scan"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "Выберите существующий файл рецепта или введите путь вручную"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "Путь"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "например, ./subrecipes/security-analysis.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "Предварительно настроенные значения"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "Необязательные значения параметров, которые всегда передаются подрецепту"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(Принудительно выполняет несколько экземпляров подрецепта последовательно)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "Последовательно при повторении"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "Настройте подрецепт, который можно вызывать как инструмент при выполнении рецепта"
   },
   "subagentLifecycle.end": {
     "defaultMessage": "завершил работу"
@@ -7706,99 +7889,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Новый субагент"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "Добавить существующий"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "Создать новый подрецепт"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "Удалить подрецепт {name}"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "Подрецепты — это рецепты, которые можно вызывать как инструменты во время выполнения. Они позволяют создавать многошаговые процессы и переиспользуемые компоненты."
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "Повторяющееся имя"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "Подрецепт с именем «{name}» уже существует. Используйте уникальное имя."
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "Изменить подрецепт {name}"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "Подрецепты"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "Предварительно настроенные значения:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "Последовательно"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "Добавить подрецепт"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "Применить"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "Обзор"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "Отмена"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "Закрыть окно подрецепта"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "Настроить подрецепт"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "Описание"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "Необязательное описание того, что делает этот подрецепт..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "Неверный файл"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "Выберите YAML-файл (.yaml или .yml)."
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "Уникальный идентификатор, используемый для создания имени инструмента"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "Имя"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "например, security_scan"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "Выберите существующий файл рецепта или введите путь вручную"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "Путь"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "например, ./subrecipes/security-analysis.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "Предварительно настроенные значения"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "Необязательные значения параметров, которые всегда передаются подрецепту"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(Принудительно выполняет несколько экземпляров подрецепта последовательно)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "Последовательно при повторении"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "Настройте подрецепт, который можно вызывать как инструмент при выполнении рецепта"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8277,14 +8367,23 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "Allow computer control for this session"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "Allow {name} for this session"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "Разрешить один раз"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "Allow public web reading for this session"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "Разрешено один раз"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "Разрешить один раз"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "Всегда разрешать"
@@ -8294,6 +8393,12 @@
   },
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "Отменено"
+  },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "Computer control allowed for this session"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice."
   },
   "toolApprovalButtons.denied": {
     "defaultMessage": "Отклонено"
@@ -8307,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {Deny for this task} session {Deny for this session} other {Always Deny}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again."
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "{name} allowed for this session"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "This approval request is no longer active."
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "Public web reading allowed for this session"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice."
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8334,11 +8451,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8454,162 +8571,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "Результат вызова инструмента"
   },
-  "toolbox.addSkill": {
-    "defaultMessage": "Добавить навык"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.capabilitiesHelp": {
-    "defaultMessage": "Инструменты для управления рабочим столом и локальных операций Git."
-  },
-  "toolbox.computerGuide": {
-    "defaultMessage": "Руководство по управлению рабочим столом"
-  },
-  "toolbox.computerGuideDescription": {
-    "defaultMessage": "Помогает модели наблюдать, вводить данные и проверять результат. Использует инструменты управления компьютером."
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "Управляйте установленными навыками и подключенными внешними серверами MCP."
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.externalHelp": {
-    "defaultMessage": "Подключения к внешним сервисам, включая репозитории, задачи и запросы на слияние GitHub."
-  },
-  "toolbox.githubDescription": {
-    "defaultMessage": "Подключите GitHub для управления удалёнными репозиториями, задачами, запросами на слияние и CI."
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.localGit": {
-    "defaultMessage": "Локальный Git"
-  },
-  "toolbox.localGitDescription": {
-    "defaultMessage": "Просмотр локальных изменений и управление индексом, коммитами и ветками."
-  },
-  "toolbox.methodsHelp": {
-    "defaultMessage": "Руководства, загружаемые моделью для работы с инструментами. Навык не включает используемые им инструменты."
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Документы Office"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "Все"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "Внешний MCP"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "Навыки"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "Установлено"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "Запуск…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "Остановка…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Статус инструмента: {status}"
   },
@@ -8624,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "Код"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "Индикатор загрузки"
@@ -8727,6 +8700,201 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "Добавить навык"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "Инструменты для управления рабочим столом и локальных операций Git."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "Руководство по управлению рабочим столом"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "Помогает модели наблюдать, вводить данные и проверять результат. Использует инструменты управления компьютером."
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "Управляйте установленными навыками и подключенными внешними серверами MCP."
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "Подключения к внешним сервисам, включая репозитории, задачи и запросы на слияние GitHub."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "Подключите GitHub для управления удалёнными репозиториями, задачами, запросами на слияние и CI."
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "Локальный Git"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "Просмотр локальных изменений и управление индексом, коммитами и ветками."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "Руководства, загружаемые моделью для работы с инструментами. Навык не включает используемые им инструменты."
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Документы Office"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "Все"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "Внешний MCP"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "Навыки"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "Add to this conversation"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "Check connection"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "Managing tools for the conversation you came from"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "Enable this tool first"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "Loading into this conversation…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "Return to conversation"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "Current conversation"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "Added to this conversation · connection not checked"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "Conversation status unavailable; refresh to retry"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "Установлено"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "Запуск…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "Остановка…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "userMessage.cancel": {
     "defaultMessage": "Отмена"
   },
@@ -8777,6 +8945,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Ожидает подтверждения"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Ожидание ответа сервиса модели"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -8904,11 +9120,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Корень с правом записи"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "Web address"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "Добавить в чат"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "Web address"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -8921,6 +9137,12 @@
   },
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
+  },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
   },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
@@ -8939,6 +9161,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Копировать содержимое файла"
@@ -8979,17 +9204,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "Не удалось выполнить действие с файлом. Повторите попытку. Для открытия файлов кода требуется VS Code."
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9027,9 +9249,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Открыть в VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Открыть файл"
   },
@@ -9038,6 +9257,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Открыть в новой вкладке"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -9173,89 +9395,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Ожидание ответа сервиса модели"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Сервис модели пока не вернул содержимое. Можно продолжить ожидание или остановить этот запрос."
-  },
-  "businessApproval.allowSession": {
-    "defaultMessage": "Allow {business} for this session"
-  },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "{business} allowed for this session"
-  },
-  "businessApproval.computer": {
-    "defaultMessage": "computer use"
-  },
-  "businessApproval.computerScope": {
-    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
-  },
-  "businessApproval.image": {
-    "defaultMessage": "image generation"
-  },
-  "businessApproval.lifetime": {
-    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
-  },
-  "businessApproval.mediaScope": {
-    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
-  },
-  "businessApproval.operations": {
-    "defaultMessage": "Included operations"
-  },
-  "businessApproval.output": {
-    "defaultMessage": "Output folder"
-  },
-  "businessApproval.service": {
-    "defaultMessage": "Service"
-  },
-  "businessApproval.video": {
-    "defaultMessage": "video generation"
-  },
-  "businessApproval.workspace": {
-    "defaultMessage": "Workspace"
   }
 }

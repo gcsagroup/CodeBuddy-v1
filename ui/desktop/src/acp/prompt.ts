@@ -44,6 +44,9 @@ export async function acpPromptSession(
   const client = await getAcpClient();
   const meta = {
     'codebuddy/client-locale': currentLocale,
+    ...(message.metadata.desktopGeneration !== undefined
+      ? { 'codebuddy/desktop-generation': message.metadata.desktopGeneration }
+      : {}),
     ...(message.metadata.planMode !== undefined
       ? { 'codebuddy/plan': message.metadata.planMode }
       : {}),

@@ -26,6 +26,7 @@ export interface MediaJob {
     node?: string;
     step?: number;
     total?: number;
+    updatedAt?: number;
   };
   images?: { path: string }[];
   videos?: { path: string }[];
@@ -146,6 +147,17 @@ const statuses: Record<string, [string, string, string]> = {
   unavailable: ['Status unavailable', '暂未取得任务状态', '暫未取得任務狀態'],
   submission_unknown: ['Confirming submission', '正在确认提交结果', '正在確認提交結果'],
 };
+function elapsedText(milliseconds: number) {
+  if (!Number.isFinite(milliseconds)) return '—';
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours)
+    return `${hours} ${mediaText('h', '小时', '小時')} ${minutes % 60} ${mediaText('min', '分', '分')}`;
+  if (minutes)
+    return `${minutes} ${mediaText('min', '分', '分')} ${seconds % 60} ${mediaText('s', '秒', '秒')}`;
+  return `${seconds} ${mediaText('s', '秒', '秒')}`;
+}
 function MediaJobPreview({
   job,
   scope,
@@ -193,6 +205,17 @@ function MediaJobPreview({
       : undefined;
   const status = statuses[statusName];
   const stage = stages[live.stage ?? live.node ?? ''];
+  const progressAge =
+    typeof live.updatedAt === 'number' && Number.isFinite(live.updatedAt)
+      ? Math.max(0, now - live.updatedAt)
+      : undefined;
+  const quiet =
+    job.status === 'running' &&
+    live.connected &&
+    !job.observation_error &&
+    !disconnected &&
+    progressAge !== undefined &&
+    progressAge >= 120_000;
   return (
     <article className="rounded-xl border border-border-primary p-4" data-job-id={job.job_id}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -209,8 +232,7 @@ function MediaJobPreview({
       {job.workflow && <p className="mb-2 text-xs text-text-secondary">{job.workflow.label}</p>}
       {active && (
         <p className="mb-3 text-xs text-text-secondary">
-          {mediaText('Elapsed', '已等待', '已等待')}{' '}
-          {Math.max(0, Math.floor((now - Date.parse(job.created_at)) / 1000))} s
+          {mediaText('Elapsed', '已等待', '已等待')} {elapsedText(now - Date.parse(job.created_at))}
           {typeof job.queue_position === 'number' &&
             ` · ${mediaText('Queue position', '队列位置', '佇列位置')} ${job.queue_position}`}
         </p>
@@ -262,6 +284,24 @@ function MediaJobPreview({
                 <p className="mt-2 text-xs text-text-secondary">
                   {mediaText('Current stage', '当前阶段', '目前階段')} · {live.step} / {live.total}
                 </p>
+              )}
+              {quiet && (
+                <div
+                  className="mt-3 rounded-lg border border-border-primary bg-background-secondary p-3 text-xs text-text-secondary"
+                  data-testid="generation-quiet"
+                >
+                  <p className="font-medium text-text-primary">
+                    {mediaText('No new progress for', '进度未更新', '進度未更新')}{' '}
+                    {elapsedText(progressAge)}
+                  </p>
+                  <p className="mt-1">
+                    {mediaText(
+                      'The server still lists this job as running. This may be slow computation or a stall; the connection alone cannot distinguish them. Check server logs and resource usage before retrying.',
+                      '服务端仍列为运行中。可能是计算缓慢，也可能停滞，仅凭连接正常尚不能区分。重试前请检查服务端日志与资源占用。',
+                      '伺服器仍列為執行中。可能是計算緩慢，也可能停滯，僅憑連線正常尚不能區分。重試前請檢查伺服器日誌與資源用量。'
+                    )}
+                  </p>
+                </div>
               )}
             </>
           )}

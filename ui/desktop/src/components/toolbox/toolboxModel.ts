@@ -80,9 +80,14 @@ export function buildToolboxModel(sources: ToolboxSources): ToolboxModel {
       name: skill.name,
       description: skill.description,
       skillSource: skill,
-      status: 'enabled' in skill && !skill.enabled ? 'disabled' : 'ready',
+      status:
+        'enabled' in skill && !skill.enabled
+          ? 'disabled'
+          : 'scope' in skill && skill.scope === 'shared'
+            ? 'configured'
+            : 'ready',
       actions:
-        'readOnly' in skill && !skill.readOnly
+        'readOnly' in skill && (!skill.readOnly || skill.canToggle)
           ? ['inspect', skill.enabled ? 'disable' : 'enable']
           : ['inspect'],
       reference: {

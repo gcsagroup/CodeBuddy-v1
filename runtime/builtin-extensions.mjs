@@ -6,6 +6,7 @@ import { mcpToolCallTimeoutMs } from './mcp-settings.mjs';
 import { builtinArtifacts, verifiedBinary } from './builtin-artifacts.mjs';
 import { playwrightCli } from './harness/playwright-entry.mjs';
 import { registerMcpSessionApproval } from './tool-session-approval.mjs';
+import { desktopDirectory } from './desktop-coordinator.mjs';
 
 const builtins = {
   playwright: {
@@ -26,9 +27,10 @@ const builtins = {
   qwen_computer: {
     artifact: 'computer',
     args: ["--foreground-input", "mcp"],
-    displayName: "电脑操作",
+    displayName: "Computer Use",
     description: "通过独立 MCP 服务读取桌面状态并执行电脑操作。",
     tools: [
+      ...(process.platform === 'win32' ? ['open_path'] : []),
       "click",
       "drag",
       "get_app_state",
@@ -220,6 +222,11 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
   try { command = await verifiedEntry(entry); }
   catch (error) { throw invalid(error.message); }
   const env = await toolEnvironment(dataDir, extension.name);
+  if (extension.name === 'qwen_computer') {
+    env.CODEBUDDY_DESKTOP_MANAGED = '1';
+    // The tool's private HOME/LOCALAPPDATA must not split a shared desktop lease.
+    env.CODEBUDDY_DESKTOP_CONTROL_DIRECTORY = desktopDirectory();
+  }
   if (entry.artifact === 'playwright' && process.platform === 'darwin') {
     // macOS Unix sockets are limited to 103 bytes. The isolated data directory
     // can exceed that before Playwright adds its domain and socket filename.
@@ -242,6 +249,8 @@ export async function builtinMcp(extension, { cwd, dataDir } = {}) {
   }
   const config = {
     serverName: extension.name,
+    selectedTools: extension.available_tools?.length ? extension.available_tools : null,
+    displayName: entry.displayName,
     transport: "stdio",
     command,
     args: entry.artifact === 'playwright' ? [playwrightCli(), ...entry.args, '--output-dir', path.join(dataDir, 'tool-runtime', extension.name, 'cache'), '--output-max-size', '52428800'] : [...entry.args],

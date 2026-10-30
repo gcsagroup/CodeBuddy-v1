@@ -48,6 +48,7 @@ import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 
 import McpAppRenderer from './McpApps/McpAppRenderer';
 import ToolApprovalButtons from './ToolApprovalButtons';
+import BusinessApprovalScope from './BusinessApprovalScope';
 import { ToolApprovalTarget } from './ToolCallConfirmation';
 import { ToolAuditDetails, ToolAuditSummary } from './ToolAuditReceiptView';
 import { defineMessages, useIntl } from '../i18n';
@@ -97,6 +98,10 @@ export function resolveToolLoadingStatus(
 
 const i18n = defineMessages({
   unsuccessful: { id: 'operation.unsuccessful', defaultMessage: 'Unsuccessful' },
+  desktopStopped: { id: 'toolCallWithResponse.desktopStopped', defaultMessage: 'Computer control stopped' },
+  desktopPaused: { id: 'toolCallWithResponse.desktopPaused', defaultMessage: 'Desktop control paused' },
+  desktopStale: { id: 'toolCallWithResponse.desktopStale', defaultMessage: 'Observation expired; observe again' },
+  desktopWithdrawn: { id: 'toolCallWithResponse.desktopWithdrawn', defaultMessage: 'Withdrawn from desktop queue' },
   searchQuery: { id: 'toolCallWithResponse.searchQuery', defaultMessage: 'Query' },
   searchSources: { id: 'toolCallWithResponse.searchSources', defaultMessage: 'Sources' },
   searchResponse: { id: 'toolCallWithResponse.searchResponse', defaultMessage: 'Search response' },
@@ -448,6 +453,9 @@ export default function ToolCallWithResponse({
                 argumentsValue={confirmationContent.arguments}
               />
               <ProjectMemoryApprovalSummary result={memoryApproval} />
+              {confirmationContent.businessApproval && (
+                <BusinessApprovalScope approval={confirmationContent.businessApproval} />
+              )}
               <ToolApprovalButtons
                 data={{
                   id: confirmationContent.id,
@@ -457,6 +465,10 @@ export default function ToolCallWithResponse({
                   isClicked: isApprovalClicked,
                   permissionClass: confirmationContent.permissionClass,
                   authorizationScope: confirmationContent.authorizationScope,
+                  authorizationGroup: confirmationContent.authorizationGroup,
+                  authorizationModule: confirmationContent.authorizationModule,
+                  authorizationTarget: confirmationContent.authorizationTarget,
+                  businessApproval: confirmationContent.businessApproval,
                   availableActions: filteredApprovalActions,
                 }}
               />
@@ -756,7 +768,12 @@ function ToolCallView({
     loadingStatus === 'error' &&
     isTaskContractCheck({ name: toolCall.name, arguments: toolCall.arguments ?? {} }) &&
     (!toolAudit || toolAudit.outcome === 'tool_error');
-  const statusLabel = internalCheckError
+  const desktopOutcome = toolResponse?.metadata?.desktopOutcome;
+  const desktopLabel = desktopOutcome === 'stopped' ? intl.formatMessage(i18n.desktopStopped)
+    : desktopOutcome === 'paused' ? intl.formatMessage(i18n.desktopPaused)
+    : desktopOutcome === 'stale' ? intl.formatMessage(i18n.desktopStale)
+      : desktopOutcome === 'withdrawn' ? intl.formatMessage(i18n.desktopWithdrawn) : undefined;
+  const statusLabel = desktopLabel ?? (internalCheckError
     ? intl.formatMessage(i18n.checkNotAccepted)
     : partialSubagent
       ? intl.formatMessage(
@@ -775,7 +792,7 @@ function ToolCallView({
                 : loadingStatus === 'error'
                   ? 'failed'
                   : loadingStatus
-            );
+            ));
   // Map LoadingStatus to ToolCallStatus
   const getToolCallStatus = (loadingStatus: LoadingStatus): ToolCallStatus => {
     switch (loadingStatus) {
@@ -791,7 +808,7 @@ function ToolCallView({
   };
 
   const toolCallStatus =
-    businessOutcome === 'unknown' || partialSubagent || internalCheckError
+    businessOutcome === 'unknown' || partialSubagent || internalCheckError || desktopLabel
       ? 'warning'
       : getToolCallStatus(loadingStatus);
   const filePath = change?.path ?? toolFilePath(toolCall.name, toolCall.arguments ?? {});

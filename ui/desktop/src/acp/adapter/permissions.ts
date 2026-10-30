@@ -96,9 +96,33 @@ function parsePermissionContext(meta: unknown): {
   permissionClass: ToolPermissionClass;
   extensionSource: ToolExtensionSource;
   authorizationScope: ToolAuthorizationScope;
+  authorizationGroup?: 'computer_control' | 'mcp_module' | 'web_read';
+  authorizationModule?: { name: string; displayName: string };
+  authorizationTarget?: string;
   taskWorkspaceRoot?: string;
 } {
   const codepro = isRecord(meta) && isRecord(meta.codepro) ? meta.codepro : {};
+  const module = codepro.authorizationModule;
+  const moduleValid =
+    isRecord(module) &&
+    typeof module.name === 'string' &&
+    /^[A-Za-z0-9_-]{1,32}$/.test(module.name) &&
+    typeof module.displayName === 'string' &&
+    module.displayName.trim().length > 0 &&
+    module.displayName.length <= 160;
+  const moduleContext =
+    codepro.authorizationScope === 'session' &&
+    codepro.authorizationGroup === 'mcp_module' &&
+    moduleValid
+      ? {
+          authorizationGroup: 'mcp_module' as const,
+          authorizationModule: {
+            name: module.name as string,
+            displayName: module.displayName as string,
+          },
+        }
+      : {};
+
   return {
     permissionClass:
       typeof codepro.permissionClass === 'string' &&
@@ -115,10 +139,22 @@ function parsePermissionContext(meta: unknown): {
       AUTHORIZATION_SCOPES.has(codepro.authorizationScope as ToolAuthorizationScope)
         ? (codepro.authorizationScope as ToolAuthorizationScope)
         : 'unknown',
+    ...moduleContext,
+    ...(codepro.authorizationScope === 'session' && codepro.authorizationGroup === 'web_read' && codepro.permissionClass === 'read_only'
+      ? { authorizationGroup: 'web_read' as const } : {}),
+    ...(codepro.authorizationScope === 'session' &&
+    typeof codepro.authorizationTarget === 'string' &&
+    codepro.authorizationTarget.length <= 2048
+      ? { authorizationTarget: codepro.authorizationTarget }
+      : {}),
     taskWorkspaceRoot:
       typeof codepro.taskWorkspaceRoot === 'string' && codepro.taskWorkspaceRoot.trim()
         ? codepro.taskWorkspaceRoot
         : undefined,
+    ...(codepro.authorizationScope === 'session' &&
+    codepro.authorizationGroup === 'computer_control'
+      ? { authorizationGroup: 'computer_control' as const }
+      : {}),
   };
 }
 

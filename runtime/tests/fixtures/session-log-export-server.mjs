@@ -1,0 +1,21 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createHarnessDriver } from '../../harness/index.mjs';
+import { openStore } from '../../store.mjs';
+import { createCompatServer } from '../../server.mjs';
+
+const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-log-browser-'));
+const dataDir = path.join(root, 'backend');
+const native = await createHarnessDriver({ dataDir: path.join(dataDir, 'harness'), cwd: root });
+await native.permissions('native-export', { cwd: root });
+await native.rename('native-export', 'Browser export 中文 🙂');
+const expected = await native.exportSessionLog('native-export');
+await native.close();
+const store = await openStore(dataDir);
+await store.update(state => { state.sessions.push({ id: 'product-export', nativeSessionId: 'native-export', title: 'Export acceptance', cwd: root, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), updates: [] }); });
+const secret = 'isolated-session-log-browser-test';
+const service = await createCompatServer({ dataDir, secret });
+const url = await service.listen();
+process.send({ root, wsUrl: `${url.replace('http:', 'ws:')}/acp?token=${secret}`, expected });
+process.on('message', async message => { if (message === 'close') { await service.close(); process.exit(0); } });

@@ -7,6 +7,7 @@ import type { MessageSubmissionLifecycle } from '../hooks/useChatSessionTypes';
 import type { Message, UserInput } from '../types/message';
 import ChatInput from './ChatInput';
 import { MessageQueue } from './MessageQueue';
+import { updateDesktopOwnership } from '../desktopOwnership';
 import { QueuedMessageStorage } from '../utils/queuedMessageStorage';
 import { getSessionGoal, pauseSessionGoal } from '../acp/goals';
 import { OPEN_GOAL_EDITOR } from '../workspace-panel/goalPanel';
@@ -359,6 +360,18 @@ describe('compact queue presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it('persists the original desktop generation and keeps it on automatic delivery after Escape', async () => {
+    updateDesktopOwnership({ paused: false, revision: null, generation: 'before', owner: null, queue: [] });
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const initial = setup(submit);
+    await queue('Observe then complete independent work');
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0].desktopGeneration).toBe('before');
+    updateDesktopOwnership({ paused: true, revision: 'escape', generation: 'escape', pauseReason: 'escape', owner: null, queue: [] });
+    initial.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0]).toMatchObject({ msg: 'Observe then complete independent work', desktopGeneration: 'before' });
+    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
+  });
   it('snapshots all waiting messages for Send now, admits once after cancellation, then resumes later ordinary input', async () => {
     const pending = deferred<void>();
     let lifecycle!: MessageSubmissionLifecycle;
@@ -688,6 +701,7 @@ describe('ChatInput queue delivery', () => {
 
   afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
+    updateDesktopOwnership({ paused: false, revision: null, generation: '', owner: null, queue: [] });
     selection.item = null;
     vi.mocked(getSessionExtensions).mockReset().mockResolvedValue([]);
     vi.mocked(addSessionExtension).mockReset().mockResolvedValue(undefined);
@@ -1396,7 +1410,7 @@ describe('ChatInput queue delivery', () => {
     initial.changeState(ChatState.Idle);
     await userEvent.click(sendNow());
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toEqual({ msg: 'inspect this image', images });
+    expect(submit.mock.calls[0][0]).toEqual({ msg: 'inspect this image', images, desktopGeneration: '' });
     initial.unmount();
     const restored = setup(submit);
     restored.changeState(ChatState.Idle);

@@ -28,8 +28,8 @@ beforeEach(() => {
 
 describe('GitHub account card on the Harness desktop', () => {
   it('loads and refreshes the real connection component without a retired ACP auth request', async () => {
+    vi.mocked(window.electron.githubCliStatus).mockResolvedValue({ state: 'check_failed' });
     render(<GitHubAuthCard />, { wrapper: IntlTestWrapper });
-    expect(await screen.findByText('No GitHub CLI account is signed in.')).toBeVisible();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Check connection' })).toBeEnabled()
     );

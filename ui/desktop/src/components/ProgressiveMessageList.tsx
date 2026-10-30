@@ -1938,8 +1938,8 @@ function ProgressiveMessageListContent({
                   turn,
                   userEnd,
                   historyEnd,
-                  streaming,
-                  pending,
+                  streaming && !settled,
+                  pending && !settled,
                   settled,
                   answerIndex >= 0 ? [answerIndex, 0, answerStart] : undefined,
                   { hidden: settled || streaming || pending }

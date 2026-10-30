@@ -1,3 +1,4 @@
+import { registerDesktopControl } from './desktopControlMain';
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerTrayLifecycle } from './utils/trayLifecycle';
 import { registerGitHubCliAuth } from './github/githubCliMain';
@@ -49,7 +50,9 @@ import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLease
 import { acpWebSocketUrlFromHttpBase, normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
 import log from './utils/logger';
-import { addRecentDir, loadRecentDirs } from './utils/recentDirs';
+import { addRecentDir, loadRecentDirs, onRecentDirsChanged } from './utils/recentDirs';
+import { openProjectFolderInWindow } from './openProjectFolder';
+import { DraftStore } from './drafts/draftStore';
 import { formatAppName, errorMessage, formatErrorForLogging } from './utils/conversionUtils';
 import { isRetiredGooseChatApp } from './utils/retiredApps';
 import { resolveWorkspaceFilePath } from './utils/safeWorkspacePath';
@@ -539,6 +542,7 @@ app.on('certificate-error', (event, _webContents, url, _error, certificate, call
 
 app.whenReady().then(() => {
   appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
+  registerDesktopControl();
 });
 
 // Main-process net.fetch: pin to the exact cert once known.
@@ -839,8 +843,6 @@ async function processProtocolUrl(url: string, parsedUrl: URL, window: BrowserWi
   }
 }
 
-let windowDeeplinkURL: string | null = null;
-
 app.on('open-url', async (_event, url) => {
   if (process.platform !== 'win32') {
     const parsedUrl = new URL(url);
@@ -875,9 +877,6 @@ app.on('open-url', async (_event, url) => {
       log.info('[Main] Detected bot/recipe URL, creating new chat window');
       openUrlHandledLaunch = true;
       const deeplinkData = parseRecipeDeeplink(url);
-      if (deeplinkData) {
-        windowDeeplinkURL = url;
-      }
       const scheduledJobId = parsedUrl.searchParams.get('scheduledJob');
 
       await createChat(app, {
@@ -885,7 +884,6 @@ app.on('open-url', async (_event, url) => {
         scheduledJobId: scheduledJobId || undefined,
         recipeParameters: deeplinkData?.parameters,
       });
-      windowDeeplinkURL = null;
       return;
     }
 
@@ -1881,10 +1879,52 @@ const buildRecentFilesMenu = () => {
   return recentDirs.map((dir) => ({
     label: dir,
     click: async () => {
-      await createChat(app, { dir });
+      const currentWindow = BrowserWindow.getFocusedWindow();
+      if (currentWindow) await selectProjectFolder(currentWindow, dir);
     },
   }));
 };
+
+async function selectProjectFolder(currentWindow: BrowserWindow, directory: string) {
+  try {
+    const selected = await openProjectFolderInWindow(
+      currentWindow,
+      directory,
+      async (canonical) => {
+        const result = await dialog.showMessageBox(currentWindow, {
+          type: 'question',
+          title: nativeT('Trust this folder?', '信任此文件夹吗？', '信任此資料夾嗎？'),
+          message: canonical,
+          detail: nativeT(
+            'Use this folder for a new task. When you send a task, CodeBuddy can read files and perform edits or commands according to the selected permissions. Continue only if you trust its contents.',
+            '将此文件夹用于新任务。发送任务后，CodeBuddy 可以读取其中的文件，并按你选择的权限修改文件或运行命令。请确认你信任其中的内容。',
+            '將此資料夾用於新任務。傳送任務後，CodeBuddy 可以讀取其中的檔案，並依你選擇的權限修改檔案或執行命令。請確認你信任其中的內容。'
+          ),
+          buttons: [
+            nativeT('Trust folder', '信任文件夹', '信任資料夾'),
+            nativeT('Cancel', '取消', '取消'),
+          ],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true,
+        });
+        return result.response === 0;
+      }
+    );
+    if (selected) addRecentDir(selected);
+  } catch (error) {
+    log.warn('Failed to select project folder:', error);
+    if (!currentWindow.isDestroyed())
+      await dialog.showMessageBox(currentWindow, {
+        type: 'error',
+        message: nativeT(
+          'The folder is unavailable. Select an existing folder.',
+          '文件夹不可用，请选择一个现有文件夹。',
+          '資料夾不可用，請選擇現有資料夾。'
+        ),
+      });
+  }
+}
 
 const openDirectoryDialog = async (): Promise<OpenDialogReturnValue> => {
   // Get the current working directory from the focused window
@@ -1938,42 +1978,14 @@ const openDirectoryDialog = async (): Promise<OpenDialogReturnValue> => {
     defaultPath = os.homedir();
   }
 
-  const result = (await dialog.showOpenDialog({
-    properties: ['openFile', 'openDirectory', 'createDirectory'],
+  if (!currentWindow) return { canceled: true, filePaths: [] };
+  const result = (await dialog.showOpenDialog(currentWindow, {
+    properties: ['openDirectory'],
     defaultPath: defaultPath,
   })) as unknown as OpenDialogReturnValue;
 
   if (!result.canceled && result.filePaths.length > 0) {
-    const selectedPath = result.filePaths[0];
-
-    // If a file was selected, use its parent directory
-    let dirToAdd = selectedPath;
-    try {
-      const stats = fsSync.lstatSync(selectedPath);
-
-      // Reject symlinks for security
-      if (stats.isSymbolicLink()) {
-        console.warn(`Selected path is a symlink, using parent directory for security`);
-        dirToAdd = path.dirname(selectedPath);
-      } else if (stats.isFile()) {
-        dirToAdd = path.dirname(selectedPath);
-      }
-    } catch {
-      console.warn(`Could not stat selected path, using parent directory`);
-      dirToAdd = path.dirname(selectedPath); // Fallback to parent directory
-    }
-
-    addRecentDir(dirToAdd);
-
-    let deeplinkData: RecipeDeeplinkData | undefined = undefined;
-    if (windowDeeplinkURL) {
-      deeplinkData = parseRecipeDeeplink(windowDeeplinkURL);
-    }
-    await createChat(app, {
-      dir: dirToAdd,
-      recipeDeeplink: deeplinkData?.config,
-      recipeParameters: deeplinkData?.parameters,
-    });
+    await selectProjectFolder(currentWindow, result.filePaths[0]);
   }
   return result;
 };
@@ -2173,6 +2185,20 @@ ipcMain.handle(
     });
   }
 );
+
+let draftStore: DraftStore | undefined;
+const draftOwners = new Set<number>();
+ipcMain.handle('new-task-draft', (event, request) => {
+  const owner = event.sender;
+  if (!BrowserWindow.fromWebContents(owner)) throw new Error('Drafts require an application window');
+  draftStore ??= new DraftStore(path.join(app.getPath('userData'), 'new-task-drafts-v1'));
+  if (!draftOwners.has(owner.id)) {
+    draftOwners.add(owner.id);
+    const id = owner.id;
+    owner.once('destroyed', () => { draftStore?.release(id); draftOwners.delete(id); });
+  }
+  return draftStore.request(owner.id, request);
+});
 
 ipcMain.handle('add-recent-dir', (_event, dir: string) => {
   if (dir) {
@@ -2956,14 +2982,35 @@ async function appMain() {
     );
 
     const recentFilesSubmenu = buildRecentFilesMenu();
-    if (recentFilesSubmenu.length > 0) {
+    {
+      const recentItem = new MenuItem({
+        label: menuT('Recent Directories'),
+        submenu: recentFilesSubmenu,
+        enabled: recentFilesSubmenu.length > 0,
+      });
       fileMenu.submenu.insert(
         menuIndex++,
-        new MenuItem({
-          label: menuT('Recent Directories'),
-          submenu: recentFilesSubmenu,
-        })
+        recentItem
       );
+      onRecentDirsChanged(() => {
+        const items = buildRecentFilesMenu();
+        // Electron binds submenu references at construction time. Rebuild only
+        // this branch, preserving the other menu items and their click handlers.
+        const updatedRecent = new MenuItem({
+          label: recentItem.label,
+          submenu: items,
+          enabled: items.length > 0,
+        });
+        const updatedFile = new MenuItem({
+          label: fileMenu.label,
+          submenu: Menu.buildFromTemplate(
+            fileMenu.submenu!.items.map((item) => item === recentItem ? updatedRecent : item)
+          ),
+        });
+        Menu.setApplicationMenu(Menu.buildFromTemplate(
+          menu!.items.map((item) => item === fileMenu ? updatedFile : item)
+        ));
+      });
     }
 
     fileMenu.submenu.insert(menuIndex++, new MenuItem({ type: 'separator' }));
@@ -3510,9 +3557,9 @@ async function getAllowList(): Promise<string[]> {
 
 let harnessQuitFinished = false;
 app.on('before-quit', (event) => {
-  if (!packagedHarnessService || harnessQuitFinished) return;
+  if (harnessQuitFinished) return;
   event.preventDefault();
-  void packagedHarnessService.close().finally(() => {
+  void Promise.all([draftStore?.flush(), packagedHarnessService?.close()]).finally(() => {
     harnessQuitFinished = true;
     app.quit();
   });

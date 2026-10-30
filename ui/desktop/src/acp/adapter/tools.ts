@@ -301,6 +301,8 @@ function toolResponseMetadata(
   identity: ToolIdentity
 ): Record<string, unknown> | undefined {
   const metadata = baseToolMetadata(update, identity) ?? {};
+  const goose = isRecord(update._meta?.goose) ? update._meta.goose : undefined;
+  if (['paused', 'stale', 'withdrawn', 'stopped'].includes(String(goose?.desktopOutcome))) metadata.desktopOutcome = goose!.desktopOutcome;
   const toolAudit = toolAuditReceiptFromMeta(update._meta);
   if (toolAudit) {
     metadata.toolAudit = toolAudit;

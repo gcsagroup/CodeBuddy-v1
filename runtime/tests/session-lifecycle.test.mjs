@@ -10,6 +10,7 @@ import { openStore } from '../store.mjs';
 import { Compat } from '../compat.mjs';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
+import { DesktopCoordinator } from '../desktop-coordinator.mjs';
 
 const ext = name => `_goose/unstable/${name}`;
 const allow = { outcome: { outcome: 'selected', optionId: 'allow_once' } };
@@ -58,6 +59,114 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   const tool = (sessionId, name, args) => request(ext('tools/call'), { sessionId, name: `developer__${name}`, arguments: args });
   return { root, native, driver, store, compat, connection, request, create, pids, tool, slow };
 }
+
+for (const cancelled of [false, true]) test(`desktop resume during native completion waits for Compat settlement (cancelled=${cancelled})`, { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  const cwd = path.join(f.root, 'resume-project');
+  const lease = await f.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
+  const { sessionId: id } = await f.request('session/new', { cwd, mcpServers: [],
+    _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId, enabledExtensions: ['developer'] } });
+  f.compat.desktop = new DesktopCoordinator({ directory: path.join(f.root, 'desktop') });
+  const entered = Promise.withResolvers(), settle = Promise.withResolvers();
+  const originalFinish = f.compat.runs.finishHarnessAttempt.bind(f.compat.runs);
+  f.compat.runs.finishHarnessAttempt = async (...args) => {
+    entered.resolve();
+    await settle.promise;
+    return originalFinish(...args);
+  };
+  t.after(() => settle.resolve());
+  const running = f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'Complete independent work' }] });
+  await entered.promise;
+  const turn = f.compat.desktop.begin({ sessionId: id, token: 'paused-turn' });
+  await turn.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => ({}));
+  f.compat.desktop.pause(id, 'paused-turn');
+  await turn.end();
+  const revision = f.compat.desktop.state().revision;
+  await assert.rejects(f.request(ext('desktop/control'), { action: 'resume', revision, expectedSessionId: 'different-chat' }), /所属对话已变化/);
+  assert.equal(f.compat.desktop.state().paused, true, 'a stale cross-chat button cannot resume a different owner');
+
+  await assert.rejects(f.driver.steer(id, 'late input'), { harnessCode: 'PROMPT_IDLE' });
+  let resumed = false;
+  const resume = f.request(ext('desktop/control'), { action: 'resume', revision }).then(result => { resumed = true; return result; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(resumed, false, 'do not hand an unfinished session back to the composer');
+  if (cancelled) await f.request('session/cancel', { sessionId: id });
+  settle.resolve();
+  await running;
+  const state = await resume;
+  assert.equal(state.paused, false);
+  assert.equal(state.owner, null);
+  assert.equal(state.continueSessionId, cancelled ? null : id);
+  if (!cancelled) {
+    const result = await f.request('session/prompt', { sessionId: state.continueSessionId,
+      prompt: [{ type: 'text', text: 'Continue original work after a fresh observation' }] });
+    assert.equal(result.stopReason, 'end_turn');
+  }
+});
+
+test('deep recovery: ordinary running conversations receive resume input through Harness', { timeout: 30_000 }, async t => {
+  const f = await fixture(t), id = await f.create(false);
+  f.compat.desktop = new DesktopCoordinator({ directory: path.join(f.root, 'desktop') });
+  const running = f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'SLOW_LIFECYCLE' }] });
+  await f.slow.promise;
+  const turn = f.compat.desktop.begin({ sessionId: id, token: 'ordinary-turn' });
+  await turn.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => ({}));
+  f.compat.desktop.pause(id, 'ordinary-turn');
+  await turn.end();
+
+  const admitted = [];
+  const original = f.native.steer.bind(f.native);
+  f.native.steer = async (...args) => { const result = await original(...args); admitted.push(args[0]); return result; };
+  try {
+    const state = await f.request(ext('desktop/control'), { action: 'resume', revision: f.compat.desktop.state().revision });
+    assert.equal(state.paused, false);
+    assert.deepEqual(admitted, [id], 'normal chat must not silently drop its resume input');
+  } finally {
+    await f.request('session/cancel', { sessionId: id });
+    await running;
+  }
+});
+
+test('deep recovery: cancelling during persistence cannot resurrect the completed desktop turn', { timeout: 30_000 }, async t => {
+  const f = await fixture(t), cwd = path.join(f.root, 'cancel-project');
+  const lease = await f.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
+  const { sessionId: id } = await f.request('session/new', { cwd, mcpServers: [],
+    _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId, enabledExtensions: ['developer'] } });
+  const desktop = f.compat.desktop = new DesktopCoordinator({ directory: path.join(f.root, 'desktop') });
+  const begin = desktop.begin.bind(desktop);
+  desktop.begin = options => {
+    const turn = begin(options);
+    return { ...turn, end: async () => {
+      await turn.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => ({}));
+      desktop.pause(id, options.token);
+      await turn.end();
+    } };
+  };
+  const entered = Promise.withResolvers(), settle = Promise.withResolvers();
+  const finish = f.compat.runs.finishHarnessAttempt.bind(f.compat.runs);
+  f.compat.runs.finishHarnessAttempt = async (...args) => { entered.resolve(); await settle.promise; return finish(...args); };
+  t.after(() => settle.resolve());
+  const running = f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'Complete work' }] });
+  await entered.promise;
+  assert.equal(desktop.state().owner.sessionId, id);
+  await f.request('session/cancel', { sessionId: id });
+  settle.resolve();
+  assert.equal((await running).stopReason, 'cancelled');
+  assert.equal(desktop.state().paused, false);
+  assert.equal(desktop.state().owner, null);
+});
+
+test('a new user prompt continues its ended desktop pause without a separate unlock', { timeout: 30_000 }, async t => {
+  const f = await fixture(t), id = await f.create(false);
+  f.compat.desktop = new DesktopCoordinator({ directory: path.join(f.root, 'desktop') });
+  const turn = f.compat.desktop.begin({ sessionId: id, token: 'previous' });
+  await turn.execute({ name: 'mcp__qwen_computer__get_app_state' }, async () => ({}));
+  f.compat.desktop.pause(id, 'previous', 'escape');
+  await turn.end();
+  const result = await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'Continue' }] });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(f.compat.desktop.state().paused, false);
+});
 
 test('close and delete release real MCP processes and session leases; close permits a clean reopen', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
@@ -192,6 +301,16 @@ for (const failFinalization of [false, true]) test(`prompt release follows real 
     if (params.update?._meta?.goose?.activeRunId === null) throw new Error('Detached observer');
   } });
   try {
+    const controlToken = f.compat.active.get(id).desktopControlToken;
+    assert.equal(typeof controlToken, 'string');
+    await f.request('session/cancel', { sessionId: id,
+      _meta: { 'codebuddy/desktop-control-token': 'expired-turn' } });
+    assert.equal(f.compat.active.get(id).controller.signal.aborted, false,
+      'An old overlay must not cancel the replacement prompt');
+    await f.request('session/cancel', { sessionId: id,
+      _meta: { 'codebuddy/desktop-control-token': controlToken } });
+    assert.equal(f.compat.active.get(id).controller.signal.aborted, false,
+      'Desktop Escape must never cancel the conversation, including old overlay clients');
     await f.request('session/cancel', { sessionId: id });
     await terminal.promise;
     await finalizing.promise;

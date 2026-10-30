@@ -1,3 +1,5 @@
+import { parseDesktopControl } from '../desktopControl';
+import { updateDesktopOwnership } from '../desktopOwnership';
 import {
   DEFAULT_GOOSE_MCP_HOST_CAPABILITIES,
   GooseClient,
@@ -211,6 +213,19 @@ async function openConnection(generation: number): Promise<AcpConnection> {
 
     const connection = { client, stream, initializeResponse, pendingRequests };
     currentConnection = connection;
+    void client.extMethod('_goose/unstable/desktop/control', { action: 'state' })
+      .then(state => { if (currentConnection === connection) updateDesktopOwnership(state); })
+      .catch(() => { /* Older hosts omit desktop ownership; queued input stays conservative. */ });
+    const removeDesktopCancel = window.electron.onDesktopControlCancel?.((state) => {
+      void client.extMethod('_goose/unstable/desktop/control', { action: 'pause', sessionId: state.sessionId,
+        token: state.token, reason: 'escape' }).then(updateDesktopOwnership).catch(error => {
+          console.error('Desktop control cancellation failed:', error);
+        });
+    });
+    pendingRequests.signal.addEventListener('abort', () => {
+      removeDesktopCancel?.();
+      window.electron.desktopControl?.(null);
+    }, { once: true });
     void refreshObservedCodeProRuns(client);
     const handleClose = () => {
       pendingRequests.abort();
@@ -346,6 +361,16 @@ function createClientCallbacks(
         await handleAcpSessionNotification(notification, signal);
     },
     unstable_sessionUpdate: async (notification) => {
+      if (notification.update.sessionUpdate === 'status_message' &&
+        updateDesktopOwnership(notification.update.status.data)) return;
+      if (!controlOnly && notification.update.sessionUpdate === 'status_message') {
+        const state = parseDesktopControl(notification.sessionId, notification.update.status.data);
+        if (state) {
+          console.info('[Desktop feedback] runtime state', { sessionId: state.sessionId, active: state.active, bridgeAvailable: typeof window.electron.desktopControl === 'function' });
+          window.electron.desktopControl?.(state);
+          return;
+        }
+      }
       if (!controlOnly) await handleAcpGooseSessionNotification(notification);
     },
     unstable_codeproRunUpdate: async (notification) => {

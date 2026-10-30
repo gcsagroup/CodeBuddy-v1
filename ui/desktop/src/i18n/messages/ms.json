@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "Padam kelayakan"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "Kelayakan dipadam"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "Padam kelayakan {name} untuk {provider}?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "Padam kelayakan"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "Kelayakan dipadam"
   },
   "authSettings.description": {
     "defaultMessage": "Urus kelayakan pembekal yang disimpan secara setempat oleh CodeBuddy."
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "Sahkan semula"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "Kelayakan dikonfigurasi"
-  },
   "authSettings.signIn": {
     "defaultMessage": "Log masuk"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "Kelayakan dikonfigurasi"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "Cache pembekal"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "Sambungan terputus. Menyambung semula…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "Sambungan untuk sembang baharu"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "Sambungan untuk sesi sembang ini"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Sambungan Dikemas Kini"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} akan didayakan dalam sembang baharu"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "Sambungan untuk sembang baharu"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "Sambungan untuk sesi sembang ini"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "urus sambungan"
@@ -214,6 +214,42 @@
   },
   "builtInExtension.memory.name": {
     "defaultMessage": "Memory"
+  },
+  "businessApproval.allowSession": {
+    "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
+  },
+  "businessApproval.computer": {
+    "defaultMessage": "computer use"
+  },
+  "businessApproval.computerScope": {
+    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
+  },
+  "businessApproval.image": {
+    "defaultMessage": "image generation"
+  },
+  "businessApproval.lifetime": {
+    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
+  },
+  "businessApproval.mediaScope": {
+    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
+  },
+  "businessApproval.operations": {
+    "defaultMessage": "Included operations"
+  },
+  "businessApproval.output": {
+    "defaultMessage": "Output folder"
+  },
+  "businessApproval.service": {
+    "defaultMessage": "Service"
+  },
+  "businessApproval.video": {
+    "defaultMessage": "video generation"
+  },
+  "businessApproval.workspace": {
+    "defaultMessage": "Workspace"
   },
   "cardButtons.configure": {
     "defaultMessage": "Konfigurasi"
@@ -725,6 +761,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -739,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -803,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1547,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "Conversation export started."
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1610,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -2076,7 +2112,7 @@
     "defaultMessage": "Laluan Asas API (pilihan)"
   },
   "customProviderForm.apiBasePathHint": {
-    "defaultMessage": "Ganti laluan API lalai. Biarkan kosong untuk menggunakan laluan lalai pembekal."
+    "defaultMessage": "Override the generation path required by your provider. A blank path uses Responses for the official OpenAI address and Chat Completions for compatible services. Loading models does not verify this path."
   },
   "customProviderForm.apiBasePathPlaceholder": {
     "defaultMessage": "cth., v1/chat/completions atau project_id/v1"
@@ -2108,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "Lampiran"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "Pengesahan"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "LLM setempat seperti Ollama biasanya tidak memerlukan kunci API."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "Pengesahan"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "Model Tersedia (dipisahkan dengan koma)"
@@ -2122,9 +2158,6 @@
   },
   "customProviderForm.cancel": {
     "defaultMessage": "Batal"
-  },
-  "customProviderForm.cannotDeleteActive": {
-    "defaultMessage": "Anda tidak boleh memadam pembekal ini semasa ia sedang digunakan. Sila tukar kepada model lain dahulu."
   },
   "customProviderForm.chooseSetup": {
     "defaultMessage": "Pilih cara anda mahu menyediakan pembekal anda."
@@ -2148,7 +2181,7 @@
     "defaultMessage": "The address returned too much data. Check that this is a model API address."
   },
   "customProviderForm.createProvider": {
-    "defaultMessage": "Cipta Pembekal"
+    "defaultMessage": "Verify and add"
   },
   "customProviderForm.credentialsNotVerified": {
     "defaultMessage": "This address also works without the API key, so the key could not be verified. Turn off authentication or use the provider's authenticated API address."
@@ -2168,8 +2201,17 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Adakah anda pasti mahu memadam pembekal tersuai ini? Ini akan mengalih keluar pembekal dan kunci API yang disimpannya secara kekal. Tindakan ini tidak boleh dibatalkan."
   },
+  "customProviderForm.deleteFailed": {
+    "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
+  },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Padam Pembekal"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
+  },
+  "customProviderForm.diagnosticDetails": {
+    "defaultMessage": "Diagnostic details"
   },
   "customProviderForm.discoveredModels": {
     "defaultMessage": "Discovered models"
@@ -2210,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2223,7 +2265,7 @@
     "defaultMessage": "Local Ollama"
   },
   "customProviderForm.modelDiscoveryHint": {
-    "defaultMessage": "Load the model list, then choose a model. Saving sends one minimal request to verify the selected model."
+    "defaultMessage": "Verification sends a real model request and may use a small number of tokens. The connection is saved only after verification succeeds."
   },
   "customProviderForm.modelId": {
     "defaultMessage": "Model ID"
@@ -2231,8 +2273,11 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
-    "defaultMessage": "Models loaded. The selected model will be verified when you save."
+    "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
   "customProviderForm.modelsPlaceholder": {
     "defaultMessage": "model-a, model-b, model-c"
@@ -2240,11 +2285,11 @@
   "customProviderForm.modelsRequired": {
     "defaultMessage": "Sekurang-kurangnya satu model diperlukan"
   },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
-  },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
+  },
+  "customProviderForm.notSaved": {
+    "defaultMessage": "The connection was not saved. Your entries are retained in this form."
   },
   "customProviderForm.ollamaCompatible": {
     "defaultMessage": "Serasi Ollama"
@@ -2252,14 +2297,32 @@
   "customProviderForm.openaiCompatible": {
     "defaultMessage": "Serasi OpenAI"
   },
+  "customProviderForm.pathNotFound": {
+    "defaultMessage": "The model endpoint was not found or is not accessible to this account. Verify the API address, base path and model ID."
+  },
+  "customProviderForm.permissionDenied": {
+    "defaultMessage": "Access was denied. Verify that this API key has permission to use the selected model."
+  },
   "customProviderForm.providerType": {
     "defaultMessage": "Jenis Pembekal"
+  },
+  "customProviderForm.rateLimited": {
+    "defaultMessage": "The service limited this request. Check the account quota and request limits, then retry."
   },
   "customProviderForm.reasoning": {
     "defaultMessage": "Penaakulan"
   },
+  "customProviderForm.requestRejected": {
+    "defaultMessage": "The service rejected the validation request. Verify the API format, tool support and thinking settings for this model."
+  },
   "customProviderForm.requiresApiKey": {
     "defaultMessage": "Pembekal ini memerlukan kunci API"
+  },
+  "customProviderForm.saveUnconfirmed": {
+    "defaultMessage": "The save result could not be confirmed. Your entries are retained; check the connection list before retrying."
+  },
+  "customProviderForm.serviceUnavailable": {
+    "defaultMessage": "The model service returned a server error. Retry later or check the service status."
   },
   "customProviderForm.startFromTemplate": {
     "defaultMessage": "Mula daripada templat pembekal"
@@ -2268,7 +2331,7 @@
     "defaultMessage": "Pilih pembekal yang dikenali dan kami akan mengisi konfigurasi secara automatik"
   },
   "customProviderForm.submitError": {
-    "defaultMessage": "Gagal menyimpan pembekal. Sila semak konfigurasi anda dan cuba lagi."
+    "defaultMessage": "Connection verification did not complete. Check your connection settings and try again."
   },
   "customProviderForm.supportsStreaming": {
     "defaultMessage": "Pembekal menyokong respons penstriman"
@@ -2276,14 +2339,26 @@
   "customProviderForm.toolCalling": {
     "defaultMessage": "Pemanggilan alat"
   },
+  "customProviderForm.toolsUnsupported": {
+    "defaultMessage": "This model does not support tool calling. Select a model with tool support to use CodeBuddy tasks."
+  },
   "customProviderForm.updateProvider": {
-    "defaultMessage": "Kemas Kini Pembekal"
+    "defaultMessage": "Verify and save"
   },
   "customProviderForm.usingTemplate": {
     "defaultMessage": "Menggunakan templat: {name}"
   },
   "customProviderForm.valuePlaceholder": {
     "defaultMessage": "Nilai"
+  },
+  "customProviderForm.verificationFailed": {
+    "defaultMessage": "Verification failed"
+  },
+  "customProviderForm.verificationUnconfirmed": {
+    "defaultMessage": "Verification result unconfirmed"
+  },
+  "customProviderForm.verifying": {
+    "defaultMessage": "Verifying…"
   },
   "defaultCardButtons.configureSettings": {
     "defaultMessage": "Konfigurasikan tetapan {name}"
@@ -2492,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Menunggu respons anda ({timeRemaining} lagi)"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Dev"
-  },
   "envVarsSection.add": {
     "defaultMessage": "Tambah"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "Kedua-dua nama pemboleh ubah dan nilai mesti dimasukkan"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "Pemboleh Ubah Persekitaran"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "Tambah pasangan kunci-nilai untuk pemboleh ubah persekitaran. Klik butang \"+\" untuk menambah selepas mengisi kedua-dua medan. Untuk nilai rahsia sedia ada, klik butang edit untuk mengubah suai."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "Pemboleh Ubah Persekitaran"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "Nama pemboleh ubah tidak boleh mengandungi ruang"
@@ -2515,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "Nama pemboleh ubah"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Dev"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "Satu ralat telah berlaku."
@@ -2696,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "Anda mempunyai perubahan yang belum disimpan pada konfigurasi sambungan. Adakah anda pasti mahu menutup tanpa menyimpan?"
@@ -2738,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "Had Masa"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "Tambah sambungan tersuai"
   },
@@ -2767,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "Cari sambungan..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "Had Masa"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "Cap Jari Sijil (pilihan)"
@@ -3488,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "Dihentikan"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count,plural,one{# tindakan alat dikekalkan.} other{# tindakan alat dikekalkan.}}"
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Tutup"
   },
@@ -3550,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "Dihentikan"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count,plural,one{# tindakan alat dikekalkan.} other{# tindakan alat dikekalkan.}}"
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "Tanya CodeBuddy"
@@ -3674,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Gagal log masuk ke Hugging Face: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Hugging Face telah log masuk"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "Log masuk"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Hugging Face telah log masuk"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "Sedang log masuk..."
@@ -3722,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "Struktur Resipi Dijangka"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "Mengimport..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "Import Resipi"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "Import Resipi"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "Mengimport..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "ATAU"
@@ -3838,6 +3913,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "Hantar"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "Tambah nilai prakonfigurasi"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "Nama parameter..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "Nilai parameter..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "Buang nilai prakonfigurasi {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "Togol tetingkap sentiasa di atas"
@@ -3983,18 +4070,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "Togol Navigasi"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "Tambah nilai prakonfigurasi"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "Nama parameter..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "Nilai parameter..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "Buang nilai prakonfigurasi {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "Tanya CodeBuddy apa sahaja..."
   },
@@ -4040,17 +4115,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "Muat turun dibatalkan"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "Model Dimuat Turun"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "Muat turun gagal"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "Memuat turun"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} ({percent}%)"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "Model Dimuat Turun"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "Memuat turun"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4136,14 +4211,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "Menyemak model tersedia..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "Memuat turun {modelId}"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "Muat turun {modelId} ({size})"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "Memuat turun {modelId}"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "Gagal memuatkan model tersedia. Sila cuba lagi."
@@ -4460,11 +4535,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "Kelajuan"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "Jumlah"
@@ -4501,6 +4576,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "Uji"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "Autonomi"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "Berinteraksi dengan penyedia yang dipilih tanpa menggunakan alat atau sambungan."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "Sembang sahaja"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4630,102 +4729,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "Model dan sambungan"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "Kapasiti konteks"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "Laraskan had konteks model jika maklumat perkhidmatan tiada."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "Penjanaan imej dan video"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "Konfigurasikan perkhidmatan untuk menjana imej dan video."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "Subejen"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "Cipta ejen boleh guna semula dengan nama, model dan arahan."
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "Pemahaman imej"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Gunakan model utama dahulu, dengan model sandaran jika perlu."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "Memuatkan model..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "Tiada model yang sepadan"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Cari model atau sambungan"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "Pilih Model"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "Papar lebih sedikit"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "Papar {count} lagi"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "Pertukaran gagal"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Konfigurasikan penyedia"
@@ -4904,29 +4907,101 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Autonomi"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Berinteraksi dengan penyedia yang dipilih tanpa menggunakan alat atau sambungan."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Sembang sahaja"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Model dan sambungan"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Kapasiti konteks"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Laraskan had konteks model jika maklumat perkhidmatan tiada."
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
+  },
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Penjanaan imej dan video"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Konfigurasikan perkhidmatan untuk menjana imej dan video."
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Subejen"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Cipta ejen boleh guna semula dengan nama, model dan arahan."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Pemahaman imej"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Gunakan model utama dahulu, dengan model sandaran jika perlu."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "Memuatkan model..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Tiada model yang sepadan"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Cari model atau sambungan"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "Pilih Model"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Papar lebih sedikit"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "Papar {count} lagi"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Pertukaran gagal"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "Sembang Baharu"
@@ -5019,11 +5094,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5308,7 +5383,7 @@
     "defaultMessage": "Observe and control desktop applications with bounded actions."
   },
   "platformExtension.computer.name": {
-    "defaultMessage": "Computer control"
+    "defaultMessage": "Computer Use"
   },
   "platformExtension.developer.description": {
     "defaultMessage": "Read, write, and edit files, and run shell commands."
@@ -5508,11 +5583,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "Tiada"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "Tidak ditanda (tidak dipercayai)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "Tiada"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "Tidak ditanda (tidak dipercayai)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "Permintaan menyimpan memori projek"
@@ -5634,11 +5709,11 @@
   "promptsSettings.edit": {
     "defaultMessage": "Edit"
   },
-  "promptsSettings.editingLabel": {
-    "defaultMessage": "Mengedit: {name}"
-  },
   "promptsSettings.editPromptTitle": {
     "defaultMessage": "Edit: {name}"
+  },
+  "promptsSettings.editingLabel": {
+    "defaultMessage": "Mengedit: {name}"
   },
   "promptsSettings.enterPromptContent": {
     "defaultMessage": "Masukkan kandungan gesaan..."
@@ -5748,11 +5823,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Tidak mempunyai kunci API?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "Sedang log masuk..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "Log masuk dengan {providerName}"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "Sedang log masuk..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "Tambah kunci API anda untuk penyedia ini bagi disepadukan ke dalam CodeBuddy"
@@ -5762,9 +5837,6 @@
   },
   "providerConfigurationModal.cancel": {
     "defaultMessage": "Batal"
-  },
-  "providerConfigurationModal.cannotDeleteActive": {
-    "defaultMessage": "Anda tidak boleh memadamkan penyedia ini semasa ia sedang digunakan. Sila tukar ke model lain terlebih dahulu."
   },
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Semak semula konfigurasi anda untuk menggunakan penyedia ini."
@@ -5814,11 +5886,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "Lihat <link>dokumentasi</link> untuk maklumat lanjut."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "Sedang log masuk..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "Log masuk dengan {providerName}"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "Sedang log masuk..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "Tambah Penyedia"
@@ -5843,6 +5915,9 @@
   },
   "providerGrid.noMatch": {
     "defaultMessage": "Tiada penyedia yang sepadan dengan \"{query}\""
+  },
+  "providerGrid.savedRefreshFailed": {
+    "defaultMessage": "Connection verified and saved, but the model list could not be refreshed. Reopen settings to refresh it; do not add the connection again."
   },
   "providerGrid.searchPlaceholder": {
     "defaultMessage": "Cari penyedia..."
@@ -5871,9 +5946,6 @@
   "providerSetupActions.cancel": {
     "defaultMessage": "Batal"
   },
-  "providerSetupActions.cannotDeleteActive": {
-    "defaultMessage": "Anda tidak boleh memadamkan {providerName} semasa ia sedang digunakan. Sila tukar ke model lain sebelum memadamkan penyedia ini."
-  },
   "providerSetupActions.confirmDelete": {
     "defaultMessage": "Sahkan Padam"
   },
@@ -5885,9 +5957,6 @@
   },
   "providerSetupActions.enableProvider": {
     "defaultMessage": "Dayakan Penyedia"
-  },
-  "providerSetupActions.ok": {
-    "defaultMessage": "Ok"
   },
   "providerSetupActions.submit": {
     "defaultMessage": "Hantar"
@@ -6042,6 +6111,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "Akan diformat secara automatik (huruf kecil, sengkang untuk ruang)"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "Perihalan:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "Anda akan melaksanakan resipi yang belum pernah anda jalankan sebelum ini."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "Resipi ini mengandungi aksara tersembunyi yang akan diabaikan demi keselamatan anda, kerana ia boleh digunakan untuk tujuan berniat jahat."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "Arahan:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ Amaran Resipi Baharu"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "Pratonton Resipi:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ Amaran Keselamatan"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "Tajuk:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "Percaya dan Laksanakan"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "Teruskan hanya jika anda mempercayai sumber resipi ini."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "Tambah jadual"
   },
@@ -6195,14 +6297,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "Alih Keluar Jadual"
   },
-  "recipesView.runs": {
-    "defaultMessage": "Berjalan {schedule}"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "Berjalan {schedule}"
   },
   "recipesView.save": {
     "defaultMessage": "Simpan"
@@ -6272,39 +6374,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "Fail YAML"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "Batal"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "Perihalan:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "Anda akan melaksanakan resipi yang belum pernah anda jalankan sebelum ini."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "Resipi ini mengandungi aksara tersembunyi yang akan diabaikan demi keselamatan anda, kerana ia boleh digunakan untuk tujuan berniat jahat."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "Arahan:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ Amaran Resipi Baharu"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "Pratonton Resipi:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ Amaran Keselamatan"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "Tajuk:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "Percaya dan Laksanakan"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "Teruskan hanya jika anda mempercayai sumber resipi ini."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "Tetapkan Semula Penyedia dan Model"
@@ -6411,11 +6480,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Ungkapan Cron:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "Sedang Berjalan"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "Sesi Semasa:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "Sedang Berjalan"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "Dir: {path}"
@@ -6474,6 +6543,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "Tiada sesi ditemui untuk jadual ini."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "Jeda Jadual"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "Ralat Jeda/Nyahjeda"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "Dijeda"
   },
@@ -6482,12 +6557,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "Jadual ini dijeda dan tidak akan berjalan secara automatik. Gunakan \"Jalankan Jadual Sekarang\" untuk mencetuskannya secara manual atau nyahjeda untuk menyambung semula pelaksanaan automatik."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "Jeda Jadual"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "Ralat Jeda/Nyahjeda"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "Proses Dimulakan:"
@@ -6534,17 +6603,17 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "ID Sesi: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "Dinyahjeda \"{id}\""
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "Nyahjeda Jadual"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "Dikemas kini \"{id}\""
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "Dinyahjeda \"{id}\""
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "Ralat Kemas Kini Jadual"
+  },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "Dikemas kini \"{id}\""
   },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Melihat ID Jadual: {id}"
@@ -6681,11 +6750,11 @@
   "schedulesView.pause": {
     "defaultMessage": "Jeda"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "Dijeda"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "Ralat Jeda Jadual"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "Dijeda"
   },
   "schedulesView.refresh": {
     "defaultMessage": "Muat Semula"
@@ -6705,9 +6774,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "Berjaya menjeda jadual \"{id}\""
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "Penjadual"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "Jadual Dinyahjeda"
   },
@@ -6719,6 +6785,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "Berjaya mengemas kini jadual \"{id}\""
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "Penjadual"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "Ralat Nyahjeda Jadual"
@@ -6819,9 +6888,6 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "JSON sesi disalin"
   },
-  "sessionActionsHeader.copiedModelInteractions": {
-    "defaultMessage": "Recent model interactions copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Teks disalin"
   },
@@ -6831,14 +6897,29 @@
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Salin teks"
   },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Sesi diduplikasi"
-  },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "Gagal menduplikasi sesi: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplikasi sesi"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Sesi diduplikasi"
+  },
+  "sessionActionsHeader.exportLog": {
+    "defaultMessage": "Export logs"
+  },
+  "sessionActionsHeader.exportLogFailed": {
+    "defaultMessage": "Failed to export logs: {error}"
+  },
+  "sessionActionsHeader.exportLogNotice": {
+    "defaultMessage": "Includes conversation content and tool results. Review before sharing."
+  },
+  "sessionActionsHeader.exportLogSaved": {
+    "defaultMessage": "Session log saved"
+  },
+  "sessionActionsHeader.exportLogWriteFailed": {
+    "defaultMessage": "The log file could not be saved."
   },
   "sessionActionsHeader.fullTextTitle": {
     "defaultMessage": "Nilai teks"
@@ -6852,15 +6933,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Memuatkan JSON..."
   },
-  "sessionActionsHeader.modelInteractionsFailed": {
-    "defaultMessage": "Failed to load model interactions: {error}"
-  },
-  "sessionActionsHeader.modelInteractionsTitle": {
-    "defaultMessage": "Recent model interactions"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Sesi dinamakan semula"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Gagal menamakan semula sesi: {error}"
   },
@@ -6873,6 +6945,9 @@
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Namakan Semula Sesi"
   },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Sesi dinamakan semula"
+  },
   "sessionActionsHeader.save": {
     "defaultMessage": "Simpan"
   },
@@ -6881,9 +6956,6 @@
   },
   "sessionActionsHeader.viewJson": {
     "defaultMessage": "Lihat JSON sesi"
-  },
-  "sessionActionsHeader.viewModelInteractions": {
-    "defaultMessage": "View recent model interactions"
   },
   "sessionCapabilities.forkUnavailable": {
     "defaultMessage": "Sesi ini tidak boleh disalin. Mulakan tugas baharu untuk bekerja secara berasingan."
@@ -6944,6 +7016,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "Kebenaran ruang kerja belum disegerakkan."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "Sesi ini tidak mengandungi sebarang mesej"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "Tiada mesej ditemui"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "Ralat Memuatkan Butiran Sesi"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "Cuba Lagi"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "Anda"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7044,9 +7134,6 @@
   "sessions.import": {
     "defaultMessage": "Import Sesi"
   },
-  "sessions.importing": {
-    "defaultMessage": "Mengimport..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "Import Pautan"
   },
@@ -7058,6 +7145,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Import Sesi Nostr"
+  },
+  "sessions.importing": {
+    "defaultMessage": "Mengimport..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "Memuatkan lebih banyak sesi..."
@@ -7083,38 +7173,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "Pautan Kongsi Nostr Tersulit"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Disalin ke papan keratan"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "Sesi berjaya dipadam"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "Gagal memadam sesi \"{name}\": {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "Sesi \"{name}\" berjaya diduplikasi"
+  "sessions.toast.deleted": {
+    "defaultMessage": "Sesi berjaya dipadam"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "Gagal menduplikasi sesi: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "Sesi berjaya dieksport"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "Sesi \"{name}\" berjaya diduplikasi"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "Sesi berjaya diimport"
+  "sessions.toast.exported": {
+    "defaultMessage": "Sesi berjaya dieksport"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "Gagal mengimport sesi: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "Sesi berjaya diimport"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "Pautan kongsi Nostr tersulit dicipta"
@@ -7125,29 +7215,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "Penerangan sesi berjaya dikemas kini"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Gagal mengemas kini penerangan sesi: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "Sesi ini tidak mengandungi sebarang mesej"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "Tiada mesej ditemui"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "Ralat Memuatkan Butiran Sesi"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "Cuba Lagi"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "Anda"
+  "sessions.toast.updated": {
+    "defaultMessage": "Penerangan sesi berjaya dikemas kini"
   },
   "settings.appearance.description": {
     "defaultMessage": "Konfigurasikan cara CodeBuddy muncul pada sistem anda"
@@ -7518,6 +7590,9 @@
   "skillManager.noMatch": {
     "defaultMessage": "No matching skills found"
   },
+  "skillManager.pending": {
+    "defaultMessage": "Not enabled in CodeBuddy"
+  },
   "skillManager.previewFiles": {
     "defaultMessage": "Files: {files}"
   },
@@ -7557,6 +7632,15 @@
   "skillManager.search": {
     "defaultMessage": "Search skills..."
   },
+  "skillManager.shadowed": {
+    "defaultMessage": "Another source takes precedence: {path}"
+  },
+  "skillManager.shared": {
+    "defaultMessage": "Shared on this computer"
+  },
+  "skillManager.sharedHelp": {
+    "defaultMessage": "Discovered from the shared skills folder. Enabling lets CodeBuddy load these instructions. Command execution still follows your current permissions."
+  },
   "skillManager.source": {
     "defaultMessage": "Sumber"
   },
@@ -7565,6 +7649,12 @@
   },
   "skillManager.title": {
     "defaultMessage": "Skills"
+  },
+  "skillManager.trustMessage": {
+    "defaultMessage": "Allow CodeBuddy to use the skill at {target}. This choice is saved for this CodeBuddy profile."
+  },
+  "skillManager.trustTitle": {
+    "defaultMessage": "Enable this shared skill?"
   },
   "skillManager.use": {
     "defaultMessage": "Gunakan kemahiran"
@@ -7595,6 +7685,99 @@
   },
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "mesti dipasang pada mesin anda dan dibuka, atau anda mesti memasukkan nilai untuk OLLAMA_HOST."
+  },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "Tambah Sedia Ada"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "Cipta Subresipi Baharu"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "Padam subresipi {name}"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "Subresipi ialah resipi yang boleh dipanggil sebagai alat semasa pelaksanaan. Ia membolehkan aliran kerja berbilang langkah dan komponen yang boleh diguna semula."
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "Nama Berganda"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "Subresipi bernama \"{name}\" sudah wujud. Sila gunakan nama yang unik."
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "Sunting subresipi {name}"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "Subresipi"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "Nilai prakonfigurasi:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "Berjujukan"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "Tambah Subresipi"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "Gunakan"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "Semak Imbas"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "Tutup modal subresipi"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "Konfigurasikan Subresipi"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "Penerangan"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "Penerangan pilihan tentang apa yang dilakukan subresipi ini..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "Fail Tidak Sah"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "Sila pilih fail YAML (.yaml atau .yml)."
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "Pengecam unik yang digunakan untuk menjana nama alat"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "Nama"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "cth., security_scan"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "Semak imbas untuk fail resipi sedia ada atau masukkan laluan secara manual"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "Laluan"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "cth., ./subrecipes/security-analysis.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "Nilai Prakonfigurasi"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "Nilai parameter pilihan yang sentiasa dihantar kepada subresipi"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(Memaksa pelaksanaan berjujukan bagi berbilang tika subresipi)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "Berjujukan apabila diulang"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "Konfigurasikan subresipi yang boleh dipanggil sebagai alat semasa pelaksanaan resipi"
   },
   "subagentLifecycle.end": {
     "defaultMessage": "telah tamat"
@@ -7706,99 +7889,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Subagen baharu"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "Tambah Sedia Ada"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "Cipta Subresipi Baharu"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "Padam subresipi {name}"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "Subresipi ialah resipi yang boleh dipanggil sebagai alat semasa pelaksanaan. Ia membolehkan aliran kerja berbilang langkah dan komponen yang boleh diguna semula."
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "Nama Berganda"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "Subresipi bernama \"{name}\" sudah wujud. Sila gunakan nama yang unik."
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "Sunting subresipi {name}"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "Subresipi"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "Nilai prakonfigurasi:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "Berjujukan"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "Tambah Subresipi"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "Gunakan"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "Semak Imbas"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "Batal"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "Tutup modal subresipi"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "Konfigurasikan Subresipi"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "Penerangan"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "Penerangan pilihan tentang apa yang dilakukan subresipi ini..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "Fail Tidak Sah"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "Sila pilih fail YAML (.yaml atau .yml)."
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "Pengecam unik yang digunakan untuk menjana nama alat"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "Nama"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "cth., security_scan"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "Semak imbas untuk fail resipi sedia ada atau masukkan laluan secara manual"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "Laluan"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "cth., ./subrecipes/security-analysis.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "Nilai Prakonfigurasi"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "Nilai parameter pilihan yang sentiasa dihantar kepada subresipi"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(Memaksa pelaksanaan berjujukan bagi berbilang tika subresipi)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "Berjujukan apabila diulang"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "Konfigurasikan subresipi yang boleh dipanggil sebagai alat semasa pelaksanaan resipi"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8277,14 +8367,23 @@
   "toolApprovalButtons.allowByScope": {
     "defaultMessage": "{scope, select, task {Allow for this task} session {Allow for this session} other {Always Allow}}"
   },
+  "toolApprovalButtons.allowComputer": {
+    "defaultMessage": "Allow computer control for this session"
+  },
+  "toolApprovalButtons.allowNamed": {
+    "defaultMessage": "Allow {name} for this session"
+  },
+  "toolApprovalButtons.allowOnce": {
+    "defaultMessage": "Benarkan Sekali"
+  },
+  "toolApprovalButtons.allowWebRead": {
+    "defaultMessage": "Allow public web reading for this session"
+  },
   "toolApprovalButtons.allowedByScope": {
     "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
   },
   "toolApprovalButtons.allowedOnce": {
     "defaultMessage": "Dibenarkan sekali"
-  },
-  "toolApprovalButtons.allowOnce": {
-    "defaultMessage": "Benarkan Sekali"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "Sentiasa Benarkan"
@@ -8294,6 +8393,12 @@
   },
   "toolApprovalButtons.cancelled": {
     "defaultMessage": "Dibatalkan"
+  },
+  "toolApprovalButtons.computerAllowed": {
+    "defaultMessage": "Computer control allowed for this session"
+  },
+  "toolApprovalButtons.computerHint": {
+    "defaultMessage": "All computer-control tools in this conversation: screen reading, clicks, keyboard input, dragging, scrolling, and opening local paths. Restarting, reconnecting, or changing the tool catalog clears this choice."
   },
   "toolApprovalButtons.denied": {
     "defaultMessage": "Dinafikan"
@@ -8307,11 +8412,23 @@
   "toolApprovalButtons.denyByScope": {
     "defaultMessage": "{scope, select, task {Deny for this task} session {Deny for this session} other {Always Deny}}"
   },
+  "toolApprovalButtons.moduleHint": {
+    "defaultMessage": "Allow the current tools and resource access of {name} in this conversation. Explicit tool rules and operations requiring individual confirmation still apply. Restarting, reconnecting, disabling, reconfiguring, or changing the tool catalog requires confirmation again."
+  },
+  "toolApprovalButtons.namedAllowed": {
+    "defaultMessage": "{name} allowed for this session"
+  },
   "toolApprovalButtons.sessionAllowHint": {
     "defaultMessage": "Only this tool in this conversation. Restarting the app or reconnecting the tool clears this choice."
   },
   "toolApprovalButtons.staleApprovalRequest": {
     "defaultMessage": "Permintaan kelulusan ini tidak lagi aktif."
+  },
+  "toolApprovalButtons.webReadAllowed": {
+    "defaultMessage": "Public web reading allowed for this session"
+  },
+  "toolApprovalButtons.webReadHint": {
+    "defaultMessage": "Anonymous public web reading across websites in this conversation. Does not include login, submissions, credentials, or private networks. Restarting the app clears this choice."
   },
   "toolAudit.actor": {
     "defaultMessage": "Actor"
@@ -8334,11 +8451,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8454,162 +8571,6 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "Hasil panggilan alat"
   },
-  "toolbox.addSkill": {
-    "defaultMessage": "Tambah kemahiran"
-  },
-  "toolbox.advancedCapabilities": {
-    "defaultMessage": "Advanced and compatibility capabilities"
-  },
-  "toolbox.availability": {
-    "defaultMessage": "Availability"
-  },
-  "toolbox.capabilitiesHelp": {
-    "defaultMessage": "Alat untuk tindakan seperti kawalan desktop dan operasi Git setempat."
-  },
-  "toolbox.computerGuide": {
-    "defaultMessage": "Panduan pengendalian desktop"
-  },
-  "toolbox.computerGuideDescription": {
-    "defaultMessage": "Membimbing model untuk memerhati, memasukkan data dan mengesahkan hasil. Menggunakan alat kawalan komputer."
-  },
-  "toolbox.computerSafety": {
-    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
-  },
-  "toolbox.configuredTools": {
-    "defaultMessage": "Configured tool filter"
-  },
-  "toolbox.description": {
-    "defaultMessage": "Urus kemahiran yang dipasang dan pelayan MCP luaran yang disambungkan."
-  },
-  "toolbox.detailAcceptance": {
-    "defaultMessage": "Acceptance status"
-  },
-  "toolbox.detailExample": {
-    "defaultMessage": "Example use"
-  },
-  "toolbox.detailTools": {
-    "defaultMessage": "Included tools"
-  },
-  "toolbox.detailToolsUnknown": {
-    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
-  },
-  "toolbox.detailUnverified": {
-    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
-  },
-  "toolbox.disableTool": {
-    "defaultMessage": "Disable {name}"
-  },
-  "toolbox.discoveryFailed": {
-    "defaultMessage": "Tool discovery failed"
-  },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
-  "toolbox.enableTool": {
-    "defaultMessage": "Enable {name}"
-  },
-  "toolbox.externalHelp": {
-    "defaultMessage": "Sambungan ke perkhidmatan luar seperti repositori, isu dan permintaan tarik GitHub."
-  },
-  "toolbox.githubDescription": {
-    "defaultMessage": "Sambungkan GitHub untuk mengurus repositori jauh, isu, permintaan tarik dan CI."
-  },
-  "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
-  },
-  "toolbox.implementation": {
-    "defaultMessage": "Implementation"
-  },
-  "toolbox.inspectTools": {
-    "defaultMessage": "Read tool inventory"
-  },
-  "toolbox.inventoryOnly": {
-    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
-  },
-  "toolbox.loading": {
-    "defaultMessage": "Loading tools…"
-  },
-  "toolbox.localGit": {
-    "defaultMessage": "Git setempat"
-  },
-  "toolbox.localGitDescription": {
-    "defaultMessage": "Semak perubahan setempat dan urus pementasan, komit serta cabang."
-  },
-  "toolbox.methodsHelp": {
-    "defaultMessage": "Panduan yang dimuatkan oleh model untuk menggunakan alat. Kemahiran tidak mengaktifkan alat asasnya."
-  },
-  "toolbox.noItems": {
-    "defaultMessage": "Nothing is configured in this section yet."
-  },
-  "toolbox.noMatching": {
-    "defaultMessage": "No matching tools"
-  },
-  "toolbox.officeDocuments": {
-    "defaultMessage": "Dokumen Office"
-  },
-  "toolbox.required": {
-    "defaultMessage": "Required"
-  },
-  "toolbox.requiredTool": {
-    "defaultMessage": "{name} is required"
-  },
-  "toolbox.retry": {
-    "defaultMessage": "Try again"
-  },
-  "toolbox.search": {
-    "defaultMessage": "Search tools"
-  },
-  "toolbox.sectionAll": {
-    "defaultMessage": "Semua"
-  },
-  "toolbox.sectionApps": {
-    "defaultMessage": "My mini tools"
-  },
-  "toolbox.sectionCapabilities": {
-    "defaultMessage": "Built-in capabilities"
-  },
-  "toolbox.sectionExternal": {
-    "defaultMessage": "MCP luaran"
-  },
-  "toolbox.sectionMethods": {
-    "defaultMessage": "Kemahiran"
-  },
-  "toolbox.sections": {
-    "defaultMessage": "Toolbox sections"
-  },
-  "toolbox.sourceInstalled": {
-    "defaultMessage": "Dipasang"
-  },
-  "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
-  },
-  "toolbox.statusDisabled": {
-    "defaultMessage": "Disabled"
-  },
-  "toolbox.statusFailed": {
-    "defaultMessage": "Failed"
-  },
-  "toolbox.statusPermission": {
-    "defaultMessage": "Permission needed"
-  },
-  "toolbox.statusReady": {
-    "defaultMessage": "Ready"
-  },
-  "toolbox.statusSetup": {
-    "defaultMessage": "Setup needed"
-  },
-  "toolbox.statusStarting": {
-    "defaultMessage": "Memulakan…"
-  },
-  "toolbox.statusStopping": {
-    "defaultMessage": "Menghentikan…"
-  },
-  "toolbox.title": {
-    "defaultMessage": "Toolbox"
-  },
-  "toolbox.usage": {
-    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
-  },
   "toolCallStatusIndicator.toolStatus": {
     "defaultMessage": "Status alat: {status}"
   },
@@ -8624,6 +8585,18 @@
   },
   "toolCallWithResponse.code": {
     "defaultMessage": "Kod"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
   },
   "toolCallWithResponse.loadingSpinner": {
     "defaultMessage": "Pemutar pemuatan"
@@ -8727,6 +8700,201 @@
   "toolConfirmation.taskWorkspaceGrant": {
     "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
   },
+  "toolbox.addSkill": {
+    "defaultMessage": "Tambah kemahiran"
+  },
+  "toolbox.advancedCapabilities": {
+    "defaultMessage": "Advanced and compatibility capabilities"
+  },
+  "toolbox.availability": {
+    "defaultMessage": "Availability"
+  },
+  "toolbox.capabilitiesHelp": {
+    "defaultMessage": "Alat untuk tindakan seperti kawalan desktop dan operasi Git setempat."
+  },
+  "toolbox.computerGuide": {
+    "defaultMessage": "Panduan pengendalian desktop"
+  },
+  "toolbox.computerGuideDescription": {
+    "defaultMessage": "Membimbing model untuk memerhati, memasukkan data dan mengesahkan hasil. Menggunakan alat kawalan komputer."
+  },
+  "toolbox.computerSafety": {
+    "defaultMessage": "Computer control can observe windows, inspect controls, capture screenshots, and perform bounded mouse and keyboard actions. High-risk actions still require separate approval."
+  },
+  "toolbox.configuredTools": {
+    "defaultMessage": "Configured tool filter"
+  },
+  "toolbox.description": {
+    "defaultMessage": "Urus kemahiran yang dipasang dan pelayan MCP luaran yang disambungkan."
+  },
+  "toolbox.detailAcceptance": {
+    "defaultMessage": "Acceptance status"
+  },
+  "toolbox.detailExample": {
+    "defaultMessage": "Example use"
+  },
+  "toolbox.detailTools": {
+    "defaultMessage": "Included tools"
+  },
+  "toolbox.detailToolsUnknown": {
+    "defaultMessage": "No tool filter is configured. Read the inventory below to see the available tools."
+  },
+  "toolbox.detailUnverified": {
+    "defaultMessage": "Not verified for this installation. Enabling a capability does not prove that its actions succeed. Permissions and connection requirements are checked during each call."
+  },
+  "toolbox.disableTool": {
+    "defaultMessage": "Disable {name}"
+  },
+  "toolbox.discoveryFailed": {
+    "defaultMessage": "Tool discovery failed"
+  },
+  "toolbox.enableTool": {
+    "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
+  },
+  "toolbox.externalHelp": {
+    "defaultMessage": "Sambungan ke perkhidmatan luar seperti repositori, isu dan permintaan tarik GitHub."
+  },
+  "toolbox.githubDescription": {
+    "defaultMessage": "Sambungkan GitHub untuk mengurus repositori jauh, isu, permintaan tarik dan CI."
+  },
+  "toolbox.globalDefault": {
+    "defaultMessage": "This switch controls the default availability for new tasks."
+  },
+  "toolbox.implementation": {
+    "defaultMessage": "Implementation"
+  },
+  "toolbox.inspectTools": {
+    "defaultMessage": "Read tool inventory"
+  },
+  "toolbox.inventoryOnly": {
+    "defaultMessage": "Discovery succeeded. This verifies the tool inventory, not successful execution of these tools."
+  },
+  "toolbox.loading": {
+    "defaultMessage": "Loading tools…"
+  },
+  "toolbox.localGit": {
+    "defaultMessage": "Git setempat"
+  },
+  "toolbox.localGitDescription": {
+    "defaultMessage": "Semak perubahan setempat dan urus pementasan, komit serta cabang."
+  },
+  "toolbox.methodsHelp": {
+    "defaultMessage": "Panduan yang dimuatkan oleh model untuk menggunakan alat. Kemahiran tidak mengaktifkan alat asasnya."
+  },
+  "toolbox.noItems": {
+    "defaultMessage": "Nothing is configured in this section yet."
+  },
+  "toolbox.noMatching": {
+    "defaultMessage": "No matching tools"
+  },
+  "toolbox.officeDocuments": {
+    "defaultMessage": "Dokumen Office"
+  },
+  "toolbox.required": {
+    "defaultMessage": "Required"
+  },
+  "toolbox.requiredTool": {
+    "defaultMessage": "{name} is required"
+  },
+  "toolbox.retry": {
+    "defaultMessage": "Try again"
+  },
+  "toolbox.search": {
+    "defaultMessage": "Search tools"
+  },
+  "toolbox.sectionAll": {
+    "defaultMessage": "Semua"
+  },
+  "toolbox.sectionApps": {
+    "defaultMessage": "My mini tools"
+  },
+  "toolbox.sectionCapabilities": {
+    "defaultMessage": "Built-in capabilities"
+  },
+  "toolbox.sectionExternal": {
+    "defaultMessage": "MCP luaran"
+  },
+  "toolbox.sectionMethods": {
+    "defaultMessage": "Kemahiran"
+  },
+  "toolbox.sections": {
+    "defaultMessage": "Toolbox sections"
+  },
+  "toolbox.session.add": {
+    "defaultMessage": "Add to this conversation"
+  },
+  "toolbox.session.check": {
+    "defaultMessage": "Check connection"
+  },
+  "toolbox.session.context": {
+    "defaultMessage": "Managing tools for the conversation you came from"
+  },
+  "toolbox.session.disabled": {
+    "defaultMessage": "Enable this tool first"
+  },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
+  "toolbox.session.failed": {
+    "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
+  },
+  "toolbox.session.loading": {
+    "defaultMessage": "Loading into this conversation…"
+  },
+  "toolbox.session.missing": {
+    "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
+  },
+  "toolbox.session.return": {
+    "defaultMessage": "Return to conversation"
+  },
+  "toolbox.session.scope": {
+    "defaultMessage": "Current conversation"
+  },
+  "toolbox.session.selected": {
+    "defaultMessage": "Added to this conversation · connection not checked"
+  },
+  "toolbox.session.unknown": {
+    "defaultMessage": "Conversation status unavailable; refresh to retry"
+  },
+  "toolbox.sourceInstalled": {
+    "defaultMessage": "Dipasang"
+  },
+  "toolbox.statusConfigured": {
+    "defaultMessage": "Enabled, connection not verified"
+  },
+  "toolbox.statusDisabled": {
+    "defaultMessage": "Disabled"
+  },
+  "toolbox.statusFailed": {
+    "defaultMessage": "Failed"
+  },
+  "toolbox.statusPermission": {
+    "defaultMessage": "Permission needed"
+  },
+  "toolbox.statusReady": {
+    "defaultMessage": "Ready"
+  },
+  "toolbox.statusSetup": {
+    "defaultMessage": "Setup needed"
+  },
+  "toolbox.statusStarting": {
+    "defaultMessage": "Memulakan…"
+  },
+  "toolbox.statusStopping": {
+    "defaultMessage": "Menghentikan…"
+  },
+  "toolbox.title": {
+    "defaultMessage": "Toolbox"
+  },
+  "toolbox.usage": {
+    "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
+  },
   "userMessage.cancel": {
     "defaultMessage": "Batal"
   },
@@ -8777,6 +8945,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Menunggu pengesahan"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Menunggu perkhidmatan model"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Perkhidmatan model belum mengembalikan kandungan. Anda boleh terus menunggu atau menghentikan permintaan ini."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -8904,11 +9120,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Akar boleh tulis"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "Web address"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "Tambah ke sembang"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "Web address"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -8921,6 +9137,12 @@
   },
   "workspacePanel.browserHint": {
     "defaultMessage": "Browse web pages"
+  },
+  "workspacePanel.chooseApplication": {
+    "defaultMessage": "Choose application…"
+  },
+  "workspacePanel.chooseCodeEditor": {
+    "defaultMessage": "Change default code editor…"
   },
   "workspacePanel.clearTerminal": {
     "defaultMessage": "Clear terminal display"
@@ -8939,6 +9161,9 @@
   },
   "workspacePanel.closeTerminal": {
     "defaultMessage": "Close this terminal and stop its running commands?"
+  },
+  "workspacePanel.codeEditor": {
+    "defaultMessage": "Open in code editor"
   },
   "workspacePanel.copyFileContent": {
     "defaultMessage": "Salin kandungan fail"
@@ -8979,17 +9204,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
-  "workspacePanel.fileActionFailed": {
-    "defaultMessage": "Tindakan fail tidak dapat diselesaikan. Cuba lagi. Membuka fail kod memerlukan VS Code."
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9027,9 +9249,6 @@
   "workspacePanel.openDocument": {
     "defaultMessage": "Open in default application"
   },
-  "workspacePanel.openEditor": {
-    "defaultMessage": "Buka dalam VS Code"
-  },
   "workspacePanel.openFile": {
     "defaultMessage": "Buka fail"
   },
@@ -9038,6 +9257,9 @@
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Buka dalam tab baharu"
+  },
+  "workspacePanel.openWith": {
+    "defaultMessage": "Open with"
   },
   "workspacePanel.panel": {
     "defaultMessage": "Workspace"
@@ -9173,89 +9395,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
-  },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
-  },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
-  },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
-  },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
-  },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
-  },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
-  },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
-  },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
-  },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
-  },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
-  },
-  "workStatus.responseWait": {
-    "defaultMessage": "Menunggu perkhidmatan model"
-  },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
-  },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
-  },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
-  },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Perkhidmatan model belum mengembalikan kandungan. Anda boleh terus menunggu atau menghentikan permintaan ini."
-  },
-  "businessApproval.allowSession": {
-    "defaultMessage": "Allow {business} for this session"
-  },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "{business} allowed for this session"
-  },
-  "businessApproval.computer": {
-    "defaultMessage": "computer use"
-  },
-  "businessApproval.computerScope": {
-    "defaultMessage": "Read desktop windows and screenshots, and use the mouse and keyboard. This covers the current desktop, rather than a single application or read-only access."
-  },
-  "businessApproval.image": {
-    "defaultMessage": "image generation"
-  },
-  "businessApproval.lifetime": {
-    "defaultMessage": "Only this capability in this conversation. A tool reconnection, service/workspace change, or app restart requires permission again. Existing safety checks, disabled tools and per-call confirmation rules still apply."
-  },
-  "businessApproval.mediaScope": {
-    "defaultMessage": "Inspect service workflows, upload PNG references from this workspace, generate, check status, cancel individual jobs, and save results. Session permission includes later generations and changed parameters."
-  },
-  "businessApproval.operations": {
-    "defaultMessage": "Included operations"
-  },
-  "businessApproval.output": {
-    "defaultMessage": "Output folder"
-  },
-  "businessApproval.service": {
-    "defaultMessage": "Service"
-  },
-  "businessApproval.video": {
-    "defaultMessage": "video generation"
-  },
-  "businessApproval.workspace": {
-    "defaultMessage": "Workspace"
   }
 }

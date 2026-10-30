@@ -75,6 +75,32 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   const selected = new Set(previous.some(tool => tool.name === 'search_mcp_tools')
     ? previous.filter(tool => deferred(tool.name)).slice(-16).map(tool => tool.name) : []);
   const available = () => ctx.tools.schemas(agent).filter(tool => deferred(tool.name));
+  let computerSkillLoaded = false;
+  // A successful, model-selected skill load reveals its bounded tool surface
+  // without another model round-trip. Registry masks and execution gates remain
+  // authoritative; merely inspecting the skill catalog never enables tools.
+  ctx.on('tools/result', (exec, result) => {
+    // A model can name a registered deferred tool without first discovering it.
+    // After its result (including validation failure), expose the real schema so
+    // the next request can correct its arguments instead of guessing repeatedly.
+    // This neither retries the action nor changes the registry/execution gates.
+    if (exec.agent.id === agent.id && available().some(tool => tool.name === exec.name)) {
+      selected.delete(exec.name); selected.add(exec.name);
+      while (selected.size > 16) selected.delete(selected.values().next().value);
+    }
+    if (exec.agent.id === agent.id && exec.name === 'skill' && !result.isError &&
+        result.value?.name === 'comfyui' && result.value?.provider === 'codebuddy-comfyui-skill') {
+      for (const tool of available()) if (['generate_image', 'generate_video'].includes(tool.name)) { selected.delete(tool.name); selected.add(tool.name); }
+      while (selected.size > 16) selected.delete(selected.values().next().value);
+      return;
+    }
+    if (exec.agent.id !== agent.id || exec.name !== 'skill' || result.isError ||
+        result.value?.name !== 'computer-use' || result.value?.provider !== 'codebuddy-computer-skill') return;
+    computerSkillLoaded = true;
+    const entryTools = new Set(['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'].map(name => `mcp__qwen_computer__${name}`));
+    for (const tool of available()) if (entryTools.has(tool.name)) { selected.delete(tool.name); selected.add(tool.name); }
+    while (selected.size > 16) selected.delete(selected.values().next().value);
+  });
   // Restricted observers/reviewers must keep their exact tool boundary.
   if (!available().length) return;
   ctx.tools.register({
@@ -101,7 +127,16 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   ctx.systemPrompt.section({ name: 'codebuddy:mcp-discovery', order: 99, interpolate: false,
     text: () => {
       const count = available().length;
-      return count ? `${count} tools are available through search_mcp_tools. Load schemas before calling. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '';
+      return count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '';
+    },
+  });
+  ctx.systemPrompt.section({ name: 'codebuddy:desktop-availability', order: 100, interpolate: false,
+    text: () => {
+      if (!computerSkillLoaded) return '';
+      const names = available().filter(t => t.name.startsWith('mcp__qwen_computer__')).map(t => t.name);
+      return names.length
+        ? `Current desktop tool registry: ${names.join(', ')}. Entry tool schemas are loaded. Use open_path for a known local document/folder when available, then observe its result. Reuse each action's returned after-state; list_apps is needed only for target discovery or changed/ambiguous window identity.`
+        : 'Current desktop tool registry: no computer-control tools are available in this chat. Do not keep searching for desktop tool aliases or launch GUI programs through the confined shell. The user can open Toolbox from this conversation, enable computer control if disabled, then use Add to this conversation and check its connection. The existing conversation supports adding tools while idle; do not claim a new conversation is required. A global enabled switch does not prove this session selected or connected the extension. Filesystem reading can still answer the independent file-listing part.';
     },
   });
   ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {

@@ -235,6 +235,8 @@ export function useChatSession({
       if (hasNewMessage && input.planMode !== undefined)
         newMessage.metadata.planMode = input.planMode;
       if (hasNewMessage && input.goalRequest) newMessage.metadata.goalRequest = input.goalRequest;
+      if (hasNewMessage && input.desktopGeneration !== undefined)
+        newMessage.metadata.desktopGeneration = input.desktopGeneration;
 
       let accepted = false;
       const onAccepted = () => {

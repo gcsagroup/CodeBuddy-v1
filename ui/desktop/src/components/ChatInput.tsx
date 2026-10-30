@@ -28,6 +28,11 @@ import { Attach, Close, Microphone } from './icons';
 import { ChatState } from '../types/chatState';
 import debounce from 'lodash/debounce';
 import { LocalMessageStorage } from '../utils/localMessageStorage';
+import {
+  readNewTaskDraft,
+  updateNewTaskDraft,
+  type NewTaskDraftKey,
+} from '../utils/newTaskDraft';
 import { DirSwitcher } from './bottom_menu/DirSwitcher';
 import ModelsBottomBar from './settings/models/bottom_bar/ModelsBottomBar';
 import { cn } from '../utils';
@@ -41,6 +46,7 @@ import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
 import { MessageQueue, QueuedMessage } from './MessageQueue';
+import { getDesktopOwnership } from '../desktopOwnership';
 import { createUserMessage, type Message } from '../types/message';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { trackFileAttached, trackVoiceDictation } from '../utils/analytics';
@@ -215,6 +221,7 @@ interface ChatInputProps {
   canSubmitQueuedMessageWhileLoading?: boolean;
   commandHistory?: string[];
   initialValue?: string;
+  newTaskDraftKey?: NewTaskDraftKey;
   droppedFiles?: DroppedFile[];
   onFilesProcessed?: () => void;
   setView: (view: View, options?: ViewOptions) => void;
@@ -270,6 +277,7 @@ export default function ChatInput({
   canSubmitQueuedMessageWhileLoading = false,
   commandHistory = [],
   initialValue = '',
+  newTaskDraftKey,
   droppedFiles = [],
   onFilesProcessed,
   setView,
@@ -294,15 +302,22 @@ export default function ChatInput({
   nextChatExtensionDraft,
   onNextChatExtensionDraftChange,
 }: ChatInputProps) {
-  const [_value, setValue] = useState(initialValue);
-  const [displayValue, setDisplayValue] = useState(initialValue); // For immediate visual feedback
+  const [startingValue] = useState(
+    () => initialValue || (newTaskDraftKey ? (readNewTaskDraft(newTaskDraftKey).text ?? '') : '')
+  );
+  const [_value, setValue] = useState(startingValue);
+  const [displayValue, setDisplayValue] = useState(startingValue); // For immediate visual feedback
+  const previousInitialValue = useRef(initialValue);
+  useEffect(() => {
+    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: displayValue });
+  }, [displayValue, newTaskDraftKey]);
   const [isFocused, setIsFocused] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ src: string; title: string } | null>(
     null
   );
   useEffect(() => setAttachmentPreview(null), [sessionId]);
-  const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(
-    []
+  const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(() =>
+    newTaskDraftKey ? (readNewTaskDraft(newTaskDraftKey).images ?? []) : []
   );
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
   const submitInFlightRef = useRef(false);
@@ -601,6 +616,7 @@ export default function ChatInput({
           {
             msg: message.content,
             images: message.images,
+            desktopGeneration: typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
             ...(message.presentation
               ? { messageId: message.id, presentation: message.presentation }
               : {}),
@@ -748,13 +764,15 @@ export default function ChatInput({
   const timeoutRefsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   useEffect(() => {
+    if (newTaskDraftKey && previousInitialValue.current === initialValue) return;
+    previousInitialValue.current = initialValue;
     setValue(initialValue);
     setDisplayValue(initialValue);
     setPastedImages([]);
     setHistoryIndex(-1);
     setIsInGlobalHistory(false);
     setHasUserTyped(false);
-  }, [initialValue]);
+  }, [initialValue, newTaskDraftKey]);
 
   // Handle recipe prompt updates
   useEffect(() => {
@@ -780,11 +798,14 @@ export default function ChatInput({
     setDroppedFiles: setLocalDroppedFiles,
     handleDrop: handleLocalDrop,
     handleDragOver: handleLocalDragOver,
-  } = useFileDrop();
+    addFiles: addLocalFiles,
+  } = useFileDrop(newTaskDraftKey ? readNewTaskDraft(newTaskDraftKey).files : []);
 
   // Merge local dropped files with parent dropped files
   const allDroppedFiles = useMemo(
-    () => [...droppedFiles, ...localDroppedFiles],
+    () => [
+      ...new Map([...localDroppedFiles, ...droppedFiles].map((file) => [file.id, file])).values(),
+    ],
     [droppedFiles, localDroppedFiles]
   );
   const attachmentSessionRef = useRef(sessionId);
@@ -849,6 +870,13 @@ export default function ChatInput({
       window.removeEventListener(ATTACH_WORKSPACE_IMAGE, attach);
     };
   }, [sessionId, textAreaRef]);
+
+  useEffect(() => {
+    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { images: pastedImages });
+  }, [newTaskDraftKey, pastedImages]);
+  useEffect(() => {
+    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { files: allDroppedFiles });
+  }, [newTaskDraftKey, allDroppedFiles]);
 
   const handleRemoveDroppedFile = (idToRemove: string) => {
     inputRevisionRef.current += 1;
@@ -1025,7 +1053,12 @@ export default function ChatInput({
     (text: string): string => {
       const droppedFilePaths = allDroppedFiles
         .filter((file) => !file.isImage && !file.error && !file.isLoading)
-        .map((file) => file.path);
+        .map(
+          (file) =>
+            (newTaskDraftKey
+              ? readNewTaskDraft(newTaskDraftKey).files?.find((saved) => saved.id === file.id)?.path
+              : undefined) ?? file.path
+        );
 
       if (droppedFilePaths.length > 0) {
         const pathsString = droppedFilePaths.join(' ');
@@ -1033,10 +1066,11 @@ export default function ChatInput({
       }
       return text;
     },
-    [allDroppedFiles]
+    [allDroppedFiles, newTaskDraftKey]
   );
 
   const clearInputState = useCallback(() => {
+    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: '', images: [], files: [] });
     setComposerMode(null);
     setDisplayValue('');
     setValue('');
@@ -1047,7 +1081,13 @@ export default function ChatInput({
     if (localDroppedFiles.length > 0) {
       setLocalDroppedFiles([]);
     }
-  }, [droppedFiles.length, localDroppedFiles.length, onFilesProcessed, setLocalDroppedFiles]);
+  }, [
+    droppedFiles.length,
+    localDroppedFiles.length,
+    onFilesProcessed,
+    setLocalDroppedFiles,
+    newTaskDraftKey,
+  ]);
 
   const handlePaste = async (evt: React.ClipboardEvent<HTMLTextAreaElement>) => {
     if (isRecording) return;
@@ -1256,6 +1296,7 @@ export default function ChatInput({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       content: appendDroppedFilePaths(displayValue.trim()),
       timestamp: Date.now(),
+      desktopGeneration: getDesktopOwnership().generation ?? '',
       images: convertImagesToImageData(),
     };
     setQueuedMessages((prev) => {
@@ -1576,6 +1617,12 @@ export default function ChatInput({
 
     inputRevisionRef.current += 1;
 
+    if (newTaskDraftKey) {
+      await addLocalFiles(files);
+      e.target.value = '';
+      return;
+    }
+
     setIsFilePickerOpen(true);
     const file = files[0];
     const isImage = file.type.startsWith('image/');
@@ -1839,7 +1886,7 @@ export default function ChatInput({
         message.delivery !== 'submitting' && !sendNowInFlightMessageIdsRef.current.has(message.id)
     );
     if (!pending.length) return;
-    const messageToSend: QueuedMessage =
+    let messageToSend: QueuedMessage =
       pending.length === 1
         ? pending[0]
         : {
@@ -1847,6 +1894,9 @@ export default function ChatInput({
             content: pending.map((message) => message.content).join('\n\n'),
             images: pending.flatMap((message) => message.images),
           };
+    // An explicit send is a new user decision; automatic queue delivery keeps
+    // the desktop generation captured when the message was composed.
+    messageToSend = { ...messageToSend, desktopGeneration: getDesktopOwnership().generation ?? '' };
     const messageId = messageToSend.id;
     const mergedIds = new Set(pending.map((message) => message.id));
     const keepOtherMessagesPaused = queuedMessagesRef.current.some(
@@ -2152,6 +2202,11 @@ export default function ChatInput({
           {/* Render dropped files after pasted images */}
           {allDroppedFiles.map((file) => (
             <div key={file.id} className="relative group">
+              {file.error && !file.isImage && (
+                <p role="alert" className="text-xs text-red-500 max-w-[200px]">
+                  {file.error}
+                </p>
+              )}
               {file.isImage ? (
                 // Image preview
                 <div className="w-20 h-20">

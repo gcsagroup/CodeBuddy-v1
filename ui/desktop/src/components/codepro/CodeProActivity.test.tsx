@@ -75,7 +75,7 @@ describe('CodeProActivity', () => {
     ];
     const view = render(<CodeProActivityTimeline active items={items} />);
 
-    expect(screen.getByRole('button', { name: 'Operations recorded · 2 actions' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Operations recorded 2 actions' })).toHaveAttribute(
       'aria-expanded',
       'true'
     );
@@ -89,15 +89,15 @@ describe('CodeProActivity', () => {
     expect(screen.queryByText('Edit operations completed')).not.toBeInTheDocument();
 
     view.rerender(<CodeProActivityTimeline items={items} />);
-    expect(screen.getByRole('button', { name: 'Operations recorded · 2 actions' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Operations recorded 2 actions' })).toHaveAttribute(
       'aria-expanded',
       'false'
     );
     expect(screen.queryByRole('region', { name: 'Execution log' })).not.toBeInTheDocument();
     expect(screen.queryByText('Edit operations completed')).not.toBeInTheDocument();
     expect(screen.queryByText('Tool receipts, not a verified diff')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Operations recorded · 2 actions' }));
-    expect(screen.getByRole('button', { name: 'Operations recorded · 2 actions' })).toHaveAttribute(
+    fireEvent.click(screen.getByRole('button', { name: 'Operations recorded 2 actions' }));
+    expect(screen.getByRole('button', { name: 'Operations recorded 2 actions' })).toHaveAttribute(
       'aria-expanded',
       'true'
     );
@@ -318,7 +318,7 @@ describe('CodeProActivity', () => {
       />
     );
 
-    expect(screen.getByText('Test cargo test · Completed')).toBeInTheDocument();
+    expect(screen.getByText('Test cargo test Completed')).toBeInTheDocument();
     expect(screen.queryByText('旧标题')).not.toBeInTheDocument();
     expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
   });
@@ -543,7 +543,7 @@ describe('CodeProActivity', () => {
     });
     const view = render(<CodeProActivityCard active activity={activity} />);
 
-    expect(screen.getByRole('button', { name: 'Thinking · Updating' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
       'data-state',
       'open'
     );
@@ -735,9 +735,9 @@ describe('CodeProActivity', () => {
   it('renders a structured action as a compact verb target and text status summary', () => {
     render(<CodeProActivityCard activity={viewModel()} />);
 
-    const button = screen.getByRole('button', { name: 'Activity: Run pnpm test · Failed' });
+    const button = screen.getByRole('button', { name: 'Activity: Run pnpm test Failed' });
     expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Run pnpm test · Failed')).toBeVisible();
+    expect(screen.getByText('Run pnpm test Failed')).toBeVisible();
     expect(screen.queryByLabelText('Tool status: error')).not.toBeInTheDocument();
     expect(screen.queryByText('1 test failed')).not.toBeInTheDocument();
   });
@@ -745,7 +745,7 @@ describe('CodeProActivity', () => {
   it('expands structured path parameters duration exit code output and diff evidence', () => {
     render(<CodeProActivityCard activity={viewModel()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Activity: Run pnpm test · Failed' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Activity: Run pnpm test Failed' }));
 
     expect(screen.getByText('D:\\project')).toBeVisible();
     expect(screen.getByText('pnpm test')).toBeVisible();
@@ -794,7 +794,7 @@ describe('CodeProActivity', () => {
       />
     );
 
-    const button = screen.getByRole('button', { name: 'Read 2 files · Completed' });
+    const button = screen.getByRole('button', { name: 'Read 2 files Completed' });
     expect(container.querySelector('[data-codepro-task-id="task-1"]')).toBeInTheDocument();
     expect(button).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText('D:\\project\\README.md')).not.toBeInTheDocument();
@@ -802,12 +802,12 @@ describe('CodeProActivity', () => {
     fireEvent.click(button);
     expect(
       screen.getByRole('button', {
-        name: 'Activity: Read D:\\project\\README.md · Completed',
+        name: 'Activity: Read D:\\project\\README.md Completed',
       })
     ).toBeVisible();
     expect(
       screen.getByRole('button', {
-        name: 'Activity: Read D:\\project\\src\\app.ts · Completed',
+        name: 'Activity: Read D:\\project\\src\\app.ts Completed',
       })
     ).toBeVisible();
   });

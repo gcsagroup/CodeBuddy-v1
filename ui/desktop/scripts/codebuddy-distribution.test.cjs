@@ -289,6 +289,7 @@ test('the Simplified Chinese catalog has no untranslated English UI copy', () =>
     'defaultProviderSetupForm.modelsPlaceholder',
     'extensionInfoFields.typeHttp',
     'extensionInfoFields.typeStdio',
+    'platformExtension.computer.name',
     'huggingFaceSignInPrompt.title',
     'scheduleModal.yaml',
     'sessionViewComponents.role.assistant',
@@ -307,6 +308,7 @@ test('the Simplified Chinese catalog has no untranslated English UI copy', () =>
     .map(([messageId, descriptor]) => `${messageId}: ${descriptor.defaultMessage}`);
 
   assert.deepEqual(untranslated, []);
+  assert.equal(zhCN['platformExtension.computer.name'].defaultMessage, 'Computer Use');
 });
 
 test('the Simplified Chinese catalog contains no question-mark encoding damage', () => {
@@ -1027,7 +1029,29 @@ test('desktop shutdown waits for its Harness owner and bounds an unresponsive se
   assert.equal(fixture.calls.filter(call => call.kind === 'kill').length, 1);
   assert.equal(fixture.unexpected(), 0);
   const main = readDesktopFile('src/main.ts');
-  assert.match(main, /app\.on\('before-quit'[\s\S]*packagedHarnessService\.close\(\)\.finally/);
+  const shutdown = main.slice(main.indexOf('let harnessQuitFinished = false;'), main.indexOf("app.on('will-quit'"));
+  let beforeQuit;
+  let quitCalls = 0;
+  let prevented = 0;
+  let finishDraft;
+  let finishHarness;
+  require('node:vm').runInNewContext(shutdown, {
+    app: {
+      on: (name, callback) => { assert.equal(name, 'before-quit'); beforeQuit = callback; },
+      quit: () => { quitCalls++; beforeQuit({ preventDefault: () => prevented++ }); },
+    },
+    draftStore: { flush: () => new Promise(resolve => { finishDraft = resolve; }) },
+    packagedHarnessService: { close: () => new Promise(resolve => { finishHarness = resolve; }) },
+  });
+  beforeQuit({ preventDefault: () => prevented++ });
+  assert.equal(prevented, 1);
+  finishHarness();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(quitCalls, 0, 'also wait for pending drafts before quitting');
+  finishDraft();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(quitCalls, 1);
+  assert.equal(prevented, 1, 'the final quit must not start shutdown again');
 });
 
 test('main window is revealed only after the React renderer reports ready', () => {

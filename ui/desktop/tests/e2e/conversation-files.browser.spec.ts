@@ -62,7 +62,7 @@ for (const platform of ['windows', 'mac']) {
       await expect(page.getByText('相关文件', { exact: true })).toHaveCount(0);
       await page.getByRole('button', { name: '查看变更', exact: true }).click();
       await expect(page.locator('output')).toContainText('"turnId":"turn"');
-      await page.getByRole('button', { name: '再显示 1 个文件', exact: true }).click();
+      await page.getByRole('button', { name: '显示 1 个剩余文件', exact: true }).click();
       await expect(page.getByRole('listitem')).toHaveCount(4);
       await expect(page.getByRole('button', { name: 'README.md', exact: true })).toHaveCount(0);
       const changePath = `${platform === 'mac' ? '/Users/test/project' : 'D:/fixture'}/src/components/controls.tsx`;

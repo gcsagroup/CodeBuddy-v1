@@ -1,4 +1,6 @@
+import type { DesktopControlState } from './desktopControl';
 import type { PetRequest, PetSnapshot } from './pets/petTypes';
+import type { DraftRequest, DraftSnapshot } from './drafts/types';
 import type { GitHubCliStatus, GitHubCliChallenge, GitHubCliPoll } from './github/githubCliTypes';
 import type {
   PanelRequest,
@@ -112,7 +114,11 @@ export interface CreateChatWindowOptions {
 
 // Define the API types in a single place
 type ElectronAPI = {
+  newTaskDraft: (request: DraftRequest) => Promise<DraftSnapshot>;
   desktopPet: (request: PetRequest) => Promise<PetSnapshot>;
+  desktopControl: (state: DesktopControlState | null) => void;
+  onDesktopControlCancel: (callback: (state: DesktopControlState) => void) => () => void;
+  onDesktopFeedbackError: (callback: (message: string) => void) => () => void;
   petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
   workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
@@ -226,7 +232,19 @@ type AppConfigAPI = {
 };
 
 const electronAPI: ElectronAPI = {
+  newTaskDraft: (request) => ipcRenderer.invoke('new-task-draft', request),
   desktopPet: (request) => ipcRenderer.invoke('desktop-pet', request),
+  desktopControl: (state) => ipcRenderer.send('desktop-control-state', state),
+  onDesktopFeedbackError: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
+    ipcRenderer.on('desktop-control-feedback-error', listener);
+    return () => ipcRenderer.removeListener('desktop-control-feedback-error', listener);
+  },
+  onDesktopControlCancel: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: DesktopControlState) => callback(state);
+    ipcRenderer.on('desktop-control-cancel', listener);
+    return () => ipcRenderer.removeListener('desktop-control-cancel', listener);
+  },
   workspacePanel: (request) => ipcRenderer.invoke('workspace-panel', request),
   workspaceTabMenu: (request) => ipcRenderer.invoke('workspace-tab-menu', request),
   webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),

@@ -7,7 +7,7 @@ export async function until(predicate) {
   assert.fail('MCP fixture did not reach the expected state');
 }
 
-export async function statefulMcp(t, { stateless = false } = {}) {
+export async function statefulMcp(t, { stateless = false, resourcesOnly = false } = {}) {
   const wire = [], valid = new Set();
   const control = { status: 404, message: 'Session not found', toolError: false, rejectInitialize: false, drop: false };
   let initializations = 0, executions = 0;
@@ -30,7 +30,7 @@ export async function statefulMcp(t, { stateless = false } = {}) {
     } else if ((!stateless && !valid.has(sessionId)) || control.fault) {
       res.writeHead(control.status, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: 'server-error', error: { code: -32600, message: control.message } })); return;
     } else if (!('id' in msg)) { res.writeHead(202).end(); return; }
-    else if (msg.method === 'tools/list') result = { tools: [{ name: 'health', description: `Generation ${initializations}`, inputSchema: { type: 'object', properties: {} }, ...(control.tasks ? { execution: { taskSupport: 'optional' } } : {}) }] };
+    else if (msg.method === 'tools/list') result = { tools: resourcesOnly ? [] : [{ name: 'health', description: `Generation ${initializations}`, inputSchema: { type: 'object', properties: {} }, ...(control.tasks ? { execution: { taskSupport: 'optional' } } : {}) }] };
     else if (msg.method === 'tools/call') {
       executions++;
       if (control.drop) { req.socket.destroy(); return; }

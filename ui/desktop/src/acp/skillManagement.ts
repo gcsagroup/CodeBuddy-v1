@@ -22,6 +22,7 @@ export interface SkillManagementPreview {
 export async function listManagedSkills(projectDir?: string): Promise<{
   skills: ManagedSkill[];
   destinationRoots: SkillDestinationRoot[];
+  diagnostics?: string[];
 }> {
   const client = await getAcpClient();
   return client.goose.skillsManageList_unstable({ projectDir });

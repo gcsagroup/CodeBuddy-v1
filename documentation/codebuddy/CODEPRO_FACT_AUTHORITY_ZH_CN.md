@@ -49,6 +49,59 @@ Harness 官方包保持不变。宿主 `runtime/harness/agent-policy.mjs` 继承
 Inno 使用同一 AppId 的安装记录恢复默认程序目录；不承担 Squirrel 安装迁移。安装和卸载通过只读进程检查要求用户退出 CodeBuddy 及当前安装目录内的后台进程，检查失败停止，不强制结束任务。
 
 交互式卸载窗口持有本次“清理个人数据”的选择，默认关闭；静默卸载始终保留数据。数据位置仍由既有 storage-management 定位规则持有。用户确认后、Inno 删除程序前，随包 `windows-uninstall.cjs` 取得原生 profile 锁、校验位置及文件身份，只清理已知数据子目录，保留工作区、已登记项目、其他根目录文件和历史数据。锁文件及诊断报告可保留；链接、损坏元数据、活动会话或身份变化阻止清理，IO 失败可能部分清理并中止程序卸载。此操作不暴露为 Agent/MCP 工具，不改变 Harness 任务状态或 Mac 卸载规则。实现与原生安装验收分别记录。
+## 2026-10-27 已批准：共享技能发现与启用
+
+`runtime/harness/skill-catalog.mjs` 统一提供文件系统技能发现、真实路径去重、同名优先级及诊断；Harness 注册表消费可调用候选，Library 消费同一目录快照展示待启用、已启用和被覆盖的来源。保留原有 Harness 根目录顺序，用户共享 `~/.agents/skills` 排在应用自有目录之后。已有应用技能不迁移、不复制；旧客户端缺少新增字段仍可展示基础信息。
+
+共享技能默认仅出现在工具箱。用户通过现有技能管理确认通道启用后，选择持久化在当前 profile 的 `backend/harness/shared-skills.json`，键为真实文件路径；其他应用的技能文件保持原样。启用只允许加载该技能说明，工具执行继续由 Harness 权限与沙箱处理。禁用阻止后续加载，不追溯删除已有会话消息。目录、文件元数据和策略变化使缓存失效；工具箱打开/重新获得焦点、发送下一轮及加载技能时核对目录。未知或损坏文档报告诊断，不把安装成功表述为实际调用已通过。
+
+繁體：共用技能目錄由同一個 catalog 提供給工具箱與 Harness。共用技能預設待啟用，確認後將選擇儲存在目前 profile；不修改來源檔案。真實路徑去重、同名優先序、變更失效及診斷由 catalog 負責，執行權限仍屬 Harness。
+
+English: One filesystem catalog supplies toolbox inventory and Harness candidates. Shared skills start pending consent; profile-local invocation choices never modify shared source files. The catalog owns canonical-path deduplication, precedence, invalidation and diagnostics. Harness remains authoritative for execution and permissions. Existing conversation messages are not retroactively erased by disabling a skill.
+
+## 2026-10-27 已批准：公开网页读取会话授权与真实工具发现
+
+本节覆盖下文网页读取的 origin 范围。原生 `web_fetch` 按根 Agent、实际工具定义及 Web 服务身份共享“本会话允许网页读取”；仅适用匿名公开 HTTP(S) 读取。Compat 仍持有内存授权，Harness 仍负责执行，ACP 使用 `authorizationGroup: web_read` 和 `permissionClass: read_only` 展示范围。保留单次允许、拒绝、明确禁止和逐次询问。重启、根会话销毁、对应能力失效或同名实现替换不继承授权；旧源站审批历史仍按原范围显示。原生公网地址、DNS、重定向、凭据、超时和大小限制不变。
+
+扩展已有 `available_tools` 选择传入同一 MCP 注册层，按服务端原始工具名过滤，再与角色过滤相交；空选择保留既有全量语义。断线期间注销工具，重连后由注册层恢复清单，不重放动作。模型发现和界面都消费真实注册表。查找可用工具作为可见只读动作展示；相邻思考仅在界面合并，不修改原生会话、模型请求和工具边界。
+
+繁體：原生公開網頁讀取共用根對話的明確授權，保留單次允許、拒絕與原有網路限制。工具清單遵循擴充功能既有選擇與連線狀態。介面顯示工具查找並合併相鄰思考，執行與記錄仍由 Harness 持有。
+
+English: Explicit public web-reading consent is bound to the root agent and native implementation/service identity, with once, reject, explicit rules and network restrictions preserved. Existing tool selections filter the actual MCP registry; disconnected tools are removed until recovery without replay. Discovery becomes visible, and adjacent reasoning is combined only in presentation. Harness retains execution and history authority; Compat retains in-memory grants. Legacy origin cards retain their original scope.
+
+## 2026-10-27 已批准：统一 MCP 会话授权与局部失效
+
+本节扩展下方电脑控制方案。内置和用户自建 HTTP/stdio MCP 均以真实连接、当前工具清单为授权单元，共享该模块工具及资源访问的会话授权。界面显示“本会话允许使用〈模块名〉”，保留单次允许和拒绝。Harness MCP 适配层创建 `mcp_module` 身份，提供配置来源的 `authorizationModule` 名称；Compat 持有原有内存授权，桌面只消费结构化范围。不同模块、聊天及重启后不继承授权，破坏性工具、明确禁止、逐次询问和安全检查仍优先。无关提示词或扩展设置不清空授权；修改、停用对应扩展时立即撤销该模块身份，晚到答复作废。现有连接组合确实被重建时仍按重连重新确认。
+
+宿主内置能力沿用各工厂既定范围（浏览器、图像、视频、桌面宠物、项目记忆），网页读取仍限当前源站，不把整个开发者工具组作为可复用权限。旧审批卡片保持原范围；无结构化模块标记时不推断整组授权。
+
+繁體：內建及自訂 HTTP/stdio MCP 以目前連線與工具清單共用模組會話授權，涵蓋工具與資源存取。保留單次允許、拒絕與個別規則。無關設定保留授權；修改或停用該擴充時撤銷其身分及待答覆，重連、清單變更與重啟後重新確認。宿主能力和匿名網站讀取沿用原有範圍，介面只顯示結構化授權。
+
+English: Built-in and custom HTTP/stdio MCP tools and resources share explicit session consent bound to the live module and current catalog. Allow-once, reject and individual rules remain authoritative. Unrelated settings preserve grants; changing or disabling the affected extension revokes its identity and pending answers. Reconnects, catalog changes and restarts require new consent. Host capabilities and anonymous web reads retain their existing tool/origin boundaries. The renderer only presents structured permission metadata.
+
+## 2026-10-27 已批准：电脑控制按模块授予本会话权限
+
+用户选择“本会话允许电脑控制”后，当前聊天及其所属子 Agent 复用当前电脑控制模块全部可复用工具的授权。“仅此次允许”仍只覆盖当前调用。Harness MCP 连接适配层持有真实注册定义、连接代次及工具清单身份；`qwen_computer` 的整组身份只由该层建立，不能由模型参数、工具名字前缀、远端注解或界面文案创建。Compat 继续使用既有会话授权缓存与 ACP 审批答复；桌面消费结构化 `authorizationGroup: computer_control` 展示授权范围，不另存权限事实。
+
+授权仅在内存中存活，不写全局规则、不扩展到其他聊天或模块。连接替换、重连、清单增加/删除/定义变化或会话身份释放后失效；相同清单刷新保留。明确禁止、逐次询问规则及安全检查优先于整组授权，标记为破坏性的工具不进入可复用授权。旧审批卡片缺少整组标记时继续显示单工具范围。Harness 的执行、取消和完成权威不变。
+
+繁體：使用者選擇「本會話允許電腦控制」後，同一聊天及其所屬子 Agent 共用目前模組的可重用工具授權；僅此次允許仍只涵蓋當次呼叫。MCP 適配層持有連線與清單身分，Compat 沿用現有記憶體授權與 ACP 答覆，介面只顯示結構化範圍。重啟、重連、清單或會話身分變更後重新確認；明確禁止、逐次詢問與安全檢查優先，其他模組與舊卡片不擴權。
+
+English: An explicit “Allow computer control for this session” choice covers reusable tools in the current module for that conversation and its owned agents. Allow-once remains call-specific. The MCP adapter owns live connection, registered definition and catalog identities; Compat reuses the existing in-memory grant and ACP reply, while the UI only renders structured scope. Restart, reconnection, catalog changes and released session identities invalidate the grant. Explicit deny, ask-before and safety checks take precedence; destructive tools, other modules and legacy cards do not inherit broader authority.
+
+## 2026-10-27 已批准：新任务草稿跨重启保存
+
+2026-10-28 补充：用户在新任务页显式选择的权限预设随同一草稿保存，切换对话或重载页面后恢复；创建会话成功后随草稿清空。该选择仅用于新会话创建，不修改全局默认权限或其他已有会话，实际权限仍由 Harness 会话配置裁决。
+
+繁體：新任務頁明確選擇的權限預設隨同一草稿保存，切換對話或重新載入後恢復；會話建立成功後清空。不修改全域預設或其他會話權限，實際權限仍由 Harness 會話設定裁決。
+
+English: An explicitly selected permission preset is saved with the same new-task draft across navigation and reloads, then cleared after session creation succeeds. It does not change global defaults or other sessions; Harness session configuration remains authoritative for effective permissions.
+
+用户批准将新任务文字、目录及附件保存到本地并在重启后恢复。Electron `drafts/DraftStore` 持有按窗口槽位和聊天模式隔离的草稿文件及附件副本；renderer 仅缓存已恢复内容、提交字段更新并显示保存错误，不以草稿恢复启动任务。普通/CodePro 会话创建成功回执触发草稿清空，失败保留；已发送历史引用的附件副本继续存在。正常退出等待已接收的草稿写入。该缓存不更改 Harness 的任务、会话、权限或完成权威。最近目录文件继续由 `utils/recentDirs` 写入，原生菜单订阅保存通知刷新。
+
+繁體：Electron 擁有按視窗與模式隔離的本機草稿及附件副本，介面恢復草稿不啟動任務；會話建立成功清空草稿，失敗保留，正常結束等待寫入。最近目錄儲存後通知原生選單刷新。Harness 執行權責不變。
+
+English: Electron owns local draft files and attachment snapshots isolated by window slot and chat mode. Hydration never launches a task. Session creation acceptance clears the draft; rejection retains it, and normal exit drains admitted writes. Sent-history attachment copies remain valid. Recent-directory persistence notifies the native menu. Harness execution authority is unchanged.
 
 ## 2026-10-26 已批准：桌面更新与确认后停止任务
 
@@ -585,3 +638,69 @@ Mac 审计回执仅在内存中保存持有的 Inspection 与原能力。审计�
 `comfyui-tool.mjs` 继续独占任务收据、状态确认与产物落盘；`comfyui-live.mjs` 只缓存该任务 WebSocket 的节点进度和最近预览帧，不裁决任务或 Agent 完成。认证后的 `_codebuddy/media/jobs` 根据宿主持有的会话目录读取收据并复用原发布逻辑，不接受客户端指定服务或文件目录，不提交、取消或重放生成。帧数据不进入模型工具回执或对话持久化。前端右侧仅消费结构化观测，断线保留提示并重试；已完成产物通过原工作区媒体协议播放。旧收据无需迁移，关闭窗口后生成仍归 ComfyUI，关闭宿主清理观测连接。
 
 繁體：工具持有收據與落盤，WebSocket 快取僅供預覽；右側透過認證 RPC 消費，不重新提交生成。English: media tools retain receipts and publication ownership; WebSocket observations are transient, and the authenticated side-panel consumer never resubmits generation.
+
+## 2026-10-26 已批准：桌面路径打开与桥接复用
+
+用户批准在既有电脑控制 MCP 增加 Windows `open_path`，接受明确的本地文档／文件夹路径，不接受命令、URL、网络路径、脚本、可执行文件或快捷方式。独立 Go MCP 校验路径和前台输入启用状态，经系统默认应用打开；Harness 继续拥有工具启用、审批与执行事实。此能力不调整原生 Shell 沙箱，也不通过保活任务延长 Shell 子进程寿命。启动受理与画面验证分别报告，旧九工具及 macOS 合同保持兼容。
+
+### 2026-10-27 已批准：电脑控制提示与取消连接
+
+**2026-10-28 用户追加修订：移除全局状态条。** 下述紧凑状态条及恢复按钮方案撤回。Electron 不再渲染全局电脑控制卡片或状态条；Esc 保留暂停，原因在原对话工具结果和回复中说明。新的显式用户 prompt 在无在途动作及无有效活 lease 时解除旧暂停（含旧文本及 owner_lost 标记），只开始新输入对应的任务，不复活旧对话。已受理的原对话插话可以解除自己的本进程暂停；其他活对话和在途动作仍受隔离保护。内部 desktop/control 协议保留兼容，后台任务与压缩不自动恢复。当前实际产品验收以本轮报告为准。
+
+繁體：使用者要求移除全域狀態列；透過對話新訊息繼續，沒有在途動作或有效活 lease 時解除舊暫停，不復活舊任務。English: The user requested removal of the global status bar. Explicit chat input releases idle pauses without restarting old tasks; live ownership and in-flight actions stay protected.
+
+**2026-10-28 用户批准简化交互，覆盖下文鼠标基准及永久接管语义：** 鼠标移动不改变暂停状态；点击、滚轮、键盘输入由原生 MCP 记录为瞬时输入版本变化，旧观察随即失效。安静 600 ms 后允许重新观察，等待超过 3 s 返回本次输入冲突；不自动重放动作，也不写永久暂停。Esc 与暂停按钮保留明确暂停。协调器继续独占桌面 lease、队列、暂停与恢复事实；原轮次结束且无 live lease 时，原对话的新显式 prompt 可以解除自己的 Esc/manual 暂停，后台任务和压缩不触发。旧 mouse/keyboard/cancelled 标记在无占用的新显式 prompt 前退役，未知或 owner_lost 标记保留。停止等待原生动作收尾后释放自己的暂停；不续接已停止任务。Electron 消费结构化状态，显示紧凑状态条和所属对话入口，空闲时隐藏。Harness 的执行、审批与完成权威保持不变。此为本项目经批准的实现；Codex 截图仅提供交互参考，不据此推断其私有算法。
+
+繁體：移動滑鼠不暫停；實際輸入使舊觀察失效並要求重新觀察。Esc／按鈕明確暫停，原輪次結束後可由原對話新訊息繼續；停止收尾後釋放暫停。介面使用緊湊狀態列。English: Pointer movement does not pause. Input invalidates observations; fresh observation is required. Escape/button pauses explicitly; a new prompt in the original chat may resume an ended turn. Stop releases its pause after cleanup. UI projects a compact status bar; Harness authority is unchanged.
+
+**2026-10-28 用户批准修订，覆盖下段旧 Esc 语义：** Harness 仍是任务执行、审批与完成的唯一 owner。`runtime/desktop-coordinator.mjs` 只拥有共享桌面控制权、等待队列及接管闸门；独立内部 `desktop/control` 请求负责 pause/resume/withdraw/state，Esc 不再调用整轮取消。旧客户端携带 desktop token 的 session/cancel 也只暂停桌面；普通 session/cancel 保留整轮停止。用户接管闸门在本机用户目录持久化，阻止其他 profile 自动抢占；活 lease、窗口与元素不作为可恢复输入保存。原生 MCP 检查宿主 lease/generation，恢复后清空旧 UIA 观察；底层输入钩子写接管标记，原生动作在输入与观察边界检查。Electron 只投影状态和提交用户明确恢复，模型无解除闸门工具。暂停首次返回工具级受阻结果，独立非桌面步骤可继续；重复桌面提案等待恢复后作废，不重放。待测状态及未覆盖平台以本批验收报告为准。
+
+繁體：Esc 僅暫停桌面控制；使用者接管後須明確恢復，多對話共用桌面控制權，恢復後重新觀察。Harness 保有任務與核准權威。English: Escape pauses desktop control only. Human takeover persists until explicit resume; conversations share one desktop lease and re-observe after resumption. Harness retains task and approval authority.
+
+**2026-10-28 恢复交接修订：** 原接管标记兼容扩展为 revision/reason/at JSON，旧纯文本标记仍保持暂停，原因显示未知。原因由原生输入钩子或协调器写入，展示层不解析报错或模型文字推断。协调器的 paused/stale/withdrawn 结果经 Harness 适配、ACP 元数据投影到工具行，不改任务完成判定。恢复请求核对用户看到的占用会话；已停止任务只解除暂停，不自动续接。原生输入新 lease 重新建立鼠标基准。Electron 提示层暂停时隐藏复用，断连/退出销毁；加载完成时再次检查活动状态，加载失败明确提示。
+
+繁體：接管標記相容舊純文字並加入結構化原因；原因及工具受阻狀態由宿主提供，介面只顯示。恢復核對佔用對話，已停止任務不自動續接；新 lease 重設滑鼠基準，提示層暫停時隱藏重用、斷線時銷毀。
+
+English: Pause markers add structured reasons while retaining legacy text compatibility. Host-owned outcomes are presented through Harness/ACP without changing completion authority. Resume checks the displayed owner and never restarts cancelled work. A new lease resets the pointer baseline. Overlays are hidden and reused on pause, disposed on disconnect, and checked again after loading.
+
+用户批准完整控制提示方案。Harness 实际工具开始与 prompt 结束驱动仅实时的内部 `desktop_control` 展示事件；Electron 只投影顶部提示，不从自然语言或历史回放判断正在控制。Esc 复用 `session/cancel`，附当前 prompt token；Compat 校验 token 与现有活动轮次一致后交给 Harness 取消，延迟消息不得取消新轮次。展示事件、动画和 token 不持久化、不新增 MCP 工具、不改变审批权限。传输断开、渲染器关闭或任务结束清理展示。
+
+原生 Go/PowerShell/C# 层只绘制鼠标微光和短暂余光，既有目标校验、输入派发和 after-state 仍为执行事实。动画不阻塞动作、不抢前台、不消费点击。按用户确认，每块显示器拥有独立的 Electron 静态透明表面，顶部提示固定、边缘保持淡蓝微光；仅状态与显示器配置事件更新，不轮询鼠标、不逐帧重绘整屏。原生鼠标动画仍限于小窗口。用户明确选择保留当前模型思考设置，优化仅减少重复发现、重复观察和不必要的叙述。
+
+繁體：Harness 的實際工具開始及 prompt 結束驅動即時提示，Electron 僅負責顯示。Esc 沿用 session/cancel 並核對當前輪次 token；舊取消不影響新輪次。原生層繪製微光與餘光，維持既有審批、輸入及觀察合同，不新增公開工具或持久化狀態，保留使用者模型思考設定。
+
+English: Harness tool dispatch and prompt settlement own live control presentation. Electron only renders it; Escape uses session/cancel with the current prompt token, checked before native cancellation. Stale cancellation cannot affect a replacement turn. Native control renders pointer glow and afterglow without blocking input. Existing approvals, execution evidence and model reasoning preferences remain unchanged; no public MCP tool or persisted state is added.
+
+同一 MCP 连接复用一个 Windows PowerShell 桥接进程，仅复用代码初始化，每次重新获取窗口／UIA／截图；窗口快照和元素索引继续由原有服务管理。桥接中断使本次动作结果未知，不自动重放，下一次显式观察可重新启动桥接。模型成功加载内置 computer-use 技能后，适配层从当前受限工具注册表展示入口工具，不启用关闭的扩展、不授予输入权限、不解析用户文本裁决意图。
+
+繁體：既有 MCP 增加本機文檔／資料夾開啟入口；Harness 仍持有審批，橋接僅重用初始化，動作結果未知時不重放。English: The existing MCP opens explicit local documents/folders; Harness retains approval ownership. The bridge reuses initialization, not observations, and never replays an uncertain action.
+
+
+### 2026-10-28 用户澄清：Esc 仅打断电脑控制，任务继续
+
+Esc 不取消 Harness 轮次、模型请求或非桌面工具，不强制插入任务结束提示。原生输入先隔离桌面动作；DesktopCoordinator 根据结构化 escape 原因禁止本轮继续派发电脑工具，重复调用立即返回 desktopOutcome=stopped，不进入等待恢复的循环。工具回执仅显示电脑控制已停止；不把它提升为任务取消或完成。已派发动作可能部分完成，用户显式新消息允许重新控制后先观察核对。轮次 token 和桌面 lease 仍决定影响对象，旧通知不影响替代轮次。普通停止按钮仍通过 Harness 取消整个任务。
+
+繁體：Esc 僅打斷電腦控制，保留模型思考與獨立非桌面工具；重複電腦呼叫立即回傳 stopped，不等待恢復，也不強制結束任務。顯式新訊息後重新觀察，不重播未知動作。
+
+English: Escape interrupts computer control only, preserving reasoning and independent tools. Repeated desktop calls return stopped immediately rather than waiting for resume. No task-cancel terminal is generated. A new explicit message permits fresh observation without replaying uncertain actions. Harness retains whole-task cancellation authority for the normal Stop button.
+
+
+### 2026-10-28 用户要求补充：反复打断与多对话桌面仲裁
+
+正常电脑操作继续由 DesktopCoordinator 独占租约和串行队列管理，Harness 持有任务执行权。Esc 撤回当前所有已排队的电脑提案，其他工具继续；原生动作清理完即可释放租约，不必等待整个任务结束。共享暂停标记仍阻止其他旧轮次自动接管。只有已接纳的用户新消息重新允许对应 token；恢复不得重置其他轮次的停止状态。复用共享 epoch 识别其他进程错过的中断，旧轮次也要等待新的用户输入。已派发动作结果未知时先观察核对，不重放。无全局暂停／恢复条，无强制任务结束提示。
+
+繁體：正常操作依租約串行排隊。Esc 讓既有電腦提案退出，非桌面工作繼續；清理完即釋放租約。僅新訊息的對應 token 可再次控制，其他舊輪次保持停止，共享 epoch 防止跨程序漏看中斷。
+
+English: Desktop leases serialize normal operations. Escape withdraws existing desktop proposals while other work continues, and releases the lease after native cleanup. Only the admitted new message's token regains desktop access. Other interrupted turns remain stopped; the shared epoch prevents missed interruption across processes. No global resume UI or forced task-end notice is added.
+
+电脑工具审批使用 DesktopCoordinator 的局部取消信号：Esc 只撤回电脑审批，Harness 记录工具停止结果并继续任务；文件等其他审批仍使用原任务信号。RPC 的通用 AbortError 由局部适配还原成结构化 desktopOutcome，不提升为任务取消。繁體：局部訊號僅撤回電腦審批，保留任務與其他審批。English: A desktop-local abort signal withdraws only desktop approvals; Harness retains task and other approval lifetimes. Transport AbortError is mapped back to the structured desktop outcome.
+
+前端排队消息保存入队时的桌面 generation，自动发送通过 ACP 可选元数据 codebuddy/desktop-generation 透传。DesktopCoordinator 比较共享中断版本，旧排队消息仅限制电脑工具，独立任务继续；显式“立即发送”重新取当前版本。generation 不构成工具授权，原审批仍生效。共享 epoch 在 Esc 时持久化，暂停标记清理后仍有效。旧队列缺少字段按空版本处理，不删除数据；旧客户端缺少元数据维持原行为，因此升级验收需配套桌面与运行时。繁體：入隊版本隨訊息保存，舊訊息不因自動發送取得新的電腦控制權。English: Queued inputs retain the desktop generation captured at enqueue time; automatic delivery cannot renew a revoked desktop episode. The optional ACP metadata is a fence, not authorization. Legacy queues remain readable and conservative; older clients retain previous semantics and should be upgraded with the runtime.
+
+### 2026-10-29 用户批准：连续三次输入冲突退出本轮电脑控制
+
+原生 C#/PowerShell 判定输入冲突，Go 在 MCP 可选 desktop_control 回执中输出 schema_version=1 与 outcome=input_conflict/action_completed；Harness 适配层按调用透传，包括错误回执，不解析自然语言。DesktopCoordinator 独占计数：每个冲突回执加一（含仅刷新画面而未输入），实际动作成功回执清零；观察、排队及其他错误不清零也不计冲突。第三次复用共享 epoch 隔离本轮及既有排队的电脑请求，清理后释放租约；Harness 任务和非桌面工作继续。不新增恢复提示，不重放旧动作。新用户输入只允许对应 token 开启新轮次；旧排队消息保留原 generation。旧原生客户端缺少字段时不推测冲突，需配套新版工具验收。
+
+繁體：原生層提供版本化結構回執，Harness 逐次透傳，DesktopCoordinator 累計三次輸入衝突後撤回本輪及既有排隊電腦請求。成功輸入才清零，觀察不清零。任務與非桌面工作繼續，無恢復提示、不重播；新訊息只重新允許對應 token，舊客戶端不從文字推測狀態。
+
+English: Native code owns input-conflict facts, supplied through optional version-1 desktop_control MCP receipts and preserved by Harness even on errors. DesktopCoordinator counts once per receipt, including refresh-only outcomes; successful input resets the streak, observations and unrelated failures do not. Three conflicts fence the episode and previously queued desktop requests via the shared epoch, then release the lease after cleanup. Harness and independent tools continue. No resume UI or automatic replay is added. New input renews only its own token; legacy clients without receipts are not classified from prose and require a matched tool upgrade.

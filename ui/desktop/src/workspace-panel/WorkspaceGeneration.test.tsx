@@ -145,6 +145,35 @@ it('distinguishes image pixels from a file link and routes plain and Ctrl clicks
     window.removeEventListener('codebuddy:open-workspace-file', opened);
   }
 });
+it('distinguishes stale progress from failure and clears the notice on progress or disconnection', () => {
+  const job: MediaJob = {
+    job_id: 'slow-video',
+    kind: 'video',
+    status: 'running',
+    created_at: new Date(Date.now() - 2583000).toISOString(),
+    live: { connected: true, stage: 'sample', step: 1, total: 8, updatedAt: Date.now() - 180000 },
+  };
+  const view = render(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected={false} />, {
+    wrapper: IntlTestWrapper,
+  });
+  expect(screen.getByText(/Elapsed 43 min/)).toBeInTheDocument();
+  expect(screen.getByTestId('generation-quiet')).toHaveTextContent('No new progress for 3 min');
+  expect(screen.getByRole('status')).toHaveTextContent('Generating');
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '13');
+  for (const next of [
+    { ...job, live: { ...job.live, step: 2, updatedAt: Date.now() } },
+    { ...job, observation_error: true },
+    { ...job, live: { ...job.live, connected: false } },
+    { ...job, status: 'queued' },
+    { ...job, live: { connected: true } },
+    { ...job, status: 'failed', error: 'GPU error' },
+  ]) {
+    view.rerender(<WorkspaceGeneration scope={scope} jobs={[next]} disconnected={false} />);
+    expect(screen.queryByTestId('generation-quiet')).toBeNull();
+  }
+  view.rerender(<WorkspaceGeneration scope={scope} jobs={[job]} disconnected />);
+  expect(screen.queryByTestId('generation-quiet')).toBeNull();
+});
 it('shows local animation with real progress, ignores legacy frames, and opens completed video', async () => {
   const job: MediaJob = {
     job_id: 'job-a',

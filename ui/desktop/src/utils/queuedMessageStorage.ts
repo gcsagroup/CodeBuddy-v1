@@ -4,6 +4,7 @@ export interface StoredQueuedMessage {
   id: string;
   content: string;
   timestamp: number;
+  desktopGeneration?: string;
   images: ImageData[];
   delivery?: 'pending' | 'submitting';
   presentation?: MessageMetadata['presentation'];

@@ -23,6 +23,7 @@ it('routes source links in a progress message to its own conversation', () => {
     expect(opened.mock.calls[0][0].detail).toEqual({
       sessionId: 'source-progress',
       filePath: '../runtime/providers.mjs',
+      line: 644,
     });
   } finally {
     window.removeEventListener('codebuddy:open-workspace-file', opened);

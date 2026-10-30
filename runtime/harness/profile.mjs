@@ -7,7 +7,7 @@ export const CODEBUDDY_BEHAVIOR = "For requests to build or change a project, us
 
 // Explicit Host composition. No TUI/Web client, telemetry, credential discovery,
 // or second model/agent loop is installed by this embedding profile.
-export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
+export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedSkillDir) {
   const entry = (id, pkg, config) => ({ id, name: import.meta.resolve(`@deepseek-ai/${pkg}`), ...(config ? { config } : {}) });
   const officeRoot = fileURLToPath(new URL('../office/', import.meta.url));
   const pythonRoot = fileURLToPath(new URL('../py/', import.meta.url));
@@ -55,7 +55,8 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('mcp-resources', 'dsh-mcp-resources'),
     { id: 'skills', name: new URL('./agent-policy.mjs', import.meta.url).href },
     { id: 'skill-computer', name: new URL('./computer-skill.mjs', import.meta.url).href },
-    entry('skill-filesystem', 'dsh-skill-filesystem', { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), watch: false }),
+    { id: 'skill-comfyui', name: new URL('./comfyui-skill.mjs', import.meta.url).href },
+    { id: 'skill-filesystem', name: new URL('./skill-catalog.mjs', import.meta.url).href, config: { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), ...(sharedSkillDir ? { sharedSkillDir } : {}) } },
     entry('tool-skill', 'dsh-tool-skill'),
     ...(officeReady ? [
       entry('skill-office', 'dsh-skill-office', { assetRoot: officeRoot, node: process.execPath }),

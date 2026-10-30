@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { startCodeProSession } from '../codepro/startCodeProSession';
 import { CodeProHub } from './codepro/CodeProHub';
+import Hub from './Hub';
+import { createSession } from '../sessions';
+import { clearNewTaskDraft, updateNewTaskDraft } from '../utils/newTaskDraft';
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
@@ -44,6 +47,8 @@ const candidate = {
 
 describe('CodeProHub real composer setup', () => {
   beforeEach(() => {
+    clearNewTaskDraft('codepro');
+    clearNewTaskDraft('code');
     vi.clearAllMocks();
     vi.stubGlobal(
       'ResizeObserver',
@@ -82,6 +87,129 @@ describe('CodeProHub real composer setup', () => {
     });
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('restores an unsent prompt and selected project after leaving the new-task page', async () => {
+    const prompt = '  中文 draft 🙂\n保留换行和空格  ';
+    const view = render(
+      <CodeProHub launchIntent={{ draftOnly: true, workingDir: 'D:\\project' }} />,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: prompt } });
+    view.unmount();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.getByTestId('chat-input')).toHaveValue(prompt);
+    expect(startCodeProSession).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(window.electron.inspectCodeProWorkspace).toHaveBeenCalledWith({
+        prompt: '',
+        selectedWorkingDir: 'D:\\project',
+      })
+    );
+  });
+
+  it('selecting another folder preserves the draft and waits for Send', () => {
+    updateNewTaskDraft('codepro', { text: '未发送任务', workingDir: 'D:\\old' });
+    render(<CodeProHub launchIntent={{ draftOnly: true, workingDir: 'D:\\new' }} />, {
+      wrapper: IntlTestWrapper,
+    });
+    expect(screen.getByTestId('chat-input')).toHaveValue('未发送任务');
+    expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
+    expect(startCodeProSession).not.toHaveBeenCalled();
+  });
+
+  it('restores attachment previews, persists removal, and retains the remaining attachment on navigation', async () => {
+    updateNewTaskDraft('codepro', {
+      text: 'with attachments',
+      images: [{ id: 'pasted', dataUrl: 'data:image/png;base64,YQ==', isLoading: false }],
+      files: [
+        {
+          id: 'document',
+          path: 'D:\\drafts\\notes.txt',
+          name: 'notes.txt',
+          type: 'text/plain',
+          isImage: false,
+          isVideo: false,
+        },
+      ],
+    });
+    const view = render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.getByText('notes.txt')).toBeVisible();
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'data:image/png;base64,YQ==');
+    await userEvent.click(screen.getByRole('button', { name: /remove image/i }));
+    view.unmount();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByText('notes.txt')).toBeVisible();
+    expect(screen.getByTestId('chat-input')).toHaveValue('with attachments');
+  });
+
+  it('does not resurrect a draft after an accepted Send', async () => {
+    const view = render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'send once' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    expect(screen.getByTestId('chat-input')).not.toBeDisabled();
+    view.unmount();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.getByTestId('chat-input')).toHaveValue('');
+  });
+
+  it('retains a failed submission across navigation and isolates ordinary drafts', async () => {
+    vi.mocked(window.electron.inspectCodeProWorkspace).mockRejectedValueOnce(
+      new Error('fixture failure')
+    );
+    const view = render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'retry my task' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByRole('alert');
+    view.unmount();
+    const ordinary = render(<Hub setView={vi.fn()} />, { wrapper: IntlTestWrapper });
+    expect(screen.getByTestId('chat-input')).toHaveValue('');
+    ordinary.unmount();
+    render(<CodeProHub />, { wrapper: IntlTestWrapper });
+    expect(screen.getByTestId('chat-input')).toHaveValue('retry my task');
+  });
+
+  it('keeps a selected skill editable without allocating a workspace until Send', async () => {
+    const user = userEvent.setup();
+    render(
+      <CodeProHub
+        launchIntent={{
+          draftOnly: true,
+          initialMessage: { msg: '/comfyui ', images: [] },
+          noAutoSubmit: true,
+        }}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    const input = screen.getByTestId('chat-input');
+    expect(input).toHaveValue('/comfyui ');
+    await user.type(input, '生成一个视频');
+    expect(window.electron.defaultCodeProWorkspacePath).not.toHaveBeenCalled();
+    expect(window.electron.inspectCodeProWorkspace).not.toHaveBeenCalled();
+    expect(startCodeProSession).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
+    expect(startCodeProSession).toHaveBeenCalledWith(
+      expect.objectContaining({ initialMessage: { msg: '/comfyui 生成一个视频', images: [] } })
+    );
+  });
+
+  it('ordinary new-chat drafts preserve the selected folder and wait for the user to send', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createSession).mockResolvedValue({ id: 'ordinary-skill' } as Awaited<
+      ReturnType<typeof createSession>
+    >);
+    render(<Hub setView={vi.fn()} initialValue="/comfyui " initialWorkingDir={'D:\\project'} />, {
+      wrapper: IntlTestWrapper,
+    });
+    expect(screen.getByTestId('chat-input')).toHaveValue('/comfyui ');
+    expect(createSession).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(createSession).toHaveBeenCalledOnce());
+    expect(createSession).toHaveBeenCalledWith('D:\\project', expect.any(Object));
+  });
 
   it('preserves the draft while inspecting a fresh workspace without queue or stop controls, then starts once', async () => {
     let resolveInspection!: (value: (typeof candidate)[]) => void;

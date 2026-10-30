@@ -21,6 +21,7 @@ import { createSession } from '../sessions';
 import LoadingGoose from './LoadingGoose';
 import { PermissionPicker, useInitialPermissionPreset } from './SessionPermissionSummary';
 import { UserInput } from '../types/message';
+import { readNewTaskDraft, updateNewTaskDraft, clearNewTaskDraft } from '../utils/newTaskDraft';
 import {
   createNextChatExtensionDraft,
   selectNextChatExtensions,
@@ -50,13 +51,22 @@ function useClock(): { time: string; meridiem: string; hour: number } {
 
 export default function Hub({
   setView,
+  initialValue = '',
+  initialWorkingDir,
 }: {
   setView: (view: View, viewOptions?: ViewOptions) => void;
+  initialValue?: string;
+  initialWorkingDir?: string;
 }) {
   const intl = useIntl();
   const { extensionsList } = useConfig();
-  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
-  const [workingDir, setWorkingDir] = useState(getInitialWorkingDir());
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset('code');
+  const [workingDir, setWorkingDir] = useState(
+    () => initialWorkingDir ?? readNewTaskDraft('code').workingDir ?? getInitialWorkingDir()
+  );
+  useEffect(() => {
+    updateNewTaskDraft('code', { workingDir });
+  }, [workingDir]);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [nextChatExtensionDraft, setNextChatExtensionDraft] =
     useState<NextChatExtensionDraft | null>(null);
@@ -113,6 +123,7 @@ export default function Hub({
       }
       setWorkingDir(launch.workingDir);
       const session = launch.value;
+      clearNewTaskDraft('code');
       setNextChatExtensionDraft(null);
 
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
@@ -159,7 +170,8 @@ export default function Hub({
             handleSubmit={handleSubmit}
             chatState={isCreatingSession ? ChatState.LoadingConversation : ChatState.Idle}
             onStop={() => {}}
-            initialValue=""
+            initialValue={initialValue}
+            newTaskDraftKey="code"
             setView={setView}
             totalTokens={0}
             accumulatedInputTokens={0}

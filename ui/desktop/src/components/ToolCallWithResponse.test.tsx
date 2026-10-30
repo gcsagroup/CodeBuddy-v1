@@ -52,6 +52,50 @@ describe('tool response completion evidence', () => {
     expect(screen.queryByText('已生成图片')).not.toBeInTheDocument();
   });
   it.each([
+    ['paused', '电脑操作已暂停'], ['stale', '观察已过期，等待重新观察'], ['withdrawn', '已退出排队'], ['stopped', '电脑控制已停止'],
+  ])('shows the host desktop outcome %s without classifying it as execution failure', (outcome, label) => {
+    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
+      <ToolCallWithResponse compact sessionId="desktop-outcome" isCancelledMessage={false} isPendingApproval={false}
+        toolRequest={{ type: 'toolRequest', id: 'desktop-outcome', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} } } }}
+        toolResponse={{ type: 'toolResponse', id: 'desktop-outcome', metadata: { desktopOutcome: outcome }, toolResult: { status: 'error', error: 'Host rejected this observation' } }} />
+    </IntlProvider>);
+    expect(screen.getByText(label)).toBeVisible();
+    expect(screen.queryByText('未成功')).not.toBeInTheDocument();
+  });
+  it('passes a custom module through the actual compact card', () => {
+    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
+      <ToolCallWithResponse compact sessionId="custom-card" isCancelledMessage={false} isPendingApproval
+        toolRequest={{ type: 'toolRequest', id: 'custom-card', toolCall: { status: 'success', value: { name: 'mcp__custom__search', arguments: {} } } }}
+        confirmationContent={{ id: 'custom-card', toolName: 'mcp__custom__search', arguments: {}, authorizationScope: 'session', authorizationGroup: 'mcp_module', authorizationModule: { name: 'custom', displayName: '用户工具' }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
+    </IntlProvider>);
+    expect(screen.getByRole('button', { name: '本会话允许使用用户工具 (custom)' })).toBeVisible();
+    expect(screen.getByText(/用户工具 \(custom\)当前的工具及资源访问能力/)).toBeVisible();
+    expect(screen.getByRole('button', { name: '仅此次允许' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '拒绝' })).toBeVisible();
+  });
+  it('shows the module permission and scope in the actual compact conversation card', () => {
+    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
+      <ToolCallWithResponse compact sessionId="module-card" isCancelledMessage={false} isPendingApproval
+        toolRequest={{ type: 'toolRequest', id: 'module-card', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__list_apps', arguments: {} } } }}
+        confirmationContent={{ id: 'module-card', toolName: 'mcp__qwen_computer__list_apps', arguments: {}, authorizationScope: 'session', authorizationGroup: 'computer_control', availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
+    </IntlProvider>);
+    expect(screen.getByRole('button', { name: '本会话允许电脑控制' })).toBeVisible();
+    expect(screen.getByText(/允许本会话使用全部电脑控制工具/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: '本会话允许此工具' })).not.toBeInTheDocument();
+  });
+  it('preserves the business scope from the Mac permission request in a compact card', () => {
+    render(<IntlProvider locale="zh-CN" messages={chineseMessages}>
+      <ToolCallWithResponse compact sessionId="business-card" isCancelledMessage={false} isPendingApproval
+        toolRequest={{ type: 'toolRequest', id: 'business-card', toolCall: { status: 'success', value: { name: 'mcp__qwen_computer__get_app_state', arguments: {} } } }}
+        confirmationContent={{ id: 'business-card', toolName: 'mcp__qwen_computer__get_app_state', arguments: {}, authorizationScope: 'session', authorizationTarget: 'mcp__qwen_computer__get_app_state', businessApproval: { id: 'computer-use', tools: ['click', 'drag', 'get_app_state', 'list_apps', 'perform_secondary_action', 'press_key', 'scroll', 'set_value', 'type_text'] }, availableActions: ['allow_once', 'always_allow', 'deny_once'] }} />
+    </IntlProvider>);
+    expect(screen.getByRole('button', { name: '本会话允许电脑操作' })).toBeVisible();
+    expect(screen.getByTestId('business-approval-scope')).toBeVisible();
+    expect(screen.getByRole('button', { name: '仅此次允许' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '拒绝' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '本会话允许使用读取窗口内容' })).not.toBeInTheDocument();
+  });
+  it.each([
     { live: true, locale: 'en', messages: {}, label: 'Interact with a window control' },
     { live: false, locale: 'en', messages: {}, label: 'Interact with a window control' },
     { live: false, locale: 'zh-CN', messages: chineseMessages, label: '操作界面控件' },

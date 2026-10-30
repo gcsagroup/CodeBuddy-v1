@@ -12,6 +12,7 @@ import {
   previewSkillDownload,
 } from '../../acp/skillManagement';
 import SkillManager from './SkillManager';
+import { requestSkillManagementConfirmation } from '../../acp/skillConfirmationRequests';
 
 vi.mock('../../utils/workingDir', () => ({ getInitialWorkingDir: () => 'D:\\project' }));
 vi.mock('../../acp/skillManagement', async (importOriginal) => ({
@@ -60,6 +61,34 @@ function renderManager(path = '/skills') {
 }
 
 describe('SkillManager user workflows', () => {
+  it('shared skills show source and pending state, require one trust confirmation, and refresh without an edit preview', async () => {
+    const shared = { ...skill, source: { ...skill.source, rootKind: 'shared_user' as const }, scope: 'shared', readOnly: true, canToggle: true, enabled: false, availability: 'pending' as const };
+    vi.mocked(listManagedSkills).mockResolvedValue({ skills: [shared], destinationRoots: [], diagnostics: ['bad/SKILL.md: invalid YAML'] });
+    vi.mocked(applySkillChange).mockImplementation(async () => {
+      const result = await requestSkillManagementConfirmation({ previewToken: 'shared-preview', nonce: 'nonce', operation: 'set_enabled', target: shared.displayPath, expiresAt: '2099-01-01T00:00:00Z' });
+      if (result.decision === 'cancel') throw new Error('confirmation_cancelled');
+      expect(result.decision).toBe('confirm');
+      vi.mocked(listManagedSkills).mockResolvedValue({ skills: [{ ...shared, enabled: true, availability: 'available' }], destinationRoots: [] });
+      return { skill: { ...shared, enabled: true } };
+    });
+    renderManager();
+    expect(await screen.findByText('尚未在 CodeBuddy 启用')).toBeVisible();
+    expect(screen.getByText('本机共享技能')).toBeVisible();
+    expect(screen.getByText('bad/SKILL.md: invalid YAML')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '启用' }));
+    let dialog = await screen.findByRole('dialog', { name: '启用这个共享技能？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '启用这个共享技能？' })).not.toBeInTheDocument());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('尚未在 CodeBuddy 启用')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: '启用' }));
+    dialog = await screen.findByRole('dialog', { name: '启用这个共享技能？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '启用' }));
+    await screen.findByRole('button', { name: '停用' });
+    expect(applySkillChange).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('检查更改')).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listManagedSkills).mockResolvedValue({
@@ -202,6 +231,8 @@ describe('SkillManager user workflows', () => {
     expect(detail).toHaveTextContent('C:\\skills\\demo');
     await user.click(within(detail).getByRole('button', { name: '使用技能' }));
     expect(screen.getByTestId('current-location')).toHaveTextContent('/pair');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('"draftOnly":true');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('使用 demo 技能：');
   });
 
   it('keeps a project skill in its owning workspace when opening its conversation', async () => {
@@ -220,7 +251,8 @@ describe('SkillManager user workflows', () => {
     await userEvent.click(within(detail).getByRole('button', { name: '使用技能' }));
     expect(screen.getByTestId('current-location')).toHaveTextContent(
       JSON.stringify({
-        initialMessage: { msg: '/demo ', images: [] },
+        initialMessage: { msg: '使用 demo 技能：', images: [] },
+        draftOnly: true,
         noAutoSubmit: true,
         workingDir: 'D:\\project',
       })

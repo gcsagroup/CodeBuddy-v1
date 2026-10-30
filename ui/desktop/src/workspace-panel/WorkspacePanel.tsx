@@ -1524,7 +1524,9 @@ export function WorkspacePanelContent({
                   <PanelLeft size={15} />
                 </button>
                 <span className="min-w-0 flex-1 truncate" title={selected.document.path}>
-                  {scope.root.replace(/[\\/]$/, '')}/{selected.document.path}
+                  {/^(?:[a-z]:[\\/]|\/)/i.test(selected.document.path)
+                    ? selected.document.path
+                    : `${scope.root.replace(/[\\/]$/, '')}/${selected.document.path}`}
                 </span>
                 {/\.html?$/i.test(selected.document.path) && (
                   <button

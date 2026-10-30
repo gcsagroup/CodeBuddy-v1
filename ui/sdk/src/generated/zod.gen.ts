@@ -837,6 +837,7 @@ export const zSkillManagementListRequest_unstable = z.object({
 });
 
 export const zSkillRootKind = z.enum([
+  "shared_user",
   "project_agents",
   "project_goose",
   "project_claude",
@@ -867,6 +868,9 @@ export const zSkillCompanionFile = z.object({
 });
 
 export const zManagedSkill = z.object({
+  canToggle: z.boolean().optional(),
+  availability: z.enum(["available", "pending", "shadowed"]).optional(),
+  shadowedBy: z.string().optional(),
   source: zSkillSourceRef,
   name: z.string(),
   description: z.string(),
@@ -889,6 +893,7 @@ export const zSkillDestinationRoot = z.object({
 });
 
 export const zSkillManagementListResponse_unstable = z.object({
+  diagnostics: z.array(z.string()).optional().default([]),
   skills: z.array(zManagedSkill),
   destinationRoots: z.array(zSkillDestinationRoot),
 });

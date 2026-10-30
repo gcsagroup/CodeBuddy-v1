@@ -1017,6 +1017,20 @@ it.each([false, true])(
   }
 );
 
+it.each([false, true])('opens Windows backslash links produced by the model (streaming=%s)', (animateIncoming) => {
+  const opened = vi.fn();
+  window.addEventListener('codebuddy:open-workspace-file', opened);
+  try {
+    const filePath = String.raw`D:\CodeBuddy-v1\.local\acceptance\merge-acceptance.md`;
+    renderWithIntl(<MarkdownContent sessionId="windows-files" animateIncoming={animateIncoming} content={`[File](${filePath})`} />);
+    fireEvent.click(screen.getByRole('link', { name: 'File' }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(opened.mock.calls[0][0].detail).toEqual({ sessionId: 'windows-files', filePath: filePath.replace(/\\/g, '/') });
+  } finally {
+    window.removeEventListener('codebuddy:open-workspace-file', opened);
+  }
+});
+
 it.each(['C:/project/src/main.ts:141', 'C:/project/src/main.ts#L141'])(
   'preserves the source location for preview, editor and context menu: %s',
   (href) => {

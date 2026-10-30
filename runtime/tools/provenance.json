@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-10-23T09:25:28.000Z",
+  "copiedAt": "2026-10-23T09:25:28Z",
   "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
   "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
@@ -13,7 +13,7 @@
       "sha256": "c04d51c3d42b6fa75c5ef0523d9a69dbba568bc015c3275aa4322f5ff9d740f2",
       "bytes": 21777920,
       "sourcePath": "target/debug/codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-10-20T01:18:35.166039+00:00",
+      "sourceModifiedAt": "2026-10-20T09:18:35.166039+08:00",
       "sourceBaselineRevision": "6e5ebfb20531caccdd21de304cf4c94d3e473cc3",
       "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": false,
@@ -44,13 +44,13 @@
       "path": "bin/qwen-computer-use.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "5b08525ee3825d611a4ef643badbdf15dd55e95816e4f5f15fd06dbe30c5f9b8",
-      "bytes": 4736000,
-      "sourcePath": "D:\\Users\\jiangrui\\Desktop\\CodeBuddy\\ui\\desktop\\src\\bin\\qwen-computer-use.exe",
-      "sourceModifiedAt": "2026-10-10T16:08:32.741Z",
-      "sourceBaselineRevision": "964bbeb1587f1c5551ee17907e0b26632c4163ce",
+      "sha256": "51d8e2245c0c2daa0459c817b5c1c4155cec1d4b2ee3898d4266d110ee4198d5",
+      "bytes": 4857856,
+      "sourcePath": "target/debug/qwen-computer-use.exe",
+      "sourceModifiedAt": "2026-10-29T09:53:50.3015428Z",
+      "sourceBaselineRevision": "bfbef730a50ac409afb5bb166027164c14ff781c",
       "sourceBaselineIncludesUncommittedChanges": true,
-      "rebuiltForThisRevision": false,
+      "rebuiltForThisRevision": true,
       "license": "MIT",
       "licenseFile": "licenses/qwen-computer-use-MIT.txt",
       "licenseSha256": "0fdb775e00e6fdde23984b4f1184cd13c34135caac1e714ad489141c239704bc",
@@ -59,7 +59,9 @@
           "--foreground-input",
           "mcp"
         ]
-      ]
+      ],
+      "buildProfile": "go1.27.3 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
+      "buildLog": "C:/Users/jiangrui/AppData/Local/Temp/codebuddy-merge-go-build.log"
     }
   ]
 }

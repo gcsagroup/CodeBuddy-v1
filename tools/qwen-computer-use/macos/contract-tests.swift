@@ -10,7 +10,34 @@ struct ContractTests {
         do { try work() } catch is RuntimeFailure { return }
         throw RuntimeFailure("Invalid input was accepted")
     }
-    static func main() throws {
+    @MainActor static func main() async throws {
+        let inactiveMonitor = NativeInputMonitor()
+        let observation = try JSONDecoder().decode(NativeRequest.self, from: Data(#"{"tool":"get_app_state","app":"foreground"}"#.utf8))
+        let observationReady = try await inactiveMonitor.prepare(observation)
+        try require(observationReady, "Screen-only observation was blocked by an unavailable input monitor")
+        let unmonitoredInput = try JSONDecoder().decode(NativeRequest.self, from: Data(#"{"tool":"press_key","key":"a"}"#.utf8))
+        do {
+            _ = try await inactiveMonitor.prepare(unmonitoredInput)
+            throw NSError(domain: "UncheckedInput", code: 1)
+        } catch is RuntimeFailure { }
+        try require(!DesktopInputPolicy.conflicts(.mouseMoved, marker: 0), "Pure mouse movement invalidated input")
+        for type: CGEventType in [.keyDown, .leftMouseDown, .rightMouseDown, .scrollWheel, .leftMouseDragged] {
+            try require(DesktopInputPolicy.conflicts(type, marker: 0), "User input was ignored")
+            try require(!DesktopInputPolicy.conflicts(type, marker: DesktopInputPolicy.marker), "Own input caused conflicts")
+        }
+        try require(DesktopInputPolicy.escape(.keyDown, key: 53, marker: 0, flags: []), "Human Esc ignored")
+        try require(!DesktopInputPolicy.escape(.keyDown, key: 53, marker: DesktopInputPolicy.marker, flags: []), "Own Esc interrupted control")
+        try require(!DesktopInputPolicy.escape(.keyDown, key: 53, marker: 0, flags: .maskCommand), "Modified Esc interrupted control")
+        let leaseDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: leaseDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: leaseDirectory) }
+        let leaseFile = leaseDirectory.appendingPathComponent("lease.json")
+        try "current".write(to: leaseFile, atomically: true, encoding: .utf8)
+        try DesktopInputPolicy.validateLease(directory: leaseDirectory.path, identity: "current")
+        try rejects { try DesktopInputPolicy.validateLease(directory: leaseDirectory.path, identity: "old") }
+        try Data().write(to: leaseDirectory.appendingPathComponent("paused"))
+        try rejects { try DesktopInputPolicy.validateLease(directory: leaseDirectory.path, identity: "current") }
+        print("Desktop control: pure movement, own injection, Esc classification and revoked leases passed.")
         var requested: [String] = []
         try require(!enableTargetAccessibility(read: { _ in nil }, enable: { _ in false }), "Unsupported app capabilities reported enabled")
         try require(!enableTargetAccessibility(read: { _ in true }, enable: { requested.append($0); return true }), "Existing enabled accessibility was toggled")
@@ -34,6 +61,15 @@ struct ContractTests {
             "Agreeing focus identities rejected")
         try require(confirmedForegroundPID(accessibilityPID: 54081, workspacePID: 76) == nil,
             "Conflicting foreground identities accepted")
+        try require(confirmedForegroundPID(accessibilityPID: 619, workspacePID: 60503,
+            focusedElementPID: 619, hasFocusedWindow: true) == 619,
+            "Verified keyboard focus in a nonactivating system panel was lost")
+        try require(confirmedForegroundPID(accessibilityPID: 619, workspacePID: 60503,
+            focusedElementPID: 60503, hasFocusedWindow: true) == nil,
+            "An unrelated focused element resolved conflicting foreground identities")
+        try require(confirmedForegroundPID(accessibilityPID: 619, workspacePID: 60503,
+            focusedElementPID: 619, hasFocusedWindow: false) == nil,
+            "A disappeared panel resolved conflicting foreground identities")
         for invalid in [nil, -1, 0] as [pid_t?] {
             try require(confirmedForegroundPID(accessibilityPID: invalid, workspacePID: 54081) == 54081,
                 "Valid AppKit focus lost when system-wide AX is unavailable")

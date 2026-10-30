@@ -80,7 +80,14 @@ func frontmostPID() -> pid_t? {
     guard AXUIElementGetPid(value as! AXUIElement, &focusedPID) == .success else {
         return confirmedForegroundPID(accessibilityPID: nil, workspacePID: workspacePID)
     }
-    return confirmedForegroundPID(accessibilityPID: focusedPID, workspacePID: workspacePID)
+    var elementPID: pid_t?
+    if let element = attribute(system, kAXFocusedUIElementAttribute),
+       CFGetTypeID(element) == AXUIElementGetTypeID() {
+        var pid: pid_t = -1
+        if AXUIElementGetPid(element as! AXUIElement, &pid) == .success { elementPID = pid }
+    }
+    return confirmedForegroundPID(accessibilityPID: focusedPID, workspacePID: workspacePID,
+        focusedElementPID: elementPID, hasFocusedWindow: focusedWindow(pid: focusedPID, candidates: windows()) != nil)
 }
 
 @MainActor
@@ -133,6 +140,7 @@ func accessibilityWindow(_ window: NativeWindow) throws -> AXUIElement {
 
 @MainActor
 func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
+    let inputVersion = NativeRuntime.monitor.version
     if AXIsProcessTrusted() {
         let app = AXUIElementCreateApplication(window.pid)
         AXUIElementSetMessagingTimeout(app, 1)
@@ -197,6 +205,8 @@ func snapshot(_ window: NativeWindow) async throws -> [String: Any] {
        let front = focusedWindow(pid: pid, candidates: windows()) ?? windows().first(where: { $0.pid == pid }) {
         result["foreground"] = ["name": front.name, "pid": front.pid, "windowHandle": front.id, "title": front.title]
     }
+    guard inputVersion == NativeRuntime.monitor.version else { throw DesktopInputConflict() }
+    if NativeRuntime.monitor.available { result["inputVersion"] = inputVersion }
     return result
 }
 
@@ -230,27 +240,38 @@ func mouse(_ type: CGEventType, _ point: CGPoint, _ button: CGMouseButton = .lef
     }
     event.flags = []
     event.setIntegerValueField(.mouseEventClickState, value: Int64(count))
+    event.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
     receipt.perform { event.post(tap: .cghidEventTap) }
 }
 
 
 @main
 struct NativeRuntime {
+    @MainActor static let monitor = NativeInputMonitor()
     @MainActor static func main() {
         // AppKit focus/activation state needs its event loop to receive changes.
         NSApplication.shared.setActivationPolicy(.prohibited)
-        Task {
-            await processRequest()
-            exit(0)
+        if CommandLine.arguments.contains("--watch-escape") {
+            let escape = NativeInputMonitor(escapeWorker: true)
+            guard escape.start() else { fputs("Escape monitor unavailable\n", stderr); exit(1) }
+            print("ready"); fflush(stdout)
+            readNativeLines { line in
+                guard line.hasPrefix("arm "), line.count <= 260 else { return }
+                escape.armed = String(line.dropFirst(4))
+                print("armed \(escape.armed)"); fflush(stdout)
+            }
+        } else if CommandLine.arguments.contains("--stream") {
+            readNativeLines { line in await processRequest(Data(line.utf8)) }
+        } else {
+            Task { await processRequest(FileHandle.standardInput.readDataToEndOfFile()); exit(0) }
         }
         NSApplication.shared.run()
     }
 
-    @MainActor static func processRequest() async {
+    @MainActor static func processRequest(_ input: Data) async {
         let receipt = InputDispatchReceipt()
         do {
             NSApplication.shared.setActivationPolicy(.prohibited)
-            let input = FileHandle.standardInput.readDataToEndOfFile()
             let request = try JSONDecoder().decode(NativeRequest.self, from: input)
             if request.tool == "doctor" {
                 let diagnostic = DesktopEnvironmentDiagnostic(
@@ -277,9 +298,23 @@ struct NativeRuntime {
                 try emit(["ok": true, "text": windows().map { "\($0.selector) \($0.name) \($0.title.debugDescription)" }.joined(separator: "\n")])
                 return
             }
+            _ = monitor.start()
+            try DesktopInputPolicy.validateLease(directory: request.controlDirectory, identity: request.controlIdentity)
             let window = try resolve(request)
+            let inputReady = try await monitor.prepare(request)
+            if request.isInput && !inputReady {
+                // Match Windows: acknowledge a changed observation, never replay
+                // the stale action. The host still counts this as a conflict.
+                let fresh = try await snapshot(window)
+                try DesktopInputPolicy.validateLease(directory: request.controlDirectory, identity: request.controlIdentity)
+                try emit(["ok": true, "actionDispatched": false, "inputConflict": true,
+                    "text": "Desktop changed during user interaction. The requested action was NOT dispatched. Here is the fresh target state; decide the next step from it instead of repeating the old action blindly.",
+                    "snapshot": fresh])
+                return
+            }
             try request.validateBinding(pid: window.pid, window: window.id, bounds: window.bounds)
             if request.isInput {
+                try monitor.validate(request)
                 guard ProcessInfo.processInfo.environment["OPEN_COMPUTER_USE_WINDOWS_FOREGROUND_INPUT"] == "1" else {
                     throw RuntimeFailure("macOS input requires --foreground-input.")
                 }
@@ -301,14 +336,32 @@ struct NativeRuntime {
                 guard let current = windows().first(where: { $0.id == window.id && $0.pid == window.pid }) else { throw RuntimeFailure("Window closed during activation.") }
                 try request.validateBinding(pid: current.pid, window: current.id, bounds: current.bounds)
                 let element = try request.element.map { try lookup($0, in: current) }
+                try monitor.validate(request)
                 try await inputAction(request, window: current, element: element, receipt: receipt)
                 try await Task.sleep(nanoseconds: 120_000_000)
             }
-            let after = try resolve(request)
-            try emit(["ok": true, "actionDispatched": receipt.dispatched, "snapshot": try await snapshot(after)])
+            try DesktopInputPolicy.validateLease(directory: request.controlDirectory, identity: request.controlIdentity)
+            if request.isInput { try monitor.validate(request) }
+            let after: [String: Any]
+            do {
+                after = try await snapshot(resolve(request))
+            } catch {
+                // Launchers and dialogs close after successful input. Their
+                // disappearance is not evidence that the input failed. Observe
+                // a verified new keyboard target without replaying the action.
+                // Human input during capture must still be reported as a conflict.
+                if request.isInput { try monitor.validate(request) }
+                guard request.isInput, receipt.dispatched, let pid = frontmostPID(),
+                      let active = focusedWindow(pid: pid, candidates: windows()),
+                      active.pid != window.pid || active.id != window.id else { throw error }
+                after = try await snapshot(active)
+            }
+            try DesktopInputPolicy.validateLease(directory: request.controlDirectory, identity: request.controlIdentity)
+            if request.isInput { try monitor.validate(request) }
+            try emit(["ok": true, "actionDispatched": receipt.dispatched, "snapshot": after])
         } catch {
             try? emit(["ok": false, "actionDispatched": receipt.dispatched,
-                "error": receipt.failureDescription(error)])
+                "inputConflict": error is DesktopInputConflict, "error": receipt.failureDescription(error)])
         }
     }
 
@@ -336,6 +389,7 @@ struct NativeRuntime {
                 belowWindowWithWindowNumber: 0)
             try validateMouseHit(hit, target: window)
         }
+        try monitor.validate(request)
         switch request.tool {
         case "click":
             let p = try point(); try visiblePoint(p)
@@ -351,22 +405,27 @@ struct NativeRuntime {
             default: throw RuntimeFailure("Unsupported mouse button.")
             }
             for n in 1...count {
+                try monitor.validate(request)
                 try assertForeground(window)
                 try visiblePoint(p)
                 try mouse(down, p, button, count: n, receipt: receipt)
                 try mouse(up, p, button, count: n, receipt: receipt)
+                if n < count { try await Task.sleep(nanoseconds: 20_000_000) }
             }
         case "drag":
             let start = try window.bounds.globalPoint(x: request.from_x, y: request.from_y)
             let end = try window.bounds.globalPoint(x: request.to_x, y: request.to_y)
             try visiblePoint(start); try visiblePoint(end)
             try mouse(.leftMouseDown, start, receipt: receipt)
-            defer { try? mouse(.leftMouseUp, end, receipt: receipt) }
+            var last = start
+            defer { try? mouse(.leftMouseUp, last, receipt: receipt) }
             for step in 1...20 {
+                try monitor.validate(request)
                 try assertForeground(window)
                 let p = CGPoint(x: start.x + (end.x - start.x) * Double(step) / 20,
                                 y: start.y + (end.y - start.y) * Double(step) / 20)
                 try mouse(.leftMouseDragged, p, receipt: receipt)
+                last = p
                 try await Task.sleep(nanoseconds: 10_000_000)
             }
         case "scroll":
@@ -387,22 +446,29 @@ struct NativeRuntime {
             guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: vertical, wheel2: horizontal, wheel3: 0) else { throw RuntimeFailure("Failed to create scroll input.") }
             event.flags = []
             event.location = p
+            event.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
             receipt.perform { event.post(tap: .cghidEventTap) }
         case "press_key":
+            try monitor.validate(request)
             try assertForeground(window, keyboard: true)
             let (code, flags) = try keySpec(request.key ?? "")
             guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
                   let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else { throw RuntimeFailure("Failed to create key input.") }
             down.flags = flags; up.flags = flags
+            down.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
+            up.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
             receipt.perform { down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap) }
         case "type_text":
             for character in request.text ?? "" {
+                try monitor.validate(request)
                 try assertForeground(window, keyboard: true)
                 let units = Array(String(character).utf16)
                 guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
                       let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else { throw RuntimeFailure("Failed to create text input.") }
                 // A remote session can leave Command held; text must not become shortcuts.
                 down.flags = []; up.flags = []
+                down.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
+                up.setIntegerValueField(.eventSourceUserData, value: DesktopInputPolicy.marker)
                 units.withUnsafeBufferPointer { buffer in
                     down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
                     up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)

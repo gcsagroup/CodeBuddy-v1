@@ -11,8 +11,30 @@ import (
 func TestToolDefinitionCount(t *testing.T) {
 	// A leftover hybrid launch environment must never hide the standard MCP tools.
 	t.Setenv("OPEN_COMPUTER_USE_HOST_CONTROLLED", "1")
-	if got := len(toolDefinitions()); got != 9 {
-		t.Fatalf("toolDefinitions() count = %d, want 9", got)
+	want := 9
+	if runtime.GOOS == "windows" {
+		want++
+	}
+	if got := len(toolDefinitions()); got != want {
+		t.Fatalf("toolDefinitions() count = %d, want %d", got, want)
+	}
+}
+
+func TestInvalidClickParametersNeverReachDesktop(t *testing.T) {
+	for _, extra := range []map[string]any{
+		{"mouse_button": "double"}, {"mouse_button": ""}, {"mouse_button": 2},
+		{"click_count": 0}, {"click_count": -1}, {"click_count": 1.5}, {"click_count": "two"},
+	} {
+		extra["app"] = "fixture"
+		extra["element_index"] = "0"
+		s := newService()
+		result := s.callTool("click", extra)
+		if !result.IsError || !strings.Contains(strings.ToLower(result.Content[0].Text), "no input dispatched") {
+			t.Fatalf("invalid click was not rejected before desktop access: %#v", result)
+		}
+		if s.bridge.cmd != nil {
+			t.Fatal("invalid click started the desktop bridge")
+		}
 	}
 }
 

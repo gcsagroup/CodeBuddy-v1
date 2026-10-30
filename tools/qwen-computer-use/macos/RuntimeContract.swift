@@ -48,13 +48,17 @@ func validateMouseHit(_ windowNumber: Int, target: NativeWindow) throws {
 }
 
 
-func confirmedForegroundPID(accessibilityPID: pid_t?, workspacePID: pid_t?) -> pid_t? {
+func confirmedForegroundPID(accessibilityPID: pid_t?, workspacePID: pid_t?, focusedElementPID: pid_t? = nil, hasFocusedWindow: Bool = false) -> pid_t? {
     // AppKit is the independent OS foreground authority when system-wide AX
     // returns cannotComplete, even though per-app AX and permission are valid.
     guard let focused = accessibilityPID, focused > 0 else {
         return workspacePID.flatMap { $0 > 0 ? $0 : nil }
     }
-    if let workspacePID, workspacePID > 0, workspacePID != focused { return nil }
+    if let workspacePID, workspacePID > 0, workspacePID != focused {
+        // Nonactivating system panels can receive keyboard focus while AppKit
+        // still names the underlying app. Require corroborating AX and CG facts.
+        return focusedElementPID == focused && hasFocusedWindow ? focused : nil
+    }
     return focused
 }
 
@@ -105,6 +109,9 @@ struct NativeElement: Codable {
 }
 
 struct NativeRequest: Decodable {
+    var controlDirectory: String?
+    var controlIdentity: String?
+    var inputVersion: String?
     var tool: String
     var app: String?
     var expectedWindow: UInt32?
@@ -150,6 +157,33 @@ struct NativeRequest: Decodable {
                   windowBounds.matches(bounds) else {
                 throw RuntimeFailure("Input requires the current observed window and unchanged bounds.")
             }
+        }
+    }
+}
+
+struct DesktopInputConflict: Error, CustomStringConvertible {
+    var description: String { "Desktop input changed since observation. Inspect a fresh observation before deciding the next action; do not replay uncertain input." }
+}
+
+// Native input facts only. The host owns consecutive-conflict policy and queues.
+enum DesktopInputPolicy {
+    static let marker: Int64 = 0x43424459494E5054
+    static func conflicts(_ type: CGEventType, marker: Int64) -> Bool {
+        guard marker != self.marker else { return false }
+        return [.leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel, .keyDown,
+                .leftMouseDragged, .rightMouseDragged, .otherMouseDragged].contains(type)
+    }
+    static func escape(_ type: CGEventType, key: Int64, marker: Int64, flags: CGEventFlags) -> Bool {
+        type == .keyDown && key == 53 && marker != self.marker
+            && flags.intersection([.maskShift, .maskControl, .maskAlternate, .maskCommand]).isEmpty
+    }
+    static func validateLease(directory: String?, identity: String?) throws {
+        guard let directory, !directory.isEmpty else { return }
+        guard let identity, !identity.isEmpty,
+              !FileManager.default.fileExists(atPath: directory + "/paused"),
+              let current = try? String(contentsOfFile: directory + "/lease.json", encoding: .utf8),
+              current == identity else {
+            throw RuntimeFailure("Desktop control was released. Do not retry desktop tools in this turn; continue other work that does not use the desktop.")
         }
     }
 }

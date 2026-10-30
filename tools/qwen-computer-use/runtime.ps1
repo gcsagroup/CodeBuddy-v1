@@ -1,6 +1,6 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$OperationPath
+    [string]$OperationPath,
+    [switch]$Stream
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +14,18 @@ Add-Type -Path (Join-Path $PSScriptRoot 'desktop-input.cs')
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Drawing
+
+# Optional presentation shares the existing bridge lifetime, not the input thread.
+# A visual failure must not fail or replay the underlying operation.
+$script:feedbackReady = $false
+if ([Environment]::GetEnvironmentVariable('CODEBUDDY_DESKTOP_FEEDBACK') -ne '0') {
+    try {
+        Add-Type -Path (Join-Path $PSScriptRoot 'desktop-feedback.cs') -ReferencedAssemblies System.Drawing,System.Windows.Forms
+        $script:feedbackReady = $true
+    } catch {
+        if ($Stream) { [Console]::Error.WriteLine('CodeBuddy desktop feedback unavailable; input remains available.') }
+    }
+}
 
 Add-Type -TypeDefinition @"
 using System;
@@ -640,7 +652,8 @@ function Capture-WindowPngBase64([IntPtr]$hwnd, $bounds) {
     }
 }
 
-function Get-FocusedSummary($processId) {
+function Get-FocusedSummary($processId, [IntPtr]$window) {
+    if (-not [OcuDesktop]::IsForeground($window)) { return $null }
     try {
         $focused = [Windows.Automation.AutomationElement]::FocusedElement
         if ($null -ne $focused -and $focused.Current.ProcessId -eq $processId) {
@@ -656,7 +669,8 @@ function Get-FocusedSummary($processId) {
     return $null
 }
 
-function Get-SelectedText($processId) {
+function Get-SelectedText($processId, [IntPtr]$window) {
+    if (-not [OcuDesktop]::IsForeground($window)) { return $null }
     try {
         $focused = [Windows.Automation.AutomationElement]::FocusedElement
         if ($null -eq $focused -or $focused.Current.ProcessId -ne $processId) {
@@ -694,8 +708,8 @@ function Build-Snapshot([string]$query, [int64]$expectedWindow=0, [int]$expected
         windowBounds = $bounds
         screenshotPngBase64 = Capture-WindowPngBase64 ([IntPtr]$process.MainWindowHandle) $bounds
         treeLines = @($rendered.lines)
-        focusedSummary = Get-FocusedSummary $process.Id
-        selectedText = Get-SelectedText $process.Id
+        focusedSummary = Get-FocusedSummary $process.Id ([IntPtr]$process.MainWindowHandle)
+        selectedText = Get-SelectedText $process.Id ([IntPtr]$process.MainWindowHandle)
         elements = @($rendered.records)
     }
 }
@@ -742,7 +756,8 @@ function Find-Element($process, $record) {
         return $null
     }
     $root = Get-MainElement $process
-    foreach ($element in (Get-AllElements $root)) {
+    $elements = Get-AllElements $root
+    foreach ($element in $elements) {
         try {
             if (Same-RuntimeId @($element.GetRuntimeId()) @($record.runtimeId)) {
                 return $element
@@ -750,7 +765,7 @@ function Find-Element($process, $record) {
         } catch {
         }
     }
-    foreach ($element in (Get-AllElements $root)) {
+    foreach ($element in $elements) {
         try {
             $sameAutomationId = -not [string]::IsNullOrWhiteSpace($record.automationId) -and $element.Current.AutomationId -eq $record.automationId
             $sameName = -not [string]::IsNullOrWhiteSpace($record.name) -and $element.Current.Name -eq $record.name
@@ -965,12 +980,104 @@ function Build-AfterActionResponse($operation) {
     }
 }
 
-$operation = Get-Content -Raw -Encoding UTF8 -LiteralPath $OperationPath | ConvertFrom-Json
+function Restore-OpenFolder([string]$path) {
+    $shell = $null
+    $windows = $null
+    $target = [System.IO.Path]::GetFullPath($path).TrimEnd('\')
+    try {
+        $shell = New-Object -ComObject Shell.Application
+        $windows = $shell.Windows()
+        foreach ($window in $windows) {
+            try {
+                try {
+                    $location = $null
+                    if (-not [uri]::TryCreate([string]$window.LocationURL, [UriKind]::Absolute, [ref]$location) -or -not $location.IsFile) { continue }
+                    if (-not [string]::Equals([System.IO.Path]::GetFullPath($location.LocalPath).TrimEnd('\'), $target, [StringComparison]::OrdinalIgnoreCase)) { continue }
+                    $handle = [IntPtr][int64]$window.HWND
+                } catch { continue } # A Shell window may close while enumerating.
+                # ShellExecute may acknowledge an existing hidden Explorer without
+                # showing it. Match the actual folder URL, never a decorated title.
+                $window.Visible = $true
+                [OcuDesktop]::Raise($handle)
+                return $true
+            } finally {
+                if ([System.Runtime.InteropServices.Marshal]::IsComObject($window)) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($window) }
+            }
+        }
+        return $false
+    } finally {
+        if ($null -ne $windows -and [System.Runtime.InteropServices.Marshal]::IsComObject($windows)) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($windows) }
+        if ($null -ne $shell -and [System.Runtime.InteropServices.Marshal]::IsComObject($shell)) { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
+    }
+}
+
+function Start-DesktopFeedback($operation, $bounds) {
+    if (-not $script:feedbackReady) { return 0 }
+    try {
+        $kind = [string]$operation.tool
+        $cursor = [System.Windows.Forms.Cursor]::Position
+        $x = $cursor.X; $y = $cursor.Y; $pointer = $false
+        if ($null -ne $bounds) {
+            $x = [int]($bounds.x + $bounds.width / 2); $y = [int]$bounds.y
+            if ($kind -eq 'click' -or $kind -eq 'scroll') {
+                if ($kind -eq 'scroll') { $point = Get-ScrollPoint $operation $bounds }
+                elseif ($null -ne $operation.element.frame) { $point = Get-ScreenPoint $operation.element.frame $bounds }
+                else { $point = [pscustomobject]@{x=$bounds.x + $operation.x;y=$bounds.y + $operation.y} }
+                if ($null -ne $point) { $x=[int]$point.x; $y=[int]$point.y; $pointer=$true }
+                if ($kind -eq 'scroll') { $kind = 'scroll_' + $operation.direction }
+                elseif ($operation.mouse_button -eq 'right') { $kind = 'right_click' }
+                elseif ($operation.click_count -gt 1) { $kind = 'double_click' }
+            } elseif ($kind -eq 'drag') {
+                $x=[int]($bounds.x + $operation.from_x); $y=[int]($bounds.y + $operation.from_y); $pointer=$true
+            }
+        }
+        return [OcuFeedback]::Begin($kind,$x,$y,$pointer)
+    } catch { return 0 }
+}
+
+function Stop-DesktopFeedback($token, [bool]$failed) {
+    if ($script:feedbackReady -and $token -ne 0) {
+        try { [OcuFeedback]::End($token,$failed) } catch { }
+    }
+}
+
+function Invoke-DesktopOperation($operation) {
+$feedbackToken = 0
+$inputConflict = $false
 
 try {
-    if ($operation.tool -eq "list_apps") {
+    [OcuControl]::Begin([string]$operation.controlDirectory, [string]$operation.controlIdentity)
+    $inputReady = [OcuControl]::Prepare($operation.tool -eq 'get_app_state' -or $operation.tool -eq 'list_apps')
+    if (-not $inputReady -and $operation.tool -ne 'open_path') {
+        $inputConflict = $true
+        # No input has been dispatched. Reconcile with a fresh, identity-bound
+        # observation in this call; never replay the model's stale action.
+        [void][OcuControl]::Prepare($true)
+        $response = [pscustomobject]@{
+            ok = $true
+            actionDispatched = $false
+            inputConflict = $true
+            text = 'Desktop changed during user interaction. The requested action was NOT dispatched. Here is the fresh target state; decide the next step from it instead of repeating the old action blindly. No resume button is needed. If the user keeps interacting, continue independent work and leave desktop work pending.'
+            snapshot = (Build-Snapshot $operation.app $operation.expectedWindow $operation.expectedPid $true)
+        }
+    } elseif ($operation.tool -eq "list_apps") {
+        $feedbackToken = Start-DesktopFeedback $operation $null
         $response = [pscustomobject]@{ ok = $true; text = (List-Apps) }
+    } elseif ($operation.tool -eq "open_path") {
+        [OcuControl]::Check()
+        if (-not (Test-EnvFlagEnabled 'OPEN_COMPUTER_USE_WINDOWS_FOREGROUND_INPUT')) { throw 'Opening desktop documents requires --foreground-input opt-in.' }
+        $feedbackToken = Start-DesktopFeedback $operation $null
+        $restored = [System.IO.Directory]::Exists($operation.path) -and (Restore-OpenFolder $operation.path)
+        if (-not $restored) {
+            $start = New-Object System.Diagnostics.ProcessStartInfo
+            $start.FileName = $operation.path
+            $start.UseShellExecute = $true
+            $opened = [System.Diagnostics.Process]::Start($start)
+            if ($null -ne $opened) { $opened.Dispose() }
+        }
+        $response = [pscustomobject]@{ok=$true;actionDispatched=$true;text=(List-Apps)}
     } elseif ($operation.tool -eq "get_app_state") {
+        $feedbackToken = Start-DesktopFeedback $operation $null
         $response = [pscustomobject]@{ ok = $true; snapshot = (Build-Snapshot $operation.app $operation.expectedWindow $operation.expectedPid) }
     } else {
         $process = Resolve-ObservedApp $operation.app $operation.expectedWindow $operation.expectedPid $true
@@ -992,6 +1099,7 @@ try {
         }
         $element = Find-Element $process $operation.element
         if ($null -ne $operation.element -and $null -eq $element) { throw 'Target element disappeared; re-observe before acting.' }
+        $feedbackToken = Start-DesktopFeedback $operation $currentBounds
 
         switch ($operation.tool) {
             "click" {
@@ -1048,6 +1156,7 @@ try {
                 if ($null -eq $valuePattern) {
                     throw "Cannot set a value for an element that is not settable"
                 }
+                [OcuControl]::Check()
                 $valuePattern.SetValue($operation.value)
             }
             default {
@@ -1055,15 +1164,42 @@ try {
             }
         }
 
+        Stop-DesktopFeedback $feedbackToken $false
+        $feedbackToken = 0
         Start-Sleep -Milliseconds 120
+        [OcuControl]::Check()
         $response = Build-AfterActionResponse $operation
     }
+    [OcuControl]::Check()
 } catch {
     $message = $_.Exception.Message
     if (-not [string]::IsNullOrWhiteSpace($_.ScriptStackTrace)) {
         $message = "$message at $($_.ScriptStackTrace)"
     }
-    $response = [pscustomobject]@{ ok = $false; error = $message }
+    $cause = $_.Exception
+    while ($null -ne $cause) {
+        if ($cause -is [DesktopInputConflictException]) { $inputConflict = $true; break }
+        $cause = $cause.InnerException
+    }
+    $response = [pscustomobject]@{ ok = $false; error = $message; inputConflict = $inputConflict }
 }
 
-$response | ConvertTo-Json -Depth 50 -Compress
+Stop-DesktopFeedback $feedbackToken (-not $response.ok)
+[OcuControl]::EndOperation()
+return $response
+}
+
+if ($Stream) {
+    while ($null -ne ($line = [Console]::ReadLine())) {
+        try {
+            $operation = ConvertFrom-Json -InputObject $line
+            $response = Invoke-DesktopOperation $operation
+            [Console]::WriteLine(($response | ConvertTo-Json -Depth 50 -Compress))
+        } catch {
+            [Console]::WriteLine(([pscustomobject]@{ok=$false;error=$_.Exception.Message} | ConvertTo-Json -Compress))
+        }
+    }
+} else {
+    $operation = Get-Content -Raw -Encoding UTF8 -LiteralPath $OperationPath | ConvertFrom-Json
+    Invoke-DesktopOperation $operation | ConvertTo-Json -Depth 50 -Compress
+}

@@ -1,14 +1,32 @@
 # 独立 Computer Use MCP
 
+## Windows 控制反馈
+
+移动鼠标不暂停任务。真实点击、滚轮或键盘输入使旧观察失效；原生层等待短暂输入结束；若动作尚未派发且观察已失效，直接返回同一目标的新画面，并明确原动作未执行，不自动重放旧动作。模型基于新画面继续决定。持续输入或动作进行中的冲突仍返回具体原因，不写永久暂停。Esc 只立即打断电脑控制，本轮后续电脑工具返回已停止，不等待恢复、不再派发输入；模型思考与独立非桌面工具继续运行。任务不会被 Esc 取消，也不会强制插入结束提示。原轮次结束后，在原对话发送新消息即可继续；停止任务会释放其暂停，不自动续接。多个对话共享桌面控制权并排队，可以单独退出排队。恢复后重新观察，不重放结果未知的动作。原生输入按控制权代次校验，桥接进程异常退出时清理自身按下的鼠标按钮。每块屏幕显示提示和边缘微光，动作处显示短暂反馈；对话界面不再显示全局暂停／恢复条，暂停原因在对话中说明。原有模型、思考和审批设置保持不变。
+
+原生层只绘制鼠标微光及最长 850 毫秒的操作余光，不等待特效结束，不在鼠标旁放置文字卡。Windows 10 2004 及以上使用系统截图排除，避免提示污染模型观察；不支持排除的原生层不显示动画。窗口激活前补齐消息队列，仍保留前台检查和拒绝时零输入；不发送 Alt、不更改系统前台锁定设置。模型思考设置保持用户选择。
+
+Windows 操作反馈：点击蓝色光晕、右键紫色波纹、双击双圈、拖动跟随和滚动方向箭头；短提示区分正在操作、动作已发出和本次操作未完成，不展示输入正文，不把派发成功写成任务完成。独立绘制线程不等待动画结束，结束后约 850 ms 淡出，空闲停表；跟随系统减少动画设置。浮层不抢焦点、点击穿透、排除截图及应用列表；截图排除不受支持时不显示浮层。此功能不增加 MCP 工具或权限，macOS 暂未接入。开发环境可设 `CODEBUDDY_DESKTOP_FEEDBACK=0` 关闭，需新建 MCP 连接。
+
+普通回归运行 `go test ./...`；原生可见浮层验收在已解锁的 Windows 桌面执行 `$env:CODEBUDDY_RUN_DESKTOP_TESTS='1'; go test -run TestDesktopFeedback -v`，检查窗口样式、焦点、截图排除、淡出、唤醒和连续事件耗时。设计参考 [PowerToys 点击反馈](https://learn.microsoft.com/en-us/windows/powertoys/mouse-utilities) 与 [Windows 分层窗口](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features)，本地实现，不引入第三方绘制依赖。
+
+Windows 前景 `type_text` 拒绝含换行的输入，避免控件静默丢弃换行；不会把文字换行转换成可能提交消息的 Enter 快捷键。已明确授权替换编辑区完整内容时，可用现有 `set_value` 写入多行文本，并保留需要保留的原文。输入后核对画面，保存后核对实际文件。
+
+Windows 重复打开目录时，先按系统 Shell 窗口的真实目录地址恢复已有窗口（含隐藏或最小化窗口），不依赖可能被扩展修改的标题；没有对应窗口才启动。控件 ID 变化后的兼容匹配复用一次读取的控件树，焦点与选中文字只归属于当前前景窗口。参考 [Shell.Windows](https://learn.microsoft.com/en-us/windows/win32/shell/shell-windows)。
+
 Mac 观察目标时会按应用暴露的能力启用 Electron/Chromium 辅助功能树，仅作用于目标进程；已启用和不支持的属性保持不变。这不是系统授权，也不替代录屏、辅助功能或实际输入后的结果核验。依据 [Electron 辅助功能接口](https://github.com/electron/electron/blob/main/docs/tutorial/accessibility.md)。
 
 macOS 权限拒绝时，应核对系统弹窗或 TCC 日志中的实际归属应用。开发启动可能归属终端，helper 路径或包含它的应用目录本身不证明授权归属；先确认启动来源，再检查录屏与辅助功能权限，按系统要求重启。不要仅凭 helper 报错重复添加文件或删除旧授权。
 
 [繁體中文](README.md) · [English](README.en.md)
 
-基于 Qwen open-computer-use 0.2.3 Windows，MIT 许可，上游提交 24b7cae4d449a5a8ea58c583e5151096b26de03c。保留中文输入、窗口绑定和前台输入修复，删除组合版 host bridge 与 Rust Qwen 适配器。标准 MCP 九个工具直接返回截图和 UIA，供 Agent 判断后续动作。
+基于 Qwen open-computer-use 0.2.3 Windows，MIT 许可，上游提交 24b7cae4d449a5a8ea58c583e5151096b26de03c。保留中文输入、窗口绑定和前台输入修复，删除组合版 host bridge 与 Rust Qwen 适配器。标准 MCP 保留原九个工具，Windows 另提供 `open_path`。
 
-在此目录执行 `go test ./...`、`go vet ./...`、`go build -o ../../target/debug/qwen-computer-use.exe .`。开发启动自动构建并同步；Go 不在 PATH 时设置 CODEBUDDY_GO_EXECUTABLE。打包时该文件与 goose.exe 同目录。
+`open_path` 用默认应用打开明确的本地文档或文件夹，要求前台输入已启用，并沿用宿主工具审批。拒绝 URL、网络路径、脚本、可执行文件和快捷方式；返回启动受理，不把它当成画面已验证。随后观察一次目标窗口，勿通过沙箱 Shell 或长时间 sleep 启动、保活桌面程序。
+
+Windows 在同一 MCP 连接内复用 PowerShell 桥接进程，避免每次重载运行时。观察数据仍每次重新读取；桥接中断不重放动作，重新观察后再决策。加载内置 computer-use 技能会直接展示当前已连接、权限允许的入口工具，关闭的扩展仍保持关闭。
+
+在此目录执行 `go test ./...`、`go vet ./...`、`go build -o ../../target/debug/qwen-computer-use.exe .`。将产物同步至 `runtime/tools/bin/qwen-computer-use.exe`，按根目录 README 更新 provenance.json 与 builtin-artifacts.mjs 的大小和 SHA256，再用 `start-preview.ps1` 启动。当前 Harness 开发入口校验已有工具，不自动重建 Go；Go 不在 PATH 时使用已安装 go.exe 的完整路径。
 
 启用内置 qwen_computer，停用 computer 和 computercontroller，新建会话。启动参数 `--foreground-input mcp`，Windows 路径需本机桌面，Mac 路径见下节。外部同名扩展不会被视为可信内置工具。
 
@@ -30,12 +48,27 @@ macOS 权限拒绝时，应核对系统弹窗或 TCC 日志中的实际归属应
 
 复用动作返回的最新画面；需要启动尚未运行的程序时，自行选择可用桌面入口。宿主的 `desktop_interaction` 完成证据绑定实际输入及后置图片，区分界面已提交与应用已回复，不宣称接收端送达。未知发送不重放。
 
-## macOS 14+ 执行层（待实机验收）
+## macOS 14+ 执行层
 
-Mac 共用 Go MCP 接口和快照/回执合同，通过同目录 `qwen-computer-runtime` Swift helper 调用 AppKit、Accessibility、ScreenCaptureKit。九工具已接入当前 Harness 的工具目录、开发启动和打包。此前历史验证不作为本批证据；本批按用户要求只开发，原生构建、测试及真实输入验收均待执行。元件文件不是安装包。
+Mac 系统搜索等非激活面板可能取得键盘焦点，而 AppKit 仍报告底层应用。仅当系统 AX 焦点应用、焦点控件进程与可见焦点窗口互相吻合时采用该面板；缺少证据仍拒绝输入。切窗后的原窗口截图不会保留为新前台的输入依据。Mac 与 Windows 一样，在短暂外部输入结束后返回同一目标的新画面，明确旧动作未执行；该回执仍计入连续冲突，不自动重放。参考 [Apple 非激活面板](https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel)。
+
+动作执行后，启动器或对话框关闭时，读取经过核验的新前台窗口作为后置观察；不重放输入，也不把旧窗口名称或 ID 重绑定到新应用。未确认新窗口时仍报告结果待核对。
+
+Mac 共用 Go MCP 接口和快照/回执合同，通过同目录 `qwen-computer-runtime` Swift helper 调用 AppKit、Accessibility、ScreenCaptureKit。九工具已接入当前 Harness 的工具目录、开发启动和打包。每批改动分别执行原生合同测试、签名构建及真实桌面验收；历史记录和编译成功不替代当前构建的输入验收。元件文件不是安装包。
 
 使用 `node scripts/build-harness-macos.cjs --arch arm64 --node-license /path/to/Node/LICENSE`；Intel 选 x64。需要已有 Go 1.22+、Xcode/Swift、项目 Rust 工具链与离线依赖；可用 CODEBUDDY_GO_EXECUTABLE 指定 Go。Mac 开发入口先构建并同步两个 helper 和独立 Rust MCP，默认不执行测试。合同测试保留为 `buildMacComputer(repo, arch, { test: true })`。签名后前端与 helper 的身份一起校验。见[当前开发说明](../../docs/macos.zh-CN.md)。
 
 用户须授予屏幕录制/辅助功能权限，输入需 `--foreground-input`。`cmd`/`super` 是 Command，`ctrl` 是 Control；文字用 type_text。`window:PID:WINDOW_ID` 绑定精确窗口，图片坐标是窗口相对点。窗口移动、元素变化、输入结果未知时重新观察。
 
 Mac 按键解析也接受 `Control_L` / `Control_R`、`Shift_L` / `Shift_R`、`Alt_L` / `Alt_R`、`Numpad_*` 和 `plus` 等常用符号别名；主键盘加号与数字键盘加号保留不同键码。Swift 合同测试覆盖左右修饰键、Command 映射、符号/数字键盘区别以及无效组合拒绝。
+
+
+多个对话同时请求同一桌面时按租约串行排队。按 Esc 后，当前和已排队的电脑操作都退出，避免下一对话立即抢回鼠标；每个任务继续能独立完成的部分。原生动作清理完即可释放占用，用户下一条消息仅重新允许对应对话，不复活其他旧轮次。
+
+等待电脑工具审批时打断，也会撤回该审批；文件等其他工具的审批继续保留。共享控制版本用于识别跨进程错过的中断，避免旧电脑审批继续挂起。
+
+Esc 前已排队的消息可以继续处理文件等独立工作，但不会因为自动发出而重新取得电脑控制；新消息或显式“立即发送”才重新核对当前控制版本。
+
+连续三次原生输入冲突（包括未派发动作而只返回新画面）后，宿主退出本轮及既有排队电脑请求，任务继续非桌面工作；实际成功输入才清零，观察和其他错误不清零。不添加恢复提示或自动重放。新消息开启新一轮，旧排队消息不复活。需配套更新宿主与原生工具；旧工具没有结构化回执时不从文案猜测计数。
+
+Mac 使用常驻 Quartz 事件监听：纯鼠标移动及工具自身标记的注入事件不使观察失效；外部点击、拖动、滚轮与按键使旧观察失效，原生层返回结构化输入冲突。Esc 监听只在宿主持有控制时启用，不取消整个任务。文字逐字符、拖动逐步及重复点击之间核对控制租约；发生中断时清理已按下的输入，不自动重放。切换对话保留控制提示和 Esc 监听，真正刷新或断开连接才清理。

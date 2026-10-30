@@ -2,6 +2,48 @@ package main
 
 import "testing"
 
+func TestClosedLauncherAfterStateDoesNotRetargetItsIdentity(t *testing.T) {
+	s := newService()
+	launcher := &appSnapshot{App: appDescriptor{Name: "Launcher", PID: 7}, WindowHandle: 11}
+	s.rememberSnapshot("foreground", launcher)
+	opened := &appSnapshot{App: appDescriptor{Name: "Calculator", PID: 8}, WindowHandle: 12,
+		Foreground: &foregroundWindow{Name: "Calculator", PID: 8, WindowHandle: 12}}
+	_, result := s.acceptSnapshotResponse("window:7:11", psRequest{Tool: "press_key", ExpectedPID: 7, ExpectedWindow: 11},
+		psResponse{OK: true, ActionDispatched: true, Snapshot: opened})
+	if result.IsError || s.currentSnapshot("window:7:11") != nil || s.currentSnapshot("Launcher") != nil {
+		t.Fatal("closed launcher identity was retained or retargeted")
+	}
+	if s.currentSnapshot("foreground") != opened || s.currentSnapshot("window:8:12") != opened {
+		t.Fatal("verified new foreground observation was lost")
+	}
+	if result.StructuredContent["desktop_control"].(map[string]any)["outcome"] != "action_completed" {
+		t.Fatal("completed launch was treated as a failed input")
+	}
+}
+
+func TestSystemPanelTransitionExpiresDynamicForegroundAlias(t *testing.T) {
+	s := newService()
+	before := &appSnapshot{App: appDescriptor{Name: "Editor", PID: 7}, WindowHandle: 11}
+	s.rememberSnapshot("foreground", before)
+	after := &appSnapshot{App: before.App, WindowHandle: 11, Foreground: &foregroundWindow{Name: "System panel", PID: 8, WindowHandle: 12}}
+	s.acceptSnapshotResponse("foreground", psRequest{Tool: "press_key"}, psResponse{OK: true, ActionDispatched: true, Snapshot: after})
+	if s.currentSnapshot("foreground") != nil || s.currentSnapshot("window:8:12") != nil {
+		t.Fatal("old-window image became an observation of the system panel")
+	}
+	if s.currentSnapshot("window:7:11") != after {
+		t.Fatal("original window's real after-state was lost")
+	}
+	if result := s.typeText("foreground", "must not reach the old editor"); !result.IsError {
+		t.Fatal("typing accepted without observing the newly focused window")
+	}
+	panel := &appSnapshot{App: appDescriptor{Name: "System panel", PID: 8}, WindowHandle: 12,
+		Foreground: after.Foreground}
+	s.rememberSnapshot("foreground", panel)
+	if s.currentSnapshot("foreground") != panel || s.currentSnapshot("window:8:12") != panel {
+		t.Fatal("fresh system panel observation was not addressable")
+	}
+}
+
 func TestFreshWindowStateUpdatesAllObservedAliases(t *testing.T) {
 	s := newService()
 	minimized := &appSnapshot{App: appDescriptor{Name: "FrameHost", PID: 42}, WindowHandle: 101, WindowBounds: &frame{Width: 0, Height: 0}}

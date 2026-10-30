@@ -36,6 +36,7 @@ function buildMacComputer(repo, arch, { test = false } = {}) {
     '-target',
     triple,
     path.join(native, 'RuntimeContract.swift'),
+    path.join(native, 'NativeInput.swift'),
   ];
   if (test) {
     const checks = path.join(output, 'contract-tests');

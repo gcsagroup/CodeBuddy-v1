@@ -1,0 +1,224 @@
+.thinking-effort-popover {
+  --effort-hue: 172;
+  --effort-saturation: 52%;
+  --effort-flow-duration: 5.8s;
+  --effort-halo: 18%;
+  --effort-accent: hsl(var(--effort-hue) var(--effort-saturation) 43%);
+  --effort-label: hsl(var(--effort-hue) var(--effort-saturation) 30%);
+  box-shadow:
+    0 6px 18px -8px rgb(0 0 0 / 16%),
+    0 2px 5px -3px rgb(0 0 0 / 8%);
+}
+
+.thinking-effort-popover[data-effort='off'] {
+  --effort-hue: 215;
+  --effort-saturation: 9%;
+  --effort-halo: 0%;
+}
+
+.thinking-effort-popover[data-effort='minimal'] {
+  --effort-saturation: 32%;
+  --effort-flow-duration: 7s;
+  --effort-halo: 10%;
+}
+
+.thinking-effort-popover[data-effort='medium'] {
+  --effort-hue: 205;
+  --effort-flow-duration: 5.2s;
+}
+
+.thinking-effort-popover[data-effort='high'] {
+  --effort-hue: 242;
+  --effort-flow-duration: 4.6s;
+  --effort-halo: 25%;
+}
+
+.thinking-effort-popover[data-effort='xhigh'] {
+  --effort-hue: 278;
+  --effort-flow-duration: 4s;
+  --effort-halo: 30%;
+}
+
+.thinking-effort-popover[data-effort='max'] {
+  --effort-hue: 350;
+  --effort-saturation: 66%;
+  --effort-flow-duration: 3.4s;
+  --effort-halo: 35%;
+}
+
+.thinking-effort-level {
+  color: var(--effort-label);
+  background: color-mix(in srgb, currentColor 9%, var(--color-background-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 10%, transparent);
+  transition: color 280ms ease;
+}
+
+.dark .thinking-effort-popover {
+  --effort-accent: hsl(var(--effort-hue) var(--effort-saturation) 68%);
+  --effort-label: hsl(var(--effort-hue) var(--effort-saturation) 78%);
+}
+
+.thinking-effort-track {
+  position: relative;
+  height: 28px;
+  margin-top: 6px;
+  border-radius: 999px;
+}
+
+.thinking-effort-track:has(:focus-visible) {
+  outline: 2px solid var(--effort-accent);
+  outline-offset: 4px;
+}
+
+.thinking-effort-rail,
+.thinking-effort-fill {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  height: 10px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.thinking-effort-rail {
+  width: 100%;
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, var(--color-background-primary));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 3%);
+}
+
+.thinking-effort-fill {
+  overflow: hidden;
+  color: var(--effort-accent);
+  background: linear-gradient(105deg, transparent, rgb(255 255 255 / 22%)), currentColor;
+  box-shadow: 0 2px 10px color-mix(in srgb, currentColor var(--effort-halo), transparent);
+  transition:
+    width 150ms ease-out,
+    color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+.thinking-effort-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 15%,
+    rgb(255 255 255 / 10%) 35%,
+    rgb(255 255 255 / 55%) 50%,
+    rgb(255 255 255 / 10%) 65%,
+    transparent 85%
+  );
+  transform: translateX(-100%);
+  animation: thinking-effort-flow var(--effort-flow-duration) linear infinite;
+}
+
+@keyframes thinking-effort-flow {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.thinking-effort-popover[data-effort='off'] .thinking-effort-fill::after {
+  animation: none;
+  opacity: 0;
+}
+
+.thinking-effort-stop {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.thinking-effort-stop[data-active] {
+  background: white;
+  opacity: 0.55;
+}
+
+.thinking-effort-thumb {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  color: var(--effort-accent);
+  border: 1px solid color-mix(in srgb, currentColor 32%, var(--color-background-primary));
+  border-radius: 50%;
+  background: white;
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 8%),
+    0 0 0 3px color-mix(in srgb, currentColor 8%, transparent);
+  pointer-events: none;
+  transition:
+    left 150ms ease-out,
+    box-shadow 150ms ease-out,
+    color 280ms ease;
+}
+
+.thinking-effort-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.thinking-effort-track[data-dragging] .thinking-effort-thumb {
+  box-shadow:
+    0 2px 8px rgb(0 0 0 / 12%),
+    0 0 0 4px color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.thinking-effort-track[data-dragging] .thinking-effort-fill,
+.thinking-effort-track[data-dragging] .thinking-effort-thumb {
+  transition-duration: 0ms, 280ms, 280ms;
+}
+
+.thinking-effort-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.thinking-effort-input:active {
+  cursor: grabbing;
+}
+
+.thinking-effort-input::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  appearance: none;
+}
+
+.thinking-effort-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-effort-fill::after {
+    animation: none;
+    transform: none;
+    opacity: 0.3;
+  }
+
+  .thinking-effort-level,
+  .thinking-effort-fill,
+  .thinking-effort-thumb {
+    transition: none;
+  }
+}

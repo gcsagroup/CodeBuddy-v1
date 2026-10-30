@@ -129,7 +129,7 @@ begin
     UninstallControlLeft(UninstallProgressForm.ProgressBar) + UninstallProgressForm.ProgressBar.Width - ScaleX(72),
     UninstallProgressForm.ClientHeight - ScaleY(34), ScaleX(72), ScaleY(24));
   UninstallProgressForm.Bevel.Top := UninstallProgressForm.CancelButton.Top - ScaleY(12);
-  Log('开始卸载 CodeBuddy；保留用户数据、聊天和项目。');
+  Log('开始移除 CodeBuddy 程序文件；个人数据按已确认的卸载选项处理，项目保留。');
   UninstallDetailsTimer := SetUninstallDetailsTimer(0, 0, 100, CreateCallback(@UninstallDetailsTick));
 end;
 
@@ -143,7 +143,7 @@ begin
     UninstallDetailsTimer := 0;
   end;
   ObserveUninstallFiles(True);
-  Log('程序文件卸载处理结束；已观察到删除 ' + IntToStr(UninstallRemovedFiles) + ' 个文件。用户数据和项目保留。');
+  Log('程序文件卸载处理结束；已观察到删除 ' + IntToStr(UninstallRemovedFiles) + ' 个文件。个人数据按已确认选项处理，项目保留。');
 end;
 
 procedure InitializeUninstallProgressForm;

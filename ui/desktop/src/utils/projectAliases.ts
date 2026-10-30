@@ -57,5 +57,6 @@ export function saveProjectAlias(
     aliases[identity] = normalizedAlias;
   }
   storage.setItem(PROJECT_ALIAS_STORAGE_KEY, JSON.stringify(aliases));
+  if (typeof window !== 'undefined' && storage === window.localStorage) window.dispatchEvent(new Event('codebuddy-project-alias-changed'));
   return resolvedLabel;
 }

@@ -4910,6 +4910,10 @@
   "navigation.itemHome": {
     "defaultMessage": "Yeni Sohbet"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "Medya Kitaplığı"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "Tarifler"
   },

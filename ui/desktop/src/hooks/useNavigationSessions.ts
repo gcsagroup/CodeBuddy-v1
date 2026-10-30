@@ -39,6 +39,7 @@ function mergeWithEmptyLocals(
 export function sessionToListItem(s: Session): SessionListItem {
   return {
     id: s.id,
+    agentProfile: s.agent_profile,
     name: getSessionDisplayName(s),
     workingDir: s.working_dir,
     updatedAt: s.updated_at,

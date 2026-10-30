@@ -46,6 +46,7 @@ interface GooseSessionInfoMeta {
 }
 
 export interface SessionListItem {
+  agentProfile?: Session['agent_profile'];
   id: string;
   name: string;
   workingDir: string;
@@ -109,6 +110,7 @@ function sessionInfoMeta(s: SessionInfo): GooseSessionInfoMeta {
 
 export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta = {}): Session {
   const meta = sessionInfoMeta(s);
+  const role = s._meta?.agentProfile as Partial<NonNullable<Session['agent_profile']>> | undefined;
   const createdAt = meta.createdAt ?? s.updatedAt ?? '';
   const updatedAt = s.updatedAt ?? createdAt;
   const modelConfig: Session['model_config'] = meta.modelId
@@ -123,6 +125,8 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
 
   return {
     id: String(s.sessionId),
+    ...(role && typeof role.id === 'string' && typeof role.name === 'string' && typeof role.avatar === 'string' && typeof role.revision === 'number'
+      ? { agent_profile: { id: role.id, name: role.name, avatar: role.avatar, revision: role.revision } } : {}),
     name: s.title ?? DEFAULT_CHAT_TITLE,
     working_dir: hidesProcessCwd ? '' : (loadMeta.workingDir ?? s.cwd),
     created_at: createdAt,
@@ -164,6 +168,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     userSetName: meta.userSetName,
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
+    agentProfile: sessionInfoToSession(s).agent_profile,
   };
 }
 

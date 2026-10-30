@@ -222,7 +222,12 @@ async function startPreview(options = {}) {
     // Mac's existing preparation builds its local artifacts first. Windows
     // artifacts are supplied separately and must pass before SDK preparation.
     if (process.platform !== 'darwin') {
-      receipt.artifactCheck = await checkPreviewArtifacts(repoRoot);
+      if (process.platform === 'win32' && process.argv.includes('--skip-optional-tool-check')) {
+        receipt.artifactCheck = { status: 'skipped', reason: 'Explicit development launch without optional Windows MCP binaries', files: ['codebuddy-tools.exe', 'qwen-computer-use.exe'] };
+        console.warn('Optional Windows MCP artifact check skipped for this launch. Missing tools remain unavailable.');
+      } else {
+        receipt.artifactCheck = await checkPreviewArtifacts(repoRoot);
+      }
       saveReceipt();
     }
     const commands = options.commands || defaultCommands(repoRoot);

@@ -4910,6 +4910,10 @@
   "navigation.itemHome": {
     "defaultMessage": "Sembang Baharu"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "Pustaka Media"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "Resipi"
   },

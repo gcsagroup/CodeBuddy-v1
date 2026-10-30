@@ -33,6 +33,16 @@ describe('chat row rename button', () => {
 
   beforeEach(() => vi.clearAllMocks());
 
+  it('hides the legacy generated title avatar but preserves custom emoji titles', () => {
+    const role = { id: 'role', name: 'My', avatar: '🤖', revision: 1 };
+    const props = { active: false, status: undefined, onClick: () => {}, onRenamed: () => {} };
+    const { rerender } = render(<SessionRow {...props} session={{ ...session, name: '🤖 My', agentProfile: role }} />);
+    expect(screen.getByText('My')).toBeVisible();
+    expect(screen.queryByText('🤖 My')).not.toBeInTheDocument();
+    rerender(<SessionRow {...props} session={{ ...session, name: '🤖 My notes', agentProfile: role }} />);
+    expect(screen.getByText('🤖 My notes')).toBeVisible();
+  });
+
   it('saves through the existing session service without switching chats', async () => {
     const onClick = vi.fn();
     const onRenamed = vi.fn();
@@ -123,7 +133,7 @@ describe('NavigationHeaderSlot', () => {
 });
 
 describe('task-oriented navigation', () => {
-  it('exposes only the six user-facing destinations', () => {
+  it('places the media library immediately after history', () => {
     expect(
       [...NAV_ITEMS, SETTINGS_NAV_ITEM].map(({ id, path, label }) => ({ id, path, label }))
     ).toEqual([
@@ -132,6 +142,8 @@ describe('task-oriented navigation', () => {
       { id: 'scheduler', path: '/schedules', label: 'Automatic Tasks' },
       { id: 'toolbox', path: '/toolbox', label: 'Toolbox' },
       { id: 'sessions', path: '/sessions', label: 'History' },
+      { id: 'media-library', path: '/media-library', label: 'Media Library' },
+      { id: 'custom-agents', path: '/custom-agents', label: 'Custom Agents' },
       { id: 'settings', path: '/settings', label: 'Settings' },
     ]);
   });
@@ -149,6 +161,26 @@ describe('task-oriented navigation', () => {
 describe('project group label', () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  it('uses the workspace agent avatar instead of a folder', () => {
+    const group = { path: 'D:/studio', label: 'Studio', sessions: [{ id: 'role-chat', agentProfile: { id: 'role', name: 'Writer', avatar: '📚', revision: 1 } }] } as never;
+    const { container } = render(<ProjectSessionGroup group={group} renderSession={() => <div>Chat</div>} />);
+    expect(screen.getByText('📚')).toBeVisible();
+    expect(container.querySelector('.lucide-folder')).toBeNull();
+  });
+
+  it('updates only the workspace avatar when its current template changes', () => {
+    const role = { id: 'role', name: 'Writer', avatar: '📚', revision: 1 };
+    const group = { path: 'D:/studio', label: 'Studio', sessions: [{ id: 'role-chat', agentProfile: role }] } as never;
+    const child = () => <SessionRow session={{ id: 'role-chat', name: 'Chat', agentProfile: role } as never} active={false} status={undefined} onClick={() => {}} onRenamed={() => {}} />;
+    const { rerender } = render(<ProjectSessionGroup group={group} avatars={{ role: '📚' }} renderSession={child} />);
+    expect(screen.getAllByText('📚')).toHaveLength(1);
+    rerender(<ProjectSessionGroup group={group} avatars={{ role: '🦊' }} renderSession={child} />);
+    expect(screen.queryByText('📚')).not.toBeInTheDocument();
+    expect(screen.getAllByText('🦊')).toHaveLength(1);
+    expect(screen.getByText('Chat')).toBeVisible();
+    expect(role.avatar).toBe('📚');
   });
 
   it('preserves the project directory casing', () => {

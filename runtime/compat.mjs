@@ -1,4 +1,6 @@
+import { agentProfileRequest, workspaceAgent, agentAllowsTool } from './agent-profiles.mjs';
 import { closeMediaStreams } from './comfyui-live.mjs';
+import { readMediaLibrary, deleteMediaLibrary } from './media-library.mjs';
 import { MCP_RESOURCE_TOOL_NAMES } from './mcp-settings.mjs';
 import { questionForm, questionAnswer, questionNotification } from './user-questions.mjs';
 import { parseGoalRequest } from './goal-request.mjs';
@@ -52,7 +54,7 @@ import {
   isBuiltinMcp,
   listAvailableBuiltins,
 } from "./builtin-extensions.mjs";
-import { gitTools, GIT_READ_TOOL_NAMES } from "./git-extension.mjs";
+import { gitTools, GIT_READ_TOOL_NAMES, GIT_TOOL_NAMES } from "./git-extension.mjs";
 import { COMMON_QUERY_KEY, validateQuerySettings, commonQueryMetadata } from "./common-query-settings.mjs";
 import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
@@ -82,7 +84,7 @@ import {
 
 const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
-  'providerId', 'modelId', 'type', 'workspaceBinding', 'projectId', 'scheduleId',
+  'providerId', 'modelId', 'type', 'agentProfile', 'workspaceBinding', 'projectId', 'scheduleId',
   'readonlyHistory', 'userSetName', 'archivedAt'];
 
 // Both model calls and direct UI calls project the original MCP receipt.
@@ -715,6 +717,7 @@ export class Compat {
         modelId: s.modelId,
         sessionType: scheduled ? "scheduled" : s.type,
         workspaceBinding: s.workspaceBinding,
+        agentProfile: s.agentProfile ? { id: s.agentProfile.id, name: s.agentProfile.name, avatar: s.agentProfile.avatar, revision: s.agentProfile.revision } : undefined,
         projectId: s.projectId,
         activeRunId: this.runs.latest(s.id, state)?.runId,
         // Explicitly imported histories are retained records, including empty
@@ -728,6 +731,7 @@ export class Compat {
     };
   }
   options(s) {
+    if (s.agentProfile) return [];
     const p = this.store.read(["providers"]).providers.find((p) => p.id === s.providerId);
     if (!p) return [];
     return [
@@ -779,6 +783,7 @@ export class Compat {
         );
     const memoryInstructions =
       this.driver.memory &&
+      agentAllowsTool(s.agentProfile, 'project_memory') &&
       extensions.some((e) => e.configKey === "projectmemory")
         ? await this.memory.sessionInstructions(s, {
             personalizedMemoryEnabled:
@@ -797,11 +802,14 @@ export class Compat {
     // Host tools are registered in the session scope below. Harness's native
     // allow list only accepts globally registered tools, not scoped additions.
     return {
+      agentProfile: s.agentProfile,
       initialPermissionPreset: initialPermissionPreset(s, preferences),
       conversationLocale: this.clientLocales.get(s.id),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
-        basePrompt,
+        s.agentProfile ? `## Workspace role: ${s.agentProfile.name}
+${s.agentProfile.prompt}
+Use this role throughout this workspace.` : basePrompt,
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
         // Keep the recipe identifiable as the current task among generic guidance.
@@ -831,9 +839,9 @@ export class Compat {
           onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
         });
       },
-      subagentModels: await resolveSubagentModels(state.config, state.providers,
+      subagentModels: s.agentProfile ? {} : await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
-      subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
+      subagentTemplates: s.agentProfile ? [] : await resolveCustomSubagentTemplates(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
       restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
@@ -890,7 +898,7 @@ export class Compat {
         ...(extensions.some((e) => extensionName(e.extension) === "git")
           ? gitTools(s.cwd)
           : []),
-      ],
+      ].filter(tool => agentAllowsTool(s.agentProfile, tool.name)),
     };
   }
   async extensionResults(s) {
@@ -1300,6 +1308,25 @@ export class Compat {
       );
     if (this.apps.handles(method.replace(prefix, "")))
       return this.apps.request(method.replace(prefix, ""), p);
+    if (method === '_codebuddy/agents/catalog') {
+      const extensions = await this.settings.extensions();
+      // Templates target new workspaces; no project directory exists yet.
+      const managed = await this.library.skillRequest('list', {}, connection);
+      const native = await this.driver.listTools?.() ?? [];
+      const names = [...new Set([...native.map(t => t.name), 'browser_control', IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, PET_TOOL_NAME, 'project_memory', ...GIT_TOOL_NAMES])];
+      return {
+        models: this.store.read(['providers']).providers.flatMap(provider => provider.models.map(model => ({ providerId: provider.id, modelId: model, label: provider.displayName + ' / ' + model }))),
+        skills: managed.skills.filter(s => s.enabled).map(s => ({ name: s.name, description: s.description })),
+        tools: names.filter(name => name !== 'skill').map(name => ({ name, description: native.find(t => t.name === name)?.description ?? name })),
+        mcpServers: extensions.filter(e => e.enabled && !['developer', 'git', 'projectmemory'].includes(extensionName(e.extension))).map(e => ({ name: extensionName(e.extension), description: e.extension.description ?? extensionName(e.extension) })),
+      };
+    }
+    if (method.startsWith('_codebuddy/agents/')) return agentProfileRequest(this, method.slice('_codebuddy/agents/'.length), p, connection);
+    if (method === "_codebuddy/media/delete") return deleteMediaLibrary(this.store, p);
+    if (method === "_codebuddy/media/library") {
+      return readMediaLibrary(this.store.directory,
+        this.store.read(['sessions'], { sessionFields: ['id', 'name', 'title', 'cwd'] }).sessions, p, this.store.read(['mediaLibraryDeleted']).mediaLibraryDeleted ?? []);
+    }
     if (method === "_codebuddy/media/jobs") {
       requireString(p.sessionId, "sessionId");
       const session = this.session(p.sessionId);
@@ -1330,6 +1357,8 @@ export class Compat {
       if (p.mcpServers != null && !Array.isArray(p.mcpServers))
         throw invalid("mcpServers must be an array");
 
+      const agentProfile = await workspaceAgent(this.store, p.cwd);
+      if (agentProfile && (p.mcpServers?.length || p._meta?.enabledExtensions || p._meta?.recipe)) throw invalid('Role workspaces use their configured tools and services');
       const sessionId = randomUUID();
       const codePro = p._meta?.workspaceMode === "codepro";
       let workspaceBound = false;
@@ -1362,6 +1391,7 @@ export class Compat {
           ...this.store.read(["defaults"]).defaults,
           ...(prepared.providerId ? { providerId: prepared.providerId } : {}),
           ...(prepared.modelId ? { modelId: prepared.modelId } : {}),
+          ...(agentProfile ? { providerId: agentProfile.providerId, modelId: agentProfile.modelId } : {}),
         };
         const selectedProvider = this.provider(defaults.providerId);
         requireString(defaults.modelId, "default model");
@@ -1373,7 +1403,9 @@ export class Compat {
         s = {
           id: sessionId,
           cwd: p.cwd,
-          title: "New Session",
+          title: agentProfile ? agentProfile.name : "New Session",
+          agentProfile,
+          ...(agentProfile ? { userSetName: true } : {}),
           createdAt: now,
           updatedAt: now,
           providerId: defaults.providerId,
@@ -1672,6 +1704,7 @@ export class Compat {
     }
     if (method === "session/set_config_option") {
       const s = this.session(p.sessionId);
+      if (s.agentProfile) throw invalid("This workspace uses its agent’s fixed model; create a new workspace to change it");
       if (this.active.has(s.id))
         throw invalid("Stop the current turn before changing its model");
       let selection;
@@ -1801,6 +1834,7 @@ export class Compat {
       }
       case "session/working-dir/update": {
         const s = this.session(p.sessionId);
+        if (s.agentProfile || await workspaceAgent(this.store, p.workingDir)) throw invalid("Start a new conversation in the agent workspace");
         if (s.readonlyHistory) throw invalid("Imported history is read-only");
         if (s.type === "code_pro")
           throw invalid(
@@ -1881,6 +1915,7 @@ export class Compat {
       case "session/extensions/add":
       case "session/extensions/remove": {
         const s = this.session(p.sessionId);
+        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed services');
         if (this.active.has(s.id))
           throw invalid("Stop the current turn before changing extensions");
         let extensions = (await selectedExtensions(s, this.settings)).map(
@@ -2061,6 +2096,7 @@ export class Compat {
       }
       case "session/system-prompt/set": {
         const s = this.session(p.sessionId);
+        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed persona');
         if (this.active.has(s.id))
           throw invalid("Stop execution before changing its instructions");
         if (

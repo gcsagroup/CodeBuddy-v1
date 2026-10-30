@@ -4910,6 +4910,10 @@
   "navigation.itemHome": {
     "defaultMessage": "Nova conversa"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "Biblioteca de mídia"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "Receitas"
   },

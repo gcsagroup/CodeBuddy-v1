@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_SUBAGENT_LIMITS } from '../subagent-limits.mjs';
 
+export const CODEBUDDY_BEHAVIOR = "For requests to build or change a project, use the available file and execution tools to deliver and verify the result. For browser UI deliverables, use browser_control to open and inspect the result when available. If the user asks only for example code or an explanation, answer that request without creating files. Report actions as completed only when their tool receipts confirm them; explain any remaining verification. Finish with actual file or preview links and concise usage instructions. Do not ask the user to copy or save code that you already wrote to their workspace.";
+
 // Explicit Host composition. No TUI/Web client, telemetry, credential discovery,
 // or second model/agent loop is installed by this embedding profile.
 export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
@@ -39,7 +41,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('file-upload', 'dsh-client-file-upload'),
     entry('system-prompt', 'dsh-system-prompt', {
       includeHarnessIdentity: false,
-      personaPrefix: 'You are CodeBuddy, an AI software engineering assistant working in the current workspace. For requests to build or change a project, use the available file and execution tools to deliver and verify the result. For browser UI deliverables, use browser_control to open and inspect the result when available. If the user asks only for example code or an explanation, answer that request without creating files. Report actions as completed only when their tool receipts confirm them; explain any remaining verification. Finish with actual file or preview links and concise usage instructions. Do not ask the user to copy or save code that you already wrote to their workspace.',
+      personaPrefix: "You are CodeBuddy, an AI software engineering assistant working in the current workspace.",
       includeRuntimeContext: true,
     }),
     entry('tools', 'dsh-tools', { mode: 'native' }),
@@ -51,7 +53,7 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir) {
     entry('tool-web', 'dsh-tool-web', { search: false, fetch: true }),
     { id: 'agent-instructions', name: new URL('./instructions.mjs', import.meta.url).href, config: { instructionsHome, agentsHome: join(dataDir, 'agents'), maxBytes: 65536 } },
     entry('mcp-resources', 'dsh-mcp-resources'),
-    entry('skills', 'dsh-skill'),
+    { id: 'skills', name: new URL('./agent-policy.mjs', import.meta.url).href },
     { id: 'skill-computer', name: new URL('./computer-skill.mjs', import.meta.url).href },
     entry('skill-filesystem', 'dsh-skill-filesystem', { dshHome: dataDir, agentsHome: join(dataDir, 'agents'), watch: false }),
     entry('tool-skill', 'dsh-tool-skill'),

@@ -4910,6 +4910,10 @@
   "navigation.itemHome": {
     "defaultMessage": "新規チャット"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "メディアライブラリ"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "レシピ"
   },

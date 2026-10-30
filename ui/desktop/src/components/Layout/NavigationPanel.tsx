@@ -324,7 +324,7 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
         needsTrafficLightInset && 'pl-[92px]'
       )}
     >
-      <div className="flex h-10 items-center">
+      <div className="flex h-10 min-w-0 items-center pr-12">
         <button
           type="button"
           onClick={onNewChat}
@@ -332,7 +332,7 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
             id: 'keyboardShortcuts.newChatLabel',
             defaultMessage: 'New Chat',
           })}
-          className="no-drag rounded-lg px-2 py-1 text-[15px] font-semibold tracking-tight text-text-primary transition-colors hover:text-neutral-950 dark:hover:text-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
+          className="no-drag min-w-0 truncate rounded-lg px-2 py-1 text-[15px] font-semibold tracking-tight text-text-primary transition-colors hover:text-neutral-950 dark:hover:text-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
         >
           CodeBuddy
         </button>

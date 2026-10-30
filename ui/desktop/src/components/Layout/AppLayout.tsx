@@ -240,7 +240,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
       className="flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"
       style={
         {
-          '--navigation-toolbar-inset': needsTrafficLightInset && !isNavExpanded ? '144px' : '64px',
+          '--navigation-toolbar-inset': isNavExpanded ? '24px' : needsTrafficLightInset ? '144px' : '64px',
         } as React.CSSProperties
       }
     >
@@ -265,7 +265,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
             onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
             className={cn(
               'no-drag absolute top-2 text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
-              needsTrafficLightInset && !isNavExpanded ? 'left-[96px]' : 'left-3'
+              isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3'
             )}
             variant="ghost"
             size="xs"
@@ -302,7 +302,12 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
               aria-hidden={chatHidden}
               inert={chatHidden}
             >
-              <div className="h-full" style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}>
+              {/* Chat headers already reserve the toggle's horizontal space. Other pages
+                  need a separate row so their own headings never sit underneath it. */}
+              <div
+                className={cn('h-full', !isNavExpanded && !isOnPairRoute && 'pt-10')}
+                style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}
+              >
                 <Outlet />
                 {/* Always render ChatSessionsContainer to keep SSE connections alive.
               When navigating away from /pair, hide it with CSS */}

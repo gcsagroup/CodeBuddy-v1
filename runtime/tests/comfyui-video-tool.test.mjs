@@ -10,6 +10,7 @@ import { WebSocketServer } from 'ws';
 import { watchMedia, mediaStreamKey, mediaObservation, stopMedia } from '../comfyui-live.mjs';
 import { comfyuiVideoTool, comfyVideoWorkflow, inspectMp4 } from '../comfyui-video-tool.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
+import { readMediaLibrary } from '../media-library.mjs';
 
 const id = '6f2c1cde-4707-4b12-87cd-a8b116b386ab';
 const input = { operation: 'generate', mode: 'text_to_video', prompt: 'A small rabbit waves beside a stream', duration_seconds: 5, request_id: id };
@@ -95,6 +96,11 @@ test('receipt survives recreation, downloads MP4 only on completion, and cannot 
   const result = await comfyuiVideoTool({ ...f.options, baseUrl: 'http://changed.test' }).execute({ operation: 'status', job_id: id });
   assert.equal(result.status, 'completed'); assert.equal(result.videos[0].duration_seconds, 124 / 24);
   assert.deepEqual(await readFile(result.videos[0].path), f.bytes);
+  const library = await readMediaLibrary(f.root, [{ id: f.options.sessionId, cwd: f.cwd }]);
+  assert.equal(library.total, 1, 'completed video receipts are visible in the shared media library');
+  assert.equal(library.items[0].path, result.videos[0].path);
+  assert.equal(library.items[0].available, true);
+  assert.equal(library.libraryBytes, f.bytes.length);
   assert.equal(result.videos[0].preview_url, 'http://comfy.test/view?filename=clip.mp4&subfolder=&type=output');
   assert.equal(result.videos[0].markdown, `[Play generated video](${result.videos[0].preview_url})`);
   assert.equal(path.dirname(result.videos[0].path), path.join(f.cwd, 'generated-videos', id));

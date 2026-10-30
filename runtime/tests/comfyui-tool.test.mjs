@@ -8,6 +8,7 @@ import { comfyuiTool, comfyWorkflow, comfyuiUrl } from '../comfyui-tool.mjs';
 import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { validatePreference } from '../settings.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
+import { readMediaLibrary } from '../media-library.mjs';
 
 const id = 'bafe8f1d-310a-4e29-92e7-73e7ba920ade';
 async function fixture(t, saveNode = '461') {
@@ -125,6 +126,11 @@ test('real PNG result survives tool recreation, routes by prompt ID, and repeate
   assert.deepEqual(await readFile(result.images[0].path), f.png);
   assert.equal(path.dirname(result.images[0].path), path.join(f.cwd, 'generated-images', id));
   assert.equal(result.images[0].width, 1152);
+  const library = await readMediaLibrary(f.root, [{ id: f.options.sessionId, cwd: f.cwd }]);
+  assert.equal(library.total, 1, 'completed image receipts are visible in the shared media library');
+  assert.equal(library.items[0].path, result.images[0].path);
+  assert.equal(library.items[0].available, true);
+  assert.equal(library.libraryBytes, f.png.length);
   assert.ok(f.calls.every(x => x.url.startsWith('http://comfy.test/')));
   await assert.rejects(tool.execute({ ...generate, prompt: 'Different request' }), /different image request/);
   await assert.rejects(comfyuiTool({ ...f.options, sessionId: 'another' }).execute({ operation: 'status', job_id: id }), /ENOENT/);

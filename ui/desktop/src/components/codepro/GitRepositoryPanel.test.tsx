@@ -148,7 +148,7 @@ describe('GitRepositoryPanel', () => {
       expect(openExternal).toHaveBeenCalledWith('https://git-scm.com/download/win')
     );
     expect(
-      screen.getByText('Install Git, then restart CodePro. Git will be checked again on startup.')
+      screen.getByText('After installing Git, refresh the repository to check again.')
     ).toBeInTheDocument();
   });
 

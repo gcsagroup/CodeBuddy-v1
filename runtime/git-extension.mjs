@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, realpath, readFile, readlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { ensureGitEnvironment } from "./git-environment.mjs";
 
 const exec = promisify(execFile);
 const MAX_OUTPUT = 8 * 1024 * 1024;
@@ -335,7 +336,6 @@ function createGitAdapter(
 ) {
   if (typeof cwd !== "string" || !path.isAbsolute(cwd))
     throw new TypeError("Git requires an absolute session working directory");
-  const env = repositoryEnvironment(environment);
   let repositorySettings = [];
   let configuredFilters = [];
   const hooksPath = path.join(cwd, `.codebuddy-no-hooks-${randomUUID()}`);
@@ -352,6 +352,9 @@ function createGitAdapter(
     } = {},
   ) {
     signal?.throwIfAborted();
+    if (binary === "git") await ensureGitEnvironment(environment);
+    signal?.throwIfAborted();
+    const env = repositoryEnvironment(environment);
     try {
       const pending = exec(binary, args, {
         cwd: directory,
@@ -571,6 +574,9 @@ function createGitAdapter(
     );
   }
   async function runtime(binary, expectedPrefix, signal) {
+    // A missing working directory also produces ENOENT. Do not report that as
+    // an unavailable executable or suggest reinstalling Git.
+    await realpath(cwd);
     try {
       const { stdout } = await command(binary, ["--version"], {
         signal,
@@ -1410,7 +1416,7 @@ function createGitAdapter(
     git_conflict_continue:
       "Continue the matching merge, rebase, cherry-pick or revert after all conflicts are resolved and staged.",
     git_runtime_status:
-      "Detect the installed Git executable and official installation page.",
+      "Check whether Git resolves and runs in the current environment. An unavailable result means executable lookup failed, not proof that Git is uninstalled. Permission, invalid working-directory and execution errors remain errors. Windows lookup includes registered installation locations; do not retry denied commands or initialize a repository to diagnose missing Git.",
     github_runtime_status:
       "Detect GitHub CLI and its github.com authentication status without returning credentials.",
     git_repository_snapshot:

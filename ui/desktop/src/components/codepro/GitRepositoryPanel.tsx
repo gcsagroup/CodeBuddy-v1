@@ -48,7 +48,7 @@ const i18n = defineMessages({
   },
   gitMissingDetail: {
     id: 'codeProGit.gitMissingDetail',
-    defaultMessage: 'Git was not found on this computer. Would you like to download it?',
+    defaultMessage: 'CodeBuddy could not locate Git in its command environment. If Git is already installed, check its PATH or installation location and refresh. Otherwise, you can download it.',
   },
   downloadGit: { id: 'codeProGit.downloadGit', defaultMessage: 'Download Git' },
   confirmGitDownload: {
@@ -61,7 +61,7 @@ const i18n = defineMessages({
   },
   downloadOpened: {
     id: 'codeProGit.downloadOpened',
-    defaultMessage: 'Install Git, then restart CodePro. Git will be checked again on startup.',
+    defaultMessage: 'After installing Git, refresh the repository to check again.',
   },
   githubConnected: {
     id: 'codeProGit.githubConnected',

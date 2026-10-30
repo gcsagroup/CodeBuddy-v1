@@ -4931,6 +4931,10 @@
   "navigation.itemHome": {
     "defaultMessage": "Nouvelle discussion"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "Médiathèque"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "Recettes"
   },

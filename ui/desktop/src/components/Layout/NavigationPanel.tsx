@@ -1,3 +1,5 @@
+import { getAcpControlClient } from '../../acp/acpConnection';
+import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChevronRight, Folder, Pencil } from 'lucide-react';
@@ -111,6 +113,9 @@ export const SessionRow: React.FC<SessionRowProps> = ({
 }) => {
   const intl = useIntl();
   const [isEditing, setIsEditing] = useState(false);
+  // Older versions embedded the role avatar in the generated title itself.
+  const role = session.agentProfile;
+  const displayName = role && session.name === role.avatar + ' ' + role.name ? role.name : session.name;
   const isStreaming = status?.streamState === 'streaming';
   const hasError = status?.streamState === 'error';
   const hasUnread = status?.hasUnreadActivity ?? false;
@@ -126,7 +131,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         )}
       >
         <InlineEditText
-          value={session.name}
+          value={displayName}
           onSave={async (newName) => {
             await acpRenameSession(session.id, newName);
             window.dispatchEvent(
@@ -156,14 +161,17 @@ export const SessionRow: React.FC<SessionRowProps> = ({
 };
 
 interface ProjectSessionGroupProps {
+  avatars?: Record<string, string>;
   group: ProjectGroup;
   renderSession: (session: SessionListItem) => React.ReactNode;
 }
 
 export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   group,
+  avatars = {},
   renderSession,
 }) => {
+  const agent = group.sessions.find(session => session.agentProfile)?.agentProfile;
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
   const [displayName, setDisplayName] = useState(() => getProjectAlias(group.path, group.label));
@@ -213,7 +221,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           className="absolute inset-0 w-full cursor-pointer rounded-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary disabled:cursor-default"
         />
         <span className="pointer-events-none flex size-5 shrink-0 items-center justify-center text-text-secondary transition-colors group-hover/project-row:text-text-primary group-focus-within/project-row:text-text-primary">
-          <Folder className="size-4" aria-hidden="true" />
+          {agent ? <AgentAvatar avatar={avatars[agent.id] ?? agent.avatar} className="size-4" /> : <Folder className="size-4" aria-hidden="true" />}
         </span>
         {isEditing ? (
           <input
@@ -346,6 +354,24 @@ export const Navigation: React.FC<NavigationProps> = ({
   onWorkspaceModeChange,
   needsTrafficLightInset,
 }) => {
+  const [agentAvatars, setAgentAvatars] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let disposed = false;
+    let version = 0;
+    const refresh = async () => {
+      const current = ++version;
+      try {
+        const client = await getAcpControlClient();
+        const result = await client.extMethod('_codebuddy/agents/list', {}) as unknown as { profiles: { id: string; avatar: string }[] };
+        if (!disposed && current === version) setAgentAvatars(Object.fromEntries(result.profiles.map(profile => [profile.id, profile.avatar])));
+      } catch { /* Keep the last known display; workspace snapshots remain the fallback. */ }
+    };
+    void refresh();
+    window.addEventListener(AppEvents.AGENT_PROFILES_CHANGED, refresh);
+    window.addEventListener('focus', refresh);
+    return () => { disposed = true; window.removeEventListener(AppEvents.AGENT_PROFILES_CHANGED, refresh); window.removeEventListener('focus', refresh); };
+  }, []);
+
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
   const { isNavExpanded } = useNavigationContext();
@@ -466,6 +492,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             <ProjectSessionGroup
               key={group.path}
               group={group}
+              avatars={agentAvatars}
               renderSession={(session) => (
                 <SessionRow
                   key={session.id}

@@ -1,3 +1,5 @@
+import { bindAgentPolicy } from './agent-policy.mjs';
+import { agentAllowsTool } from '../agent-profiles.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +16,8 @@ import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
 import { createScope, bindScopeParent, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
-import { profileEntries } from './profile.mjs';
+import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
+import { profileEntries, CODEBUDDY_BEHAVIOR } from './profile.mjs';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
 import { toolSessionApprovalScope, sameToolSessionScope } from '../tool-session-approval.mjs';
 import { MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
@@ -115,6 +118,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   }
   // A child's native persona replaces the deployment persona. Keep the shared
   // conversation guidance outside that override, including for cold resumes.
+  ctx.systemPrompt.section({ name: 'codebuddy:behavior', order: 1, text: CODEBUDDY_BEHAVIOR, interpolate: false });
   ctx.systemPrompt.section({
     name: 'codebuddy:conversation-language', order: 102, interpolate: false,
     text: "Use the human user's requested language for replies and progress updates; otherwise match the human user's language. Write delegation prompts and follow-up messages to subagents in that same language, and explicitly ask them to report in it, so the user can read their conversations. As a subagent, use the language requested by your parent for explanations, progress and reports. Do not switch language merely because tool output, source material or another agent uses a different language. Preserve original code, identifiers, quotations and tool output; do not translate or rewrite raw tool results.",
@@ -805,6 +809,11 @@ Keep progress updates brief, meaningful, and outcome-based.
     const fiber = agent.ctx.isolate('compaction').plugin({
       name: 'codebuddy-session-capabilities',
       async apply(scoped) {
+        bindAgentPolicy(agent, settings.agentProfile);
+        // Shadow only the deployment identity; shared behavior and tool policies remain.
+        if (settings.agentProfile) scoped.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: '', interpolate: false });
+        scoped.effect(() => () => bindAgentPolicy(agent, undefined));
+        if (settings.agentProfile) scoped.tools.guard(exec => agentAllowsTool(settings.agentProfile, exec.name) ? undefined : 'Tool disabled by the workspace agent');
         scoped.effect(() => async () => {
           binding?.rebind(undefined);
           await shared?.[Symbol.asyncDispose]();

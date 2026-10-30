@@ -108,8 +108,9 @@ export async function resolveSessionExtensions(session, settings) {
   };
   assertCurrent(session);
   return {
-    selected,
-    mcpServers,
+    selected: session.agentProfile ? selected.filter(entry =>
+      ['developer', 'git', 'projectmemory'].includes(extensionName(entry.extension)) || session.agentProfile.mcpServers.includes(extensionName(entry.extension))) : selected,
+    mcpServers: session.agentProfile ? [] : mcpServers,
     configured: snapshot.configured,
     assertCurrent,
   };

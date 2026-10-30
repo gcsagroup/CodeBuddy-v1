@@ -3,6 +3,7 @@ import {
   configuredExtension,
   extensionName,
 } from "./session-extensions.mjs";
+import { agentAllowsTool } from './agent-profiles.mjs';
 import { GIT_TOOL_NAMES } from "./git-extension.mjs";
 import { MCP_RESOURCE_TOOL_NAMES } from './mcp-settings.mjs';
 
@@ -20,6 +21,7 @@ export function harnessToolName(name) {
   return name;
 }
 export async function toolEnabled(session, settings, name, resolved) {
+  if (!agentAllowsTool(session.agentProfile, name)) return false;
   if (name === "codebuddy_task") return session.type === "code_pro";
   const snapshot =
     resolved ?? (await resolveSessionExtensions(session, settings));

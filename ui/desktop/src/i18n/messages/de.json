@@ -4931,6 +4931,10 @@
   "navigation.itemHome": {
     "defaultMessage": "Neuer Chat"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "Medienbibliothek"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "Rezepte"
   },

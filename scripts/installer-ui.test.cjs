@@ -6,7 +6,9 @@ const { spawnSync } = require('node:child_process');
 const { resolveCompiler } = require('./windows-wizard-installer.cjs');
 test('production installer layout compiles, fits its pages and keeps internal paths out of component details', { timeout: 90000 }, t => {
   if (process.platform !== 'win32') return t.skip('Native Windows installer');
+  const compilerTools = resolveCompiler();
   const repo = path.resolve(__dirname, '..');
+  fs.mkdirSync(path.join(repo, 'target'), { recursive: true });
   const root = fs.mkdtempSync(path.join(repo, 'target/installer-ui-test-'));
   const fixtureAppId = `CodeBuddyVisualFixture-${path.basename(root)}`;
   const previousInstallKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${fixtureAppId}_is1`;
@@ -42,7 +44,7 @@ $graphics.Dispose(); $bitmap.Dispose()
 `);
   let script = fs.readFileSync(path.join(__dirname, 'installer/codebuddy.iss'), 'utf8');
   script = script.replace('AppId={{57246561-8F37-48B1-9DE6-2878918A3EBA}', `AppId=${fixtureAppId}`)
-    .replace('UsePreviousAppDir=no', 'UsePreviousAppDir=no\nCreateUninstallRegKey=no')
+    .replace('UsePreviousAppDir=yes', 'UsePreviousAppDir=yes\nCreateUninstallRegKey=no')
     .replace('Uninstallable=yes', 'Uninstallable=no')
     .replace(/\[Registry\][\s\S]*?(?=\[Run\])/, '')
     .replaceAll('..\\..\\LICENSE', path.join(repo, 'LICENSE'))
@@ -65,7 +67,7 @@ end;
 procedure VerifyLayout;
 begin
   Log('Verifying native UI layout');
-  RequireUI(WizardForm.DirEdit.Text = ExpandConstant('{localappdata}\\Programs\\CodeBuddy'), 'Installer initially shows the current user application directory instead of the remembered installation');
+  RequireUI(WizardForm.DirEdit.Text = '${previousDirectory}', 'Installer reuses the registered previous installation directory');
   DesktopShortcut.Checked := False;
   StartMenuShortcut.Checked := False;
   LaunchOnFinish.Checked := False;
@@ -121,7 +123,7 @@ begin
 end;
 `;
   const file = path.join(root, 'fixture.iss'); fs.writeFileSync(file, script);
-  const tools = resolveCompiler();
+  const tools = compilerTools;
   const result = spawnSync(tools.compiler, ['/Q', '/DChineseMessages=' + tools.chineseMessages, file], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const run = spawnSync(path.join(root, 'CodeBuddy-Setup.exe'), ['/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=' + path.join(root, 'install.log')], { encoding: 'utf8', windowsHide: true, timeout: 45000 });

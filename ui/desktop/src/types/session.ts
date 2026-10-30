@@ -35,6 +35,7 @@ export type SessionType =
   | 'code_pro';
 
 export type Session = {
+  agent_profile?: { id: string; name: string; avatar: string; revision: number };
   accumulated_cost?: number | null;
   accumulated_usage?: Usage;
   archived_at?: string | null;

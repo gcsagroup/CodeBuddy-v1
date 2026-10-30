@@ -1,0 +1,50 @@
+import { AppEvents } from '../../constants/events';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { CustomAgents } from './CustomAgents';
+const { request, navigate } = vi.hoisted(() => ({ request: vi.fn(), navigate: vi.fn() }));
+vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
+const profile = { id: 'saved', revision: 1, name: '写作搭档', avatar: '📚', providerId: 'provider', modelId: 'model', prompt: '简明、严谨。', skills: ['writing'], tools: ['read'], mcpServers: ['research'] };
+const catalog = { models: [{ providerId: 'provider', modelId: 'model', label: 'Fixture / model' }], skills: [{ name: 'writing' }], tools: [{ name: 'read' }, { name: 'write' }], mcpServers: [{ name: 'research' }] };
+beforeEach(() => {
+  navigate.mockReset(); request.mockReset();
+  request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [], avatars: ['🤖', '📚'] } : method.endsWith('/catalog') ? catalog : {});
+});
+it('saves selected persona, avatar, model and capability lists without voice settings', async () => {
+  render(<CustomAgents />);
+  await waitFor(() => expect(screen.getByRole('button', { name: '新建智能体' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: '新建智能体' }));
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: '写作搭档' } });
+  fireEvent.change(screen.getByLabelText('模型'), { target: { value: JSON.stringify(['provider', 'model']) } });
+  fireEvent.change(screen.getByLabelText('人设提示词'), { target: { value: '简明、严谨。' } });
+  fireEvent.click(screen.getByRole('button', { name: '头像 📚' }));
+  for (const name of ['writing', 'read', 'research']) fireEvent.click(screen.getByRole('checkbox', { name }));
+  const changed = vi.fn();
+  window.addEventListener(AppEvents.AGENT_PROFILES_CHANGED, changed, { once: true });
+  request.mockResolvedValueOnce({ profile });
+  fireEvent.click(screen.getByRole('button', { name: '保存智能体' }));
+  const { id: _id, revision: _revision, ...expected } = profile;
+  await waitFor(() => expect(request).toHaveBeenCalledWith('_codebuddy/agents/save', { profile: expected }));
+  expect(await screen.findByRole('heading', { name: '写作搭档' })).toBeVisible();
+  expect(changed).toHaveBeenCalledOnce();
+});
+it('creates and navigates to the saved role workspace, with no client-chosen settings', async () => {
+  request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : { sessionId: 'new-session' });
+  render(<CustomAgents />);
+  fireEvent.click(await screen.findByRole('button', { name: '创建工作区' }));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=new-session'));
+  expect(request).toHaveBeenCalledWith('_codebuddy/agents/create-workspace', { id: 'saved' });
+});
+it('reports creation failures without navigating and confirms deletion separately', async () => {
+  request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : Promise.reject(new Error('Model unavailable')));
+  render(<CustomAgents />);
+  fireEvent.click(await screen.findByRole('button', { name: '创建工作区' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Model unavailable');
+  expect(navigate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '删除 写作搭档' }));
+  expect(request).not.toHaveBeenCalledWith('_codebuddy/agents/delete', expect.anything());
+  request.mockResolvedValueOnce({});
+  fireEvent.click(screen.getByRole('button', { name: '确认删除' }));
+  await waitFor(() => expect(screen.queryByRole('heading', { name: '写作搭档' })).not.toBeInTheDocument());
+});

@@ -13,6 +13,8 @@ export type View =
   | 'ConfigureProviders'
   | 'settingsV2'
   | 'sessions'
+  | 'media-library'
+  | 'custom-agents'
   | 'schedules'
   | 'loading'
   | 'recipes'
@@ -93,6 +95,12 @@ export const createNavigationHandler = (
         break;
       case 'sessions':
         navigateWithinWorkspace('/sessions', options);
+        break;
+      case 'custom-agents':
+        navigateWithinWorkspace('/custom-agents', options);
+        break;
+      case 'media-library':
+        navigateWithinWorkspace('/media-library', options);
         break;
       case 'schedules':
         navigateWithinWorkspace('/schedules', options);

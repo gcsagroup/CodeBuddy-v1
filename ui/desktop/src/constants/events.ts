@@ -2,6 +2,7 @@
  * Custom event names used throughout the application.
  */
 export enum AppEvents {
+  AGENT_PROFILES_CHANGED = 'agent-profiles-changed',
   SESSION_CREATED = 'session-created',
   SESSION_EXTENSIONS_LOADED = 'session-extensions-loaded',
   SESSION_DELETED = 'session-deleted',

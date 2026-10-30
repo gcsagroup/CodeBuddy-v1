@@ -1,4 +1,4 @@
-import { Clock, FileText, History, MessageSquarePlus, Settings, Wrench } from 'lucide-react';
+import { Bot, Clock, FileText, History, Images, MessageSquarePlus, Settings, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { defineMessages, type IntlShape, type MessageDescriptor } from 'react-intl';
 
@@ -49,6 +49,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: History,
     searchAliases: ['Session History'],
   },
+  {
+    id: 'media-library',
+    path: '/media-library',
+    label: 'Media Library',
+    icon: Images,
+    searchAliases: ['Images', 'Videos', '素材库'],
+  },
+  { id: 'custom-agents', path: '/custom-agents', label: 'Custom Agents', icon: Bot, searchAliases: ['自定义智能体', '角色'] },
 ];
 
 /** Settings is rendered separately, pinned to the bottom of the sidebar. */
@@ -81,6 +89,11 @@ const navItemMessages = defineMessages({
   sessions: {
     id: 'navigation.itemSessions',
     defaultMessage: 'History',
+  },
+  'custom-agents': { id: 'navigation.itemCustomAgents', defaultMessage: 'Custom Agents' },
+  'media-library': {
+    id: 'navigation.itemMediaLibrary',
+    defaultMessage: 'Media Library',
   },
   settings: {
     id: 'navigation.itemSettings',

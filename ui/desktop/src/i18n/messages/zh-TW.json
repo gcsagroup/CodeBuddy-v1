@@ -4931,6 +4931,10 @@
   "navigation.itemHome": {
     "defaultMessage": "新任務"
   },
+  "navigation.itemCustomAgents": { "defaultMessage": "自訂智慧體" },
+  "navigation.itemMediaLibrary": {
+    "defaultMessage": "素材庫"
+  },
   "navigation.itemRecipes": {
     "defaultMessage": "常用任務"
   },

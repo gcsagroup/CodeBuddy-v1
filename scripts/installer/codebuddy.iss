@@ -19,7 +19,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-UsePreviousAppDir=no
+UsePreviousAppDir=yes
 DisableDirPage=no
 DisableWelcomePage=yes
 DisableProgramGroupPage=yes
@@ -36,7 +36,7 @@ WizardStyle=modern light
 WizardSizePercent=100,100
 Compression=lzma2/normal
 SolidCompression=yes
-CloseApplications=yes
+CloseApplications=no
 RestartApplications=no
 Uninstallable=yes
 UninstallDisplayName=CodeBuddy
@@ -98,6 +98,8 @@ Filename: "{app}\CodeBuddy.exe"; Description: "启动 CodeBuddy"; Flags: nowait 
 #include "install-details.iss"
 #include "uninstall-details.iss"
 #include "data-directory.iss"
+#include "process-guard.iss"
+#include "uninstall-options.iss"
 
 var
   DesktopShortcut: TNewCheckBox;
@@ -188,7 +190,8 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
-  Result := '';
+  Result := RunningCodeBuddyMessage;
+  if Result <> '' then Exit;
   Result := ValidateDataDirectory;
   if Result <> '' then Exit;
   { The same bound must apply to silent installation, which skips page clicks. }
@@ -206,6 +209,7 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Command: String;
 begin
+  if CurUninstallStep = usUninstall then PrepareUninstallData;
   if CurUninstallStep = usPostUninstall then FinishUninstallDetails;
   { A later installation may have taken over this protocol; leave it intact. }
   if (CurUninstallStep = usUninstall) and

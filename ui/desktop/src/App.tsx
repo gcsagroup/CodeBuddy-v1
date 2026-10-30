@@ -38,6 +38,8 @@ interface PairRouteState {
 import SettingsView, { SettingsViewOptions } from './components/settings/SettingsView';
 import { parsePetMessage } from './pets/petMessage';
 import SessionsView from './components/sessions/SessionsView';
+import { CustomAgents } from './components/custom-agents/CustomAgents';
+import { MediaLibrary } from './components/media-library/MediaLibrary';
 import SchedulesView from './components/schedule/SchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
@@ -363,6 +365,12 @@ const PermissionRoute = () => {
             break;
           case 'sessions':
             navigate(withWorkspaceMode('/sessions', workspaceMode));
+            break;
+          case 'custom-agents':
+            navigate(withWorkspaceMode('/custom-agents', workspaceMode));
+            break;
+          case 'media-library':
+            navigate(withWorkspaceMode('/media-library', workspaceMode));
             break;
           case 'schedules':
             navigate(withWorkspaceMode('/schedules', workspaceMode));
@@ -840,6 +848,10 @@ export function AppInner() {
                 <Route path="codepro/settings" element={<SettingsRoute />} />
                 <Route path="sessions" element={<SessionsRoute />} />
                 <Route path="codepro/sessions" element={<SessionsRoute />} />
+                <Route path="custom-agents" element={<CustomAgents />} />
+                <Route path="codepro/custom-agents" element={<CustomAgents />} />
+                <Route path="media-library" element={<MediaLibrary />} />
+                <Route path="codepro/media-library" element={<MediaLibrary />} />
                 <Route path="schedules" element={<SchedulesRoute />} />
                 <Route path="codepro/schedules" element={<SchedulesRoute />} />
                 <Route path="recipes" element={<RecipesRoute />} />

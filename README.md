@@ -38,7 +38,7 @@ node scripts/build-harness-windows.cjs --installer=inno
 
 安装界面采用原生浅色布局，统一标题、间距和按钮尺寸；完成页以左侧标识、右侧说明与选项排列。进度条上方直接显示当前操作和正在处理的组件，不再使用展开链接或日志框。内部路径和依赖文件名仅保留在诊断日志。界面与隔离验收说明见[安装器界面](docs/windows-installer-ui.zh-CN.md)。
 
-卸载页与安装页使用相同的操作、组件和进度条布局，直接显示实际观察到删除的组件，不再提供展开链接或日志框。文件删除由 Inno 负责，用户数据、聊天和项目默认保留。
+Inno 再次安装默认沿用同一应用的历史安装目录。安装前检查 CodeBuddy 和安装目录内的后台进程，要求用户退出后再继续，不自动强制关闭。普通卸载先显示选择窗口，默认保留个人数据；用户可勾选并确认清理配置、聊天、宠物、日志和缓存，工作区及已登记项目仍保留。静默卸载不清理个人数据。程序文件由 Inno 删除，选定数据由随包清理助手处理；清理失败会停止程序卸载并留下报告。详见[安装器界面与清理范围](docs/windows-installer-ui.zh-CN.md)。
 
 向导使用已有 Inno Setup 6.7+（或 7.x），不自动安装编译工具。安装官方编译器后，将其 `ISCC.exe` 路径通过 `CODEBUDDY_ISCC` 指定，或使用当前用户／Program Files 下的标准安装位置。简体中文翻译使用 [Inno Setup 6.7.3 的 ChineseSimplified.isl](https://github.com/jrsoftware/issrc/blob/is-6_7_3/Files/Languages/Unofficial/ChineseSimplified.isl)，放在编译器 `Languages/` 目录，或通过 `CODEBUDDY_INNO_ZH_CN` 指定。工具准备及载荷下载需先获授权。
 
@@ -70,6 +70,8 @@ Windows 暂存还会从已准备的 Python 载荷复制正式版 `vcruntime140.d
 | 命令与测试         | 运行项目已有测试，查看命令、退出码与输出       |
 | Git 版本控制       | 查看状态、差异，并使用任务面板的审查入口       |
 | 项目记忆与历史     | 管理记忆，通过历史记录返回已有对话             |
+| 素材库             | 汇总生成图片和视频，支持时间／工作区视图、容量统计、预览及多选删除；[使用说明](docs/media-library.zh-CN.md) |
+| 自定义智能体       | 配置头像、模型、人设、Skill、工具及 MCP，创建绑定角色的新工作区；[使用与验证说明](docs/custom-agents.zh-CN.md)（语音暂未实现） |
 | 工具与扩展         | 按任务配置内置能力、MCP 服务和技能             |
 | Windows 电脑控制   | 支持桌面操作；复杂软件任务仍需逐项核对实际结果 |
 | 常用任务与自动任务 | 保存重复任务，确认项目、模型和计划后执行       |

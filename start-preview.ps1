@@ -1,4 +1,4 @@
-param([switch]$OrdinaryChat)
+param([switch]$OrdinaryChat, [switch]$SkipOptionalToolCheck)
 $ErrorActionPreference = 'Stop'
 $candidates = @()
 if ($env:CODEBUDDY_NODE) { $candidates += $env:CODEBUDDY_NODE }
@@ -13,7 +13,9 @@ foreach ($candidate in ($candidates | Select-Object -Unique)) {
   $version = & $candidate --version
   if ($LASTEXITCODE -eq 0 -and $version -match '^v(\d+)\.' -and [int]$Matches[1] -ge 24) {
     if ($OrdinaryChat) { $env:CODEPRO_UNIFIED_MODE = 'false' }
-    & $candidate (Join-Path $PSScriptRoot 'scripts\start-harness-preview.cjs')
+    $previewArguments = @()
+    if ($SkipOptionalToolCheck) { $previewArguments += '--skip-optional-tool-check' }
+    & $candidate (Join-Path $PSScriptRoot 'scripts\start-harness-preview.cjs') @previewArguments
     exit $LASTEXITCODE
   }
 }

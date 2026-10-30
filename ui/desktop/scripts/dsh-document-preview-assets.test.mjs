@@ -2,7 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { installDocumentRuntimeCompatibility } from './dsh-document-compat.mjs';
-import { dshDocumentPreviewAssets } from './dsh-document-preview-assets.mjs';
+import { dshDocumentPreviewAssets, normalizeExcelPreviewSheets } from './dsh-document-preview-assets.mjs';
+
+test('XLSX without a default row height remains readable without changing cells or hidden rows', () => {
+  const cell = { r: 0, c: 0, v: { v: 'Merge preview' } };
+  const sheets = [undefined, NaN, 0, 24].map(defaultRowHeight => ({
+    defaultRowHeight, celldata: [cell], config: { rowhidden: { 1: 0 }, rowlen: { 2: 32 } },
+  }));
+  const normalized = normalizeExcelPreviewSheets(sheets);
+  assert.deepEqual(normalized.map(s => s.defaultRowHeight), [20, 20, 20, 24]);
+  normalized.forEach((sheet, i) => {
+    assert.equal(sheet.celldata, sheets[i].celldata);
+    assert.equal(sheet.config, sheets[i].config);
+  });
+  assert.equal(sheets[0].defaultRowHeight, undefined);
+  const source = dshDocumentPreviewAssets().load.call({ addWatchFile() {} }, '\0virtual:codebuddy-dsh-document/excel');
+  assert.match(source, /data: \(function normalizeExcelPreviewSheets/);
+});
 
 test('PDF compatibility preserves precision, overflow, signed zero and iterator errors', () => {
   const context = vm.createContext({});

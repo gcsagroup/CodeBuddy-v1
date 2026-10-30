@@ -10,6 +10,17 @@ const version = '0.2.1-alpha.2';
 const chunks = { pdf: 'client.pdf.js', excel: 'client.excel.js', zoom: 'client.js' };
 const prefix = 'virtual:codebuddy-dsh-document/';
 
+// XLSX permits omitted sheetFormatPr. The pinned parser then supplies NaN,
+// which makes the read-only grid hide every row. Preserve explicit dimensions
+// and hidden-row configuration; use the usual 15pt (20px) height only if absent.
+export function normalizeExcelPreviewSheets(sheets) {
+  return sheets.map((sheet) =>
+    Number.isFinite(sheet.defaultRowHeight) && sheet.defaultRowHeight > 0
+      ? sheet
+      : { ...sheet, defaultRowHeight: 20 }
+  );
+}
+
 // Adapt the registration envelope and install the standard API missing in
 // Electron 41. Upstream rendering algorithms and license notices stay intact.
 export function dshDocumentPreviewAssets() {
@@ -30,6 +41,12 @@ export function dshDocumentPreviewAssets() {
       this.addWatchFile(file);
       let source = fs.readFileSync(file, 'utf8');
       let compatibility = '';
+      if (kind === 'excel') {
+        const sheetInput = 'data: state.value.sheets,';
+        if (source.split(sheetInput).length !== 2)
+          throw new Error('Review changed DSH Excel sheet input');
+        source = source.replace(sheetInput, `data: (${normalizeExcelPreviewSheets.toString()})(state.value.sheets),`);
+      }
       if (kind === 'pdf') {
         const compatFile = fileURLToPath(new URL('./dsh-document-compat.mjs', import.meta.url));
         this.addWatchFile(compatFile);

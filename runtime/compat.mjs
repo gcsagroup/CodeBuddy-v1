@@ -324,6 +324,7 @@ export class Compat {
     this.schedules = store.directory
       ? new ScheduleService(store, {
           run: (job, callbacks) => this.runSchedule(job, callbacks),
+          timers: typeof driver.startNativeSchedules !== 'function',
           stop: (sessionId) => this.request("session/cancel", { sessionId }),
           isSessionBusy: (id) => this.active.has(id) || this.sessionMutations.has(id),
           sessionInfo: async (sessionId) => {
@@ -421,7 +422,28 @@ export class Compat {
       this.journal = await openTranscriptJournal(this.store);
     await this.runs.initialize();
     await this.reviews.initialize();
-    await this.schedules?.start();
+    if (typeof this.driver.startNativeSchedules === 'function') {
+      await this.driver.startNativeSchedules({
+        prepareSession: async id => {
+          const session = this.assertSessionAvailable(id);
+          if (session.readonlyHistory || session.archivedAt) throw invalid('The reminder chat is unavailable');
+          const active = this.active.get(id);
+          // A human turn may be preparing tools before its native stream has
+          // attached. Delivery waits for that attachment or the turn's release.
+          if (active) await Promise.race([active.nativeAttached.promise, active.done]);
+          if (!this.active.has(id)) await this.ensureSession(session);
+        },
+        observe: ({ sessionId, message, token }) => this.prompt({
+          sessionId, prompt: message.content,
+          _meta: { 'codeagentpro/source-message-id': message.id },
+        }, this.scheduleConnection(), token),
+        onChanged: () => {
+          for (const connection of this.connections)
+            if (!connection.background) connection.notify('_goose/unstable/native-schedules/changed', {});
+        },
+      });
+      this.nativeScheduling = true;
+    } else await this.schedules?.start();
   }
   async reviewContext(sessionId) {
     const s = this.session(sessionId);
@@ -543,11 +565,7 @@ export class Compat {
       this.reviewExecutions.delete(id);
     }
   }
-  async runSchedule(job, { signal, onSession }) {
-    const root =
-      process.env.CODEBUDDY_WORKSPACE_ROOT ??
-      path.join(this.store.directory, "workspaces");
-    const followsChat = job.executionMode === "current_session";
+  scheduleConnection() {
     const connection = {
       sessionIds: new Set(),
       notify: (method, params) => {
@@ -566,6 +584,14 @@ export class Compat {
       },
       background: true,
     };
+    return connection;
+  }
+  async runSchedule(job, { signal, onSession }) {
+    const root =
+      process.env.CODEBUDDY_WORKSPACE_ROOT ??
+      path.join(this.store.directory, "workspaces");
+    const followsChat = job.executionMode === "current_session";
+    const connection = this.scheduleConnection();
     let sessionId;
     let ownedTurn;
     const cancel = () => {
@@ -1252,7 +1278,7 @@ export class Compat {
       const route = this.routing.get(s.id)?.main;
       const main = applyModelThinking(
         routing.main.provider,
-        modelThinkingPreference(thinkingProfile(this.provider(routing.main.provider.id), routing.main.model), this.provider(routing.main.provider.id).thinkingEfforts?.[routing.main.model], this.store.read(['preferences']).preferences.gooseThinkingEffort),
+        s.recipe?.settings?.goose_thinking_effort ?? modelThinkingPreference(thinkingProfile(this.provider(routing.main.provider.id), routing.main.model), this.provider(routing.main.provider.id).thinkingEfforts?.[routing.main.model], this.store.read(['preferences']).preferences.gooseThinkingEffort),
       );
       const provider = main.provider;
       this.thinking.set(s.id, main.thinkingEffort);
@@ -1794,6 +1820,8 @@ export class Compat {
           if (this.active.has(p.sessionId))
             throw invalid("Stop the session before deleting it");
           await this.schedules?.stopSessionSchedules(p.sessionId);
+          if (this.nativeScheduling)
+            await this.driver.nativeScheduleRequest('stop-session', { sessionId: p.sessionId });
           await this.releaseSession(this.session(p.sessionId));
           await this.store.update((state) => {
             state.sessions = state.sessions.filter((s) => s.id !== p.sessionId);
@@ -1831,8 +1859,21 @@ export class Compat {
       return listSubagentCatalog(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
-    if (this.schedules?.handles(method))
+    if (name.startsWith('native-schedules/')) {
+      if (!this.nativeScheduling) throw unsupported('native scheduling');
+      const action = name.slice('native-schedules/'.length);
+      if (action === 'legacy-list') return { jobs: this.schedules?.rows().map(row => ({
+        id: row.id, title: row.recipe?.title ?? row.id, cron: row.cron,
+        executionMode: row.executionMode ?? 'new_session', targetSessionId: row.targetSessionId,
+      })) ?? [] };
+      if (!['catalog', 'history', 'update', 'delete', 'set-paused'].includes(action)) throw unsupported('native schedule action');
+      return this.driver.nativeScheduleRequest(action, p);
+    }
+    if (this.schedules?.handles(method)) {
+      if (this.nativeScheduling && !['list', 'sessions/list', 'running-job/inspect'].includes(name.slice('schedules/'.length)))
+        throw invalid('Automatic tasks now use native DSH scheduling. Create or change reminders in their linked chat. Legacy rules remain saved.');
       return this.schedules.request(method, p);
+    }
     const memoryResult = await this.memory.request(name, p);
     if (memoryResult !== undefined) {
       if (
@@ -2215,6 +2256,8 @@ export class Compat {
               name === "session/archive" ? new Date().toISOString() : null;
           s.updatedAt = new Date().toISOString();
         });
+        if (name === "session/archive" && this.nativeScheduling)
+          await this.driver.nativeScheduleRequest('stop-session', { sessionId: p.sessionId });
         return {};
       }
       case "defaults/read":
@@ -2395,7 +2438,7 @@ export class Compat {
         throw unsupported(method);
     }
   }
-  async prompt(p, connection) {
+  async prompt(p, connection, nativeObservationToken) {
     if (this.closing) throw invalid('Runtime is shutting down');
     const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
@@ -2435,6 +2478,7 @@ export class Compat {
     trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
+      nativeAttached: Promise.withResolvers(),
       controller,
       connection,
       done,
@@ -2504,7 +2548,7 @@ export class Compat {
       sessionUpdate: "user_message_chunk",
       content,
       messageId: userId,
-      _meta: { goose: { messageId: userId, created, ...(presentation ? { presentation } : {}) } },
+      _meta: { goose: { messageId: userId, created, ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
     let result;
@@ -2634,6 +2678,15 @@ export class Compat {
           }
         },
         onEvent: async (event) => {
+          promptEntry.nativeAttached.resolve();
+          if (event.type === 'scheduled_message' && event.sessionId === s.id) {
+            const message = event.message;
+            if (message.id !== userId) for (const part of message.content ?? []) {
+              if (part.type === 'text') await notify({ sessionUpdate: 'user_message_chunk', content: part,
+                messageId: message.id, _meta: { goose: { messageId: message.id, created: Math.floor(Date.now() / 1000), scheduled: true } } });
+            }
+            return;
+          }
           if (event.type === 'user_questions' && event.sessionId === s.id) {
             for (const observer of new Set([connection, ...this.connections]))
               if (observer === connection || observer.sessionIds?.has(s.id))
@@ -2847,7 +2900,9 @@ export class Compat {
         result = { stopReason: "end_turn" };
       } else {
         trace('native_prompt_dispatched');
-        result = await this.driver.prompt(s.id, prepared.content, callbacks);
+        result = await this.driver.prompt(s.id, prepared.content, {
+          ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
+        });
         trace('native_prompt_settled');
       }
     } catch (error) {

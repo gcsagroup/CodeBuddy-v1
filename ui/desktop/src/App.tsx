@@ -38,7 +38,7 @@ interface PairRouteState {
 import SettingsView, { SettingsViewOptions } from './components/settings/SettingsView';
 import { parsePetMessage } from './pets/petMessage';
 import SessionsView from './components/sessions/SessionsView';
-import SchedulesView from './components/schedule/SchedulesView';
+import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';

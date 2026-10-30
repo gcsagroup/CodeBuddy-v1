@@ -1,3 +1,4 @@
+import { NativeScheduleCards } from './schedule/NativeScheduleCards';
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
@@ -712,6 +713,14 @@ export default function GooseMessage({
           }
           return null;
         })}
+
+        {showMessageFooter && (
+          <NativeScheduleCards
+            messages={messages}
+            message={message}
+            running={isTurnRunning ?? isStreaming}
+          />
+        )}
 
         {showMessageFooter && (displayText.trim() || imagePaths.length > 0) && (
           <div className="flex min-h-6 items-center justify-between gap-3 pt-1">

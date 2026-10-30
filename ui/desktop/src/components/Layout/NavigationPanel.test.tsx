@@ -76,6 +76,27 @@ describe('chat row rename button', () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('keeps the automation clock visible independently of chat activity', () => {
+    const base = { session, active: true, hasSchedule: true, onClick: vi.fn(), onRenamed: vi.fn() };
+    const view = render(<SessionRow {...base} status={undefined} />);
+    expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    for (const status of [
+      { streamState: 'loading' as const, hasUnreadActivity: false },
+      { streamState: 'streaming' as const, hasUnreadActivity: false },
+      { streamState: 'error' as const, hasUnreadActivity: false },
+      { streamState: 'idle' as const, hasUnreadActivity: true },
+    ]) {
+      view.rerender(<SessionRow {...base} status={status} />);
+      expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    }
+    view.rerender(
+      <SessionRow {...base} status={{ streamState: 'idle', hasUnreadActivity: false }} />
+    );
+    expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    view.rerender(<SessionRow {...base} hasSchedule={false} status={undefined} />);
+    expect(screen.queryByLabelText('Automation tasks')).not.toBeInTheDocument();
+  });
+
   it('keeps the rename entry disabled while the chat is streaming', () => {
     render(
       <SessionRow

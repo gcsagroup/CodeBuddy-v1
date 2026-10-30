@@ -7,7 +7,7 @@ import { zRecipeDto } from "../ui/sdk/dist/generated/zod.gen.js";
 import { assertRecipeExecutable } from "./recipe-execution.mjs";
 // Schedule helpers transitively import subagents; establish its native contract
 // before that module graph is loaded, including the server's lazy driver path.
-import "./harness/subagent-return-contract.mjs";
+import "./harness/native-schedule-contract.mjs";
 const { createCronScheduleRecord, parseCronInput } =
   await import("./harness/node_modules/@deepseek-ai/dsh-schedule/lib/index.js");
 

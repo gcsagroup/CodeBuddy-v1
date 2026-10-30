@@ -77,3 +77,29 @@ test('projected root checks still reject committed rebinding or mapped-parent de
     if (remove) await assert.rejects(f.request('catalog/list'), /Session not found/);
   }
 });
+
+test('schedule catalog maps identities once without cloning histories and observes committed rebinding', async t => {
+  const f = await fixture();
+  const file = path.join(f.directory, 'state.json');
+  const before = await readFile(file, 'utf8');
+  const raw = { async nativeScheduleRequest() {
+    return { records: Array.from({ length: 12 }, (_, index) => ({ id: `task-${index}`, sessionId: index === 11 ? 'native-only' : 'root' })) };
+  } };
+  const driver = createConversationDriver(raw, f.store);
+  const clone = globalThis.structuredClone;
+  const snapshots = [];
+  const spy = t.mock.method(globalThis, 'structuredClone', (value, options) => {
+    if (Array.isArray(value?.sessions)) snapshots.push(value.sessions);
+    return clone(value, options);
+  });
+  const result = await driver.nativeScheduleRequest('catalog');
+  assert.equal(snapshots.length, 1, 'A task list must not copy the session catalog once per task');
+  assert.ok(snapshots[0].every(session => !Object.hasOwn(session, 'updates')),
+    'Identity lookup must select metadata before deep cloning');
+  assert.deepEqual(result.records.map(row => row.sessionId), [...Array(11).fill('product'), 'native-only']);
+  spy.mock.restore();
+  assert.equal(await readFile(file, 'utf8'), before, 'Reading the task list must not mutate persisted state');
+  await f.store.update(state => { state.sessions[0].nativeSessionId = 'replacement'; });
+  assert.equal((await driver.nativeScheduleRequest('catalog')).records[0].sessionId, 'root',
+    'Do not reuse a stale identity cache after a conversation is rebound');
+});

@@ -666,6 +666,27 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
       return notify(notification.sessionId, entry);
     }
     const replayStarted = entry.sessionReplayActive ? globalThis.performance.now() : undefined;
+    const nativeSource = getGooseMessageMeta(notification.update);
+    const scheduledMessageId =
+      notification.update.sessionUpdate === 'user_message_chunk'
+        ? (notification.update.messageId ?? nativeSource.messageId)
+        : undefined;
+    // A new Host-delivered reminder starts a display turn without a renderer
+    // prompt request. Replays and repeated delivery chunks cannot reopen it.
+    if (
+      !entry.sessionReplayActive &&
+      nativeSource.scheduled &&
+      scheduledMessageId &&
+      entry.activePromptAttemptId === null &&
+      entry.activeRunId === null &&
+      !entry.messages.some((message) => message.id === scheduledMessageId)
+    ) {
+      entry.sealedIdleBoundaryActive = false;
+      entry.activePromptSourceUserMessageId = scheduledMessageId;
+      entry.chatState = ChatState.Streaming;
+      entry.promptError = undefined;
+      entry.progressMessage = undefined;
+    }
     if (shouldIgnoreAcpNotificationForSealedTurn(entry, notification)) {
       return snapshotFromEntry(entry);
     }

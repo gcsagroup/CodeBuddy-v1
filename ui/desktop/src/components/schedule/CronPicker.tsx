@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
+import { Check, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+} from '../ui/dropdown-menu';
 import type { ScheduledJobDto } from '@aaif/goose-sdk';
 import { errorMessage } from '../../utils/conversionUtils';
 import { defineMessages, useIntl } from '../../i18n';
@@ -14,6 +22,11 @@ import {
 
 const i18n = defineMessages({
   repeat: { id: 'cronPicker.repeat', defaultMessage: 'Repeat' },
+  frequency: { id: 'cronPicker.frequency', defaultMessage: 'Run frequency' },
+  daily: { id: 'cronPicker.daily', defaultMessage: 'Every day' },
+  weekdays: { id: 'cronPicker.weekdays', defaultMessage: 'Weekdays' },
+  weekly: { id: 'cronPicker.weekly', defaultMessage: 'Every week' },
+  customFrequency: { id: 'cronPicker.customFrequency', defaultMessage: 'Custom' },
   time: { id: 'cronPicker.time', defaultMessage: 'Time' },
   every: { id: 'cronPicker.every', defaultMessage: 'Every' },
   mode: { id: 'cronPicker.mode', defaultMessage: 'Mode' },
@@ -128,7 +141,9 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
     const { hour, isPM: pm } = to12Hour(hour24);
     setHour12(hour);
     setIsPM(pm);
-    setDayOfWeek(parsed.dayOfWeek === '*' ? '1' : parsed.dayOfWeek);
+    setDayOfWeek(
+      ['0', '1', '2', '3', '4', '5', '6'].includes(parsed.dayOfWeek) ? parsed.dayOfWeek : '1'
+    );
     setDayOfMonth(parsed.dayOfMonth === '*' ? '1' : parsed.dayOfMonth);
     setMonth(parsed.month === '*' ? '1' : parsed.month);
     setQuarterStartMonth(getQuarterStartMonth(parsed.month) ?? '1');
@@ -197,27 +212,67 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
     <div className="rounded-2xl border border-border-primary px-4">
       <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-primary py-2">
         <span className="text-sm text-text-primary">{intl.formatMessage(i18n.repeat)}</span>
-        <select
-          value={period}
-          aria-label={intl.formatMessage(i18n.repeat)}
-          onChange={(e) => {
-            const nextPeriod = e.target.value as Period;
-            if (nextPeriod === 'custom' && period !== 'custom') {
-              setCustomCron(getCurrentCron(period, getValidDayOfMonth(dayOfMonth, maxDayOfMonth)));
-            }
-            setPeriod(nextPeriod);
-          }}
-          className={selectClassName}
-        >
-          <option value="minute">{intl.formatMessage(i18n.minute)}</option>
-          <option value="hour">{intl.formatMessage(i18n.hour)}</option>
-          <option value="day">{intl.formatMessage(i18n.day)}</option>
-          <option value="week">{intl.formatMessage(i18n.week)}</option>
-          <option value="month">{intl.formatMessage(i18n.month)}</option>
-          <option value="quarter">{intl.formatMessage(i18n.quarter)}</option>
-          <option value="year">{intl.formatMessage(i18n.year)}</option>
-          <option value="custom">{intl.formatMessage(i18n.custom)}</option>
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={intl.formatMessage(i18n.repeat)}
+              className="flex min-h-8 items-center justify-end gap-2 rounded-lg px-1 py-1 text-sm text-text-secondary outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-primary"
+            >
+              {intl.formatMessage(
+                period === 'day'
+                  ? i18n.daily
+                  : period === 'weekdays'
+                    ? i18n.weekdays
+                    : period === 'week'
+                      ? i18n.weekly
+                      : i18n.customFrequency
+              )}
+              <ChevronDown className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            className="w-44 rounded-2xl border-border-primary p-1"
+          >
+            <DropdownMenuLabel className="px-2.5 py-1.5 text-xs font-normal text-text-secondary">
+              {intl.formatMessage(i18n.frequency)}
+            </DropdownMenuLabel>
+            <Menu.RadioGroup
+              value={['day', 'weekdays', 'week'].includes(period) ? period : 'custom'}
+              onValueChange={(value) => {
+                const nextPeriod = value as Period;
+                if (nextPeriod === 'custom' && period !== 'custom')
+                  setCustomCron(
+                    getCurrentCron(period, getValidDayOfMonth(dayOfMonth, maxDayOfMonth))
+                  );
+                setPeriod(nextPeriod);
+              }}
+            >
+              {(['day', 'weekdays', 'week', 'custom'] as const).map((value) => (
+                <Menu.RadioItem
+                  key={value}
+                  value={value}
+                  className="relative flex cursor-default items-center justify-between rounded-lg px-2.5 py-1.5 text-sm text-text-primary outline-none data-[state=checked]:bg-background-secondary focus:bg-background-secondary"
+                >
+                  {intl.formatMessage(
+                    value === 'day'
+                      ? i18n.daily
+                      : value === 'weekdays'
+                        ? i18n.weekdays
+                        : value === 'week'
+                          ? i18n.weekly
+                          : i18n.customFrequency
+                  )}
+                  <Menu.ItemIndicator>
+                    <Check className="size-3.5" />
+                  </Menu.ItemIndicator>
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="space-y-3 py-3 [&>div]:flex-wrap [&>div]:justify-between">
@@ -322,6 +377,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
         )}
 
         {(period === 'day' ||
+          period === 'weekdays' ||
           period === 'week' ||
           period === 'month' ||
           period === 'quarter' ||

@@ -1,6 +1,7 @@
+import { useNativeSchedules } from '../../acp/nativeSchedules';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChevronRight, Folder, Pencil } from 'lucide-react';
+import { Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { useNavigationContext } from './NavigationContext';
@@ -95,6 +96,7 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
 };
 
 interface SessionRowProps {
+  hasSchedule?: boolean;
   session: SessionListItem;
   active: boolean;
   status: SessionStatus | undefined;
@@ -103,6 +105,7 @@ interface SessionRowProps {
 }
 
 export const SessionRow: React.FC<SessionRowProps> = ({
+  hasSchedule = false,
   session,
   active,
   status,
@@ -120,11 +123,20 @@ export const SessionRow: React.FC<SessionRowProps> = ({
       <div
         onClick={() => !isEditing && onClick()}
         className={cn(
-          'group/session-row flex min-h-7 items-center gap-1.5 mx-1 px-2 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
+          'group/session-row relative flex min-h-7 items-center gap-1.5 -ml-3 mr-1 pl-6 pr-2 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
           'hover:text-text-primary transition-colors',
           active && 'bg-background-tertiary'
         )}
       >
+        {hasSchedule && (
+          <Clock3
+            aria-label={intl.formatMessage({
+              id: 'nativeSchedule.title',
+              defaultMessage: 'Automation tasks',
+            })}
+            className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5 text-text-secondary"
+          />
+        )}
         <InlineEditText
           value={session.name}
           onSave={async (newName) => {
@@ -347,6 +359,11 @@ export const Navigation: React.FC<NavigationProps> = ({
   needsTrafficLightInset,
 }) => {
   const intl = useIntl();
+  const nativeTasks = useNativeSchedules();
+  const scheduledSessions = useMemo(
+    () => new Set<string>(nativeTasks.records.map((task) => task.sessionId)),
+    [nativeTasks.records]
+  );
   const reducedMotion = useReducedMotion();
   const { isNavExpanded } = useNavigationContext();
   const location = useLocation();
@@ -470,6 +487,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <SessionRow
                   key={session.id}
                   session={session}
+                  hasSchedule={scheduledSessions.has(session.id)}
                   active={session.id === activeSessionId}
                   status={{
                     streamState: sessionStatuses.get(session.id)?.streamState ?? 'idle',

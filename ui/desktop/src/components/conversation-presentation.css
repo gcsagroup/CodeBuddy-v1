@@ -145,6 +145,11 @@
   transform: rotate(45deg);
 }
 
+/* Scheduled notices already render their own disclosure chevron. */
+.codepro-chat-history details > summary.native-schedule-summary::after {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .codepro-chat-history details > summary::after {
     transition: none;

@@ -1,3 +1,4 @@
+import { applyContentChunk } from '../acp/adapter/messages';
 import { act, render, screen } from '@testing-library/react';
 import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
@@ -239,4 +240,27 @@ describe('UserMessage', () => {
     await user.click(screen.getByRole('button', { name: 'Edit and resend message' }));
     expect(onMessageUpdate).toHaveBeenCalledWith('short-message', 'Retain draft', 'edit');
   });
+});
+
+it('renders a native schedule delivery as a collapsed task line rather than an editable user query', () => {
+  const state = { messages: [] as Message[], localSteerTextByMessageId: new Map<string, string>() };
+  applyContentChunk(state, 'user', {
+    sessionUpdate: 'user_message_chunk',
+    content: { type: 'text', text: 'NATIVE_REMINDER_ONLY' },
+    messageId: 'scheduled-source',
+    _meta: { goose: { messageId: 'scheduled-source', created: 1793336017, scheduled: true } },
+  });
+  render(<UserMessage message={state.messages[0]} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByText('Automation tasks')).toBeVisible();
+  expect(screen.getByText('NATIVE_REMINDER_ONLY')).not.toBeVisible();
+  expect(screen.queryByRole('button', { name: /Edit message/ })).toBeNull();
+  const manual = {
+    messages: [] as Message[],
+    localSteerTextByMessageId: new Map<string, string>(),
+  };
+  applyContentChunk(manual, 'user', {
+    sessionUpdate: 'user_message_chunk',
+    content: { type: 'text', text: 'Automation tasks' },
+  });
+  expect(manual.messages[0].metadata.scheduled).toBeUndefined();
 });

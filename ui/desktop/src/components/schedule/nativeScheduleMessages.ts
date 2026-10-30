@@ -1,0 +1,125 @@
+import { defineMessages } from '../../i18n';
+export const nativeScheduleMessages = defineMessages({
+  title: { id: 'nativeSchedule.title', defaultMessage: 'Automation tasks' },
+  new: { id: 'nativeSchedule.new', defaultMessage: 'New' },
+  newPrompt: {
+    id: 'nativeSchedule.newPrompt',
+    defaultMessage: 'Help me create an automatic reminder: ',
+  },
+  all: { id: 'nativeSchedule.all', defaultMessage: 'All' },
+  active: { id: 'nativeSchedule.active', defaultMessage: 'Active' },
+  paused: { id: 'nativeSchedule.paused', defaultMessage: 'Paused' },
+  pause: { id: 'nativeSchedule.pause', defaultMessage: 'Pause' },
+  resume: { id: 'nativeSchedule.resume', defaultMessage: 'Resume' },
+  pauseHint: {
+    id: 'nativeSchedule.pauseHint',
+    defaultMessage:
+      'Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences.',
+  },
+  inactive: { id: 'nativeSchedule.inactive', defaultMessage: 'Ended' },
+  deleted: { id: 'nativeSchedule.deleted', defaultMessage: 'Deleted' },
+  search: { id: 'nativeSchedule.search', defaultMessage: 'Search automation tasks' },
+  empty: { id: 'nativeSchedule.empty', defaultMessage: 'No automation tasks' },
+  retry: { id: 'nativeSchedule.retry', defaultMessage: 'Retry' },
+  loading: { id: 'nativeSchedule.loading', defaultMessage: 'Loading…' },
+  next: { id: 'nativeSchedule.next', defaultMessage: 'Next: {time}' },
+  everyDay: { id: 'nativeSchedule.everyDay', defaultMessage: 'Every day' },
+  everyWeek: { id: 'nativeSchedule.everyWeek', defaultMessage: 'Every week' },
+  workdays: { id: 'nativeSchedule.workdays', defaultMessage: 'Monday to Friday' },
+  once: { id: 'nativeSchedule.once', defaultMessage: 'Once' },
+  every: { id: 'nativeSchedule.every', defaultMessage: 'Every {count} minutes' },
+  daily: { id: 'nativeSchedule.daily', defaultMessage: 'Daily at {time} ({zone})' },
+  weekly: { id: 'nativeSchedule.weekly', defaultMessage: 'Weekly on {days} at {time} ({zone})' },
+  open: { id: 'nativeSchedule.open', defaultMessage: 'Open' },
+  rule: { id: 'nativeSchedule.rule', defaultMessage: 'Rule' },
+  records: { id: 'nativeSchedule.records', defaultMessage: 'Task records' },
+  linked: { id: 'nativeSchedule.linked', defaultMessage: 'Linked chat' },
+  unavailable: {
+    id: 'nativeSchedule.unavailable',
+    defaultMessage: 'The linked chat is unavailable',
+  },
+  close: { id: 'nativeSchedule.close', defaultMessage: 'Close task details' },
+  missing: {
+    id: 'nativeSchedule.missing',
+    defaultMessage: 'This task was deleted or is unavailable.',
+  },
+  name: { id: 'nativeSchedule.name', defaultMessage: 'Task name' },
+  instructions: { id: 'nativeSchedule.instructions', defaultMessage: 'Task instructions' },
+  repeat: { id: 'nativeSchedule.repeat', defaultMessage: 'Repeat' },
+  time: { id: 'nativeSchedule.time', defaultMessage: 'Time' },
+  date: { id: 'nativeSchedule.date', defaultMessage: 'Date' },
+  localZone: {
+    id: 'nativeSchedule.localZone',
+    defaultMessage:
+      'Date and time use the system time zone ({zone}). A one-time task stores the resulting instant.',
+  },
+  zone: { id: 'nativeSchedule.zone', defaultMessage: 'Time zone' },
+  interval: { id: 'nativeSchedule.interval', defaultMessage: 'Interval (minutes)' },
+  weekdays: { id: 'nativeSchedule.weekdays', defaultMessage: 'Weekdays' },
+  at: { id: 'nativeSchedule.at', defaultMessage: 'Time (with UTC offset)' },
+  save: { id: 'nativeSchedule.save', defaultMessage: 'Save changes' },
+  cancel: { id: 'nativeSchedule.cancel', defaultMessage: 'Cancel' },
+  remove: { id: 'nativeSchedule.remove', defaultMessage: 'Delete task' },
+  confirmRemove: {
+    id: 'nativeSchedule.confirmRemove',
+    defaultMessage:
+      'Delete this task and its saved delivery records? Messages already sent to the chat remain.',
+  },
+  emptyRecords: { id: 'nativeSchedule.emptyRecords', defaultMessage: 'No saved deliveries yet' },
+  deliveryHint: {
+    id: 'nativeSchedule.deliveryHint',
+    defaultMessage:
+      'These records confirm reminders reached the chat inbox, not that the model completed the work.',
+  },
+  missingPrompt: {
+    id: 'nativeSchedule.missingPrompt',
+    defaultMessage: 'The original instruction was not saved.',
+  },
+  earlier: {
+    id: 'nativeSchedule.earlier',
+    defaultMessage: 'Some earlier delivery records are unavailable.',
+  },
+  more: { id: 'nativeSchedule.more', defaultMessage: 'Load more' },
+  conflict: {
+    id: 'nativeSchedule.conflict',
+    defaultMessage: 'The task changed. Reload before editing again.',
+  },
+  legacy: { id: 'nativeSchedule.legacy', defaultMessage: 'Saved legacy rules' },
+  legacyHint: {
+    id: 'nativeSchedule.legacyHint',
+    defaultMessage:
+      'Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported.',
+  },
+  runTime: { id: 'nativeSchedule.runTime', defaultMessage: 'Run time' },
+  custom: { id: 'nativeSchedule.custom', defaultMessage: 'Custom' },
+  frequency: { id: 'nativeSchedule.frequency', defaultMessage: 'Frequency' },
+  everyHours: { id: 'nativeSchedule.everyHours', defaultMessage: 'Every {count} hours' },
+  everySeconds: { id: 'nativeSchedule.everySeconds', defaultMessage: 'Every {count} seconds' },
+  hours: { id: 'nativeSchedule.hours', defaultMessage: 'hours' },
+  minutes: { id: 'nativeSchedule.minutes', defaultMessage: 'minutes' },
+  seconds: { id: 'nativeSchedule.seconds', defaultMessage: 'seconds' },
+  intervalValue: { id: 'nativeSchedule.intervalValue', defaultMessage: 'Repeat interval' },
+  intervalHint: {
+    id: 'nativeSchedule.intervalHint',
+    defaultMessage:
+      'At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone.',
+  },
+  invalidInterval: {
+    id: 'nativeSchedule.invalidInterval',
+    defaultMessage: 'Enter an interval of at least 60 whole seconds.',
+  },
+  systemZone: { id: 'nativeSchedule.systemZone', defaultMessage: '(System)' },
+  searchZone: {
+    id: 'nativeSchedule.searchZone',
+    defaultMessage: 'Search UTC offset, IANA identifier or city',
+  },
+  everyMonth: { id: 'nativeSchedule.everyMonth', defaultMessage: 'Monthly' },
+  monthDays: { id: 'nativeSchedule.monthDays', defaultMessage: 'On these dates' },
+  monthDay: { id: 'nativeSchedule.monthDay', defaultMessage: 'Day {day}' },
+  monthly: { id: 'nativeSchedule.monthly', defaultMessage: 'Monthly on {days} at {time} ({zone})' },
+  monthHint: {
+    id: 'nativeSchedule.monthHint',
+    defaultMessage: 'Dates that do not exist in a month are skipped.',
+  },
+  noZones: { id: 'nativeSchedule.noZones', defaultMessage: 'No matching time zones' },
+});

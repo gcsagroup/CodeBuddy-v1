@@ -100,7 +100,7 @@ async function connect(
 
 async function fixture(
   t,
-  { realHarness = false, onRequest, onModelRequest } = {},
+  { realHarness = false, nativeScheduling = true, onRequest, onModelRequest } = {},
 ) {
   const root = await realpath(
     await mkdtemp(path.join(os.tmpdir(), "codebuddy-library-acp-")),
@@ -171,10 +171,18 @@ async function fixture(
     root,
     "scheduled-workspaces",
   );
+  let legacyHarness;
+  if (realHarness && !nativeScheduling) {
+    const { createHarnessDriver } = await import('../harness/index.mjs');
+    legacyHarness = await createHarnessDriver({ dataDir: path.join(dataDir, 'harness'), instructionsHome: root });
+    // The retained legacy runner has its own compatibility regression. The
+    // production/native migration is exercised separately below.
+    legacyHarness.startNativeSchedules = undefined;
+  }
   const app = await createCompatServer({
     dataDir,
     secret,
-    ...(realHarness ? {} : { driver }),
+    ...(legacyHarness ? { driver: legacyHarness } : realHarness ? {} : { driver }),
   });
   const client = await connect(await app.listen(0, "127.0.0.1"), onRequest);
   t.after(async () => {
@@ -222,8 +230,8 @@ async function fixture(
   };
 }
 
-test('automatic follow-ups reuse the real Harness chat, model, context and ordinary session identity', async t => {
-  const { client, root, modelRequests, dataDir } = await fixture(t, { realHarness: true });
+test('legacy automatic follow-ups reuse the real Harness chat, model, context and ordinary session identity', async t => {
+  const { client, root, modelRequests, dataDir } = await fixture(t, { realHarness: true, nativeScheduling: false });
   const session = await client.request('session/new', { cwd: root, mcpServers: [] });
   await client.request('session/prompt', { sessionId: session.sessionId,
     prompt: [{ type: 'text', text: 'Remember the marker PRIOR_CONTEXT_FOR_FOLLOWUP.' }] });
@@ -933,7 +941,7 @@ for (const workspaceMode of ["code", "codepro"])
     });
     let requests = 0;
     const { client } = await fixture(t, {
-      realHarness: true,
+      realHarness: true, nativeScheduling: false,
       onModelRequest: async () => {
         if (++requests === 1) {
           firstStarted();
@@ -976,9 +984,9 @@ for (const workspaceMode of ["code", "codepro"])
   });
 
 for (const workspaceMode of ["code", "codepro"])
-  test(`scheduler run-now reaches the official Harness prompt path and records one persisted completed session (${workspaceMode})`, async (t) => {
+  test(`legacy scheduler run-now reaches the official Harness prompt path and records one persisted completed session (${workspaceMode})`, async (t) => {
     const { client, dataDir, modelRequests } = await fixture(t, {
-      realHarness: true,
+      realHarness: true, nativeScheduling: false,
     });
     const created = schemas.zCreateScheduleResponse_unstable.parse(
       await client.request(method("schedules/create"), {
@@ -1001,7 +1009,7 @@ for (const workspaceMode of ["code", "codepro"])
               default: "library fixture",
             },
           ],
-          settings: { goose_model: "recipe-model", temperature: 0.4 },
+          settings: { goose_model: "recipe-model", temperature: 0.4, goose_thinking_effort: "high" },
         },
       }),
     );
@@ -1015,6 +1023,8 @@ for (const workspaceMode of ["code", "codepro"])
     const actual = modelRequests.findLast((entry) => entry.stream);
     assert.equal(actual.model, "recipe-model");
     assert.equal(actual.temperature, 0.4);
+    assert.equal(actual.reasoning_effort, "high");
+    assert.equal((await client.request(method("defaults/read"), {})).modelId, "library-model", "task overrides must not alter the global default");
     assert.match(JSON.stringify(actual.messages), /Scheduled library fixture/u);
     assert.match(
       JSON.stringify(actual.messages),
@@ -1080,3 +1090,188 @@ for (const workspaceMode of ["code", "codepro"])
     });
     assert.equal(retainedInfo.session._meta.sessionType, "scheduled");
   });
+
+
+test('native automation publishes timed output through the ordinary CodeBuddy chat and persists one delivery', { timeout: 20000 }, async t => {
+  const { client, root, modelRequests } = await fixture(t, {
+    realHarness: true,
+    onRequest: async () => ({ outcome: { outcome: 'selected', optionId: 'allow_once' } }),
+  });
+  const session = await client.request('session/new', { cwd: root, mcpServers: [] });
+  const created = await client.request(method('tools/call'), {
+    sessionId: session.sessionId, name: 'schedule_create',
+    arguments: { title: 'Native integration reminder', prompt: 'Report NATIVE_ACP_DELIVERY.', after_seconds: 1 },
+  });
+  assert.equal(created.isError, false, JSON.stringify(created));
+  const limit = Date.now() + 10000;
+  let records;
+  while (Date.now() < limit) {
+    records = (await client.request(method('native-schedules/catalog'), {})).records;
+    const delivered = records[0]?.lastDelivery;
+    const text = client.notifications.some(item => item.method === 'session/update' && item.params.sessionId === session.sessionId && item.params.update.sessionUpdate === 'agent_message_chunk');
+    if (delivered && text) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.ok(client.notifications.some(item => item.method === 'session/update' && item.params.update.sessionUpdate === 'user_message_chunk' && item.params.update._meta?.goose?.scheduled === true));
+  assert.equal(records.length, 1);
+  assert.equal(records[0].sessionId, session.sessionId);
+  assert.equal(records[0].status, 'inactive');
+  assert.ok(records[0].lastDelivery);
+  assert.equal(modelRequests.filter(request => request.stream).length, 1);
+  assert.ok(client.notifications.some(item => item.method === 'session/update' && item.params.sessionId === session.sessionId && item.params.update.sessionUpdate === 'agent_message_chunk'));
+  const history = await client.request(method('native-schedules/history'), { id: records[0].id, sessionId: session.sessionId, limit: 20 });
+  assert.equal(history.records.length, 1);
+  assert.match(history.records[0].prompt, /NATIVE_ACP_DELIVERY/);
+  await assert.rejects(client.request(method('schedules/create'), {
+    id: 'Retired authoring', cron: '* * * * *', recipe: { title: 'Legacy', description: '', prompt: 'fixture' },
+  }), /native DSH scheduling/);
+});
+
+
+test('archiving or deleting a chat stops its native reminders without recreating a timer', async t => {
+  const { client, root } = await fixture(t, {
+    realHarness: true,
+    onRequest: async () => ({ outcome: { outcome: 'selected', optionId: 'allow_once' } }),
+  });
+  for (const operation of ['archive', 'delete']) {
+    const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [] });
+    const result = await client.request(method('tools/call'), { sessionId, name: 'schedule_create',
+      arguments: { title: `Native ${operation} fixture`, prompt: 'Synthetic future reminder', every_seconds: 3600 } });
+    assert.equal(result.isError, false, JSON.stringify(result));
+    assert.equal((await client.request(method('native-schedules/catalog'), {})).records.length, 1);
+    await client.request(operation === 'delete' ? 'session/delete' : method('session/archive'), { sessionId });
+    assert.deepEqual((await client.request(method('native-schedules/catalog'), {})).records, []);
+    if (operation === 'archive') {
+      await client.request(method('session/unarchive'), { sessionId });
+      assert.deepEqual((await client.request(method('native-schedules/catalog'), {})).records, [], 'unarchiving must not re-arm removed tasks');
+    }
+  }
+});
+
+
+test('a reminder due during a human turn waits in the native inbox without interrupting it', { timeout: 20000 }, async t => {
+  const firstStarted = Promise.withResolvers(), release = Promise.withResolvers();
+  let count = 0;
+  const { client, root, modelRequests } = await fixture(t, {
+    realHarness: true,
+    onRequest: async () => ({ outcome: { outcome: 'selected', optionId: 'allow_once' } }),
+    onModelRequest: async () => { if (++count === 1) { firstStarted.resolve(); await release.promise; } },
+  });
+  t.after(() => release.resolve());
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [] });
+  const result = await client.request(method('tools/call'), { sessionId, name: 'schedule_create',
+    arguments: { title: 'Busy-turn fixture', prompt: 'NATIVE_BUSY_REMINDER', after_seconds: 1 } });
+  assert.equal(result.isError, false, JSON.stringify(result));
+  const human = client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'HUMAN_TURN_KEEP_RUNNING' }] });
+  await firstStarted.promise;
+  try {
+    const limit = Date.now() + 7000;
+    while (Date.now() < limit) {
+      const catalog = (await client.request(method('native-schedules/catalog'), {})).records;
+      if (catalog[0]?.lastDelivery) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.ok((await client.request(method('native-schedules/catalog'), {})).records[0]?.lastDelivery);
+    assert.equal(count, 1, 'the reminder must not cancel or start a parallel model call');
+  } finally { release.resolve(); }
+  assert.equal((await human).stopReason, 'end_turn');
+  const limit = Date.now() + 7000;
+  while (Date.now() < limit && count < 2) await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(count, 2);
+  assert.match(JSON.stringify(modelRequests.filter(request => request.stream)[1].messages), /NATIVE_BUSY_REMINDER/);
+  assert.ok(client.notifications.some(item => item.method === 'session/update' &&
+    item.params.update.sessionUpdate === 'user_message_chunk' &&
+    JSON.stringify(item.params.update).includes('NATIVE_BUSY_REMINDER')));
+});
+
+test('native pause and chat resume share state and deliver once in the original chat', { timeout: 20000 }, async t => {
+  const { client, root, modelRequests } = await fixture(t, { realHarness: true });
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [] });
+  const created = await client.request(method('tools/call'), { sessionId, name: 'schedule_create',
+    arguments: { title: 'Pause resume integration', prompt: 'PAUSE_RESUME_ORIGINAL_CHAT', after_seconds: 3 } });
+  assert.equal(created.isError, false, JSON.stringify(created));
+  const [original] = (await client.request(method('native-schedules/catalog'), {})).records;
+  const { sessionId: _session, status, lastDelivery: _delivery, ...expected } = original;
+  const paused = await client.request(method('native-schedules/set-paused'), {
+    id: original.id, sessionId, expected, expectedStatus: status, paused: true,
+  });
+  assert.equal(paused.status, 'paused');
+  assert.equal((await client.request(method('native-schedules/catalog'), {})).records[0].status, 'paused');
+  assert.equal(modelRequests.filter(request => request.stream).length, 0);
+  const resumed = await client.request(method('tools/call'), { sessionId, name: 'schedule_resume', arguments: { id: original.id } });
+  assert.equal(resumed.isError, false, JSON.stringify(resumed));
+  assert.equal((await client.request(method('native-schedules/catalog'), {})).records[0].scheduledAt, original.scheduledAt);
+  const limit = Date.now() + 10000;
+  let records;
+  while (Date.now() < limit) {
+    records = (await client.request(method('native-schedules/catalog'), {})).records;
+    if (records[0]?.lastDelivery && client.notifications.some(item => item.method === 'session/update' &&
+      item.params.sessionId === sessionId && item.params.update.sessionUpdate === 'agent_message_chunk')) break;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  assert.equal(records.length, 1);
+  assert.equal(records[0].id, original.id);
+  assert.equal(records[0].sessionId, sessionId);
+  assert.equal(records[0].status, 'inactive');
+  assert.equal(modelRequests.filter(request => request.stream).length, 1);
+  assert.ok(client.notifications.some(item => item.method === 'session/update' && item.params.sessionId === sessionId &&
+    item.params.update.sessionUpdate === 'agent_message_chunk'));
+  const history = await client.request(method('native-schedules/history'), { sessionId, id: original.id, limit: 20 });
+  assert.equal(history.records.length, 1);
+  assert.match(history.records[0].prompt, /PAUSE_RESUME_ORIGINAL_CHAT/);
+  assert.equal(client.reverseRequests.length, 0, 'reminder controls must not introduce an approval dialog');
+});
+
+test('pausing an admitted recurring reminder preserves its running turn and delivery history', { timeout: 20000 }, async t => {
+  const started = Promise.withResolvers(), release = Promise.withResolvers();
+  const { client, root, modelRequests } = await fixture(t, {
+    realHarness: true,
+    onModelRequest: async () => { started.resolve(); await release.promise; },
+  });
+  t.after(() => { release.resolve(); t.mock.timers.reset(); });
+  const { sessionId } = await client.request('session/new', { cwd: root, mcpServers: [] });
+  // Move the clock, not task storage: a native text edit wakes the overdue timer.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() - 61000 });
+  const created = await client.request(method('tools/call'), { sessionId, name: 'schedule_create',
+    arguments: { title: 'In-flight recurring fixture', prompt: 'KEEP_RUNNING_WHEN_PAUSED', every_seconds: 60 } });
+  assert.equal(created.isError, false, JSON.stringify(created));
+  t.mock.timers.reset();
+  const [original] = (await client.request(method('native-schedules/catalog'), {})).records;
+  const { sessionId: _session, status: _status, lastDelivery: _last, ...expected } = original;
+  await client.request(method('native-schedules/update'), { id: original.id, sessionId, expected, title: 'Due recurring fixture' });
+  await started.promise;
+  try {
+    const [running] = (await client.request(method('native-schedules/catalog'), {})).records;
+    const { sessionId: _runningSession, status: runningStatus, lastDelivery: _runningDelivery, ...runningRule } = running;
+    // The button uses the control RPC while the ordinary transcript turn is busy.
+    const result = await client.request(method('native-schedules/set-paused'), {
+      id: running.id, sessionId, expected: runningRule, expectedStatus: runningStatus, paused: true,
+    });
+    assert.equal(result.status, 'paused');
+    const [paused] = (await client.request(method('native-schedules/catalog'), {})).records;
+    assert.equal(paused.status, 'paused');
+    assert.ok(paused.lastDelivery);
+    const history = await client.request(method('native-schedules/history'), { sessionId, id: original.id, limit: 20 });
+    assert.equal(history.records.length, 1);
+    release.resolve();
+    const limit = Date.now() + 7000;
+    while (Date.now() < limit && !client.notifications.some(item => item.method === 'session/update' &&
+      item.params.sessionId === sessionId && item.params.update.sessionUpdate === 'agent_message_chunk'))
+      await new Promise(resolve => setTimeout(resolve, 50));
+    assert.ok(client.notifications.some(item => item.method === 'session/update' &&
+      item.params.sessionId === sessionId && item.params.update.sessionUpdate === 'agent_message_chunk'), 'pause must not cancel admitted work');
+    assert.equal(modelRequests.filter(request => request.stream).length, 1);
+    const { sessionId: _pausedSession, status: pausedStatus, lastDelivery: _pausedDelivery, ...pausedRule } = paused;
+    const resumed = await client.request(method('native-schedules/set-paused'), {
+      id: paused.id, sessionId, expected: pausedRule, expectedStatus: pausedStatus, paused: false,
+    });
+    assert.equal(resumed.status, 'active');
+    const [active] = (await client.request(method('native-schedules/catalog'), {})).records;
+    assert.equal(active.id, paused.id);
+    assert.equal(active.status, 'active');
+    assert.equal(active.scheduledAt, paused.scheduledAt);
+    assert.deepEqual(active.lastDelivery, paused.lastDelivery);
+    assert.deepEqual(await client.request(method('native-schedules/history'), { sessionId, id: original.id, limit: 20 }), history);
+    assert.equal(client.reverseRequests.length, 0);
+  } finally { release.resolve(); }
+});

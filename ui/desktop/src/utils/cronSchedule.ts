@@ -1,6 +1,15 @@
 import cronstrue from 'cronstrue';
 
-export type Period = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
+export type Period =
+  | 'minute'
+  | 'hour'
+  | 'day'
+  | 'weekdays'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
+  | 'custom';
 
 export const quarterMonthsByStartMonth: Record<string, string> = {
   '1': '1,4,7,10',
@@ -129,6 +138,15 @@ export const parseCron = (cron: string): ParsedCron => {
     }
     return { period: 'month', second, minute, hour, dayOfMonth, month, dayOfWeek };
   }
+  if (
+    month === '*' &&
+    dayOfMonth === '*' &&
+    (dayOfWeek === '1-5' || dayOfWeek === '1,2,3,4,5') &&
+    isSingleNumericValue(hour) &&
+    isSingleNumericValue(minute)
+  ) {
+    return { period: 'weekdays', second, minute, hour, dayOfMonth, month, dayOfWeek };
+  }
   if (dayOfWeek !== '*') {
     if (!isSingleNumericValue(dayOfWeek)) {
       return asCustomCron(parts);
@@ -170,6 +188,8 @@ export const buildCronForPeriod = ({
       return `${second} ${minute} * * * *`;
     case 'day':
       return `${second} ${minute} ${hour24} * * *`;
+    case 'weekdays':
+      return `${second} ${minute} ${hour24} * * 1-5`;
     case 'week':
       return `${second} ${minute} ${hour24} * * ${dayOfWeek}`;
     case 'month':

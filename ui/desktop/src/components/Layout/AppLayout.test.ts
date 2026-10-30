@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   getCodeProChatInset,
   getCodeProTaskPanelLayout,
@@ -8,6 +8,12 @@ import {
   shouldRestoreNavigationForWorkspace,
   shouldShowCodeProTaskPanel,
 } from './AppLayout';
+
+// Geometry tests do not mount the document renderer's build-time virtual modules.
+vi.mock('../../workspace-panel/dshDocumentRenderer', () => ({
+  loadDshDocumentRenderer: vi.fn(),
+  DshDocumentRenderer: () => null,
+}));
 
 describe('readCodeProTaskPanelPreferences', () => {
   it('restores only valid boolean and bounded numeric preferences', () => {

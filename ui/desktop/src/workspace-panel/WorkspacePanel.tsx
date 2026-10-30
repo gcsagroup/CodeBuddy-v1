@@ -1,3 +1,4 @@
+import { PanelResizeHandle } from './PanelResizeHandle';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
@@ -28,7 +29,6 @@ import {
 } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
-import { cn } from '../utils';
 import { formatShortcut } from '../utils/keyboardShortcuts';
 import { useAcpChatSessionSnapshot } from '../acp/chatSessionStore';
 import MarkdownContent from '../components/MarkdownContent';
@@ -313,8 +313,6 @@ export function WorkspacePanelContent({
   useEffect(() => () => pendingConfirmation.current?.(false), []);
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
-  const resizeCleanup = useRef<(() => void) | undefined>(undefined);
-  useEffect(() => () => resizeCleanup.current?.(), []);
   const [treeOpen, setTreeOpen] = useState(false);
   const [conversationRevision, setConversationRevision] = useState(0);
   const [wrap, setWrap] = useState(false);
@@ -1092,64 +1090,14 @@ export function WorkspacePanelContent({
         onConfirm={() => resolveConfirmation(true)}
         onCancel={() => resolveConfirmation(false)}
       />
-      <div
-        role="separator"
-        aria-label={intl.formatMessage(m.resize)}
-        aria-orientation="vertical"
-        aria-valuenow={Math.round(width)}
-        tabIndex={0}
-        className="no-drag group absolute left-0 top-0 bottom-0 z-30 w-1.5 cursor-col-resize touch-none outline-none"
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            e.preventDefault();
-            if (chatCollapsed && e.key === 'ArrowRight') onChatCollapsedChange?.(false);
-            else onWidthChange?.(width + (e.key === 'ArrowLeft' ? 32 : -32));
-          } else if (e.key === 'Home') {
-            e.preventDefault();
-            onResetWidth?.();
-          }
-        }}
-        onDoubleClick={onResetWidth}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          e.preventDefault();
-          resizeCleanup.current?.();
-          const start = e.clientX;
-          const target = e.currentTarget;
-          target.setPointerCapture(e.pointerId);
-          let requested = width;
-          // eslint-disable-next-line no-undef
-          const move = (event: PointerEvent) => {
-            requested = width + start - event.clientX;
-            onWidthChange?.(requested, false);
-          };
-          const cleanup = () => {
-            target.removeEventListener('pointermove', move);
-            target.removeEventListener('pointerup', stop);
-            target.removeEventListener('pointercancel', stop);
-            target.removeEventListener('lostpointercapture', stop);
-            resizeCleanup.current = undefined;
-          };
-          // eslint-disable-next-line no-undef
-          const stop = (event: PointerEvent) => {
-            cleanup();
-            onWidthChange?.(event.type === 'pointerup' ? requested : width);
-          };
-          resizeCleanup.current = cleanup;
-          target.addEventListener('pointermove', move);
-          target.addEventListener('pointerup', stop);
-          target.addEventListener('pointercancel', stop);
-          target.addEventListener('lostpointercapture', stop);
-        }}
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'absolute inset-y-0 left-0 w-px bg-transparent transition-colors group-hover:bg-blue-500 group-focus-visible:bg-blue-500',
-            resizing && 'bg-blue-500'
-          )}
-        />
-      </div>
+      <PanelResizeHandle
+        width={width}
+        resizing={resizing}
+        chatCollapsed={chatCollapsed}
+        onWidthChange={onWidthChange}
+        onChatCollapsedChange={onChatCollapsedChange}
+        onResetWidth={onResetWidth}
+      />
       <header className="wb-header">
         <button
           className="wb-icon"

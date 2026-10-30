@@ -65,6 +65,7 @@ export function applyContentChunk(
       metadata: {
         ...DEFAULT_VISIBLE_MESSAGE_METADATA,
         ...(gooseMeta.steer ? { steer: true } : {}),
+        ...(role === 'user' && gooseMeta.scheduled ? { scheduled: true } : {}),
         ...(role === 'user' && gooseMeta.presentation
           ? { presentation: gooseMeta.presentation }
           : {}),

@@ -54,7 +54,28 @@ export function createConversationDriver(driver, store) {
     const actual = nativeId(id);
     return lock(id, () => driver.prompt(actual, content, callbacks(options, actual, id)));
   }
+  // Native task catalogs need identity metadata, never transcript payloads.
+  // Take one committed mapping per catalog, not one full history clone per task.
+  const productIds = () => new Map(store.read(['sessions'], {
+    sessionFields: ['id', 'nativeSessionId'],
+  }).sessions.map(session => [session.nativeSessionId ?? session.id, session.id]));
+  const productId = actual => productIds().get(actual) ?? actual;
   const methods = {
+    startNativeSchedules(options) {
+      return driver.startNativeSchedules({
+        ...options,
+        prepareSession: id => options.prepareSession(productId(id)),
+        observe: input => options.observe({ ...input, sessionId: productId(input.sessionId) }),
+      });
+    },
+    async nativeScheduleRequest(action, input = {}) {
+      const result = await driver.nativeScheduleRequest(action, {
+        ...input, ...(input.sessionId ? { sessionId: nativeId(input.sessionId) } : {}),
+      });
+      if (action !== 'catalog') return result;
+      const ids = productIds();
+      return { ...result, records: result.records.map(record => ({ ...record, sessionId: ids.get(record.sessionId) ?? record.sessionId })) };
+    },
     nativeSessionId: nativeId,
     withConversationLock: lock,
     isConversationBusy: id => busy.has(id) || waitingPrompts.has(id),
@@ -97,7 +118,7 @@ export function createConversationDriver(driver, store) {
       for await (const value of driver.follow(actual, signal)) yield project(value, actual, id);
     },
     async listSessions() {
-      const sessions = store.read().sessions;
+      const sessions = store.read(['sessions'], { sessionFields: ['id', 'nativeSessionId', 'conversationEdits', 'directoryChanges'] }).sessions;
       const current = new Map(sessions.map(s => [s.nativeSessionId ?? s.id, s.id]));
       const retired = new Set(sessions.flatMap(s => [...(s.conversationEdits ?? []), ...(s.directoryChanges ?? [])].map(edit => edit.previousNativeSessionId)));
       return (await driver.listSessions()).filter(s => !retired.has(s.id ?? s.sessionId) || current.has(s.id ?? s.sessionId)).map(s => {
@@ -106,5 +127,9 @@ export function createConversationDriver(driver, store) {
       });
     },
   };
+  // Optional native scheduling must remain absent on ACP-only and legacy
+  // drivers; the conversation projection cannot manufacture a capability.
+  for (const key of ['startNativeSchedules', 'nativeScheduleRequest'])
+    if (typeof driver[key] !== 'function') delete methods[key];
   return new Proxy(driver, { get(target, key) { return Object.hasOwn(methods, key) ? methods[key] : typeof target[key] === 'function' ? target[key].bind(target) : target[key]; } });
 }

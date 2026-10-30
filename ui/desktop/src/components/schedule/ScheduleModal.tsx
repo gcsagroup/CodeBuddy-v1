@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, FormEvent, useCallback } from 'react';
-import type { ScheduledJobDto } from '@aaif/goose-sdk';
+import type { ScheduledJobDto, RecipeSettingsDto } from '@aaif/goose-sdk';
+import { ScheduleModelControls } from './ScheduleModelControls';
+import { ScheduleChatPicker } from './ScheduleChatPicker';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/dialog';
 import { Switch } from '../ui/switch';
 import { ChevronDown } from 'lucide-react';
 import { FriendlySchedulePicker } from './FriendlySchedulePicker';
-import { Recipe, parseDeeplink, parseRecipeFromFile } from '../../recipe';
-import { getStorageDirectory } from '../../recipe/recipe_management';
+import { Recipe, parseDeeplink } from '../../recipe';
 import { defineMessages, useIntl } from '../../i18n';
 import type { WorkspaceMode } from '../../utils/navigationUtils';
 
@@ -19,7 +19,7 @@ const i18n = defineMessages({
     defaultMessage: 'Describe what to do on each run, what to report, and when to stop.',
   },
   destination: { id: 'scheduleModal.destination', defaultMessage: 'Run in' },
-  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'A new chat each time' },
+  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'Open a new chat on every run' },
   currentSession: {
     id: 'scheduleModal.currentSession',
     defaultMessage: 'Follow up in the current chat',
@@ -29,32 +29,14 @@ const i18n = defineMessages({
     defaultMessage:
       'Uses this chat’s history, model and permissions. Busy runs are skipped. Deleting the chat pauses the task.',
   },
-  newHint: {
-    id: 'scheduleModal.newHint',
-    defaultMessage: 'Each run starts independently using the configured default model.',
-  },
   noCurrentChat: {
     id: 'scheduleModal.noCurrentChat',
-    defaultMessage: 'Open a chat first to create a follow-up.',
+    defaultMessage: 'Choose a chat for this follow-up.',
   },
   editSchedule: { id: 'scheduleModal.editSchedule', defaultMessage: 'Edit Schedule' },
   createNewSchedule: {
     id: 'scheduleModal.createNewSchedule',
     defaultMessage: 'Set up an automatic task',
-  },
-  nameLabel: { id: 'scheduleModal.nameLabel', defaultMessage: 'Name:' },
-  namePlaceholder: {
-    id: 'scheduleModal.namePlaceholder',
-    defaultMessage: 'e.g., daily-summary-job',
-  },
-  sourceLabel: { id: 'scheduleModal.sourceLabel', defaultMessage: 'Source:' },
-  yaml: { id: 'scheduleModal.yaml', defaultMessage: 'YAML' },
-  deepLink: { id: 'scheduleModal.deepLink', defaultMessage: 'Deep link' },
-  browseYaml: { id: 'scheduleModal.browseYaml', defaultMessage: 'Browse for YAML file...' },
-  selected: { id: 'scheduleModal.selected', defaultMessage: 'Selected: {path}' },
-  deepLinkPlaceholder: {
-    id: 'scheduleModal.deepLinkPlaceholder',
-    defaultMessage: 'Paste codebuddy://recipe link here...',
   },
   recipeParsed: { id: 'scheduleModal.recipeParsed', defaultMessage: 'Recipe parsed successfully' },
   recipeTitle: { id: 'scheduleModal.recipeTitle', defaultMessage: 'Title: {title}' },
@@ -75,18 +57,6 @@ const i18n = defineMessages({
   invalidDeepLink: {
     id: 'scheduleModal.invalidDeepLink',
     defaultMessage: 'Invalid deep link. Please use a codebuddy://recipe link.',
-  },
-  failedReadFile: {
-    id: 'scheduleModal.failedReadFile',
-    defaultMessage: 'Failed to read the selected file.',
-  },
-  failedParseRecipe: {
-    id: 'scheduleModal.failedParseRecipe',
-    defaultMessage: 'Failed to parse recipe from file.',
-  },
-  invalidFileType: {
-    id: 'scheduleModal.invalidFileType',
-    defaultMessage: 'Invalid file type: Please select a YAML file (.yaml or .yml)',
   },
   scheduleIdRequired: {
     id: 'scheduleModal.scheduleIdRequired',
@@ -122,9 +92,7 @@ interface ScheduleModalProps {
   currentChat?: { id: string; name: string };
 }
 
-type SourceType = 'prompt' | 'file' | 'deeplink';
-
-const modalLabelClassName = 'block text-sm text-text-primary mb-2';
+type SourceType = 'prompt' | 'deeplink';
 
 export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
@@ -140,33 +108,22 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const intl = useIntl();
   const isEditMode = !!schedule;
 
-  const [scheduleId, setScheduleId] = useState<string>('');
   const [sourceType, setSourceType] = useState<SourceType>('prompt');
   const [prompt, setPrompt] = useState('');
+  const [selectedChat, setSelectedChat] = useState<{ id: string; name: string }>();
+  const followChat = selectedChat ?? currentChat;
+  const [modelSettings, setModelSettings] = useState<RecipeSettingsDto | undefined>();
   const [executionMode, setExecutionMode] = useState<'new_session' | 'current_session'>(
     'new_session'
   );
-  const [recipeSourcePath, setRecipeSourcePath] = useState<string>('');
-  const [deepLinkInput, setDeepLinkInput] = useState<string>('');
   const [parsedRecipe, setParsedRecipe] = useState<Recipe | null>(null);
   const [cronExpression, setCronExpression] = useState<string>('0 0 14 * * *');
   const [internalValidationError, setInternalValidationError] = useState<string | null>(null);
   const [isValid, setIsValid] = useState(true);
   const initializedForm = useRef<string | null>(null);
 
-  const setScheduleIdFromTitle = (title: string) => {
-    const cleanId = title
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}-]/gu, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-    // Parsing is asynchronous; never replace a name the user has already entered.
-    setScheduleId((current) => (current.trim() ? current : cleanId));
-  };
-
   const handleDeepLinkChange = useCallback(
     async (value: string) => {
-      setDeepLinkInput(value);
       setInternalValidationError(null);
 
       if (value.trim()) {
@@ -174,9 +131,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
           const recipe = await parseDeeplink(value.trim());
           if (!recipe) throw new Error();
           setParsedRecipe(recipe);
-          if (recipe.title) {
-            setScheduleIdFromTitle(recipe.title);
-          }
         } catch {
           setParsedRecipe(null);
           setInternalValidationError(intl.formatMessage(i18n.invalidDeepLink));
@@ -200,15 +154,13 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     initializedForm.current = identity;
     if (isOpen) {
       if (schedule) {
-        setScheduleId(schedule.id);
         setCronExpression(schedule.cron);
       } else {
-        setScheduleId('');
         setSourceType('prompt');
         setPrompt('');
+        setModelSettings(undefined);
+        setSelectedChat(undefined);
         setExecutionMode('new_session');
-        setRecipeSourcePath('');
-        setDeepLinkInput('');
         setParsedRecipe(null);
         setCronExpression('0 0 14 * * *');
         setInternalValidationError(null);
@@ -220,39 +172,6 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
   }, [isOpen, isLoadingExternally, schedule, initialDeepLink, handleDeepLinkChange]);
 
-  const handleBrowseFile = async () => {
-    const defaultPath = getStorageDirectory(true);
-    const filePath = await window.electron.selectFileOrDirectory(defaultPath);
-    if (filePath) {
-      if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
-        setRecipeSourcePath(filePath);
-        setInternalValidationError(null);
-
-        try {
-          const fileResponse = await window.electron.readFile(filePath);
-          if (!fileResponse.found || fileResponse.error) {
-            throw new Error(intl.formatMessage(i18n.failedReadFile));
-          }
-          const recipe = await parseRecipeFromFile(fileResponse.file);
-          if (!recipe) {
-            throw new Error(intl.formatMessage(i18n.failedParseRecipe));
-          }
-          setParsedRecipe(recipe);
-          if (recipe.title) {
-            setScheduleIdFromTitle(recipe.title);
-          }
-        } catch (e) {
-          setParsedRecipe(null);
-          setInternalValidationError(
-            e instanceof Error ? e.message : intl.formatMessage(i18n.failedParseRecipe)
-          );
-        }
-      } else {
-        setInternalValidationError(intl.formatMessage(i18n.invalidFileType));
-      }
-    }
-  };
-
   const handleLocalSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setInternalValidationError(null);
@@ -262,14 +181,12 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       return;
     }
 
-    const name =
-      scheduleId.trim() ||
-      (sourceType === 'prompt' ? prompt : (parsedRecipe?.title ?? ''))
-        .trim()
-        .split(/\r?\n/u)[0]
-        .replace(/[\\/\0]/gu, ' ')
-        .trim()
-        .slice(0, 60);
+    const name = (sourceType === 'prompt' ? prompt : (parsedRecipe?.title ?? ''))
+      .trim()
+      .split(/\r?\n/u)[0]
+      .replace(/[\\/\0]/gu, ' ')
+      .trim()
+      .slice(0, 60);
     if (!name) {
       setInternalValidationError(intl.formatMessage(i18n.scheduleIdRequired));
       return;
@@ -288,20 +205,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setInternalValidationError(intl.formatMessage(i18n.provideValidRecipe));
       return;
     }
-    if (executionMode === 'current_session' && !currentChat?.id) {
+    if (executionMode === 'current_session' && !followChat?.id) {
       setInternalValidationError(intl.formatMessage(i18n.noCurrentChat));
       return;
     }
 
     const newSchedulePayload: NewSchedulePayload = {
       id: name,
-      recipe,
+      recipe:
+        executionMode === 'new_session' && modelSettings
+          ? { ...recipe, settings: { ...recipe.settings, ...modelSettings } }
+          : recipe,
       cron: cronExpression,
       workspaceMode,
       paused: true,
       tested: false,
       executionMode,
-      ...(executionMode === 'current_session' ? { targetSessionId: currentChat!.id } : {}),
+      ...(executionMode === 'current_session' ? { targetSessionId: followChat!.id } : {}),
     };
 
     await onSubmit(newSchedulePayload);
@@ -359,33 +279,8 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 />
               )}
 
-              {sourceType === 'file' && (
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBrowseFile}
-                    className="w-full justify-center rounded-full"
-                  >
-                    {intl.formatMessage(i18n.browseYaml)}
-                  </Button>
-                  {recipeSourcePath && (
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
-                      {intl.formatMessage(i18n.selected, { path: recipeSourcePath })}
-                    </p>
-                  )}
-                </div>
-              )}
-
               {sourceType === 'deeplink' && (
                 <div>
-                  <Input
-                    type="text"
-                    value={deepLinkInput}
-                    onChange={(e) => handleDeepLinkChange(e.target.value)}
-                    placeholder={intl.formatMessage(i18n.deepLinkPlaceholder)}
-                    className="rounded-xl"
-                  />
                   {parsedRecipe && (
                     <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/30 rounded-md border border-green-500/50">
                       <p className="text-xs text-green-700 dark:text-green-300 font-medium">
@@ -419,75 +314,40 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 <ChevronDown className="size-3 transition-transform duration-200 group-open/advanced:rotate-180" />
               </summary>
               <div className="space-y-3">
-                <div className="rounded-2xl border border-border-primary px-4 py-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <label htmlFor="schedule-new-chat" className="text-sm text-text-primary">
-                      {intl.formatMessage(i18n.newSession)}
-                    </label>
-                    <Switch
-                      id="schedule-new-chat"
-                      variant="mono"
-                      checked={executionMode === 'new_session'}
-                      disabled={!currentChat?.id}
-                      onCheckedChange={(checked) => {
-                        setExecutionMode(checked ? 'new_session' : 'current_session');
-                        if (!checked) setSourceType('prompt');
-                      }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-text-secondary">
-                    {executionMode === 'current_session' && currentChat?.name && (
-                      <span className="block truncate" title={currentChat.name}>
-                        {currentChat.name}
-                      </span>
-                    )}
-                    {intl.formatMessage(
-                      executionMode === 'current_session' ? i18n.followHint : i18n.newHint
-                    )}
-                  </p>
-                  {!currentChat?.id && (
-                    <p className="mt-1 text-xs text-text-secondary">
-                      {intl.formatMessage(i18n.noCurrentChat)}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-2xl border border-border-primary px-4 py-3">
-                  <label htmlFor="scheduleId-modal" className={modalLabelClassName}>
-                    {intl.formatMessage(i18n.nameLabel)}
+                <div className="flex min-h-12 items-center justify-between gap-4 rounded-2xl border border-border-primary px-4 py-2">
+                  <label htmlFor="schedule-new-chat" className="text-sm text-text-primary">
+                    {intl.formatMessage(i18n.newSession)}
                   </label>
-                  <Input
-                    id="scheduleId-modal"
-                    value={scheduleId}
-                    onChange={(e) => setScheduleId(e.target.value)}
-                    placeholder={intl.formatMessage(i18n.namePlaceholder)}
-                    className="h-9 rounded-lg text-sm"
+                  <Switch
+                    id="schedule-new-chat"
+                    variant="mono"
+                    className="h-5 w-8 data-[state=checked]:bg-blue-500 [&>span]:h-4 [&>span]:w-4"
+                    checked={executionMode === 'new_session'}
+                    onCheckedChange={(checked) => {
+                      setExecutionMode(checked ? 'new_session' : 'current_session');
+                      if (!checked) setSourceType('prompt');
+                    }}
                   />
                 </div>
-                <div className="rounded-2xl border border-border-primary px-4 py-3">
-                  <span className={modalLabelClassName}>
-                    {intl.formatMessage(i18n.sourceLabel)}
-                  </span>
-                  <div className="flex flex-wrap gap-1 rounded-xl bg-background-secondary p-1">
-                    {(['prompt', 'file', 'deeplink'] as const).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        disabled={type !== 'prompt' && executionMode === 'current_session'}
-                        aria-pressed={sourceType === type}
-                        onClick={() => setSourceType(type)}
-                        className={`flex-1 rounded-lg px-3 py-1.5 text-xs transition-colors disabled:opacity-40 ${sourceType === type ? 'bg-background-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-                      >
-                        {intl.formatMessage(
-                          type === 'prompt'
-                            ? i18n.prompt
-                            : type === 'file'
-                              ? i18n.yaml
-                              : i18n.deepLink
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {executionMode === 'current_session' && (
+                  <ScheduleChatPicker
+                    value={followChat}
+                    onChange={setSelectedChat}
+                    workspaceMode={workspaceMode}
+                  />
+                )}
+                {(executionMode === 'new_session' || followChat?.id) && (
+                  <ScheduleModelControls
+                    value={modelSettings ?? parsedRecipe?.settings}
+                    onChange={setModelSettings}
+                    followChatId={executionMode === 'current_session' ? followChat?.id : undefined}
+                  />
+                )}
+                {executionMode === 'current_session' && (
+                  <p className="px-1 text-xs leading-5 text-text-secondary">
+                    {intl.formatMessage(followChat?.id ? i18n.followHint : i18n.noCurrentChat)}
+                  </p>
+                )}
               </div>
             </details>
           )}
@@ -509,6 +369,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
             disabled={
               isLoadingExternally ||
               !isValid ||
+              (!isEditMode && executionMode === 'current_session' && !followChat?.id) ||
               (!isEditMode && (sourceType === 'prompt' ? !prompt.trim() : !parsedRecipe))
             }
             className="h-9 rounded-full px-5 text-sm"

@@ -485,3 +485,13 @@ test("schedule extension credentials are protected at rest and restored only for
   assert.equal(runs[0].protectedRecipeExtensions, undefined);
   assert.deepEqual(store.read().schedules[0].recipe.extensions, []);
 });
+
+test('weekday schedules skip the weekend and preserve recipe-local effort without accepting chat overrides', async (t) => {
+  const { call, store, setTime } = await fixture(t);
+  setTime('2026-10-16T02:00:00.000Z');
+  await call('create', { id: 'weekday-task', cron: '0 0 9 * * 1-5', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } });
+  assert.equal(store.read().schedules[0].nextRun, '2026-10-19T01:00:00.000Z');
+  assert.equal(store.read().schedules[0].recipe.settings.goose_thinking_effort, 'high');
+  await assert.rejects(call('create', { id: 'invalid-effort', cron: '* * * * *', recipe: { ...recipe, settings: { goose_thinking_effort: 'invented' } } }), /Invalid scheduled recipe/);
+  await assert.rejects(call('create', { id: 'chat-override', cron: '* * * * *', executionMode: 'current_session', targetSessionId: 'chat', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } }), /existing model and tools/);
+});

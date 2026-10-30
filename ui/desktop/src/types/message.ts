@@ -224,6 +224,7 @@ export type MessageMetadata = {
   agentVisible: boolean;
   // Presentation only: a queued request is not yet admitted to the model.
   pendingDelivery?: 'pending' | 'unconfirmed';
+  scheduled?: true;
   presentation?: { afterMessageId: string };
   inference?: InferenceMetadata | null;
   steer?: boolean;

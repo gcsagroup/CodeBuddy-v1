@@ -7048,6 +7048,23 @@
             "null"
           ],
           "minimum": 0
+        },
+        "goose_thinking_effort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            null
+          ],
+          "description": "Optional recipe-local reasoning effort. Omitted or null inherits model defaults without changing global preferences."
         }
       }
     },
@@ -7514,13 +7531,22 @@
       "properties": {
         "executionMode": {
           "type": "string",
-          "enum": ["new_session", "current_session"]
+          "enum": [
+            "new_session",
+            "current_session"
+          ]
         },
         "targetSessionId": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "lastError": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "id": {
           "type": "string"
@@ -7674,10 +7700,16 @@
       "properties": {
         "executionMode": {
           "type": "string",
-          "enum": ["new_session", "current_session"]
+          "enum": [
+            "new_session",
+            "current_session"
+          ]
         },
         "targetSessionId": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "id": {
           "type": "string"

@@ -1,3 +1,4 @@
+import { NATIVE_SCHEDULE_CHANGED } from '../components/schedule/scheduleEvents';
 import {
   DEFAULT_GOOSE_MCP_HOST_CAPABILITIES,
   GooseClient,
@@ -332,6 +333,10 @@ function createClientCallbacks(
     extMethod: async (method, params) => {
       if (method === '_codebuddy/browser/control') return controlWorkspaceBrowser(params, signal);
       throw new Error(`Unhandled desktop request: ${method}`);
+    },
+    extNotification: async (method) => {
+      if (method === '_goose/unstable/native-schedules/changed')
+        window.dispatchEvent(new Event(NATIVE_SCHEDULE_CHANGED));
     },
     requestPermission: (request) => requestAcpPermission(request, signal),
     unstable_createElicitation: (request) => requestAcpElicitation(request, signal),

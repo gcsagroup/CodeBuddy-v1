@@ -6,6 +6,10 @@ const hash = x => createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const notes = new Set(['Note', 'MarkdownNote']);
 const primitives = new Set(['PrimitiveString', 'PrimitiveStringMultiline', 'PrimitiveInt', 'PrimitiveFloat', 'PrimitiveBoolean']);
 const stages = { UNETLoader: 'model', CLIPLoader: 'clip', KSampler: 'sample', SamplerCustomAdvanced: 'sample', VAEDecode: 'decode', VAEDecodeTiled: 'decode', SaveImage: 'save', SaveImageAdvanced: 'save', SaveVideo: 'save', CreateVideo: 'video' };
+export const workflowParameterProperties = {
+  workflow_parameters: { type: 'array', maxItems: 32, description: 'Optional tuning for saved workflows only. Use exact parameter IDs and allowed values from inspect.tunable_parameters. Omitted controls retain saved defaults; never guess node IDs or replace graph links/models.',
+    items: { type: 'object', properties: { parameter: { type: 'string' }, value: { oneOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] } }, required: ['parameter', 'value'], additionalProperties: false } },
+};
 
 // Convert saved data, never evaluate extension code. Unsupported virtual widgets
 // remain an explicit compatibility error rather than permission to invent a graph.
@@ -141,6 +145,85 @@ function scalarSlot(graph, id, key) {
   if (value === undefined) throw new Error(`Missing parameter ${id}.${key}`);
   return [id, key];
 }
+function durationSlot(graph) {
+  const encoders = Object.values(graph).filter(n => ['MiniMaxH3ImageToVideo', 'MiniMaxH3ReferenceToVideo'].includes(n.class_type));
+  if (encoders.length !== 1) return null;
+  const length = encoders[0].inputs.length, expression = Array.isArray(length) ? graph[length[0]] : null;
+  const durations = expression?.class_type === 'ComfyMathExpression'
+    ? Object.values(expression.inputs).filter(Array.isArray).filter(v => graph[v[0]]?.class_type === 'PrimitiveFloat') : [];
+  return durations.length === 1 ? [durations[0][0], 'value'] : null;
+}
+
+// Only generation controls are writable. Files, models, prompts, expressions and
+// graph edges keep their existing dedicated binding/authorization paths.
+const tuningFields = {
+  KSampler: ['steps', 'cfg', 'sampler_name', 'scheduler', 'denoise'],
+  BasicScheduler: ['steps', 'scheduler', 'denoise'], KSamplerSelect: ['sampler_name'],
+  CFGGuider: ['cfg'], LoraLoaderModelOnly: ['strength_model'], LoraLoader: ['strength_model', 'strength_clip'],
+  MiniMaxH3ReferenceToVideo: ['ref_image_size'],
+};
+function tuningControls(compiled, graph, info) {
+  const controls = new Map();
+  function add(id, key, schema, binding) {
+    if (!schema) return;
+    const [rawType, settings = {}] = schema;
+    const options = Array.isArray(rawType) ? rawType : rawType === 'COMBO' ? settings.options : undefined;
+    const type = options ? 'enum' : ({ INT: 'integer', FLOAT: 'number', BOOLEAN: 'boolean' })[rawType];
+    if (!type || (options && options.some(v => !['string', 'number', 'boolean'].includes(typeof v)))) return;
+    if (compiled.ui && !compiled.origins.has(`${id}/${key}`)) return;
+    const value = graph[id]?.inputs[key];
+    if (!['string', 'number', 'boolean'].includes(typeof value)) return;
+    const parameter = `${id}/${key}`;
+    const rule = { type, ...(options ? { options } : {}),
+      ...(Number.isFinite(settings.min) ? { minimum: settings.min } : {}),
+      ...(Number.isFinite(settings.max) ? { maximum: settings.max } : {}) };
+    const control = controls.get(parameter) ?? { parameter, node: id, input: key, current: value, label: graph[id]._meta?.title ?? graph[id].class_type, constraints: [], bindings: [] };
+    control.constraints.push(rule); control.bindings.push(binding); controls.set(parameter, control);
+  }
+  function resolve(id, key, schema, binding, seen = new Set()) {
+    const token = `${id}/${key}`;
+    if (seen.has(token)) return;
+    seen = new Set([...seen, token]);
+    const value = graph[id]?.inputs[key];
+    if (!Array.isArray(value)) { add(id, key, schema, binding); return; }
+    const source = graph[value[0]];
+    if (value[1] !== 0) return;
+    if (primitives.has(source?.class_type)) add(value[0], 'value', schema, binding);
+    else if (source?.class_type === 'ComfySwitchNode') {
+      resolve(value[0], 'switch', ['BOOLEAN'], { ...binding, role: 'branch_switch' }, seen);
+      for (const branch of ['on_false', 'on_true']) resolve(value[0], branch, schema, { ...binding, branch }, seen);
+    }
+  }
+  for (const [id, node] of Object.entries(graph)) {
+    const fields = { ...info[node.class_type]?.input?.required, ...info[node.class_type]?.input?.optional };
+    for (const key of tuningFields[node.class_type] ?? []) {
+      if (Object.hasOwn(node.inputs, key)) resolve(id, key, fields[key], { node: id, type: node.class_type, input: key });
+    }
+  }
+  return [...controls.values()];
+}
+
+function applyTuning(compiled, spec, input, info) {
+  const overrides = input.workflow_parameters;
+  if (overrides === undefined) return;
+  if (!Array.isArray(overrides) || overrides.length > 32) throw new Error('workflow_parameters must contain at most 32 controls');
+  const controls = tuningControls(compiled, spec.graph, info), seen = new Set();
+  for (const override of overrides) {
+    if (!record(override) || Object.keys(override).some(k => !['parameter', 'value'].includes(k))) throw new Error('Invalid workflow parameter override');
+    const control = controls.find(c => c.parameter === override.parameter);
+    if (!control || seen.has(control.parameter)) throw new Error(`Unknown or duplicate workflow parameter: ${override.parameter}; inspect again`);
+    seen.add(control.parameter);
+    const value = override.value;
+    for (const rule of control.constraints) {
+      const validType = rule.type === 'enum' ? rule.options.includes(value)
+        : rule.type === 'boolean' ? typeof value === 'boolean'
+          : typeof value === 'number' && Number.isFinite(value) && (rule.type !== 'integer' || Number.isSafeInteger(value));
+      if (!validType || (rule.minimum !== undefined && value < rule.minimum) || (rule.maximum !== undefined && value > rule.maximum))
+        throw new Error(`Invalid value for workflow parameter ${control.parameter}; inspect its live constraints`);
+    }
+    compiled.set(control.node, control.input, value);
+  }
+}
 function describe(compiled, info) {
   const all = compiled.graph;
   const saves = Object.entries(all).filter(([,n]) => ['SaveImage', 'SaveImageAdvanced', 'SaveVideo'].includes(n.class_type));
@@ -182,6 +265,8 @@ export async function savedWorkflowCatalog(read, info, kind, mode, referenceCoun
       entries.push(entry);
       const compatible = spec.kind === kind && spec.mode === wanted && referenceCount <= spec.references.length;
       workflows.push({ id, label: file.replace(/\.json$/, ''), mode: spec.mode, source: `workflows/${file}`, compatible, dependencies_available: !spec.missing.length, missing: spec.missing, reference_slots: spec.references.length,
+        tunable_parameters: tuningControls(compiled, spec.graph, info),
+        ...(durationSlot(spec.graph) ? { duration_seconds: spec.graph[durationSlot(spec.graph)[0]].inputs.value } : {}),
         parameters: Object.entries(spec.graph).filter(([,n])=>['ResolutionSelector','KSampler','BasicScheduler','CreateVideo'].includes(n.class_type)).map(([node,n])=>({node,type:n.class_type,values:Object.fromEntries(Object.entries(n.inputs).filter(([,v])=>!Array.isArray(v)))})) });
     } catch (error) {
       blockers.push({ id, source: `workflows/${file}`, error: error.message });
@@ -201,6 +286,7 @@ export function selectSavedWorkflow(catalog, input) {
 }
 export function prepareSavedWorkflow(entry, input, references, jobId, info) {
   const compiled = compileSavedWorkflow(entry.source, info), spec = describe(compiled, info), graph = spec.graph;
+  applyTuning(compiled, spec, input, info);
   const set = (id,key,value)=>compiled.set(id,key,value);
   for (const [id,key] of spec.prompts) set(id,key,input.transparent_background ? `${input.prompt}\nTransparent background with an alpha channel. No background or ground shadow.` : input.prompt);
   for (const [id,n] of Object.entries(graph)) for (const key of ['seed','noise_seed']) if (Object.hasOwn(n.inputs,key)) {
@@ -222,12 +308,9 @@ export function prepareSavedWorkflow(entry, input, references, jobId, info) {
     }
   }
   if(input.duration_seconds!==undefined){
-    const encoders=Object.entries(graph).filter(([,n])=>['MiniMaxH3ImageToVideo','MiniMaxH3ReferenceToVideo'].includes(n.class_type));
-    if(encoders.length!==1)throw new Error('Requested duration cannot be bound to this saved workflow. No job submitted; do not silently use the saved duration.');
-    const length=encoders[0][1].inputs.length, expression=Array.isArray(length)?graph[length[0]]:null;
-    const durations=expression?.class_type==='ComfyMathExpression'?Object.values(expression.inputs).filter(Array.isArray).filter(v=>graph[v[0]]?.class_type==='PrimitiveFloat'):[];
-    if(durations.length!==1)throw new Error('Duration is not exposed as a unique seconds parameter');
-    set(durations[0][0],'value',input.duration_seconds);
+    const slot = durationSlot(graph);
+    if (!slot) throw new Error('Duration is not exposed as a unique seconds parameter');
+    set(...slot,input.duration_seconds);
   }
   return { graph, ui:compiled.ui, metadata:{id:entry.id,label:entry.file.replace(/\.json$/,''),source:`workflows/${entry.file}`,sha256:entry.sha256,save_node:spec.saveNode,stages:Object.fromEntries(Object.entries(graph).map(([id,n])=>[id,stages[n.class_type]??'prepare']))} };
 }

@@ -41,3 +41,28 @@ test('real WebSocket receives progress without requesting previews and releases/
   await watchMedia('fixture', `http://127.0.0.1:${server.address().port}`, job);
   assert.equal(mediaObservation('fixture').connected, true);
 });
+
+test('only real node or step changes advance the progress timestamp', t => {
+  let now = 1000;
+  t.mock.method(Date, 'now', () => now);
+  const state = {};
+  text(state, 'executing', { prompt_id: id, node: 'sample' });
+  assert.equal(state.updatedAt, 1000);
+  now = 2000;
+  text(state, 'progress', { prompt_id: id, node: 'sample', value: 1, max: 8 });
+  assert.equal(state.updatedAt, 2000);
+  now = 3000;
+  text(state, 'progress', { prompt_id: id, node: 'sample', value: 1, max: 8 });
+  text(state, 'executing', { prompt_id: id, node: 'sample' });
+  text(state, 'progress', { prompt_id: id, value: 9, max: 8 });
+  text(state, 'executing', { prompt_id: id });
+  text(state, 'status', { prompt_id: id });
+  assert.equal(state.updatedAt, 2000);
+  assert.equal(state.step, 1);
+  text(state, 'progress', { prompt_id: id, value: 2, max: 8 });
+  assert.equal(state.updatedAt, 3000);
+  now = 4000;
+  text(state, 'executing', { prompt_id: id, node: 'decode' });
+  assert.equal(state.updatedAt, 4000);
+  assert.equal(state.step, undefined);
+});

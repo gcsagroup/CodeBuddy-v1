@@ -6,6 +6,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { compileSavedWorkflow, savedWorkflowCatalog, selectSavedWorkflow, prepareSavedWorkflow } from '../comfyui-saved-workflows.mjs';
 import { comfyuiTool } from '../comfyui-tool.mjs';
+import { comfyuiVideoTool } from '../comfyui-video-tool.mjs';
 import { savedFixtureGraphs, savedFixtureInventory } from './comfyui-catalog-fixture.mjs';
 import { workflowCandidates } from '../comfyui-workflows.mjs';
 
@@ -33,6 +34,76 @@ function uiFixture() {
   };
 }
 const info = {...savedFixtureInventory,FixtureModel:{input:{required:{}},output:['MODEL']},SaveImage:{input:{required:{filename_prefix:['STRING']}},output:[]}};
+const tuningInfo = structuredClone(info);
+for (const [type, required] of Object.entries({
+  BasicScheduler: { steps: ['INT', { min: 1, max: 10000 }], scheduler: ['COMBO', { options: ['simple', 'karras'] }], denoise: ['FLOAT', { min: 0, max: 1 }] },
+  KSamplerSelect: { sampler_name: [['res_multistep', 'euler']] },
+  LoraLoaderModelOnly: { strength_model: ['FLOAT', { min: -100, max: 100 }] },
+  MiniMaxH3ReferenceToVideo: { ref_image_size: ['COMBO', { options: ['match', 'max'] }] },
+  KSampler: { steps: ['INT', { min: 1, max: 10000 }], seed: ['INT'] },
+})) tuningInfo[type] = { ...tuningInfo[type], input: { required } };
+
+test('all three supplied API video graph shapes expose and tune connected step branches, Turbo and LoRA without rewiring', async () => {
+  for (const [mode, count] of [['text_to_video', 0], ['image_to_video', 1], ['reference_to_video', 2]]) {
+    const spec = workflowCandidates('video', mode, count)[0], source = structuredClone(spec.graph);
+    const catalog = await savedWorkflowCatalog(reader({ 'clip.json': source }), tuningInfo, 'video', mode, count);
+    const visible = catalog.public.workflows[0], controls = visible.tunable_parameters;
+    assert.equal(visible.duration_seconds, source[spec.durationNode].inputs.value);
+    const turbo = controls.find(c => c.bindings.some(b => b.role === 'branch_switch'));
+    const fast = controls.find(c => c.bindings.some(b => b.input === 'steps' && b.branch === 'on_true'));
+    const full = controls.find(c => c.bindings.some(b => b.input === 'steps' && b.branch === 'on_false'));
+    const lora = controls.find(c => c.input === 'strength_model');
+    assert.ok(turbo && fast && full && lora);
+    const edits = [[turbo, true], [fast, 8], [full, 24], [lora, 0.75]];
+    const refs = Array.from({ length: count }, (_, i) => `ref-${i}.png`), entry = selectSavedWorkflow(catalog, {});
+    const baseline = prepareSavedWorkflow(entry, { prompt: 'Test', seed: 7 }, refs, 'job', tuningInfo);
+    const result = prepareSavedWorkflow(entry, { prompt: 'Test', seed: 7, duration_seconds: 30,
+      workflow_parameters: edits.map(([c, value]) => ({ parameter: c.parameter, value })) }, refs, 'job', tuningInfo);
+    const expected = structuredClone(baseline.graph);
+    expected[spec.durationNode].inputs.value = 30;
+    for (const [c, value] of edits) expected[c.node].inputs[c.input] = value;
+    assert.deepEqual(result.graph, expected);
+    assert.deepEqual(source, spec.graph);
+    assert.ok(controls.every(c => !['unet_name', 'clip_name', 'filename_prefix', 'expression', 'fps', 'prompt', 'image'].includes(c.input)));
+  }
+});
+
+test('tuning a promoted UI widget updates serialized layout and its execution graph consistently', async () => {
+  const source = uiFixture();
+  const catalog = await savedWorkflowCatalog(reader({ 'ui.json': source }), tuningInfo, 'image', undefined, 0);
+  const control = catalog.public.workflows[0].tunable_parameters.find(c => c.input === 'steps');
+  const prepared = prepareSavedWorkflow(selectSavedWorkflow(catalog, {}), { prompt: 'New', seed: 8,
+    workflow_parameters: [{ parameter: control.parameter, value: 12 }] }, [], 'job', tuningInfo);
+  assert.equal(prepared.graph['2:11'].inputs.steps, 12);
+  assert.equal(prepared.ui.nodes[1].widgets_values_named.steps, 12);
+  assert.equal(compileSavedWorkflow(prepared.ui, tuningInfo).graph['2:11'].inputs.steps, 12);
+  assert.equal(source.nodes[1].widgets_values_named.steps, 18);
+});
+
+test('tuning rejects stale ranges, enum errors, duplicate controls and non-tunable graph edits before submission', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-tuning-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inventory = structuredClone(tuningInfo), files = { 'clip.json': savedFixtureGraphs['minimax_text.json'] };
+  let submissions = 0;
+  const tool = comfyuiVideoTool({ cwd: root, dataDir: root, sessionId: 'tuning', baseUrl: 'http://fixture', fetchImpl: async url => {
+    const route = new URL(url).pathname + new URL(url).search;
+    if (route === '/object_info') return Response.json(inventory);
+    if (route.startsWith('/userdata')) return Response.json(await reader(files)(route));
+    submissions++; throw Error('Unexpected submission');
+  } });
+  const inspected = await tool.execute({ operation: 'inspect', mode: 'text_to_video' });
+  const controls = inspected.workflows[0].tunable_parameters;
+  const steps = controls.find(c => c.bindings.some(b => b.input === 'steps' && b.branch === 'on_true'));
+  const sampler = controls.find(c => c.input === 'sampler_name');
+  inventory.BasicScheduler.input.required.steps[1].max = 8;
+  for (const overrides of [
+    [{ parameter: steps.parameter, value: 12 }], [{ parameter: steps.parameter, value: 1.5 }],
+    [{ parameter: steps.parameter, value: '8' }], [{ parameter: sampler.parameter, value: 'invented' }],
+    [{ parameter: '92/filename_prefix', value: 'elsewhere' }],
+    [{ parameter: steps.parameter, value: 8 }, { parameter: steps.parameter, value: 6 }],
+  ]) await assert.rejects(tool.execute({ operation: 'generate', mode: 'text_to_video', prompt: 'Test', workflow_parameters: overrides }), /workflow parameter/);
+  assert.equal(submissions, 0);
+});
 
 test('all supplied video variants bind requested seconds and retain their original frame calculations', async () => {
   for (const [mode, count] of [['text_to_video', 0], ['image_to_video', 1], ['reference_to_video', 2]]) {

@@ -1,0 +1,27 @@
+[
+  {
+    "tool": "generate_image",
+    "inspect": { "operation": "inspect", "mode": "text_to_image" },
+    "generate": { "operation": "generate", "workflow_id": "$workflow_id", "prompt": "A ceramic teapot on a plain wooden table, soft window light, clean product photograph.", "seed": 17 }
+  },
+  {
+    "tool": "generate_image",
+    "inspect": { "operation": "inspect", "mode": "image_to_image", "reference_images": ["$image_1"] },
+    "generate": { "operation": "generate", "workflow_id": "$workflow_id", "reference_images": ["$image_1"], "prompt": "Keep the referenced teapot shape and painted pattern. Change only the background to a warm kitchen counter.", "seed": 17 }
+  },
+  {
+    "tool": "generate_video",
+    "inspect": { "operation": "inspect", "mode": "text_to_video" },
+    "generate": { "operation": "generate", "mode": "text_to_video", "workflow_id": "$workflow_id", "duration_seconds": 30, "seed": 17, "prompt": "integrated_multimodal_description: [Shot 1] A ceramic teapot rests on a wooden table. Over the clip, the camera makes a slow, small arc while a thin trail of steam rises.\noverall_soundscape: Quiet room ambience and a gentle kettle hiss.\nnon_diegetic_music: N/A" }
+  },
+  {
+    "tool": "generate_video",
+    "inspect": { "operation": "inspect", "mode": "image_to_video" },
+    "generate": { "operation": "generate", "mode": "image_to_video", "workflow_id": "$workflow_id", "image_path": "$image_1", "duration_seconds": 5, "seed": 17, "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Preserve the referenced teapot, table and composition. A thin trail of steam rises while the camera slowly moves closer.\noverall_soundscape: Quiet indoor ambience.\nnon_diegetic_music: N/A" }
+  },
+  {
+    "tool": "generate_video",
+    "inspect": { "operation": "inspect", "mode": "reference_to_video" },
+    "generate": { "operation": "generate", "mode": "reference_to_video", "workflow_id": "$workflow_id", "reference_images": ["$image_1", "$image_2"], "duration_seconds": 5, "seed": 17, "prompt": "subject_definitions: <Subject 1> is the ceramic teapot in <Picture 1>; <Subject 2> is the blue cup in <Picture 2>.\nsummary: A product shot of both objects together on a wooden table.\nretention_analysis: Preserve each object's silhouette, colors and painted pattern; replace the backgrounds with one shared setting.\ndetailed_description: [Shot 1] The teapot stands beside the cup. The camera slowly moves sideways, keeping both objects in view.\noverall_soundscape: Quiet room ambience.\nnon_diegetic_music: N/A" }
+  }
+]

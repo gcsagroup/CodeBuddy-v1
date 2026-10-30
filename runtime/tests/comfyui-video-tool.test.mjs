@@ -283,3 +283,93 @@ test('interrupted output retrieval stays incomplete and recovers without another
   assert.equal(downloads, 2);
   assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
 });
+
+test('long wait and repeated sidebar reads share low-frequency checks; aborting the wait leaves the server job running', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('running');
+  const abort = new AbortController();
+  const pending = f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 240 }, { signal: abort.signal });
+  const cancelled = assert.rejects(pending, /abort/i);
+  for (let i = 0; i < 20; i++) { await f.tool.jobs(); await delay(100); }
+  assert.equal(f.calls.filter(c => c.url.includes('/history/')).length, 1);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/queue')).length, 1);
+  abort.abort(); await cancelled;
+  assert.equal(f.calls.filter(c => c.url.includes('/cancel')).length, 0);
+  assert.equal((await f.tool.execute({ operation: 'status', job_id: id })).status, 'running');
+});
+
+test('240-second foreground budget returns background handoff; sidebar later publishes the same job without more model calls', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('running');
+  let now = Date.now(); t.mock.method(Date, 'now', () => now);
+  const waiting = f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 1 });
+  await delay(100); now += 240_001;
+  const receipt = await waiting;
+  assert.equal(receipt.status, 'running'); assert.equal(receipt.waiting_in_background, true);
+  const started = performance.now();
+  assert.equal((await f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 240 })).waiting_in_background, true);
+  assert.ok(performance.now() - started < 2000, 'a later status call must not begin another four-minute wait');
+  f.state('completed'); now += 30_001;
+  let completed;
+  for (let i = 0; i < 50; i++) { [completed] = await f.tool.jobs(); if (completed.status === 'completed') break; await delay(20); }
+  assert.equal(completed.status, 'completed');
+  assert.deepEqual(await readFile(completed.videos[0].path), f.bytes);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});
+
+test('WebSocket completion wakes a long wait but only history plus saved MP4 can complete it', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('running');
+  const key = mediaStreamKey(f.root, f.options.sessionId, 'video', id);
+  const server = new WebSocketServer({ port: 0, host: '127.0.0.1' }); await once(server, 'listening');
+  t.after(() => { stopMedia(key); for (const client of server.clients) client.terminate(); server.close(); });
+  let socket; server.on('connection', client => { socket = client; });
+  await watchMedia(key, `http://127.0.0.1:${server.address().port}`, { job_id: id, prompt_id: id });
+  const waiting = f.tool.execute({ operation: 'status', job_id: id, wait_seconds: 5 });
+  await delay(100);
+  socket.send(JSON.stringify({ type: 'execution_success', data: { prompt_id: 'other' } }));
+  await delay(50);
+  assert.equal(f.calls.filter(c => c.url.includes('/history/')).length, 1);
+  socket.send(JSON.stringify({ type: 'executing', data: { prompt_id: id, node: null } }));
+  await delay(100);
+  assert.equal((await f.tool.jobs())[0].status, 'running', 'terminal hint alone is not completion');
+  f.state('completed');
+  socket.send(JSON.stringify({ type: 'execution_success', data: { prompt_id: id } }));
+  const result = await waiting;
+  assert.equal(result.status, 'completed'); assert.equal(result.waiting_in_background, false);
+  assert.deepEqual(await readFile(result.videos[0].path), f.bytes);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});
+
+test('sidebar checks use 30 seconds with a socket and recover at 10 seconds after disconnect', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('running');
+  let now = Date.now(); t.mock.method(Date, 'now', () => now);
+  const key = mediaStreamKey(f.root, f.options.sessionId, 'video', id);
+  const server = new WebSocketServer({ port: 0, host: '127.0.0.1' }); await once(server, 'listening');
+  t.after(() => { stopMedia(key); for (const client of server.clients) client.terminate(); server.close(); });
+  await watchMedia(key, `http://127.0.0.1:${server.address().port}`, { job_id: id, prompt_id: id });
+  await f.tool.execute({ operation: 'status', job_id: id });
+  const count = () => f.calls.filter(c => c.url.includes('/history/')).length;
+  now += 29_999; await f.tool.jobs(); await delay(20); assert.equal(count(), 1);
+  now += 2; await f.tool.jobs(); await delay(40); assert.equal(count(), 2);
+  stopMedia(key);
+  now += 9999; await f.tool.jobs(); await delay(20); assert.equal(count(), 2);
+  now += 2; await f.tool.jobs(); await delay(40); assert.equal(count(), 3);
+});
+
+test('a slow output download does not extend foreground waiting and later publishes without resubmission', async t => {
+  const f = await fixture(t); await f.tool.execute(input); f.state('completed');
+  const release = Promise.withResolvers(), started = Promise.withResolvers();
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: async (url, options) => {
+    if (url.includes('/view?')) { started.resolve(); await release.promise; }
+    return f.options.fetchImpl(url, options);
+  } });
+  const before = performance.now();
+  const waiting = tool.execute({ operation: 'status', job_id: id, wait_seconds: 1 });
+  await started.promise;
+  try {
+    const pending = await waiting;
+    assert.notEqual(pending.status, 'completed'); assert.deepEqual(pending.videos, []);
+    assert.ok(performance.now() - before < 2500);
+  } finally { release.resolve(); }
+  assert.equal((await tool.execute({ operation: 'status', job_id: id })).status, 'completed');
+  assert.equal(f.calls.filter(c => c.url.includes('/view?')).length, 1);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});

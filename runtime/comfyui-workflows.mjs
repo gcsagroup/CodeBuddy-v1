@@ -30,7 +30,7 @@ export function workflowCandidates(kind, mode, referenceCount) {
   const wanted = kind === 'image' ? (referenceCount ? 'image_to_image' : 'text_to_image') : mode;
   return Object.values(templates).filter(spec => spec.mode === wanted).map(spec => structuredClone(spec));
 }
-const allowed = new Set(['operation', 'workflow_id', 'mode', 'prompt', 'reference_images', 'image_path', 'transparent_background', 'width', 'height', 'duration_seconds', 'seed', 'request_id', 'job_id', 'wait_seconds', 'fallback_workflow', 'node_types', 'node_offset']);
+const allowed = new Set(['operation', 'workflow_id', 'mode', 'prompt', 'reference_images', 'image_path', 'transparent_background', 'width', 'height', 'duration_seconds', 'seed', 'request_id', 'job_id', 'wait_seconds', 'fallback_workflow', 'node_types', 'node_offset', 'workflow_parameters']);
 export function validateWorkflowInput(input) {
   for (const key of Object.keys(input)) if (!allowed.has(key)) throw new Error(`Unsupported parameter: ${key}. Use workflow_id, or inspect before supplying fallback_workflow.`);
 }

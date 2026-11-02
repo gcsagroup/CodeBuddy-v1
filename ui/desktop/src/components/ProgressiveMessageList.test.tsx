@@ -42,13 +42,6 @@ function openProcess(group?: HTMLElement) {
   return toggle;
 }
 
-function openTurnHistory() {
-  const toggle = screen.getByRole('button', { name: /^(Time spent|Work history)/ });
-  expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  fireEvent.click(toggle);
-  return toggle;
-}
-
 function message(index: number): Message {
   return {
     id: `message-${index}`,

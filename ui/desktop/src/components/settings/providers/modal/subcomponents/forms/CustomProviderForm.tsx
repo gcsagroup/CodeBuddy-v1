@@ -835,7 +835,7 @@ export default function CustomProviderForm({
       // Only bounded structured identifiers belong in diagnostics. Upstream text
       // can echo request headers or credentials and must not enter this panel.
       const identifiers = [data?.upstreamCode, data?.upstreamParam].filter(
-        (value): value is string => typeof value === 'string' && /^[A-Za-z0-9_.\[\]-]{1,80}$/.test(value)
+        (value): value is string => typeof value === 'string' && /^[A-Za-z0-9_.[\]-]{1,80}$/.test(value)
       );
       setSubmitError({ message: intl.formatMessage(reason), details: [status ? `HTTP ${status}` : '', ...identifiers].filter(Boolean).join(' · '), rejected: code !== null && Object.prototype.hasOwnProperty.call(byCode, code) });
     } finally {

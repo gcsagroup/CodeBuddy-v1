@@ -59,6 +59,10 @@ module.exports = [
         TextEncoder: 'readonly',
         // Browser globals
         window: 'readonly',
+        createImageBitmap: 'readonly',
+        structuredClone: 'readonly',
+        DOMRect: 'readonly',
+        HTMLDialogElement: 'readonly',
         document: 'readonly',
         navigator: 'readonly',
         localStorage: 'readonly',

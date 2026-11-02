@@ -1126,7 +1126,9 @@ Use this role throughout this workspace.` : basePrompt,
                       type: "content",
                       content: { type: "text", text: [
                         ...(safety.requiresApproval ? [safety.explanation] : []),
-                        ...(approval?.group === 'web_read' ? ['允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
+                        ...(approval?.group === 'web_read' ? [reusable
+                          ? '允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'
+                          : '本次操作仅访问公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
                         ...(!reusable ? [currentPolicy().permission === 'ask_before'
                           ? '该工具设置为每次确认。本次允许仅适用于当前操作。'
                           : safety.requiresApproval

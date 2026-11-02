@@ -50,7 +50,6 @@ import McpAppRenderer from './McpApps/McpAppRenderer';
 import ToolApprovalButtons from './ToolApprovalButtons';
 import BusinessApprovalScope from './BusinessApprovalScope';
 import { ToolApprovalTarget } from './ToolCallConfirmation';
-import BusinessApprovalScope from './BusinessApprovalScope';
 import { ToolAuditDetails, ToolAuditSummary } from './ToolAuditReceiptView';
 import { defineMessages, useIntl } from '../i18n';
 import { formatCodeProActivityState } from './codepro/codeProPresentation';
@@ -457,9 +456,6 @@ export default function ToolCallWithResponse({
                 <BusinessApprovalScope approval={confirmationContent.businessApproval} />
               )}
               <ProjectMemoryApprovalSummary result={memoryApproval} />
-              {confirmationContent.businessApproval && (
-                <BusinessApprovalScope approval={confirmationContent.businessApproval} />
-              )}
               <ToolApprovalButtons
                 data={{
                   id: confirmationContent.id,

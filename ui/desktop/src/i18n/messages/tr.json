@@ -83,14 +83,14 @@
   "authSettings.deleteCredential": {
     "defaultMessage": "Kimlik bilgisini sil"
   },
-  "authSettings.deleted": {
-    "defaultMessage": "Kimlik bilgisi silindi"
-  },
   "authSettings.deleteMessage": {
     "defaultMessage": "{provider} için {name} kimlik bilgisi silinsin mi?"
   },
   "authSettings.deleteTitle": {
     "defaultMessage": "Kimlik bilgisini sil"
+  },
+  "authSettings.deleted": {
+    "defaultMessage": "Kimlik bilgisi silindi"
   },
   "authSettings.description": {
     "defaultMessage": "CodeBuddy tarafından yerel olarak saklanan sağlayıcı kimlik bilgilerini yönetin."
@@ -116,11 +116,11 @@
   "authSettings.reauthorize": {
     "defaultMessage": "Yeniden yetkilendir"
   },
-  "authSettings.signedIn": {
-    "defaultMessage": "Kimlik bilgisi yapılandırıldı"
-  },
   "authSettings.signIn": {
     "defaultMessage": "Oturum aç"
+  },
+  "authSettings.signedIn": {
+    "defaultMessage": "Kimlik bilgisi yapılandırıldı"
   },
   "authSettings.storageProviderCache": {
     "defaultMessage": "Sağlayıcı önbelleği"
@@ -164,12 +164,6 @@
   "baseChat.reconnecting": {
     "defaultMessage": "Bağlantı kesildi. Yeniden bağlanılıyor…"
   },
-  "bottomMenuExtensionSelection.extensionsForNewChats": {
-    "defaultMessage": "Yeni sohbetler için uzantılar"
-  },
-  "bottomMenuExtensionSelection.extensionsForThisSession": {
-    "defaultMessage": "Bu sohbet oturumunun uzantıları"
-  },
   "bottomMenuExtensionSelection.extensionUpdated": {
     "defaultMessage": "Uzantı Güncellendi"
   },
@@ -178,6 +172,12 @@
   },
   "bottomMenuExtensionSelection.extensionWillBeEnabled": {
     "defaultMessage": "{name} yeni sohbetlerde etkinleştirilecek"
+  },
+  "bottomMenuExtensionSelection.extensionsForNewChats": {
+    "defaultMessage": "Yeni sohbetler için uzantılar"
+  },
+  "bottomMenuExtensionSelection.extensionsForThisSession": {
+    "defaultMessage": "Bu sohbet oturumunun uzantıları"
   },
   "bottomMenuExtensionSelection.manageExtensions": {
     "defaultMessage": "uzantıları yönet"
@@ -215,11 +215,11 @@
   "builtInExtension.memory.name": {
     "defaultMessage": "Memory"
   },
-  "businessApproval.allowedSession": {
-    "defaultMessage": "{business} allowed for this session"
-  },
   "businessApproval.allowSession": {
     "defaultMessage": "Allow {business} for this session"
+  },
+  "businessApproval.allowedSession": {
+    "defaultMessage": "{business} allowed for this session"
   },
   "businessApproval.computer": {
     "defaultMessage": "computer use"
@@ -761,6 +761,12 @@
   "codeProGit.downloadOpened": {
     "defaultMessage": "Install Git, then restart CodePro. Git will be checked again on startup."
   },
+  "codeProGit.gitMissingDetail": {
+    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
+  },
+  "codeProGit.gitRequired": {
+    "defaultMessage": "Git is required for repository operations."
+  },
   "codeProGit.githubCliInstallHelp": {
     "defaultMessage": "Install GitHub CLI from:"
   },
@@ -775,12 +781,6 @@
   },
   "codeProGit.githubUnauthenticated": {
     "defaultMessage": "GitHub CLI is not signed in."
-  },
-  "codeProGit.gitMissingDetail": {
-    "defaultMessage": "Git was not found on this computer. Would you like to download it?"
-  },
-  "codeProGit.gitRequired": {
-    "defaultMessage": "Git is required for repository operations."
   },
   "codeProGit.loading": {
     "defaultMessage": "Loading repository…"
@@ -839,14 +839,14 @@
   "codeProGit.selectPath": {
     "defaultMessage": "Select {path}"
   },
+  "codeProGit.stageSelected": {
+    "defaultMessage": "Stage selected ({count})"
+  },
   "codeProGit.staged": {
     "defaultMessage": "Staged"
   },
   "codeProGit.stagedDiff": {
     "defaultMessage": "Staged diff"
-  },
-  "codeProGit.stageSelected": {
-    "defaultMessage": "Stage selected ({count})"
   },
   "codeProGit.switchBranch": {
     "defaultMessage": "Switch branch"
@@ -1583,23 +1583,23 @@
   "composerCommands.disarmed": {
     "defaultMessage": "Ready to resume"
   },
-  "composerCommands.edited": {
-    "defaultMessage": "Goal updated."
-  },
   "composerCommands.editPrefix": {
     "defaultMessage": "Edit goal"
   },
   "composerCommands.editUsage": {
     "defaultMessage": "Type /goal edit followed by the revised objective."
   },
+  "composerCommands.edited": {
+    "defaultMessage": "Goal updated."
+  },
   "composerCommands.export": {
     "defaultMessage": "Export conversation"
   },
-  "composerCommands.exported": {
-    "defaultMessage": "Conversation export started."
-  },
   "composerCommands.exportHint": {
     "defaultMessage": "Download the current conversation as JSON"
+  },
+  "composerCommands.exported": {
+    "defaultMessage": "Conversation export started."
   },
   "composerCommands.failure": {
     "defaultMessage": "The command did not complete. Your input is preserved; check the connection and try again."
@@ -1646,14 +1646,14 @@
   "composerCommands.pause": {
     "defaultMessage": "Pause goal"
   },
+  "composerCommands.pauseHint": {
+    "defaultMessage": "Pause the saved goal and stop its current turn"
+  },
   "composerCommands.paused": {
     "defaultMessage": "Goal paused. Use /goal resume to continue."
   },
   "composerCommands.pausedState": {
     "defaultMessage": "Paused"
-  },
-  "composerCommands.pauseHint": {
-    "defaultMessage": "Pause the saved goal and stop its current turn"
   },
   "composerCommands.permission": {
     "defaultMessage": "Permissions"
@@ -2075,9 +2075,6 @@
   "cronPicker.quarter": {
     "defaultMessage": "Çeyrek"
   },
-  "cronPicker.repeat": {
-    "defaultMessage": "Tekrar"
-  },
   "cronPicker.saturday": {
     "defaultMessage": "cumartesi"
   },
@@ -2092,9 +2089,6 @@
   },
   "cronPicker.thursday": {
     "defaultMessage": "perşembe"
-  },
-  "cronPicker.time": {
-    "defaultMessage": "Saat"
   },
   "cronPicker.tuesday": {
     "defaultMessage": "Salı"
@@ -2150,11 +2144,11 @@
   "customProviderForm.attachments": {
     "defaultMessage": "Ekler"
   },
-  "customProviderForm.authentication": {
-    "defaultMessage": "Kimlik doğrulama"
-  },
   "customProviderForm.authHint": {
     "defaultMessage": "Ollama gibi yerel LLM'ler genellikle API anahtarı gerektirmez."
+  },
+  "customProviderForm.authentication": {
+    "defaultMessage": "Kimlik doğrulama"
   },
   "customProviderForm.availableModels": {
     "defaultMessage": "Mevcut Modeller (virgülle ayrılmış)"
@@ -2207,14 +2201,14 @@
   "customProviderForm.deleteConfirmation": {
     "defaultMessage": "Bu özel sağlayıcıyı silmek istediğinizden emin misiniz? Bu, sağlayıcıyı ve depolanan API anahtarını kalıcı olarak kaldıracaktır. Bu eylem geri alınamaz."
   },
-  "customProviderForm.deletedRefreshFailed": {
-    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
-  },
   "customProviderForm.deleteFailed": {
     "defaultMessage": "Could not delete this connection. Stop any tasks using it and try again."
   },
   "customProviderForm.deleteProvider": {
     "defaultMessage": "Sağlayıcıyı Sil"
+  },
+  "customProviderForm.deletedRefreshFailed": {
+    "defaultMessage": "Connection deleted, but the model list could not be refreshed. Reopen settings to refresh it."
   },
   "customProviderForm.diagnosticDetails": {
     "defaultMessage": "Diagnostic details"
@@ -2258,11 +2252,11 @@
   "customProviderForm.invalidCredentials": {
     "defaultMessage": "The API key was rejected. Check it and try again."
   },
-  "customProviderForm.loadingModels": {
-    "defaultMessage": "Loading models…"
-  },
   "customProviderForm.loadModels": {
     "defaultMessage": "Load models"
+  },
+  "customProviderForm.loadingModels": {
+    "defaultMessage": "Loading models…"
   },
   "customProviderForm.localConnection": {
     "defaultMessage": "Local connection"
@@ -2279,6 +2273,9 @@
   "customProviderForm.modelListUnavailable": {
     "defaultMessage": "The address responded, but its model list could not be loaded."
   },
+  "customProviderForm.modelUnavailable": {
+    "defaultMessage": "The selected model could not complete a test request."
+  },
   "customProviderForm.modelsLoaded": {
     "defaultMessage": "Model list loaded. Select a model, then verify the connection before adding it."
   },
@@ -2287,9 +2284,6 @@
   },
   "customProviderForm.modelsRequired": {
     "defaultMessage": "En az bir model gerekli"
-  },
-  "customProviderForm.modelUnavailable": {
-    "defaultMessage": "The selected model could not complete a test request."
   },
   "customProviderForm.noModels": {
     "defaultMessage": "The service is reachable, but it has no models available."
@@ -2573,20 +2567,17 @@
   "elicitationRequest.waitingForResponse": {
     "defaultMessage": "Yanıtınızı bekliyorum ({timeRemaining} kaldı)"
   },
-  "environmentBadge.dev": {
-    "defaultMessage": "Geliştirici"
-  },
   "envVarsSection.add": {
     "defaultMessage": "Ekle"
   },
   "envVarsSection.bothRequired": {
     "defaultMessage": "Hem değişken adı hem de değer girilmelidir"
   },
-  "envVarsSection.environmentVariables": {
-    "defaultMessage": "Ortam Değişkenleri"
-  },
   "envVarsSection.envVarsDescription": {
     "defaultMessage": "Ortam değişkenleri için anahtar/değer çiftleri ekleyin. Her iki alanı da doldurduktan sonra eklemek için \"+\" butonuna tıklayın. Mevcut gizli değerleri değiştirmek için düzenle düğmesine tıklayın."
+  },
+  "envVarsSection.environmentVariables": {
+    "defaultMessage": "Ortam Değişkenleri"
   },
   "envVarsSection.noSpaces": {
     "defaultMessage": "Değişken adı boşluk içeremez"
@@ -2596,6 +2587,9 @@
   },
   "envVarsSection.variableName": {
     "defaultMessage": "Değişken adı"
+  },
+  "environmentBadge.dev": {
+    "defaultMessage": "Geliştirici"
   },
   "errorBoundary.errorGeneric": {
     "defaultMessage": "Bir hata oluştu."
@@ -2777,11 +2771,11 @@
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
   },
-  "extensionModal.testingConnection": {
-    "defaultMessage": "Testing…"
-  },
   "extensionModal.testSucceeded": {
     "defaultMessage": "Connected in {latency} ms · {tools} tools · {resources} resources"
+  },
+  "extensionModal.testingConnection": {
+    "defaultMessage": "Testing…"
   },
   "extensionModal.unsavedChangesMessage": {
     "defaultMessage": "Uzantı yapılandırmasında kaydedilmemiş değişiklikleriniz var. Kaydetmeden kapatmak istediğinizden emin misiniz?"
@@ -2819,6 +2813,12 @@
   "extensionOperations.removing": {
     "defaultMessage": "Removing {name} extension…"
   },
+  "extensionTimeoutField.invalidTimeout": {
+    "defaultMessage": "Enter a valid timeout"
+  },
+  "extensionTimeoutField.timeoutLabel": {
+    "defaultMessage": "Zaman aşımı"
+  },
   "extensionsSection.addCustomExtension": {
     "defaultMessage": "Özel uzantı ekle"
   },
@@ -2848,12 +2848,6 @@
   },
   "extensionsView.searchPlaceholder": {
     "defaultMessage": "Uzantıları ara..."
-  },
-  "extensionTimeoutField.invalidTimeout": {
-    "defaultMessage": "Enter a valid timeout"
-  },
-  "extensionTimeoutField.timeoutLabel": {
-    "defaultMessage": "Zaman aşımı"
   },
   "externalBackendSection.certFingerprint": {
     "defaultMessage": "Sertifika Parmak İzi (isteğe bağlı)"
@@ -3569,6 +3563,21 @@
   "goalEditor.unsaved": {
     "defaultMessage": "Unsaved changes"
   },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "Durduruldu"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "{count} araç eylemi korundu."
+  },
   "goosehintsModal.close": {
     "defaultMessage": "Kapat"
   },
@@ -3631,21 +3640,6 @@
   },
   "goosehintsSection.title": {
     "defaultMessage": "Project instructions (AGENTS.md)"
-  },
-  "gooseMessage.cancelledExplanation": {
-    "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
-  },
-  "gooseMessage.interruptedExplanation": {
-    "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
-  },
-  "gooseMessage.missingFinalReply": {
-    "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
-  },
-  "gooseMessage.turnStopped": {
-    "defaultMessage": "Durduruldu"
-  },
-  "gooseMessage.turnStoppedSummary": {
-    "defaultMessage": "{count} araç eylemi korundu."
   },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "CodeBuddy'a sorun"
@@ -3755,11 +3749,11 @@
   "huggingFaceSignInPrompt.failedToConfigure": {
     "defaultMessage": "Hugging Face oturumu açılamadı: {error}"
   },
-  "huggingFaceSignInPrompt.signedIn": {
-    "defaultMessage": "Hugging Face oturumu açıldı"
-  },
   "huggingFaceSignInPrompt.signIn": {
     "defaultMessage": "Oturum aç"
+  },
+  "huggingFaceSignInPrompt.signedIn": {
+    "defaultMessage": "Hugging Face oturumu açıldı"
   },
   "huggingFaceSignInPrompt.signingIn": {
     "defaultMessage": "Oturum açılıyor..."
@@ -3803,14 +3797,14 @@
   "importRecipeForm.expectedRecipeStructure": {
     "defaultMessage": "Beklenen Tarif Yapısı"
   },
-  "importRecipeForm.importing": {
-    "defaultMessage": "İçe aktarılıyor..."
-  },
   "importRecipeForm.importRecipeButton": {
     "defaultMessage": "Tarifi İçe Aktar"
   },
   "importRecipeForm.importRecipeTitle": {
     "defaultMessage": "Tarifi İçe Aktar"
+  },
+  "importRecipeForm.importing": {
+    "defaultMessage": "İçe aktarılıyor..."
   },
   "importRecipeForm.or": {
     "defaultMessage": "VEYA"
@@ -3884,14 +3878,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "JSON Şema Düzenleyici"
   },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "Yanıtınızı yazın…"
-  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "İptal"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Kendi yanıtınız (isteğe bağlı)"
+  },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Yanıtınızı yazın…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -3922,6 +3916,18 @@
   },
   "jsonSchemaForm.submit": {
     "defaultMessage": "Gönder"
+  },
+  "keyValueEditor.addValue": {
+    "defaultMessage": "Önceden yapılandırılmış değer ekleyin"
+  },
+  "keyValueEditor.defaultKeyPlaceholder": {
+    "defaultMessage": "Parametre adı..."
+  },
+  "keyValueEditor.defaultValuePlaceholder": {
+    "defaultMessage": "Parametre değeri..."
+  },
+  "keyValueEditor.removeValue": {
+    "defaultMessage": "Önceden yapılandırılmış değeri kaldır {key}"
   },
   "keyboardShortcuts.alwaysOnTopDescription": {
     "defaultMessage": "Pencereyi her zaman üstte değiştir"
@@ -4067,18 +4073,6 @@
   "keyboardShortcuts.toggleNavigationLabel": {
     "defaultMessage": "Gezinmeyi Değiştir"
   },
-  "keyValueEditor.addValue": {
-    "defaultMessage": "Önceden yapılandırılmış değer ekleyin"
-  },
-  "keyValueEditor.defaultKeyPlaceholder": {
-    "defaultMessage": "Parametre adı..."
-  },
-  "keyValueEditor.defaultValuePlaceholder": {
-    "defaultMessage": "Parametre değeri..."
-  },
-  "keyValueEditor.removeValue": {
-    "defaultMessage": "Önceden yapılandırılmış değeri kaldır {key}"
-  },
   "launcher.placeholder": {
     "defaultMessage": "CodeBuddy'a herhangi bir şey sorun..."
   },
@@ -4124,17 +4118,17 @@
   "localInferenceSettings.downloadCancelled": {
     "defaultMessage": "İndirme iptal edildi"
   },
-  "localInferenceSettings.downloadedModels": {
-    "defaultMessage": "İndirilen Modeller"
-  },
   "localInferenceSettings.downloadFailed": {
     "defaultMessage": "İndirme başarısız oldu"
   },
-  "localInferenceSettings.downloading": {
-    "defaultMessage": "İndiriliyor"
-  },
   "localInferenceSettings.downloadProgress": {
     "defaultMessage": "{downloaded} / {total} (%{percent})"
+  },
+  "localInferenceSettings.downloadedModels": {
+    "defaultMessage": "İndirilen Modeller"
+  },
+  "localInferenceSettings.downloading": {
+    "defaultMessage": "İndiriliyor"
   },
   "localInferenceSettings.evictFromMemory": {
     "defaultMessage": "Evict from memory"
@@ -4220,14 +4214,14 @@
   "localModelPicker.checkingModels": {
     "defaultMessage": "Mevcut modeller kontrol ediliyor..."
   },
-  "localModelPicker.downloading": {
-    "defaultMessage": "{modelId} indiriliyor"
-  },
   "localModelPicker.downloadModel": {
     "defaultMessage": "{modelId}'yi ({size}) indirin"
   },
   "localModelPicker.downloadProgress": {
     "defaultMessage": "{downloaded} of {total}"
+  },
+  "localModelPicker.downloading": {
+    "defaultMessage": "{modelId} indiriliyor"
   },
   "localModelPicker.failedToLoad": {
     "defaultMessage": "Mevcut modeller yüklenemedi. Lütfen tekrar deneyin."
@@ -4544,11 +4538,11 @@
   "messageUsageStats.speed": {
     "defaultMessage": "Hız"
   },
-  "messageUsageStats.tokensPerSecondUnit": {
-    "defaultMessage": "tok/s"
-  },
   "messageUsageStats.tokenUnit": {
     "defaultMessage": "tok"
+  },
+  "messageUsageStats.tokensPerSecondUnit": {
+    "defaultMessage": "tok/s"
   },
   "messageUsageStats.total": {
     "defaultMessage": "Toplam"
@@ -4585,6 +4579,30 @@
   },
   "microphoneSelector.test": {
     "defaultMessage": "testi"
+  },
+  "modeSelectionItem.autonomousDescription": {
+    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  },
+  "modeSelectionItem.autonomousLabel": {
+    "defaultMessage": "Özerk"
+  },
+  "modeSelectionItem.chatOnlyDescription": {
+    "defaultMessage": "Araç veya uzantı kullanmadan seçilen sağlayıcıyla etkileşime geçin."
+  },
+  "modeSelectionItem.chatOnlyLabel": {
+    "defaultMessage": "Yalnızca sohbet"
+  },
+  "modeSelectionItem.manualDescription": {
+    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.manualLabel": {
+    "defaultMessage": "Read only"
+  },
+  "modeSelectionItem.smartDescription": {
+    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  },
+  "modeSelectionItem.smartLabel": {
+    "defaultMessage": "Workspace write"
   },
   "modelAndProviderContext.credentialsRejected": {
     "defaultMessage": "The model service rejected or requires credentials. Check this provider in Settings."
@@ -4714,102 +4732,6 @@
   },
   "modelImageCapability.unsupported": {
     "defaultMessage": "Text only"
-  },
-  "modelsAndRuntime.auxiliaryVision": {
-    "defaultMessage": "Auxiliary vision settings"
-  },
-  "modelsAndRuntime.codeBuddyModel": {
-    "defaultMessage": "CodeBuddy model"
-  },
-  "modelsAndRuntime.codeBuddyModelDescription": {
-    "defaultMessage": "The first-party CodeBuddy model is still in development."
-  },
-  "modelsAndRuntime.connections": {
-    "defaultMessage": "Modeller ve bağlantılar"
-  },
-  "modelsAndRuntime.connectionsUnavailable": {
-    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
-  },
-  "modelsAndRuntime.context": {
-    "defaultMessage": "Bağlam kapasitesi"
-  },
-  "modelsAndRuntime.contextDescription": {
-    "defaultMessage": "Hizmet bilgisi yoksa modelin bağlam sınırlarını ayarlayın."
-  },
-  "modelsAndRuntime.customConnections": {
-    "defaultMessage": "Custom model connections"
-  },
-  "modelsAndRuntime.customConnectionsDescription": {
-    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
-  },
-  "modelsAndRuntime.generation": {
-    "defaultMessage": "Görsel ve video oluşturma"
-  },
-  "modelsAndRuntime.generationDescription": {
-    "defaultMessage": "Görsel ve video oluşturma hizmetini yapılandırın."
-  },
-  "modelsAndRuntime.inDevelopment": {
-    "defaultMessage": "In development"
-  },
-  "modelsAndRuntime.loadingConnections": {
-    "defaultMessage": "Loading custom connections…"
-  },
-  "modelsAndRuntime.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsAndRuntime.subagents": {
-    "defaultMessage": "Alt ajanlar"
-  },
-  "modelsAndRuntime.subagentsDescription": {
-    "defaultMessage": "Ad, model ve talimatla yeniden kullanılabilir ajanlar oluşturun."
-  },
-  "modelsAndRuntime.vision": {
-    "defaultMessage": "Görsel anlama"
-  },
-  "modelsAndRuntime.visionDescription": {
-    "defaultMessage": "Önce ana modeli, gerektiğinde yedek modeli kullanın."
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "modelsBottomBar.loadFailed": {
-    "defaultMessage": "Could not load models."
-  },
-  "modelsBottomBar.loadingModel": {
-    "defaultMessage": "Model yükleniyor..."
-  },
-  "modelsBottomBar.manage": {
-    "defaultMessage": "Manage model connections"
-  },
-  "modelsBottomBar.noMatches": {
-    "defaultMessage": "Eşleşen model yok"
-  },
-  "modelsBottomBar.retry": {
-    "defaultMessage": "Retry"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Model veya bağlantı ara"
-  },
-  "modelsBottomBar.selectModel": {
-    "defaultMessage": "Modeli Seçin"
-  },
-  "modelsBottomBar.selectOrChangeModel": {
-    "defaultMessage": "Select or change model"
-  },
-  "modelsBottomBar.showFewer": {
-    "defaultMessage": "Daha az göster"
-  },
-  "modelsBottomBar.showMore": {
-    "defaultMessage": "{count} tane daha göster"
-  },
-  "modelsBottomBar.switchFailed": {
-    "defaultMessage": "Could not switch models. Try again."
-  },
-  "modelsBottomBar.switchFailedLabel": {
-    "defaultMessage": "Geçiş başarısız"
-  },
-  "modelsBottomBar.switching": {
-    "defaultMessage": "Switching model…"
   },
   "modelSettingsButtons.configureProviders": {
     "defaultMessage": "Sağlayıcıları yapılandırma"
@@ -4988,35 +4910,107 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Üst P"
   },
-  "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+  "modelsAndRuntime.auxiliaryVision": {
+    "defaultMessage": "Auxiliary vision settings"
   },
-  "modeSelectionItem.autonomousLabel": {
-    "defaultMessage": "Özerk"
+  "modelsAndRuntime.codeBuddyModel": {
+    "defaultMessage": "CodeBuddy model"
   },
-  "modeSelectionItem.chatOnlyDescription": {
-    "defaultMessage": "Araç veya uzantı kullanmadan seçilen sağlayıcıyla etkileşime geçin."
+  "modelsAndRuntime.codeBuddyModelDescription": {
+    "defaultMessage": "The first-party CodeBuddy model is still in development."
   },
-  "modeSelectionItem.chatOnlyLabel": {
-    "defaultMessage": "Yalnızca sohbet"
+  "modelsAndRuntime.connections": {
+    "defaultMessage": "Modeller ve bağlantılar"
   },
-  "modeSelectionItem.manualDescription": {
-    "defaultMessage": "Read files and run commands under the read-only sandbox. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.connectionsUnavailable": {
+    "defaultMessage": "Custom connections could not be loaded. Your saved configuration was not changed."
   },
-  "modeSelectionItem.manualLabel": {
-    "defaultMessage": "Read only"
+  "modelsAndRuntime.context": {
+    "defaultMessage": "Bağlam kapasitesi"
   },
-  "modeSelectionItem.smartDescription": {
-    "defaultMessage": "Read files and run commands with writes confined to the workspace and platform temporary areas. Operations outside the sandbox may request approval."
+  "modelsAndRuntime.contextDescription": {
+    "defaultMessage": "Hizmet bilgisi yoksa modelin bağlam sınırlarını ayarlayın."
   },
-  "modeSelectionItem.smartLabel": {
-    "defaultMessage": "Workspace write"
+  "modelsAndRuntime.customConnections": {
+    "defaultMessage": "Custom model connections"
   },
-  "navigation.itemCustomAgents": {
-    "defaultMessage": "Custom Agents"
+  "modelsAndRuntime.customConnectionsDescription": {
+    "defaultMessage": "Connect a local, LAN, or self-hosted endpoint. Built-in vendor catalogues stay out of everyday settings."
+  },
+  "modelsAndRuntime.generation": {
+    "defaultMessage": "Görsel ve video oluşturma"
+  },
+  "modelsAndRuntime.generationDescription": {
+    "defaultMessage": "Görsel ve video oluşturma hizmetini yapılandırın."
+  },
+  "modelsAndRuntime.inDevelopment": {
+    "defaultMessage": "In development"
+  },
+  "modelsAndRuntime.loadingConnections": {
+    "defaultMessage": "Loading custom connections…"
+  },
+  "modelsAndRuntime.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsAndRuntime.subagents": {
+    "defaultMessage": "Alt ajanlar"
+  },
+  "modelsAndRuntime.subagentsDescription": {
+    "defaultMessage": "Ad, model ve talimatla yeniden kullanılabilir ajanlar oluşturun."
+  },
+  "modelsAndRuntime.vision": {
+    "defaultMessage": "Görsel anlama"
+  },
+  "modelsAndRuntime.visionDescription": {
+    "defaultMessage": "Önce ana modeli, gerektiğinde yedek modeli kullanın."
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "modelsBottomBar.loadFailed": {
+    "defaultMessage": "Could not load models."
+  },
+  "modelsBottomBar.loadingModel": {
+    "defaultMessage": "Model yükleniyor..."
+  },
+  "modelsBottomBar.manage": {
+    "defaultMessage": "Manage model connections"
+  },
+  "modelsBottomBar.noMatches": {
+    "defaultMessage": "Eşleşen model yok"
+  },
+  "modelsBottomBar.retry": {
+    "defaultMessage": "Retry"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Model veya bağlantı ara"
+  },
+  "modelsBottomBar.selectModel": {
+    "defaultMessage": "Modeli Seçin"
+  },
+  "modelsBottomBar.selectOrChangeModel": {
+    "defaultMessage": "Select or change model"
+  },
+  "modelsBottomBar.showFewer": {
+    "defaultMessage": "Daha az göster"
+  },
+  "modelsBottomBar.showMore": {
+    "defaultMessage": "{count} tane daha göster"
+  },
+  "modelsBottomBar.switchFailed": {
+    "defaultMessage": "Could not switch models. Try again."
+  },
+  "modelsBottomBar.switchFailedLabel": {
+    "defaultMessage": "Geçiş başarısız"
+  },
+  "modelsBottomBar.switching": {
+    "defaultMessage": "Switching model…"
   },
   "navigation.itemHome": {
     "defaultMessage": "Yeni Sohbet"
+  },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Medya Kitaplığı"
@@ -5053,9 +5047,6 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Başlıksız oturum"
-  },
-  "navigationPanel.workspaces": {
-    "defaultMessage": "Workspaces"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "Cancel"
@@ -5108,11 +5099,11 @@
   "needsWorkspace.refreshFailed": {
     "defaultMessage": "This task could not renew its project confirmation. Check that it is still waiting for a project folder."
   },
-  "needsWorkspace.refreshing": {
-    "defaultMessage": "Refreshing…"
-  },
   "needsWorkspace.refreshUpgrade": {
     "defaultMessage": "Update the app and backend together to refresh this project confirmation."
+  },
+  "needsWorkspace.refreshing": {
+    "defaultMessage": "Refreshing…"
   },
   "needsWorkspace.retryablePermission": {
     "defaultMessage": "Workspace access was denied. Retry to use the same authorization."
@@ -5597,11 +5588,11 @@
   "projectMemoryApproval.noSourceRef": {
     "defaultMessage": "Yok"
   },
-  "projectMemoryApproval.notMarked": {
-    "defaultMessage": "İşaretlenmemiş (güvenilmez)"
-  },
   "projectMemoryApproval.noTtl": {
     "defaultMessage": "Yok"
+  },
+  "projectMemoryApproval.notMarked": {
+    "defaultMessage": "İşaretlenmemiş (güvenilmez)"
   },
   "projectMemoryApproval.projectRequest": {
     "defaultMessage": "Proje belleğini kaydetme isteği"
@@ -5723,10 +5714,10 @@
   "promptsSettings.edit": {
     "defaultMessage": "Düzenle"
   },
-  "promptsSettings.editingLabel": {
+  "promptsSettings.editPromptTitle": {
     "defaultMessage": "Düzenleme: {name}"
   },
-  "promptsSettings.editPromptTitle": {
+  "promptsSettings.editingLabel": {
     "defaultMessage": "Düzenleme: {name}"
   },
   "promptsSettings.enterPromptContent": {
@@ -5837,11 +5828,11 @@
   "providerConfigForm.noApiKey": {
     "defaultMessage": "API anahtarınız yok mu?"
   },
-  "providerConfigForm.signingIn": {
-    "defaultMessage": "Oturum açılıyor..."
-  },
   "providerConfigForm.signInWith": {
     "defaultMessage": "{providerName} ile oturum açın"
+  },
+  "providerConfigForm.signingIn": {
+    "defaultMessage": "Oturum açılıyor..."
   },
   "providerConfigurationModal.addApiKeyDescription": {
     "defaultMessage": "Bu sağlayıcının CodeBuddy'a entegre olması için API anahtarlarınızı ekleyin"
@@ -5900,11 +5891,11 @@
   "providerConfigurationModal.seeDocumentation": {
     "defaultMessage": "Daha fazla ayrıntı için <link>belgelere</link> bakın."
   },
-  "providerConfigurationModal.signingIn": {
-    "defaultMessage": "Oturum açılıyor..."
-  },
   "providerConfigurationModal.signInWith": {
     "defaultMessage": "{providerName} ile oturum açın"
+  },
+  "providerConfigurationModal.signingIn": {
+    "defaultMessage": "Oturum açılıyor..."
   },
   "providerGrid.addProvider": {
     "defaultMessage": "Sağlayıcı Ekle"
@@ -6125,6 +6116,39 @@
   "recipeNameField.formatHint": {
     "defaultMessage": "Otomatik olarak biçimlendirilecektir (küçük harf, boşluklar için kısa çizgiler)"
   },
+  "recipeWarningModal.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "recipeWarningModal.descriptionLabel": {
+    "defaultMessage": "Açıklama:"
+  },
+  "recipeWarningModal.firstTimeDescription": {
+    "defaultMessage": "Daha önce çalıştırmadığınız bir tarifi uygulamak üzeresiniz."
+  },
+  "recipeWarningModal.hiddenCharsWarning": {
+    "defaultMessage": "Bu tarif, kötü amaçlarla kullanılabilecekleri için güvenliğiniz açısından göz ardı edilecek gizli karakterler içermektedir."
+  },
+  "recipeWarningModal.instructionsLabel": {
+    "defaultMessage": "Talimatlar:"
+  },
+  "recipeWarningModal.newRecipeWarningTitle": {
+    "defaultMessage": "⚠️ Yeni Tarif Uyarısı"
+  },
+  "recipeWarningModal.recipePreview": {
+    "defaultMessage": "Tarif Önizlemesi:"
+  },
+  "recipeWarningModal.securityWarningTitle": {
+    "defaultMessage": "⚠️ Güvenlik Uyarısı"
+  },
+  "recipeWarningModal.titleLabel": {
+    "defaultMessage": "Başlık:"
+  },
+  "recipeWarningModal.trustAndExecute": {
+    "defaultMessage": "Güvenin ve Uygulayın"
+  },
+  "recipeWarningModal.trustSource": {
+    "defaultMessage": "Yalnızca bu tarifin kaynağına güveniyorsanız devam edin."
+  },
   "recipesView.addSchedule": {
     "defaultMessage": "Program ekle"
   },
@@ -6278,14 +6302,14 @@
   "recipesView.removeSchedule": {
     "defaultMessage": "Programı Kaldır"
   },
-  "recipesView.runs": {
-    "defaultMessage": "{schedule}'yi çalıştırır"
-  },
   "recipesView.runSummaryHelp": {
     "defaultMessage": "Review the declared model, tools, files, and permissions. Runtime permission prompts still apply."
   },
   "recipesView.runSummaryTitle": {
     "defaultMessage": "Review before running"
+  },
+  "recipesView.runs": {
+    "defaultMessage": "{schedule}'yi çalıştırır"
   },
   "recipesView.save": {
     "defaultMessage": "Kaydet"
@@ -6355,39 +6379,6 @@
   },
   "recipesView.yamlFiles": {
     "defaultMessage": "YAML Dosyaları"
-  },
-  "recipeWarningModal.cancel": {
-    "defaultMessage": "İptal"
-  },
-  "recipeWarningModal.descriptionLabel": {
-    "defaultMessage": "Açıklama:"
-  },
-  "recipeWarningModal.firstTimeDescription": {
-    "defaultMessage": "Daha önce çalıştırmadığınız bir tarifi uygulamak üzeresiniz."
-  },
-  "recipeWarningModal.hiddenCharsWarning": {
-    "defaultMessage": "Bu tarif, kötü amaçlarla kullanılabilecekleri için güvenliğiniz açısından göz ardı edilecek gizli karakterler içermektedir."
-  },
-  "recipeWarningModal.instructionsLabel": {
-    "defaultMessage": "Talimatlar:"
-  },
-  "recipeWarningModal.newRecipeWarningTitle": {
-    "defaultMessage": "⚠️ Yeni Tarif Uyarısı"
-  },
-  "recipeWarningModal.recipePreview": {
-    "defaultMessage": "Tarif Önizlemesi:"
-  },
-  "recipeWarningModal.securityWarningTitle": {
-    "defaultMessage": "⚠️ Güvenlik Uyarısı"
-  },
-  "recipeWarningModal.titleLabel": {
-    "defaultMessage": "Başlık:"
-  },
-  "recipeWarningModal.trustAndExecute": {
-    "defaultMessage": "Güvenin ve Uygulayın"
-  },
-  "recipeWarningModal.trustSource": {
-    "defaultMessage": "Yalnızca bu tarifin kaynağına güveniyorsanız devam edin."
   },
   "resetProviderSection.resetButton": {
     "defaultMessage": "Sağlayıcıyı ve Modeli Sıfırla"
@@ -6494,11 +6485,11 @@
   "scheduleDetailView.cronExpression": {
     "defaultMessage": "Cron İfadesi:"
   },
-  "scheduleDetailView.currentlyRunning": {
-    "defaultMessage": "Şu anda Çalışıyor"
-  },
   "scheduleDetailView.currentSession": {
     "defaultMessage": "Mevcut Oturum:"
+  },
+  "scheduleDetailView.currentlyRunning": {
+    "defaultMessage": "Şu anda Çalışıyor"
   },
   "scheduleDetailView.dir": {
     "defaultMessage": "Yön: {path}"
@@ -6557,6 +6548,12 @@
   "scheduleDetailView.noSessions": {
     "defaultMessage": "Bu program için oturum bulunamadı."
   },
+  "scheduleDetailView.pauseSchedule": {
+    "defaultMessage": "Programı Duraklat"
+  },
+  "scheduleDetailView.pauseUnpauseError": {
+    "defaultMessage": "Duraklatma/Duraklatmayı Kaldırma Hatası"
+  },
   "scheduleDetailView.paused": {
     "defaultMessage": "Duraklatıldı"
   },
@@ -6565,12 +6562,6 @@
   },
   "scheduleDetailView.pausedWarning": {
     "defaultMessage": "Bu program duraklatıldı ve otomatik olarak çalışmayacak. Manuel olarak tetiklemek için \"Şimdi Programlamayı Çalıştır\" seçeneğini kullanın veya otomatik yürütmeye devam etmek için duraklatmayı kaldırın."
-  },
-  "scheduleDetailView.pauseSchedule": {
-    "defaultMessage": "Programı Duraklat"
-  },
-  "scheduleDetailView.pauseUnpauseError": {
-    "defaultMessage": "Duraklatma/Duraklatmayı Kaldırma Hatası"
   },
   "scheduleDetailView.processStarted": {
     "defaultMessage": "İşlem Başlatıldı:"
@@ -6617,23 +6608,20 @@
   "scheduleDetailView.sessionId": {
     "defaultMessage": "Oturum Kimliği: {id}"
   },
-  "scheduleDetailView.unpausedMsg": {
-    "defaultMessage": "Duraklatılmamış \"{id}\""
-  },
   "scheduleDetailView.unpauseSchedule": {
     "defaultMessage": "Programı Duraklatmayı Kaldır"
   },
-  "scheduleDetailView.updatedMsg": {
-    "defaultMessage": "\"{id}\" güncellendi"
+  "scheduleDetailView.unpausedMsg": {
+    "defaultMessage": "Duraklatılmamış \"{id}\""
   },
   "scheduleDetailView.updateScheduleError": {
     "defaultMessage": "Güncelleme Zamanlaması Hatası"
   },
+  "scheduleDetailView.updatedMsg": {
+    "defaultMessage": "\"{id}\" güncellendi"
+  },
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Program Kimliğini Görüntüleme: {id}"
-  },
-  "scheduleModal.advanced": {
-    "defaultMessage": "Gelişmiş"
   },
   "scheduleModal.browseYaml": {
     "defaultMessage": "YAML dosyasına göz atın..."
@@ -6653,17 +6641,11 @@
   "scheduleModal.creating": {
     "defaultMessage": "Oluşturuluyor..."
   },
-  "scheduleModal.currentSession": {
-    "defaultMessage": "Geçerli sohbette takip et"
-  },
   "scheduleModal.deepLink": {
     "defaultMessage": "Derin bağlantı"
   },
   "scheduleModal.deepLinkPlaceholder": {
     "defaultMessage": "codebuddy://tarif bağlantısını buraya yapıştırın..."
-  },
-  "scheduleModal.destination": {
-    "defaultMessage": "Çalıştırma yeri"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "Programı Düzenle"
@@ -6673,9 +6655,6 @@
   },
   "scheduleModal.failedReadFile": {
     "defaultMessage": "Seçilen dosya okunamadı."
-  },
-  "scheduleModal.followHint": {
-    "defaultMessage": "Bu sohbetin geçmişini, modelini ve izinlerini kullanır. Sohbet meşgulse çalıştırma atlanır. Sohbet silinirse görev duraklatılır."
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "Geçersiz derin bağlantı. Lütfen codebuddy://tarif bağlantısını kullanın."
@@ -6688,21 +6667,6 @@
   },
   "scheduleModal.namePlaceholder": {
     "defaultMessage": "örneğin günlük özet işi"
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "Her çalıştırma, yapılandırılmış varsayılan modelle bağımsız olarak başlar."
-  },
-  "scheduleModal.newSession": {
-    "defaultMessage": "Her seferinde yeni sohbet"
-  },
-  "scheduleModal.noCurrentChat": {
-    "defaultMessage": "Takip görevi oluşturmak için önce bir sohbet açın."
-  },
-  "scheduleModal.prompt": {
-    "defaultMessage": "Görev talimatları"
-  },
-  "scheduleModal.promptPlaceholder": {
-    "defaultMessage": "Her çalıştırmada yapılacakları, raporlanacakları ve durma koşulunu açıklayın."
   },
   "scheduleModal.provideValidRecipe": {
     "defaultMessage": "Lütfen geçerli bir tarif kaynağı sağlayın."
@@ -6791,11 +6755,11 @@
   "schedulesView.pause": {
     "defaultMessage": "Duraklat"
   },
-  "schedulesView.paused": {
-    "defaultMessage": "Duraklatıldı"
-  },
   "schedulesView.pauseError": {
     "defaultMessage": "Zamanlamayı Duraklat Hatası"
+  },
+  "schedulesView.paused": {
+    "defaultMessage": "Duraklatıldı"
   },
   "schedulesView.refresh": {
     "defaultMessage": "Yenile"
@@ -6815,9 +6779,6 @@
   "schedulesView.schedulePausedMsg": {
     "defaultMessage": "\"{id}\" programı başarıyla duraklatıldı"
   },
-  "schedulesView.scheduler": {
-    "defaultMessage": "Zamanlayıcı"
-  },
   "schedulesView.scheduleUnpaused": {
     "defaultMessage": "Duraklatmayı Kaldırmayı Planla"
   },
@@ -6829,6 +6790,9 @@
   },
   "schedulesView.scheduleUpdatedMsg": {
     "defaultMessage": "\"{id}\" programı başarıyla güncellendi"
+  },
+  "schedulesView.scheduler": {
+    "defaultMessage": "Zamanlayıcı"
   },
   "schedulesView.unpauseError": {
     "defaultMessage": "Duraklatmayı Kaldırma Programı Hatası"
@@ -6929,32 +6893,23 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "Session JSON copied"
   },
-  "sessionActionsHeader.copiedSessionId": {
-    "defaultMessage": "Session ID copied"
-  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Text copied"
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "Copy JSON"
   },
-  "sessionActionsHeader.copySessionId": {
-    "defaultMessage": "Copy session ID"
-  },
-  "sessionActionsHeader.copySessionIdFailed": {
-    "defaultMessage": "Unable to copy session ID: {error}"
-  },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copy text"
-  },
-  "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.duplicateFailed": {
     "defaultMessage": "Failed to duplicate session: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
     "defaultMessage": "Duplicate session"
+  },
+  "sessionActionsHeader.duplicated": {
+    "defaultMessage": "Session duplicated"
   },
   "sessionActionsHeader.exportLog": {
     "defaultMessage": "Export logs"
@@ -6983,15 +6938,6 @@
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Loading JSON..."
   },
-  "sessionActionsHeader.openFolder": {
-    "defaultMessage": "Open folder"
-  },
-  "sessionActionsHeader.openFolderFailed": {
-    "defaultMessage": "Unable to open the session folder: {error}"
-  },
-  "sessionActionsHeader.renamed": {
-    "defaultMessage": "Session renamed"
-  },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Failed to rename session: {error}"
   },
@@ -7003,6 +6949,9 @@
   },
   "sessionActionsHeader.renameTitle": {
     "defaultMessage": "Rename Session"
+  },
+  "sessionActionsHeader.renamed": {
+    "defaultMessage": "Session renamed"
   },
   "sessionActionsHeader.save": {
     "defaultMessage": "Save"
@@ -7072,6 +7021,24 @@
   },
   "sessionPermissions.unknownScope": {
     "defaultMessage": "Çalışma alanı izinleri henüz eşitlenmedi."
+  },
+  "sessionViewComponents.empty.description": {
+    "defaultMessage": "Bu oturum herhangi bir mesaj içermiyor"
+  },
+  "sessionViewComponents.empty.title": {
+    "defaultMessage": "Mesaj bulunamadı"
+  },
+  "sessionViewComponents.error.loading": {
+    "defaultMessage": "Oturum Ayrıntıları Yüklenirken Hata Oluştu"
+  },
+  "sessionViewComponents.error.tryAgain": {
+    "defaultMessage": "Tekrar Deneyin"
+  },
+  "sessionViewComponents.role.assistant": {
+    "defaultMessage": "CodeBuddy"
+  },
+  "sessionViewComponents.role.user": {
+    "defaultMessage": "sen"
   },
   "sessions.action.archive": {
     "defaultMessage": "Archive session"
@@ -7172,9 +7139,6 @@
   "sessions.import": {
     "defaultMessage": "Oturumu İçe Aktar"
   },
-  "sessions.importing": {
-    "defaultMessage": "İçe aktarılıyor..."
-  },
   "sessions.importNostr": {
     "defaultMessage": "Bağlantıyı İçe Aktar"
   },
@@ -7186,6 +7150,9 @@
   },
   "sessions.importNostr.title": {
     "defaultMessage": "Nostr Oturumunu İçe Aktar"
+  },
+  "sessions.importing": {
+    "defaultMessage": "İçe aktarılıyor..."
   },
   "sessions.loadingMore": {
     "defaultMessage": "Daha fazla oturum yükleniyor..."
@@ -7211,38 +7178,38 @@
   "sessions.shareNostr.title": {
     "defaultMessage": "Şifreli Nostr Paylaşım Bağlantısı"
   },
-  "sessions.toast.archived": {
-    "defaultMessage": "Session archived"
-  },
   "sessions.toast.archiveFailed": {
     "defaultMessage": "Failed to update session archive: {error}"
+  },
+  "sessions.toast.archived": {
+    "defaultMessage": "Session archived"
   },
   "sessions.toast.copied": {
     "defaultMessage": "Panoya kopyalandı"
   },
-  "sessions.toast.deleted": {
-    "defaultMessage": "Oturum başarıyla silindi"
-  },
   "sessions.toast.deleteFailed": {
     "defaultMessage": "\"{name}\" oturumu silinemedi: {error}"
   },
-  "sessions.toast.duplicated": {
-    "defaultMessage": "\"{name}\" oturumu başarıyla kopyalandı"
+  "sessions.toast.deleted": {
+    "defaultMessage": "Oturum başarıyla silindi"
   },
   "sessions.toast.duplicateFailed": {
     "defaultMessage": "Oturum kopyalanamadı: {error}"
   },
-  "sessions.toast.exported": {
-    "defaultMessage": "Oturum başarıyla dışa aktarıldı"
+  "sessions.toast.duplicated": {
+    "defaultMessage": "\"{name}\" oturumu başarıyla kopyalandı"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
   },
-  "sessions.toast.imported": {
-    "defaultMessage": "Oturum başarıyla içe aktarıldı"
+  "sessions.toast.exported": {
+    "defaultMessage": "Oturum başarıyla dışa aktarıldı"
   },
   "sessions.toast.importFailed": {
     "defaultMessage": "Oturum içe aktarılamadı: {error}"
+  },
+  "sessions.toast.imported": {
+    "defaultMessage": "Oturum başarıyla içe aktarıldı"
   },
   "sessions.toast.shareNostr": {
     "defaultMessage": "Şifrelenmiş Nostr paylaşım bağlantısı oluşturuldu"
@@ -7253,29 +7220,11 @@
   "sessions.toast.unarchived": {
     "defaultMessage": "Session restored"
   },
-  "sessions.toast.updated": {
-    "defaultMessage": "Oturum açıklaması başarıyla güncellendi"
-  },
   "sessions.toast.updateFailed": {
     "defaultMessage": "Oturum açıklaması güncellenemedi: {error}"
   },
-  "sessionViewComponents.empty.description": {
-    "defaultMessage": "Bu oturum herhangi bir mesaj içermiyor"
-  },
-  "sessionViewComponents.empty.title": {
-    "defaultMessage": "Mesaj bulunamadı"
-  },
-  "sessionViewComponents.error.loading": {
-    "defaultMessage": "Oturum Ayrıntıları Yüklenirken Hata Oluştu"
-  },
-  "sessionViewComponents.error.tryAgain": {
-    "defaultMessage": "Tekrar Deneyin"
-  },
-  "sessionViewComponents.role.assistant": {
-    "defaultMessage": "CodeBuddy"
-  },
-  "sessionViewComponents.role.user": {
-    "defaultMessage": "sen"
+  "sessions.toast.updated": {
+    "defaultMessage": "Oturum açıklaması başarıyla güncellendi"
   },
   "settings.appearance.description": {
     "defaultMessage": "CodeBuddy'nin sisteminizde nasıl görüneceğini yapılandırın"
@@ -7742,6 +7691,99 @@
   "stringUtils.ollamaNotConfiguredSuffix": {
     "defaultMessage": "makinenizde kurulu ve açık olmalı veya OLLAMA_HOST için bir değer girmelisiniz."
   },
+  "subRecipeEditor.addExisting": {
+    "defaultMessage": "Mevcut Ekle"
+  },
+  "subRecipeEditor.createNew": {
+    "defaultMessage": "Yeni Alt Tarif Oluştur"
+  },
+  "subRecipeEditor.deleteSubrecipe": {
+    "defaultMessage": "{name} alt tarifini sil"
+  },
+  "subRecipeEditor.description": {
+    "defaultMessage": "Alt tarifler, uygulama sırasında araç olarak adlandırılabilecek tariflerdir. Çok adımlı iş akışlarına ve yeniden kullanılabilir bileşenlere olanak tanırlar."
+  },
+  "subRecipeEditor.duplicateName": {
+    "defaultMessage": "Yinelenen Ad"
+  },
+  "subRecipeEditor.duplicateNameMsg": {
+    "defaultMessage": "\"{name}\" adlı bir alt tarif zaten mevcut. Lütfen benzersiz bir ad kullanın."
+  },
+  "subRecipeEditor.editSubrecipe": {
+    "defaultMessage": "{name} alt tarifini düzenleyin"
+  },
+  "subRecipeEditor.label": {
+    "defaultMessage": "Alt tarifler"
+  },
+  "subRecipeEditor.preconfiguredValues": {
+    "defaultMessage": "Önceden yapılandırılmış değerler:"
+  },
+  "subRecipeEditor.sequential": {
+    "defaultMessage": "Sıralı"
+  },
+  "subRecipeModal.addTitle": {
+    "defaultMessage": "Alt Tarif Ekle"
+  },
+  "subRecipeModal.apply": {
+    "defaultMessage": "Uygula"
+  },
+  "subRecipeModal.browse": {
+    "defaultMessage": "Göz at"
+  },
+  "subRecipeModal.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "subRecipeModal.closeModal": {
+    "defaultMessage": "Alt tarif modelini kapat"
+  },
+  "subRecipeModal.configureTitle": {
+    "defaultMessage": "Alt Tarifi Yapılandır"
+  },
+  "subRecipeModal.descriptionLabel": {
+    "defaultMessage": "Açıklama"
+  },
+  "subRecipeModal.descriptionPlaceholder": {
+    "defaultMessage": "Bu alt tarifin ne işe yaradığına ilişkin isteğe bağlı açıklama..."
+  },
+  "subRecipeModal.invalidFile": {
+    "defaultMessage": "Geçersiz Dosya"
+  },
+  "subRecipeModal.invalidFileMsg": {
+    "defaultMessage": "Lütfen bir YAML dosyası seçin (.yaml veya.yml)."
+  },
+  "subRecipeModal.nameHint": {
+    "defaultMessage": "Araç adını oluşturmak için kullanılan benzersiz tanımlayıcı"
+  },
+  "subRecipeModal.nameLabel": {
+    "defaultMessage": "İsim"
+  },
+  "subRecipeModal.namePlaceholder": {
+    "defaultMessage": "ör. güvenlik_tarama"
+  },
+  "subRecipeModal.pathHint": {
+    "defaultMessage": "Mevcut bir tarif dosyasına göz atın veya manuel olarak bir yol girin"
+  },
+  "subRecipeModal.pathLabel": {
+    "defaultMessage": "Yol"
+  },
+  "subRecipeModal.pathPlaceholder": {
+    "defaultMessage": "ör.,./subrecipes/security-analiz.yaml"
+  },
+  "subRecipeModal.preconfiguredValues": {
+    "defaultMessage": "Önceden Yapılandırılmış Değerler"
+  },
+  "subRecipeModal.preconfiguredValuesHint": {
+    "defaultMessage": "Her zaman alt tarife aktarılan isteğe bağlı parametre değerleri"
+  },
+  "subRecipeModal.sequentialHint": {
+    "defaultMessage": "(Birden fazla alt tarif örneğinin sıralı olarak yürütülmesini zorlar)"
+  },
+  "subRecipeModal.sequentialLabel": {
+    "defaultMessage": "Tekrarlandığında sıralı"
+  },
+  "subRecipeModal.subtitle": {
+    "defaultMessage": "Tarif yürütme sırasında araç olarak çağrılabilecek bir alt tarif yapılandırın"
+  },
   "subagentLifecycle.end": {
     "defaultMessage": "sona erdi"
   },
@@ -7852,99 +7894,6 @@
   },
   "subagentTemplates.unnamed": {
     "defaultMessage": "Yeni alt ajan"
-  },
-  "subRecipeEditor.addExisting": {
-    "defaultMessage": "Mevcut Ekle"
-  },
-  "subRecipeEditor.createNew": {
-    "defaultMessage": "Yeni Alt Tarif Oluştur"
-  },
-  "subRecipeEditor.deleteSubrecipe": {
-    "defaultMessage": "{name} alt tarifini sil"
-  },
-  "subRecipeEditor.description": {
-    "defaultMessage": "Alt tarifler, uygulama sırasında araç olarak adlandırılabilecek tariflerdir. Çok adımlı iş akışlarına ve yeniden kullanılabilir bileşenlere olanak tanırlar."
-  },
-  "subRecipeEditor.duplicateName": {
-    "defaultMessage": "Yinelenen Ad"
-  },
-  "subRecipeEditor.duplicateNameMsg": {
-    "defaultMessage": "\"{name}\" adlı bir alt tarif zaten mevcut. Lütfen benzersiz bir ad kullanın."
-  },
-  "subRecipeEditor.editSubrecipe": {
-    "defaultMessage": "{name} alt tarifini düzenleyin"
-  },
-  "subRecipeEditor.label": {
-    "defaultMessage": "Alt tarifler"
-  },
-  "subRecipeEditor.preconfiguredValues": {
-    "defaultMessage": "Önceden yapılandırılmış değerler:"
-  },
-  "subRecipeEditor.sequential": {
-    "defaultMessage": "Sıralı"
-  },
-  "subRecipeModal.addTitle": {
-    "defaultMessage": "Alt Tarif Ekle"
-  },
-  "subRecipeModal.apply": {
-    "defaultMessage": "Uygula"
-  },
-  "subRecipeModal.browse": {
-    "defaultMessage": "Göz at"
-  },
-  "subRecipeModal.cancel": {
-    "defaultMessage": "İptal"
-  },
-  "subRecipeModal.closeModal": {
-    "defaultMessage": "Alt tarif modelini kapat"
-  },
-  "subRecipeModal.configureTitle": {
-    "defaultMessage": "Alt Tarifi Yapılandır"
-  },
-  "subRecipeModal.descriptionLabel": {
-    "defaultMessage": "Açıklama"
-  },
-  "subRecipeModal.descriptionPlaceholder": {
-    "defaultMessage": "Bu alt tarifin ne işe yaradığına ilişkin isteğe bağlı açıklama..."
-  },
-  "subRecipeModal.invalidFile": {
-    "defaultMessage": "Geçersiz Dosya"
-  },
-  "subRecipeModal.invalidFileMsg": {
-    "defaultMessage": "Lütfen bir YAML dosyası seçin (.yaml veya.yml)."
-  },
-  "subRecipeModal.nameHint": {
-    "defaultMessage": "Araç adını oluşturmak için kullanılan benzersiz tanımlayıcı"
-  },
-  "subRecipeModal.nameLabel": {
-    "defaultMessage": "İsim"
-  },
-  "subRecipeModal.namePlaceholder": {
-    "defaultMessage": "ör. güvenlik_tarama"
-  },
-  "subRecipeModal.pathHint": {
-    "defaultMessage": "Mevcut bir tarif dosyasına göz atın veya manuel olarak bir yol girin"
-  },
-  "subRecipeModal.pathLabel": {
-    "defaultMessage": "Yol"
-  },
-  "subRecipeModal.pathPlaceholder": {
-    "defaultMessage": "ör.,./subrecipes/security-analiz.yaml"
-  },
-  "subRecipeModal.preconfiguredValues": {
-    "defaultMessage": "Önceden Yapılandırılmış Değerler"
-  },
-  "subRecipeModal.preconfiguredValuesHint": {
-    "defaultMessage": "Her zaman alt tarife aktarılan isteğe bağlı parametre değerleri"
-  },
-  "subRecipeModal.sequentialHint": {
-    "defaultMessage": "(Birden fazla alt tarif örneğinin sıralı olarak yürütülmesini zorlar)"
-  },
-  "subRecipeModal.sequentialLabel": {
-    "defaultMessage": "Tekrarlandığında sıralı"
-  },
-  "subRecipeModal.subtitle": {
-    "defaultMessage": "Tarif yürütme sırasında araç olarak çağrılabilecek bir alt tarif yapılandırın"
   },
   "suspenseLoader.loading": {
     "defaultMessage": "Loading..."
@@ -8426,12 +8375,6 @@
   "toolApprovalButtons.allowComputer": {
     "defaultMessage": "Allow computer control for this session"
   },
-  "toolApprovalButtons.allowedByScope": {
-    "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
-  },
-  "toolApprovalButtons.allowedOnce": {
-    "defaultMessage": "Bir kez izin verildi"
-  },
   "toolApprovalButtons.allowNamed": {
     "defaultMessage": "Allow {name} for this session"
   },
@@ -8440,6 +8383,12 @@
   },
   "toolApprovalButtons.allowWebRead": {
     "defaultMessage": "Allow public web reading for this session"
+  },
+  "toolApprovalButtons.allowedByScope": {
+    "defaultMessage": "{scope, select, task {Allowed for this task} session {Allowed for this session} other {Always allowed}}"
+  },
+  "toolApprovalButtons.allowedOnce": {
+    "defaultMessage": "Bir kez izin verildi"
   },
   "toolApprovalButtons.alwaysAllow": {
     "defaultMessage": "Her Zaman İzin Ver"
@@ -8507,11 +8456,11 @@
   "toolAudit.actor.tester": {
     "defaultMessage": "CodePro Tester"
   },
-  "toolAudit.audited": {
-    "defaultMessage": "Audited"
-  },
   "toolAudit.auditId": {
     "defaultMessage": "Audit ID"
+  },
+  "toolAudit.audited": {
+    "defaultMessage": "Audited"
   },
   "toolAudit.authorization": {
     "defaultMessage": "Authorization"
@@ -8627,6 +8576,135 @@
   "toolAudit.transportOutcome": {
     "defaultMessage": "Araç çağrısı sonucu"
   },
+  "toolCallStatusIndicator.toolStatus": {
+    "defaultMessage": "Takım durumu: {status}"
+  },
+  "toolCallWithResponse.activityCount": {
+    "defaultMessage": "Etkinlik ({count})"
+  },
+  "toolCallWithResponse.checkNotAccepted": {
+    "defaultMessage": "Not accepted view details"
+  },
+  "toolCallWithResponse.checkResultScope": {
+    "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
+  },
+  "toolCallWithResponse.code": {
+    "defaultMessage": "Kod"
+  },
+  "toolCallWithResponse.desktopPaused": {
+    "defaultMessage": "Desktop control paused"
+  },
+  "toolCallWithResponse.desktopStale": {
+    "defaultMessage": "Observation expired; observe again"
+  },
+  "toolCallWithResponse.desktopStopped": {
+    "defaultMessage": "Computer control stopped"
+  },
+  "toolCallWithResponse.desktopWithdrawn": {
+    "defaultMessage": "Withdrawn from desktop queue"
+  },
+  "toolCallWithResponse.loadingSpinner": {
+    "defaultMessage": "Döndürücü yükleniyor"
+  },
+  "toolCallWithResponse.logs": {
+    "defaultMessage": "Günlükler"
+  },
+  "toolCallWithResponse.modelPlan": {
+    "defaultMessage": "Model plan"
+  },
+  "toolCallWithResponse.output": {
+    "defaultMessage": "Çıkış"
+  },
+  "toolCallWithResponse.searchQuery": {
+    "defaultMessage": "Query"
+  },
+  "toolCallWithResponse.searchResponse": {
+    "defaultMessage": "Search response"
+  },
+  "toolCallWithResponse.searchSources": {
+    "defaultMessage": "Sources"
+  },
+  "toolCallWithResponse.subagentBudget": {
+    "defaultMessage": "Kısmi sonuç devredilen iş sınırına ulaşıldı"
+  },
+  "toolCallWithResponse.subagentStarted": {
+    "defaultMessage": "Started {name}"
+  },
+  "toolCallWithResponse.subagentUnavailable": {
+    "defaultMessage": "Kısmi sonuç model hizmeti kullanılamıyor"
+  },
+  "toolCallWithResponse.toolDetails": {
+    "defaultMessage": "Araç Ayrıntıları"
+  },
+  "toolCallWithResponse.toolResultAlt": {
+    "defaultMessage": "Araç sonucu"
+  },
+  "toolCallWithResponse.viewSubagentSession": {
+    "defaultMessage": "Alt temsilci oturumunu görüntüle"
+  },
+  "toolConfirmation.allowToolCallWithName": {
+    "defaultMessage": "{toolName}'ye izin verilsin mi?"
+  },
+  "toolConfirmation.branch": {
+    "defaultMessage": "Branch"
+  },
+  "toolConfirmation.browserAction": {
+    "defaultMessage": "{operation, select, open {Sayfayı aç} observe {Sayfayı oku} click {Sayfa öğesine tıkla} type {Sayfaya metin gir} key {Sayfaya tuş gönder} screenshot {Sayfanın görüntüsünü al} console {Sayfa konsolunu oku} close {Sayfayı kapat} other {Tarayıcı işlemi}}"
+  },
+  "toolConfirmation.browserNode": {
+    "defaultMessage": "Öğe {node}"
+  },
+  "toolConfirmation.browserTab": {
+    "defaultMessage": "Sekme {id}"
+  },
+  "toolConfirmation.browserTargetMissing": {
+    "defaultMessage": "Hedef belirtilmedi"
+  },
+  "toolConfirmation.expectedRemoteTip": {
+    "defaultMessage": "Expected remote tip"
+  },
+  "toolConfirmation.forcePushTitle": {
+    "defaultMessage": "Force push confirmation"
+  },
+  "toolConfirmation.forcePushWarning": {
+    "defaultMessage": "This operation rewrites the remote branch. Verify every value before allowing it."
+  },
+  "toolConfirmation.gooseWouldLikeToCallWithName": {
+    "defaultMessage": "CodeBuddy, {toolName}'yi aramak istiyor. İzin vermek?"
+  },
+  "toolConfirmation.localHead": {
+    "defaultMessage": "Local HEAD"
+  },
+  "toolConfirmation.localOnlyCommits": {
+    "defaultMessage": "Local-only commits"
+  },
+  "toolConfirmation.remote": {
+    "defaultMessage": "Remote"
+  },
+  "toolConfirmation.remoteOnlyCommits": {
+    "defaultMessage": "Remote commits to overwrite"
+  },
+  "toolConfirmation.risk": {
+    "defaultMessage": "Risk"
+  },
+  "toolConfirmation.riskValue": {
+    "defaultMessage": "{risk, select, read_only {Read only} workspace_write {Workspace write} external_write {Extension action (confirmation required)} high_risk {High risk} forbidden {Forbidden} other {Legacy / unknown risk}}"
+  },
+  "toolConfirmation.scope": {
+    "defaultMessage": "Scope"
+  },
+  "toolConfirmation.scopeValue": {
+    "defaultMessage": "{scope, select, task {This task} session {This session} global {Global} other {Unknown scope}}"
+  },
+  "toolConfirmation.source": {
+    "defaultMessage": "Source"
+  },
+  "toolConfirmation.sourceValue": {
+    "defaultMessage": "{source, select, platform {Platform extension} builtin {Built-in extension} external_stdio {External local extension} external_http {External network extension} frontend {Frontend tool} inline_python {Inline Python tool} other {Unknown source}}"
+  },
+  "toolConfirmation.taskWorkspaceGrant": {
+    "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
+  },
   "toolbox.addSkill": {
     "defaultMessage": "Beceri ekle"
   },
@@ -8675,11 +8753,11 @@
   "toolbox.discoveryFailed": {
     "defaultMessage": "Tool discovery failed"
   },
-  "toolbox.enabledUnverified": {
-    "defaultMessage": "Enabled · not verified"
-  },
   "toolbox.enableTool": {
     "defaultMessage": "Enable {name}"
+  },
+  "toolbox.enabledUnverified": {
+    "defaultMessage": "Enabled · not verified"
   },
   "toolbox.externalHelp": {
     "defaultMessage": "GitHub depoları, sorunları ve çekme istekleri gibi dış hizmetlere bağlantılar."
@@ -8822,135 +8900,6 @@
   "toolbox.usage": {
     "defaultMessage": "{count,plural,one{Used successfully # time} other{Used successfully # times}}"
   },
-  "toolCallStatusIndicator.toolStatus": {
-    "defaultMessage": "Takım durumu: {status}"
-  },
-  "toolCallWithResponse.activityCount": {
-    "defaultMessage": "Etkinlik ({count})"
-  },
-  "toolCallWithResponse.checkNotAccepted": {
-    "defaultMessage": "Not accepted view details"
-  },
-  "toolCallWithResponse.checkResultScope": {
-    "defaultMessage": "This task-check call did not succeed. The reason is below; this is not the overall task result."
-  },
-  "toolCallWithResponse.code": {
-    "defaultMessage": "Kod"
-  },
-  "toolCallWithResponse.desktopPaused": {
-    "defaultMessage": "Desktop control paused"
-  },
-  "toolCallWithResponse.desktopStale": {
-    "defaultMessage": "Observation expired; observe again"
-  },
-  "toolCallWithResponse.desktopStopped": {
-    "defaultMessage": "Computer control stopped"
-  },
-  "toolCallWithResponse.desktopWithdrawn": {
-    "defaultMessage": "Withdrawn from desktop queue"
-  },
-  "toolCallWithResponse.loadingSpinner": {
-    "defaultMessage": "Döndürücü yükleniyor"
-  },
-  "toolCallWithResponse.logs": {
-    "defaultMessage": "Günlükler"
-  },
-  "toolCallWithResponse.modelPlan": {
-    "defaultMessage": "Model plan"
-  },
-  "toolCallWithResponse.output": {
-    "defaultMessage": "Çıkış"
-  },
-  "toolCallWithResponse.searchQuery": {
-    "defaultMessage": "Query"
-  },
-  "toolCallWithResponse.searchResponse": {
-    "defaultMessage": "Search response"
-  },
-  "toolCallWithResponse.searchSources": {
-    "defaultMessage": "Sources"
-  },
-  "toolCallWithResponse.subagentBudget": {
-    "defaultMessage": "Kısmi sonuç devredilen iş sınırına ulaşıldı"
-  },
-  "toolCallWithResponse.subagentStarted": {
-    "defaultMessage": "Started {name}"
-  },
-  "toolCallWithResponse.subagentUnavailable": {
-    "defaultMessage": "Kısmi sonuç model hizmeti kullanılamıyor"
-  },
-  "toolCallWithResponse.toolDetails": {
-    "defaultMessage": "Araç Ayrıntıları"
-  },
-  "toolCallWithResponse.toolResultAlt": {
-    "defaultMessage": "Araç sonucu"
-  },
-  "toolCallWithResponse.viewSubagentSession": {
-    "defaultMessage": "Alt temsilci oturumunu görüntüle"
-  },
-  "toolConfirmation.allowToolCallWithName": {
-    "defaultMessage": "{toolName}'ye izin verilsin mi?"
-  },
-  "toolConfirmation.branch": {
-    "defaultMessage": "Branch"
-  },
-  "toolConfirmation.browserAction": {
-    "defaultMessage": "{operation, select, open {Sayfayı aç} observe {Sayfayı oku} click {Sayfa öğesine tıkla} type {Sayfaya metin gir} key {Sayfaya tuş gönder} screenshot {Sayfanın görüntüsünü al} console {Sayfa konsolunu oku} close {Sayfayı kapat} other {Tarayıcı işlemi}}"
-  },
-  "toolConfirmation.browserNode": {
-    "defaultMessage": "Öğe {node}"
-  },
-  "toolConfirmation.browserTab": {
-    "defaultMessage": "Sekme {id}"
-  },
-  "toolConfirmation.browserTargetMissing": {
-    "defaultMessage": "Hedef belirtilmedi"
-  },
-  "toolConfirmation.expectedRemoteTip": {
-    "defaultMessage": "Expected remote tip"
-  },
-  "toolConfirmation.forcePushTitle": {
-    "defaultMessage": "Force push confirmation"
-  },
-  "toolConfirmation.forcePushWarning": {
-    "defaultMessage": "This operation rewrites the remote branch. Verify every value before allowing it."
-  },
-  "toolConfirmation.gooseWouldLikeToCallWithName": {
-    "defaultMessage": "CodeBuddy, {toolName}'yi aramak istiyor. İzin vermek?"
-  },
-  "toolConfirmation.localHead": {
-    "defaultMessage": "Local HEAD"
-  },
-  "toolConfirmation.localOnlyCommits": {
-    "defaultMessage": "Local-only commits"
-  },
-  "toolConfirmation.remote": {
-    "defaultMessage": "Remote"
-  },
-  "toolConfirmation.remoteOnlyCommits": {
-    "defaultMessage": "Remote commits to overwrite"
-  },
-  "toolConfirmation.risk": {
-    "defaultMessage": "Risk"
-  },
-  "toolConfirmation.riskValue": {
-    "defaultMessage": "{risk, select, read_only {Read only} workspace_write {Workspace write} external_write {Extension action (confirmation required)} high_risk {High risk} forbidden {Forbidden} other {Legacy / unknown risk}}"
-  },
-  "toolConfirmation.scope": {
-    "defaultMessage": "Scope"
-  },
-  "toolConfirmation.scopeValue": {
-    "defaultMessage": "{scope, select, task {This task} session {This session} global {Global} other {Unknown scope}}"
-  },
-  "toolConfirmation.source": {
-    "defaultMessage": "Source"
-  },
-  "toolConfirmation.sourceValue": {
-    "defaultMessage": "{source, select, platform {Platform extension} builtin {Built-in extension} external_stdio {External local extension} external_http {External network extension} frontend {Frontend tool} inline_python {Inline Python tool} other {Unknown source}}"
-  },
-  "toolConfirmation.taskWorkspaceGrant": {
-    "defaultMessage": "Allow for this task: create and edit files anywhere inside {root}. Shell commands, network, dependency installation, Git operations, and writes outside this workspace are not included."
-  },
   "userMessage.cancel": {
     "defaultMessage": "İptal"
   },
@@ -9001,6 +8950,54 @@
   },
   "userMessage.unconfirmed": {
     "defaultMessage": "Onay bekleniyor"
+  },
+  "workStatus.approval": {
+    "defaultMessage": "Waiting for your approval: {action}"
+  },
+  "workStatus.cancel": {
+    "defaultMessage": "Stopping; waiting for confirmation"
+  },
+  "workStatus.check": {
+    "defaultMessage": "Checking execution results"
+  },
+  "workStatus.childResult": {
+    "defaultMessage": "Waiting for the main agent to process subagent results"
+  },
+  "workStatus.children": {
+    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  },
+  "workStatus.connecting": {
+    "defaultMessage": "Connecting to the model service"
+  },
+  "workStatus.elapsed": {
+    "defaultMessage": "{seconds}s"
+  },
+  "workStatus.first": {
+    "defaultMessage": "Waiting for model response"
+  },
+  "workStatus.preparing": {
+    "defaultMessage": "Preparing the model request"
+  },
+  "workStatus.question": {
+    "defaultMessage": "Waiting for your answer or approval"
+  },
+  "workStatus.responseRead": {
+    "defaultMessage": "Connection established; receiving model output"
+  },
+  "workStatus.responseWait": {
+    "defaultMessage": "Model hizmeti bekleniyor"
+  },
+  "workStatus.text": {
+    "defaultMessage": "Receiving the response"
+  },
+  "workStatus.thought": {
+    "defaultMessage": "Receiving model activity"
+  },
+  "workStatus.toolResult": {
+    "defaultMessage": "Waiting for the main agent to process tool results"
+  },
+  "workStatus.waitingHint": {
+    "defaultMessage": "Model hizmeti henüz içerik döndürmedi. Beklemeye devam edebilir veya bu isteği durdurabilirsiniz."
   },
   "workspaceChanges.all": {
     "defaultMessage": "All turns"
@@ -9128,11 +9125,11 @@
   "workspaceConfirmation.writableRootLabel": {
     "defaultMessage": "Yazılabilir kök"
   },
-  "workspacePanel.address": {
-    "defaultMessage": "Web address"
-  },
   "workspacePanel.addToChat": {
     "defaultMessage": "Sohbete ekle"
+  },
+  "workspacePanel.address": {
+    "defaultMessage": "Web address"
   },
   "workspacePanel.back": {
     "defaultMessage": "Back"
@@ -9212,14 +9209,14 @@
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
+  "workspacePanel.fileTree": {
+    "defaultMessage": "Workspace file tree"
+  },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
-  },
-  "workspacePanel.fileTree": {
-    "defaultMessage": "Workspace file tree"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9404,52 +9401,55 @@
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
   },
-  "workStatus.approval": {
-    "defaultMessage": "Waiting for your approval: {action}"
+  "scheduleModal.prompt": {
+    "defaultMessage": "Görev talimatları"
   },
-  "workStatus.cancel": {
-    "defaultMessage": "Stopping; waiting for confirmation"
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Her çalıştırmada yapılacakları, raporlanacakları ve durma koşulunu açıklayın."
   },
-  "workStatus.check": {
-    "defaultMessage": "Checking execution results"
+  "scheduleModal.destination": {
+    "defaultMessage": "Çalıştırma yeri"
   },
-  "workStatus.children": {
-    "defaultMessage": "Waiting for {count, plural, one {# subagent} other {# subagents}} to return results"
+  "scheduleModal.newSession": {
+    "defaultMessage": "Her seferinde yeni sohbet"
   },
-  "workStatus.childResult": {
-    "defaultMessage": "Waiting for the main agent to process subagent results"
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Geçerli sohbette takip et"
   },
-  "workStatus.connecting": {
-    "defaultMessage": "Connecting to the model service"
+  "scheduleModal.followHint": {
+    "defaultMessage": "Bu sohbetin geçmişini, modelini ve izinlerini kullanır. Sohbet meşgulse çalıştırma atlanır. Sohbet silinirse görev duraklatılır."
   },
-  "workStatus.elapsed": {
-    "defaultMessage": "{seconds}s"
+  "scheduleModal.newHint": {
+    "defaultMessage": "Her çalıştırma, yapılandırılmış varsayılan modelle bağımsız olarak başlar."
   },
-  "workStatus.first": {
-    "defaultMessage": "Waiting for model response"
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Takip görevi oluşturmak için önce bir sohbet açın."
   },
-  "workStatus.preparing": {
-    "defaultMessage": "Preparing the model request"
+  "scheduleModal.advanced": {
+    "defaultMessage": "Gelişmiş"
   },
-  "workStatus.question": {
-    "defaultMessage": "Waiting for your answer or approval"
+  "cronPicker.repeat": {
+    "defaultMessage": "Tekrar"
   },
-  "workStatus.responseRead": {
-    "defaultMessage": "Connection established; receiving model output"
+  "cronPicker.time": {
+    "defaultMessage": "Saat"
   },
-  "workStatus.responseWait": {
-    "defaultMessage": "Model hizmeti bekleniyor"
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
   },
-  "workStatus.text": {
-    "defaultMessage": "Receiving the response"
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
   },
-  "workStatus.thought": {
-    "defaultMessage": "Receiving model activity"
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
   },
-  "workStatus.toolResult": {
-    "defaultMessage": "Waiting for the main agent to process tool results"
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
   },
-  "workStatus.waitingHint": {
-    "defaultMessage": "Model hizmeti henüz içerik döndürmedi. Beklemeye devam edebilir veya bu isteği durdurabilirsiniz."
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   }
 }

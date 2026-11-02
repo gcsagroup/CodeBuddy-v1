@@ -188,8 +188,9 @@ export function MediaLibrary() {
     finally { if (generation === request.current) setLoading(false); }
   }, [kind, project, query, view]);
   useEffect(() => {
+    const activeRequest = request;
     void load();
-    return () => { request.current++; };
+    return () => { activeRequest.current++; };
   }, [load]);
   const toggle = (id: string) => setSelected(previous => {
     const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next;

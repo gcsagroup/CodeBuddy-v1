@@ -77,7 +77,7 @@ test('per-model output budgets persist, clear and validate independently of capa
   assert.deepEqual(reopenedStore.read().providers[0].thinkingEfforts, { one: 'high' });
 });
 
-test('editing an idle model budget preserves other active session approvals without weakening invalidation', async t => {
+test('editing idle model budgets and metadata preserves live capability-owned approvals', async t => {
   const f = await fixture(t);
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: [{ id: 'one' }] }), { headers: { 'content-type': 'application/json' } }));
   await f.store.update(state => state.providers.push({ id: 'idle-model', engine: 'openai_compatible',
@@ -90,7 +90,7 @@ test('editing an idle model budget preserves other active session approvals with
   await host.settings.request('providers/config/save', { providerId: 'idle-model', fields: [{ key: 'maxTokens:one', value: '4096' }] });
   assert.strictEqual(host.sessionToolApprovals.get(owner), permissions);
   await host.settings.request('model-capabilities/save', { config: { version: 1, overrides: [] } });
-  assert.equal(host.sessionToolApprovals.get(owner), undefined, 'non-preference changes still invalidate permission identity');
+  assert.strictEqual(host.sessionToolApprovals.get(owner), permissions, 'Model metadata does not replace an authorized capability; its registry owns invalidation');
 });
 
 test('extension settings survive restart, protect MCP credentials and update atomically', async t => {

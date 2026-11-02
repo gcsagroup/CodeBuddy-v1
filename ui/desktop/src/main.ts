@@ -1959,6 +1959,7 @@ async function selectProjectFolder(currentWindow: BrowserWindow, directory: stri
           '資料夾不可用，請選擇現有資料夾。'
         ),
       });
+    return undefined;
   }
 }
 

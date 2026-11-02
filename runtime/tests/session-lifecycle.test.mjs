@@ -440,12 +440,19 @@ test('a session deleted during asynchronous capability preparation never recreat
   await assert.rejects(access(path.join(f.root, 'orphan.txt')));
 });
 
-test('closing and deleting imported history does not initialize the lazy Harness runtime', { timeout: 15_000 }, async t => {
+test('closing and deleting imported history releases capabilities without creating native sessions', { timeout: 15_000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-lifecycle-history-')), secret = 'isolated-lifecycle-history-secret';
   const store = await openStore(root);
   await store.update(s => s.sessions.push({ id: 'imported', title: 'Retained history', readonlyHistory: true, cwd: root, type: 'user', updates: [], usageUpdates: [], messageCount: 0 }));
   await store.flush();
-  const app = await createCompatServer({ dataDir: root, secret }), base = await app.listen();
+  const releases = [];
+  const driver = {
+    async createSession() { assert.fail('Imported history must not create a native session'); },
+    async configureSession() { assert.fail('Imported history must not configure a native session'); },
+    async releaseNativeSessionCapabilities(id) { releases.push(id); },
+    async close() {},
+  };
+  const app = await createCompatServer({ dataDir: root, secret, driver }), base = await app.listen();
   const socket = new WebSocket(`${base.replace('http:', 'ws:')}/acp?token=${secret}`);
   t.after(async () => { socket.close(); await app.close(); });
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
@@ -460,5 +467,7 @@ test('closing and deleting imported history does not initialize the lazy Harness
   }
   await request('initialize', { protocolVersion: 1, clientCapabilities: {} });
   await request('session/close'); await request('session/delete');
-  await assert.rejects(access(path.join(root, 'harness')), /ENOENT/);
+  assert.deepEqual(releases, ['imported', 'imported']);
+  const reopened = await openStore(root);
+  assert.equal(reopened.read().sessions.some(session => session.id === 'imported'), false);
 });

@@ -244,11 +244,12 @@ describe('CodeProHub real composer setup', () => {
     await act(async () => resolveInspection([candidate]));
     await waitFor(() => expect(navigate).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledOnce();
-    expect(startCodeProSession).toHaveBeenCalledWith({
+    expect(startCodeProSession).toHaveBeenCalledWith(expect.objectContaining({
       candidate,
       initialMessage: { msg: 'prepare project', images: [] },
       allExtensions: [],
-    });
+      workspaceOrigin: 'default',
+    }));
     expect(input).toHaveValue('');
     expect(screen.queryByText('Queue Paused')).toBeNull();
   });

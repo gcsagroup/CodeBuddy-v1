@@ -187,6 +187,15 @@ const i18n = defineMessages({
     defaultMessage:
       'Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}.',
   },
+  outputLimitRecoveryPolicy: {
+    id: 'gooseMessage.outputLimitRecoveryPolicy',
+    defaultMessage:
+      'At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task.',
+  },
+  terminalDetails: {
+    id: 'gooseMessage.terminalDetails',
+    defaultMessage: 'Why this task did not finish',
+  },
   outputLimitFallback: {
     id: 'gooseMessage.outputLimitFallback',
     defaultMessage:
@@ -866,18 +875,24 @@ export default function GooseMessage({
         {(outputLimited || contextLimited) && turnTerminal && (
           <div className="mt-2 space-y-2 text-sm text-text-secondary">
             {textContent.trim() && <p>{displayText}</p>}
-            {turnTerminal.output_limit?.budget && (
+            {turnTerminal.output_limit && (
               <details>
                 <summary className="cursor-pointer text-xs">
                   {intl.formatMessage(i18n.outputLimitDetails)}
                 </summary>
                 <div className="mt-1 text-xs">
-                  {intl.formatMessage(i18n.outputLimitBudget, {
-                    tokens: turnTerminal.output_limit.budget.effectiveTokens,
-                    attempts: turnTerminal.output_limit.automaticAttempts,
-                    limit: turnTerminal.output_limit.maxAutomaticAttempts,
-                  })}
-                  {turnTerminal.output_limit.budget.source === 'fallback' && (
+                  {turnTerminal.output_limit.budget &&
+                    intl.formatMessage(i18n.outputLimitBudget, {
+                      tokens: turnTerminal.output_limit.budget.effectiveTokens,
+                      attempts: turnTerminal.output_limit.automaticAttempts,
+                      limit: turnTerminal.output_limit.maxAutomaticAttempts,
+                    })}
+                  <p>
+                    {intl.formatMessage(i18n.outputLimitRecoveryPolicy, {
+                      limit: turnTerminal.output_limit.maxAutomaticAttempts,
+                    })}
+                  </p>
+                  {turnTerminal.output_limit.budget?.source === 'fallback' && (
                     <p>{intl.formatMessage(i18n.outputLimitFallback)}</p>
                   )}
                 </div>
@@ -928,6 +943,20 @@ export default function GooseMessage({
                   </span>
                 )}
               </div>
+              {!!turnTerminal.report?.limitations.length && (
+                <details className="mt-2 text-sm text-text-secondary">
+                  <summary className="cursor-pointer">
+                    {intl.formatMessage(i18n.terminalDetails)}
+                  </summary>
+                  <ul className="mt-1 list-disc space-y-1 break-words pl-4">
+                    {turnTerminal.report.limitations.map((limitation, index) => (
+                      <li key={index} className="whitespace-pre-wrap">
+                        {limitation}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div className="text-xs font-mono text-text-secondary">{timestamp}</div>
                 {showMessageActions && (

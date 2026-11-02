@@ -3599,6 +3599,12 @@
   "gooseMessage.outputLimitBudget": {
     "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
   },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "Why this task did not finish"
+  },
   "gooseMessage.outputLimitContinue": {
     "defaultMessage": "Try continuing"
   },

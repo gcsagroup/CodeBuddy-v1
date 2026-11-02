@@ -3661,6 +3661,12 @@
   "gooseMessage.outputLimitBudget": {
     "defaultMessage": "本次请求的输出额度：{tokens} token。自动恢复次数：{attempts}/{limit}。"
   },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "同一步骤最多自动补试 1 次，本轮累计最多 {limit} 次；同一步骤再次受限就停止。"
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "查看未完成原因"
+  },
   "gooseMessage.outputLimitFallback": {
     "defaultMessage": "此额度来自默认值，服务实际支持的输出容量尚未确认。"
   },

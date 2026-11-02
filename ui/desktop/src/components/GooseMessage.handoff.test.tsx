@@ -52,10 +52,36 @@ function show(message: Message) {
 
 describe('handoff versus an unexplained interruption', () => {
   it('does not invent a test failure when a model request fails without verification', () => {
-    show(terminal('failed'));
+    const message = terminal('failed');
+    const notification = message.content.find((content) => content.type === 'systemNotification');
+    if (notification?.type === 'systemNotification')
+      notification.data = {
+        ...(notification.data as object),
+        report: {
+          outcome: 'failed',
+          classification_counts: {
+            confirmed_bug: 0,
+            test_failure: 0,
+            environment_problem: 1,
+            codepro_incomplete: 0,
+            unverified: 0,
+          },
+          changed_files: [],
+          verification_summary: [],
+          limitations: ['EPERM: operation not permitted, rename state.json.tmp -> state.json'],
+          recovery_action: 'manual_review',
+        },
+      };
+    show(message);
     expect(screen.getByText('Needs attention')).toBeInTheDocument();
     expect(screen.getByText('Not completed')).toBeInTheDocument();
     expect(screen.queryByText('Tests failed')).not.toBeInTheDocument();
+    const details = screen.getByText('Why this task did not finish').closest('details');
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Why this task did not finish'));
+    expect(details).toHaveAttribute('open');
+    expect(screen.getByText(/EPERM: operation not permitted/)).toBeVisible();
+    expect(screen.queryByText(/Stopped at your request/)).not.toBeInTheDocument();
   });
   it('renders the terminal handoff once, without a second host explanation', () => {
     const summary = '缺少真实订单文件，因此没有完成实跑核对。补齐文件后可以继续。';
@@ -161,6 +187,22 @@ describe('native response length recovery', () => {
     expect(screen.getByText(/Automatic recovery attempts: 2\/2/)).toBeInTheDocument();
     expect(append).not.toHaveBeenCalled();
   });
+  it.each([1, 2])(
+    'explains the per-step bound without budget metadata (turn limit %i)',
+    (limit) => {
+      const append = display(
+        limited({ output_limit: { automaticAttempts: 1, maxAutomaticAttempts: limit } })
+      );
+      fireEvent.click(screen.getByText('Limit details'));
+      expect(
+        screen.getByText(
+          `At most one automatic retry per step and ${limit} per turn. Another length limit in the same step stops the task.`
+        )
+      ).toBeVisible();
+      expect(screen.queryByText(/Requested output budget:/)).not.toBeInTheDocument();
+      expect(append).not.toHaveBeenCalled();
+    }
+  );
   it('shows both recovery attempts on a completed model turn', () => {
     display(
       limited({

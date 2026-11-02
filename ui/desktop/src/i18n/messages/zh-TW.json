@@ -3661,6 +3661,12 @@
   "gooseMessage.outputLimitBudget": {
     "defaultMessage": "本次請求的輸出額度：{tokens} token。自動恢復次數：{attempts}/{limit}。"
   },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "同一步驟最多自動補試 1 次，本輪累計最多 {limit} 次；同一步驟再次受限就停止。"
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "查看未完成原因"
+  },
   "gooseMessage.outputLimitFallback": {
     "defaultMessage": "此額度來自預設值，服務實際支援的輸出容量尚未確認。"
   },

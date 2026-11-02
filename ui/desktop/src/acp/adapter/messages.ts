@@ -173,6 +173,7 @@ export function findMessageForChunk(
       }
       existing.created = created ?? existing.created;
       existing.metadata = { ...existing.metadata, ...DEFAULT_VISIBLE_MESSAGE_METADATA };
+      delete existing.metadata.usageUnattributed;
     }
     return existing;
   }

@@ -1,6 +1,12 @@
 import { PanelResizeHandle } from '../../workspace-panel/PanelResizeHandle';
 import { NativeScheduleDetails } from '../schedule/NativeScheduleDetails';
 import { useNativeSchedulePanel } from '../schedule/useNativeSchedulePanel';
+import {
+  OPEN_WORKSPACE_FILE,
+  OPEN_WORKSPACE_WEB,
+  type WorkspaceFileTarget,
+  type WorkspaceWebTarget,
+} from '../../workspace-panel/workspaceFilePanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -127,6 +133,42 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const { id: nativeScheduleId, close: closeNativeSchedule } = useNativeSchedulePanel();
   const isSchedulesRoute = location.pathname.endsWith('/schedules');
   const showNativeSchedule = Boolean(nativeScheduleId) && (isSchedulesRoute || isOnPairRoute);
+  const [pendingWorkspaceOpen, setPendingWorkspaceOpen] = useState<{
+    type: string;
+    detail: WorkspaceFileTarget | WorkspaceWebTarget;
+  } | null>(null);
+  const currentSessionId = new URLSearchParams(location.search).get('resumeSessionId');
+  useEffect(() => {
+    if (!showNativeSchedule || workspaceMode !== 'codepro' || !isOnPairRoute) return;
+    const open = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceFileTarget | WorkspaceWebTarget>).detail;
+      if (!detail || detail.sessionId !== currentSessionId) return;
+      setPendingWorkspaceOpen({ type: event.type, detail });
+      closeNativeSchedule();
+    };
+    window.addEventListener(OPEN_WORKSPACE_FILE, open);
+    window.addEventListener(OPEN_WORKSPACE_WEB, open);
+    return () => {
+      window.removeEventListener(OPEN_WORKSPACE_FILE, open);
+      window.removeEventListener(OPEN_WORKSPACE_WEB, open);
+    };
+  }, [showNativeSchedule, workspaceMode, isOnPairRoute, currentSessionId, closeNativeSchedule]);
+  useEffect(() => {
+    if (showNativeSchedule || !pendingWorkspaceOpen) return;
+    // The child workspace has now mounted its existing event handlers. Hand
+    // this explicit click over once; keep hidden terminal/save effects unmounted.
+    if (
+      workspaceMode === 'codepro' &&
+      isOnPairRoute &&
+      pendingWorkspaceOpen.detail.sessionId === currentSessionId
+    )
+      window.dispatchEvent(
+        new CustomEvent(pendingWorkspaceOpen.type, {
+          detail: pendingWorkspaceOpen.detail,
+        })
+      );
+    setPendingWorkspaceOpen(null);
+  }, [showNativeSchedule, pendingWorkspaceOpen, workspaceMode, isOnPairRoute, currentSessionId]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [taskPanelPreferences] = useState(() =>
     readCodeProTaskPanelPreferences(typeof window === 'undefined' ? undefined : window.localStorage)

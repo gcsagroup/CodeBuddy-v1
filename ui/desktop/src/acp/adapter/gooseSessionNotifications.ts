@@ -13,7 +13,7 @@ import {
   type TurnTerminalRecord,
 } from '../../types/turnTerminal';
 import { adaptLegacyCodeProActivity } from './legacyCodeProActivityAdapter';
-import { type AcpChatStateChange, type AdapterState, messagesChange } from './shared';
+import { type AcpChatStateChange, type AdapterState, isRecord, messagesChange } from './shared';
 import type { TokenState } from '../../types/chat';
 
 function contextSources(update: unknown): Partial<TokenState> {
@@ -87,7 +87,7 @@ export function applyGooseSessionNotification(
       }
       return applyStatusMessage(state, notification.sessionId, update, isSessionReplay);
     case 'message_usage':
-      return applyMessageUsage(state, update);
+      return applyMessageUsage(state, update, isSessionReplay);
     case 'test_execution_progress':
       return upsertTestExecutionProgress(state, update.progress);
     case 'public_progress':
@@ -261,6 +261,25 @@ function applyStatusMessage(
     return [{ type: 'progressMessage', message: update.status.message }];
   }
 
+  const incomplete = update.status.data;
+  if (
+    isRecord(incomplete) &&
+    incomplete.type === 'output_attempt_incomplete' &&
+    typeof incomplete.message_id === 'string'
+  ) {
+    const receiptIndex = state.messages.findIndex(
+      (message) =>
+        message.id === incomplete.message_id &&
+        message.content.length === 0 &&
+        !!message.metadata.usage
+    );
+    if (receiptIndex >= 0) {
+      const [receipt] = state.messages.splice(receiptIndex, 1);
+      receipt.metadata = { ...receipt.metadata };
+      delete receipt.metadata.usageUnattributed;
+      state.messages.push(receipt);
+    }
+  }
   state.messages.push({
     id: `acp_status_${sessionId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     role: 'assistant',
@@ -423,7 +442,8 @@ function upsertCodeProActivity(
 
 function applyMessageUsage(
   state: AdapterState,
-  update: Extract<GooseSessionNotification_unstable['update'], { sessionUpdate: 'message_usage' }>
+  update: Extract<GooseSessionNotification_unstable['update'], { sessionUpdate: 'message_usage' }>,
+  isSessionReplay: boolean
 ): AcpChatStateChange[] {
   const usage: MessageUsage = {
     inputTokens: update.usage.inputTokens,
@@ -444,6 +464,17 @@ function applyMessageUsage(
       target.metadata = { ...target.metadata, usage };
       return messagesChange(state, target);
     }
+    // A truncated attempt may have no content. Its host notice still gives
+    // an exact receipt identity and an original position in this turn.
+    const incompleteIndex = state.messages.findIndex((message) =>
+      message.content.some(
+        (content) =>
+          content.type === 'systemNotification' &&
+          isRecord(content.data) &&
+          content.data.type === 'output_attempt_incomplete' &&
+          content.data.message_id === update.messageId
+      )
+    );
     // Usage can precede a tool-only message, or belong to internal work with
     // no visible row. Keep its identity for billing; content will reuse it.
     const message = {
@@ -451,9 +482,17 @@ function applyMessageUsage(
       role: 'assistant' as const,
       created: Math.floor(Date.now() / 1000),
       content: [],
-      metadata: { userVisible: false, agentVisible: false, usage },
+      metadata: {
+        userVisible: false,
+        agentVisible: false,
+        usage,
+        // History receipts arrive after all content. Their arrival position
+        // cannot identify a turn when the corresponding content is absent.
+        ...(isSessionReplay && incompleteIndex < 0 ? { usageUnattributed: true as const } : {}),
+      },
     };
-    state.messages.push(message);
+    if (incompleteIndex >= 0) state.messages.splice(incompleteIndex, 0, message);
+    else state.messages.push(message);
     return messagesChange(state, message, true);
   }
 

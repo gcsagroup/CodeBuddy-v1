@@ -1913,7 +1913,9 @@ function ProgressiveMessageListContent({
             }
           }
           const usage = hasTerminalBoundary
-            ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn)
+            ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn, {
+                attributedOnly: true,
+              })
             : undefined;
           const completedAt =
             hasTerminalBoundary && terminal ? Date.parse(terminal.finished_at) / 1000 : undefined;

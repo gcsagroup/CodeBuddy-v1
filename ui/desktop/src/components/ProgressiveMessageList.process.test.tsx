@@ -67,6 +67,43 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('does not include unbound historical receipts in the latest completed turn footer', () => {
+    const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);
+    answer.metadata.usage = { inputTokens: 59, outputTokens: 16, totalTokens: 93389 };
+    const unbound = assistant('old-missing', []);
+    unbound.metadata = {
+      userVisible: false,
+      agentVisible: false,
+      usageUnattributed: true,
+      usage: { inputTokens: 65946, outputTokens: 527, totalTokens: 66473 },
+    };
+    const terminal = assistant('math-terminal', [
+      {
+        type: 'systemNotification',
+        notificationType: 'turnTerminal',
+        msg: '',
+        data: {
+          schema_version: 1,
+          session_id: 'between-replies',
+          run_id: 'math-run',
+          terminal_message_id: 'math-terminal',
+          source_user_message_id: user.id,
+          status: 'completed',
+          last_response_text_available: true,
+          visible_text_available: true,
+          tool_action_count: 0,
+          checkpoint_id: null,
+          retry_strategy: 'not_available',
+          copy_artifact_ref: null,
+          finished_at: '2026-11-01T00:00:00Z',
+        },
+      },
+    ]);
+    render(show([user, answer, terminal, unbound]), { wrapper: IntlTestWrapper });
+    expect(screen.getByText('Output 16')).toBeVisible();
+    expect(screen.queryByText('Output 543')).not.toBeInTheDocument();
+  });
+
   it('keeps a length-limited terminal and its continuation outside collapsed process history', () => {
     const terminal = assistant('length-terminal', [
       {

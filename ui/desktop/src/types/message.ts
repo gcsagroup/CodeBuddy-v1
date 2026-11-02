@@ -233,6 +233,8 @@ export type MessageMetadata = {
   inference?: InferenceMetadata | null;
   steer?: boolean;
   usage?: MessageUsage | null;
+  // Replay-only presentation fact: the receipt has no matching source message.
+  usageUnattributed?: true;
   userVisible: boolean;
 };
 

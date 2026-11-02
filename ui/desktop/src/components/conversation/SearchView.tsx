@@ -1,4 +1,5 @@
 import React, { useState, useEffect, PropsWithChildren, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import SearchBar from './SearchBar';
 import { SearchHighlighter } from '../../utils/searchHighlighter';
 import debounce from 'lodash/debounce';
@@ -9,6 +10,8 @@ import debounce from 'lodash/debounce';
 interface SearchViewProps {
   /** Optional CSS class name */
   className?: string;
+  /** Render the search controls in the conversation header while retaining this search scope. */
+  searchBarContainer?: HTMLElement | null;
   /** Optional callback for search term changes */
   onSearch?: (term: string, caseSensitive: boolean) => void;
   /** Exposes the search UI state to content that loads history on demand. */
@@ -22,9 +25,9 @@ interface SearchViewProps {
   } | null;
   /** Placeholder text for the search input */
   placeholder?: string;
-  /** Show the case-sensitivity toggle (default: true). */
+  /** Show the case-sensitivity toggle (default: false). */
   showCaseSensitive?: boolean;
-  /** Show the previous/next match navigation arrows (default: true). */
+  /** Show the previous/next match navigation arrows (default: false). */
   showNavigation?: boolean;
   /** Highlight matches in the content via the find-in-page highlighter (default: true).
    * Set false when the search acts as a list filter, so the term only drives onSearch. */
@@ -42,14 +45,15 @@ interface SearchContainerElement extends HTMLDivElement {
  */
 export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
   className = '',
+  searchBarContainer,
   children,
   onSearch,
   onVisibilityChange,
   onNavigate,
   searchResults,
   placeholder,
-  showCaseSensitive = true,
-  showNavigation = true,
+  showCaseSensitive = false,
+  showNavigation = false,
   highlightMatches = true,
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -381,6 +385,21 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - handlers are stable due to useCallback and useRef
 
+  const searchBar = isSearchVisible ? (
+    <SearchBar
+      onSearch={handleSearch}
+      onClose={handleCloseSearch}
+      onNavigate={handleNavigate}
+      searchResults={searchResults || internalSearchResults || undefined}
+      inputRef={searchInputRef}
+      initialSearchTerm={initialSearchTerm}
+      placeholder={placeholder}
+      showCaseSensitive={showCaseSensitive}
+      showNavigation={showNavigation}
+      inHeader={!!searchBarContainer}
+    />
+  ) : null;
+
   return (
     <div
       ref={(el) => {
@@ -392,19 +411,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
       }}
       className={`search-container ${className}`}
     >
-      {isSearchVisible && (
-        <SearchBar
-          onSearch={handleSearch}
-          onClose={handleCloseSearch}
-          onNavigate={handleNavigate}
-          searchResults={searchResults || internalSearchResults || undefined}
-          inputRef={searchInputRef}
-          initialSearchTerm={initialSearchTerm}
-          placeholder={placeholder}
-          showCaseSensitive={showCaseSensitive}
-          showNavigation={showNavigation}
-        />
-      )}
+      {searchBarContainer ? createPortal(searchBar, searchBarContainer) : searchBar}
       {children}
     </div>
   );

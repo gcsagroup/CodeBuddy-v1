@@ -4,6 +4,7 @@ import { Search as SearchIcon } from 'lucide-react';
 import { ArrowDown, ArrowUp, Close } from '../icons';
 import debounce from 'lodash/debounce';
 import { Button } from '../ui/button';
+import { cn } from '../../utils';
 
 const i18nMessages = defineMessages({
   defaultPlaceholder: {
@@ -49,11 +50,13 @@ interface SearchBarProps {
   initialSearchTerm?: string;
   /** Placeholder text for the search input */
   placeholder?: string;
-  /** Show the case-sensitivity toggle (default: true). */
+  /** Show the case-sensitivity toggle (default: false). */
   showCaseSensitive?: boolean;
-  /** Show the previous/next match navigation arrows (default: true). When hidden, the
+  /** Show the previous/next match navigation arrows (default: false). When hidden, the
    * result counter shows the total instead of "current/total". */
   showNavigation?: boolean;
+  /** Fit the search input within the conversation title row. */
+  inHeader?: boolean;
 }
 
 /**
@@ -67,8 +70,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   inputRef: externalInputRef,
   initialSearchTerm = '',
   placeholder,
-  showCaseSensitive = true,
-  showNavigation = true,
+  showCaseSensitive = false,
+  showNavigation = false,
+  inHeader = false,
 }: SearchBarProps) => {
   const intl = useIntl();
   const resolvedPlaceholder = placeholder ?? intl.formatMessage(i18nMessages.defaultPlaceholder);
@@ -100,9 +104,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   useEffect(() => {
     if (initialSearchTerm) {
       setSearchTerm(initialSearchTerm);
-      if (initialSearchTerm.length >= 2) {
-        debouncedSearchRef.current?.(initialSearchTerm, caseSensitive);
-      }
+      debouncedSearchRef.current?.(initialSearchTerm, caseSensitive);
     }
   }, [initialSearchTerm, caseSensitive, debouncedSearchRef]);
 
@@ -129,11 +131,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     // Update display term immediately for UI feedback
     setSearchTerm(value);
 
-    // Only trigger search if we have 2 or more characters
-    if (value.length >= 2) {
+    if (value.length > 0) {
       debouncedSearchRef.current?.(value, caseSensitive);
     } else {
-      // Clear results if less than 2 characters
       onSearch('', caseSensitive);
     }
   };
@@ -179,92 +179,94 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   return (
     <div
-      className={`sticky top-0 bg-background-inverse text-text-inverse z-30 mb-4 ${
-        isExiting ? 'search-bar-exit' : 'search-bar-enter'
-      }`}
+      className={cn(
+        'search-bar z-30 w-full max-w-md text-text-primary',
+        inHeader ? 'relative h-9 transition-opacity duration-150' : 'sticky top-0 mb-4',
+        inHeader ? isExiting && 'opacity-0' : isExiting ? 'search-bar-exit' : 'search-bar-enter'
+      )}
     >
-      <div className="flex w-full items-center">
-        <div className="relative flex flex-1 items-center h-full min-w-0">
-          <SearchIcon className="no-drag h-4 w-4 text-text-inverse/70 absolute left-3" />
-          <div className="w-full">
-            <input
-              ref={inputRef}
-              id="search-input"
-              type="text"
-              value={searchTerm}
-              onChange={handleSearch}
-              onKeyDown={handleKeyDown}
-              placeholder={resolvedPlaceholder}
-              className="no-drag w-full text-sm pl-9 pr-24 py-3 bg-background-inverse text-text-inverse
-                      placeholder:text-text-inverse/50 focus:outline-none 
-                       active:border-border-secondary"
-            />
-          </div>
+      <div
+        className={`rounded-xl bg-background-secondary shadow-[0_4px_18px_rgba(0,0,0,0.12)] ${inHeader ? 'absolute inset-x-0 top-0' : ''}`}
+      >
+        <div className="flex h-9 items-center gap-2 px-3">
+          <SearchIcon aria-hidden="true" className="no-drag h-4 w-4 shrink-0" />
+          <input
+            ref={inputRef}
+            id="search-input"
+            type="text"
+            value={searchTerm}
+            onChange={handleSearch}
+            onKeyDown={handleKeyDown}
+            placeholder={resolvedPlaceholder}
+            aria-label={resolvedPlaceholder}
+            className="no-drag h-full min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-secondary focus:outline-none"
+          />
+          <div className="flex shrink-0 items-center gap-1">
+            {showCaseSensitive && (
+              <Button
+                onClick={toggleCaseSensitive}
+                variant="ghost"
+                size="sm"
+                shape="round"
+                className={`no-drag ${
+                  caseSensitive
+                    ? 'bg-background-tertiary text-text-primary'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+                title={intl.formatMessage(i18nMessages.caseSensitive)}
+              >
+                <span className="text-md font-normal">Aa</span>
+              </Button>
+            )}
 
-          <div className="absolute right-3 flex h-full items-center justify-end">
-            <div className="flex items-center gap-1">
-              <div className="w-16 text-right text-sm text-text-inverse/80 flex items-center justify-end">
-                {showNavigation &&
-                localSearchResults?.count &&
-                localSearchResults.count > 0 &&
-                searchTerm
-                  ? `${localSearchResults.currentIndex}/${localSearchResults.count}`
-                  : null}
-              </div>
+            <div className="ml-1">
+              <Button
+                onClick={handleClose}
+                variant="ghost"
+                size="xs"
+                shape="round"
+                className="no-drag text-text-primary hover:bg-background-tertiary"
+                aria-label={intl.formatMessage(i18nMessages.close, { shortcut: 'Esc' })}
+                title={intl.formatMessage(i18nMessages.close, { shortcut: 'Esc' })}
+              >
+                <Close className="h-5 w-5" />
+              </Button>
             </div>
           </div>
         </div>
-
-        <div className="flex items-center justify-center h-auto px-4 gap-2 flex-shrink-0">
-          {showCaseSensitive && (
+        {showNavigation && searchTerm.length > 0 && (
+          <div className="search-results flex h-8 items-center gap-1 px-2 pb-1">
             <Button
-              onClick={toggleCaseSensitive}
+              onClick={(event) => handleNavigate('prev', event)}
               variant="ghost"
-              className={`no-drag flex items-center justify-center min-w-[32px] h-[28px] rounded transition-all duration-150 ${
-                caseSensitive
-                  ? 'bg-white/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.2)] text-text-inverse hover:bg-white/25'
-                  : 'text-text-inverse/70 hover:text-text-inverse hover:bg-white/10'
-              }`}
-              title={intl.formatMessage(i18nMessages.caseSensitive)}
+              size="xs"
+              shape="round"
+              disabled={!hasResults}
+              aria-label={intl.formatMessage(i18nMessages.previous, { shortcut: '↑' })}
+              title={intl.formatMessage(i18nMessages.previous, { shortcut: '↑' })}
             >
-              <span className="text-md font-normal">Aa</span>
+              <ArrowUp className="h-4 w-4" />
             </Button>
-          )}
-
-          {showNavigation && (
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={(e) => handleNavigate('prev', e)}
-                variant="ghost"
-                className="no-drag flex items-center justify-center min-w-[32px] h-[28px] rounded transition-all duration-150 text-text-inverse/70 hover:text-text-inverse hover:bg-white/10"
-                title={intl.formatMessage(i18nMessages.previous, { shortcut: '↑' })}
-              >
-                <ArrowUp
-                  className={`h-5 w-5 transition-opacity ${!hasResults ? 'opacity-30' : ''}`}
-                />
-              </Button>
-              <Button
-                onClick={(e) => handleNavigate('next', e)}
-                variant="ghost"
-                className="no-drag flex items-center justify-center min-w-[32px] h-[28px] rounded transition-all duration-150 text-text-inverse/70 hover:text-text-inverse hover:bg-white/10"
-                title={intl.formatMessage(i18nMessages.next, { shortcut: '↓ or Enter' })}
-              >
-                <ArrowDown
-                  className={`h-5 w-5 transition-opacity ${!hasResults ? 'opacity-30' : ''}`}
-                />
-              </Button>
-            </div>
-          )}
-
-          <Button
-            onClick={handleClose}
-            variant="ghost"
-            className="no-drag flex items-center justify-center min-w-[32px] h-[28px] rounded transition-all duration-150 text-text-inverse/70 hover:text-text-inverse hover:bg-white/10"
-            title={intl.formatMessage(i18nMessages.close, { shortcut: 'Esc' })}
-          >
-            <Close className="h-5 w-5" />
-          </Button>
-        </div>
+            <Button
+              onClick={(event) => handleNavigate('next', event)}
+              variant="ghost"
+              size="xs"
+              shape="round"
+              disabled={!hasResults}
+              aria-label={intl.formatMessage(i18nMessages.next, { shortcut: '↓ or Enter' })}
+              title={intl.formatMessage(i18nMessages.next, { shortcut: '↓ or Enter' })}
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <output
+              aria-live="polite"
+              className="ml-auto pr-2 text-xs text-text-secondary tabular-nums"
+            >
+              {localSearchResults?.count ? localSearchResults.currentIndex : 0} /{' '}
+              {localSearchResults?.count ?? 0}
+            </output>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rename, readdir } from 'node:fs/promises';
+import { mkdtemp, open, readFile, rename, readdir } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
+import { performance } from 'node:perf_hooks';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openStore } from '../store.mjs';
@@ -120,13 +122,41 @@ test('persistent replace failure remains an error without publishing a partial s
   } });
   await store.update(s => { s.revision = 1; });
   deny = true;
+  const started = performance.now();
   await assert.rejects(store.update(s => { s.revision = 2; }), { code: 'EACCES' });
-  assert.equal(attempts, 7);
+  const elapsed = performance.now() - started;
+  assert.ok(attempts > 1, 'Transient replacement errors are retried');
+  assert.ok(elapsed >= (process.platform === 'win32' ? 4900 : 650));
+  assert.ok(elapsed < 10000, 'A permanent denial must not wait indefinitely');
   assert.equal(store.read().revision, 1);
   assert.equal(JSON.parse(await readFile(path.join(root, 'state.json'))).revision, 1);
   assert.deepEqual(await readdir(root), ['state.json']);
   deny = false; await store.update(s => { s.revision = 3; });
   assert.equal(store.read().revision, 3);
+});
+
+test('a real Windows reader outliving the old retry window releases without losing either queued update', {
+  skip: process.platform !== 'win32', timeout: 10000,
+}, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-reader-'));
+  const store = await openStore(root);
+  await store.update(state => { state.revision = 1; });
+  const reader = await open(path.join(root, 'state.json'), 'r');
+  let mutations = 0;
+  const release = delay(1200).then(() => reader.close());
+  try {
+    const first = store.update(state => { mutations++; state.revision = 2; });
+    const second = store.update(state => { assert.equal(state.revision, 2); state.revision = 3; });
+    await delay(50);
+    assert.equal(store.read().revision, 1, 'The failed replacement has not published its draft');
+    await Promise.all([first, second, release]);
+    assert.equal(mutations, 1, 'Only rename is retried, never the writer');
+    assert.equal((await openStore(root)).read().revision, 3);
+    assert.deepEqual(await readdir(root), ['state.json']);
+  } finally {
+    await reader.close().catch(() => {});
+    await release;
+  }
 });
 
 test('nontransient storage errors are surfaced immediately', async () => {

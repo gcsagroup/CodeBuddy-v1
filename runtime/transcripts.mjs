@@ -61,15 +61,11 @@ export async function openTranscriptJournal(store) {
       // If removal fails or the process dies here, replay does not duplicate them.
       session.transcriptTurns[key] = { turnId: first.turnId, seq: last.seq, messageCount };
       return { sessionId: first.sessionId, turnId: first.turnId, updates, usageUpdates, duplicate: false };
-    });
+    }, { durable: true });
   }
 
   async function settle(file, records) {
     const result = await project(records);
-    if (records.length) {
-      const committed = await open(join(store.directory, 'state.json'), 'r+');
-      try { await committed.sync(); } finally { await committed.close(); }
-    }
     await unlink(file);
     return result;
   }

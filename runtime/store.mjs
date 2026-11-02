@@ -90,7 +90,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
     return result;
   };
-  const update = (fn, keys, sessionId) => {
+  const update = (fn, keys, sessionId, durable = false) => {
     const queuedAt = Date.now(), queued = performance.now();
     // A scoped draft never exposes unchanged history to its writer. All
     // updates still share the same queue and atomically replace one snapshot.
@@ -161,23 +161,38 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
         }
         serialized.push(Buffer.from('}\n'));
         measure('serialize_ms');
-        await writeFile(tmp, serialized, { mode: 0o600 });
-        measure('write_ms');
         try {
-          for (let attempt = 0; ; attempt++) {
-            try { await replaceFile(tmp, file); break; }
-            catch (error) {
-              // Windows readers and scanners can briefly hold the destination.
-              // Retry only the atomic replace; never delete the existing state.
-              if (!["EPERM", "EACCES", "EBUSY"].includes(error.code) || attempt >= 6) throw error;
-              await delay(Math.min(20 * 2 ** attempt, 200));
+          try {
+            // Final transcript projection must reach disk before its journal
+            // is removed. Sync the temporary file and close it inside this
+            // queue, rather than opening the destination alongside another write.
+            await writeFile(tmp, serialized, { mode: 0o600, flush: durable });
+          } finally {
+            measure('write_ms');
+          }
+          const replaceStarted = performance.now();
+          const retryBudgetMs = process.platform === 'win32' ? 5000 : 700;
+          let attempts = 0;
+          try {
+            for (;;) {
+              attempts++;
+              try { await replaceFile(tmp, file); break; }
+              catch (error) {
+                // Retry only this atomic replacement. A reader may outlive the
+                // previous 700ms window; permanent locks still fail in bounded time.
+                const remaining = retryBudgetMs - (performance.now() - replaceStarted);
+                if (!["EPERM", "EACCES", "EBUSY"].includes(error.code) || remaining <= 0) throw error;
+                await delay(Math.min(20 * 2 ** (attempts - 1), 200, remaining));
+              }
             }
+          } finally {
+            phases.replace_attempts = attempts;
+            measure('replace_ms');
           }
         } catch (error) {
           await unlink(tmp).catch(() => {});
           throw error;
         }
-        measure('replace_ms');
         state = next;
         serializedRoots = encoded;
         serializedSessions = sessionBytes;
@@ -219,9 +234,9 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     update: (fn, keys) => update(fn, keys),
     // Session projection joins the same commit queue; it cannot see or mutate
     // other conversations, and still replaces the same complete JSON snapshot.
-    updateSession(id, fn) {
+    updateSession(id, fn, { durable = false } = {}) {
       if (typeof id !== 'string' || !id.length) return Promise.reject(new TypeError('Session id is required'));
-      return update(fn, ['sessions'], id);
+      return update(fn, ['sessions'], id, durable);
     },
     flush: () => tail,
   };

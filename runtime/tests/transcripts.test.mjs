@@ -92,8 +92,8 @@ test('a torn final NDJSON record is ignored while all earlier committed records 
 test('state committed before unlink failure replays the journal without duplicate chunks', async () => {
   const { store, directory } = await fixture();
   let journalFile, displaced, breakCleanup = false;
-  const failing = { ...store, async updateSession(id, fn) {
-    const result = await store.updateSession(id, fn);
+  const failing = { ...store, async updateSession(id, fn, options) {
+    const result = await store.updateSession(id, fn, options);
     if (breakCleanup) {
       breakCleanup = false;
       displaced = journalFile + '.preserved';

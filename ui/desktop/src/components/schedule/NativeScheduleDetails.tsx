@@ -13,6 +13,7 @@ import {
   DropdownMenuLabel,
 } from '../ui/dropdown-menu';
 import { useIntl } from '../../i18n';
+import { cn } from '../../utils';
 import {
   useNativeSchedules,
   refreshNativeSchedules,
@@ -537,7 +538,7 @@ export function NativeScheduleDetails({ id, onClose }: { id: string; onClose: ()
                       <input
                         type="date"
                         required
-                        className={fieldClass}
+                        className={cn(fieldClass, 'ml-auto flex-none [&::-webkit-datetime-edit]:text-right')}
                         aria-label={intl.formatMessage(m.date)}
                         value={draft.at.slice(0, 10)}
                         onChange={(event) =>

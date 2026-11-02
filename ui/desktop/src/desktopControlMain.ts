@@ -4,6 +4,7 @@ import { createDesktopEscape } from './desktopControlKeyboard';
 import { applicationWindows, markAuxiliaryWindow } from './pets/petMain';
 import { parseDesktopControl, type DesktopControlState } from './desktopControl';
 import { desktopFeedbackDocument } from './desktopFeedbackDocument';
+import { maintainVisibleWindowFrames } from './utils/windowAnimation';
 
 // Only projects live runtime events. This window never declares completion or sends input.
 export function registerDesktopControl() {
@@ -124,6 +125,7 @@ export function registerDesktopControl() {
         webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
       });
       overlays.set(display.id, current);
+      maintainVisibleWindowFrames(current);
       markAuxiliaryWindow(current);
       current.setIgnoreMouseEvents(true);
       current.setAlwaysOnTop(true, 'screen-saver');

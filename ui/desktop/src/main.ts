@@ -1,4 +1,5 @@
 import { registerDesktopControl } from './desktopControlMain';
+import { maintainVisibleWindowFrames } from './utils/windowAnimation';
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerTrayLifecycle } from './utils/trayLifecycle';
 import { registerGitHubCliAuth } from './github/githubCliMain';
@@ -1431,6 +1432,8 @@ const createChat = async (
     await cleanupUnregisteredGooseServeLease();
     throw error;
   }
+
+  maintainVisibleWindowFrames(mainWindow);
 
   if (process.platform === 'win32') {
     // Window icons alone do not identify the taskbar group (notably in Forge).

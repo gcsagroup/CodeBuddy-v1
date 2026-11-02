@@ -12,7 +12,10 @@ type WindowMock = {
   showInactive: ReturnType<typeof vi.fn>;
   hide: ReturnType<typeof vi.fn>;
   loadURL: ReturnType<typeof vi.fn<(url: string) => Promise<void>>>;
-  webContents: { executeJavaScript: ReturnType<typeof vi.fn<(code: string) => Promise<boolean>>> };
+  webContents: {
+    executeJavaScript: ReturnType<typeof vi.fn<(code: string) => Promise<boolean>>>;
+    setBackgroundThrottling: ReturnType<typeof vi.fn>;
+  };
 };
 const mock = vi.hoisted(() => ({
   handlers: new Map<string, Callback>(),
@@ -57,10 +60,14 @@ vi.mock('electron', () => ({
     setTitle = vi.fn();
     loadURL = vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined);
     visible = false;
-    showInactive = vi.fn(() => { this.visible = true; });
-    hide = vi.fn(() => { this.visible = false; });
+    events = new Map<string, Callback>();
+    showInactive = vi.fn(() => { this.visible = true; this.events.get('show')?.(); });
+    hide = vi.fn(() => { this.visible = false; this.events.get('hide')?.(); });
     isVisible = () => !this.destroyed && this.visible;
+    isMinimized = () => false;
+    on = vi.fn((event: string, listener: Callback) => { this.events.set(event, listener); });
     webContents = {
+      setBackgroundThrottling: vi.fn(),
       executeJavaScript: vi.fn<(code: string) => Promise<boolean>>().mockResolvedValue(true),
     };
     isDestroyed = () => this.destroyed;
@@ -107,6 +114,7 @@ describe('desktop control overlay lifecycle', () => {
       expect(window.setContentProtection).toHaveBeenCalledWith(true);
       expect(window.setTitle).toHaveBeenCalledWith('');
       expect(window.showInactive).toHaveBeenCalledOnce();
+      expect(window.webContents.setBackgroundThrottling).toHaveBeenLastCalledWith(false);
       expect(window.bounds).toEqual(mock.displays[index].bounds);
       const html = decodeURIComponent(window.loadURL.mock.calls[0][0]);
       expect(html).toContain('class="glow"');
@@ -118,6 +126,8 @@ describe('desktop control overlay lifecycle', () => {
     expect(vi.getTimerCount()).toBe(1);
     send('one', false);
     expect(mock.windows.every((window) => !window.destroyed && window.hide.mock.calls.length > 0)).toBe(true);
+    for (const window of mock.windows)
+      expect(window.webContents.setBackgroundThrottling).toHaveBeenLastCalledWith(true);
     expect(vi.getTimerCount()).toBe(0);
   });
   it('moves the pointer between negative-coordinate displays without moving banners or queuing renderer frames', async () => {

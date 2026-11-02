@@ -107,6 +107,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('keeps the navigation action in its owner while showing the button in the window header', async () => {
+  vi.stubGlobal('appConfig', { get: (key: string) => key === 'WINDOW_TITLEBAR_OVERLAY' });
+  state.setNav.mockClear();
+  render(
+    <>
+      <div id="window-navigation-slot" data-testid="titlebar-slot" />
+      <AppLayout activeSessions={[]} />
+    </>,
+    { wrapper: IntlTestWrapper }
+  );
+  const toggle = await screen.findByRole('button', { name: 'Collapse navigation' });
+  expect(screen.getByTestId('titlebar-slot')).toContainElement(toggle);
+  fireEvent.click(toggle);
+  expect(state.setNav).toHaveBeenCalledWith(false);
+});
+
 it('hands the first file click to the ordinary workspace without retaining hidden save effects', async () => {
   render(<AppLayout activeSessions={[]} />, { wrapper: IntlTestWrapper });
   await waitFor(() => expect(screen.getByText('Task rules')).toBeVisible());

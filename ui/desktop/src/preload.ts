@@ -182,6 +182,9 @@ type ElectronAPI = {
   openNotificationsSettings: () => Promise<boolean>;
   isAnyWindowFocused: () => Promise<boolean>;
   getIsFullScreen: () => Promise<boolean>;
+  getWindowMenu: () => Promise<Array<{ index: number; label: string; enabled: boolean }>>;
+  openWindowMenu: (request: { index: number; x: number; y: number }) => Promise<void>;
+  setWindowTitleBarTheme: (theme: 'light' | 'dark') => void;
   onMouseBackButtonClicked: (callback: () => void) => void;
   offMouseBackButtonClicked: (callback: () => void) => void;
   on: (
@@ -335,6 +338,9 @@ const electronAPI: ElectronAPI = {
   openNotificationsSettings: () => ipcRenderer.invoke('open-notifications-settings'),
   isAnyWindowFocused: () => ipcRenderer.invoke('is-any-window-focused'),
   getIsFullScreen: () => ipcRenderer.invoke('get-is-fullscreen'),
+  getWindowMenu: () => ipcRenderer.invoke('window-menu-items'),
+  openWindowMenu: (request) => ipcRenderer.invoke('window-menu-open', request),
+  setWindowTitleBarTheme: (theme) => ipcRenderer.send('window-titlebar-theme', theme),
   onMouseBackButtonClicked: (callback: () => void) => {
     // Wrapper that ignores the event parameter.
     const wrappedCallback = (_event: Electron.IpcRendererEvent) => callback();

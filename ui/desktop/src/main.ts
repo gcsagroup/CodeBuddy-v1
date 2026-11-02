@@ -942,14 +942,12 @@ async function handleFileOpen(filePath: string): Promise<boolean> {
       targetDir = path.dirname(filePath);
     }
 
-    // Create new window for the directory
-    const newWindow = await createChat(app, { dir: targetDir });
+    const targetWindow = await openDirectoryInCurrentWindow(targetDir);
 
-    // Focus the new window
-    if (newWindow) {
-      newWindow.show();
-      newWindow.focus();
-      newWindow.moveTop();
+    if (targetWindow) {
+      targetWindow.show();
+      targetWindow.focus();
+      targetWindow.moveTop();
       addRecentDir(targetDir);
       return true;
     }
@@ -1101,6 +1099,7 @@ let appConfig = {
   GOOSE_PREDEFINED_MODELS: predefinedModels,
   GOOSE_PATH_ROOT: sanitizeGoosePathRoot(process.env),
   CODEBUDDY_HOME: storagePaths.homeDir,
+  CODEBUDDY_WORKSPACE_ROOT: process.env.CODEBUDDY_WORKSPACE_ROOT,
   GOOSE_WORKING_DIR: '',
   // Start with the env-var override; the OS region locale is filled in after app.ready
   // (see updateLocaleFromSystem below) since getSystemLocale() cannot be called earlier.
@@ -1120,7 +1119,7 @@ const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blocke
 // Track pending initial messages per window
 const pendingInitialMessages = new Map<
   number,
-  { message: string; noAutoSubmit: boolean; workingDir?: string; images?: import('./types/message').ImageData[] }
+  { message: string; noAutoSubmit: boolean; workingDir?: string; draftOnly?: boolean; images?: import('./types/message').ImageData[] }
 >();
 
 interface CreateChatOptions {
@@ -1380,7 +1379,10 @@ const createChat = async (
 
     mainWindow = new BrowserWindow({
       show: false,
-      titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
+      titleBarStyle: process.platform === 'linux' ? 'default' : 'hidden',
+      titleBarOverlay: process.platform === 'win32'
+        ? { color: '#f9fafb', symbolColor: '#3f434b', height: 40 }
+        : undefined,
       trafficLightPosition: process.platform === 'darwin' ? { x: 20, y: 16 } : undefined,
       vibrancy: process.platform === 'darwin' ? 'window' : undefined,
       frame: process.platform !== 'darwin',
@@ -1409,6 +1411,7 @@ const createChat = async (
         additionalArguments: [
           JSON.stringify({
             ...appConfig,
+            WINDOW_TITLEBAR_OVERLAY: process.platform === 'win32',
             GOOSE_LOCALE: getConfiguredGooseLocale(),
             GOOSE_WORKING_DIR: workingDir,
             REQUEST_DIR: dir,
@@ -1436,6 +1439,7 @@ const createChat = async (
   maintainVisibleWindowFrames(mainWindow);
 
   if (process.platform === 'win32') {
+    mainWindow.setMenuBarVisibility(false);
     // Window icons alone do not identify the taskbar group (notably in Forge).
     // https://www.electronjs.org/docs/latest/api/base-window#winsetappdetailsoptions-windows
     mainWindow.setAppDetails({
@@ -1888,6 +1892,23 @@ const showWindow = async () => {
   });
 };
 
+async function openDirectoryInCurrentWindow(
+  dir: string,
+  preferredWindow = BrowserWindow.getFocusedWindow()
+) {
+  const windows = applicationWindows();
+  const targetWindow = (preferredWindow && windows.includes(preferredWindow)
+    ? preferredWindow
+    : windows[0]) ?? await createChat(app);
+  if (!targetWindow || targetWindow.isDestroyed()) return;
+
+  if (!(await selectProjectFolder(targetWindow, dir))) return;
+  if (targetWindow.isMinimized()) targetWindow.restore();
+  targetWindow.show();
+  targetWindow.focus();
+  return targetWindow;
+}
+
 const buildRecentFilesMenu = () => {
   const recentDirs = loadRecentDirs();
   return recentDirs.map((dir) => ({
@@ -1926,6 +1947,7 @@ async function selectProjectFolder(currentWindow: BrowserWindow, directory: stri
       }
     );
     if (selected) addRecentDir(selected);
+    return selected;
   } catch (error) {
     log.warn('Failed to select project folder:', error);
     if (!currentWindow.isDestroyed())
@@ -2471,6 +2493,44 @@ ipcMain.handle('is-any-window-focused', () => {
 ipcMain.handle('get-is-fullscreen', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   return win?.isFullScreen() ?? false;
+});
+
+ipcMain.handle('window-menu-items', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return [];
+  return (Menu.getApplicationMenu()?.items ?? []).flatMap((item, index) =>
+    item.visible && item.submenu
+      ? [{ index, label: item.label.replace(/&(.)/g, '$1'), enabled: item.enabled }]
+      : []
+  );
+});
+
+ipcMain.handle('window-menu-open', (event, request: { index: number; x: number; y: number }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return;
+  if (!Number.isInteger(request?.index) || !Number.isFinite(request?.x) || !Number.isFinite(request?.y)) {
+    throw new TypeError('Invalid window menu anchor');
+  }
+  const item = Menu.getApplicationMenu()?.items[request.index];
+  if (!item?.visible || !item.enabled || !item.submenu) return;
+  const zoom = event.sender.getZoomFactor();
+  const bounds = win.getContentBounds();
+  return new Promise<void>((resolve) => item.submenu!.popup({
+    window: win,
+    x: Math.max(0, Math.min(bounds.width - 1, Math.round(request.x * zoom))),
+    y: Math.max(0, Math.min(bounds.height - 1, Math.round(request.y * zoom))),
+    callback: resolve,
+  }));
+});
+
+ipcMain.on('window-titlebar-theme', (event, theme: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return;
+  if (theme !== 'light' && theme !== 'dark') return;
+  win.setTitleBarOverlay({
+    color: theme === 'dark' ? '#3f434b' : '#f9fafb',
+    symbolColor: theme === 'dark' ? '#ffffff' : '#3f434b',
+  });
 });
 
 // Add file/directory selection handler
@@ -3183,6 +3243,9 @@ async function appMain() {
     // English labels still succeed.
     translateMenuLabels(menu.items);
     Menu.setApplicationMenu(menu);
+    if (process.platform === 'win32') {
+      for (const window of applicationWindows()) window.setMenuBarVisibility(false);
+    }
   }
 
   app.on('activate', () => {
@@ -3369,7 +3432,7 @@ async function appMain() {
 
   ipcMain.handle('open-directory-in-explorer', async (_event, path: string) => {
     try {
-      return !!(await shell.openPath(path));
+      return (await shell.openPath(path)) === '';
     } catch (error) {
       console.error('Error opening directory in explorer:', error);
       return false;

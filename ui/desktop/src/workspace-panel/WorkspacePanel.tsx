@@ -282,6 +282,7 @@ export function WorkspacePanelContent({
 }: Props & { scope: PanelScope; messages?: Message[] }) {
   const intl = useIntl(),
     key = scopeKey(scope);
+  const hasWindowTitleBar = window.appConfig?.get('WINDOW_TITLEBAR_OVERLAY') === true;
   const changeSource = useConversationChangeMessages(scope.sessionId, messages);
   const expandPanel = useRef(onExpandedChange);
   expandPanel.current = onExpandedChange;
@@ -1658,7 +1659,7 @@ export function WorkspacePanelContent({
     <>
       {!expanded && (
         <button
-          className="absolute right-3 top-11 z-20 wb-icon bg-background-primary no-drag"
+          className={`absolute right-3 z-20 wb-icon bg-background-primary no-drag ${hasWindowTitleBar ? 'top-3.5' : 'top-11'}`}
           aria-label={intl.formatMessage(m.open)}
           onClick={() => onExpandedChange(true)}
         >
@@ -1669,7 +1670,7 @@ export function WorkspacePanelContent({
         aria-label={intl.formatMessage(m.panel)}
         aria-hidden={!expanded}
         inert={!expanded}
-        className="absolute right-0 top-8 bottom-0 z-20 overflow-hidden"
+        className={`absolute right-0 bottom-0 z-20 overflow-hidden ${hasWindowTitleBar ? 'top-0' : 'top-8'}`}
         initial={false}
         animate={{ width: expanded ? width : 0 }}
         transition={{

@@ -43,6 +43,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('media library', () => {
+  it('uses the friendly receipt name for the card and selection while preserving the prompt tooltip', async () => {
+    request.mockResolvedValue({ ...page, items: [{ ...asset, displayName: '橙子小图标' }] });
+    render(<MediaLibrary />);
+    expect(await screen.findByText('橙子小图标')).toHaveAttribute('title', 'Mountain image');
+    expect(screen.queryByText('Mountain image')).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('article', { name: 'Media: 橙子小图标' }), { key: ' ' });
+    expect(screen.getByRole('checkbox', { name: 'Select 橙子小图标' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected (1)' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('橙子小图标');
+    expect(request.mock.calls.some(([method]) => method === '_codebuddy/media/delete')).toBe(false);
+  });
+
   it('shows full sizes, switches to workspace grouping, and keeps deletion behind confirmation', async () => {
     const sized = { ...page, totalBytes: 2048, libraryCount: 2, libraryBytes: 4096, projectStats: [{ root: asset.root, count: 1, sizeBytes: 2048 }], items: [{ ...asset, sizeBytes: 2048 }] };
     request.mockResolvedValue(sized);

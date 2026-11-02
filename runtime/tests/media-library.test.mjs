@@ -55,6 +55,20 @@ test('pagination includes receipts older than the per-session twenty-job preview
   assert.equal(new Set([...first.items, ...next.items].map(item => item.id)).size, 51);
 });
 
+test('exposes and searches receipt display names without replacing the generation prompt', async t => {
+  const f = await fixture(t);
+  for (const kind of ['image', 'video']) {
+    await f.receipt(f.sessions[0], kind, { job: { display_name: ' 橙子小图标 ' } });
+    await f.receipt(f.sessions[0], kind);
+  }
+  const named = await readMediaLibrary(f.root, f.sessions, { search: '橙子' });
+  assert.equal(named.total, 2);
+  assert.ok(named.items.every(item => item.displayName === '橙子小图标' && item.prompt === 'A mountain'));
+  const byPrompt = await readMediaLibrary(f.root, f.sessions, { search: 'mountain' });
+  assert.equal(byPrompt.total, 4, 'older receipts remain searchable by prompt');
+  assert.equal(byPrompt.items.filter(item => item.displayName === '').length, 2);
+});
+
 test('type, project and search filters combine without losing the full project selector', async t => {
   const f = await fixture(t);
   await f.receipt(f.sessions[0]);

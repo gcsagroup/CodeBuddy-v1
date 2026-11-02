@@ -8,11 +8,11 @@ import { createHarnessDriver } from '../index.mjs';
 const { installToolDiscovery } = await import('../tool-discovery.mjs');
 
 test('desktop skill revelation respects scoped registries and the originating agent', async () => {
-  const hooks = new Map();
+  const hooks = new Map(), sections = new Map();
   const catalog = [{ name: 'mcp__qwen_computer__list_apps', parameters: { type: 'object' } }];
   const agent = { id: 'observer', session: { requestHeader: () => undefined } };
   const ctx = { tools: { schemas: () => catalog, register() {}, get() {} },
-    systemPrompt: { section() {} }, on: (name, fn) => hooks.set(name, fn) };
+    systemPrompt: { section(section) { sections.set(section.name, section); } }, on: (name, fn) => hooks.set(name, fn) };
   installToolDiscovery(ctx, agent);
   const assemble = () => hooks.get('system-prompt/assemble')({}, {}, async () => ({ tools: catalog }));
   const loaded = { value: { name: 'computer-use', provider: 'codebuddy-computer-skill' } };
@@ -23,6 +23,15 @@ test('desktop skill revelation respects scoped registries and the originating ag
   hooks.get('tools/result')({ agent, name: 'skill' }, loaded);
   assert.deepEqual((await assemble()).tools.map(tool => tool.name), ['mcp__qwen_computer__list_apps'],
     'masked launch/input tools are not added to a restricted observer');
+  const availability = () => sections.get('codebuddy:desktop-availability').text();
+  assert.match(availability(), /open_path is unavailable in this connection/,
+    'a scoped registry without launch support must not invite an extra discovery round');
+  catalog.push({ name: 'mcp__qwen_computer__open_path', parameters: { type: 'object' } });
+  assert.match(availability(), /Use open_path for a known local document\/folder/);
+  assert.doesNotMatch(availability(), /open_path is unavailable/,
+    'reconnection must use the current registry instead of caching platform assumptions');
+  catalog.pop();
+  assert.match(availability(), /open_path is unavailable/);
 });
 
 test('first request exposes the desktop skill; loading it preserves deferred tools and input permissions', { timeout: 60000 }, async t => {

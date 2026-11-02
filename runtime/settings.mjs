@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile, discover } from './providers.mjs';
+import { invalid, requireString, providerStatus, readProvider, saveProvider, contextProfile, outputBudgetProfile, resolvedInventory, resolvedModelInfo, resolveImageCapability, thinkingProfile, discover } from './providers.mjs';
 import { applyModelThinking, modelThinkingOptions, THINKING_EFFORTS } from './model-settings.mjs';
 import { protectSecret, revealSecret } from './secrets.mjs';
 import { extensionName, extensionConfigKey, extensionSnapshotChanged } from './session-extensions.mjs';
@@ -235,6 +235,7 @@ export class RuntimeSettings {
         await resolvedInventory(provider);
         return { fields: [ { key: 'apiUrl', value: provider.apiUrl, isSet: true, isSecret: false, required: true }, { key: 'apiKey', isSet: Boolean(provider.secret), isSecret: true, required: provider.requiresAuth }, ...provider.models.flatMap(model => [
           { key: `contextWindow:${model}`, value: JSON.stringify({ ...contextProfile(provider, model), configured: provider.contextWindows?.[model] ?? null }), isSet: provider.contextWindows?.[model] != null, isSecret: false, required: false },
+          { key: `maxTokens:${model}`, value: JSON.stringify(outputBudgetProfile(provider, model)), isSet: provider.outputBudgets?.[model] != null, isSecret: false, required: false },
           { key: `thinkingEffort:${model}`, value: JSON.stringify(modelThinkingOptions(thinkingProfile(provider, model), provider.thinkingEfforts?.[model], this.store.read(['preferences']).preferences?.gooseThinkingEffort)), isSet: provider.thinkingEfforts?.[model] != null, isSecret: false, required: false },
         ]) ] };
       }
@@ -278,6 +279,36 @@ export class RuntimeSettings {
         await this.checkProviderMutation(p.providerId);
         const provider = this.store.read(["providers"]).providers.find(x => x.id === p.providerId); if (!provider) throw invalid('Unknown provider');
         const contextFields = [...(p.fields ?? []).map(f => f.key), ...(p.clearFields ?? [])];
+        if (contextFields.length && contextFields.every(key => key.startsWith('maxTokens:'))) {
+          const updates = new Map();
+          for (const key of contextFields) {
+            const model = key.slice('maxTokens:'.length);
+            if (!provider.models.includes(model)) throw invalid('Unknown model for output budget');
+            const field = p.fields?.find(item => item.key === key);
+            const value = field ? Number(field.value) : null;
+            if (value !== null) {
+              if (!Number.isSafeInteger(value) || value < 1) throw invalid('Output budget must be a positive integer');
+              await resolvedModelInfo(provider, model);
+              const { capacityTokens } = outputBudgetProfile(provider, model);
+              if (capacityTokens !== null && value > capacityTokens) throw invalid('Output budget exceeds the known model capacity');
+            }
+            updates.set(model, value);
+          }
+          await this.checkProviderMutation(p.providerId);
+          await this.store.update(state => {
+            const target = state.providers.find(item => item.id === provider.id);
+            if (!target) throw invalid('Provider was removed');
+            if (!isDeepStrictEqual({ ...target, outputBudgets: undefined }, { ...provider, outputBudgets: undefined }))
+              throw invalid('Model connection changed; reload model settings');
+            target.outputBudgets ??= {};
+            for (const [model, value] of updates) {
+              if (value === null) delete target.outputBudgets[model];
+              else Object.defineProperty(target.outputBudgets, model, { value, enumerable: true, writable: true, configurable: true });
+            }
+          });
+          await this.changed({ kind: 'model-output-budget' });
+          return { status: providerStatus(provider), refresh: { started: [] } };
+        }
         if (contextFields.length && contextFields.every(key => key.startsWith('contextWindow:'))) {
           const updates = {};
           for (const key of contextFields) {

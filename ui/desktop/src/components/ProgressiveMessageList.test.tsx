@@ -42,6 +42,13 @@ function openProcess(group?: HTMLElement) {
   return toggle;
 }
 
+function openTurnHistory() {
+  const toggle = screen.getByRole('button', { name: /^(Time spent|Work history)/ });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(toggle);
+  return toggle;
+}
+
 function message(index: number): Message {
   return {
     id: `message-${index}`,
@@ -341,6 +348,7 @@ describe('work / answer presentation boundary', () => {
       );
       await screen.findByText('Read was not approved.');
       expect(screen.queryByText('Completed 1 operations')).not.toBeInTheDocument();
+      openTurnHistory();
       openProcess();
       const tool = within(screen.getByRole('region', { name: 'Tool operation records' })).getByRole(
         'button',
@@ -523,11 +531,10 @@ describe('work / answer presentation boundary', () => {
     />
   );
 
-  it('folds the settled process while keeping the final reply visible during answer streaming', async () => {
+  it('folds stage text with settled work and keeps the answer outside during streaming', async () => {
     const view = render(show(work), { wrapper: IntlTestWrapper });
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
     view.rerender(show([...work, boundary(), answer]));
-    await waitFor(() => expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument());
     expect(
       await screen.findByText(
         (_, element) =>
@@ -536,7 +543,12 @@ describe('work / answer presentation boundary', () => {
         { timeout: 3000 }
       )
     ).toBeVisible();
-    const toggle = view.container.querySelector('[data-turn-process-summary] button')!;
+    expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument();
+    const whole = openTurnHistory();
+    const savedStage = screen.getByText('Checking the saved changes.');
+    expect(savedStage).toBeVisible();
+    expect(savedStage.closest('[aria-busy="true"]')).toBeNull();
+    const toggle = view.container.querySelector('[data-process-group] button')!;
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
@@ -560,9 +572,10 @@ describe('work / answer presentation boundary', () => {
       )
     ).toBeVisible();
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(whole).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('keeps the final reply outside history and preserves earlier prose on expansion', async () => {
+  it('retains stage-only work in history and keeps the bound answer outside', async () => {
     const view = render(show([sourceUserMessage, stage, boundary(), answer]), {
       wrapper: IntlTestWrapper,
     });
@@ -580,9 +593,13 @@ describe('work / answer presentation boundary', () => {
     ).toBeVisible();
   });
 
-  it.each(['cancelled', 'failed', 'interrupted'] as const)(
-    'keeps a bound %s receipt visible and earlier prose accessible through stream teardown',
-    async (status) => {
+  it.each(
+    (['cancelled', 'failed', 'interrupted'] as const).flatMap((status) =>
+      [false, true].map((withTools) => ({ status, withTools }))
+    )
+  )(
+    'keeps the bound $status receipt outside retrievable stage history (tools: $withTools)',
+    async ({ status, withTools }) => {
       const terminal = terminalMessage('not_available');
       terminal.content = terminal.content.map((content) =>
         content.type === 'systemNotification' && isTurnTerminalRecord(content.data)
@@ -590,38 +607,30 @@ describe('work / answer presentation boundary', () => {
           : content
       );
       terminal.content.push({ type: 'text', text: 'Stopped here; verification is incomplete.' });
-      const trace = [sourceUserMessage, stage, terminal];
+      const trace = withTools ? [...work, terminal] : [sourceUserMessage, stage, terminal];
+      const original = JSON.stringify(trace);
       const view = render(show(trace), { wrapper: IntlTestWrapper });
-      expect(view.container.querySelector('[data-process-group]')).toBeNull();
-      expect(
-        await screen.findByText(
-          (_, element) =>
-            element?.tagName === 'P' &&
-            element.textContent === 'Stopped here; verification is incomplete.',
-          {},
-          { timeout: 3000 }
-        )
-      ).toBeVisible();
-      openTurnHistory();
-      expect(await screen.findByText('Checking the saved changes.')).toBeVisible();
-      // A real call before the terminal must not require a separate answer-phase event.
-      view.rerender(show([...work, terminal]));
-      await screen.findByRole('button', { name: 'Work history 1 operations' });
-      openTurnHistory();
-      expect(await screen.findByText('Checking the saved changes.')).toBeVisible();
-      view.rerender(show(JSON.parse(JSON.stringify(trace)), false));
-      openTurnHistory();
-      expect(view.container.querySelector('[data-process-group]')).toBeNull();
+      expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument();
+      const history = openTurnHistory();
       expect(screen.getByText('Checking the saved changes.')).toBeVisible();
       expect(
         await screen.findByText(
           (_, element) =>
             element?.tagName === 'P' &&
-            element.textContent === 'Stopped here; verification is incomplete.',
-          {},
-          { timeout: 3000 }
+            element.textContent === 'Stopped here; verification is incomplete.'
         )
       ).toBeVisible();
+      if (withTools) {
+        openProcess();
+        expect(
+          view.container.querySelector('[data-tool-call-id="read-before-answer"]')
+        ).not.toBeNull();
+      } else expect(view.container.querySelector('[data-process-group]')).toBeNull();
+      view.rerender(show(JSON.parse(original), false));
+      expect(history).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('Checking the saved changes.')).toBeVisible();
+      expect(screen.getByText('Stopped here; verification is incomplete.')).toBeVisible();
+      expect(JSON.stringify(trace)).toBe(original);
     }
   );
 
@@ -674,15 +683,33 @@ describe('work / answer presentation boundary', () => {
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
   });
 
-  it('does not hide a new queued user input based on the steer flag alone', async () => {
+  it('retains immediate steering inside settled work and leaves a queued next input outside', async () => {
     const steer = {
       ...sourceUserMessage,
       id: 'steer-user',
+      content: [{ type: 'text' as const, text: 'Immediate supplementary requirement.' }],
       metadata: { ...sourceUserMessage.metadata, steer: true },
     };
     const view = render(show([...work, steer, boundary(), answer]), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelectorAll('.codepro-turn-history')).toHaveLength(0);
+    expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Immediate supplementary requirement.')).not.toBeInTheDocument();
+    openTurnHistory();
     expect(screen.getByText('Checking the saved changes.')).toBeVisible();
+    expect(screen.getByText('Immediate supplementary requirement.')).toBeVisible();
+    view.rerender(
+      show([
+        ...work,
+        steer,
+        boundary(),
+        answer,
+        {
+          ...sourceUserMessage,
+          id: 'queued-next',
+          content: [{ type: 'text', text: 'The next independent request.' }],
+        },
+      ])
+    );
+    expect(screen.getByText('The next independent request.')).toBeVisible();
     expect(
       await screen.findByText(
         (_, element) =>
@@ -696,7 +723,14 @@ describe('work / answer presentation boundary', () => {
   it('replays the same presentation without treating the boundary as a terminal', () => {
     const trace = JSON.parse(JSON.stringify([...work, boundary(), answer])) as Message[];
     const view = render(show(trace, false), { wrapper: IntlTestWrapper });
-    expect(view.container.querySelector('[data-turn-process-summary] button')).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^Work history/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByText('Checking the saved changes.')).not.toBeInTheDocument();
+    openTurnHistory();
+    expect(screen.getByText('Checking the saved changes.')).toBeVisible();
+    expect(view.container.querySelector('[data-process-group] button')).toHaveAttribute(
       'aria-expanded',
       'false'
     );
@@ -930,6 +964,7 @@ describe('CodePro ordinary tool message presentation', () => {
       );
       const group = compactGroups()[0].querySelector('.codepro-group-heading')!;
       expect(group).toHaveTextContent('Run command');
+      expect(group).not.toHaveTextContent('Completed');
       expect(group).not.toHaveTextContent('unsuccessful');
       expect(screen.queryByText(/Completed .*other operation/)).not.toBeInTheDocument();
       openProcess();
@@ -944,6 +979,9 @@ describe('CodePro ordinary tool message presentation', () => {
         )
       ).toBeVisible();
       expect(screen.getByText('Unsuccessful')).toBeVisible();
+      expect(
+        compactGroups()[0].querySelector('[data-tool-call-id="real-shell-failure"]')
+      ).toHaveAttribute('data-tool-phase', 'error');
     }
   );
 
@@ -1317,9 +1355,18 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('npm.cmd test')).not.toBeInTheDocument();
     expect(screen.queryByText('Permission rejected')).not.toBeInTheDocument();
     const currentProcess = compactGroups()[1];
-    expect(currentProcess.querySelector('.codepro-group-heading')).toHaveTextContent('Running: Run command npm.cmd test');
+    expect(currentProcess.querySelector('.codepro-group-heading')).toHaveTextContent(
+      'Running: Run command npm.cmd test'
+    );
+    expect(currentProcess.querySelector('.codepro-group-heading')).not.toHaveTextContent(
+      'Completed'
+    );
     openProcess(currentProcess);
     expect(screen.getByText('Unsuccessful')).toBeVisible();
+    expect(currentProcess.querySelector('[data-tool-call-id="failed-call"]')).toHaveAttribute(
+      'data-tool-phase',
+      'error'
+    );
     fireEvent.click(
       within(screen.getByRole('region', { name: 'Tool operation records' })).getByRole('button', {
         name: /Run command/,

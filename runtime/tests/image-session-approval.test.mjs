@@ -36,7 +36,7 @@ async function fixture(t, kind = 'image', modern = false) {
   t.after(() => driver.close());
   const host = Object.assign(Object.create(Compat.prototype), {
     store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store),
-    businessApprovalClients: new WeakSet(),
+    businessApprovalClients: new WeakMap(),
   });
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
   const sessionChoice = modern ? 'allow_business_session' : 'allow_always';
@@ -63,7 +63,7 @@ async function fixture(t, kind = 'image', modern = false) {
           questions.push(params);
           return answer ? answer(params) : { outcome: { outcome: 'selected', optionId: f.choice } };
           } };
-          if (modern) host.businessApprovalClients.add(connection);
+          if (modern) host.businessApprovalClients.set(connection, 1);
           return host.approveTool(s, call, connection, call.signal);
         },
       });
@@ -86,7 +86,7 @@ test('image and video grants stay independent when both tools share one service'
     questions.push(params);
     return { outcome: { outcome: 'selected', optionId: 'reject_once' } };
   } };
-  f.host.businessApprovalClients.add(connection);
+  f.host.businessApprovalClients.set(connection, 1);
   const result = await f.driver.callTool(s.id, 'generate_video', { operation: 'generate', mode: 'text_to_video', prompt: 'Fixture' }, {
     onToolPolicy: call => f.host.toolPolicy(s, call, call.signal),
     onPermission: call => f.host.approveTool(s, call, connection, call.signal),

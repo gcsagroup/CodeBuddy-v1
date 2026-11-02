@@ -1,4 +1,10 @@
 {
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "目前上下文無法為完整回應保留足夠空間，本輪已停止，先前結果已保留。你可以改用上下文更大的模型，或精簡輸入後繼續。"
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "輸出長度受限後的自動恢復未能完成。請查看本輪具體錯誤；先前結果已保留。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "立即壓縮"
   },
@@ -3641,6 +3647,41 @@
   "goosehintsSection.title": {
     "defaultMessage": "專案說明（AGENTS.md）"
   },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "模型這一步達到輸出長度限制，任務尚未完成。先前的修改與操作紀錄已保留。你可以繼續嘗試，或更換模型後繼續。"
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "本輪自動恢復 {attempts} 次後，模型再次達到輸出長度限制，任務尚未完成。先前的修改與操作紀錄已保留。你可以繼續嘗試，或更換模型後繼續。"
+  },
+  "gooseMessage.outputLimitContinue": { "defaultMessage": "繼續嘗試" },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "繼續未完成的任務。先核對既有結果，保留已完成的工作，只補完尚未完成的部分，並拆成較小的步驟執行。"
+  },
+  "gooseMessage.outputLimitDetails": { "defaultMessage": "檢視限制詳情" },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "本次請求的輸出額度：{tokens} token。自動恢復次數：{attempts}/{limit}。"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "此額度來自預設值，服務實際支援的輸出容量尚未確認。"
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "本輪執行期間已自動恢復 {attempts} 次輸出長度受限的請求。"
+  },
+  "gooseMessage.cancelledExplanation": {
+    "defaultMessage": "已按你的要求停止。已經執行的操作不會自動撤銷；未確認的結果仍需核對。"
+  },
+  "gooseMessage.interruptedExplanation": {
+    "defaultMessage": "這輪執行已中斷，尚未確認完成。你可以往上查看保留的對話和操作紀錄。"
+  },
+  "gooseMessage.missingFinalReply": {
+    "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
+  },
+  "gooseMessage.turnStopped": {
+    "defaultMessage": "已停止"
+  },
+  "gooseMessage.turnStoppedSummary": {
+    "defaultMessage": "已保留 {count} 個工具動作。"
+  },
   "groupedExtensionLoadingToast.askGoose": {
     "defaultMessage": "詢問 CodeBuddy"
   },
@@ -4463,6 +4504,18 @@
   "messageQueue.next": {
     "defaultMessage": "下一個"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "已保留 {count} 則草稿"
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "展開已保留的草稿"
+  },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "收起已保留的草稿"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "傳送草稿"
+  },
   "messageQueue.pending": {
     "defaultMessage": "待傳送"
   },
@@ -4500,7 +4553,7 @@
     "defaultMessage": "傳送結果尚不確定，請先核對對話中的紀錄，再決定是否重試。"
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "正在等待停止確認，佇列中的訊息尚未傳送。"
+    "defaultMessage": "正在停止上一輪，確認後自動傳送這則新訊息。"
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "正在等待上一條請求結束，佇列中的訊息尚未傳送。"
@@ -9357,7 +9410,7 @@
     "defaultMessage": "讀取失敗，下方保留的是上次讀取的對話記錄。"
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} other {狀態尚不可用}}"
+    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} limited {達到輸出上限} blocked {本輪受阻} other {狀態尚不可用}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "子智慧體對話"

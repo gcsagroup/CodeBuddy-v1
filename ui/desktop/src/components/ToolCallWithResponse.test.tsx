@@ -1004,3 +1004,23 @@ describe('inline project memory approval', () => {
     expect(screen.getByRole('button', { name: 'Allow Once' })).toBeInTheDocument();
   });
 });
+
+
+it('keeps the complete capability range and category label in inline approval cards', () => {
+  render(<IntlProvider locale="en" messages={{}}>
+    <ToolCallWithResponse compact isCancelledMessage={false} isPendingApproval
+      sessionId="future-scope-inline"
+      toolRequest={{ type: 'toolRequest', id: 'future-scope-inline-call', toolCall: { status: 'success', value: {
+        name: 'export_report', arguments: {},
+      } } }}
+      confirmationContent={{ id: 'future-scope-inline-call', toolName: 'export_report', arguments: {},
+        authorizationScope: 'session', availableActions: ['allow_once', 'always_allow', 'deny_once'],
+        businessApproval: { version: 2, id: 'report-export', name: 'Report export',
+          description: 'Only the configured report workspace', tools: ['export_report', 'inspect_report'],
+          details: [{ label: 'Workspace', value: 'isolated fixture' }] },
+      }} />
+  </IntlProvider>);
+  expect(screen.getByTestId('business-approval-scope')).toHaveTextContent('Only the configured report workspace');
+  expect(screen.getByRole('button', { name: 'Allow Report export for this session' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Allow this tool for this session' })).not.toBeInTheDocument();
+});

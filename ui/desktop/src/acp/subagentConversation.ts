@@ -177,9 +177,20 @@ export function subagentTurnEvent(event: SubagentConversationEvent) {
       ? ('completed' as const)
       : kind === 'aborted' || kind === 'interrupted'
         ? ('interrupted' as const)
-        : kind === 'error'
-          ? ('failed' as const)
-          : undefined;
+        : kind === 'max-tokens' ||
+            (kind === 'error' &&
+              [
+                'OUTPUT_LIMIT_REACHED',
+                'OUTPUT_TRUNCATED',
+                'OUTPUT_LENGTH_STOP',
+                'LOCAL_OUTPUT_BUDGET_EXHAUSTED',
+              ].includes(String(record(record(event.data.reason).error).code)))
+          ? ('limited' as const)
+          : kind === 'blocked'
+            ? ('blocked' as const)
+            : kind === 'error'
+              ? ('failed' as const)
+              : undefined;
   const time = new Date(event.time ?? NaN).getTime();
   return { status, endedAt: Number.isFinite(time) ? time : undefined };
 }
@@ -199,7 +210,14 @@ export function createSubagentConversationProjection(sessionId: string) {
         adapter: ReturnType<typeof createAcpSessionNotificationAdapter>;
       }
     | undefined;
-  let status: 'running' | 'completed' | 'failed' | 'interrupted' | undefined;
+  let status:
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'interrupted'
+    | 'limited'
+    | 'blocked'
+    | undefined;
   const parentInputs = new Map<string, string>();
   const apply = (update: SessionNotification['update']) => adapter.apply({ sessionId, update });
   return {

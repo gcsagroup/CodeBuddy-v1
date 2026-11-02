@@ -49,7 +49,7 @@ import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
-import { mcpSessionApprovalScope } from './tool-session-approval.mjs';
+import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
@@ -1079,8 +1079,9 @@ Use this role throughout this workspace.` : basePrompt,
     const toolGrant = this.toolGrant(tool), businessGrant = this.businessGrant(tool);
     const reusable = Boolean(toolGrant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
     if (reusable && (toolGrant?.allowed || businessGrant?.allowed)) return true;
-    const business = reusable && businessGrant && !directToolCall && this.businessApprovalClients?.has(connection)
-      ? approval.business : undefined;
+    const businessPresentation = reusable && businessGrant && !directToolCall
+      ? businessPresentationForClient(approval.business.presentation, this.businessApprovalClients?.get(connection)) : undefined;
+    const business = businessPresentation ? approval.business : undefined;
     const grant = business ? businessGrant : toolGrant;
 
     // Parallel calls wait for the same scope's explicit choice, then recheck the
@@ -1106,7 +1107,7 @@ Use this role throughout this workspace.` : basePrompt,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
             ...(reusable ? { codepro: { authorizationScope: 'session', authorizationTarget: approval.targetOrigin ?? tool.name, extensionSource: business ? 'builtin' : approval.extensionSource,
-              ...(business ? { permissionClass: 'external_write', businessApproval: business.presentation } : {}),
+              ...(business ? { permissionClass: 'external_write', businessApproval: businessPresentation } : {}),
               ...(approval.group && !business ? { authorizationGroup: approval.group } : {}),
               ...(approval.module && !business ? { authorizationModule: approval.module } : {}),
               ...(approval.group === 'web_read' || approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
@@ -1117,7 +1118,7 @@ Use this role throughout this workspace.` : basePrompt,
             status: "pending",
             kind: "execute",
             rawInput: tool.arguments,
-            ...(safety.requiresApproval || approval?.targetOrigin || approval?.group === 'web_read'
+            ...(!reusable || approval?.targetOrigin || approval?.group === 'web_read'
               ? {
                   content: [
                     {
@@ -1125,8 +1126,15 @@ Use this role throughout this workspace.` : basePrompt,
                       content: { type: "text", text: [
                         ...(safety.requiresApproval ? [safety.explanation] : []),
                         ...(approval?.group === 'web_read' ? ['允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
+                        ...(!reusable ? [currentPolicy().permission === 'ask_before'
+                          ? '该工具设置为每次确认。本次允许仅适用于当前操作。'
+                          : safety.requiresApproval
+                            ? '本次操作触发了额外安全确认；此次允许不会授权后续操作。'
+                            : '本次允许仅适用于当前操作；后续调用仍需按当前权限规则确认。'] : []),
                         ...(approval?.targetOrigin
-                          ? [`允许本会话访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
+                          ? [reusable
+                              ? `会话许可仅覆盖 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`
+                              : `本次操作仅访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
                           : []),
                       ].join('\n') },
                     },
@@ -1418,9 +1426,10 @@ Use this role throughout this workspace.` : basePrompt,
       return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
     }
     if (method === "initialize") {
-      this.businessApprovalClients ??= new WeakSet();
-      if (connection && p.clientCapabilities?._meta?.goose?.businessSessionApproval === 1)
-        this.businessApprovalClients.add(connection);
+      this.businessApprovalClients ??= new WeakMap();
+      const approvalCapabilities = p.clientCapabilities?._meta?.goose;
+      if (connection && approvalCapabilities?.businessSessionApproval === 1)
+        this.businessApprovalClients.set(connection, approvalCapabilities.extensibleBusinessApproval === 1 ? 2 : 1);
       else if (connection) this.businessApprovalClients.delete(connection);
       return {
         protocolVersion: 1,
@@ -2319,7 +2328,7 @@ Use this role throughout this workspace.` : basePrompt,
             sessionUpdate: "user_message_chunk",
             content,
             messageId,
-            _meta: { goose: { messageId, created } },
+            _meta: { goose: { messageId, created, steer: true } },
           });
         active.userMessages.push(
           ...p.prompt.filter((c) => c.type === "text").map((c) => c.text),
@@ -2639,10 +2648,11 @@ Use this role throughout this workspace.` : basePrompt,
     let lastResponseTextAvailable;
     const created = Math.floor(Date.now() / 1000);
     let writer;
-    const notify = async (update) => {
-      await writer?.append(update);
-      updates.push(update);
-      connection.notify("session/update", { sessionId: s.id, update });
+    const notify = async (update, unstable = false) => {
+      if (unstable) await writer?.appendUsage(update);
+      else await writer?.append(update);
+      (unstable ? usageUpdates : updates).push(update);
+      connection.notify((unstable ? prefix : '') + "session/update", { sessionId: s.id, update });
     };
     const userId = p._meta?.["codeagentpro/source-message-id"] ?? randomUUID();
     // Persist only a display anchor. Native admission, cancellation and input
@@ -2928,6 +2938,11 @@ Use this role throughout this workspace.` : basePrompt,
           if (event.sessionId && event.sessionId !== s.id) return;
           if (event.type === 'assistant_committed' && typeof event.hasText === 'boolean')
             lastResponseTextAvailable = event.hasText;
+          if (event.type === 'assistant_end' && event.incompleteOutput === true)
+            await notify({ sessionUpdate: 'status_message', status: { type: 'notice',
+              message: '上一段生成被截断，保留作过程记录；其中的工具草稿未执行。',
+              data: { type: 'output_attempt_incomplete', message_id: messageId },
+            } });
           // Native logs retain every receipt. Main-chat projection omits
           // delegation plumbing; child tools remain in their own transcript.
           if (event.type === 'tool_call' && event.internalControl === true) internalToolCalls.add(event.id);
@@ -3020,6 +3035,21 @@ Use this role throughout this workspace.` : basePrompt,
           ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
         });
         trace('native_prompt_settled');
+        // Native execution has ended. This durable presentation annotation can
+        // pair the final answer and committed file receipts while the larger
+        // compatibility snapshot is still being committed below.
+        if (result?.reason?.kind === 'completed' && !controller.signal.aborted &&
+            active?.run && active.attemptId && lastResponseTextAvailable === true) {
+          await notify({
+            sessionUpdate: 'status_message',
+            status: { type: 'progress', message: '', data: {
+              type: 'codepro_response_phase', schema_version: 1, event_type: 'response_phase',
+              event_id: `answer:${active.attemptId}`, session_id: s.id, run_id: active.run.runId,
+              source_user_message_id: userId, phase: 'answer', answer_message_id: messageId,
+              created_at: Date.now() / 1000,
+            } },
+          }, true);
+        }
       }
     } catch (error) {
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
@@ -3069,6 +3099,9 @@ Use this role throughout this workspace.` : basePrompt,
                   ? "failed"
                 : "interrupted",
             ...(!completed && active.userRequestedStop ? { user_requested_stop: true } : {}),
+            ...(result?.stopReason === 'max_tokens' ? { stop_reason: 'max_tokens' } : {}),
+            ...(promptError?.code === 'LOCAL_OUTPUT_BUDGET_EXHAUSTED' ? { stop_reason: 'context_budget' } : {}),
+            ...((result?.outputLimit ?? promptError?.outputLimit) ? { output_limit: result?.outputLimit ?? promptError.outputLimit } : {}),
             visible_text_available: updates.some(
               (u) => u.sessionUpdate === "agent_message_chunk",
             ),

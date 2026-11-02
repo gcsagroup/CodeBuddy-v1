@@ -10,6 +10,7 @@ const pi = await import('@deepseek-ai/dsh-llm-pi-ai');
 
 // Read the installed adapter's public schema, not another host-owned limit.
 export const DEFAULT_CONTEXT_WINDOW = pi.Config.dict.providers.inner.dict.defaultContextWindow.meta.default;
+export const DEFAULT_OUTPUT_TOKENS = pi.Config.dict.providers.inner.dict.defaultMaxTokens.meta.default;
 
 function catalogBase(value) {
   try {

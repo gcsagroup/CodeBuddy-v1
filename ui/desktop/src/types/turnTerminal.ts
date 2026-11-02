@@ -102,6 +102,18 @@ interface TurnTerminalRecordBase {
   last_response_text_available?: boolean;
   // Display intent from the host's cancel request, not an execution state.
   user_requested_stop?: boolean;
+  stop_reason?: 'max_tokens' | 'context_budget';
+  output_limit?: {
+    automaticAttempts: number;
+    maxAutomaticAttempts: 1 | 2;
+    budget?: {
+      requestedTokens: number;
+      effectiveTokens: number;
+      capacityTokens: number;
+      contextLimit: number;
+      source: 'configured' | 'service' | 'catalog' | 'fallback';
+    };
+  };
   tool_action_count: number;
   copy_artifact_ref: string | null;
   finished_at: string;
@@ -281,6 +293,37 @@ export function parseTurnTerminalRecord(value: unknown): TurnTerminalRecord | un
   if (typeof record.last_response_text_available !== 'boolean')
     delete parsed.last_response_text_available;
   if (typeof record.user_requested_stop !== 'boolean') delete parsed.user_requested_stop;
+  if (record.stop_reason !== 'max_tokens' && record.stop_reason !== 'context_budget')
+    delete parsed.stop_reason;
+  const limit = record.output_limit as Record<string, unknown> | undefined;
+  if (
+    !limit ||
+    typeof limit !== 'object' ||
+    ![1, 2].includes(limit.maxAutomaticAttempts as number) ||
+    !Number.isSafeInteger(limit.automaticAttempts) ||
+    (limit.automaticAttempts as number) < 0 ||
+    (limit.automaticAttempts as number) > (limit.maxAutomaticAttempts as number)
+  ) {
+    delete parsed.output_limit;
+  } else if (limit.budget !== undefined) {
+    const budget = limit.budget as Record<string, unknown> | null;
+    if (
+      !budget ||
+      typeof budget !== 'object' ||
+      !['requestedTokens', 'effectiveTokens', 'capacityTokens', 'contextLimit'].every(
+        (key) =>
+          typeof budget[key] === 'number' &&
+          Number.isSafeInteger(budget[key]) &&
+          (budget[key] as number) >= 0
+      ) ||
+      !['configured', 'service', 'catalog', 'fallback'].includes(String(budget.source))
+    ) {
+      parsed.output_limit = {
+        automaticAttempts: limit.automaticAttempts as number,
+        maxAutomaticAttempts: limit.maxAutomaticAttempts as 1 | 2,
+      };
+    }
+  }
   delete parsed.report_parse_failed;
   if (record.report !== undefined) {
     if (isTurnTerminalReport(record.report)) {

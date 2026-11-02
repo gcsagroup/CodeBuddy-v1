@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Message, ToolRequestMessageContent } from '../types/message';
@@ -67,6 +67,41 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('keeps a length-limited terminal and its continuation outside collapsed process history', () => {
+    const terminal = assistant('length-terminal', [
+      {
+        type: 'systemNotification',
+        notificationType: 'turnTerminal',
+        msg: 'Output stopped',
+        data: {
+          schema_version: 1,
+          session_id: 'between-replies',
+          run_id: 'run',
+          terminal_message_id: 'length-terminal',
+          source_user_message_id: user.id,
+          status: 'interrupted',
+          stop_reason: 'max_tokens',
+          output_limit: { automaticAttempts: 1, maxAutomaticAttempts: 1 },
+          checkpoint_id: null,
+          retry_strategy: 'not_available',
+          visible_text_available: true,
+          tool_action_count: 0,
+          copy_artifact_ref: null,
+          finished_at: '2026-11-01T00:00:00Z',
+        },
+      },
+    ]);
+    render(
+      show([
+        user,
+        assistant('failed-draft', [{ type: 'text', text: 'UNFINISHED_DRAFT' }]),
+        terminal,
+      ]),
+      { wrapper: IntlTestWrapper }
+    );
+    expect(screen.getByText(/length limit again after one recovery attempt/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Try continuing' })).toBeVisible();
+  });
   it.each([false, true])(
     'summarizes closed process records even when an earlier operation was unsuccessful (all failed: %s)',
     (allFailed) => {
@@ -587,4 +622,29 @@ describe('processes between public replies', () => {
     render(show([user, earlier, mixed, receipt('first')]), { wrapper: IntlTestWrapper });
     expect(screen.getAllByText(/Model changed:/)).toHaveLength(1);
   });
+});
+
+it('keeps a native in-progress tool readable across a transient empty live-call list, then consumes its real receipt', async () => {
+  const native: ToolRequestMessageContent = {
+    type: 'toolRequest',
+    id: 'lookup',
+    metadata: { extensionName: 'harness', status: 'in_progress' },
+    toolCall: { status: 'success', value: { name: 'glob', arguments: { pattern: 'README.md' } } },
+  };
+  const records = [user, assistant('lookup-message', [native])];
+  const tree = (history: Message[], streaming: boolean) => (
+    <ProgressiveMessageList
+      messages={history}
+      chat={{ sessionId: 'tool-status-race' }}
+      isUserMessage={(message) => message.role === 'user'}
+      isStreamingMessage={streaming}
+      activeToolCallIds={[]}
+    />
+  );
+  const view = render(tree(records, true), { wrapper: IntlTestWrapper });
+  expect(screen.queryByText('Unknown status')).toBeNull();
+  await waitFor(() => expect(view.container.textContent).toContain('README.md'));
+  expect(screen.queryByText('Unknown status')).toBeNull();
+  view.rerender(tree([...records, receipt('lookup')], false));
+  expect(screen.queryByText('Unknown status')).toBeNull();
 });

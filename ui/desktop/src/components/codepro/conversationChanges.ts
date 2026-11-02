@@ -1,4 +1,5 @@
 import {
+  isConversationTurnStart,
   getToolRequests,
   getToolResponses,
   type Message,
@@ -184,7 +185,9 @@ export function collectConversationChanges(
   turns.push(current);
   let number = 0;
   for (const message of messages) {
-    if (isUserTurn(message)) {
+    if (isUserTurn(message) && message.metadata.steer) {
+      if (message.id) byUserId.set(message.id, current);
+    } else if (isConversationTurnStart(message)) {
       const existing = message.id ? byUserId.get(message.id) : undefined;
       if (existing) current = existing;
       else {

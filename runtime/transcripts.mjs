@@ -30,7 +30,7 @@ function readRecords(text, file) {
 
 /** Durable ACP projection only. Harness remains the execution-history owner. */
 export async function openTranscriptJournal(store) {
-  if (typeof store?.directory !== 'string' || typeof store?.update !== 'function' || typeof store?.read !== 'function') throw new TypeError('A persistent runtime store is required');
+  if (typeof store?.directory !== 'string' || typeof store?.updateSession !== 'function' || typeof store?.read !== 'function') throw new TypeError('A persistent session runtime store is required');
   const directory = join(store.directory, 'transcript-journal');
   await mkdir(directory, { recursive: true });
   const writers = new Map();
@@ -38,9 +38,7 @@ export async function openTranscriptJournal(store) {
   async function project(records) {
     if (!records.length) return undefined;
     const first = records[0], last = records.at(-1);
-    return store.update((state) => {
-      const session = state.sessions.find((item) => item.id === first.sessionId);
-      if (!session) throw new Error(`Transcript session is missing: ${first.sessionId}`);
+    return store.updateSession(first.sessionId, (session) => {
       session.transcriptTurns ??= {};
       const key = identity(first.sessionId, first.turnId);
       const prior = session.transcriptTurns[key];

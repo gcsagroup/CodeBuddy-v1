@@ -271,44 +271,59 @@ describe('Harness conversation presentation', () => {
   it.each([true, false])(
     'folds manually opened process at the answer boundary (following=%s) and allows later inspection',
     async (following) => {
-      const trace = [
-        user(),
-        prose('Preparing the files.'),
-        requestMessage(write('a')),
-        responseMessage(receipt('a')),
-      ];
-      const view = render(
-        <ScrollFollowingContext.Provider value={following}>
-          {show(trace, true)}
-        </ScrollFollowingContext.Provider>,
-        { wrapper: IntlTestWrapper }
-      );
-      const history = view.container.querySelector('[data-process-group] button')!;
-      expect(history).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(history);
-      const finished = [...trace, prose('The saved result.'), terminal()];
-      view.rerender(
-        <ScrollFollowingContext.Provider value={following}>
-          {show(finished)}
-        </ScrollFollowingContext.Provider>
-      );
-      const whole = await screen.findByRole('button', { name: /^Time spent/ }, { timeout: 5000 });
-      expect(whole).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
-      expect(view.container.querySelector('[data-tool-call-id="a"]')).toBeNull();
-      fireEvent.click(whole);
-      const reopened = view.container.querySelector('[data-process-group] button')!;
-      expect(reopened).toHaveAttribute('aria-expanded', 'false');
-      fireEvent.click(reopened);
-      expect(view.container.querySelector('[data-tool-call-id="a"]')).not.toBeNull();
-      expect(screen.getByText('Preparing the files.')).toBeVisible();
-      view.rerender(
-        <ScrollFollowingContext.Provider value={following}>
-          {show([...finished])}
-        </ScrollFollowingContext.Provider>
-      );
-      expect(whole).toHaveAttribute('aria-expanded', 'true');
-      expect(await screen.findByText('The saved result.', {}, { timeout: 5000 })).toBeVisible();
+      vi.useFakeTimers({
+        toFake: [
+          'setTimeout',
+          'clearTimeout',
+          'performance',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+        ],
+      });
+      try {
+        const trace = [
+          user(),
+          prose('Preparing the files.'),
+          requestMessage(write('a')),
+          responseMessage(receipt('a')),
+        ];
+        const view = render(
+          <ScrollFollowingContext.Provider value={following}>
+            {show(trace, true)}
+          </ScrollFollowingContext.Provider>,
+          { wrapper: IntlTestWrapper }
+        );
+        const history = view.container.querySelector('[data-process-group] button')!;
+        expect(history).toHaveAttribute('aria-expanded', 'false');
+        fireEvent.click(history);
+        const finished = [...trace, prose('The saved result.'), terminal()];
+        view.rerender(
+          <ScrollFollowingContext.Provider value={following}>
+            {show(finished)}
+          </ScrollFollowingContext.Provider>
+        );
+        act(() => vi.advanceTimersByTime(800));
+        const whole = screen.getByRole('button', { name: /^Time spent/ });
+        expect(whole).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();
+        expect(view.container.querySelector('[data-tool-call-id="a"]')).toBeNull();
+        fireEvent.click(whole);
+        const reopened = view.container.querySelector('[data-process-group] button')!;
+        expect(reopened).toHaveAttribute('aria-expanded', 'false');
+        fireEvent.click(reopened);
+        expect(view.container.querySelector('[data-tool-call-id="a"]')).not.toBeNull();
+        expect(screen.getByText('Preparing the files.')).toBeVisible();
+        view.rerender(
+          <ScrollFollowingContext.Provider value={following}>
+            {show([...finished])}
+          </ScrollFollowingContext.Provider>
+        );
+        expect(whole).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByText('The saved result.')).toBeVisible();
+        view.unmount();
+      } finally {
+        vi.useRealTimers();
+      }
     }
   );
 
@@ -589,13 +604,17 @@ describe('Harness conversation presentation', () => {
   it.each(['completed', 'interrupted'])(
     'folds process at a %s receipt and puts edited files after the summary',
     (status) => {
+      const ended = terminal('user', status);
+      const record = ended.content[0];
+      if (record.type !== 'systemNotification') throw new Error('invalid terminal fixture');
+      record.data = { ...(record.data as object), last_response_text_available: true };
       const trace = [
         user(),
         prose('Preparing the files.'),
         requestMessage(write('a')),
         responseMessage(receipt('a')),
         prose('Saved the file; here is the result.'),
-        terminal('user', status),
+        ended,
       ];
       const view = render(show(trace), { wrapper: IntlTestWrapper });
       expect(screen.queryByText('Preparing the files.')).not.toBeInTheDocument();

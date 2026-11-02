@@ -1643,7 +1643,18 @@ const createChat = async (
 
   // Set up local keyboard shortcuts that only work when the window is focused
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'r' && input.meta) {
+    // Meta is the Windows key on Windows. Leave capture shortcuts to the OS;
+    // Windows/Linux reload uses the native menu's Ctrl+R accelerator.
+    if (
+      process.platform === 'darwin' &&
+      input.type === 'keyDown' &&
+      !input.isAutoRepeat &&
+      input.key.toLowerCase() === 'r' &&
+      input.meta &&
+      !input.shift &&
+      !input.control &&
+      !input.alt
+    ) {
       mainWindow.reload();
       event.preventDefault();
     }

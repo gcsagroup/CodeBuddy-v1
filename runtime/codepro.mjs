@@ -206,6 +206,7 @@ function nativeTerminal({ result, error, aborted }, view) {
   const code = reason?.kind ?? ({ end_turn: 'completed', cancelled: 'aborted', max_tokens: 'max-tokens', max_turns: 'max-turns', refusal: 'blocked' })[result?.stopReason];
   const failure = error ?? (code === 'error' ? reason.error : null);
   if (aborted || view.stopRequested || code === 'aborted' || code === 'interrupted') return { state: 'paused', completionKind: null, reason: 'CodeBuddy execution paused', goal };
+  if (result?.stopReason === 'max_tokens') return { state: 'paused', completionKind: null, reason: '模型这一步达到输出长度限制，任务尚未完成。此前的修改和操作记录已保留。', goal };
   if (failure) return { state: 'failed', completionKind: null, reason: failure.message ?? String(failure), error: { message: failure.message ?? String(failure), ...(failure.code !== undefined ? { code: failure.code } : {}) }, goal };
   if (code !== 'completed' || result?.stopReason === 'max_turns') return { state: 'paused', completionKind: null, reason: `CodeBuddy stopped: ${result?.stopReason ?? code ?? 'unknown'}`, goal };
   if (goal && goal.phase !== 'complete') return { state: 'paused', completionKind: null, reason: goal.blockedReason?.message ?? `CodeBuddy goal is ${goal.phase}`, goal };

@@ -8,9 +8,11 @@ import ThinkingContent from './ThinkingContent';
 import ToolCallWithResponse from './ToolCallWithResponse';
 import {
   getTextAndImageContent,
+  isConversationTurnStart,
   getThinkingContent,
   getToolRequests,
   getToolResponses,
+  isToolCallInProgress,
   getToolConfirmationContent,
   getElicitationContent,
   getPendingToolConfirmationIds,
@@ -153,6 +155,48 @@ export function codeProTerminalPresentation(
 }
 
 const i18n = defineMessages({
+  contextBudgetExhausted: {
+    id: 'gooseMessage.contextBudgetExhausted',
+    defaultMessage:
+      'The current context cannot leave enough room for a complete response. This turn has stopped and earlier results are preserved. You can select a model with more context, or reduce the input before continuing.',
+  },
+  outputRecoveryInterrupted: {
+    id: 'gooseMessage.outputRecoveryInterrupted',
+    defaultMessage:
+      'The automatic response-length recovery did not finish. See the error above; earlier results are preserved.',
+  },
+  outputLimitReached: {
+    id: 'gooseMessage.outputLimitReached',
+    defaultMessage:
+      'The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first.',
+  },
+  outputLimitRecoveryFailed: {
+    id: 'gooseMessage.outputLimitRecoveryFailed',
+    defaultMessage:
+      'The model reached a response length limit again after {attempts, plural, one {one recovery attempt} other {# recovery attempts}}. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.',
+  },
+  outputLimitContinue: { id: 'gooseMessage.outputLimitContinue', defaultMessage: 'Try continuing' },
+  outputLimitContinueRequest: {
+    id: 'gooseMessage.outputLimitContinueRequest',
+    defaultMessage:
+      'Continue the unfinished task. First check the existing results, preserve completed work, and finish only the remaining parts in smaller steps.',
+  },
+  outputLimitDetails: { id: 'gooseMessage.outputLimitDetails', defaultMessage: 'Limit details' },
+  outputLimitBudget: {
+    id: 'gooseMessage.outputLimitBudget',
+    defaultMessage:
+      'Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}.',
+  },
+  outputLimitFallback: {
+    id: 'gooseMessage.outputLimitFallback',
+    defaultMessage:
+      'This budget uses a fallback; the service output capacity has not been confirmed.',
+  },
+  outputLimitRecovered: {
+    id: 'gooseMessage.outputLimitRecovered',
+    defaultMessage:
+      'Automatic response-length recovery was used {attempts, plural, one {once} other {# times}} during this turn.',
+  },
   missingFinalReply: {
     id: 'gooseMessage.missingFinalReply',
     defaultMessage:
@@ -334,6 +378,7 @@ export default function GooseMessage({
   const intl = useIntl();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const plainTextCopyRef = useRef<HTMLDivElement | null>(null);
+  const continuationRequested = useRef(false);
 
   const { textContent, imagePaths } = getTextAndImageContent(message);
   const thinkingContent = getThinkingContent(message);
@@ -344,10 +389,27 @@ export default function GooseMessage({
   const turnTerminal = getTurnTerminalRecord(message);
   const plainTerminal =
     turnTerminal?.status === 'cancelled' || turnTerminal?.status === 'interrupted';
+  const outputLimited =
+    turnTerminal?.stop_reason === 'max_tokens' &&
+    turnTerminal.status !== 'cancelled' &&
+    !turnTerminal.user_requested_stop;
+  const contextLimited =
+    turnTerminal?.stop_reason === 'context_budget' &&
+    turnTerminal.status !== 'cancelled' &&
+    !turnTerminal.user_requested_stop;
   const priorAnswerText =
     turnTerminal?.session_id === sessionId && hasPriorAnswerText(turnTerminal, messages);
   const displayText =
-    textContent.trim() ||
+    (contextLimited
+      ? intl.formatMessage(i18n.contextBudgetExhausted)
+      : outputLimited
+        ? intl.formatMessage(
+            turnTerminal.output_limit?.automaticAttempts
+              ? i18n.outputLimitRecoveryFailed
+              : i18n.outputLimitReached,
+            { attempts: turnTerminal.output_limit?.automaticAttempts ?? 0 }
+          )
+        : textContent.trim()) ||
     (plainTerminal && !priorAnswerText
       ? intl.formatMessage(
           turnTerminal.status === 'cancelled' ? i18n.cancelledExplanation : i18n.turnStopped
@@ -700,9 +762,11 @@ export default function GooseMessage({
                   computerTarget={computerTargets?.get(toolRequest.id)}
                   toolResponse={toolResponsesMap.get(toolRequest.id)}
                   notifications={toolCallNotifications.get(toolRequest.id)}
-                  isStreamingMessage={
-                    activeToolCallIds ? activeToolCallIds.includes(toolRequest.id) : isStreaming
-                  }
+                  isStreamingMessage={isToolCallInProgress(
+                    toolRequest,
+                    !!isTurnRunning,
+                    activeToolCallIds
+                  )}
                   isPendingApproval={isPending}
                   append={append}
                   confirmationContent={confirmationContent}
@@ -769,9 +833,73 @@ export default function GooseMessage({
           </div>
         )}
 
-        {turnTerminal && hasMissingFinalReply(turnTerminal) && (
-          <div role="status" className="mt-2 text-sm text-text-secondary">
-            {intl.formatMessage(i18n.missingFinalReply)}
+        {turnTerminal &&
+          !outputLimited &&
+          !contextLimited &&
+          hasMissingFinalReply(turnTerminal) && (
+            <div role="status" className="mt-2 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.missingFinalReply)}
+            </div>
+          )}
+
+        {(turnTerminal?.output_limit?.automaticAttempts ?? 0) > 0 &&
+          turnTerminal &&
+          turnTerminal.status === 'completed' && (
+            <div role="status" className="mt-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.outputLimitRecovered, {
+                attempts: turnTerminal.output_limit?.automaticAttempts,
+              })}
+            </div>
+          )}
+
+        {(turnTerminal?.output_limit?.automaticAttempts ?? 0) > 0 &&
+          turnTerminal &&
+          turnTerminal.status === 'failed' &&
+          !outputLimited &&
+          !contextLimited &&
+          !turnTerminal.user_requested_stop && (
+            <div role="status" className="mt-2 text-sm text-text-secondary">
+              {intl.formatMessage(i18n.outputRecoveryInterrupted)}
+            </div>
+          )}
+
+        {(outputLimited || contextLimited) && turnTerminal && (
+          <div className="mt-2 space-y-2 text-sm text-text-secondary">
+            {textContent.trim() && <p>{displayText}</p>}
+            {turnTerminal.output_limit?.budget && (
+              <details>
+                <summary className="cursor-pointer text-xs">
+                  {intl.formatMessage(i18n.outputLimitDetails)}
+                </summary>
+                <div className="mt-1 text-xs">
+                  {intl.formatMessage(i18n.outputLimitBudget, {
+                    tokens: turnTerminal.output_limit.budget.effectiveTokens,
+                    attempts: turnTerminal.output_limit.automaticAttempts,
+                    limit: turnTerminal.output_limit.maxAutomaticAttempts,
+                  })}
+                  {turnTerminal.output_limit.budget.source === 'fallback' && (
+                    <p>{intl.formatMessage(i18n.outputLimitFallback)}</p>
+                  )}
+                </div>
+              </details>
+            )}
+            {!isTurnRunning &&
+              showMessageActions &&
+              turnTerminal.session_id === sessionId &&
+              [...messages].reverse().find(isConversationTurnStart)?.id ===
+                turnTerminal.source_user_message_id && (
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-text-primary hover:bg-background-subtle"
+                  onClick={() => {
+                    if (continuationRequested.current) return;
+                    continuationRequested.current = true;
+                    append(intl.formatMessage(i18n.outputLimitContinueRequest));
+                  }}
+                >
+                  {intl.formatMessage(i18n.outputLimitContinue)}
+                </button>
+              )}
           </div>
         )}
 

@@ -5,6 +5,19 @@ import type { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
 
 const i18n = defineMessages({
+  savedDrafts: {
+    id: 'messageQueue.savedDrafts',
+    defaultMessage: '{count, plural, one {# saved draft} other {# saved drafts}}',
+  },
+  expandDrafts: {
+    id: 'messageQueue.expandDrafts',
+    defaultMessage: 'Expand saved drafts',
+  },
+  collapseDrafts: {
+    id: 'messageQueue.collapseDrafts',
+    defaultMessage: 'Collapse saved drafts',
+  },
+  sendDrafts: { id: 'messageQueue.sendDrafts', defaultMessage: 'Send saved drafts' },
   pending: { id: 'messageQueue.pending', defaultMessage: 'Waiting to send' },
   sendNow: { id: 'messageQueue.sendNow', defaultMessage: 'Send now' },
   sendAllNow: { id: 'messageQueue.sendAllNow', defaultMessage: 'Send all now' },
@@ -31,10 +44,6 @@ const i18n = defineMessages({
     id: 'messageQueue.cannotSendWhileEditing',
     defaultMessage: 'Cannot send while editing',
   },
-  stopAndSend: {
-    id: 'messageQueue.stopAndSend',
-    defaultMessage: 'Stop current processing and send all waiting messages together',
-  },
   removeFromQueue: {
     id: 'messageQueue.removeFromQueue',
     defaultMessage: 'Remove this message from queue',
@@ -56,7 +65,7 @@ interface MessageQueueProps {
   queuedMessages: QueuedMessage[];
   onRemoveMessage: (id: string) => void;
   onClearQueue: () => void;
-  onStopAndSend?: () => void;
+  onSendNow?: () => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onTriggerQueueProcessing?: () => void;
   editingMessageIdRef?: React.MutableRefObject<string | null>;
@@ -74,7 +83,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   queuedMessages,
   onRemoveMessage,
   onClearQueue,
-  onStopAndSend,
+  onSendNow,
   onEditMessage,
   onTriggerQueueProcessing,
   editingMessageIdRef,
@@ -91,6 +100,17 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const hasUncertainDelivery = queuedMessages.some(
+    (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
+  );
+  const hasActiveSubmission = queuedMessages.some((message) => sendingMessageIds?.has(message.id));
+  const isDraftMode =
+    isPaused && !waitingMessageId && !hasActiveSubmission && !hasUncertainDelivery;
+  // Stop and cold restore preserve the queue as drafts, not an active steer.
+  // Do not hide unresolved deliveries behind this collapsed presentation.
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [isDraftMode]);
   useEffect(() => {
     if (queuedMessages.length < 2) setIsExpanded(false);
   }, [queuedMessages.length]);
@@ -105,19 +125,20 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
 
   const isSending = (message: QueuedMessage) =>
     Boolean(sendingMessageIds?.has(message.id) || message.delivery === 'submitting');
-  const hasUncertainDelivery = queuedMessages.some(
-    (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
-  );
   const pendingCount = queuedMessages.filter((message) => !isSending(message)).length;
   // Unknown delivery must keep its reconciliation controls visible, so it
   // must not advertise a collapsed list while already showing every entry.
-  const canExpand = queuedMessages.length > 1 && !hasUncertainDelivery;
+  const canExpand = (queuedMessages.length > 1 || isDraftMode) && !hasUncertainDelivery;
   const expanded = canExpand && isExpanded;
   const showList = expanded || hasUncertainDelivery || editingMessage !== null;
   const waiting = Boolean(waitingMessageId);
   const nextMessage = queuedMessages[0];
   const hasSending = queuedMessages.some(isSending);
-  const hasActiveSubmission = queuedMessages.some((message) => sendingMessageIds?.has(message.id));
+  const sendLabel = isDraftMode
+    ? i18n.sendDrafts
+    : pendingCount > 1
+      ? i18n.sendAllNow
+      : i18n.sendNow;
   const finishEditing = (save: boolean) => {
     if (save && editingMessage) onEditMessage?.(editingMessage, editContent);
     setEditingMessage(null);
@@ -133,24 +154,39 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative ${className}`}
+      data-testid={isDraftMode ? 'saved-message-drafts' : 'message-queue'}
+    >
       <div className="flex min-w-0 items-center gap-2 px-3 py-2 text-xs text-text-secondary">
         {canExpand ? (
           <button
             type="button"
             className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-text-primary"
-            aria-label={intl.formatMessage(expanded ? i18n.collapseQueue : i18n.expandQueue)}
+            aria-label={intl.formatMessage(
+              isDraftMode
+                ? expanded
+                  ? i18n.collapseDrafts
+                  : i18n.expandDrafts
+                : expanded
+                  ? i18n.collapseQueue
+                  : i18n.expandQueue
+            )}
             aria-expanded={expanded}
             title={nextMessage.content}
             onClick={() => setIsExpanded(!expanded)}
           >
             <span className="shrink-0">
-              {intl.formatMessage(i18n.messageCount, {
-                count: queuedMessages.length,
-                status: intl.formatMessage(i18n.queued),
-              })}
+              {isDraftMode
+                ? intl.formatMessage(i18n.savedDrafts, { count: queuedMessages.length })
+                : intl.formatMessage(i18n.messageCount, {
+                    count: queuedMessages.length,
+                    status: intl.formatMessage(i18n.queued),
+                  })}
             </span>
-            {!showList && <span className="min-w-0 truncate">{nextMessage.content}</span>}
+            {!showList && !isDraftMode && (
+              <span className="min-w-0 truncate">{nextMessage.content}</span>
+            )}
             {expanded ? (
               <ChevronUp className="size-3 shrink-0" />
             ) : (
@@ -179,7 +215,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
             )}
           </div>
         )}
-        {onStopAndSend && (
+        {onSendNow && (!isDraftMode || expanded) && (
           <Button
             variant="ghost"
             size="sm"
@@ -187,16 +223,20 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
             title={intl.formatMessage(
               editingMessage
                 ? i18n.cannotSendWhileEditing
-                : isBusy
-                  ? i18n.stopAndSend
-                  : i18n.sendTogether
+                : isDraftMode
+                  ? i18n.sendTogether
+                  : isBusy
+                    ? i18n.sendNow
+                    : i18n.sendTogether
             )}
-            disabled={Boolean(editingMessage) || pendingCount === 0 || waiting}
-            aria-label={intl.formatMessage(pendingCount > 1 ? i18n.sendAllNow : i18n.sendNow)}
+            disabled={
+              Boolean(editingMessage) || pendingCount === 0 || waiting || (isDraftMode && isBusy)
+            }
+            aria-label={intl.formatMessage(sendLabel)}
             aria-busy={waiting || hasActiveSubmission}
-            onClick={() => onStopAndSend()}
+            onClick={() => onSendNow()}
           >
-            {intl.formatMessage(pendingCount > 1 ? i18n.sendAllNow : i18n.sendNow)}
+            {intl.formatMessage(sendLabel)}
             {waiting || hasActiveSubmission ? (
               <LoaderCircle className="size-3 animate-spin" aria-label={blockedReason} />
             ) : (
@@ -228,7 +268,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
           </Button>
         )}
       </div>
-      {(blockedReason || (isPaused && !waiting && !hasUncertainDelivery)) && (
+      {!isDraftMode && (blockedReason || (isPaused && !waiting && !hasUncertainDelivery)) && (
         <p role="status" className="px-3 pb-2 text-xs text-text-secondary">
           {blockedReason ?? intl.formatMessage(i18n.continueSending)}
         </p>

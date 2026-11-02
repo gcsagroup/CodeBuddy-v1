@@ -155,7 +155,7 @@ const i18n = defineMessages({
   },
   waitingForCancellation: {
     id: 'messageQueue.waitingForCancellation',
-    defaultMessage: 'Waiting for cancellation confirmation. Your queued message has not been sent.',
+    defaultMessage: 'Stopping the previous turn. Your new message will be sent after confirmation.',
   },
   waitingForPreviousPrompt: {
     id: 'messageQueue.waitingForPreviousPrompt',
@@ -270,6 +270,7 @@ export default function ChatInput({
   onSubmissionAccepted,
   chatState = ChatState.Idle,
   onStop,
+  onSteerQueuedMessage,
   onPendingMessageChange,
   pauseQueueOnStop = false,
   queueProcessingBlocked = false,
@@ -382,9 +383,9 @@ export default function ChatInput({
     [persistQueue]
   );
   const editingMessageIdRef = useRef<string | null>(null);
-  const sendAfterStopMessageIdRef = useRef<string | null>(null);
-  const sendAfterStopPauseRemainingRef = useRef(false);
-  const [sendAfterStopMessageId, setSendAfterStopMessageId] = useState<string | null>(null);
+  const pendingSendMessageIdRef = useRef<string | null>(null);
+  const pendingSendPauseRemainingRef = useRef(false);
+  const [pendingSendMessageId, setPendingSendMessageId] = useState<string | null>(null);
   const cancellationRequestedForQueueRef = useRef(false);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
   const [sendNowInFlightMessageIds, setSendNowInFlightMessageIds] = useState<ReadonlySet<string>>(
@@ -429,9 +430,9 @@ export default function ChatInput({
     setQueuedMessagesState(restored);
     queuePausedRef.current = restored.length > 0 || queueStorageFailedRef.current;
     editingMessageIdRef.current = null;
-    sendAfterStopMessageIdRef.current = null;
-    sendAfterStopPauseRemainingRef.current = false;
-    setSendAfterStopMessageId(null);
+    pendingSendMessageIdRef.current = null;
+    pendingSendPauseRemainingRef.current = false;
+    setPendingSendMessageId(null);
     cancellationRequestedForQueueRef.current = false;
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
@@ -444,7 +445,12 @@ export default function ChatInput({
       queuedMessages !== queuedMessagesRef.current
     )
       return;
-    const pending = queuedMessages.find((item) => item.presentation);
+    // A restored or stopped queue is held as drafts. Only the current explicit
+    // pending send is projected into the transcript; keep stored identity for
+    // acknowledgement reconciliation without displaying a second copy.
+    const pending = queuedMessages.find(
+      (item) => item.presentation && item.id === pendingSendMessageId
+    );
     onPendingMessageChange?.(
       sessionId,
       pending
@@ -461,7 +467,7 @@ export default function ChatInput({
           }
         : undefined
     );
-  }, [queuedMessages, sessionId, onPendingMessageChange]);
+  }, [queuedMessages, sessionId, onPendingMessageChange, pendingSendMessageId]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -484,20 +490,26 @@ export default function ChatInput({
     queuePausedRef.current = true;
   }, []);
 
-  const clearPendingSendAfterStop = useCallback((messageId?: string) => {
-    if (!messageId || sendAfterStopMessageIdRef.current === messageId) {
-      sendAfterStopMessageIdRef.current = null;
-      sendAfterStopPauseRemainingRef.current = false;
-      setSendAfterStopMessageId(null);
+  const clearPendingSend = useCallback((messageId?: string) => {
+    if (!messageId || pendingSendMessageIdRef.current === messageId) {
+      pendingSendMessageIdRef.current = null;
+      pendingSendPauseRemainingRef.current = false;
+      setPendingSendMessageId(null);
       cancellationRequestedForQueueRef.current = false;
     }
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && !queueProcessingBlocked) {
+      cancellationRequestedForQueueRef.current = false;
+    }
+  }, [isLoading, queueProcessingBlocked]);
+
   const clearQueueState = useCallback(() => {
     queuePausedRef.current = false;
-    sendAfterStopMessageIdRef.current = null;
-    sendAfterStopPauseRemainingRef.current = false;
-    setSendAfterStopMessageId(null);
+    pendingSendMessageIdRef.current = null;
+    pendingSendPauseRemainingRef.current = false;
+    setPendingSendMessageId(null);
     cancellationRequestedForQueueRef.current = false;
   }, []);
 
@@ -515,11 +527,11 @@ export default function ChatInput({
     if (!delivered.length) return;
     // Recover an acknowledgement lost during reload; never replay this request.
     queuePausedRef.current = true;
-    for (const item of delivered) clearPendingSendAfterStop(item.id);
+    for (const item of delivered) clearPendingSend(item.id);
     setQueuedMessages((items) =>
       items.filter((item) => !item.presentation || !confirmed.has(item.id))
     );
-  }, [messages, queuedMessages, sessionId, setQueuedMessages, clearPendingSendAfterStop]);
+  }, [messages, queuedMessages, sessionId, setQueuedMessages, clearPendingSend]);
 
   const { alerts, addAlert, clearAlerts } = useAlerts();
   const dropdownRef: React.RefObject<HTMLDivElement> = useRef<HTMLDivElement>(
@@ -575,16 +587,23 @@ export default function ChatInput({
   }, [sessionId, workingDir]);
 
   const submitQueuedMessage = useCallback(
-    async (message: QueuedMessage, pauseAfterAcceptance = false, allowWhileLoading = false) => {
+    async (
+      message: QueuedMessage,
+      pauseAfterAcceptance = false,
+      allowWhileLoading = false,
+      delivery: 'queue' | 'steer' = 'queue'
+    ) => {
       const submittedSessionId = sessionId;
       const submittedStorage = queueStorageRef.current;
       const isCurrentQueueSession = () => queueSessionIdRef.current === submittedSessionId;
       if (
         message.delivery === 'submitting' ||
         queueStorageFailedRef.current ||
-        (isLoadingRef.current && !allowWhileLoading) ||
-        queueProcessingBlockedRef.current ||
-        sendNowInFlightMessageIdsRef.current.size > 0 ||
+        (delivery === 'queue' &&
+          ((isLoadingRef.current && !allowWhileLoading) || queueProcessingBlockedRef.current)) ||
+        [...sendNowInFlightMessageIdsRef.current].some(
+          (id) => delivery === 'queue' || queuedMessagesRef.current.some((item) => item.id === id)
+        ) ||
         editingMessageIdRef.current === message.id
       ) {
         return;
@@ -603,7 +622,7 @@ export default function ChatInput({
       const pauseUnaccepted = (uncertain: boolean) => {
         deliveryResolved = true;
         if (accepted || !isCurrentQueueSession()) return;
-        clearPendingSendAfterStop(message.id);
+        clearPendingSend(message.id);
         pauseRemainingQueue();
         if (!uncertain) {
           setQueuedMessages((items) =>
@@ -612,45 +631,51 @@ export default function ChatInput({
         }
       };
       try {
-        await handleSubmit(
-          {
-            msg: message.content,
-            images: message.images,
-            desktopGeneration: typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
-            ...(message.presentation
-              ? { messageId: message.id, presentation: message.presentation }
-              : {}),
+        const input: UserInput = {
+          msg: message.content,
+          images: message.images,
+          desktopGeneration: typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
+          ...(message.presentation
+            ? { messageId: message.id, presentation: message.presentation }
+            : {}),
+        };
+        const lifecycle: MessageSubmissionLifecycle = {
+          onAccepted: () => {
+            if (accepted) return;
+            accepted = true;
+            if (!isCurrentQueueSession()) {
+              try {
+                if (submittedStorage)
+                  submittedStorage.write(
+                    submittedStorage.read().filter((item) => item.id !== message.id)
+                  );
+              } catch {
+                setQueueStorageError('save');
+              }
+              return;
+            }
+            LocalMessageStorage.addMessage(message.content);
+            clearPendingSend(message.id);
+            if (pauseAfterAcceptance) {
+              pauseRemainingQueue();
+            }
+            setQueuedMessages((previous) => {
+              const next = removeQueuedMessage(previous, message.id);
+              if (next.length === 0) clearQueueState();
+              return next;
+            });
           },
-          {
-            onAccepted: () => {
-              if (accepted) return;
-              accepted = true;
-              if (!isCurrentQueueSession()) {
-                try {
-                  if (submittedStorage)
-                    submittedStorage.write(
-                      submittedStorage.read().filter((item) => item.id !== message.id)
-                    );
-                } catch {
-                  setQueueStorageError('save');
-                }
-                return;
-              }
-              LocalMessageStorage.addMessage(message.content);
-              clearPendingSendAfterStop(message.id);
-              if (pauseAfterAcceptance) {
-                pauseRemainingQueue();
-              }
-              setQueuedMessages((previous) => {
-                const next = removeQueuedMessage(previous, message.id);
-                if (next.length === 0) clearQueueState();
-                return next;
-              });
-            },
-            onRejectedBeforeAcceptance: () => pauseUnaccepted(false),
-            onDeliveryUncertain: () => pauseUnaccepted(true),
-          }
-        );
+          onRejectedBeforeAcceptance: () => pauseUnaccepted(false),
+          onDeliveryUncertain: () => pauseUnaccepted(true),
+        };
+        if (delivery === 'steer') {
+          // A false return is a local refusal before dispatch. An exception can
+          // mean a lost receipt: preserve it as uncertain, never cancel/resend.
+          if (await onSteerQueuedMessage?.(input)) lifecycle.onAccepted();
+          else lifecycle.onRejectedBeforeAcceptance();
+        } else {
+          await handleSubmit(input, lifecycle);
+        }
         if (!accepted && !deliveryResolved) pauseUnaccepted(true);
       } catch {
         pauseUnaccepted(true);
@@ -662,8 +687,9 @@ export default function ChatInput({
     },
     [
       handleSubmit,
+      onSteerQueuedMessage,
       setSendNowInFlightMessage,
-      clearPendingSendAfterStop,
+      clearPendingSend,
       pauseRemainingQueue,
       clearQueueState,
       setQueuedMessages,
@@ -674,20 +700,20 @@ export default function ChatInput({
   useEffect(() => {
     if (queuedMessages !== queuedMessagesRef.current || queueStorageFailedRef.current) return;
     if (isLoading || queueProcessingBlocked || sendNowInFlightMessageIds.size > 0) return;
-    const pendingId = sendAfterStopMessageIdRef.current;
+    const pendingId = pendingSendMessageIdRef.current;
     const message = pendingId
       ? queuedMessages.find((item) => item.id === pendingId)
       : queuedMessages[0];
     if (!message || editingMessageIdRef.current === message.id) return;
     if (queuePausedRef.current && !pendingId) return;
-    const keepPaused = Boolean(pendingId && sendAfterStopPauseRemainingRef.current);
+    const keepPaused = Boolean(pendingId && pendingSendPauseRemainingRef.current);
     if (pendingId && !keepPaused) queuePausedRef.current = false;
     void submitQueuedMessage(message, keepPaused);
   }, [
     isLoading,
     queueProcessingBlocked,
     queuedMessages,
-    sendAfterStopMessageId,
+    pendingSendMessageId,
     sendNowInFlightMessageIds,
     submitQueuedMessage,
   ]);
@@ -1299,6 +1325,21 @@ export default function ChatInput({
       desktopGeneration: getDesktopOwnership().generation ?? '',
       images: convertImagesToImageData(),
     };
+    if (
+      !isLoading &&
+      queueProcessingBlocked &&
+      cancellationRequestedForQueueRef.current &&
+      onPendingMessageChange &&
+      !pendingSendMessageIdRef.current
+    ) {
+      const anchor = [...messages].reverse().find((message) => message.id)?.id;
+      if (anchor) {
+        newMessage.presentation = { afterMessageId: anchor };
+        pendingSendMessageIdRef.current = newMessage.id;
+        pendingSendPauseRemainingRef.current = true;
+        setPendingSendMessageId(newMessage.id);
+      }
+    }
     setQueuedMessages((prev) => {
       if (prev.length === 0) queuePausedRef.current = false;
       return [...prev, newMessage];
@@ -1571,7 +1612,7 @@ export default function ChatInput({
         void performSubmit();
         return;
       }
-      // Busy input is queued; only the explicit button cancels the current turn.
+      // Enter queues a follow-up; Send now steers, and only Stop cancels work.
       if (queueWhileBusy()) {
         return;
       }
@@ -1848,7 +1889,7 @@ export default function ChatInput({
 
   const handleRemoveQueuedMessage = (messageId: string) => {
     if (sendNowInFlightMessageIdsRef.current.has(messageId)) return;
-    clearPendingSendAfterStop(messageId);
+    clearPendingSend(messageId);
     setQueuedMessages((prev) => prev.filter((msg) => msg.id !== messageId));
   };
 
@@ -1872,11 +1913,11 @@ export default function ChatInput({
     );
   };
 
-  const handleStopAndSend = async () => {
+  const handleSendNow = async () => {
     if (
       queueStorageFailedRef.current ||
       editingMessageIdRef.current ||
-      sendAfterStopMessageIdRef.current
+      pendingSendMessageIdRef.current
     )
       return;
     // Freeze only known-unsent input at the click. An unconfirmed delivery is
@@ -1907,6 +1948,10 @@ export default function ChatInput({
       ...previous.filter((message) => !mergedIds.has(message.id)),
     ]);
     if (queueStorageFailedRef.current) return;
+    if (isLoading && !canSubmitQueuedMessageWhileLoading && onSteerQueuedMessage) {
+      await submitQueuedMessage(messageToSend, keepOtherMessagesPaused, false, 'steer');
+      return;
+    }
     if (
       (!isLoading || canSubmitQueuedMessageWhileLoading) &&
       !queueProcessingBlocked &&
@@ -1921,12 +1966,11 @@ export default function ChatInput({
       return;
     }
 
-    // Cancel is a request, not permission to overlap session/prompt calls. The
-    // existing queue effect sends only after both display and transport settle.
-    sendAfterStopMessageIdRef.current = messageId;
-    sendAfterStopPauseRemainingRef.current = keepOtherMessagesPaused;
-    setSendAfterStopMessageId(messageId);
-    cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
+    // If no active steer endpoint is available, keep the message for the next
+    // turn. Never turn Send now into cancellation or overlap ordinary prompts.
+    pendingSendMessageIdRef.current = messageId;
+    pendingSendPauseRemainingRef.current = keepOtherMessagesPaused;
+    setPendingSendMessageId(messageId);
     pauseRemainingQueue();
     let anchor: string | undefined;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -1944,14 +1988,14 @@ export default function ChatInput({
       }))
     );
     if (queueStorageFailedRef.current) {
-      clearPendingSendAfterStop(messageId);
+      clearPendingSend(messageId);
       return;
     }
-    if ((isLoading || queueProcessingBlocked) && onStop) onStop();
   };
 
   const handleStop = () => {
-    clearPendingSendAfterStop();
+    clearPendingSend();
+    cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
     if (pauseQueueOnStop && queuedMessages.length > 0) {
       pauseRemainingQueue();
     }
@@ -2023,19 +2067,23 @@ export default function ChatInput({
           )}
         </div>
       )}
-      {queuedMessages.length > 0 && (
+      {queuedMessages.some(
+        (message) => !message.presentation || message.id !== pendingSendMessageId
+      ) && (
         <MessageQueue
-          queuedMessages={queuedMessages}
+          queuedMessages={queuedMessages.filter(
+            (message) => !message.presentation || message.id !== pendingSendMessageId
+          )}
           onRemoveMessage={handleRemoveQueuedMessage}
           onConfirmNotSent={handleConfirmNotSent}
           onClearQueue={handleClearQueue}
-          onStopAndSend={handleStopAndSend}
+          onSendNow={handleSendNow}
           onReorderMessages={handleReorderMessages}
           onEditMessage={handleEditMessage}
           onTriggerQueueProcessing={handleQueueEditComplete}
           editingMessageIdRef={editingMessageIdRef}
           sendingMessageIds={sendNowInFlightMessageIds}
-          waitingMessageId={sendAfterStopMessageId}
+          waitingMessageId={pendingSendMessageId}
           isPaused={queuePausedRef.current}
           isBusy={isLoading || queueProcessingBlocked}
           blockedReason={
@@ -2050,6 +2098,14 @@ export default function ChatInput({
           className="border-b border-border-primary"
         />
       )}
+      {pendingSendMessageId &&
+        queuedMessages.some(
+          (message) => message.id === pendingSendMessageId && message.presentation
+        ) && (
+          <p role="status" className="px-3 pb-2 text-xs text-text-secondary">
+            {intl.formatMessage(i18n.waitingForCancellation)}
+          </p>
+        )}
       {commandNotice && (
         <div
           role="status"

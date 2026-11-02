@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { dshDocumentPreviewAssets } from './scripts/dsh-document-preview-assets.mjs';
 import { resolve } from 'node:path';
 import { dshDocumentPreviewAssets } from './scripts/dsh-document-preview-assets.mjs';
 

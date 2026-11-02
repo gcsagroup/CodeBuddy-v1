@@ -19,13 +19,13 @@ function reply(res, content, { finish = 'stop', output = 20, tool, usage = { pro
     choices: [{ index: 0, delta, finish_reason }],
   })}\n\n`);
   if (content) emit({ content });
-  if (tool) emit({ tool_calls: [{ index: 0, id: tool.id, type: 'function', function: { name: tool.name, arguments: '{}' } }] });
-  emit({}, tool ? 'tool_calls' : finish);
+  if (tool) emit({ tool_calls: [{ index: 0, id: tool.id, type: 'function', function: { name: tool.name, arguments: tool.arguments ?? '{}' } }] });
+  emit({}, tool && finish === 'stop' ? 'tool_calls' : finish);
   if (usage !== null) res.write(`data: ${JSON.stringify({ id: 'request-fit-fixture', object: 'chat.completion.chunk', model: 'fixture', choices: [], usage })}\n\n`);
   res.end('data: [DONE]\n\n');
 }
 
-async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, protocol = 'openai-completions', retryPolicy, tools } = {}) {
+async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, useDefaultBudget = false, protocol = 'openai-completions', retryPolicy, tools, outputTokenCapacity, requestMaxTokens } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'harness-request-fit-'));
   const requests = [];
   const f = { requests, root };
@@ -41,8 +41,9 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, pro
     await handler(request, res, requests);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(retryPolicy ? { retryPolicy } : {}) };
-  const options = { maxTokens, autoCompactThreshold: 0.99, ...(tools ? { tools } : {}) };
+  const provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(outputTokenCapacity ? { outputTokenCapacity } : {}), ...(requestMaxTokens === undefined ? {} : { requestMaxTokens }), ...(retryPolicy ? { retryPolicy } : {}) };
+  f.provider = provider;
+  const options = { ...useDefaultBudget ? {} : { maxTokens }, autoCompactThreshold: 0.99, ...(tools ? { tools } : {}) };
   const open = async () => {
     f.driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
     const session = await f.driver.createSession({ ...(f.sessionId ? { sessionId: f.sessionId } : {}), cwd: root, provider, model: 'fixture', options });
@@ -50,7 +51,9 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, pro
   };
   t.after(async () => { await f.driver?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   await open();
+  f.createSibling = async () => (await f.driver.createSession({ cwd: root, provider, model: 'fixture', options })).sessionId;
   f.reopen = async () => { await f.driver.close(); await open(); };
+  f.configure = () => f.driver.createSession({ sessionId: f.sessionId, cwd: root, provider, model: 'fixture', options });
   return f;
 }
 
@@ -61,6 +64,407 @@ const failures = history => history.events
   .map(record => record.chunk.reason.failure)
   .filter(Boolean);
 const summaries = history => history.events.filter(event => event.type === 'compaction/summary');
+
+test('service capacity, explicit user budget and unknown fallback reach the real HTTP envelope', { timeout: 20000 }, async t => {
+  for (const scenario of [
+    { outputTokenCapacity: 131072, useDefaultBudget: true, expected: 131072 },
+    { outputTokenCapacity: 131072, maxTokens: 2048, expected: 2048 },
+    { useDefaultBudget: true, expected: 32768 },
+    { maxTokens: 65536, expected: 65536 },
+    { requestMaxTokens: 65536, useDefaultBudget: true, expected: 65536 },
+    { requestMaxTokens: 1024, outputTokenCapacity: 131072, maxTokens: 2048, expected: 2048 },
+  ]) {
+    const f = await fixture(t, (_request, res) => reply(res, FINAL), { contextWindow: 524288, ...scenario });
+    assert.equal((await f.driver.prompt(f.sessionId, 'Return the fixture result.')).stopReason, 'end_turn');
+    assert.equal(f.requests[0].body.max_completion_tokens ?? f.requests[0].body.max_tokens, scenario.expected);
+  }
+  const invalid = await fixture(t, (_request, res) => reply(res, 'UNEXPECTED'), {
+    contextWindow: 524288, outputTokenCapacity: 131072, maxTokens: 200000,
+  });
+  await assert.rejects(invalid.driver.prompt(invalid.sessionId, 'Return the fixture result.'), { code: 'INVALID_OUTPUT_BUDGET' });
+  assert.equal(invalid.requests.length, 0);
+});
+
+test('a configured output budget reaches children and cold-restored sessions without changing route identity', { timeout: 20000 }, async t => {
+  let childId, parentCalls = 0, childCalls = 0, continued = false, continuationCalls = 0;
+  const f = await fixture(t, (request, res) => {
+    const child = request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    if (child) { childCalls++; return reply(res, 'CONFIRMED_CHILD_RESULT'); }
+    if (continued && continuationCalls++ === 0) return reply(res, '', { tool: { id: 'continue-budget-child', name: 'send_message',
+      arguments: JSON.stringify({ agent_id: childId, message: 'Perform a new short check explicitly.' }) } });
+    if (parentCalls++ === 0) return reply(res, '', { tool: { id: 'budget-child', name: 'subagent', arguments: JSON.stringify({ role: 'code reviewer', description: 'Verify inherited budget', prompt: 'Return a short isolated result.' }) } });
+    reply(res, FINAL);
+  }, { useDefaultBudget: true, requestMaxTokens: 2048 });
+  await f.driver.prompt(f.sessionId, 'Delegate the isolated check.', { onPermission: () => true,
+    onEvent(event) { if (event.type === 'subagent_start') childId = event.childSessionId; } });
+  assert.ok(childId);
+  assert.ok(f.requests.every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 2048));
+  const source = (await f.driver.history(childId)).events.find(event => event.type === 'assistant/message').data.message.source;
+  const calls = f.requests.length;
+  f.provider.requestMaxTokens = 4096;
+  await f.reopen();
+  assert.equal(f.requests.length, calls);
+  continued = true;
+  await f.driver.prompt(f.sessionId, 'Ask the same child for one short new check.', { onPermission: () => true });
+  assert.equal(childCalls, 2, 'the recorded child actually resumes through the same registered connection');
+  assert.ok(f.requests.slice(calls).every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 4096));
+  const restored = (await f.driver.history(childId)).events.findLast(event => event.type === 'assistant/message').data.message.source;
+  assert.equal(restored.provider, source.provider, 'budget metadata does not change the recorded model connection identity');
+});
+
+for (const explicit of [undefined, 512]) test(`clearing the configured default in the same session preserves explicit controls (${explicit ?? 'automatic'})`, { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res) => reply(res, FINAL), {
+    contextWindow: 524288, useDefaultBudget: explicit === undefined, maxTokens: explicit, requestMaxTokens: 4096,
+  });
+  await f.driver.prompt(f.sessionId, 'Return the first isolated result.');
+  assert.equal(f.requests[0].body.max_completion_tokens ?? f.requests[0].body.max_tokens, explicit ?? 4096);
+  const before = (await f.driver.history(f.sessionId)).events.findLast(event => event.type === 'request/header').data.header;
+  assert.equal(before.adapterDefaults?.maxTokens, explicit === undefined ? true : undefined);
+  delete f.provider.requestMaxTokens;
+  await f.configure();
+  await f.driver.prompt(f.sessionId, 'Return a second isolated result after clearing the default.');
+  assert.equal(f.requests[1].body.max_completion_tokens ?? f.requests[1].body.max_tokens, explicit ?? 32768);
+  const after = (await f.driver.history(f.sessionId)).events.findLast(event => event.type === 'request/header').data.header;
+  assert.equal(after.config.maxTokens, explicit);
+});
+
+test('a child explicit budget takes precedence over its parent explicit budget and model default', { timeout: 20000 }, async t => {
+  const { SubagentRuntime } = await import('@deepseek-ai/dsh-subagent');
+  const startActivation = SubagentRuntime.prototype.startActivation;
+  // This is a trusted native delegation option, not an unsupported model-facing
+  // tool argument. The actual native child and HTTP envelope remain unchanged.
+  t.mock.method(SubagentRuntime.prototype, 'startActivation', function(spec) {
+    return startActivation.call(this, { ...spec, request: { ...spec.request,
+      agentOptions: { ...spec.request.agentOptions, maxTokens: 512 } } });
+  });
+  let parentCalls = 0;
+  const f = await fixture(t, (request, res) => {
+    const child = request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    if (child) return reply(res, 'CONFIRMED_CHILD_RESULT');
+    if (parentCalls++ === 0) return reply(res, '', { tool: { id: 'explicit-child-budget', name: 'subagent', arguments: JSON.stringify({ role: 'code reviewer', description: 'Use an explicit child budget', prompt: 'Return a short result.' }) } });
+    reply(res, FINAL);
+  }, { maxTokens: 1024, requestMaxTokens: 4096 });
+  await f.driver.prompt(f.sessionId, 'Delegate the isolated explicit-budget check.', { onPermission: () => true });
+  const childRequests = f.requests.filter(request => request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is')));
+  assert.equal(childRequests.length, 1);
+  assert.equal(childRequests[0].body.max_completion_tokens ?? childRequests[0].body.max_tokens, 512);
+  assert.equal(f.requests[0].body.max_completion_tokens ?? f.requests[0].body.max_tokens, 1024);
+});
+
+test('full-cap recovery discards partial calls, preserves completed effects and survives reopen without work', { timeout: 20000 }, async t => {
+  let effects = 0, checks = 0;
+  const f = await fixture(t, (_request, res, requests) => {
+    if (requests.length === 1) return reply(res, '', { tool: { id: 'committed-once', name: 'fixture_effect' } });
+    if (requests.length === 2) return reply(res, 'FAILED_DRAFT', { finish: 'length', output: 128,
+      tool: { id: 'incomplete-call', name: 'fixture_effect', arguments: '{"broken":' } });
+    if (requests.length === 3) return reply(res, '', { tool: { id: 'recovered-check', name: 'fixture_check' } });
+    reply(res, FINAL);
+  }, { maxTokens: 128, tools: [{ name: 'fixture_effect', description: 'Count one isolated effect', parameters: { type: 'object', properties: {} },
+    async execute() { effects++; return { receipt: 'COMMITTED_RECEIPT' }; } },
+  { name: 'fixture_check', description: 'Read the isolated receipt', parameters: { type: 'object', properties: {} },
+    async execute() { checks++; return { receipt: 'CHECKED_RECEIPT' }; } }] });
+  const original = 'Perform the effect once and give its receipt.';
+  const result = await f.driver.prompt(f.sessionId, original, { onPermission: () => true });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(result.outputLimit.automaticAttempts, 1);
+  assert.equal(effects, 1);
+  assert.equal(checks, 1);
+  assert.equal(f.requests.length, 4);
+  const recoveryWire = JSON.stringify(f.requests[2].body.messages);
+  assert.ok(recoveryWire.includes(original), 'the original human task must reach the retry');
+  assert.ok(recoveryWire.includes('using smaller tool calls and shorter file-writing chunks'), 'the recovery instruction must reach HTTP, not just the event log');
+  assert.ok(!recoveryWire.includes('FAILED_DRAFT'));
+  // Native context keeps earlier snapshots as history and explicitly replaces
+  // their authority with the newest full snapshot; it does not erase history.
+  const activeRecovery = body => {
+    const snapshot = body.messages.findLast(message => message.role === 'user' &&
+      typeof message.content === 'string' && message.content.startsWith('Current runtime context.'));
+    assert.ok(snapshot, 'a current native context snapshot must reach HTTP');
+    return snapshot.content.includes('using smaller tool calls and shorter file-writing chunks');
+  };
+  assert.equal(activeRecovery(f.requests[0].body), false);
+  assert.equal(activeRecovery(f.requests[3].body), false, 'the newest native snapshot must withdraw recovery context after the recovered generation');
+  assert.ok(!JSON.stringify(f.requests.at(-1).body.messages).includes('FAILED_DRAFT'));
+  assert.ok(f.requests.at(-1).body.messages.some(message => message.role === 'tool' && message.tool_call_id === 'committed-once'));
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(failures(history).at(-1).code, 'OUTPUT_LIMIT_REACHED');
+  assert.equal(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery').length, 1);
+  await f.reopen();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 4, 'opening recorded history never sends a prompt');
+  assert.equal(effects, 1);
+  assert.equal((await f.driver.prompt(f.sessionId, 'A separate new user task.')).stopReason, 'end_turn');
+  assert.equal(f.requests.length, 5);
+  assert.equal(activeRecovery(f.requests.at(-1).body), false, 'new user tasks must not inherit an active recovery instruction');
+});
+
+test('full-cap then early truncation cannot obtain a second recovery or compaction', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res, requests) => reply(res, 'INCOMPLETE', { finish: 'length', output: requests.length === 1 ? 128 : 1 }), { maxTokens: 128 });
+  const result = await f.driver.prompt(f.sessionId, 'Return the fixture result.');
+  assert.equal(result.stopReason, 'max_tokens');
+  assert.equal(result.reason.error.code, 'OUTPUT_TRUNCATED');
+  assert.equal(result.outputLimit.automaticAttempts, 1);
+  assert.equal(f.requests.length, 2);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
+});
+
+for (const finalLength of [false, true]) test(`later native steps share a two-recovery turn limit (third step truncated: ${finalLength})`, { timeout: 20000 }, async t => {
+  let effects = 0;
+  const notices = [];
+  const f = await fixture(t, (_request, res, requests) => {
+    const call = requests.length;
+    if (call === 2 || call === 4) return reply(res, '', {
+      tool: { id: `confirmed-${call}`, name: 'fixture_effect' },
+    });
+    reply(res, call === 5 && !finalLength ? FINAL : 'UNCOMMITTED_DRAFT',
+      call < 5 || finalLength ? { finish: 'length', output: 128 } : {});
+  }, { maxTokens: 128, tools: [{ name: 'fixture_effect', description: 'Count an isolated committed step',
+    parameters: { type: 'object', properties: {} },
+    async execute() { effects++; return { receipt: `EFFECT_${effects}` }; },
+  }] });
+  const result = await f.driver.prompt(f.sessionId, 'Complete the two isolated steps and return their receipts.', {
+    onPermission: () => true, onEvent(event) { if (event.type === 'output_recovery') notices.push(event); },
+  });
+  assert.equal(result.stopReason, finalLength ? 'max_tokens' : 'end_turn');
+  assert.deepEqual([result.outputLimit.automaticAttempts, result.outputLimit.maxAutomaticAttempts], [2, 2]);
+  assert.equal(effects, 2, 'recovery must not replay a previously committed effect');
+  assert.equal(f.requests.length, 5, 'no third automatic recovery is dispatched');
+  assert.deepEqual(notices.map(event => [event.step, event.attempt]), [[1, 1], [2, 2]]);
+  assert.ok(f.requests.every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 128));
+  assert.ok(f.requests.every(request => request.body.model === 'fixture'));
+  const history = await f.driver.history(f.sessionId);
+  const records = history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery');
+  assert.deepEqual(records.map(event => [event.data.version, event.data.step, event.data.attempt]), [[2, 1, 1], [2, 2, 2]]);
+  assert.equal(history.events.filter(event => event.type === 'llm/retry').length, 0);
+  await f.reopen();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.requests.length, 5, 'cold opening history neither refreshes retries nor starts work');
+  assert.deepEqual((await f.driver.history(f.sessionId)).events.filter(event => event.type === 'plugin:codebuddy/output-recovery'), records);
+});
+
+test('a full-cap recovery and a later compaction share the turn allowance', { timeout: 20000 }, async t => {
+  let modelCalls = 0, effects = 0;
+  const f = await fixture(t, (request, res) => {
+    if (request.summary) return reply(res, 'The previous isolated receipt was confirmed.');
+    modelCalls++;
+    if (modelCalls === 1) return reply(res, WARM_HISTORY);
+    if (modelCalls === 2) return reply(res, 'FULL_CAP_DRAFT', { finish: 'length', output: 256 });
+    if (modelCalls === 3) return reply(res, '', { tool: { id: 'confirmed-after-recovery', name: 'fixture_effect' } });
+    if (modelCalls === 4) return reply(res, 'EARLY_DRAFT', { finish: 'length', output: 1 });
+    reply(res, FINAL);
+  }, { tools: [{ name: 'fixture_effect', description: 'Return a real isolated receipt',
+    parameters: { type: 'object', properties: {} },
+    async execute() { effects++; return { receipt: 'CONFIRMED_ONCE', details: WARM_HISTORY }; },
+  }] });
+  await warm(f);
+  const result = await f.driver.prompt(f.sessionId, 'Continue the isolated task using the recorded facts.', { onPermission: () => true });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(result.outputLimit.automaticAttempts, 2);
+  assert.equal(effects, 1);
+  assert.equal(modelCalls, 5);
+  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  const history = await f.driver.history(f.sessionId);
+  assert.deepEqual(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery').map(event => event.data.strategy), ['smaller-steps', 'compact']);
+  assert.ok(!JSON.stringify(f.requests.at(-1).body.messages).includes('EARLY_DRAFT'));
+});
+
+test('an earlier compaction and full-cap recovery cannot authorize a third-step summary', { timeout: 20000 }, async t => {
+  let modelCalls = 0, effects = 0;
+  const f = await fixture(t, (request, res) => {
+    if (request.summary) return reply(res, 'The isolated facts and receipts are preserved.');
+    modelCalls++;
+    if (modelCalls === 1) return reply(res, WARM_HISTORY);
+    if (modelCalls === 3 || modelCalls === 5) return reply(res, '', {
+      tool: { id: `mixed-${modelCalls}`, name: 'fixture_effect' },
+    });
+    reply(res, 'UNCOMMITTED_DRAFT', { finish: 'length', output: modelCalls === 4 ? 256 : 1 });
+  }, { tools: [{ name: 'fixture_effect', description: 'Record an isolated receipt',
+    parameters: { type: 'object', properties: {} },
+    async execute() { effects++; return { receipt: `CONFIRMED_${effects}`, details: WARM_HISTORY }; },
+  }] });
+  await warm(f);
+  const result = await f.driver.prompt(f.sessionId, 'Continue the fixture task.', { onPermission: () => true });
+  assert.equal(result.stopReason, 'max_tokens');
+  assert.equal(result.outputLimit.automaticAttempts, 2);
+  assert.equal(effects, 2);
+  assert.equal(modelCalls, 6);
+  assert.equal(f.requests.filter(request => request.summary).length, 1, 'exhausted allowance prevents an extra summary call');
+  assert.deepEqual((await f.driver.history(f.sessionId)).events.filter(event => event.type === 'plugin:codebuddy/output-recovery')
+    .map(event => event.data.strategy), ['compact', 'smaller-steps']);
+});
+
+test('automatic child wakeups cannot refresh the same user request recovery allowance', { timeout: 20000 }, async t => {
+  const release = Promise.withResolvers();
+  let parentCalls = 0, childCalls = 0, effects = 0;
+  const f = await fixture(t, async (request, res) => {
+    const child = request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    if (child) { childCalls++; await release.promise; return reply(res, 'CONFIRMED_CHILD_RESULT'); }
+    parentCalls++;
+    if (parentCalls === 1) return reply(res, '', { tool: { id: 'spawn', name: 'subagent', arguments: JSON.stringify({ role: 'code reviewer', description: 'Deferred isolated result', prompt: 'Return the isolated result.' }) } });
+    if (parentCalls === 3) return reply(res, 'The earlier isolated result is preserved.');
+    if (parentCalls === 5) return reply(res, '', { tool: { id: 'second-recovery-effect', name: 'fixture_effect' } });
+    reply(res, 'UNCOMMITTED_DRAFT', { finish: 'length', output: 128 });
+  }, { maxTokens: 128, tools: [{ name: 'fixture_effect', description: 'Count an isolated effect',
+    parameters: { type: 'object', properties: {} }, async execute() { effects++; return { receipt: 'COMMITTED_ONCE' }; },
+  }] });
+  t.after(() => release.resolve());
+  const result = await f.driver.prompt(f.sessionId, 'Delegate and finish the isolated task.', {
+    onPermission: () => true,
+    onEvent(event) {
+      if (event.sessionId === f.sessionId && event.type === 'harness_event' && event.event.type === 'turn/end' && event.event.data.reason.kind === 'completed') release.resolve();
+    },
+  });
+  assert.equal(result.stopReason, 'max_tokens');
+  assert.equal(result.outputLimit.automaticAttempts, 2);
+  assert.equal(parentCalls, 6, 'the child-triggered native turn gets only the remaining recovery');
+  assert.equal(childCalls, 1);
+  assert.equal(effects, 1);
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(history.events.filter(event => event.type === 'turn/start').length, 2);
+  assert.deepEqual(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery')
+    .map(event => [event.data.turn, event.data.attempt]), [[1, 1], [2, 2]]);
+  await f.reopen();
+  assert.equal(parentCalls, 6, 'reopening the stopped parent cannot send another generation');
+});
+
+test('user cancellation at recovery admission prevents its HTTP and reopening never resends', { timeout: 15000 }, async t => {
+  const controller = new AbortController();
+  const f = await fixture(t, (_request, res) => reply(res, 'INCOMPLETE', { finish: 'length', output: 128 }), { maxTokens: 128 });
+  const result = await f.driver.prompt(f.sessionId, 'Return the fixture result.', {
+    signal: controller.signal, onEvent(event) { if (event.type === 'output_recovery') controller.abort(); },
+  });
+  assert.equal(result.stopReason, 'cancelled');
+  assert.equal(f.requests.length, 1);
+  await f.reopen();
+  assert.equal(f.requests.length, 1);
+});
+
+test('a transport failure after the one recovery retains its own error and recovery evidence', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res, requests) => {
+    if (requests.length === 1) return reply(res, 'INCOMPLETE', { finish: 'length', output: 128 });
+    res.writeHead(401, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'FIXTURE_AUTH_REJECTED' } }));
+  }, { maxTokens: 128 });
+  await assert.rejects(f.driver.prompt(f.sessionId, 'Return the fixture result.'), error => {
+    assert.notEqual(error.code, 'OUTPUT_LIMIT_REACHED');
+    assert.equal(error.outputLimit.automaticAttempts, 1);
+    return true;
+  });
+  assert.equal(f.requests.length, 2);
+});
+
+test('a native transport retry keeps the pending smaller-step recovery context', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res, requests) => {
+    if (requests.length === 1) return reply(res, 'FAILED_DRAFT', { finish: 'length', output: 128 });
+    if (requests.length === 2) return res.writeHead(503, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ error: { message: 'FIXTURE_TEMPORARY_OUTAGE' } }));
+    reply(res, FINAL);
+  }, { maxTokens: 128, retryPolicy: { mode: 'normal', maxRetries: 1,
+    backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 } } });
+  const original = 'Complete the original isolated task.';
+  const result = await f.driver.prompt(f.sessionId, original);
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(result.outputLimit.automaticAttempts, 1);
+  assert.equal(f.requests.length, 3);
+  for (const request of f.requests.slice(1)) {
+    const snapshot = request.body.messages.findLast(message => message.role === 'user' &&
+      typeof message.content === 'string' && message.content.startsWith('Current runtime context.'));
+    assert.ok(snapshot.content.includes('using smaller tool calls and shorter file-writing chunks'));
+    assert.ok(JSON.stringify(request.body.messages).includes(original));
+    assert.ok(!JSON.stringify(request.body.messages).includes('FAILED_DRAFT'));
+  }
+});
+
+test('parallel sessions have independent recovery allowances and manual continuation starts a new turn', { timeout: 20000 }, async t => {
+  const f = await fixture(t, (_request, res) => reply(res, 'INCOMPLETE', { finish: 'length', output: 128 }), { maxTokens: 128 });
+  const sibling = await f.createSibling();
+  const results = await Promise.all([f.sessionId, sibling].map(id => f.driver.prompt(id, 'Complete this isolated fixture task.')));
+  assert.deepEqual(results.map(result => result.outputLimit.automaticAttempts), [1, 1]);
+  assert.equal(f.requests.length, 4);
+  for (const id of [f.sessionId, sibling]) {
+    const history = await f.driver.history(id);
+    assert.equal(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery').length, 1);
+  }
+  await f.reopen();
+  assert.equal(f.requests.length, 4);
+  const continued = await f.driver.prompt(f.sessionId, 'Explicitly continue only unfinished work.');
+  assert.equal(continued.outputLimit.automaticAttempts, 1);
+  assert.equal(f.requests.length, 6);
+});
+
+test('failure while committing the native terminal rejects promptly instead of hanging', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res) => reply(res, FINAL));
+  const append = Session.prototype.append;
+  const mocked = t.mock.method(Session.prototype, 'append', function(type, ...args) {
+    if (this.id === f.sessionId && type === 'turn/end') throw new Error('FIXTURE_TERMINAL_COMMIT_FAILED');
+    return append.call(this, type, ...args);
+  });
+  try {
+    await assert.rejects(f.driver.prompt(f.sessionId, 'Return the fixture result.', { signal: AbortSignal.timeout(5000) }), /FIXTURE_TERMINAL_COMMIT_FAILED/);
+  } finally { mocked.mock.restore(); }
+  assert.equal(f.requests.length, 1);
+});
+
+for (const reported of [true, false]) test(`a late child cannot restart an output-limited parent (reported usage: ${reported})`, { timeout: 20000 }, async t => {
+  const releaseChild = Promise.withResolvers();
+  let parentCalls = 0, childCalls = 0, manual = false;
+  const f = await fixture(t, async (request, res) => {
+    const child = request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    if (child) {
+      childCalls++;
+      if (childCalls === 1) {
+        await releaseChild.promise;
+        return reply(res, '', { tool: { id: 'late-coordination', name: 'send_message',
+          arguments: JSON.stringify({ agent_id: f.sessionId, message: 'CHILD_COORDINATION_RESULT' }) } });
+      }
+      return reply(res, 'CHILD_CONFIRMED_RESULT');
+    }
+    parentCalls++;
+    if (manual) return reply(res, FINAL);
+    if (parentCalls === 1) return reply(res, '', { tool: { id: 'delegate', name: 'subagent', arguments: JSON.stringify({ role: 'code reviewer', description: 'Isolated deferred child', prompt: 'Return the confirmed fixture result.' }) } });
+    reply(res, 'INCOMPLETE_PARENT', { finish: 'length', output: 128, ...reported ? {} : { usage: null } });
+  }, { maxTokens: 128 });
+  t.after(() => releaseChild.resolve());
+  const result = await f.driver.prompt(f.sessionId, 'Delegate the isolated child, then summarize it.', {
+    onPermission: () => true,
+    onEvent(event) {
+      if (event.sessionId === f.sessionId && event.type === 'harness_event' && event.event.type === 'turn/end') releaseChild.resolve();
+    },
+  });
+  assert.equal(result.stopReason, 'max_tokens');
+  assert.equal(result.outputLimit.automaticAttempts, reported ? 1 : 0);
+  assert.equal(parentCalls, reported ? 3 : 2);
+  assert.equal(childCalls, 2);
+  const before = await f.driver.history(f.sessionId);
+  assert.equal(before.events.filter(event => event.type === 'turn/start').length, 1, 'a child notice must not create a fresh recovery allowance');
+  manual = true;
+  assert.equal((await f.driver.prompt(f.sessionId, 'Explicitly continue using the child result.')).stopReason, 'end_turn');
+  assert.equal(parentCalls, reported ? 4 : 3);
+  assert.ok(JSON.stringify(f.requests.at(-1).body.messages).includes('CHILD_CONFIRMED_RESULT'));
+  assert.ok(JSON.stringify(f.requests.at(-1).body.messages).includes('CHILD_COORDINATION_RESULT'));
+  const after = await f.driver.history(f.sessionId);
+  assert.equal(after.events.filter(event => event.type === 'user/message' && event.data.source?.kind === 'subagent-settled').length, 1);
+});
+
+test('an explicit parent instruction can continue a length-limited child', { timeout: 20000 }, async t => {
+  let childCalls = 0, parentCalls = 0, manualCalls = 0, manual = false, childId;
+  const f = await fixture(t, (request, res) => {
+    const child = request.body.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('Your parent agent id is'));
+    if (child) {
+      childCalls++;
+      return reply(res, childCalls <= 2 ? 'CHILD_INCOMPLETE' : 'CHILD_FINISHED_AFTER_PARENT_INSTRUCTION', childCalls <= 2 ? { finish: 'length', output: 128 } : {});
+    }
+    if (manual && manualCalls++ === 0) return reply(res, '', { tool: { id: 'continue-child', name: 'send_message', arguments: JSON.stringify({ agent_id: childId, message: 'Continue the unfinished child task explicitly.' }) } });
+    if (parentCalls++ === 0) return reply(res, '', { tool: { id: 'spawn-child', name: 'subagent', arguments: JSON.stringify({ role: 'code reviewer', description: 'Length limited child', prompt: 'Perform the isolated child task.' }) } });
+    reply(res, FINAL);
+  }, { maxTokens: 128 });
+  const observe = event => { if (event.type === 'subagent_start') childId = event.childSessionId; };
+  assert.equal((await f.driver.prompt(f.sessionId, 'Delegate the isolated task.', { onEvent: observe, onPermission: () => true })).stopReason, 'end_turn');
+  assert.ok(childId);
+  assert.equal(childCalls, 2);
+  manual = true;
+  assert.equal((await f.driver.prompt(f.sessionId, 'Explicitly tell the same child to continue.', { onPermission: () => true })).stopReason, 'end_turn');
+  assert.equal(childCalls, 3, 'the parent instruction must actually open a new child request');
+});
 
 async function warm(f) {
   const result = await f.driver.prompt(f.sessionId, 'Record the fixture facts for the next turn.');
@@ -166,7 +570,7 @@ test('a second short length result stops even under an always retry policy', { t
     reply(res, modelCalls === 1 ? WARM_HISTORY : 'PARTIAL_TRUNCATED', modelCalls === 1 ? {} : { finish: 'length', output: 1 });
   }, { retryPolicy: { mode: 'always', backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 } } });
   await warm(f);
-  await assert.rejects(f.driver.prompt(f.sessionId, 'Continue the fixture.'), { code: 'OUTPUT_TRUNCATED' });
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue the fixture.')).stopReason, 'max_tokens');
   assert.equal(modelCalls, 3, 'one original attempt and one recovery attempt follow warm-up');
   assert.equal(f.requests.filter(request => request.summary).length, 1);
   const history = await f.driver.history(f.sessionId);
@@ -177,7 +581,7 @@ test('a second short length result stops even under an always retry policy', { t
 
 test('a first-turn truncated result with no useful task history stops without replaying the model call', { timeout: 15000 }, async t => {
   const f = await fixture(t, (_request, res) => reply(res, 'PARTIAL_TRUNCATED', { finish: 'length', output: 1 }));
-  await assert.rejects(f.driver.prompt(f.sessionId, 'A first-turn request with no preceding history.'), { code: 'OUTPUT_TRUNCATED' });
+  assert.equal((await f.driver.prompt(f.sessionId, 'A first-turn request with no preceding history.')).stopReason, 'max_tokens');
   assert.equal(f.requests.filter(request => !request.summary).length, 1);
   assert.ok(f.requests.filter(request => request.summary).length <= 1, 'generated request context may be considered once, but cannot authorize an unchanged retry');
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
@@ -209,7 +613,7 @@ test('a summary that makes no useful reduction does not authorize retry', { time
     reply(res, modelCalls === 1 ? WARM_HISTORY : 'PARTIAL_TRUNCATED', modelCalls === 1 ? {} : { finish: 'length', output: 1 });
   });
   await warm(f);
-  await assert.rejects(f.driver.prompt(f.sessionId, 'Continue the fixture.'), { code: 'OUTPUT_TRUNCATED' });
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue the fixture.')).stopReason, 'max_tokens');
   assert.equal(modelCalls, 2);
   assert.equal(f.requests.filter(request => request.summary).length, 1);
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
@@ -249,18 +653,20 @@ test('cancellation during recovery summary prevents a model retry', { timeout: 1
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
 });
 
-test('explicit cap one, cap 128 and ordinary stop remain terminal without compaction', { timeout: 20000 }, async t => {
+test('explicit caps get at most one generation recovery, while ordinary stop does not retry', { timeout: 20000 }, async t => {
   for (const { cap, finish, output, stopReason } of [
     { cap: 1, finish: 'length', output: 1, stopReason: 'max_tokens' },
     { cap: 128, finish: 'length', output: 128, stopReason: 'max_tokens' },
     { cap: 128, finish: 'stop', output: 1, stopReason: 'end_turn' },
   ]) {
     const f = await fixture(t, (_request, res) => reply(res, 'Fixture output.', { finish, output }), { maxTokens: cap });
-    assert.equal((await f.driver.prompt(f.sessionId, 'Return a small fixture answer.')).stopReason, stopReason);
-    assert.equal(f.requests.length, 1);
+    const result = await f.driver.prompt(f.sessionId, 'Return a small fixture answer.');
+    assert.equal(result.stopReason, stopReason);
+    assert.equal(f.requests.length, finish === 'length' ? 2 : 1);
+    assert.equal(result.outputLimit?.automaticAttempts, finish === 'length' ? 1 : undefined);
     assert.equal(f.requests[0].body.max_completion_tokens ?? f.requests[0].body.max_tokens, cap);
     const history = await f.driver.history(f.sessionId);
-    assert.equal(failures(history).length, 0);
+    assert.equal(failures(history).length, finish === 'length' ? 2 : 0);
     assert.equal(summaries(history).length, 0);
   }
 });
@@ -272,10 +678,11 @@ test('length with absent or input-only usage retains an unknown output count wit
     assert.equal(f.requests.length, 1);
     assert.equal(f.requests[0].body.max_completion_tokens ?? f.requests[0].body.max_tokens, 128);
     const history = await f.driver.history(f.sessionId);
-    assert.equal(failures(history).length, 0, 'missing completion_tokens cannot establish output zero');
+    assert.equal(failures(history).length, 1, 'the raw length stop remains a failed generation, without inventing an output count');
+    assert.equal(failures(history)[0].code, 'OUTPUT_LENGTH_STOP');
     assert.equal(summaries(history).length, 0);
     assert.equal(history.events.filter(event => event.type === 'compaction/start' || event.type === 'llm/retry').length, 0);
-    assert.equal(history.events.at(-1).data.reason.kind, 'max-tokens');
+    assert.equal(history.events.at(-1).data.reason.kind, 'error');
   }
 });
 
@@ -398,7 +805,7 @@ test('a dispatched full-cap summary length stops with no second summary HTTP or 
     reply(res, modelCalls === 1 ? WARM_HISTORY : 'PARTIAL_TRUNCATED', modelCalls === 1 ? {} : { finish: 'length', output: 1 });
   });
   await warm(f);
-  await assert.rejects(f.driver.prompt(f.sessionId, 'Continue the exact recorded task.'), { code: 'OUTPUT_TRUNCATED' });
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue the exact recorded task.')).stopReason, 'max_tokens');
   const summaryFits = fits.filter(item => item.purpose === 'compaction');
   assert.equal(summaryFits.length, 1);
   assert.equal(summaryFits[0].fit.effectiveMaxTokens, summaryFits[0].fit.desiredMaxTokens);

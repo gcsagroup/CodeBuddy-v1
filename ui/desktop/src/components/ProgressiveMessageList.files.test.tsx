@@ -325,3 +325,99 @@ it('keeps main text available without a file list when the child catalog cannot 
   expect(inspect).not.toHaveBeenCalled();
   expect(screen.queryByRole('button', { name: 'Modified 1 files this turn' })).toBeNull();
 });
+
+it('folds an immediate steer into its original execution process and retains its file card', async () => {
+  const history = messages(true);
+  history.splice(
+    1,
+    0,
+    {
+      id: 'steer',
+      role: 'user',
+      created: 1.5,
+      metadata: { ...metadata, steer: true },
+      content: [{ type: 'text', text: 'Also cover invalid amounts.' }],
+    },
+    ...Array.from(
+      { length: 45 },
+      (_, index): Message => ({
+        id: `stage-${index}`,
+        role: 'assistant',
+        created: 1.6,
+        metadata,
+        content: [{ type: 'text', text: `Verified stage ${index}.` }],
+      })
+    )
+  );
+  const view = render(
+    <SubagentCatalogProvider parentSessionId={parent}>
+      <ProgressiveMessageList
+        messages={history}
+        chat={{ sessionId: parent }}
+        workspaceRoot="D:/fixture"
+        sessionType="code_pro"
+        isUserMessage={(message) => message.role === 'user'}
+      />
+    </SubagentCatalogProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole('button', {
+        name: 'Modified 1 files this turn',
+      })
+    ).toHaveLength(1)
+  );
+  expect(screen.queryByText('Also cover invalid amounts.')).toBeNull();
+  const summary = view.container.querySelector<HTMLElement>('[data-turn-process-summary]')!;
+  fireEvent.click(summary.querySelector('button')!);
+  expect(screen.getByText('Also cover invalid amounts.')).toBeVisible();
+  expect(screen.getByText(/Created/)).toBeVisible();
+  expect(view.container.querySelectorAll('[data-turn-process-summary]')).toHaveLength(1);
+});
+
+it('pairs native-confirmed final text and file receipts before the host terminal is available', async () => {
+  const history = messages(false).slice(0, 2);
+  history.push({
+    id: 'native-answer-phase',
+    role: 'assistant',
+    created: 3,
+    metadata: { userVisible: true, agentVisible: false },
+    content: [
+      {
+        type: 'systemNotification',
+        notificationType: 'progressMessage',
+        msg: '',
+        data: {
+          type: 'codepro_response_phase',
+          schema_version: 1,
+          event_type: 'response_phase',
+          event_id: 'native-answer-phase',
+          session_id: parent,
+          run_id: 'run',
+          source_user_message_id: 'human',
+          phase: 'answer',
+          answer_message_id: 'answer',
+          created_at: 3,
+        },
+      },
+    ],
+  });
+  const view = render(
+    <SubagentCatalogProvider parentSessionId={parent}>
+      <ProgressiveMessageList
+        messages={history}
+        chat={{ sessionId: parent }}
+        workspaceRoot="D:/fixture"
+        sessionType="code_pro"
+        isUserMessage={(message) => message.role === 'user'}
+      />
+    </SubagentCatalogProvider>,
+    { wrapper: IntlTestWrapper }
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Modified 1 files this turn' })).toBeVisible()
+  );
+  expect(screen.getByText(/Created/)).toBeVisible();
+  expect(view.container.querySelectorAll('[data-turn-process-summary]')).toHaveLength(0);
+});

@@ -27,6 +27,11 @@ function requestFailureMessage(failure, observation) {
     TRANSPORT: '模型连接发生错误，原因尚未确认',
     CONTEXT_WINDOW_EXCEEDED: '模型服务报告上下文超出限制',
     INVALID_REQUEST: '模型服务拒绝了请求。请检查模型、API 基础路径、工具调用支持和思考强度',
+    OUTPUT_LIMIT_REACHED: '模型这一步达到输出长度限制，任务尚未完成',
+    OUTPUT_TRUNCATED: '模型响应提前截断，任务尚未完成',
+    OUTPUT_LENGTH_STOP: '模型服务报告响应长度受限，实际输出额度或用量尚未确认，本轮已停止',
+    LOCAL_OUTPUT_BUDGET_EXHAUSTED: '当前上下文无法为完整响应保留输出额度，本轮已停止',
+    INVALID_OUTPUT_BUDGET: '设置的输出额度不符合模型服务的限制，请调整后继续',
   })[failure?.code] ?? '请求失败，具体原因尚未确认';
 }
 
@@ -65,6 +70,13 @@ export function workStatusUpdates({ sessionId, sourceMessageId, runId, signal })
     if (event.type === 'image_observation' && event.sessionId === sessionId) {
       phase = children.size ? 'children' : 'model';
       message = event.phase === 'start' ? '正在识别图片' : '图片识别完成，正在等待主模型回答';
+    } else if (event.type === 'output_recovery') {
+      phase = children.size ? 'children' : 'model';
+      const count = Number.isSafeInteger(event.attempt) && event.attempt > 0
+        ? Number.isSafeInteger(event.maxAutomaticAttempts) && event.maxAutomaticAttempts >= event.attempt
+          ? `（${event.attempt}/${event.maxAutomaticAttempts}）` : `（第 ${event.attempt} 次）`
+        : '';
+      message = `${event.sessionId !== sessionId ? '子任务：' : ''}模型这一步达到输出长度限制，正在保留进度并尝试恢复${count}`;
     } else if (native?.type === 'llm/retry') {
       const data = native.data;
       const count = Number.isSafeInteger(data.retry) && data.retry > 0

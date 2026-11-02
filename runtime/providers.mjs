@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { protectSecret, revealSecret } from "./secrets.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from "./model-defaults.mjs";
-import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds } from './harness/model-catalog.mjs';
+import { catalogModels, catalogThinkingProfile, catalogProviderForEndpoint, catalogModelIds, DEFAULT_OUTPUT_TOKENS } from './harness/model-catalog.mjs';
 
 const RESPONSE_LIMIT = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -375,7 +375,8 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
     .map(model => [model.id, model.owned_by]));
   const created = Object.fromEntries(models.filter(model => Number.isSafeInteger(model?.created) && model.created > 0)
     .map(model => [model.id, model.created]));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+  const outputSources = Object.fromEntries(Object.keys(outputs).map(id => [id, 'service']));
+  modelListings.set(listingKey(provider), { contexts, inputs, outputs, outputSources, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
   return orderedModels(provider, ids, created);
 }
 
@@ -426,15 +427,18 @@ async function resolveContext(provider, model, authPending, retryAfterRefresh = 
           }
           source = 'service';
         }
-        if (!capacity && catalogProviderId) {
+        if (catalogProviderId && (!capacity || !cached.outputs?.[model] || !cached.inputs?.[model])) {
           const info = (await catalogModels(catalogProviderId)).find(m => m.id === model);
-          capacity = info?.contextWindow;
+          if (!capacity && info?.contextWindow) {
+            capacity = info.contextWindow;
+            source = 'catalog';
+          }
           const input = modelImageProfile(info, 'catalog');
           if (input && !cached.inputs?.[model]) { cached.inputs ??= {}; cached.inputs[model] = input; }
           if (!cached.outputs?.[model] && modelOutput(info) !== undefined) {
             cached.outputs ??= {}; cached.outputs[model] = modelOutput(info);
+            cached.outputSources ??= {}; cached.outputSources[model] = 'catalog';
           }
-          source = 'catalog';
         }
         cached.thinking ??= {};
         if (!Object.keys(cached.thinking[model] ?? {}).length && catalogProviderId)
@@ -579,7 +583,12 @@ export async function saveProvider(store, input, update = false) {
   await store.update((state) => {
     const index = state.providers.findIndex((item) => item.id === provider.id);
     if (index < 0) state.providers.push(provider);
-    else state.providers[index] = provider;
+    else {
+      // A connection probe may outlive an independent budget edit. Keep that
+      // model preference from the latest committed provider, not its old snapshot.
+      if (state.providers[index].outputBudgets) provider.outputBudgets = state.providers[index].outputBudgets;
+      state.providers[index] = provider;
+    }
   });
   return {
     providerId: provider.id,
@@ -744,6 +753,13 @@ export async function readProvider(provider) {
   };
 }
 
+export function outputBudgetProfile(provider, model) {
+  const capacityTokens = cachedModels(provider)?.outputs?.[model] ?? null;
+  return { configured: provider.outputBudgets?.[model] ?? null, capacityTokens,
+    capacitySource: capacityTokens === null ? 'unknown' : cachedModels(provider)?.outputSources?.[model] ?? 'service',
+    defaultTokens: capacityTokens ?? DEFAULT_OUTPUT_TOKENS };
+}
+
 export async function driverProvider(provider, model, { legacyThinking = false } = {}) {
   const authPending = credentials(provider, provider);
   const [auth] = await Promise.all([authPending, resolveContext(provider, model, authPending)]);
@@ -753,6 +769,10 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     throw providerError('tools_unsupported', 'This Ollama model reports no tool-calling support. Select an installed model with the tools capability for CodeBuddy tasks.');
   const { key: apiKey, customHeaders: headers } = auth;
   const outputTokens = cachedModels(provider)?.outputs?.[model];
+  const { configured: requestMaxTokens } = outputBudgetProfile(provider, model);
+  if (requestMaxTokens !== null && (!Number.isSafeInteger(requestMaxTokens) || requestMaxTokens < 1 ||
+      outputTokens !== undefined && requestMaxTokens > outputTokens))
+    throw providerError('invalid_output_budget', 'The configured output budget must be a positive integer within the known model capacity.');
   const { thinkingToggle: _toggle, thinkingDefault: _default, compat, ...nativeThinking } = legacyThinking ? modelThinkingProfile(model) : thinkingProfile(provider, model);
   const protocol = endpoints(provider).completion.pathname.endsWith("/responses")
     ? "openai-responses" : "openai-completions";
@@ -767,7 +787,8 @@ export async function driverProvider(provider, model, { legacyThinking = false }
     // Responses has its own native reasoning serialization and rejects them.
     ...(protocol === 'openai-completions' && compat ? { compat } : {}),
     ...contextProfile(provider, model),
-    ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens }),
+    ...(outputTokens === undefined ? {} : { outputTokenCapacity: outputTokens, outputTokenCapacitySource: cachedModels(provider)?.outputSources?.[model] ?? 'service' }),
+    ...(requestMaxTokens === null ? {} : { requestMaxTokens }),
     protocol,
   };
 }

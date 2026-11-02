@@ -1,5 +1,10 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { getAnyToolConfirmationData, getToolResponses, type Message } from '../types/message';
+import {
+  getAnyToolConfirmationData,
+  getToolResponses,
+  isConversationTurnStart,
+  type Message,
+} from '../types/message';
 import { getTurnTerminalRecord } from '../types/turnTerminal';
 import { isProgressTool, presentedToolCall } from './codepro/CodeProToolContent';
 import { ScrollFollowingContext } from './ui/scroll-follow-context';
@@ -66,12 +71,7 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
   let lastUserIndex = -1;
   messages.forEach((message, index) => {
     // Tool responses can also use role=user; they are not a new human turn.
-    if (
-      message.role === 'user' &&
-      message.metadata.userVisible &&
-      message.content.some((content) => content.type === 'text' || content.type === 'image')
-    )
-      lastUserIndex = index;
+    if (isConversationTurnStart(message)) lastUserIndex = index;
   });
   const user = messages[lastUserIndex]?.id;
   const cursor = useRef({
@@ -172,7 +172,20 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
       const state = cursor.current;
       let pending = false;
       if (now >= state.nextAt && now - state.lastTick >= TICK_MS) {
-        for (const unit of units) {
+        const pendingUnits = units.filter(
+          (unit) => (state.shown.get(unit.key) ?? 0) < (unit.text?.length ?? 1)
+        );
+        const queueAge = state.pendingSince === null ? 0 : now - state.pendingSince;
+        const catchUp = queueAge >= MAX_PRESENTATION_LAG_MS;
+        const framesLeft = Math.max(
+          1,
+          Math.ceil((MAX_PRESENTATION_LAG_MS + CATCH_UP_WINDOW_MS - queueAge) / TICK_MS)
+        );
+        // Share the catch-up window across the complete prefix, not just text.
+        // Otherwise a burst of settled cards adds one delay per operation and
+        // holds the received final answer behind a growing animation backlog.
+        let releases = catchUp ? Math.ceil(pendingUnits.length / framesLeft) : 1;
+        for (const unit of pendingUnits) {
           const length = unit.text?.length ?? 1;
           let shown = state.shown.get(unit.key) ?? 0;
           if (shown >= length) continue;
@@ -185,15 +198,9 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
             state.characterCredit = allowance - limit;
             // Drain an aged burst over a few paints, always from the queue head.
             // Execution, receipts and terminal state remain owned by the store.
-            const queueAge = state.pendingSince === null ? 0 : now - state.pendingSince;
-            const catchUp = queueAge >= MAX_PRESENTATION_LAG_MS;
             const count = catchUp
               ? Math.ceil(
-                  (length - shown) /
-                    Math.max(
-                      1,
-                      Math.ceil((MAX_PRESENTATION_LAG_MS + CATCH_UP_WINDOW_MS - queueAge) / TICK_MS)
-                    )
+                  (length - shown) / Math.max(1, Math.ceil(framesLeft / pendingUnits.length))
                 )
               : Math.min(limit, Math.max(1, Math.ceil((length - shown) / 12)));
             for (let n = 0; n < count && shown < length; n += 1) {
@@ -204,16 +211,18 @@ export function useOrderedToolPresentation(messages: Message[], active: boolean)
             shown = 1;
             state.nextAt =
               now +
-              (unit.kind === 'toolRequest'
-                ? CARD_INTERVAL_MS
-                : unit.kind === 'thinking'
-                  ? THOUGHT_COLLAPSE_MS
-                  : 0);
+              (catchUp
+                ? 0
+                : unit.kind === 'toolRequest'
+                  ? CARD_INTERVAL_MS
+                  : unit.kind === 'thinking'
+                    ? THOUGHT_COLLAPSE_MS
+                    : 0);
           }
           state.shown.set(unit.key, shown);
           state.lastTick = now;
           repaint((value) => value + 1);
-          break;
+          if (!catchUp || shown < length || --releases <= 0) break;
         }
       } else {
         pending = units.some((unit) => (state.shown.get(unit.key) ?? 0) < (unit.text?.length ?? 1));

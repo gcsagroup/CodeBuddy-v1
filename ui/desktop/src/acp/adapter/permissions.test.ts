@@ -50,6 +50,21 @@ describe('ACP permission adapter', () => {
       businessApproval: { id: 'computer-use', tools },
     } });
   });
+  it('accepts a complete host scope for a future capability without a hardcoded category or member list', () => {
+    for (const description of ['Only the configured report workspace', '']) {
+      const state = adapterState();
+      const request = permissionRequest({ codepro: { authorizationScope: 'session', businessApproval: {
+        version: 2, id: 'report-export', name: 'Report export', description,
+        tools: ['export_report', 'inspect_report'], details: [{ label: 'Workspace', value: 'fixture' }],
+      } } });
+      request.options = [{ optionId: 'allow_once', name: 'Once', kind: 'allow_once' },
+        { optionId: 'allow_business_session', name: 'Group', kind: 'allow_always' }];
+      applyPermissionRequest(state, request);
+      expect(state.messages[0].content[0]).toMatchObject({ data: {
+        availableActions: description ? ['allow_once', 'always_allow'] : ['allow_once'],
+      } });
+    }
+  });
   it('keeps business scope separate from the actual tool identity and rejects incomplete scope', () => {
     for (const valid of [true, false]) {
       const state = adapterState();

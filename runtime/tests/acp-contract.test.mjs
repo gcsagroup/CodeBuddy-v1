@@ -111,22 +111,22 @@ function controlledDriver(prompt) {
     },
     async prompt(sessionId, content, options) {
       if (prompt) return prompt(sessionId, content, options);
-      options.onEvent({ type: "thinking_delta", text: "checking fixture" });
-      options.onEvent({ type: "text_delta", text: "first " });
-      options.onEvent({ type: "text_delta", text: "second" });
-      options.onEvent({
+      await options.onEvent({ type: "thinking_delta", text: "checking fixture" });
+      await options.onEvent({ type: "text_delta", text: "first " });
+      await options.onEvent({ type: "text_delta", text: "second" });
+      await options.onEvent({
         type: "tool_call",
         id: "tool-1",
         name: "read_file",
         arguments: { path: "fixture.txt" },
       });
-      options.onEvent({
+      await options.onEvent({
         type: "tool_result",
         id: "tool-1",
         result: "fixture contents",
         isError: false,
       });
-      options.onEvent({ type: "usage", inputTokens: 5, outputTokens: 8 });
+      await options.onEvent({ type: "usage", inputTokens: 5, outputTokens: 8 });
       return { stopReason: "end_turn" };
     },
     async cancel(sessionId) {

@@ -105,15 +105,16 @@ export function getMcpBusinessSessionApproval(ctx, agent, name, scope) {
         .filter(([member]) => entry.approvals.has(member));
       if (!members.some(([member]) => member === name)) return undefined;
       const bindings = members.map(([member]) => entry.approvals.get(member));
-      let group = entry.businessApproval;
+      entry.businessApprovals ??= new Map();
+      let group = entry.businessApprovals.get(scope.business.id);
       if (!group || group.scope.key !== scope.key || bindings.length !== group.bindings.length ||
           bindings.some((value, index) => value !== group.bindings[index])) {
         group = { scope, bindings, identity: Object.freeze({}),
           presentation: Object.freeze({ ...scope.business, tools: members.map(([, raw]) => raw) }) };
-        entry.businessApproval = group;
+        entry.businessApprovals.set(scope.business.id, group);
       }
       return { identity: group.identity, presentation: group.presentation,
-        isCurrent: () => entry.businessApproval === group && binding.live() && scope.accepts(entry.config) &&
+        isCurrent: () => entry.businessApprovals.get(scope.business.id) === group && binding.live() && scope.accepts(entry.config) &&
           members.every(([member], index) => entry.approvals.get(member) === bindings[index]) };
     }
   }

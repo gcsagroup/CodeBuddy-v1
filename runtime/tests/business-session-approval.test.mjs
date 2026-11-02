@@ -12,7 +12,7 @@ import { Compat } from '../compat.mjs';
 import { SafetyPolicy } from '../safety-policy.mjs';
 
 const names = ['click', 'drag', 'get_app_state', 'list_apps', 'perform_secondary_action', 'press_key', 'scroll', 'set_value', 'type_text'];
-async function fixture(t, { modern = true, trusted = true } = {}) {
+async function fixture(t, { modern = true, trusted = true, business = { id: 'computer-use' } } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'codebuddy-business-approval-'));
   const script = join(root, 'server.mjs'), control = join(root, 'control.json'), effects = join(root, 'effects.log');
   await writeFile(control, JSON.stringify({ revision: 1 }));
@@ -34,15 +34,18 @@ else if(m.method==='tools/call'){appendFileSync(effects,m.params.name+'\\n');res
     return f.answer ? f.answer(request) : { outcome: { outcome: 'selected', optionId: f.choice } };
   } };
   const host = Object.assign(Object.create(Compat.prototype), { store, settings: { extensions: async () => [] },
-    active: new Map(), safety: new SafetyPolicy(store), businessApprovalClients: new WeakSet(modern ? [connection] : []) });
+    active: new Map(), safety: new SafetyPolicy(store), businessApprovalClients: new WeakMap(modern ? [[connection, modern === 'extensible' ? 2 : 1]] : []) });
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'fixture' };
   const f = { root, driver, store, host, connection, questions, calls, control, effects, choice: 'allow_business_session',
-    async configure(s, { trustedScope = trusted, revision = '1', mismatch = false } = {}) {
+    async configure(s, { trustedScope = trusted, revision = '1', mismatch = false, businessScope = business, members = names, capabilityGroups } = {}) {
       const server = { serverName: 'qwen_computer', transport: 'stdio', command: process.execPath,
         args: [script, control, effects], env: { FIXTURE_REVISION: revision } };
-      if (trustedScope) registerMcpSessionApproval(server, { tools: names, business: { id: 'computer-use' } });
+      const scopes = trustedScope ? (capabilityGroups ?? [{ tools: members, business: businessScope }]).map(group => {
+        const registered = registerMcpSessionApproval({ ...server }, group);
+        return mcpSessionApprovalScope(registered);
+      }) : [];
       const options = { mcpServers: [mismatch ? { ...server, env: { FIXTURE_REVISION: 'mismatch' } } : server],
-        mcpApprovalScopes: trustedScope ? [mcpSessionApprovalScope(server)] : [] };
+        mcpApprovalScopes: scopes };
       if (!s.created) { await driver.createSession({ sessionId: s.id, cwd: root, provider, model: 'fixture', options }); s.created = true; }
       else await driver.configureSession(s.id, options);
     },
@@ -148,7 +151,7 @@ test('simultaneous tools share one business question, while allow-once remains o
       questions.push(request); if (questions.length === 1) { ready.resolve(); await release.promise; }
       return { outcome: { outcome: 'selected', optionId: questions.length === 1 ? choice : 'reject_once' } };
     } };
-    host.businessApprovalClients = new WeakSet([connection]);
+    host.businessApprovalClients = new WeakMap([[connection, 1]]);
     const call = name => ({ id: name, name, arguments: {}, sessionApproval: { owner, tool: name === 'click' ? identity : {},
       isCurrent: () => true, business: { identity: businessIdentity, isCurrent: () => true,
         presentation: { id: 'computer-use', tools: ['click', 'type_text'] } } } });
@@ -158,4 +161,60 @@ test('simultaneous tools share one business question, while allow-once remains o
     assert.deepEqual(await Promise.all([first, second]), choice === 'allow_once' ? [true, false] : [true, true]);
     assert.equal(questions.length, choice === 'allow_once' ? 2 : 1);
   }
+});
+
+
+test('new host-declared capability groups work without new UI tool-name lists and reapprove expanded ranges', { timeout: 30000 }, async t => {
+  const business = { version: 2, id: 'report-export', name: 'Report export',
+    description: 'Produce synthetic reports in the configured fixture workspace.',
+    details: [{ label: 'Workspace', value: 'isolated fixture only' }] };
+  const f = await fixture(t, { modern: 'extensible', business }), s = await f.session();
+  assert.equal((await f.invoke(s, 'list_apps')).isError, false);
+  assert.equal(f.questions[0]._meta.codepro.businessApproval.id, 'report-export');
+  assert.equal(f.questions[0]._meta.codepro.businessApproval.version, 2);
+  assert.equal((await f.invoke(s, 'click')).isError, false);
+  assert.equal(f.questions.length, 1);
+  await f.configure(s, { members: [...names, 'future_tool'] });
+  f.choice = 'reject_once';
+  assert.equal((await f.invoke(s, 'future_tool')).isError, true);
+  assert.equal(f.questions.length, 2, 'New members never inherit the smaller range grant');
+  assert.ok(f.questions[1]._meta.codepro.businessApproval.tools.includes('future_tool'));
+});
+
+test('old clients retain per-tool grants for unfamiliar capabilities', { timeout: 30000 }, async t => {
+  const f = await fixture(t, { business: { version: 2, id: 'report-export', name: 'Report export', description: 'Fixture only' } });
+  const s = await f.session(); f.choice = 'allow_always';
+  assert.equal((await f.invoke(s, 'list_apps')).isError, false);
+  assert.equal((await f.invoke(s, 'click')).isError, false);
+  assert.equal(f.questions.length, 2);
+  assert.ok(f.questions.every(question => !question._meta.codepro.businessApproval));
+});
+
+test('a pending class approval is invalid after a host range edit even on the same connection', { timeout: 30000 }, async t => {
+  const f = await fixture(t), s = await f.session();
+  const ready = Promise.withResolvers(), reply = Promise.withResolvers();
+  f.answer = async () => { ready.resolve(); await reply.promise; return { outcome: { outcome: 'selected', optionId: 'allow_business_session' } }; };
+  const pending = f.invoke(s, 'click'); await ready.promise;
+  await f.configure(s, { members: ['list_apps'] });
+  reply.resolve();
+  assert.equal((await pending).isError, true);
+  assert.equal(await readFile(f.effects, 'utf8'), '', 'Stale approval must not execute a removed member');
+});
+
+
+test('independent future capability groups share one server without erasing each other grants', { timeout: 30000 }, async t => {
+  const f = await fixture(t, { modern: 'extensible' }), s = await f.session();
+  const groups = [
+    { tools: ['list_apps', 'click'], business: { version: 2, id: 'report-export', name: 'Export reports', description: 'Synthetic export only' } },
+    { tools: ['get_app_state', 'scroll'], business: { version: 2, id: 'report-inspect', name: 'Inspect reports', description: 'Synthetic inspection only' } },
+  ];
+  await f.configure(s, { capabilityGroups: groups });
+  for (const name of ['list_apps', 'get_app_state', 'click', 'scroll'])
+    assert.equal((await f.invoke(s, name)).isError, false);
+  assert.equal(f.questions.length, 2, 'Alternating groups must reuse each explicit grant independently');
+  await f.configure(s, { capabilityGroups: [{ ...groups[0], tools: [...groups[0].tools, 'future_tool'] }, groups[1]] });
+  f.choice = 'reject_once';
+  assert.equal((await f.invoke(s, 'scroll')).isError, false, 'An unchanged group keeps its own grant');
+  assert.equal((await f.invoke(s, 'future_tool')).isError, true, 'Only the expanded group must ask again');
+  assert.equal(f.questions.length, 3);
 });

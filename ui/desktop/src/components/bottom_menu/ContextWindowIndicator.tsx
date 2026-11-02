@@ -17,8 +17,7 @@ const formatTokenCount = (count: number): string => {
 };
 
 const getProgressColor = (percentage: number): string => {
-  if (percentage <= 75)
-    return 'text-text-primary/70 group-hover/context-usage:text-text-primary';
+  if (percentage <= 75) return 'text-text-primary/70 group-hover/context-usage:text-text-primary';
   if (percentage <= 90) return 'text-orange-500';
   return 'text-red-500';
 };
@@ -84,7 +83,6 @@ export function ContextWindowIndicator({
               : 'Unknown'
             : formatTokenCount(totalTokens)}{' '}
           / {tokenLimit ? formatTokenCount(tokenLimit) : chinese ? '未知' : 'Unknown'}
-          {capacitySource === 'fallback' ? '?' : ''}
         </span>
       </BottomMenuAlertPopover>
     </div>

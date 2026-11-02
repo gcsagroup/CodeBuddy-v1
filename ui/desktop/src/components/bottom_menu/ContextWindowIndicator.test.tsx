@@ -15,7 +15,7 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
       alerts={[]}
     />
   );
-  expect(screen.getByText('8k / 33k?')).toHaveAttribute(
+  expect(screen.getByText('8k / 33k')).toHaveAttribute(
     'title',
     expect.stringContaining('between steps')
   );
@@ -40,4 +40,22 @@ it('shows pending capacity without a fabricated 128k limit', () => {
     'title',
     expect.stringContaining('pending')
   );
+});
+
+it('keeps the counter stable while capacity provenance changes and explains fallback in its tooltip', () => {
+  const { rerender } = render(
+    <ContextWindowIndicator
+      totalTokens={43000}
+      tokenLimit={262144}
+      capacitySource="fallback"
+      alerts={[]}
+    />
+  );
+  expect(screen.getByText('43k / 262k')).toHaveAttribute(
+    'title',
+    expect.stringContaining('unconfirmed')
+  );
+  rerender(<ContextWindowIndicator totalTokens={43000} tokenLimit={262144} alerts={[]} />);
+  expect(screen.getByText('43k / 262k')).toBeVisible();
+  expect(screen.queryByText(/\?/)).toBeNull();
 });

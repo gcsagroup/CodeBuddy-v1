@@ -2003,6 +2003,12 @@
   "cronPicker.custom": {
     "defaultMessage": "Custom cron"
   },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "Custom"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "Every day"
+  },
   "cronPicker.day": {
     "defaultMessage": "Day"
   },
@@ -2017,6 +2023,9 @@
   },
   "cronPicker.february": {
     "defaultMessage": "February"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "Run frequency"
   },
   "cronPicker.friday": {
     "defaultMessage": "Friday"
@@ -2104,6 +2113,12 @@
   },
   "cronPicker.week": {
     "defaultMessage": "Week"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "Every week"
   },
   "cronPicker.year": {
     "defaultMessage": "Year"
@@ -3572,11 +3587,41 @@
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
   },
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "The current context cannot leave enough room for a complete response. This turn has stopped and earlier results are preserved. You can select a model with more context, or reduce the input before continuing."
+  },
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
+  },
+  "gooseMessage.outputLimitContinue": {
+    "defaultMessage": "Try continuing"
+  },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "Continue the unfinished task. First check the existing results, preserve completed work, and finish only the remaining parts in smaller steps."
+  },
+  "gooseMessage.outputLimitDetails": {
+    "defaultMessage": "Limit details"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "This budget uses a fallback; the service output capacity has not been confirmed."
+  },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "Automatic response-length recovery was used {attempts, plural, one {once} other {# times}} during this turn."
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "The model reached a response length limit again after {attempts, plural, one {one recovery attempt} other {# recovery attempts}}. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "The automatic response-length recovery did not finish. See the error above; earlier results are preserved."
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "Stopped"
@@ -4448,6 +4493,9 @@
   "messageQueue.clickToEdit": {
     "defaultMessage": "{content} (Click to edit)"
   },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "Collapse saved drafts"
+  },
   "messageQueue.collapseQueue": {
     "defaultMessage": "Collapse queue"
   },
@@ -4459,6 +4507,9 @@
   },
   "messageQueue.continueSending": {
     "defaultMessage": "Messages kept. Send now when you are ready."
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "Expand saved drafts"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Expand queue"
@@ -4484,8 +4535,14 @@
   "messageQueue.save": {
     "defaultMessage": "Save"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "{count, plural, one {# saved draft} other {# saved drafts}}"
+  },
   "messageQueue.sendAllNow": {
     "defaultMessage": "Send all now"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "Send saved drafts"
   },
   "messageQueue.sendNow": {
     "defaultMessage": "Send now"
@@ -4506,7 +4563,7 @@
     "defaultMessage": "Sending result unknown. Check the conversation before retrying."
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "Waiting for cancellation confirmation. Your queued message has not been sent."
+    "defaultMessage": "Stopping the previous turn. Your new message will be sent after confirmation."
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "Waiting for the previous request to finish. Your queued message has not been sent."
@@ -5011,6 +5068,219 @@
   },
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
+  },
+  "nativeSchedule.active": {
+    "defaultMessage": "Active"
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "All"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "Time (with UTC offset)"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "Close task details"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "The task changed. Reload before editing again."
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "Custom"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "Daily at {time} ({zone})"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "Date"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "Some earlier delivery records are unavailable."
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "No automation tasks"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "No saved deliveries yet"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "Every {count} minutes"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "Every day"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "Every {count} hours"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "Monthly"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "Every {count} seconds"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "Every week"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "Frequency"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "hours"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "Ended"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "Task instructions"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "Interval (minutes)"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "Repeat interval"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "Enter an interval of at least 60 whole seconds."
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "Saved legacy rules"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "Linked chat"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "minutes"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "This task was deleted or is unavailable."
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "The original instruction was not saved."
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "Day {day}"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "On these dates"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "Dates that do not exist in a month are skipped."
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "Monthly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "Load more"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "Task name"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "New"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "Help me create an automatic reminder: "
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "Next: {time}"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "No matching time zones"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "Once"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "Open"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "Pause"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "Paused"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "Task records"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "Delete task"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "Repeat"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "Resume"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "Retry"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "Rule"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "Run time"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "Save changes"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "Search automation tasks"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "Search UTC offset, IANA identifier or city"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "seconds"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "(System)"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "Time"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "Automation tasks"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "The linked chat is unavailable"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "Weekly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "Monday to Friday"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "Time zone"
   },
   "navigation.itemHome": {
     "defaultMessage": "New Task"
@@ -6474,6 +6744,24 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "scheduleChat.choose": {
+    "defaultMessage": "Choose a chat"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "No chats found"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "Could not read chats. Reopen to retry."
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "Follow-up chat"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "Load more"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "Search chats"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "Actions"
   },
@@ -6734,6 +7022,30 @@
   },
   "scheduleModal.yaml": {
     "defaultMessage": "YAML"
+  },
+  "scheduleModel.currentChat": {
+    "defaultMessage": "Follows the current chat"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "Default model"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "Effort"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "Model"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "Show all models"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "Could not read model settings"
   },
   "schedulePicker.runtimeWarning": {
     "defaultMessage": "CodeBuddy must remain running for automatic tasks. Missed runs are not replayed by default. A new automatic task stays paused until its test run succeeds."
@@ -9388,7 +9700,7 @@
     "defaultMessage": "Reading failed. Previously loaded conversation records are retained below."
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state,select,running{Turn record still open} completed{Turn ended} failed{Turn failed} interrupted{Turn interrupted} other{Status not yet available}}"
+    "defaultMessage": "{state,select,running{Turn record still open} completed{Turn ended} failed{Turn failed} interrupted{Turn interrupted} limited{Output limit reached} blocked{Turn blocked} other{Status not yet available}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "Subagent conversation"
@@ -9431,275 +9743,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "cronPicker.frequency": {
-    "defaultMessage": "Run frequency"
-  },
-  "cronPicker.daily": {
-    "defaultMessage": "Every day"
-  },
-  "cronPicker.weekdays": {
-    "defaultMessage": "Weekdays"
-  },
-  "cronPicker.weekly": {
-    "defaultMessage": "Every week"
-  },
-  "cronPicker.customFrequency": {
-    "defaultMessage": "Custom"
-  },
-  "scheduleModel.model": {
-    "defaultMessage": "Model"
-  },
-  "scheduleModel.effort": {
-    "defaultMessage": "Effort"
-  },
-  "scheduleModel.defaultModel": {
-    "defaultMessage": "Default model"
-  },
-  "scheduleModel.currentChat": {
-    "defaultMessage": "Follows the current chat"
-  },
-  "scheduleModel.readError": {
-    "defaultMessage": "Could not read model settings"
-  },
-  "scheduleModel.loading": {
-    "defaultMessage": "Reading…"
-  },
-  "scheduleModel.empty": {
-    "defaultMessage": "No configured models"
-  },
-  "scheduleModel.more": {
-    "defaultMessage": "Show all models"
-  },
-  "scheduleChat.label": {
-    "defaultMessage": "Follow-up chat"
-  },
-  "scheduleChat.choose": {
-    "defaultMessage": "Choose a chat"
-  },
-  "scheduleChat.search": {
-    "defaultMessage": "Search chats"
-  },
-  "scheduleChat.empty": {
-    "defaultMessage": "No chats found"
-  },
-  "scheduleChat.error": {
-    "defaultMessage": "Could not read chats. Reopen to retry."
-  },
-  "scheduleChat.more": {
-    "defaultMessage": "Load more"
-  },
-  "nativeSchedule.title": {
-    "defaultMessage": "Automation tasks"
-  },
-  "nativeSchedule.new": {
-    "defaultMessage": "New"
-  },
-  "nativeSchedule.newPrompt": {
-    "defaultMessage": "Help me create an automatic reminder: "
-  },
-  "nativeSchedule.all": {
-    "defaultMessage": "All"
-  },
-  "nativeSchedule.active": {
-    "defaultMessage": "Active"
-  },
-  "nativeSchedule.inactive": {
-    "defaultMessage": "Ended"
-  },
-  "nativeSchedule.deleted": {
-    "defaultMessage": "Deleted"
-  },
-  "nativeSchedule.search": {
-    "defaultMessage": "Search automation tasks"
-  },
-  "nativeSchedule.empty": {
-    "defaultMessage": "No automation tasks"
-  },
-  "nativeSchedule.retry": {
-    "defaultMessage": "Retry"
-  },
-  "nativeSchedule.loading": {
-    "defaultMessage": "Loading…"
-  },
-  "nativeSchedule.next": {
-    "defaultMessage": "Next: {time}"
-  },
-  "nativeSchedule.everyDay": {
-    "defaultMessage": "Every day"
-  },
-  "nativeSchedule.everyWeek": {
-    "defaultMessage": "Every week"
-  },
-  "nativeSchedule.workdays": {
-    "defaultMessage": "Monday to Friday"
-  },
-  "nativeSchedule.once": {
-    "defaultMessage": "Once"
-  },
-  "nativeSchedule.every": {
-    "defaultMessage": "Every {count} minutes"
-  },
-  "nativeSchedule.daily": {
-    "defaultMessage": "Daily at {time} ({zone})"
-  },
-  "nativeSchedule.weekly": {
-    "defaultMessage": "Weekly on {days} at {time} ({zone})"
-  },
-  "nativeSchedule.open": {
-    "defaultMessage": "Open"
-  },
-  "nativeSchedule.rule": {
-    "defaultMessage": "Rule"
-  },
-  "nativeSchedule.records": {
-    "defaultMessage": "Task records"
-  },
-  "nativeSchedule.linked": {
-    "defaultMessage": "Linked chat"
-  },
-  "nativeSchedule.unavailable": {
-    "defaultMessage": "The linked chat is unavailable"
-  },
-  "nativeSchedule.close": {
-    "defaultMessage": "Close task details"
-  },
-  "nativeSchedule.missing": {
-    "defaultMessage": "This task was deleted or is unavailable."
-  },
-  "nativeSchedule.name": {
-    "defaultMessage": "Task name"
-  },
-  "nativeSchedule.instructions": {
-    "defaultMessage": "Task instructions"
-  },
-  "nativeSchedule.repeat": {
-    "defaultMessage": "Repeat"
-  },
-  "nativeSchedule.time": {
-    "defaultMessage": "Time"
-  },
-  "nativeSchedule.zone": {
-    "defaultMessage": "Time zone"
-  },
-  "nativeSchedule.interval": {
-    "defaultMessage": "Interval (minutes)"
-  },
-  "nativeSchedule.weekdays": {
-    "defaultMessage": "Weekdays"
-  },
-  "nativeSchedule.at": {
-    "defaultMessage": "Time (with UTC offset)"
-  },
-  "nativeSchedule.save": {
-    "defaultMessage": "Save changes"
-  },
-  "nativeSchedule.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "nativeSchedule.remove": {
-    "defaultMessage": "Delete task"
-  },
-  "nativeSchedule.confirmRemove": {
-    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
-  },
-  "nativeSchedule.emptyRecords": {
-    "defaultMessage": "No saved deliveries yet"
-  },
-  "nativeSchedule.deliveryHint": {
-    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
-  },
-  "nativeSchedule.missingPrompt": {
-    "defaultMessage": "The original instruction was not saved."
-  },
-  "nativeSchedule.earlier": {
-    "defaultMessage": "Some earlier delivery records are unavailable."
-  },
-  "nativeSchedule.more": {
-    "defaultMessage": "Load more"
-  },
-  "nativeSchedule.conflict": {
-    "defaultMessage": "The task changed. Reload before editing again."
-  },
-  "nativeSchedule.legacy": {
-    "defaultMessage": "Saved legacy rules"
-  },
-  "nativeSchedule.legacyHint": {
-    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
-  },
-  "nativeSchedule.date": {
-    "defaultMessage": "Date"
-  },
-  "nativeSchedule.localZone": {
-    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
-  },
-  "nativeSchedule.paused": {
-    "defaultMessage": "Paused"
-  },
-  "nativeSchedule.pause": {
-    "defaultMessage": "Pause"
-  },
-  "nativeSchedule.resume": {
-    "defaultMessage": "Resume"
-  },
-  "nativeSchedule.pauseHint": {
-    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
-  },
-  "nativeSchedule.runTime": {
-    "defaultMessage": "Run time"
-  },
-  "nativeSchedule.custom": {
-    "defaultMessage": "Custom"
-  },
-  "nativeSchedule.frequency": {
-    "defaultMessage": "Frequency"
-  },
-  "nativeSchedule.everyHours": {
-    "defaultMessage": "Every {count} hours"
-  },
-  "nativeSchedule.everySeconds": {
-    "defaultMessage": "Every {count} seconds"
-  },
-  "nativeSchedule.hours": {
-    "defaultMessage": "hours"
-  },
-  "nativeSchedule.minutes": {
-    "defaultMessage": "minutes"
-  },
-  "nativeSchedule.seconds": {
-    "defaultMessage": "seconds"
-  },
-  "nativeSchedule.intervalValue": {
-    "defaultMessage": "Repeat interval"
-  },
-  "nativeSchedule.intervalHint": {
-    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
-  },
-  "nativeSchedule.invalidInterval": {
-    "defaultMessage": "Enter an interval of at least 60 whole seconds."
-  },
-  "nativeSchedule.systemZone": {
-    "defaultMessage": "(System)"
-  },
-  "nativeSchedule.searchZone": {
-    "defaultMessage": "Search UTC offset, IANA identifier or city"
-  },
-  "nativeSchedule.noZones": {
-    "defaultMessage": "No matching time zones"
-  },
-  "nativeSchedule.everyMonth": {
-    "defaultMessage": "Monthly"
-  },
-  "nativeSchedule.monthDays": {
-    "defaultMessage": "On these dates"
-  },
-  "nativeSchedule.monthDay": {
-    "defaultMessage": "Day {day}"
-  },
-  "nativeSchedule.monthly": {
-    "defaultMessage": "Monthly on {days} at {time} ({zone})"
-  },
-  "nativeSchedule.monthHint": {
-    "defaultMessage": "Dates that do not exist in a month are skipped."
   }
 }

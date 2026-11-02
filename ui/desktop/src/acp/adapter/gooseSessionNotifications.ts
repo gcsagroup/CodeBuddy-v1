@@ -23,14 +23,17 @@ function contextSources(update: unknown): Partial<TokenState> {
   const source = metadata?.source;
   const capacity = metadata?.contextSource;
   return {
-    contextUsageSource:
-      source === 'provider_actual' || source === 'local_estimate' || source === 'streaming_estimate'
-        ? source
-        : undefined,
-    contextCapacitySource:
-      capacity === 'service' || capacity === 'catalog' || capacity === 'configured' || capacity === 'fallback'
-        ? capacity
-        : undefined,
+    ...(source === 'provider_actual' ||
+    source === 'local_estimate' ||
+    source === 'streaming_estimate'
+      ? { contextUsageSource: source }
+      : {}),
+    ...(capacity === 'service' ||
+    capacity === 'catalog' ||
+    capacity === 'configured' ||
+    capacity === 'fallback'
+      ? { contextCapacitySource: capacity }
+      : {}),
   };
 }
 

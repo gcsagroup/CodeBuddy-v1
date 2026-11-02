@@ -74,6 +74,20 @@ test('native web session grants are capability-scoped and keep the upstream netw
   const ungranted = { ...granted, sessionApproval: { ...granted.sessionApproval, tool: Object.freeze({}) }, delegated: true };
   assert.equal((await host.toolPolicy(s, ungranted)).kind, 'ask', 'The native child policy will reject a required approval before reaching an answerer');
 
+  await store.update(state => { state.toolPermissions = { web_fetch: 'ask_before' }; });
+  answer = 'allow_once';
+  assert.equal(await host.approveTool(s, granted, connection), true);
+  const perCall = questions.at(-1);
+  assert.equal(perCall.options.some(o => o.kind === 'allow_always'), false);
+  assert.match(perCall.toolCall.content[0].content.text, /本次操作仅访问/);
+  assert.doesNotMatch(perCall.toolCall.content[0].content.text, /允许本会话访问|会话许可仅覆盖/);
+  await store.update(state => { state.toolPermissions = {}; });
+  assert.equal(await host.approveTool(s, { ...ungranted, safety: { requiresApproval: true, explanation: 'Fixture safety confirmation' } }, connection), true);
+  const safetyCall = questions.at(-1);
+  assert.equal(safetyCall.options.some(o => o.kind === 'allow_always'), false);
+  assert.match(safetyCall.toolCall.content[0].content.text, /本次操作仅访问/);
+  assert.doesNotMatch(safetyCall.toolCall.content[0].content.text, /允许本会话访问|会话许可仅覆盖/);
+
   await store.update(state => { state.toolPermissions = { web_fetch: 'never_allow' }; });
   assert.equal(await host.approveTool(s, granted, connection), false, 'An explicit prohibition overrides the remembered grant');
   await store.update(state => { state.toolPermissions = { web_fetch: 'ask_before' }; });

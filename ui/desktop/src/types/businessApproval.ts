@@ -1,5 +1,9 @@
 export interface BusinessApproval {
-  id: 'computer-use' | 'image-generation' | 'video-generation';
+  id: string;
+  version?: 2;
+  name?: string;
+  description?: string;
+  details?: { label: string; value: string }[];
   tools?: string[];
   service?: string;
   workspace?: string;
@@ -30,6 +34,22 @@ export function readBusinessApproval(meta: unknown): BusinessApproval | undefine
     return undefined;
   const value = meta.codepro.businessApproval;
   if (!record(value)) return undefined;
+  if (value.version === 2) {
+    if (!text(value.id) || value.id.length > 128 || !text(value.name) || value.name.length > 160 ||
+      !text(value.description)) return undefined;
+    if (value.tools !== undefined && (!Array.isArray(value.tools) || !value.tools.length ||
+      value.tools.length > 256 || value.tools.some(tool => !text(tool) || tool.length > 256) ||
+      new Set(value.tools).size !== value.tools.length)) return undefined;
+    if (value.details !== undefined && (!Array.isArray(value.details) || value.details.length > 16 ||
+      value.details.some(item => !record(item) || !text(item.label) || item.label.length > 160 || !text(item.value))))
+      return undefined;
+    return {
+      id: value.id, version: 2, name: value.name, description: value.description,
+      ...(value.tools ? { tools: [...value.tools] as string[] } : {}),
+      ...(value.details ? { details: value.details.map(item => ({ label: item.label, value: item.value })) } : {}),
+    };
+  }
+  if (value.version !== undefined) return undefined;
   if (value.id === 'computer-use') {
     if (
       !Array.isArray(value.tools) ||

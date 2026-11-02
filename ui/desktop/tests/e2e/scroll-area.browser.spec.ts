@@ -211,9 +211,9 @@ async function openSidebarFixture() {
   await settle();
 }
 
-test('sidebar project and Chats disclosures animate both ways without shifting their triggers', async () => {
+test('sidebar project and Tasks disclosures animate both ways without shifting their triggers', async () => {
   await openSidebarFixture();
-  for (const label of ['timeout', 'Chats']) {
+  for (const label of ['timeout', 'Tasks']) {
     const heading = page.getByRole('button', { name: label, exact: true });
     const body = page.locator(`[id="${await heading.getAttribute('aria-controls')}"]`);
     await sampleToggle(heading, body);
@@ -372,7 +372,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   const historyBody = page.locator(`[id="${await duration.getAttribute('aria-controls')}"]`);
   const nestedFile = page.getByRole('button', { name: '已查看文件 smoke_test_app.py' });
   const activity = page.getByRole('button', {
-    name: 'Operations recorded · 2 actions',
+    name: 'Operations recorded 2 actions',
     exact: true,
   });
   for (const row of [nestedFile, activity]) {
@@ -538,7 +538,7 @@ test('extension loading remains truthful until settled and an updated failure al
 
 test('actual recorded-operations group and nested operation both animate when closed and reopened', async () => {
   await openActivityFixture();
-  const group = page.getByRole('button', { name: 'Operations recorded · 2 actions', exact: true });
+  const group = page.getByRole('button', { name: 'Operations recorded 2 actions', exact: true });
   const groupBody = page.locator(`[id="${await group.getAttribute('aria-controls')}"]`);
   await sampleToggle(group, groupBody);
   const operation = page.getByRole('button', { name: /Activity:.*README.md/ });

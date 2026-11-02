@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Nuevo chat"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Biblioteca multimedia"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Instrucciones de la tarea"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Describe qué hacer en cada ejecución, qué informar y cuándo detenerse."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Ejecutar en"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Un chat nuevo cada vez"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Dar seguimiento en el chat actual"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Usa el historial, modelo y permisos de este chat. Si está ocupado, se omite la ejecución. Eliminar el chat pausa la tarea."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Cada ejecución empieza de forma independiente con el modelo predeterminado configurado."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Abre primero un chat para crear un seguimiento."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Avanzado"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Repetir"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Hora"
   }
 }

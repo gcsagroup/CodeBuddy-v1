@@ -27,6 +27,7 @@ export interface GooseMessageMeta {
   steer?: boolean;
   presentation?: Message['metadata']['presentation'];
   transcriptReplayStarted?: boolean;
+  scheduled?: true;
 }
 
 export interface ToolIdentity {
@@ -93,6 +94,7 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
     created: typeof goose.created === 'number' ? goose.created : undefined,
     messageId: typeof goose.messageId === 'string' ? goose.messageId : undefined,
     steer: goose.steer === true ? true : undefined,
+    scheduled: goose.scheduled === true ? true : undefined,
     presentation:
       isRecord(goose.presentation) &&
       typeof goose.presentation.afterMessageId === 'string' &&

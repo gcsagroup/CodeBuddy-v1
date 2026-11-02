@@ -22,6 +22,91 @@ const deferred = () => {
   return { promise, resolve };
 };
 
+test("chat follow-ups validate their target, skip a busy occurrence and stop on chat deletion", async (t) => {
+  let busy = false;
+  const { call, scheduler, store, setTime, runs } = await fixture(t, {
+    isSessionBusy: () => busy,
+    sessionInfo: async (id) => (id === "chat" ? { sessionId: id } : null),
+    run: async (_job, { onSession }) => {
+      await onSession("chat");
+      return { status: "completed", sessionId: "chat" };
+    },
+  });
+  const input = {
+    id: "follow",
+    recipe,
+    cron: "* * * * *",
+    executionMode: "current_session",
+    targetSessionId: "chat",
+  };
+  await assert.rejects(
+    call("create", { ...input, targetSessionId: "missing" }),
+    /target chat/i,
+  );
+  await assert.rejects(
+    call("create", {
+      ...input,
+      recipe: { ...recipe, settings: { goose_model: "other" } },
+    }),
+    /existing model/,
+  );
+  const created = schemas.zCreateScheduleResponse_unstable.parse(
+    await call("create", input),
+  );
+  assert.equal(created.job.targetSessionId, "chat");
+  assert.equal(created.job.executionMode, "current_session");
+  await call("run-now", { scheduleId: input.id });
+  await call("unpause", { scheduleId: input.id });
+  busy = true;
+  await assert.rejects(call("run-now", { scheduleId: input.id }), /busy/);
+  setTime("2026-10-14T02:01:00.000Z");
+  assert.deepEqual(await scheduler.tick(), []);
+  assert.equal(store.read().schedules[0].attempts.at(-1).reason, "target_busy");
+  assert.equal(store.read().schedules[0].paused, false);
+  assert.equal(store.read().schedules[0].nextRun, "2026-10-14T02:02:00.000Z");
+  busy = false;
+  await scheduler.stopSessionSchedules("chat");
+  assert.equal(store.read().schedules[0].paused, true);
+  assert.equal(store.read().schedules[0].tested, false);
+  assert.match((await call("list")).jobs[0].lastError, /deleted/);
+  assert.equal(runs(), 0);
+});
+
+test("follow-ups reserve their target during admission and cancel only their owned execution", async (t) => {
+  const started = deferred();
+  let stops = 0;
+  const { call, scheduler } = await fixture(t, {
+    stop: async () => { stops++; },
+    run: async (_job, { onSession, signal }) => {
+      await onSession('shared-chat');
+      started.resolve();
+      if (!signal.aborted) await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
+      return { status: 'cancelled', sessionId: 'shared-chat' };
+    },
+  });
+  for (const id of ['first', 'second']) await call('create', { id, recipe, cron: '* * * * *',
+    executionMode: 'current_session', targetSessionId: 'shared-chat' });
+  const active = scheduler.beginRun('first');
+  await started.promise;
+  await assert.rejects(call('run-now', { scheduleId: 'second' }), /busy/);
+  await call('running-job/kill', { jobId: 'first' });
+  await (await active).done;
+  assert.equal(stops, 0, 'a shared chat must not receive a session-wide stop');
+});
+
+test("a follow-up cannot report completion in a replacement chat", async (t) => {
+  const { call, store } = await fixture(t);
+  await call("create", {
+    id: "bound",
+    recipe,
+    cron: "* * * * *",
+    executionMode: "current_session",
+    targetSessionId: "original",
+  });
+  await assert.rejects(call("run-now", { scheduleId: "bound" }), /bound chat/);
+  assert.equal(store.read().schedules[0].tested, false);
+});
+
 test('shutdown cancels a running schedule, persists interruption and rejects subsequent starts', async t => {
   const entered = deferred();
   const { call, scheduler, store } = await fixture(t, { async run(_job, { signal, onSession }) {
@@ -399,4 +484,14 @@ test("schedule extension credentials are protected at rest and restored only for
   assert.equal(runs[0].recipe.extensions[0].envs.TOKEN, secretMarker);
   assert.equal(runs[0].protectedRecipeExtensions, undefined);
   assert.deepEqual(store.read().schedules[0].recipe.extensions, []);
+});
+
+test('weekday schedules skip the weekend and preserve recipe-local effort without accepting chat overrides', async (t) => {
+  const { call, store, setTime } = await fixture(t);
+  setTime('2026-10-16T02:00:00.000Z');
+  await call('create', { id: 'weekday-task', cron: '0 0 9 * * 1-5', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } });
+  assert.equal(store.read().schedules[0].nextRun, '2026-10-19T01:00:00.000Z');
+  assert.equal(store.read().schedules[0].recipe.settings.goose_thinking_effort, 'high');
+  await assert.rejects(call('create', { id: 'invalid-effort', cron: '* * * * *', recipe: { ...recipe, settings: { goose_thinking_effort: 'invented' } } }), /Invalid scheduled recipe/);
+  await assert.rejects(call('create', { id: 'chat-override', cron: '* * * * *', executionMode: 'current_session', targetSessionId: 'chat', recipe: { ...recipe, settings: { goose_thinking_effort: 'high' } } }), /existing model and tools/);
 });

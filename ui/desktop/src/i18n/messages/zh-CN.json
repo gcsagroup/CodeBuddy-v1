@@ -2004,7 +2004,7 @@
     "defaultMessage": "自定义 cron"
   },
   "cronPicker.day": {
-    "defaultMessage": "日"
+    "defaultMessage": "每天"
   },
   "cronPicker.december": {
     "defaultMessage": "十二月"
@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "新任务"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "自定义智能体" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "自定义智能体"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "素材库"
   },
@@ -6628,7 +6630,7 @@
     "defaultMessage": "时钟"
   },
   "scheduleModal.createNewSchedule": {
-    "defaultMessage": "创建新计划"
+    "defaultMessage": "设置自动任务"
   },
   "scheduleModal.createSchedule": {
     "defaultMessage": "创建计划"
@@ -6688,7 +6690,7 @@
     "defaultMessage": "来源："
   },
   "scheduleModal.testAndEnable": {
-    "defaultMessage": "测试并启用"
+    "defaultMessage": "创建并启用"
   },
   "scheduleModal.updateSchedule": {
     "defaultMessage": "更新计划"
@@ -6706,13 +6708,13 @@
     "defaultMessage": "确定要删除计划“{id}”吗？"
   },
   "schedulesView.createSchedule": {
-    "defaultMessage": "创建计划"
+    "defaultMessage": "新建任务"
   },
   "schedulesView.createTestFailed": {
     "defaultMessage": "自动任务测试失败。技术详情：{error}"
   },
   "schedulesView.description": {
-    "defaultMessage": "创建和管理定时任务，在指定时间自动运行配方。"
+    "defaultMessage": "安排重复任务，并查看每次执行的结果。"
   },
   "schedulesView.edit": {
     "defaultMessage": "编辑"
@@ -9395,5 +9397,308 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切换器"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "任务内容"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "说明每次要做什么、汇报什么，以及何时停止。"
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "执行方式"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "每次运行时都开启新聊天"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "当前聊天跟进"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "沿用此聊天的历史、模型和权限。聊天忙碌时跳过本次；删除聊天会暂停任务。"
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "使用选定模型；未单独选择时沿用默认模型。"
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "请选择要跟进的聊天。"
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "高级"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "重复"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "时间"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "运行频率"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "每天"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "工作日"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "每周"
+  },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "自定义"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "模型"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "强度"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "默认模型"
+  },
+  "scheduleModel.currentChat": {
+    "defaultMessage": "跟随当前聊天"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "无法读取模型设置"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "读取中…"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "没有已配置的模型"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "展开全部模型"
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "跟进聊天"
+  },
+  "scheduleChat.choose": {
+    "defaultMessage": "选择聊天"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "搜索聊天"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "未找到聊天"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "无法读取聊天，请重新打开列表重试。"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "加载更多"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "自动化任务"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "新建"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "帮我创建一个自动化任务："
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "全部"
+  },
+  "nativeSchedule.active": {
+    "defaultMessage": "已开启"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "已结束"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "已删除"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "搜索自动化任务"
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "暂无自动化任务"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "重试"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "加载中…"
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "下次运行：{time}"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "每天"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "每周"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "工作日"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "一次"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "每 {count} 分钟"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "每天 {time}（{zone}）"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "每周 {days}，{time}（{zone}）"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "打开"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "规则"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "任务运行记录"
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "关联会话"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "关联会话不可用"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "关闭任务详情"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "该任务已删除或不可用。"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "任务名称"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "任务说明"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "重复"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "时间"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "时区"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "重复间隔（分钟）"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "星期"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "运行时间（含时区偏移）"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "保存修改"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "取消"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "删除任务"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "删除此任务及其保存的投递记录？聊天中已发送的消息会保留。"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "暂无投递记录"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "记录表示提醒已写入聊天收件箱，不代表模型已完成任务。"
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "该次投递未保存原始指令。"
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "部分早期投递记录已不可用。"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "加载更多"
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "任务已经变化，请刷新后重新编辑。"
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "已保留的旧版规则"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "旧版规则和历史仍保留，旧调度器已停止触发。请在聊天中重新创建原生提醒；原生调度不支持每次运行新建聊天。"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "日期"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "日期和时间使用系统时区（{zone}）；单次任务保存换算后的触发时刻。"
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "已暂停"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "暂停"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "继续"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "暂停后不再触发，已投递的任务继续执行；恢复时跳过错过的次数。"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "运行时间"
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "自定义"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "频率"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "每 {count} 小时"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "每 {count} 秒"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "小时"
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "分钟"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "秒"
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "重复间隔"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "至少 60 秒。间隔自任务创建或上次修改时间规则时起计，不受时区影响。"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "请输入不少于 60 秒的间隔，换算后须为整数秒。"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "（系统）"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "搜索 UTC 偏移、IANA 标识或城市"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "没有匹配的时区"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "每月"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "在以下日期"
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "{day} 日"
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "每月 {days} 日 {time}（{zone}）"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "当月不存在的日期会跳过。"
   }
 }

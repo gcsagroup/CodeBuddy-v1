@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Yeni Sohbet"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Medya Kitaplığı"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Görev talimatları"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Her çalıştırmada yapılacakları, raporlanacakları ve durma koşulunu açıklayın."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Çalıştırma yeri"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Her seferinde yeni sohbet"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Geçerli sohbette takip et"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Bu sohbetin geçmişini, modelini ve izinlerini kullanır. Sohbet meşgulse çalıştırma atlanır. Sohbet silinirse görev duraklatılır."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Her çalıştırma, yapılandırılmış varsayılan modelle bağımsız olarak başlar."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Takip görevi oluşturmak için önce bir sohbet açın."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Gelişmiş"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Tekrar"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Saat"
   }
 }

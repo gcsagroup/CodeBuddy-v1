@@ -1,3 +1,5 @@
+import { Clock3, ChevronDown } from 'lucide-react';
+import { nativeScheduleMessages } from './schedule/nativeScheduleMessages';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ImagePreview from './ImagePreview';
 import MarkdownContent from './MarkdownContent';
@@ -178,6 +180,20 @@ export default function UserMessage({
     }
   }, [editContent, isEditing]);
 
+  if (message.metadata.scheduled)
+    return (
+      <details className="native-schedule-notice group/schedule my-4 rounded-2xl border border-border-primary bg-background-secondary/30 text-sm text-text-secondary">
+        <summary className="native-schedule-summary flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <Clock3 className="size-4" />
+          <span className="flex-1">{intl.formatMessage(nativeScheduleMessages.title)}</span>
+          <time className="text-xs">{timestamp}</time>
+          <ChevronDown className="size-3.5 transition-transform group-open/schedule:rotate-180 motion-reduce:transition-none" />
+        </summary>
+        <div className="border-t border-border-primary px-4 py-3 whitespace-pre-wrap break-words text-xs leading-5">
+          {textContent}
+        </div>
+      </details>
+    );
   return (
     <div className="w-full mt-[16px] opacity-0 animate-[appear_150ms_ease-in_forwards]">
       <div className="flex flex-col group">

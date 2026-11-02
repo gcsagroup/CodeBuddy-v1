@@ -21,6 +21,9 @@ import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
 import { profileEntries, CODEBUDDY_BEHAVIOR } from './profile.mjs';
 
 import { ensureGitEnvironment } from '../git-environment.mjs';
+import { mountNativeSchedule } from './native-schedule.mjs';
+import { SCHEDULE_CONTROL_TOOLS, parseSchedulePauseRequest } from './native-schedule-controls.mjs';
+import { TYPERT as NATIVE_SCHEDULE_RPC } from '@deepseek-ai/dsh-schedule/typert';
 import { DEFAULT_CONTEXT_WINDOW } from '../model-defaults.mjs';
 import { toolSessionApprovalScope, sameToolSessionScope } from '../tool-session-approval.mjs';
 import { MCP_RESOURCE_TOOL_NAMES } from '../mcp-settings.mjs';
@@ -66,6 +69,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const configPath = join(root, 'codebuddy-host.json');
   await writeFile(configPath, JSON.stringify(profileEntries(root, resolve(cwd), resolve(instructionsHome ?? root), sharedSkillDir), null, 2));
   const runs = new Map();
+  let nativeSchedule, nativeScheduleCallbacks;
   const maintenanceRuns = new Map();
   const credentials = new Map();
   const routes = new Map();
@@ -180,7 +184,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   // registered definition rather than a model-supplied name or annotation.
   // A session override with the same name must establish its own capability.
   const readOnlyDefinitions = new WeakSet();
-  for (const name of ['read', 'read_image', 'glob', 'grep', 'skill', 'list_agents', 'load_workspace_dependencies']) {
+  for (const name of ['read', 'read_image', 'glob', 'grep', 'skill', 'list_agents', 'load_workspace_dependencies', 'schedule_list']) {
     const definition = ctx.tools.get(name);
     if (definition) readOnlyDefinitions.add(definition);
   }
@@ -583,6 +587,23 @@ Keep progress updates brief, meaningful, and outcome-based.
   });
   ctx.on('session/event', (session, event) => {
     const agent = ctx.agents.get(session.id);
+    if (event.type === 'agent/inbox/spliced' && !runs.has(session.id) && nativeScheduleCallbacks) {
+      const message = event.data.inserted?.find(item => item.source?.kind === 'schedule');
+      if (message) {
+        const completion = Promise.withResolvers(), attached = Promise.withResolvers();
+        completion.promise.catch(() => {});
+        attached.promise.catch(() => {});
+        const run = { ...completion, nativeToken: Symbol('native-schedule-observer'), attached,
+          ready: attached.promise, events: attached.promise, steps: 0, sessionId: session.id,
+          requestId: message.id };
+        runs.set(session.id, run);
+        // Observation attaches before the native pre-step proceeds. No second
+        // prompt is enqueued and no timer or completion is owned here.
+        Promise.resolve(nativeScheduleCallbacks.observe({ sessionId: session.id, message, token: run.nativeToken }))
+          .catch(error => { attached.reject(error); run.reject(error); driver.cancel(session.id); })
+          .finally(() => { if (runs.get(session.id) === run) runs.delete(session.id); });
+      }
+    }
     const run = runFor(agent);
     if (!run) return;
     if (event.type === 'tool/call') {
@@ -600,6 +621,8 @@ Keep progress updates brief, meaningful, and outcome-based.
       agent.cancel({ kind: 'user' }, { keepInbox: true });
     if (session.id === run.sessionId && ['tool/result', 'tool/ptc-dispatch', 'user/message', 'turn/end'].includes(event.type))
       emit(run, { type: 'user_questions', sessionId: session.id, snapshot: userQuestions(session) });
+    if (event.type === 'user/message' && event.data.source?.kind === 'schedule')
+      emit(run, { type: 'scheduled_message', message: event.data, sessionId: session.id });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -630,6 +653,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   ctx.on('agent/error', ({ agent, error }) => runs.get(agent.id)?.reject(error));
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
+    if (run?.ready) await run.ready;
     if (run?.observationFailure) throw run.observationFailure;
     const limit = settingsFor(agent)?.maxTurns;
     if (run && limit && run.steps >= limit) {
@@ -957,7 +981,11 @@ Keep progress updates brief, meaningful, and outcome-based.
         if (agent.session.header.origin !== 'subagent') {
           for (const definition of installSubagentTemplates(scoped, nativeSubagent, { models: subagentModels, custom: subagentTemplates, allow: settings.toolFilter?.allow, deny: settings.toolFilter?.deny })) delegationDefinitions.add(definition);
         }
-        if (settings.toolFilter) restrictSessionTools(scoped, settings.toolFilter, shared?.key);
+        if (settings.toolFilter || agent.session.header.origin === 'subagent') restrictSessionTools(scoped, {
+          ...settings.toolFilter,
+          deny: [...(settings.toolFilter?.deny ?? []), ...(agent.session.header.origin === 'subagent'
+            ? ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete', ...SCHEDULE_CONTROL_TOOLS].filter(name => ctx.tools.get(name)) : [])],
+        }, shared?.key);
         const discovery = childFilter?.allow?.length === 0 ? undefined
           : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
         if (discovery) {
@@ -998,6 +1026,31 @@ Keep progress updates brief, meaningful, and outcome-based.
       const data = await readSessionLogText(ctx.sessionPersistence, sessionId);
       if (data === undefined) throw new Error('该会话尚无 Harness 日志；旧版导入的聊天仅支持查看会话 JSON。');
       return data;
+    },
+    async startNativeSchedules(callbacks) {
+      if (nativeSchedule) return;
+      nativeScheduleCallbacks = callbacks;
+      nativeSchedule = await mountNativeSchedule(ctx, callbacks);
+      for (const name of ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete', ...SCHEDULE_CONTROL_TOOLS]) {
+        const definition = ctx.tools.get(name);
+        if (definition) nativeDefinitions.add(definition);
+        if (definition && ['schedule_list', 'schedule_status'].includes(name)) readOnlyDefinitions.add(definition);
+      }
+    },
+    async nativeScheduleRequest(action, input = {}) {
+      if (!nativeSchedule) throw new Error('Native scheduling is not enabled');
+      if (action === 'create') return { record: await nativeSchedule.create(input.sessionId, input.request) };
+      if (action === 'stop-session') return ctx.parallel('workspace/session-stop', { sessionId: input.sessionId });
+      if (action === 'set-paused') return nativeSchedule.setPaused(parseSchedulePauseRequest(input));
+      // The local contract adds paused; all other native record fields are unchanged.
+      if (action === 'catalog') return { records: await nativeSchedule.catalog() };
+      const descriptor = NATIVE_SCHEDULE_RPC.invocations.find(item => item.method === action);
+      if (descriptor) {
+        const args = descriptor.parameters.map(parameter => parameter.codec.create().parse(input));
+        const value = descriptor.result.create().parse(await nativeSchedule[action](...args));
+        return action === 'catalog' ? { records: value } : value;
+      }
+      throw new Error('Unknown native Schedule action');
     },
     async permissions(sessionId, { cwd: workingDirectory, initialPreset, preset } = {}) {
       if (preset !== undefined) ctx.permissionPresets.resolve(preset);
@@ -1074,14 +1127,16 @@ Keep progress updates brief, meaningful, and outcome-based.
       creation = work.catch(() => {});
       return work;
     },
-    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode } = {}) {
-      if (runs.has(sessionId)) throw new Error(`Session ${sessionId} already has an active prompt`);
+    async prompt(sessionId, content, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, signal, requestId = randomUUID(), resumeGoal, createGoal, planMode, nativeObservationToken } = {}) {
+      const adopted = nativeObservationToken && runs.get(sessionId)?.nativeToken === nativeObservationToken ? runs.get(sessionId) : null;
+      if (runs.has(sessionId) && !adopted) throw new Error(`Session ${sessionId} already has an active prompt`);
       if (!sessionScopes.has(sessionId)) throw new Error('Configure the session before prompting');
       signal?.throwIfAborted();
       const completion = Promise.withResolvers();
       // Attach rejection observation before admission can synchronously fail.
       completion.promise.catch(() => {});
-      const run = { ...completion, onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, events: Promise.resolve(), steers: new Set(), acceptingInput: true, steps: 0, sessionId, requestId };
+      const run = adopted ?? { ...completion, events: Promise.resolve(), steps: 0, sessionId, requestId };
+      Object.assign(run, { onEvent, onPermission, onToolPolicy, onToolStart, onDesktopTool, desktopMetadata, onUserQuestions, steers: new Set(), acceptingInput: true });
       runs.set(sessionId, run);
       const cancel = () => { try { driver.cancel(sessionId); } catch { /* Admission may not have opened a turn yet. */ } };
       signal?.addEventListener('abort', cancel, { once: true });
@@ -1116,10 +1171,11 @@ Keep progress updates brief, meaningful, and outcome-based.
         // new human instruction. Native steer joins that instruction with the
         // parked notices through native step admission; mixed human queues retain FIFO.
         const mode = promptAgent?.status === 'idle' && parked.length > 0 && parked.every(message => message.source?.kind === 'subagent-settled') ? 'steer' : 'queue';
-        await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
+        if (adopted) adopted.attached.resolve();
+        else await ctx.sessionController.prompt({ sessionId, requestId, mode, content: parts, clientTimeZone: 'Asia/Shanghai' }, signal ?? new AbortController().signal);
         if (resumeGoal) await driver.controlGoal(sessionId, { action: 'resume', ...resumeGoal });
         if (signal?.aborted) cancel();
-        const result = await completion.promise;
+        const result = await (adopted ? adopted.promise : completion.promise);
         const agent = await resolveAgent(sessionId);
         // Keep callbacks alive until all already-admitted steering has reached
         // the native inbox and its resulting work has settled.

@@ -86,6 +86,27 @@ describe('chat row rename button', () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('keeps the automation clock visible independently of chat activity', () => {
+    const base = { session, active: true, hasSchedule: true, onClick: vi.fn(), onRenamed: vi.fn() };
+    const view = render(<SessionRow {...base} status={undefined} />);
+    expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    for (const status of [
+      { streamState: 'loading' as const, hasUnreadActivity: false },
+      { streamState: 'streaming' as const, hasUnreadActivity: false },
+      { streamState: 'error' as const, hasUnreadActivity: false },
+      { streamState: 'idle' as const, hasUnreadActivity: true },
+    ]) {
+      view.rerender(<SessionRow {...base} status={status} />);
+      expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    }
+    view.rerender(
+      <SessionRow {...base} status={{ streamState: 'idle', hasUnreadActivity: false }} />
+    );
+    expect(screen.getByLabelText('Automation tasks')).toBeVisible();
+    view.rerender(<SessionRow {...base} hasSchedule={false} status={undefined} />);
+    expect(screen.queryByLabelText('Automation tasks')).not.toBeInTheDocument();
+  });
+
   it('keeps the rename entry disabled while the chat is streaming', () => {
     render(
       <SessionRow
@@ -138,7 +159,6 @@ describe('task-oriented navigation', () => {
       [...NAV_ITEMS, SETTINGS_NAV_ITEM].map(({ id, path, label }) => ({ id, path, label }))
     ).toEqual([
       { id: 'home', path: '/', label: 'New Task' },
-      { id: 'recipes', path: '/recipes', label: 'Common Tasks' },
       { id: 'scheduler', path: '/schedules', label: 'Automatic Tasks' },
       { id: 'toolbox', path: '/toolbox', label: 'Toolbox' },
       { id: 'sessions', path: '/sessions', label: 'History' },
@@ -150,10 +170,10 @@ describe('task-oriented navigation', () => {
 
   it('keeps legacy product terms as search aliases instead of destinations', () => {
     expect(NAV_ITEMS.flatMap((item) => item.searchAliases ?? [])).toEqual(
-      expect.arrayContaining(['Recipes', 'Scheduler', 'Skills', 'Apps', 'Extensions'])
+      expect.arrayContaining(['Scheduler', 'Skills', 'Apps', 'Extensions'])
     );
     expect(NAV_ITEMS.map((item) => item.id)).not.toEqual(
-      expect.arrayContaining(['skills', 'apps', 'extensions'])
+      expect.arrayContaining(['recipes', 'skills', 'apps', 'extensions'])
     );
   });
 });

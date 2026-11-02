@@ -64,6 +64,8 @@ export function profileEntries(dataDir, cwd, instructionsHome = dataDir, sharedS
     ] : []),
     entry('tool-todo', 'dsh-tool-todo', { allowParallelInProgress: true }),
     entry('tool-goal', 'dsh-tool-goal'),
+    entry('tool-schedule', 'dsh-tool-schedule'),
+    entry('time-context', 'dsh-time-context'),
     entry('jobs', 'dsh-jobs-local'),
     entry('tool-jobs', 'dsh-tool-jobs', { completionDelivery: 'quiet' }),
     entry('subagents', 'dsh-subagent', { ...DEFAULT_SUBAGENT_LIMITS }),

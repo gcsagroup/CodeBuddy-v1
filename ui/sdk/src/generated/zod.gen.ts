@@ -2162,6 +2162,9 @@ export const zRecipeSettingsDto = z.object({
   goose_model: z.string().nullish(),
   temperature: z.number().nullish(),
   max_turns: z.number().int().gte(0).nullish(),
+  goose_thinking_effort: z
+    .enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"])
+    .nullish(),
 });
 
 export const zRecipeAuthorDto = z.object({
@@ -2319,6 +2322,9 @@ export const zListSchedulesRequest_unstable = z.record(z.unknown());
 export const zScheduleWorkspaceMode = z.enum(["code", "codepro"]);
 
 export const zScheduledJobDto = z.object({
+  executionMode: z.enum(["new_session", "current_session"]).optional(),
+  targetSessionId: z.string().nullish(),
+  lastError: z.string().nullish(),
   id: z.string(),
   source: z.string(),
   cron: z.string(),
@@ -2367,6 +2373,8 @@ export const zListScheduleSessionsResponse_unstable = z.object({
 });
 
 export const zCreateScheduleRequest_unstable = z.object({
+  executionMode: z.enum(["new_session", "current_session"]).optional(),
+  targetSessionId: z.string().nullish(),
   id: z.string(),
   recipe: zRecipeDto,
   cron: z.string(),

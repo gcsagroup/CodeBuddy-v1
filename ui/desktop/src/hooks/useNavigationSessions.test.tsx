@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppEvents } from '../constants/events';
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn(), location: { pathname: '/codepro', search: '' } }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn(), get: vi.fn(), location: { pathname: '/codepro', search: '' } }));
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
   useLocation: () => mocks.location,
@@ -12,14 +12,14 @@ vi.mock('../contexts/ChatContext', () => ({ useChatContext: () => null }));
 vi.mock('../sessions', () => ({ getSessionDisplayName: () => 'Test session' }));
 vi.mock('../acp/sessions', () => ({
   acpListRecentSessions: mocks.list,
-  acpGetSessionListItem: vi.fn().mockResolvedValue({ id: 'existing', workingDir: 'D:/fixture', name: 'Existing', messageCount: 1 }),
+  acpGetSessionListItem: mocks.get,
   resolveSessionWorkspaceMode: () => 'codepro',
   sessionTypeMatchesWorkspace: () => true,
 }));
 import { useNavigationSessions } from './useNavigationSessions';
 
 describe('new session sidebar refresh', () => {
-  beforeEach(() => { vi.useFakeTimers(); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
+  beforeEach(() => { vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
   afterEach(() => { vi.useRealTimers(); });
 
   it.each(['/codepro', '/codepro/pair', '/pair'])('keeps the current conversation when opening toolbox from %s', async pathname => {
@@ -33,6 +33,18 @@ describe('new session sidebar refresh', () => {
     const hook = renderHook(() => useNavigationSessions());
     act(() => hook.result.current.handleNavClick('/toolbox'));
     expect(mocks.navigate).toHaveBeenCalledWith('/codepro/toolbox');
+  });
+
+  it('carries the actually viewed chat into automatic task creation', async () => {
+    mocks.location = { pathname: '/codepro/pair', search: '?resumeSessionId=viewed-chat' };
+    mocks.get.mockResolvedValue({ id: 'viewed-chat', name: 'Current task', workingDir: '',
+      updatedAt: '2026-10-29T00:00:00Z', createdAt: '2026-10-29T00:00:00Z', messageCount: 1 });
+    const hook = renderHook(() => useNavigationSessions());
+    await act(async () => { hook.result.current.handleNavClick('/schedules'); });
+    expect(mocks.navigate).toHaveBeenCalledWith('/codepro/schedules', {
+      state: { scheduleSessionId: 'viewed-chat' },
+    });
+    hook.unmount();
   });
 
   it('includes slow requests in the ten second refresh window', async () => {

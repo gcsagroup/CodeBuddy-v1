@@ -215,6 +215,10 @@ export function useNavigationSessions() {
         navigate(withWorkspaceMode(path, workspaceMode), {
           state: { backgroundLocation: location },
         });
+      } else if (path === '/schedules') {
+        navigate(withWorkspaceMode(path, workspaceMode), {
+          state: { scheduleSessionId: currentSessionId || lastSessionIdRef.current || chatContext?.chat?.sessionId },
+        });
       } else {
         navigate(withWorkspaceMode(path, workspaceMode));
       }

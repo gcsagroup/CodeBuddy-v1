@@ -336,7 +336,9 @@ export class Compat {
     this.schedules = store.directory
       ? new ScheduleService(store, {
           run: (job, callbacks) => this.runSchedule(job, callbacks),
+          timers: typeof driver.startNativeSchedules !== 'function',
           stop: (sessionId) => this.request("session/cancel", { sessionId }),
+          isSessionBusy: (id) => this.active.has(id) || this.sessionMutations.has(id),
           sessionInfo: async (sessionId) => {
             const state = this.store.read();
             const session = state.sessions.find((entry) => entry.id === sessionId);
@@ -432,7 +434,28 @@ export class Compat {
       this.journal = await openTranscriptJournal(this.store);
     await this.runs.initialize();
     await this.reviews.initialize();
-    await this.schedules?.start();
+    if (typeof this.driver.startNativeSchedules === 'function') {
+      await this.driver.startNativeSchedules({
+        prepareSession: async id => {
+          const session = this.assertSessionAvailable(id);
+          if (session.readonlyHistory || session.archivedAt) throw invalid('The reminder chat is unavailable');
+          const active = this.active.get(id);
+          // A human turn may be preparing tools before its native stream has
+          // attached. Delivery waits for that attachment or the turn's release.
+          if (active) await Promise.race([active.nativeAttached.promise, active.done]);
+          if (!this.active.has(id)) await this.ensureSession(session);
+        },
+        observe: ({ sessionId, message, token }) => this.prompt({
+          sessionId, prompt: message.content,
+          _meta: { 'codeagentpro/source-message-id': message.id },
+        }, this.scheduleConnection(), token),
+        onChanged: () => {
+          for (const connection of this.connections)
+            if (!connection.background) connection.notify('_goose/unstable/native-schedules/changed', {});
+        },
+      });
+      this.nativeScheduling = true;
+    } else await this.schedules?.start();
   }
   async reviewContext(sessionId) {
     const s = this.session(sessionId);
@@ -554,12 +577,7 @@ export class Compat {
       this.reviewExecutions.delete(id);
     }
   }
-  async runSchedule(job, { signal, onSession }) {
-    const root =
-      process.env.CODEBUDDY_WORKSPACE_ROOT ??
-      path.join(this.store.directory, "workspaces");
-    await mkdir(root, { recursive: true });
-    const cwd = path.join(root, `scheduled-${randomUUID()}`);
+  scheduleConnection() {
     const connection = {
       sessionIds: new Set(),
       notify: (method, params) => {
@@ -578,55 +596,80 @@ export class Compat {
       },
       background: true,
     };
+    return connection;
+  }
+  async runSchedule(job, { signal, onSession }) {
+    const root =
+      process.env.CODEBUDDY_WORKSPACE_ROOT ??
+      path.join(this.store.directory, "workspaces");
+    const followsChat = job.executionMode === "current_session";
+    const connection = this.scheduleConnection();
     let sessionId;
+    let ownedTurn;
     const cancel = () => {
-      if (sessionId)
+      if (ownedTurn && this.active.get(sessionId) === ownedTurn)
         void this.request("session/cancel", { sessionId }).catch(() => {});
     };
     signal.addEventListener("abort", cancel, { once: true });
     try {
       signal.throwIfAborted();
-      const lease = await this.workspaces.acquire(
-        {
-          requestedPath: cwd,
-          expectedState: "missing",
-          expectedIdentity: workspaceIdentity(cwd),
-        },
-        connection,
-      );
-      const created = await this.request(
-        "session/new",
-        {
-          cwd,
-          mcpServers: [],
-          _meta: {
-            workspaceMode: job.workspaceMode,
-            workspaceLeaseId: lease.leaseId,
-            recipe: job.recipe,
-            recipeInteractive: false,
+      if (followsChat) {
+        const target = this.session(job.targetSessionId);
+        if (target.readonlyHistory || target.archivedAt)
+          throw invalid("The target chat is archived or read-only");
+        sessionId = target.id;
+      } else {
+        await mkdir(root, { recursive: true });
+        const cwd = path.join(root, `scheduled-${randomUUID()}`);
+        const lease = await this.workspaces.acquire(
+          {
+            requestedPath: cwd,
+            expectedState: "missing",
+            expectedIdentity: workspaceIdentity(cwd),
           },
-        },
-        connection,
-      );
-      sessionId = created.sessionId;
-      await this.store.update((state) => {
-        state.sessions.find((session) => session.id === sessionId).scheduleId = job.id;
-      });
+          connection,
+        );
+        const created = await this.request(
+          "session/new",
+          {
+            cwd,
+            mcpServers: [],
+            _meta: {
+              workspaceMode: job.workspaceMode,
+              workspaceLeaseId: lease.leaseId,
+              recipe: job.recipe,
+              recipeInteractive: false,
+            },
+          },
+          connection,
+        );
+        sessionId = created.sessionId;
+        await this.store.update((state) => {
+          state.sessions.find((session) => session.id === sessionId).scheduleId = job.id;
+        });
+      }
       await onSession(sessionId);
       signal.throwIfAborted();
       const s = this.session(sessionId);
-      const result = await this.prompt(
+      const previousTurn = this.active.get(sessionId);
+      const pending = this.prompt(
         {
           sessionId,
           prompt: [
             {
               type: "text",
-              text: s.recipe.prompt?.trim() || s.recipe.instructions,
+              text: followsChat
+                ? [job.recipe.instructions?.trim(), job.recipe.prompt?.trim()].filter(Boolean).join('\n\n')
+                : s.recipe.prompt?.trim() || s.recipe.instructions,
             },
           ],
         },
         connection,
       );
+      const admitted = this.active.get(sessionId);
+      if (admitted !== previousTurn) ownedTurn = admitted;
+      if (signal.aborted) cancel();
+      const result = await pending;
       if (result.stopReason === "cancelled")
         return { status: "cancelled", sessionId };
       if (
@@ -725,7 +768,8 @@ export class Compat {
   info(s, state = this.store.read(['schedules', 'codeproRuns'])) {
     // Scheduled origin is a UI contract, independent of the native execution
     // mode. Older sessions can recover it from the persisted schedule history.
-    const scheduled = s.scheduleId || state.schedules?.some((job) => job.sessions?.includes(s.id));
+    const scheduled = s.scheduleId || state.schedules?.some((job) =>
+      job.executionMode !== 'current_session' && job.sessions?.includes(s.id));
     return {
       sessionId: s.id,
       cwd: s.cwd,
@@ -1257,7 +1301,7 @@ Use this role throughout this workspace.` : basePrompt,
       const route = this.routing.get(s.id)?.main;
       const main = applyModelThinking(
         routing.main.provider,
-        modelThinkingPreference(thinkingProfile(this.provider(routing.main.provider.id), routing.main.model), this.provider(routing.main.provider.id).thinkingEfforts?.[routing.main.model], this.store.read(['preferences']).preferences.gooseThinkingEffort),
+        s.recipe?.settings?.goose_thinking_effort ?? modelThinkingPreference(thinkingProfile(this.provider(routing.main.provider.id), routing.main.model), this.provider(routing.main.provider.id).thinkingEfforts?.[routing.main.model], this.store.read(['preferences']).preferences.gooseThinkingEffort),
       );
       const provider = main.provider;
       this.thinking.set(s.id, main.thinkingEffort);
@@ -1863,6 +1907,9 @@ Use this role throughout this workspace.` : basePrompt,
         this.driver.withConversationLock(p.sessionId, async () => {
           if (this.active.has(p.sessionId))
             throw invalid("Stop the session before deleting it");
+          await this.schedules?.stopSessionSchedules(p.sessionId);
+          if (this.nativeScheduling)
+            await this.driver.nativeScheduleRequest('stop-session', { sessionId: p.sessionId });
           await this.releaseSession(this.session(p.sessionId));
           await this.store.update((state) => {
             state.sessions = state.sessions.filter((s) => s.id !== p.sessionId);
@@ -1900,8 +1947,21 @@ Use this role throughout this workspace.` : basePrompt,
       return listSubagentCatalog(this.session(p.sessionId, { fields: ['id'] }), p, this.driver);
     if (["session/import", "session/export"].includes(name))
       return this.history.request(name, p);
-    if (this.schedules?.handles(method))
+    if (name.startsWith('native-schedules/')) {
+      if (!this.nativeScheduling) throw unsupported('native scheduling');
+      const action = name.slice('native-schedules/'.length);
+      if (action === 'legacy-list') return { jobs: this.schedules?.rows().map(row => ({
+        id: row.id, title: row.recipe?.title ?? row.id, cron: row.cron,
+        executionMode: row.executionMode ?? 'new_session', targetSessionId: row.targetSessionId,
+      })) ?? [] };
+      if (!['catalog', 'history', 'update', 'delete', 'set-paused'].includes(action)) throw unsupported('native schedule action');
+      return this.driver.nativeScheduleRequest(action, p);
+    }
+    if (this.schedules?.handles(method)) {
+      if (this.nativeScheduling && !['list', 'sessions/list', 'running-job/inspect'].includes(name.slice('schedules/'.length)))
+        throw invalid('Automatic tasks now use native DSH scheduling. Create or change reminders in their linked chat. Legacy rules remain saved.');
       return this.schedules.request(method, p);
+    }
     const memoryResult = await this.memory.request(name, p);
     if (memoryResult !== undefined) {
       if (
@@ -2302,6 +2362,8 @@ Use this role throughout this workspace.` : basePrompt,
               name === "session/archive" ? new Date().toISOString() : null;
           s.updatedAt = new Date().toISOString();
         });
+        if (name === "session/archive" && this.nativeScheduling)
+          await this.driver.nativeScheduleRequest('stop-session', { sessionId: p.sessionId });
         return {};
       }
       case "defaults/read":
@@ -2482,7 +2544,7 @@ Use this role throughout this workspace.` : basePrompt,
         throw unsupported(method);
     }
   }
-  async prompt(p, connection) {
+  async prompt(p, connection, nativeObservationToken) {
     if (this.closing) throw invalid('Runtime is shutting down');
     const receivedAtMs = Date.now();
     const s = this.session(p.sessionId);
@@ -2522,6 +2584,7 @@ Use this role throughout this workspace.` : basePrompt,
     trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
+      nativeAttached: Promise.withResolvers(),
       controller,
       connection,
       done,
@@ -2591,7 +2654,7 @@ Use this role throughout this workspace.` : basePrompt,
       sessionUpdate: "user_message_chunk",
       content,
       messageId: userId,
-      _meta: { goose: { messageId: userId, created, ...(presentation ? { presentation } : {}) } },
+      _meta: { goose: { messageId: userId, created, ...(nativeObservationToken ? { scheduled: true } : {}), ...(presentation ? { presentation } : {}) } },
     }));
     let promptError;
     let result;
@@ -2731,6 +2794,15 @@ Use this role throughout this workspace.` : basePrompt,
           }
         },
         onEvent: async (event) => {
+          promptEntry.nativeAttached.resolve();
+          if (event.type === 'scheduled_message' && event.sessionId === s.id) {
+            const message = event.message;
+            if (message.id !== userId) for (const part of message.content ?? []) {
+              if (part.type === 'text') await notify({ sessionUpdate: 'user_message_chunk', content: part,
+                messageId: message.id, _meta: { goose: { messageId: message.id, created: Math.floor(Date.now() / 1000), scheduled: true } } });
+            }
+            return;
+          }
           if (event.type === 'user_questions' && event.sessionId === s.id) {
             for (const observer of new Set([connection, ...this.connections]))
               if (observer === connection || observer.sessionIds?.has(s.id))
@@ -2944,7 +3016,9 @@ Use this role throughout this workspace.` : basePrompt,
         result = { stopReason: "end_turn" };
       } else {
         trace('native_prompt_dispatched');
-        result = await this.driver.prompt(s.id, prepared.content, callbacks);
+        result = await this.driver.prompt(s.id, prepared.content, {
+          ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
+        });
         trace('native_prompt_settled');
       }
     } catch (error) {

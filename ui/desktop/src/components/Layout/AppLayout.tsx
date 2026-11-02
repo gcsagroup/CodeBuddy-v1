@@ -1,3 +1,6 @@
+import { PanelResizeHandle } from '../../workspace-panel/PanelResizeHandle';
+import { NativeScheduleDetails } from '../schedule/NativeScheduleDetails';
+import { useNativeSchedulePanel } from '../schedule/useNativeSchedulePanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -121,6 +124,9 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
     ? 'codepro'
     : 'code';
 
+  const { id: nativeScheduleId, close: closeNativeSchedule } = useNativeSchedulePanel();
+  const isSchedulesRoute = location.pathname.endsWith('/schedules');
+  const showNativeSchedule = Boolean(nativeScheduleId) && (isSchedulesRoute || isOnPairRoute);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [taskPanelPreferences] = useState(() =>
     readCodeProTaskPanelPreferences(typeof window === 'undefined' ? undefined : window.localStorage)
@@ -198,16 +204,16 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const navToggleTitle = intl.formatMessage(
     isNavExpanded ? i18n.collapseNavigation : i18n.openNavigation
   );
-  const showCodeProTaskPanel = shouldShowCodeProTaskPanel(
-    workspaceMode,
-    isOnPairRoute || location.pathname === '/codepro'
-  );
+  const showCodeProTaskPanel =
+    !showNativeSchedule &&
+    shouldShowCodeProTaskPanel(workspaceMode, isOnPairRoute || location.pathname === '/codepro');
   const codeProTaskPanelLayout = getCodeProTaskPanelLayout(availableWidth);
   const splitWidth = getCodeProPanelWidth(availableWidth, codeProTaskPanelWidth);
   const chatHidden =
-    showCodeProTaskPanel &&
-    isCodeProTaskPanelExpanded &&
-    (isChatCollapsed || codeProTaskPanelLayout === 'drawer');
+    (showNativeSchedule && codeProTaskPanelLayout === 'drawer') ||
+    (showCodeProTaskPanel &&
+      isCodeProTaskPanelExpanded &&
+      (isChatCollapsed || codeProTaskPanelLayout === 'drawer'));
   const panelWidth = chatHidden ? availableWidth : splitWidth;
   const changeChatCollapsed = (collapsed: boolean) => {
     setIsChatCollapsed(collapsed);
@@ -287,8 +293,8 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                   ? 0
                   : availableWidth -
                     (getCodeProChatInset(
-                      showCodeProTaskPanel,
-                      isCodeProTaskPanelExpanded,
+                      showCodeProTaskPanel || showNativeSchedule,
+                      isCodeProTaskPanelExpanded || showNativeSchedule,
                       panelWidth,
                       codeProTaskPanelLayout
                     ) ?? 0),
@@ -320,6 +326,35 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                 </div>
               </div>
             </motion.div>
+            {showNativeSchedule && nativeScheduleId && (
+              <motion.aside
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  ...WORKSPACE_PANEL_TRANSITION,
+                  duration: reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
+                }}
+                className="absolute bottom-0 right-0 top-0 z-20 min-h-0 overflow-hidden border-l border-border-primary bg-background-primary"
+                style={{ width: codeProTaskPanelLayout === 'drawer' ? availableWidth : panelWidth }}
+              >
+                {codeProTaskPanelLayout === 'inline' && (
+                  <PanelResizeHandle
+                    width={panelWidth}
+                    resizing={isPanelResizing}
+                    onWidthChange={(requested, commit = true) => {
+                      setIsPanelResizing(!commit);
+                      setCodeProTaskPanelWidth(getCodeProPanelWidth(availableWidth, requested));
+                    }}
+                    onResetWidth={resetPanelWidth}
+                  />
+                )}
+                <NativeScheduleDetails
+                  key={nativeScheduleId}
+                  id={nativeScheduleId}
+                  onClose={closeNativeSchedule}
+                />
+              </motion.aside>
+            )}
             {showCodeProTaskPanel && (
               <CodeProTaskPanel
                 expanded={isCodeProTaskPanelExpanded}

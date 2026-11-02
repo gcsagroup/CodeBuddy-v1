@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Nova conversa"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Biblioteca de mídia"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Instruções da tarefa"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Descreva o que fazer, o que relatar e quando parar em cada execução."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Executar em"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Uma nova conversa a cada vez"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Continuar na conversa atual"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Usa o histórico, modelo e permissões desta conversa. Execuções são ignoradas se ela estiver ocupada. Excluir a conversa pausa a tarefa."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Cada execução começa de forma independente com o modelo padrão configurado."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Abra uma conversa primeiro para criar um acompanhamento."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Avançado"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Repetir"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Horário"
   }
 }

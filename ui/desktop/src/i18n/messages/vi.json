@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Trò chuyện mới"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Thư viện đa phương tiện"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Hướng dẫn tác vụ"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Mô tả việc cần làm, nội dung báo cáo và thời điểm dừng cho mỗi lần chạy."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Chạy trong"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Cuộc trò chuyện mới mỗi lần"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Theo dõi trong cuộc trò chuyện hiện tại"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Sử dụng lịch sử, mô hình và quyền của cuộc trò chuyện này. Bỏ qua lần chạy nếu đang bận. Xóa cuộc trò chuyện sẽ tạm dừng tác vụ."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Mỗi lần chạy bắt đầu độc lập bằng mô hình mặc định đã cấu hình."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Mở cuộc trò chuyện trước để tạo tác vụ theo dõi."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Nâng cao"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Lặp lại"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Thời gian"
   }
 }

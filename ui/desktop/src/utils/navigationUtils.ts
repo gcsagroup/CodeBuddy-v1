@@ -32,6 +32,7 @@ export type ViewOptions = {
   disableAnimation?: boolean;
   initialMessage?: UserInput;
   noAutoSubmit?: boolean;
+  draftOnly?: boolean;
   recipeDeeplink?: string;
   recipeId?: string;
   resumeSessionId?: string;

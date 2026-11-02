@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Obrolan Baru"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Pustaka Media"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Instruksi tugas"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Jelaskan tindakan, laporan, dan kapan harus berhenti pada setiap proses."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Jalankan di"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Chat baru setiap kali"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Tindak lanjut di chat saat ini"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Menggunakan riwayat, model, dan izin chat ini. Proses dilewati saat chat sibuk. Menghapus chat menjeda tugas."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Setiap proses dimulai secara mandiri dengan model default yang dikonfigurasi."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Buka chat terlebih dahulu untuk membuat tindak lanjut."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Lanjutan"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Ulangi"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Waktu"
   }
 }

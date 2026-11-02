@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "Neuer Chat"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Medienbibliothek"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "Aufgabenanweisungen"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Beschreibe die Arbeit, den Bericht und die Abbruchbedingung für jeden Lauf."
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "Ausführen in"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "Jedes Mal ein neuer Chat"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Im aktuellen Chat nachfassen"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "Nutzt Verlauf, Modell und Berechtigungen dieses Chats. Läufe werden bei belegtem Chat übersprungen. Das Löschen des Chats pausiert die Aufgabe."
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "Jeder Lauf startet unabhängig mit dem konfigurierten Standardmodell."
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Öffne zuerst einen Chat, um eine Folgeaufgabe zu erstellen."
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "Erweitert"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "Wiederholung"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "Uhrzeit"
   }
 }

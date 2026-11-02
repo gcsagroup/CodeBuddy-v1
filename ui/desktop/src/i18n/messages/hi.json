@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "नई चैट"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "मीडिया लाइब्रेरी"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "कार्य के निर्देश"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "हर बार क्या करना है, क्या बताना है और कब रुकना है, लिखें।"
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "चलाने का स्थान"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "हर बार नई चैट"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "वर्तमान चैट में आगे बढ़ें"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "इस चैट के इतिहास, मॉडल और अनुमतियों का उपयोग करता है। चैट व्यस्त होने पर इस बार का कार्य छोड़ दिया जाता है। चैट हटाने पर कार्य रुक जाता है।"
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "हर बार कॉन्फ़िगर किए गए डिफ़ॉल्ट मॉडल से स्वतंत्र रूप से शुरू होता है।"
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "आगे की कार्रवाई बनाने के लिए पहले चैट खोलें।"
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "उन्नत"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "दोहराएँ"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "समय"
   }
 }

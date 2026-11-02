@@ -2517,6 +2517,18 @@ export type RecipeSettingsDto = {
   goose_model?: string | null;
   temperature?: number | null;
   max_turns?: number | null;
+  /**
+   * Optional recipe-local reasoning effort. Omitted or null inherits model defaults without changing global preferences.
+   */
+  goose_thinking_effort?:
+    | "none"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
+    | null;
 };
 
 export type RecipeAuthorDto = {
@@ -2660,6 +2672,9 @@ export type ListSchedulesResponse_unstable = {
 };
 
 export type ScheduledJobDto = {
+  executionMode?: "new_session" | "current_session";
+  targetSessionId?: string | null;
+  lastError?: string | null;
   id: string;
   source: string;
   cron: string;
@@ -2734,6 +2749,8 @@ export type SessionInfo = {
 export type SessionId = string;
 
 export type CreateScheduleRequest_unstable = {
+  executionMode?: "new_session" | "current_session";
+  targetSessionId?: string | null;
   id: string;
   recipe: RecipeDto;
   cron: string;

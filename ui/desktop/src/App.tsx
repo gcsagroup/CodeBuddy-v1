@@ -40,7 +40,7 @@ import { parsePetMessage } from './pets/petMessage';
 import SessionsView from './components/sessions/SessionsView';
 import { CustomAgents } from './components/custom-agents/CustomAgents';
 import { MediaLibrary } from './components/media-library/MediaLibrary';
-import SchedulesView from './components/schedule/SchedulesView';
+import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';

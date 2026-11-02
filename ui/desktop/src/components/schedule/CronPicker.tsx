@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
+import { Check, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+} from '../ui/dropdown-menu';
 import type { ScheduledJobDto } from '@aaif/goose-sdk';
 import { errorMessage } from '../../utils/conversionUtils';
 import { defineMessages, useIntl } from '../../i18n';
@@ -13,6 +21,13 @@ import {
 } from '../../utils/cronSchedule';
 
 const i18n = defineMessages({
+  repeat: { id: 'cronPicker.repeat', defaultMessage: 'Repeat' },
+  frequency: { id: 'cronPicker.frequency', defaultMessage: 'Run frequency' },
+  daily: { id: 'cronPicker.daily', defaultMessage: 'Every day' },
+  weekdays: { id: 'cronPicker.weekdays', defaultMessage: 'Weekdays' },
+  weekly: { id: 'cronPicker.weekly', defaultMessage: 'Every week' },
+  customFrequency: { id: 'cronPicker.customFrequency', defaultMessage: 'Custom' },
+  time: { id: 'cronPicker.time', defaultMessage: 'Time' },
   every: { id: 'cronPicker.every', defaultMessage: 'Every' },
   mode: { id: 'cronPicker.mode', defaultMessage: 'Mode' },
   minute: { id: 'cronPicker.minute', defaultMessage: 'Minute' },
@@ -126,7 +141,9 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
     const { hour, isPM: pm } = to12Hour(hour24);
     setHour12(hour);
     setIsPM(pm);
-    setDayOfWeek(parsed.dayOfWeek === '*' ? '1' : parsed.dayOfWeek);
+    setDayOfWeek(
+      ['0', '1', '2', '3', '4', '5', '6'].includes(parsed.dayOfWeek) ? parsed.dayOfWeek : '1'
+    );
     setDayOfMonth(parsed.dayOfMonth === '*' ? '1' : parsed.dayOfMonth);
     setMonth(parsed.month === '*' ? '1' : parsed.month);
     setQuarterStartMonth(getQuarterStartMonth(parsed.month) ?? '1');
@@ -188,37 +205,77 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
     customCron,
   ]);
 
-  const selectClassName = 'px-2 py-1 border rounded bg-white dark:bg-gray-800 dark:border-gray-600';
+  const selectClassName =
+    'min-h-8 max-w-full rounded-lg border-0 bg-transparent px-2 py-1 text-sm text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-primary';
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">
-          {intl.formatMessage(period === 'custom' ? i18n.mode : i18n.every)}
-        </span>
-        <select
-          value={period}
-          onChange={(e) => {
-            const nextPeriod = e.target.value as Period;
-            if (nextPeriod === 'custom' && period !== 'custom') {
-              setCustomCron(getCurrentCron(period, getValidDayOfMonth(dayOfMonth, maxDayOfMonth)));
-            }
-            setPeriod(nextPeriod);
-          }}
-          className={selectClassName}
-        >
-          <option value="minute">{intl.formatMessage(i18n.minute)}</option>
-          <option value="hour">{intl.formatMessage(i18n.hour)}</option>
-          <option value="day">{intl.formatMessage(i18n.day)}</option>
-          <option value="week">{intl.formatMessage(i18n.week)}</option>
-          <option value="month">{intl.formatMessage(i18n.month)}</option>
-          <option value="quarter">{intl.formatMessage(i18n.quarter)}</option>
-          <option value="year">{intl.formatMessage(i18n.year)}</option>
-          <option value="custom">{intl.formatMessage(i18n.custom)}</option>
-        </select>
+    <div className="rounded-2xl border border-border-primary px-4">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-primary py-2">
+        <span className="text-sm text-text-primary">{intl.formatMessage(i18n.repeat)}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={intl.formatMessage(i18n.repeat)}
+              className="flex min-h-8 items-center justify-end gap-2 rounded-lg px-1 py-1 text-sm text-text-secondary outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-primary"
+            >
+              {intl.formatMessage(
+                period === 'day'
+                  ? i18n.daily
+                  : period === 'weekdays'
+                    ? i18n.weekdays
+                    : period === 'week'
+                      ? i18n.weekly
+                      : i18n.customFrequency
+              )}
+              <ChevronDown className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={6}
+            className="w-44 rounded-2xl border-border-primary p-1"
+          >
+            <DropdownMenuLabel className="px-2.5 py-1.5 text-xs font-normal text-text-secondary">
+              {intl.formatMessage(i18n.frequency)}
+            </DropdownMenuLabel>
+            <Menu.RadioGroup
+              value={['day', 'weekdays', 'week'].includes(period) ? period : 'custom'}
+              onValueChange={(value) => {
+                const nextPeriod = value as Period;
+                if (nextPeriod === 'custom' && period !== 'custom')
+                  setCustomCron(
+                    getCurrentCron(period, getValidDayOfMonth(dayOfMonth, maxDayOfMonth))
+                  );
+                setPeriod(nextPeriod);
+              }}
+            >
+              {(['day', 'weekdays', 'week', 'custom'] as const).map((value) => (
+                <Menu.RadioItem
+                  key={value}
+                  value={value}
+                  className="relative flex cursor-default items-center justify-between rounded-lg px-2.5 py-1.5 text-sm text-text-primary outline-none data-[state=checked]:bg-background-secondary focus:bg-background-secondary"
+                >
+                  {intl.formatMessage(
+                    value === 'day'
+                      ? i18n.daily
+                      : value === 'weekdays'
+                        ? i18n.weekdays
+                        : value === 'week'
+                          ? i18n.weekly
+                          : i18n.customFrequency
+                  )}
+                  <Menu.ItemIndicator>
+                    <Check className="size-3.5" />
+                  </Menu.ItemIndicator>
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 py-3 [&>div]:flex-wrap [&>div]:justify-between">
         {period === 'custom' && (
           <div className="space-y-1">
             <label htmlFor="custom-cron-expression" className="text-sm">
@@ -229,7 +286,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
               type="text"
               value={customCron}
               onChange={(e) => setCustomCron(e.target.value)}
-              className="w-full px-2 py-1 border rounded"
+              className="w-full rounded-lg border border-border-primary bg-transparent px-3 py-2 text-sm outline-none focus:border-text-secondary"
             />
           </div>
         )}
@@ -295,7 +352,7 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
               max={maxDayOfMonth}
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(e.target.value)}
-              className="w-16 px-2 py-1 border rounded"
+              className="w-14 rounded-lg border border-border-primary bg-transparent px-2 py-1 text-sm"
             />
           </div>
         )}
@@ -320,37 +377,29 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
         )}
 
         {(period === 'day' ||
+          period === 'weekdays' ||
           period === 'week' ||
           period === 'month' ||
           period === 'quarter' ||
           period === 'year') && (
           <div className="flex items-center gap-2">
-            <span className="text-sm">{intl.formatMessage(i18n.at)}</span>
+            <span className="mr-auto text-sm text-text-primary">
+              {intl.formatMessage(i18n.time)}
+            </span>
             <input
-              type="number"
-              min="1"
-              max="12"
-              value={hour12}
-              onChange={(e) => setHour12(parseInt(e.target.value) || 1)}
-              className="w-16 px-2 py-1 border rounded"
+              type="time"
+              aria-label={intl.formatMessage(i18n.time)}
+              value={`${to24Hour(hour12, isPM).toString().padStart(2, '0')}:${minute.padStart(2, '0')}`}
+              onChange={(event) => {
+                if (!event.target.value) return;
+                const [hour, minute] = event.target.value.split(':').map(Number);
+                const time = to12Hour(hour);
+                setHour12(time.hour);
+                setIsPM(time.isPM);
+                setMinute(String(minute));
+              }}
+              className="rounded-lg border-0 bg-transparent px-2 py-1 text-sm tabular-nums text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-primary"
             />
-            <span className="text-sm">:</span>
-            <input
-              type="number"
-              min="0"
-              max="59"
-              value={minute}
-              onChange={(e) => setMinute(e.target.value.padStart(2, '0'))}
-              className="w-16 px-2 py-1 border rounded"
-            />
-            <select
-              value={isPM ? 'PM' : 'AM'}
-              onChange={(e) => setIsPM(e.target.value === 'PM')}
-              className={selectClassName}
-            >
-              <option value="AM">{intl.formatMessage(i18n.am)}</option>
-              <option value="PM">{intl.formatMessage(i18n.pm)}</option>
-            </select>
           </div>
         )}
 
@@ -383,9 +432,14 @@ export const CronPicker: React.FC<CronPickerProps> = ({ schedule, onChange, isVa
         )}
       </div>
 
-      <div className={`text-xs mt-2 ${hasCronError ? 'text-text-danger' : 'text-gray-500'}`}>
-        {readableCron}
-      </div>
+      {(period === 'custom' || hasCronError) && (
+        <div
+          className={`pb-3 text-xs ${hasCronError ? 'text-text-danger' : 'text-text-secondary'}`}
+          aria-live="polite"
+        >
+          {readableCron}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,3 +1,30 @@
+## 2026-10-30 已批准：仅自动任务迁移到 DSH 原生 Schedule
+
+删除或归档聊天通过官方 `workspace/session-stop` 停止其活动原生提醒；取消归档不会重新创建提醒。修改标题或内容不附加时序变更，保留官方已计算的下次运行时间。
+
+范围以用户最终澄清为准：仅自动任务模块，保留 CodeBuddy 其余前端；暂停与继续采用下方已批准的原生队列扩展，不把删除或改频率称作暂停。新建入口进入一条待发送的聊天草稿，由模型通过官方 `dsh-tool-schedule` 创建；`dsh-schedule` 是唯一的新任务持久化、计时、原始聊天绑定、收件箱投递及历史保留 owner。界面目录、卡片、右栏、侧栏时钟只消费原生记录和精确工具的成功结构化回执；不从模型自述提取任务。管理请求沿用原生生成的 Typert codecs 校验，不重新实现时间规则。
+
+提醒由原生 Host 直接 followup 到原始 Session，不中断、steer 或重新发送一条人工 query。CodeBuddy 仅在投递前准备该聊天已有模型、工具与权限，并为其原生轮次接通现有流式、授权、记录和取消观察通道；已有人工轮次接收提醒时继续使用同一通道。子 Agent 不暴露四个提醒工具。投递记录只确认持久化收件箱交付，不能作为模型完成或外部动作成功的证据。
+
+旧 `runtime/schedules.mjs` 规则和历史保留可查，原生接通时停止旧计时器，并拒绝通过退役入口继续创建或启用旧规则，避免双调度。旧版每次新建会话与原生固定聊天投递不等价，不自动改写绑定或悄悄迁移为另一种执行方式；用户可在聊天中重建所需提醒。旧记录不删除。以下早期任务级模型、表单及两种会话方式说明仅描述旧配置，受本节覆盖。
+
+## 2026-10-30 已批准：自动任务界面与任务级模型设置
+
+自动任务的新会话模型选择继续保存在既有 Recipe.settings.goose_provider/goose_model；可选 goose_thinking_effort 仅覆盖该 Recipe 会话的请求，不修改全局或其他聊天。省略或 null 沿用既有模型默认规则，运行前仍由现有模型能力与协议校验拒绝不支持的档位。当前聊天跟进继续继承该聊天的模型、强度及权限，不能附带 Recipe.settings。界面只显示已配置模型和实际可用档位。
+
+自动任务页也可关闭每次新聊天开关；无当前聊天时，必须由用户从既有聊天列表明确选择跟进目标。界面只调用已有会话列表/元信息接口，不加载历史、不切换当前聊天；提交仍使用原有 targetSessionId，目标有效性与运行校验仍由调度器负责。创建时按任务内容首行或 Recipe 标题自动命名，不再显示名称、来源切换及更多设置；既有 Recipe 链接入口保持兼容。
+
+重复菜单将每天、工作日、每周映射到原有 cron；其他旧周期仍可编辑或保留为自定义表达式。Harness 的 cron 解析和调度仍是时间事实 owner。本批不接入系统通知，不新增通知策略、完成状态或原生调度替代实现。
+
+
+## 2026-10-29 已批准：自动任务的两种会话方式
+
+`runtime/schedules.mjs` 继续持有唯一的自动任务时间调度、暂停、运行记录和持久化配置；日期计算复用锁定 DSH schedule 的现有助手，不加载第二个调度器。任务增加可选 `executionMode` 和 `targetSessionId`，旧数据缺省为 `new_session`。`new_session` 每次通过现有 CodeBuddy `session/new` 创建会话；`current_session` 绑定用户明确选择的当前聊天，通过同一 `Compat.prompt` 和 Harness driver 执行，消费该聊天的实时模型、权限、工具及历史，不覆盖它们，也不改变普通聊天分类。
+
+兼容层提供会话存在、只读、归档及活动状态；调度器据此校验绑定并跳过忙碌聊天的本次自动触发，不抢占手动执行。同一聊天已有调度尝试时也不再启动另一份。跟进 runner 仅取消自己登记的 turn，不能因任务停止而取消随后进入的手动 turn。删除聊天先暂停绑定任务并撤销已测试状态；删除新会话模式的某次结果不删除自动任务。重启后的中断及错过次数沿用现有规则，不重放。运行结束只消费结构化结果，不从模型文字判断成功。
+
+桌面移除常用任务导航入口；旧 Recipe 数据、链接和定时任务快照继续兼容。创建自动任务默认直接填写指令，默认每次新会话；只有确有当前聊天时才能选择跟进。跟进只接受任务指令，模型与工具配置仍归聊天自身所有。测试执行仍使用隔离数据；源码、自动回归与真实桌面验收分别记录。
+
 
 # CodePro 事实权威与模块职责
 
@@ -704,3 +731,9 @@ English: Desktop leases serialize normal operations. Escape withdraws existing d
 繁體：原生層提供版本化結構回執，Harness 逐次透傳，DesktopCoordinator 累計三次輸入衝突後撤回本輪及既有排隊電腦請求。成功輸入才清零，觀察不清零。任務與非桌面工作繼續，無恢復提示、不重播；新訊息只重新允許對應 token，舊客戶端不從文字推測狀態。
 
 English: Native code owns input-conflict facts, supplied through optional version-1 desktop_control MCP receipts and preserved by Harness even on errors. DesktopCoordinator counts once per receipt, including refresh-only outcomes; successful input resets the streak, observations and unrelated failures do not. Three conflicts fence the episode and previously queued desktop requests via the shared epoch, then release the lease after cleanup. Harness and independent tools continue. No resume UI or automatic replay is added. New input renews only its own token; legacy clients without receipts are not classified from prose and require a matched tool upgrade.
+
+### 2026-10-30 已批准：当前聊天自动任务暂停与继续
+
+原生 DSH Schedule 继续独占定时器、任务表、同一串行管理/投递队列、会话绑定和投递历史。CodeBuddy 对锁定 0.2.1-alpha.2 的内存加载扩展新增 `paused` 状态和 CAS 暂停/恢复操作；不引入 MichengAI 调度器、不删除重建任务、不复制任务状态。按钮与 `schedule_pause` / `schedule_resume` 共用此入口，`schedule_status` 只读本根聊天的任务；不额外增加批准弹窗，不授予文件、网络或子 Agent 权限。暂停仅阻止尚未进入原生投递的次数，已经投递到 Inbox 或开始运行的任务不取消。恢复保留原周期/时区并跳过已错过的次数；已过期的一次性任务结束且不补发。暂停任务保留 ID、历史及会话绑定，可编辑但不自动恢复；归档会话时暂停任务同样纳入原生停止处理。
+
+现有 active/inactive 数据无需迁移。暂停状态使用同一任务表；不支持把含 paused 行的数据交给未扩展的旧版本（旧版严格解码会拒绝，不会暗中执行）。回滚前先恢复/结束或明确删除所有暂停任务，并保留原数据备份。升级 DSH 时版本与源码哈希门禁要求重审本扩展；上游提供等价暂停接口后删除本扩展，不能静默混用。兼容层只传输实际回执，前端只展示提交后的状态。测试通过不等同真实桌面验收。

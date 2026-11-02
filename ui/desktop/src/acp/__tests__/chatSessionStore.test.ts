@@ -713,7 +713,11 @@ function turnTerminalNotification(
   } as never;
 }
 
-function completedSkippedTurnTerminalNotification(sessionId: string, runId: string) {
+function completedSkippedTurnTerminalNotification(
+  sessionId: string,
+  runId: string,
+  sourceUserMessageId = 'user-1'
+) {
   return {
     sessionId,
     update: {
@@ -726,7 +730,7 @@ function completedSkippedTurnTerminalNotification(sessionId: string, runId: stri
           session_id: sessionId,
           run_id: runId,
           terminal_message_id: 'terminal-skipped',
-          source_user_message_id: 'user-1',
+          source_user_message_id: sourceUserMessageId,
           status: 'completed',
           checkpoint_id: null,
           retry_strategy: 'not_available',
@@ -2518,4 +2522,44 @@ describe('useAcpChatSessionSnapshot', () => {
 
     expect(result.current?.messages).toEqual([nextMessage]);
   });
+});
+
+it('admits a new native scheduled turn after a completed human turn and does not reopen it on duplicate delivery', () => {
+  const id = 'native-reminder-after-terminal';
+  acpChatSessionActions.startPromptAttempt(id, 'human-attempt', 'user-1');
+  acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'human-run'));
+  acpChatSessionActions.applyAcpGooseSessionNotification(
+    completedSkippedTurnTerminalNotification(id, 'human-run')
+  );
+  const reminder: SessionNotification = {
+    sessionId: id,
+    update: {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'NATIVE_REMINDER' },
+      messageId: 'native-source',
+      _meta: { goose: { messageId: 'native-source', scheduled: true } },
+    },
+  };
+  const admitted = acpChatSessionActions.applyAcpSessionNotification(reminder);
+  expect(admitted.chatState).toBe(ChatState.Streaming);
+  expect(admitted.promptRequestId).toBeNull();
+  expect(
+    admitted.messages.find((message) => message.id === 'native-source')?.metadata.scheduled
+  ).toBe(true);
+  acpChatSessionActions.applyAcpSessionNotification(activeRunNotification(id, 'native-run'));
+  const streamed = acpChatSessionActions.applyAcpSessionNotification(
+    agentMessageChunkNotification(id, 'native-answer', 'VISIBLE_NATIVE_ANSWER')
+  );
+  expect(JSON.stringify(streamed.messages)).toContain('VISIBLE_NATIVE_ANSWER');
+  const finished = acpChatSessionActions.applyAcpGooseSessionNotification(
+    completedSkippedTurnTerminalNotification(id, 'native-run', 'native-source')
+  );
+  expect(finished.chatState).toBe(ChatState.Idle);
+  acpChatSessionActions.applyAcpSessionNotification(reminder);
+  const late = acpChatSessionActions.applyAcpSessionNotification(
+    agentMessageChunkNotification(id, 'late-answer', 'MUST_NOT_REOPEN')
+  );
+  expect(late.chatState).toBe(ChatState.Idle);
+  expect(JSON.stringify(late.messages)).not.toContain('MUST_NOT_REOPEN');
+  expect(late.messages.filter((message) => message.id === 'native-source')).toHaveLength(1);
 });

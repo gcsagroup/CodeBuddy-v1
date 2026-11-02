@@ -5006,7 +5006,9 @@
   "navigation.itemHome": {
     "defaultMessage": "新規チャット"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "メディアライブラリ"
   },
@@ -9395,5 +9397,38 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "scheduleModal.prompt": {
+    "defaultMessage": "タスクの指示"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "毎回の作業、報告内容、終了条件を入力してください。"
+  },
+  "scheduleModal.destination": {
+    "defaultMessage": "実行先"
+  },
+  "scheduleModal.newSession": {
+    "defaultMessage": "毎回新しいチャット"
+  },
+  "scheduleModal.currentSession": {
+    "defaultMessage": "現在のチャットでフォローアップ"
+  },
+  "scheduleModal.followHint": {
+    "defaultMessage": "このチャットの履歴、モデル、権限を使用します。使用中は今回の実行をスキップし、チャットを削除するとタスクを一時停止します。"
+  },
+  "scheduleModal.newHint": {
+    "defaultMessage": "毎回、設定済みの既定モデルで独立して開始します。"
+  },
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "フォローアップを作成するには、先にチャットを開いてください。"
+  },
+  "scheduleModal.advanced": {
+    "defaultMessage": "詳細設定"
+  },
+  "cronPicker.repeat": {
+    "defaultMessage": "繰り返し"
+  },
+  "cronPicker.time": {
+    "defaultMessage": "時刻"
   }
 }

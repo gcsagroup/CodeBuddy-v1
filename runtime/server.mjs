@@ -46,6 +46,8 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       driver = Object.fromEntries(
         [
           "createSession",
+          "startNativeSchedules",
+          "nativeScheduleRequest",
           "warmMcpServers",
           "configureSession",
           "permissions",

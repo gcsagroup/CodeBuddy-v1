@@ -3890,6 +3890,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Your own answer (optional)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Type your answer…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

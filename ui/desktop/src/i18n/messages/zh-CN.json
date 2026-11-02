@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "也可以填写自己的答案"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "输入你的回答…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "或自行撰写回复"
   },

@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Kendi yanıtınız (isteğe bağlı)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Yanıtınızı yazın…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

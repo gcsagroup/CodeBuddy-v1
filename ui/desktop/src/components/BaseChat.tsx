@@ -877,7 +877,10 @@ export default function BaseChat({
               !showHistoryLoading &&
               !cancelling &&
               chatState !== ChatState.Idle && (
-                <div className="mx-4">
+                <div className={cn('mx-4', workStatus.source === 'question' &&
+                  elicitationPresentation.requests.some(
+                    (request) => request.data.actionType === 'elicitation' && !request.data.continued
+                  ) && 'sr-only')}>
                   <LoadingGoose
                     key={sessionId}
                     chatState={chatState}

@@ -36,6 +36,7 @@ const i18n = defineMessages({
     defaultMessage: 'Select...',
   },
   customAnswer: { id: 'jsonSchemaForm.customAnswer', defaultMessage: 'Your own answer (optional)' },
+  answerPlaceholder: { id: 'jsonSchemaForm.answerPlaceholder', defaultMessage: 'Type your answer…' },
   customPlaceholder: {
     id: 'jsonSchemaForm.customPlaceholder',
     defaultMessage: 'Or write your own response',
@@ -87,6 +88,7 @@ interface JsonSchemaFormProps {
   cancelLabel?: string;
   disabled?: boolean;
   compact?: boolean;
+  questionLabelId?: string;
 }
 
 interface ChoiceOption {
@@ -131,6 +133,7 @@ export default function JsonSchemaForm({
   cancelLabel,
   disabled = false,
   compact = false,
+  questionLabelId,
 }: JsonSchemaFormProps) {
   const intl = useIntl();
   const fields = useMemo(() => {
@@ -225,6 +228,13 @@ export default function JsonSchemaForm({
       : options.some((option) => option.value === value)
         ? ''
         : String(value ?? '');
+  const titleId = questionLabelId ?? `${key}-title`;
+  const inlineAnswer =
+    compact &&
+    Boolean(questionLabelId) &&
+    !options.length &&
+    !allowsCustom &&
+    (!prop.type || prop.type === 'string');
   const isLastStep = step === fields.length - 1;
 
   const advance = () => {
@@ -321,7 +331,7 @@ export default function JsonSchemaForm({
         <div
           className={cn('flex flex-col gap-2', compact && 'gap-0.5')}
           role="group"
-          aria-labelledby={`${key}-title`}
+          aria-labelledby={titleId}
         >
           {options.map((option, index) =>
             renderChoice(
@@ -344,7 +354,7 @@ export default function JsonSchemaForm({
         <div
           className={cn('flex flex-col gap-2', compact && 'gap-0.5')}
           role="radiogroup"
-          aria-labelledby={`${key}-title`}
+          aria-labelledby={titleId}
         >
           {options.map((option, index) =>
             renderChoice(
@@ -368,6 +378,7 @@ export default function JsonSchemaForm({
       return (
         <Input
           id={key}
+          aria-labelledby={titleId}
           type="number"
           value={String(value ?? '')}
           min={prop.minimum}
@@ -388,13 +399,18 @@ export default function JsonSchemaForm({
       <div className="relative">
         <textarea
           id={key}
+          aria-labelledby={titleId}
+          rows={compact ? 2 : undefined}
+          placeholder={compact ? intl.formatMessage(i18n.answerPlaceholder) : undefined}
           value={String(value ?? '')}
           maxLength={prop.maxLength}
           disabled={disabled}
           onChange={(event) => updateValue(key, event.target.value)}
           className={cn(
             'min-h-32 w-full resize-y rounded-xl border border-border-primary bg-background-primary px-3 py-3 pb-7 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary hover:border-border-secondary focus:border-border-secondary disabled:cursor-not-allowed disabled:opacity-50',
-            compact && 'min-h-20'
+            compact &&
+              'block min-h-16 max-h-40 resize-none rounded-lg px-3 py-2 text-base leading-[22px] [field-sizing:content] focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-border-secondary',
+            compact && prop.maxLength !== undefined && 'pb-5'
           )}
         />
         {prop.maxLength !== undefined && (
@@ -412,36 +428,45 @@ export default function JsonSchemaForm({
         event.preventDefault();
         advance();
       }}
-      className={cn('flex flex-col gap-4', compact && 'gap-2')}
+      className={cn(
+        'flex flex-col gap-4',
+        compact && 'gap-1.5',
+        inlineAnswer &&
+          '@min-[18rem]:grid @min-[18rem]:grid-cols-[minmax(0,1fr)_auto] @min-[18rem]:items-end'
+      )}
     >
       <div
         className={cn(
           'flex flex-col gap-3',
-          compact && 'max-h-[min(22vh,12rem)] gap-2 overflow-y-auto'
+          compact && 'min-w-0 max-h-[min(26vh,14rem)] gap-1.5 overflow-y-auto'
         )}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3
-              id={`${key}-title`}
-              className={cn(
-                'text-base font-semibold text-text-primary',
-                compact && 'text-xs leading-4'
+        {(!questionLabelId || prop.description) && (
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              {!questionLabelId && (
+                <h3
+                  id={`${key}-title`}
+                  className={cn(
+                    'text-base font-semibold text-text-primary',
+                    compact && 'text-xs leading-4'
+                  )}
+                >
+                  {prop.title || key}
+                  {required && !compact && <span className="ml-1 text-red-500">*</span>}
+                </h3>
               )}
-            >
-              {prop.title || key}
-              {required && !compact && <span className="ml-1 text-red-500">*</span>}
-            </h3>
-            {prop.description && (
-              <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
+              {prop.description && (
+                <p className="mt-1 text-sm text-text-secondary">{prop.description}</p>
+              )}
+            </div>
+            {(!compact || fields.length > 1) && (
+              <span className="shrink-0 text-sm tabular-nums text-text-secondary">
+                {step + 1} / {fields.length}
+              </span>
             )}
           </div>
-          {(!compact || fields.length > 1) && (
-            <span className="shrink-0 text-sm tabular-nums text-text-secondary">
-              {step + 1} / {fields.length}
-            </span>
-          )}
-        </div>
+        )}
 
         {renderField()}
         {allowsCustom && (
@@ -481,21 +506,21 @@ export default function JsonSchemaForm({
       <div
         className={cn(
           'mt-1 flex items-center justify-end gap-2 border-t border-border-primary pt-3',
-          compact && 'mt-0 pt-2'
+          compact && 'mt-0 gap-1 border-0 pt-0'
         )}
       >
         {onCancel && (
           <Button
             type="button"
             size={compact ? 'sm' : 'default'}
-            variant="outline"
+            variant={compact ? 'ghost' : 'outline'}
             onClick={onCancel}
             disabled={disabled}
           >
             {cancelLabel ?? intl.formatMessage(i18n.cancel)}
           </Button>
         )}
-        {step > 0 && !compact && (
+        {step > 0 && (
           <Button
             type="button"
             size={compact ? 'sm' : 'default'}

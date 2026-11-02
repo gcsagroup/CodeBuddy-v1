@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "自由回答（任意）"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "回答を入力…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

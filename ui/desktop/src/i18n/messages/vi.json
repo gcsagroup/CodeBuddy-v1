@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Câu trả lời của bạn (không bắt buộc)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Nhập câu trả lời của bạn…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

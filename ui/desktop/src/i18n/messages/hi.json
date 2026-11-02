@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "अपना उत्तर (वैकल्पिक)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "अपना उत्तर लिखें…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

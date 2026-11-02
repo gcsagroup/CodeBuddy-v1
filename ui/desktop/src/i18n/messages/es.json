@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Tu propia respuesta (opcional)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Escribe tu respuesta…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

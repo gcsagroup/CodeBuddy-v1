@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "직접 입력 (선택 사항)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "답변을 입력하세요…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

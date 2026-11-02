@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { MessageCircleQuestion, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ActionRequired } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
@@ -87,6 +87,7 @@ export default function ElicitationRequest({
   standalone = false,
 }: ElicitationRequestProps) {
   const intl = useIntl();
+  const headingId = useId();
   const [submitted, setSubmitted] = useState(isClicked);
   const [submittedAction, setSubmittedAction] = useState<'accept' | 'cancel'>('accept');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,13 +144,19 @@ export default function ElicitationRequest({
       (field) => field._meta?.['codepro.dev/feedbackField']
     )
   );
+  const questionFields = Object.entries(schema.properties ?? {}).filter(
+    ([key]) => !feedbackFields.has(key)
+  );
   const repeatsQuestion =
     message ===
-    Object.entries(schema.properties ?? {})
-      .filter(([key]) => !feedbackFields.has(key))
+    questionFields
       .map(([, field]) => field.title)
       .filter(Boolean)
       .join('\n');
+  const heading =
+    standalone && !planReview && questionFields.length === 1 && (!message || repeatsQuestion)
+      ? questionFields[0][1].title
+      : undefined;
 
   const submitResponse = async (
     formData: Record<string, unknown>,
@@ -255,27 +262,43 @@ export default function ElicitationRequest({
       className={cn(
         'flex flex-col',
         standalone &&
-          'shrink-0 rounded-2xl border border-border-primary bg-background-primary shadow-sm'
+          '@container shrink-0 rounded-xl border border-border-primary bg-background-primary',
+        standalone && !planReview && 'w-full max-w-xl self-start'
       )}
     >
       {standalone && (
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 rounded-t-2xl px-4 py-1.5 text-text-secondary hover:bg-background-secondary focus-visible:ring-1 focus-visible:ring-border-secondary"
+          className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-left text-text-secondary hover:bg-background-secondary focus-visible:ring-1 focus-visible:ring-border-secondary"
           aria-label={intl.formatMessage(collapsed ? i18n.expand : i18n.collapse)}
           aria-expanded={!collapsed}
+          aria-controls={`${headingId}-body`}
           onClick={() => setCollapsed((current) => !current)}
         >
-          <span className="flex items-center gap-2 text-xs text-text-secondary">
-            <MessageCircleQuestion className="h-4 w-4" aria-hidden="true" />
-            {intl.formatMessage(
-              collapsed ? i18n.expand : planReview ? i18n.planReview : i18n.question
-            )}
+          <span className="flex min-w-0 items-start gap-2 text-xs text-text-secondary">
+            <MessageCircleQuestion className="size-4 shrink-0" aria-hidden="true" />
+            <span
+              id={headingId}
+              className={cn(
+                heading &&
+                  'text-sm font-medium leading-5 text-text-primary [overflow-wrap:anywhere]',
+                collapsed && 'truncate'
+              )}
+            >
+              {heading ||
+                intl.formatMessage(
+                  collapsed ? i18n.expand : planReview ? i18n.planReview : i18n.question
+                )}
+            </span>
           </span>
-          {collapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {collapsed ? (
+            <ChevronDown className="size-3.5 shrink-0" />
+          ) : (
+            <ChevronUp className="size-3.5 shrink-0" />
+          )}
         </button>
       )}
-      <div hidden={standalone && collapsed}>
+      <div id={`${headingId}-body`} hidden={standalone && collapsed}>
         {!planReview && !repeatsQuestion && (message || !hasSchemaFields) && (
           <div
             className={cn(
@@ -290,7 +313,7 @@ export default function ElicitationRequest({
         <div
           className={cn(
             'goose-message-content bg-background-primary px-4 pb-3 pt-1',
-            standalone && 'pb-2',
+            standalone && 'rounded-b-xl px-3 pb-2.5 pt-0',
             !standalone && 'border border-border-primary dark:border-gray-700 rounded-b-2xl py-3'
           )}
         >
@@ -304,6 +327,7 @@ export default function ElicitationRequest({
           ) : hasSchemaFields ? (
             <JsonSchemaForm
               compact={standalone}
+              questionLabelId={heading ? headingId : undefined}
               schema={schema}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
@@ -335,7 +359,9 @@ export default function ElicitationRequest({
               {submitError}
             </div>
           )}
-          {(timeRemaining !== undefined || actionRequiredContent.data.nativeQuestion) && (
+          {(timeRemaining !== undefined ||
+            continued ||
+            (!standalone && actionRequiredContent.data.nativeQuestion)) && (
             <div
               className={cn(
                 'mt-2 text-xs',

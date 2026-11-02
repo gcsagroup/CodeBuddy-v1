@@ -3884,6 +3884,9 @@
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Jawapan anda sendiri (pilihan)"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Taip jawapan anda…"
+  },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
   },

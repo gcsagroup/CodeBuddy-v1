@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import './ThinkingEffortSlider.css';
@@ -198,6 +198,10 @@ function ThinkingEffortSlider({
         <Popover.Content
           data-thinking-effort-card
           data-effort={settings.options[index]}
+          style={{
+            '--effort-lightness': `${60 - fraction * 17}%`,
+            '--effort-flow-opacity': 0.4 + fraction * 0.4,
+          } as CSSProperties}
           updatePositionStrategy="always"
           side="top"
           align="start"

@@ -36,6 +36,10 @@ test('slider supports pointer, keyboard and model selection with the new layout'
     expect(cardBounds.height).toBeLessThanOrEqual(120);
     await card.screenshot({ path: test.info().outputPath('slider-light.png') });
     const fill = page.locator('.thinking-effort-fill');
+    expect((await fill.boundingBox())!.height).toBeGreaterThanOrEqual(16);
+    const idleFlowSeconds = await fill.evaluate(
+      (element) => parseFloat(getComputedStyle(element, '::after').animationDuration)
+    );
     const flowingColor = await fill.evaluate((element) => getComputedStyle(element).color);
     const flowPosition = await fill.evaluate(
       (element) => getComputedStyle(element, '::after').transform
@@ -49,15 +53,25 @@ test('slider supports pointer, keyboard and model selection with the new layout'
     await page.mouse.move(bounds.x + 10, bounds.y + bounds.height / 2, { steps: 12 });
     await expect(slider).toHaveAttribute('aria-valuetext', '低');
     await expect(card).toHaveAttribute('data-effort', 'low');
+    const lowLightness = await card.evaluate(
+      (element) => parseFloat(getComputedStyle(element).getPropertyValue('--effort-lightness'))
+    );
+    expect(await fill.evaluate(
+      (element) => parseFloat(getComputedStyle(element, '::after').animationDuration)
+    )).toBeLessThan(idleFlowSeconds);
     await expect
       .poll(() => fill.evaluate((element) => getComputedStyle(element).color))
       .not.toBe(flowingColor);
     await expect(trigger).toBeVisible(); // Preview has not committed before release.
     await page.mouse.up();
     await expect(page.getByRole('button', { name: '思考强度: 低', exact: true })).toBeVisible();
+    await card.screenshot({ path: test.info().outputPath('slider-low.png') });
     await slider.press('End');
     await expect(slider).toHaveAttribute('aria-valuetext', '极致');
     await expect(card).toHaveAttribute('data-effort', 'max');
+    expect(await card.evaluate(
+      (element) => parseFloat(getComputedStyle(element).getPropertyValue('--effort-lightness'))
+    )).toBeLessThan(lowLightness);
     await expect(fill).toHaveCSS('color', 'rgb(182, 37, 61)');
     await card.screenshot({ path: test.info().outputPath('slider-max.png') });
     await slider.press('ArrowLeft');

@@ -96,6 +96,35 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
     .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
 }
 
+export function groupNavigationSessions(
+  sessions: SessionListItem[],
+  defaultWorkspaceRoot: string
+): { tasks: SessionListItem[]; projects: ProjectGroup[] } {
+  const root = projectPathIdentity(defaultWorkspaceRoot);
+  const separator = root.includes('\\') || /^[a-z]:/u.test(root) ? '\\' : '/';
+  const rootPrefix = root.endsWith(separator) ? root : root + separator;
+  const tasks: SessionListItem[] = [];
+  const projects: SessionListItem[] = [];
+  for (const session of sessions) {
+    const directory = projectPathIdentity(session.workingDir);
+    // New sessions retain the actual choice. Older records only know their cwd;
+    // the configured managed root is their display fallback, never a permissions rule.
+    const isTask =
+      session.workspaceOrigin === 'selected'
+        ? false
+        : session.workspaceOrigin === 'default' ||
+          session.workspaceBinding === 'unbound' ||
+          !directory ||
+          (!!root && (directory === root || directory.startsWith(rootPrefix)));
+    (isTask ? tasks : projects).push(session);
+  }
+  tasks.sort(
+    (a, b) =>
+      new Date(getSessionActivityTime(b)).getTime() - new Date(getSessionActivityTime(a)).getTime()
+  );
+  return { tasks, projects: groupSessionsByProject(projects) };
+}
+
 function getDisambiguatedProjectLabel(workingDir: string): string {
   const withoutTrailingSeparators = normalizeProjectPath(workingDir);
   if (!withoutTrailingSeparators) {

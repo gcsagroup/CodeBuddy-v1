@@ -525,6 +525,18 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       };
     }, [loadSessions, debouncedSearchTerm]);
 
+    useEffect(() => {
+      const refreshSessions = () => {
+        void loadSessions(debouncedSearchTerm);
+      };
+      window.addEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+      window.addEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+      return () => {
+        window.removeEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+        window.removeEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+      };
+    }, [loadSessions, debouncedSearchTerm]);
+
     // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
     useEffect(() => {
       const config = window.electron.getConfig();

@@ -64,10 +64,22 @@ describe('ACP sessions', () => {
   });
 
   it('passes the requested native preset atomically when creating a session', async () => {
-    const client = { newSession: vi.fn().mockResolvedValue({sessionId: 'session-1', modes: {currentModeId: 'read-only'}}), setSessionMode: vi.fn(), goose: {sessionInfo_unstable: vi.fn().mockResolvedValue({session: sessionInfo()})} };
-    vi.mocked(getAcpClient).mockResolvedValue(client as unknown as Awaited<ReturnType<typeof getAcpClient>>);
-    const result = await acpNewSession('/tmp', [], {initialPermissionPreset: 'read-only'});
-    expect(client.newSession).toHaveBeenCalledWith(expect.objectContaining({_meta: expect.objectContaining({initialPermissionPreset: 'read-only'})}));
+    const client = {
+      newSession: vi
+        .fn()
+        .mockResolvedValue({ sessionId: 'session-1', modes: { currentModeId: 'read-only' } }),
+      setSessionMode: vi.fn(),
+      goose: { sessionInfo_unstable: vi.fn().mockResolvedValue({ session: sessionInfo() }) },
+    };
+    vi.mocked(getAcpClient).mockResolvedValue(
+      client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+    const result = await acpNewSession('/tmp', [], { initialPermissionPreset: 'read-only' });
+    expect(client.newSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _meta: expect.objectContaining({ initialPermissionPreset: 'read-only' }),
+      })
+    );
     expect(result.meta.gooseMode).toBe('read-only');
     expect(client.setSessionMode).not.toHaveBeenCalled();
   });
@@ -306,6 +318,7 @@ describe('ACP sessions', () => {
               lastMessageAt: '2026-01-01T00:01:00Z',
               messageCount: 3,
               sessionType: 'sub_agent',
+              workspaceOrigin: 'selected',
               providerId: 'anthropic',
               modelId: 'claude-sonnet-4-5',
             },
@@ -323,6 +336,7 @@ describe('ACP sessions', () => {
     expect(item).toMatchObject({
       id: 'session-1',
       name: 'Subagent session',
+      workspaceOrigin: 'selected',
       workingDir: '/tmp',
       messageCount: 3,
       lastMessageAt: '2026-01-01T00:01:00Z',
@@ -379,6 +393,7 @@ describe('ACP sessions', () => {
       projectId: 'ledger-a1b2c3d4e5f6',
       workspaceLeaseId: 'lease-1',
       workspaceBinding: 'writable_project',
+      workspaceOrigin: 'selected',
     });
 
     expect(client.newSession).toHaveBeenCalledWith({
@@ -390,8 +405,25 @@ describe('ACP sessions', () => {
         projectId: 'ledger-a1b2c3d4e5f6',
         workspaceLeaseId: 'lease-1',
         workspaceBinding: 'writable_project',
+        workspaceOrigin: 'selected',
       },
     });
+  });
+
+  it('keeps an unbound process directory out of the visible session list', async () => {
+    const client = {
+      listSessions: vi.fn().mockResolvedValue({
+        sessions: [
+          sessionInfo({
+            cwd: 'C:\\host-process',
+            _meta: { workspaceBinding: 'unbound', sessionType: 'code_pro' },
+          }),
+        ],
+      }),
+    };
+    vi.mocked(getAcpClient).mockResolvedValue(client as never);
+    const result = await acpListSessions(undefined, undefined, 'codepro');
+    expect(result.sessions[0]).toMatchObject({ workingDir: '', workspaceBinding: 'unbound' });
   });
 
   it('persists unbound and root-container bindings across ACP new_session', async () => {

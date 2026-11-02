@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { acpListSessions } from '../../acp/sessions';
+import { AppEvents } from '../../constants/events';
 import SessionListView from './SessionListView';
 
 vi.mock('../../acp/sessions', () => ({ acpListSessions: vi.fn() }));
@@ -74,6 +75,59 @@ describe('history pagination and search generations', () => {
       3,
       'page-3',
       { keyword: '', includeArchived: true },
+      'unified'
+    );
+  });
+
+  it('refreshes a mounted history card when another view renames its session', async () => {
+    const initial = page(['Original title']);
+    vi.mocked(acpListSessions).mockResolvedValue(initial);
+    render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
+      wrapper: IntlTestWrapper,
+    });
+    await screen.findByText('Original title');
+    vi.mocked(acpListSessions).mockResolvedValue({
+      ...initial,
+      sessions: [{ ...initial.sessions[0], name: 'Renamed title', userSetName: true }],
+    });
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.SESSION_RENAMED, {
+          detail: { sessionId: 'Original title', newName: 'Renamed title', userInitiated: true },
+        })
+      );
+    });
+    expect(await screen.findByText('Renamed title')).toBeVisible();
+    expect(screen.queryByText('Original title')).not.toBeInTheDocument();
+  });
+
+  it('rechecks the current search after a rename changes which sessions match', async () => {
+    vi.mocked(acpListSessions).mockResolvedValue(page(['Matching title']));
+    render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
+      wrapper: IntlTestWrapper,
+    });
+    await screen.findByText('Matching title');
+    fireEvent.change(openSearch(), { target: { value: 'Matching' } });
+    await waitFor(() =>
+      expect(acpListSessions).toHaveBeenCalledWith(
+        undefined,
+        { keyword: 'Matching', includeArchived: true },
+        'unified'
+      )
+    );
+    vi.mocked(acpListSessions).mockResolvedValue(page([]));
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.SESSION_RENAMED, {
+          detail: { sessionId: 'Matching title', newName: 'Different title', userInitiated: true },
+        })
+      );
+    });
+    await waitFor(() => expect(screen.queryByText('Matching title')).not.toBeInTheDocument());
+    expect(screen.getByText('No matching sessions found')).toBeVisible();
+    expect(acpListSessions).toHaveBeenLastCalledWith(
+      undefined,
+      { keyword: 'Matching', includeArchived: true },
       'unified'
     );
   });

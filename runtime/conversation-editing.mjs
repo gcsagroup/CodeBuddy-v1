@@ -73,7 +73,7 @@ export class ConversationEditing {
         } else {
           const id = randomUUID();
           const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: `${source.title} (fork)`, createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }) } };
-          for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
+          for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'workspaceOrigin', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
           state.sessions.push(copy);
           result = { sessionId: id };
         }

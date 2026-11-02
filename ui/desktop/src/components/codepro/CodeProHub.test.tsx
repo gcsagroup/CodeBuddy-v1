@@ -298,6 +298,7 @@ describe('CodeProHub', () => {
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(screen.queryByRole('heading', { name: 'Confirm project workspace' })).toBeNull();
     expect(startCodeProSession).toHaveBeenCalledWith({
+      workspaceOrigin: 'default',
       initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage: { msg: '开发一个记账应用', images: [] },
@@ -369,7 +370,11 @@ describe('CodeProHub', () => {
       selectedWorkingDir: 'D:\\SchoolSystem',
     });
     expect(startCodeProSession).toHaveBeenCalledWith(
-      expect.objectContaining({ candidate: selected, initialMessage: submittedInput })
+      expect.objectContaining({
+        workspaceOrigin: 'selected',
+        candidate: selected,
+        initialMessage: submittedInput,
+      })
     );
     expect(getHostProcessWorkingDir).not.toHaveBeenCalled();
   });
@@ -387,7 +392,7 @@ describe('CodeProHub', () => {
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(window.electron.defaultCodeProWorkspacePath).toHaveBeenCalledTimes(2);
     expect(startCodeProSession).toHaveBeenCalledWith(
-      expect.objectContaining({ initialMessage: submittedInput })
+      expect.objectContaining({ workspaceOrigin: 'default', initialMessage: submittedInput })
     );
   });
 
@@ -410,6 +415,7 @@ describe('CodeProHub', () => {
 
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      workspaceOrigin: 'default',
       initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage,
@@ -503,6 +509,7 @@ describe('CodeProHub', () => {
 
     await waitFor(() => expect(createSession).toHaveBeenCalledOnce());
     expect(createSession).toHaveBeenCalledWith('D:\\', {
+      workspaceOrigin: 'selected',
       initialPermissionPreset: 'workspace-write',
       allExtensions: [],
       workspaceMode: 'codepro',
@@ -548,6 +555,7 @@ describe('CodeProHub', () => {
     });
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      workspaceOrigin: 'default',
       initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage: submittedInput,
@@ -612,6 +620,7 @@ describe('CodeProHub', () => {
     await user.click(screen.getByRole('button', { name: 'Retry workspace setup' }));
     await waitFor(() => expect(startCodeProSession).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledWith({
+      workspaceOrigin: 'default',
       initialPermissionPreset: 'workspace-write',
       candidate: inspection,
       initialMessage,

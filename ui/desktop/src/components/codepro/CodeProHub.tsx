@@ -65,6 +65,7 @@ export interface CodeProLaunchIntent {
 }
 
 interface PendingCodeProStart {
+  workspaceOrigin: 'default' | 'selected';
   intent: CodeProLaunchIntent;
   candidates: CodeProWorkspaceInspection[];
 }
@@ -253,7 +254,11 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         ) {
           throw new Error('The allocated workspace is not empty');
         }
-        setPendingStart({ intent, candidates });
+        setPendingStart({
+          intent,
+          candidates,
+          workspaceOrigin: explicitWorkingDir ? 'selected' : 'default',
+        });
       } catch (error) {
         submissionLifecycleRef.current?.onRejectedBeforeAcceptance();
         submissionLifecycleRef.current = undefined;
@@ -302,6 +307,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
             allExtensions: sessionExtensions,
             workspaceMode: 'codepro',
             workspaceBinding: 'root_container',
+            workspaceOrigin: 'selected',
             rootContainerPath: candidate.normalizedPath,
             ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
             ...(pending.intent.recipeDeeplink
@@ -326,6 +332,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       setSetupError(null);
       try {
         const { session } = await startCodeProSession({
+          workspaceOrigin: pending.workspaceOrigin,
           candidate,
           initialMessage: pending.intent.initialMessage ?? { msg: '', images: [] },
           allExtensions: sessionExtensions,

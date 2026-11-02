@@ -88,7 +88,7 @@ import {
 const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
   'providerId', 'modelId', 'type', 'agentProfile', 'workspaceBinding', 'projectId', 'scheduleId',
-  'readonlyHistory', 'userSetName', 'archivedAt'];
+  'readonlyHistory', 'userSetName', 'archivedAt', 'workspaceOrigin'];
 
 function imageDisplayBlock(item) {
   if (item?.type !== "image") return item;
@@ -783,6 +783,7 @@ export class Compat {
         sessionType: scheduled ? "scheduled" : s.type,
         workspaceBinding: s.workspaceBinding,
         agentProfile: s.agentProfile ? { id: s.agentProfile.id, name: s.agentProfile.name, avatar: s.agentProfile.avatar, revision: s.agentProfile.revision } : undefined,
+        workspaceOrigin: s.workspaceOrigin,
         projectId: s.projectId,
         activeRunId: this.runs.latest(s.id, state)?.runId,
         // Explicitly imported histories are retained records, including empty
@@ -1509,6 +1510,9 @@ Use this role throughout this workspace.` : basePrompt,
           modelId: defaults.modelId,
           type: codePro ? "code_pro" : "user",
           workspaceBinding: p._meta?.workspaceBinding ?? "writable_project",
+          ...(p._meta?.workspaceOrigin === 'default' || p._meta?.workspaceOrigin === 'selected'
+            ? { workspaceOrigin: p._meta.workspaceOrigin }
+            : {}),
           projectId: p._meta?.projectId ?? null,
           initialPermissionPreset: p._meta?.initialPermissionPreset ?? initialPermissionPreset({}, this.store.read(['preferences']).preferences),
           ...(await sealSessionExtensions(

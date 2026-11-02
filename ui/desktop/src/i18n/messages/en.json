@@ -5291,7 +5291,9 @@
   "navigation.itemHome": {
     "defaultMessage": "New Task"
   },
-  "navigation.itemCustomAgents": { "defaultMessage": "Custom Agents" },
+  "navigation.itemCustomAgents": {
+    "defaultMessage": "Custom Agents"
+  },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Media Library"
   },
@@ -5311,10 +5313,10 @@
     "defaultMessage": "Toolbox"
   },
   "navigationPanel.chats": {
-    "defaultMessage": "Chats"
+    "defaultMessage": "Tasks"
   },
   "navigationPanel.noChats": {
-    "defaultMessage": "No recent chats"
+    "defaultMessage": "No recent tasks"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
@@ -9749,5 +9751,23 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
+  },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   }
 }

@@ -41,12 +41,13 @@ interface SessionStatus {
 const i18n = defineMessages({
   chats: {
     id: 'navigationPanel.chats',
-    defaultMessage: 'Chats',
+    defaultMessage: 'Tasks',
   },
   noChats: {
     id: 'navigationPanel.noChats',
-    defaultMessage: 'No recent chats',
+    defaultMessage: 'No recent tasks',
   },
+  workspaces: { id: 'navigationPanel.workspaces', defaultMessage: 'Workspaces' },
   untitledSession: {
     id: 'navigationPanel.untitledSession',
     defaultMessage: 'Untitled session',
@@ -98,6 +99,7 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
 };
 
 interface SessionRowProps {
+  nested?: boolean;
   hasSchedule?: boolean;
   session: SessionListItem;
   active: boolean;
@@ -107,6 +109,7 @@ interface SessionRowProps {
 }
 
 export const SessionRow: React.FC<SessionRowProps> = ({
+  nested = true,
   hasSchedule = false,
   session,
   active,
@@ -128,7 +131,9 @@ export const SessionRow: React.FC<SessionRowProps> = ({
       <div
         onClick={() => !isEditing && onClick()}
         className={cn(
-          'group/session-row relative flex min-h-7 items-center gap-1.5 -ml-3 mr-1 pl-6 pr-2 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
+          'group/session-row relative flex min-h-7 items-center gap-1.5 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
+          nested ? '-ml-3 mr-1 pl-6 pr-2' : 'mx-1 min-h-8 px-3',
+          !nested && hasSchedule && 'pl-7',
           'hover:text-text-primary transition-colors',
           active && 'bg-background-tertiary'
         )}
@@ -274,7 +279,9 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
         )}
       </div>
       <CollapsibleContent className="codepro-disclosure-content">
-        <div className="ml-3 pl-2.5 pt-1">{group.sessions.map(renderSession)}</div>
+        <div className="ml-3 pl-2.5 pt-1">
+          {group.sessions.map((session) => renderSession(session))}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -287,15 +294,17 @@ interface NavigationProps {
   needsTrafficLightInset?: boolean;
 }
 
-export function NavigationChatsSection({ children }: { children: React.ReactNode }) {
+export function NavigationChatsSection({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title?: string;
+}) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(true);
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      className="flex-1 min-h-0 flex flex-col mt-4"
-    >
+    <Collapsible open={expanded} onOpenChange={setExpanded} className="min-h-0 flex flex-col mt-4">
       <CollapsibleTrigger className="flex items-center gap-1 px-4 py-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors self-start">
         <ChevronRight
           className={cn(
@@ -303,10 +312,10 @@ export function NavigationChatsSection({ children }: { children: React.ReactNode
             expanded && 'rotate-90'
           )}
         />
-        <span>{intl.formatMessage(i18n.chats)}</span>
+        <span>{title ?? intl.formatMessage(i18n.chats)}</span>
       </CollapsibleTrigger>
-      <CollapsibleContent className="codepro-disclosure-content min-h-0 h-full">
-        <div className="h-full overflow-y-auto px-2 pb-2 pt-1">{children}</div>
+      <CollapsibleContent className="codepro-disclosure-content min-h-0">
+        <div className="px-2 pb-2 pt-1">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -405,7 +414,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 
   const {
-    recentSessions,
+    recentTaskSessions,
     recentSessionsByProject,
     activeSessionId,
     fetchSessions,
@@ -471,6 +480,26 @@ export const Navigation: React.FC<NavigationProps> = ({
     }
   }, [isNavExpanded, fetchSessions]);
 
+  const renderSession = (session: SessionListItem, nested = true) => (
+    <SessionRow
+      key={session.id}
+      session={session}
+      nested={nested}
+      hasSchedule={scheduledSessions.has(session.id)}
+      active={session.id === activeSessionId}
+      status={{
+        streamState: sessionStatuses.get(session.id)?.streamState ?? 'idle',
+        hasUnreadActivity:
+          petUnread?.has(session.id) ?? sessionStatuses.get(session.id)?.hasUnreadActivity ?? false,
+      }}
+      onClick={() => {
+        clearUnread(session.id);
+        handleSessionClick(session.id);
+      }}
+      onRenamed={fetchSessions}
+    />
+  );
+
   return (
     <motion.div
       ref={navFocusRef}
@@ -478,7 +507,10 @@ export const Navigation: React.FC<NavigationProps> = ({
       initial={false}
       animate={{ opacity: isNavExpanded ? 1 : 0 }}
       transition={{ duration: reducedMotion ? 0 : 0.18 }}
-      className={cn('bg-background-primary outline-none flex flex-col h-full', className)}
+      className={cn(
+        'bg-[#f9fafb] dark:bg-background-secondary outline-none flex flex-col h-full',
+        className
+      )}
     >
       <NavigationHeaderSlot
         workspaceMode={workspaceMode}
@@ -499,41 +531,24 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
-      <NavigationChatsSection>
-        {recentSessions.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-text-secondary">
-            {intl.formatMessage(i18n.noChats)}
-          </div>
-        ) : recentSessionsByProject.length > 0 ? (
-          recentSessionsByProject.map((group: ProjectGroup) => (
-            <ProjectSessionGroup
-              key={group.path}
-              group={group}
-              avatars={agentAvatars}
-              renderSession={(session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  hasSchedule={scheduledSessions.has(session.id)}
-                  active={session.id === activeSessionId}
-                  status={{
-                    streamState: sessionStatuses.get(session.id)?.streamState ?? 'idle',
-                    hasUnreadActivity:
-                      petUnread?.has(session.id) ??
-                      sessionStatuses.get(session.id)?.hasUnreadActivity ??
-                      false,
-                  }}
-                  onClick={() => {
-                    clearUnread(session.id);
-                    handleSessionClick(session.id);
-                  }}
-                  onRenamed={fetchSessions}
-                />
-              )}
-            />
-          ))
-        ) : null}
-      </NavigationChatsSection>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        <NavigationChatsSection>
+          {recentTaskSessions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.noChats)}
+            </div>
+          ) : (
+            recentTaskSessions.map((session) => renderSession(session, false))
+          )}
+        </NavigationChatsSection>
+        {recentSessionsByProject.length > 0 && (
+          <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}>
+            {recentSessionsByProject.map((group: ProjectGroup) => (
+              <ProjectSessionGroup key={group.path} group={group} avatars={agentAvatars} renderSession={renderSession} />
+            ))}
+          </NavigationChatsSection>
+        )}
+      </div>
 
       <div className="px-2 py-2">
         <NavRow

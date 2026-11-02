@@ -43,10 +43,13 @@ interface GooseSessionInfoMeta {
   lastMessageSnippet?: string;
   workspaceBinding?: 'unbound' | 'root_container' | 'project_container' | 'writable_project';
   rootContainerPath?: string;
+  workspaceOrigin?: 'default' | 'selected';
 }
 
 export interface SessionListItem {
   agentProfile?: Session['agent_profile'];
+  workspaceOrigin?: 'default' | 'selected';
+  workspaceBinding?: GooseSessionInfoMeta['workspaceBinding'];
   id: string;
   name: string;
   workingDir: string;
@@ -137,6 +140,9 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
       ...(meta.readonlyHistory === true ? { readonlyHistory: true } : {}),
       ...(meta.workspaceBinding ? { workspaceBinding: meta.workspaceBinding } : {}),
       ...(meta.rootContainerPath ? { rootContainerPath: meta.rootContainerPath } : {}),
+      ...(meta.workspaceOrigin === 'default' || meta.workspaceOrigin === 'selected'
+        ? { workspaceOrigin: meta.workspaceOrigin }
+        : {}),
     },
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
@@ -156,7 +162,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
   return {
     id: String(s.sessionId),
     name: s.title ?? DEFAULT_CHAT_TITLE,
-    workingDir: s.cwd,
+    workingDir: meta.workspaceBinding === 'unbound' ? '' : s.cwd,
     updatedAt: s.updatedAt ?? '',
     messageCount: meta.messageCount ?? 0,
     lastMessageAt: meta.lastMessageAt,
@@ -169,6 +175,11 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
     agentProfile: sessionInfoToSession(s).agent_profile,
+    workspaceBinding: meta.workspaceBinding,
+    workspaceOrigin:
+      meta.workspaceOrigin === 'default' || meta.workspaceOrigin === 'selected'
+        ? meta.workspaceOrigin
+        : undefined,
   };
 }
 
@@ -346,6 +357,7 @@ export interface AcpNewSessionResult {
 }
 
 export interface AcpRecipeOptions {
+  workspaceOrigin?: 'default' | 'selected';
   initialPermissionPreset?: Session['goose_mode'];
   recipeId?: string;
   recipeDeeplink?: string;
@@ -385,6 +397,7 @@ export async function acpNewSession(
   if (recipe?.workspaceBinding) {
     meta.workspaceBinding = recipe.workspaceBinding;
   }
+  if (recipe?.workspaceOrigin) meta.workspaceOrigin = recipe.workspaceOrigin;
   if (recipe?.rootContainerPath) {
     meta.rootContainerPath = recipe.rootContainerPath;
   }

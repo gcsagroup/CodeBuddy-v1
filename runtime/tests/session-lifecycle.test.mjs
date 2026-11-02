@@ -190,6 +190,21 @@ test('close and delete release real MCP processes and session leases; close perm
   }
 });
 
+test('workspace choice metadata survives persistence and listing without changing execution binding', { timeout: 30_000 }, async t => {
+  const f = await fixture(t);
+  for (const origin of ['default', 'selected']) {
+    const { sessionId } = await f.request('session/new', { cwd: f.root, mcpServers: [], _meta: { workspaceOrigin: origin } });
+    const info = await f.request(ext('session/info'), { sessionId });
+    assert.equal(info.session._meta.workspaceOrigin, origin);
+    assert.equal(info.session._meta.workspaceBinding, 'writable_project');
+    assert.equal(info.session.cwd, f.root);
+    const listed = await f.request('session/list', { _meta: { types: ['user'] } });
+    assert.equal(listed.sessions.find(s => s.sessionId === sessionId)._meta.workspaceOrigin, origin);
+    const reopened = await openStore(path.join(f.root, 'data'));
+    assert.equal(reopened.read().sessions.find(s => s.id === sessionId).workspaceOrigin, origin);
+  }
+});
+
 test('a direct file write waiting for approval blocks close/delete/truncate until its actual result settles', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
   const entered = Promise.withResolvers(), answer = Promise.withResolvers();

@@ -175,7 +175,11 @@ export function useNavigationSessions() {
       void fetchSessions();
     };
     window.addEventListener(AppEvents.SESSION_ARCHIVED, archived);
-    return () => window.removeEventListener(AppEvents.SESSION_ARCHIVED, archived);
+    window.addEventListener(AppEvents.SESSION_UNARCHIVED, fetchSessions);
+    return () => {
+      window.removeEventListener(AppEvents.SESSION_ARCHIVED, archived);
+      window.removeEventListener(AppEvents.SESSION_UNARCHIVED, fetchSessions);
+    };
   }, [fetchSessions]);
 
   useEffect(() => {

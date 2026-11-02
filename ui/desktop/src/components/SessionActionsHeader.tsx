@@ -480,9 +480,6 @@ export function SessionActionsContextMenu({
     setIsArchiving(true);
     try {
       await acpArchiveSession(session.id);
-      window.dispatchEvent(
-        new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId: session.id } })
-      );
       toast.success(intl.formatMessage(i18n.archived));
     } catch (error) {
       toast.error(intl.formatMessage(i18n.archiveFailed, { error: errorMessage(error) }));

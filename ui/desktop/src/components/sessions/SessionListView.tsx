@@ -530,9 +530,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
         void loadSessions(debouncedSearchTerm);
       };
       window.addEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+      window.addEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
       window.addEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
       return () => {
         window.removeEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+        window.removeEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
         window.removeEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
       };
     }, [loadSessions, debouncedSearchTerm]);
@@ -620,7 +622,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
             await acpArchiveSession(session.id);
             toast.success(intl.formatMessage(i18n.archiveSuccess));
           }
-          await loadSessions();
         } catch (error) {
           toast.error(
             intl.formatMessage(i18n.archiveFailed, {
@@ -631,7 +632,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           setArchivingSessionId(null);
         }
       },
-      [intl, loadSessions]
+      [intl]
     );
 
     const handleDuplicateSession = useCallback(

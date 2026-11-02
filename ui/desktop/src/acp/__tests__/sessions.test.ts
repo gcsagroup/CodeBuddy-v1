@@ -4,6 +4,7 @@ import { getAcpClient } from '../acpConnection';
 import { CodeProWorkspaceReconfirmationRequiredError } from '../../codepro/resumeCodeProSession';
 import { AppEvents } from '../../constants/events';
 import {
+  acpArchiveSession,
   acpForkSession,
   acpGetSessionListItem,
   acpListRecentSessions,
@@ -11,6 +12,7 @@ import {
   acpLoadSession,
   acpNewSession,
   acpTruncateSessionConversation,
+  acpUnarchiveSession,
   sessionInfoToSession,
 } from '../sessions';
 
@@ -34,6 +36,34 @@ function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
 }
 
 describe('ACP sessions', () => {
+  it.each([
+    [acpArchiveSession, 'sessionArchive_unstable', AppEvents.SESSION_ARCHIVED],
+    [acpUnarchiveSession, 'sessionUnarchive_unstable', AppEvents.SESSION_UNARCHIVED],
+  ] as const)('refreshes archive views only after %s is confirmed', async (mutate, method, event) => {
+    let confirm!: () => void;
+    const request = vi.fn().mockReturnValueOnce(new Promise<void>(resolve => { confirm = resolve; }));
+    vi.mocked(getAcpClient).mockResolvedValue(
+      { goose: { [method]: request } } as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+    const listener = vi.fn();
+    window.addEventListener(event, listener);
+    try {
+      const pending = mutate('archived-chat');
+      await Promise.resolve();
+      expect(request).toHaveBeenCalledWith({ sessionId: 'archived-chat' });
+      expect(listener).not.toHaveBeenCalled();
+      confirm();
+      await pending;
+      expect(listener).toHaveBeenCalledOnce();
+      expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({ sessionId: 'archived-chat' });
+      request.mockRejectedValueOnce(new Error('Archive update refused'));
+      await expect(mutate('archived-chat')).rejects.toThrow('Archive update refused');
+      expect(listener).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener(event, listener);
+    }
+  });
+
   it('invalidates child views only after the backend confirms an in-place edit', async () => {
     let confirm!: () => void;
     const truncate = vi.fn().mockReturnValueOnce(

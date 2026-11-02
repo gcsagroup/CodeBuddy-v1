@@ -432,11 +432,13 @@ export async function acpRenameSession(sessionId: string, title: string): Promis
 export async function acpArchiveSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionArchive_unstable({ sessionId });
+  window.dispatchEvent(new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId } }));
 }
 
 export async function acpUnarchiveSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionUnarchive_unstable({ sessionId });
+  window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId } }));
 }
 
 export async function acpUpdateWorkingDir(sessionId: string, workingDir: string): Promise<void> {

@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { SessionActionsContextMenu } from './SessionActionsHeader';
 import { acpArchiveSession, acpExportSession, acpExportSessionLog } from '../acp/sessions';
-import { AppEvents } from '../constants/events';
 import { toast } from 'react-toastify';
 
 vi.mock('../acp/sessions', async (original) => ({
@@ -54,32 +53,25 @@ describe('SessionActionsContextMenu', () => {
     );
   });
 
-  it('announces archive only after the host confirms it', async () => {
+  it('shows archive success only after the host confirms it', async () => {
     let finish!: () => void;
     vi.mocked(acpArchiveSession).mockReturnValue(
       new Promise((resolve) => {
         finish = resolve;
       })
     );
-    const archived = vi.fn();
-    window.addEventListener(AppEvents.SESSION_ARCHIVED, archived);
-    try {
-      testingRender(
-        <SessionActionsContextMenu session={{ id: 'archive-fixture', name: 'Archive task' }}>
-          <div>Archive task</div>
-        </SessionActionsContextMenu>,
-        { wrapper: IntlTestWrapper }
-      );
-      fireEvent.contextMenu(screen.getByText('Archive task'));
-      fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive session' }));
-      expect(acpArchiveSession).toHaveBeenCalledExactlyOnceWith('archive-fixture');
-      expect(archived).not.toHaveBeenCalled();
-      await act(async () => finish());
-      expect(archived).toHaveBeenCalledOnce();
-      expect(archived.mock.calls[0][0].detail).toEqual({ sessionId: 'archive-fixture' });
-    } finally {
-      window.removeEventListener(AppEvents.SESSION_ARCHIVED, archived);
-    }
+    testingRender(
+      <SessionActionsContextMenu session={{ id: 'archive-fixture', name: 'Archive task' }}>
+        <div>Archive task</div>
+      </SessionActionsContextMenu>,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.contextMenu(screen.getByText('Archive task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive session' }));
+    expect(acpArchiveSession).toHaveBeenCalledExactlyOnceWith('archive-fixture');
+    expect(toast.success).not.toHaveBeenCalled();
+    await act(async () => finish());
+    expect(toast.success).toHaveBeenCalledOnce();
   });
   it('opens chat actions from the sidebar row right-click only', async () => {
     testingRender(

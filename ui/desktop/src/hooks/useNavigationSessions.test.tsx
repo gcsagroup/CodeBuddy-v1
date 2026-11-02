@@ -22,6 +22,19 @@ describe('new session sidebar refresh', () => {
   beforeEach(() => { vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
   afterEach(() => { vi.useRealTimers(); });
 
+  it('restores an unarchived task to the sidebar without creating or opening another chat', async () => {
+    const restored = { id: 'archived-chat', name: 'Restored task', workingDir: '', messageCount: 2 };
+    mocks.list.mockResolvedValue([restored]);
+    const hook = renderHook(() => useNavigationSessions());
+    expect(hook.result.current.recentSessions).toEqual([]);
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId: restored.id } }));
+    });
+    expect(hook.result.current.recentSessions).toEqual([restored]);
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    hook.unmount();
+  });
+
   it('keeps a viewed archived session out of the sidebar after archive refresh', async () => {
     mocks.location = { pathname: '/codepro/pair', search: '?resumeSessionId=archived-chat' };
     mocks.get.mockResolvedValue({

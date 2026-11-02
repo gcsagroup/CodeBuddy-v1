@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
+import { AppEvents } from '../../constants/events';
 import {
   acpArchiveSession,
   acpExportSession,
@@ -71,8 +72,12 @@ describe('history management filters and archive actions', () => {
         ),
       ].filter((item) => filter?.includeArchived || !item.archivedAt),
     }));
-    vi.mocked(acpArchiveSession).mockResolvedValue(undefined);
-    vi.mocked(acpUnarchiveSession).mockResolvedValue(undefined);
+    vi.mocked(acpArchiveSession).mockImplementation(async sessionId => {
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId } }));
+    });
+    vi.mocked(acpUnarchiveSession).mockImplementation(async sessionId => {
+      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId } }));
+    });
   });
 
   afterEach(() => {

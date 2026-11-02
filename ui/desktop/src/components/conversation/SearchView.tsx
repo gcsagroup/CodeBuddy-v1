@@ -8,6 +8,8 @@ import debounce from 'lodash/debounce';
  * Props for the SearchView component
  */
 interface SearchViewProps {
+  /** Only the active surface responds to window-wide find commands. */
+  active?: boolean;
   /** Optional CSS class name */
   className?: string;
   /** Render the search controls in the conversation header while retaining this search scope. */
@@ -44,6 +46,7 @@ interface SearchContainerElement extends HTMLDivElement {
  * Features debounced search for better performance with large content.
  */
 export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
+  active = true,
   className = '',
   searchBarContainer,
   children,
@@ -321,6 +324,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
 
   // Listen for keyboard events
   useEffect(() => {
+    if (!active) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = window.electron.platform === 'darwin';
 
@@ -367,10 +371,11 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSearchVisible, handleNavigate, handleSearch, handleUseSelectionFind]);
+  }, [active, isSearchVisible, handleNavigate, handleSearch, handleUseSelectionFind]);
 
   // Listen for Find menu commands
   useEffect(() => {
+    if (!active) return;
     window.electron.on('find-command', handleFindCommand);
     window.electron.on('find-next', handleFindNext);
     window.electron.on('find-previous', handleFindPrevious);
@@ -382,8 +387,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
       window.electron.off('find-previous', handleFindPrevious);
       window.electron.off('use-selection-find', handleUseSelectionFind);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - handlers are stable due to useCallback and useRef
+  }, [active, handleFindCommand, handleFindNext, handleFindPrevious, handleUseSelectionFind]);
 
   const searchBar = isSearchVisible ? (
     <SearchBar

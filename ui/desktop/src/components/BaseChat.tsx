@@ -769,6 +769,7 @@ export default function BaseChat({
                   )}
                 >
                   <SearchView
+                    active={isActiveSession}
                     onVisibilityChange={setSearchActive}
                     searchBarContainer={searchBarContainer}
                     showNavigation

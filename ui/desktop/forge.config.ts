@@ -62,7 +62,9 @@ let cfg = {
           },
         },
       }
-    : {}),
+    : targetPlatform === 'darwin'
+      ? { download: { checksums: require('electron/checksums.json') } }
+      : {}),
   extraResource: [
     ...(harnessResourceDir ? [harnessResourceDir] : []),
     'src/images',

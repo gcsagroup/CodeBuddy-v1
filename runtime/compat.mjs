@@ -978,12 +978,32 @@ Use this role throughout this workspace.` : basePrompt,
         : { error: item.error ?? "Extension did not connect" }),
     }));
   }
-  async permissionModes(s, preset) {
+  async syncGlobalPermissions(selected) {
+    const ids = new Set([...this.initialized, ...this.active.keys()]);
+    if (selected) ids.add(selected);
+    for (const observer of this.connections)
+      for (const id of observer.sessionIds ?? []) ids.add(id);
+    await Promise.all([...ids].map(async id => {
+      const session = this.store.readSession(id, { fields: ['id', 'cwd', 'initialPermissionPreset', 'mode', 'readonlyHistory'] });
+      if (!session || session.readonlyHistory) return;
+      const mode = await this.permissionModes(session);
+      for (const observer of this.connections) {
+        if (observer.sessionIds?.has(id)) observer.notify?.('session/update', {
+          sessionId: id, update: { sessionUpdate: 'current_mode_update', currentModeId: mode.currentModeId },
+        });
+      }
+    }));
+  }
+  async permissionModes(s) {
+    const preferences = this.store.read(['preferences']).preferences ?? {};
+    const preset = permissionPresets.includes(preferences.gooseMode) ? preferences.gooseMode : undefined;
     const state = await this.driver.permissions(s.id, {
       cwd: s.cwd,
-      initialPreset: initialPermissionPreset(s, this.store.read(['preferences']).preferences),
+      initialPreset: initialPermissionPreset(s, preferences),
       ...(preset === undefined ? {} : { preset }),
     });
+    if (this.store.read(['preferences']).preferences?.gooseMode !== preferences.gooseMode)
+      return this.permissionModes(s);
     return { ...modes, currentModeId: state.preset };
   }
   toolGrant(tool) {
@@ -1338,6 +1358,8 @@ Use this role throughout this workspace.` : basePrompt,
       if (!unpublished) this.assertSessionAvailable(s.id);
       if (configurationRevision !== this.configurationRevision)
         throw extensionSnapshotChanged("Settings changed while the session was starting; retry with the current settings");
+      if (permissionPresets.includes(this.store.read(['preferences']).preferences.gooseMode))
+        await this.permissionModes(s);
       this.initialized.add(s.id);
       console.info('[Harness session preparation]', JSON.stringify({
         sessionId: s.id,
@@ -1894,12 +1916,8 @@ Use this role throughout this workspace.` : basePrompt,
       if (!permissionPresets.includes(p.modeId)) throw invalid('Unknown native permission preset');
       validatePreference("gooseMode", p.modeId);
       if (s.readonlyHistory) throw invalid('Imported history cannot change execution permissions');
-      const current = await this.permissionModes(s, p.modeId);
-      for (const observer of new Set([connection, ...this.connections])) {
-        if (observer && (observer === connection || observer.sessionIds?.has(s.id)))
-          observer.notify('session/update', { sessionId: s.id,
-            update: { sessionUpdate: 'current_mode_update', currentModeId: current.currentModeId } });
-      }
+      await this.store.update(state => { state.preferences.gooseMode = p.modeId; state.revision++; }, ['preferences', 'revision']);
+      await this.syncGlobalPermissions(s.id);
       return {};
     }
     if (method === "session/delete") {
@@ -2484,10 +2502,15 @@ Use this role throughout this workspace.` : basePrompt,
               validatePreference(key, value);
               s.preferences[key] = value;
             }
-          else for (const key of p.keys ?? []) delete s.preferences[key];
+          else for (const key of p.keys ?? []) {
+            if (key === 'gooseMode') s.preferences.gooseMode = 'workspace-write';
+            else delete s.preferences[key];
+          }
           s.revision++;
         });
-        this.initialized.clear();
+        const changed = name.endsWith("save") ? (p.values ?? []).map(item => item.key) : p.keys ?? [];
+        if (changed.includes('gooseMode')) await this.syncGlobalPermissions();
+        if (changed.some(key => key !== 'gooseMode')) this.initialized.clear();
         return {};
       }
       case "config/read": {

@@ -203,17 +203,21 @@ test('ACP facade runs official Harness with permissions, cancellation and restar
     const loaded = await client.request('session/load', { sessionId: first, cwd: root, mcpServers: [] });
     assert.equal(loaded.modes.currentModeId, 'read-only');
     assert.deepEqual(loaded.modes.availableModes.map(mode => mode.id), ['read-only', 'workspace-write', 'danger-full-access']);
-    assert.equal((await client.request('session/load', { sessionId: second, cwd: root, mcpServers: [] })).modes.currentModeId, 'workspace-write');
+    assert.equal((await client.request('session/load', { sessionId: second, cwd: root, mcpServers: [] })).modes.currentModeId, 'read-only');
     assert.ok(updates(first).some(update => update.sessionUpdate === 'current_mode_update' && update.currentModeId === 'read-only'));
     await assert.rejects(client.request('session/set_mode', { sessionId: first, modeId: 'approve' }), /Unknown native/);
   });
 
-  await t.test('the new-chat permission draft is committed natively before the first prompt', async () => {
+  await t.test('settings changes apply to existing and new chats despite stale creation metadata', async () => {
     for (const preset of ['read-only', 'workspace-write', 'danger-full-access']) {
-      const created = await client.request('session/new', { cwd: root, mcpServers: [], _meta: { initialPermissionPreset: preset } });
+      const { revision } = await client.request(ext('preferences/read'), {});
+      await client.request(ext('preferences/save'), { expectedRevision: revision, values: [{ key: 'gooseMode', value: preset }] });
+      const created = await client.request('session/new', { cwd: root, mcpServers: [], _meta: { initialPermissionPreset: 'read-only' } });
       assert.equal(created.modes.currentModeId, preset);
       assert.equal((await client.request('session/load', { sessionId: created.sessionId, cwd: root, mcpServers: [] })).modes.currentModeId, preset);
     }
+    const { revision } = await client.request(ext('preferences/read'), {});
+    await client.request(ext('preferences/remove'), { expectedRevision: revision, keys: ['gooseMode'] });
     await assert.rejects(client.request('session/new', { cwd: root, mcpServers: [], _meta: { initialPermissionPreset: 'auto' } }), /Unknown native/);
   });
 

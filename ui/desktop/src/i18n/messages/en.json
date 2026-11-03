@@ -4587,7 +4587,7 @@
     "defaultMessage": "Test"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask."
+    "defaultMessage": "The file and command sandbox is off. Explicit tool restrictions still apply. Installing an MCP extension requires confirmation each time."
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "Full access"
@@ -7009,7 +7009,7 @@
     "defaultMessage": "Full access"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Applies to all chats on this device. Actions already in progress keep their permissions."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Root folder: {path}. Select a project before writing files."
@@ -7021,13 +7021,13 @@
     "defaultMessage": "Working directory: {path}. This does not grant permission for every action."
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply."
+    "defaultMessage": "The file and command sandbox is off. Explicit tool restrictions still apply. Installing an MCP extension requires confirmation each time."
   },
   "sessionPermissions.manualLabel": {
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Applies to all chats on this device. Individual tool rules still apply."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

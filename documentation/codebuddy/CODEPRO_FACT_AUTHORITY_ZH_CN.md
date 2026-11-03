@@ -118,11 +118,11 @@ English: An explicit “Allow computer control for this session” choice covers
 
 ## 2026-10-27 已批准：新任务草稿跨重启保存
 
-2026-10-28 补充：用户在新任务页显式选择的权限预设随同一草稿保存，切换对话或重载页面后恢复；创建会话成功后随草稿清空。该选择仅用于新会话创建，不修改全局默认权限或其他已有会话，实际权限仍由 Harness 会话配置裁决。
+2026-11-02 更新：设置页、新任务及已有对话共用本机配置 gooseMode。用户显式选择后，Compat 将预设应用到已打开和后续加载的可执行根会话。Harness 负责实际执行权限，逐工具授权仍按原范围保存。
 
-繁體：新任務頁明確選擇的權限預設隨同一草稿保存，切換對話或重新載入後恢復；會話建立成功後清空。不修改全域預設或其他會話權限，實際權限仍由 Harness 會話設定裁決。
+繁體：設定、新任務及既有對話共用本機 gooseMode。明確選擇後套用到目前及後續載入的可執行根會話。Harness 裁決實際權限，個別工具授權維持原範圍。
 
-English: An explicitly selected permission preset is saved with the same new-task draft across navigation and reloads, then cleared after session creation succeeds. It does not change global defaults or other sessions; Harness session configuration remains authoritative for effective permissions.
+English: Settings, new tasks and existing chats share this device's gooseMode preference. An explicit choice applies to open and subsequently loaded executable root sessions. Harness enforces the effective preset and tool grants retain their scope.
 
 用户批准将新任务文字、目录及附件保存到本地并在重启后恢复。Electron `drafts/DraftStore` 持有按窗口槽位和聊天模式隔离的草稿文件及附件副本；renderer 仅缓存已恢复内容、提交字段更新并显示保存错误，不以草稿恢复启动任务。普通/CodePro 会话创建成功回执触发草稿清空，失败保留；已发送历史引用的附件副本继续存在。正常退出等待已接收的草稿写入。该缓存不更改 Harness 的任务、会话、权限或完成权威。最近目录文件继续由 `utils/recentDirs` 写入，原生菜单订阅保存通知刷新。
 

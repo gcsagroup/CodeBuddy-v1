@@ -1067,7 +1067,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         await work;
       }
       const agent = await resolveAgent(sessionId);
-      if (preset !== undefined) ctx.permissionPresets.set(agent.session, preset);
+      if (preset !== undefined && ctx.permissionPresets.current(agent.session) !== preset) ctx.permissionPresets.set(agent.session, preset);
       await ctx.sessions.flush(agent.session);
       return {
         preset: ctx.permissionPresets.current(agent.session),

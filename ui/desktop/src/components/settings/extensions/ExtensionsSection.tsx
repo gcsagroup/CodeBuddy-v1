@@ -50,7 +50,7 @@ interface ExtensionSectionProps {
   searchTerm?: string;
   allowedTypes?: ExtensionConfig['type'][];
   hideList?: boolean;
-  controlledConfigKey?: string;
+  controlledExtension?: FixedExtensionEntry;
   controlledAddOpen?: boolean;
   onControlledRequestClose?: () => void;
 }
@@ -66,7 +66,7 @@ export default function ExtensionsSection({
   searchTerm = '',
   allowedTypes,
   hideList = false,
-  controlledConfigKey,
+  controlledExtension,
   controlledAddOpen = false,
   onControlledRequestClose,
 }: ExtensionSectionProps) {
@@ -79,8 +79,8 @@ export default function ExtensionsSection({
     setExtensionEnabled,
     extensionsList,
   } = useConfig();
-  const [selectedExtension, setSelectedExtension] = useState<FixedExtensionEntry | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [listSelection, setSelectedExtension] = useState<FixedExtensionEntry | null>(null);
+  const selectedExtension = controlledExtension ?? listSelection;
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deepLinkConfigStateVar, setDeepLinkConfigStateVar] = useState<
     ExtensionConfig | undefined | null
@@ -121,18 +121,6 @@ export default function ExtensionsSection({
   }, [extensionsList, disableConfiguration, selectedExtensions, allowedTypes]);
 
   useEffect(() => {
-    if (!controlledConfigKey || isModalOpen) return;
-    const extension = extensions.find(
-      (item) =>
-        (item.configKey ?? nameToKey(item.name)) === controlledConfigKey ||
-        item.name === controlledConfigKey
-    );
-    if (!extension) return;
-    setSelectedExtension(extension);
-    setIsModalOpen(true);
-  }, [controlledConfigKey, extensions, isModalOpen]);
-
-  useEffect(() => {
     if (controlledAddOpen && !isAddModalOpen) setIsAddModalOpen(true);
   }, [controlledAddOpen, isAddModalOpen]);
 
@@ -162,7 +150,6 @@ export default function ExtensionsSection({
 
   const handleConfigureClick = (extension: FixedExtensionEntry) => {
     setSelectedExtension(extension);
-    setIsModalOpen(true);
   };
 
   const handleAddExtension = async (formData: ExtensionFormData) => {
@@ -231,7 +218,6 @@ export default function ExtensionsSection({
     setDeepLinkConfigStateVar(null);
     setShowEnvVarsStateVar(null);
 
-    setIsModalOpen(false);
     setIsAddModalOpen(false);
     setSelectedExtension(null);
     onControlledRequestClose?.();
@@ -269,7 +255,7 @@ export default function ExtensionsSection({
         )}
 
         {/* Modal for updating an existing extension */}
-        {isModalOpen && selectedExtension && (
+        {selectedExtension && (
           <ExtensionModal
             title={intl.formatMessage(i18n.updateExtension)}
             initialData={extensionToFormData(selectedExtension)}

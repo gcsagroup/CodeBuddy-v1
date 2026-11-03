@@ -137,7 +137,7 @@ const i18n = defineMessages({
   statusReady: { id: 'toolbox.statusReady', defaultMessage: 'Ready' },
   statusConfigured: {
     id: 'toolbox.statusConfigured',
-    defaultMessage: 'Enabled, connection not verified',
+    defaultMessage: 'Configured and enabled',
   },
   statusDisabled: { id: 'toolbox.statusDisabled', defaultMessage: 'Disabled' },
   statusStarting: { id: 'toolbox.statusStarting', defaultMessage: 'Starting…' },
@@ -441,7 +441,7 @@ export default function ToolboxView() {
   const refreshVersion = useRef(0);
   const [query, setQuery] = useState(searchParams.get('query') ?? '');
   const [skillRequest, setSkillRequest] = useState<SkillManagerRequest>();
-  const [controlledMcpKey, setControlledMcpKey] = useState<string>();
+  const [selectedMcp, setSelectedMcp] = useState<ToolboxItem['extensionSource']>();
   const [controlledMcpAdd, setControlledMcpAdd] = useState(false);
   const [selectedBuiltIn, setSelectedBuiltIn] = useState<ToolboxItem>();
   const [togglingId, setTogglingId] = useState<string>();
@@ -537,7 +537,7 @@ export default function ToolboxView() {
       return;
     }
     if (item.kind === 'external') {
-      setControlledMcpKey(item.reference?.value ?? item.name);
+      setSelectedMcp(item.extensionSource);
     }
   };
   useEffect(() => {
@@ -551,7 +551,7 @@ export default function ToolboxView() {
     openedItem.current = requestedItem;
     if (item.repositoryMembers) setRepositoryOpen(true);
     else if (item.kind === 'builtin') setSelectedBuiltIn(localizeToolboxItem(item, intl));
-    else if (item.kind === 'external') setControlledMcpKey(item.reference?.value ?? item.name);
+    else if (item.kind === 'external') setSelectedMcp(item.extensionSource);
     else {
       const skill = managedSkillFor(item);
       if (skill) setSkillRequest({ type: 'detail', skill });
@@ -835,10 +835,10 @@ export default function ToolboxView() {
             allowedTypes={['stdio', 'streamable_http', 'sse']}
             hideList
             hideButtons
-            controlledConfigKey={controlledMcpKey}
+            controlledExtension={selectedMcp}
             controlledAddOpen={controlledMcpAdd}
             onControlledRequestClose={() => {
-              setControlledMcpKey(undefined);
+              setSelectedMcp(undefined);
               setControlledMcpAdd(false);
               void refresh();
             }}

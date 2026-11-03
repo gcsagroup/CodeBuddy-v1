@@ -18,7 +18,7 @@ import { listTools } from '../../acp/permissions';
 vi.mock('../../acp/session-extensions', () => ({ getSessionExtensions: vi.fn(), addSessionExtension: vi.fn() }));
 vi.mock('../../acp/permissions', () => ({ listTools: vi.fn() }));
 
-const configContext = vi.hoisted(() => ({ setExtensionEnabled: vi.fn() }));
+const configContext = vi.hoisted(() => ({ setExtensionEnabled: vi.fn(), extensionsList: [] }));
 vi.mock('../settings/auth/RepositoryConnections', () => ({
   default: () => <div>Local Git controls and GitHub account connection</div>,
 }));
@@ -32,20 +32,6 @@ vi.mock('../../acp/skillManagement', async (importOriginal) => ({
   previewSkillChange: vi.fn(),
 }));
 vi.mock('../../utils/workingDir', () => ({ getInitialWorkingDir: () => 'D:\\project' }));
-vi.mock('../settings/extensions/ExtensionsSection', () => ({
-  default: ({
-    controlledConfigKey,
-    hideList,
-  }: {
-    controlledConfigKey?: string;
-    hideList?: boolean;
-  }) => (
-    <div>
-      {!hideList && <button>Connect external tool</button>}
-      {controlledConfigKey && <div role="dialog">MCP configuration: {controlledConfigKey}</div>}
-    </div>
-  ),
-}));
 vi.mock('../skills/SkillManager', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../skills/SkillManager')>();
   return {
@@ -197,6 +183,7 @@ describe('ToolboxView', () => {
             status: 'disabled',
             actions: ['configure'],
             reference: { key: 'configKey', value: 'fixture' },
+            extensionSource: { type: 'stdio', name: 'fixture', cmd: 'fixture-server', args: ['mcp'], enabled: true },
           },
         ],
       },
@@ -204,7 +191,8 @@ describe('ToolboxView', () => {
       warnings: [],
     });
     renderView('/toolbox?item=external%3Afixture');
-    expect(await screen.findByRole('dialog')).toHaveTextContent('MCP configuration: fixture');
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Update Extension');
+    expect(screen.getByDisplayValue(/fixture-server/)).toBeVisible();
     expect(configContext.setExtensionEnabled).not.toHaveBeenCalled();
   });
 
@@ -398,6 +386,7 @@ describe('ToolboxView', () => {
             status: 'ready',
             actions: ['configure'],
             reference: { key: 'configKey', value: 'filesystem' },
+            extensionSource: { type: 'stdio', name: 'filesystem', cmd: 'filesystem-server', args: ['mcp'], enabled: true },
           },
         ],
       },
@@ -417,14 +406,15 @@ describe('ToolboxView', () => {
     );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Filesystem' }));
-    expect(screen.getByRole('dialog')).toHaveTextContent('MCP configuration: filesystem');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Update Extension');
+    expect(screen.getByDisplayValue(/filesystem-server/)).toBeVisible();
     expect(screen.getByTestId('current-path')).toHaveTextContent('/toolbox?section=external');
   });
 
   it.each([
-    ['zh-CN', zhCN, '已启用，未验证连接'],
-    ['zh-TW', zhTW, '已啟用，未驗證連線'],
-    ['en', {}, 'Enabled, connection not verified'],
+    ['zh-CN', zhCN, '已配置并启用'],
+    ['zh-TW', zhTW, '已設定並啟用'],
+    ['en', {}, 'Configured and enabled'],
   ] as const)(
     'labels configured external tools accurately in %s',
     async (locale, messages, label) => {

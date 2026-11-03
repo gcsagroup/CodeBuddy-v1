@@ -62,6 +62,7 @@ const i18n = defineMessages({
     defaultMessage: 'Remote commits to overwrite',
   },
   command: { id: 'codeProActivity.command', defaultMessage: 'Command' },
+  arguments: { id: 'toolConfirmation.arguments', defaultMessage: 'Arguments' },
   path: { id: 'codeProActivity.path', defaultMessage: 'Path' },
   browserTab: { id: 'toolConfirmation.browserTab', defaultMessage: 'Tab {id}' },
   browserNode: { id: 'toolConfirmation.browserNode', defaultMessage: 'Element {node}' },
@@ -124,6 +125,27 @@ export function ToolApprovalTarget({
 }) {
   const intl = useIntl();
   const target = approvalTarget(toolName, argumentsValue);
+  if (toolName === 'install_mcp_extension' || toolName === 'developer__install_mcp_extension') {
+    const { command, args, url } = argumentsValue;
+    const stdio = typeof command === 'string' && Array.isArray(args) && args.every(arg => typeof arg === 'string');
+    if (!stdio && typeof url !== 'string') return null;
+    return (
+      <section className="mt-3 min-w-0">
+        <h3 className="text-xs font-medium text-text-secondary">
+          {stdio ? intl.formatMessage(i18n.command) : 'URL'}
+        </h3>
+        <pre dir="ltr" className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all text-sm text-text-primary">
+          {stdio ? command : String(url)}
+        </pre>
+        {stdio && args.length > 0 && <>
+          <h3 className="mt-2 text-xs font-medium text-text-secondary">{intl.formatMessage(i18n.arguments)}</h3>
+          <pre dir="ltr" className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all text-sm text-text-primary">
+            {JSON.stringify(args, null, 2)}
+          </pre>
+        </>}
+      </section>
+    );
+  }
   if (toolName.split(/__|::/).pop() === 'browser_control') {
     const { operation, url, path, htmlPath, id, node, text, key } = argumentsValue;
     const localPath = typeof path === 'string' ? path : htmlPath;

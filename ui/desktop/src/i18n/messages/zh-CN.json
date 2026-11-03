@@ -4581,7 +4581,7 @@
     "defaultMessage": "测试"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效；需要额外审批的操作无法发起审批。"
+    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效。每次安装 MCP 扩展都需要确认。"
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "完全访问"
@@ -6978,7 +6978,7 @@
     "defaultMessage": "完全访问"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "更改作用于当前 Agent。已运行的操作不回滚，已有子 Agent 保留创建时继承的权限。"
+    "defaultMessage": "对本机所有对话生效。进行中的操作沿用原权限。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目录：{path}。写入文件前需选择项目。"
@@ -6990,13 +6990,13 @@
     "defaultMessage": "工作目录：{path}。这不代表所有操作均已获准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "当前 Agent 不使用文件与命令沙箱，明确的工具限制仍有效。"
+    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效。每次安装 MCP 扩展都需要确认。"
   },
   "sessionPermissions.manualLabel": {
     "defaultMessage": "仅可查看"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "仅影响当前会话，已有工具权限规则仍然有效。"
+    "defaultMessage": "对本机所有对话生效。单个工具的授权规则仍然适用。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "如何批准操作？"
@@ -8651,6 +8651,9 @@
   "toolConfirmation.browserAction": {
     "defaultMessage": "{operation, select, open {打开网页} observe {读取网页} click {点击网页元素} type {在网页中输入文字} key {向网页发送按键} screenshot {截取网页} console {读取网页控制台} close {关闭网页} other {浏览器操作}}"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "参数（按传递顺序）"
+  },
   "toolConfirmation.browserNode": {
     "defaultMessage": "元素 {node}"
   },
@@ -8871,7 +8874,7 @@
     "defaultMessage": "已安装"
   },
   "toolbox.statusConfigured": {
-    "defaultMessage": "已启用，未验证连接"
+    "defaultMessage": "已配置并启用"
   },
   "toolbox.statusDisabled": {
     "defaultMessage": "已停用"

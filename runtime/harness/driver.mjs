@@ -894,6 +894,7 @@ Keep progress updates brief, meaningful, and outcome-based.
           text: `Default conversation language: ${JSON.stringify(settings.conversationLocale)}. Use it for user-facing replies, progress and delegation messages, unless the human explicitly requests another language. Tell subagents the requested language when delegating. Keep original code, identifiers and tool output unchanged.`,
         });
         for (const tool of settings.tools ?? []) {
+          if (tool.rootOnly && agent.session.header.origin === 'subagent') continue;
           if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
           scoped.tools.register({
             name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },

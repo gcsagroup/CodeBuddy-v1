@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Gilt für alle Chats auf diesem Gerät."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Stammordner: {path}. Vor dem Schreiben von Dateien ein Projekt auswählen."
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Gilt für alle Chats auf diesem Gerät."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

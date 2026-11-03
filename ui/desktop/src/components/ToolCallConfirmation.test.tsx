@@ -583,3 +583,13 @@ describe('ToolConfirmation', () => {
     expect(screen.queryByText('must-not-appear')).not.toBeInTheDocument();
   });
 });
+it('shows the resolved MCP executable and exact argument boundaries, or the HTTP endpoint', () => {
+  const args = ['C:\\project with spaces\\server.js', '', 'mcp'];
+  const { rerender } = render(<ToolApprovalTarget toolName="install_mcp_extension"
+    argumentsValue={{ command: 'C:\\Program Files\\node.exe', args }} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByText('C:\\Program Files\\node.exe')).toBeVisible();
+  expect(JSON.parse(screen.getByText(/server\.js/).textContent!)).toEqual(args);
+  rerender(<ToolApprovalTarget toolName="install_mcp_extension" argumentsValue={{ url: 'https://example.org/mcp' }} />);
+  expect(screen.getByText('https://example.org/mcp')).toBeVisible();
+  expect(screen.queryByText('Arguments')).not.toBeInTheDocument();
+});

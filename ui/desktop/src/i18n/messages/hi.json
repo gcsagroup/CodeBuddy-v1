@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "इस डिवाइस की सभी चैट पर लागू होता है।"
   },
   "sessionPermissions.container": {
     "defaultMessage": "मूल फ़ोल्डर: {path}। फ़ाइलें लिखने से पहले प्रोजेक्ट चुनें।"
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "इस डिवाइस की सभी चैट पर लागू होता है।"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

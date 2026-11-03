@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Áp dụng cho mọi cuộc trò chuyện trên thiết bị này."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Thư mục gốc: {path}. Chọn dự án trước khi ghi tệp."
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Áp dụng cho mọi cuộc trò chuyện trên thiết bị này."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

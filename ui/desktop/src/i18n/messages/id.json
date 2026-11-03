@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Berlaku untuk semua percakapan di perangkat ini."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Folder akar: {path}. Pilih proyek sebelum menulis berkas."
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Berlaku untuk semua percakapan di perangkat ini."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

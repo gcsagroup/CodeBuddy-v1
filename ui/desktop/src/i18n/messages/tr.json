@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Bu cihazdaki tüm sohbetler için geçerlidir."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Kök klasör: {path}. Dosya yazmadan önce bir proje seçin."
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Bu cihazdaki tüm sohbetler için geçerlidir."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

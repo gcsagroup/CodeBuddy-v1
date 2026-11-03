@@ -4581,7 +4581,7 @@
     "defaultMessage": "測試"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效；需要額外審批的操作無法發起審批。"
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效。每次安裝 MCP 擴充功能都需要確認。"
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "完全存取"
@@ -6978,7 +6978,7 @@
     "defaultMessage": "完全存取"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "變更作用於目前 Agent。已執行的操作不回滾，既有子 Agent 保留建立時繼承的權限。"
+    "defaultMessage": "對本機所有對話生效。進行中的操作沿用原權限。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目錄：{path}。寫入檔案前需選擇專案。"
@@ -6990,13 +6990,13 @@
     "defaultMessage": "工作目錄：{path}。這不代表所有操作均已獲准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "目前 Agent 不使用檔案與命令沙箱，明確的工具限制仍有效。"
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效。每次安裝 MCP 擴充功能都需要確認。"
   },
   "sessionPermissions.manualLabel": {
     "defaultMessage": "僅可檢視"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "只影響目前會話；既有工具權限規則仍然生效。"
+    "defaultMessage": "對本機所有對話生效。個別工具的授權規則仍然適用。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "工具批准與權限"
@@ -8651,6 +8651,9 @@
   "toolConfirmation.browserAction": {
     "defaultMessage": "{operation, select, open {開啟網頁} observe {讀取網頁} click {點選網頁元素} type {在網頁中輸入文字} key {向網頁傳送按鍵} screenshot {擷取網頁} console {讀取網頁主控台} close {關閉網頁} other {瀏覽器操作}}"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "參數（依傳遞順序）"
+  },
   "toolConfirmation.browserNode": {
     "defaultMessage": "元素 {node}"
   },
@@ -8871,7 +8874,7 @@
     "defaultMessage": "已安裝"
   },
   "toolbox.statusConfigured": {
-    "defaultMessage": "已啟用，未驗證連線"
+    "defaultMessage": "已設定並啟用"
   },
   "toolbox.statusDisabled": {
     "defaultMessage": "已停用"

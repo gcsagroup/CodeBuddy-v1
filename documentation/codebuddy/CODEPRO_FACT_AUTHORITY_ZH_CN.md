@@ -737,3 +737,18 @@ English: Native code owns input-conflict facts, supplied through optional versio
 原生 DSH Schedule 继续独占定时器、任务表、同一串行管理/投递队列、会话绑定和投递历史。CodeBuddy 对锁定 0.2.1-alpha.2 的内存加载扩展新增 `paused` 状态和 CAS 暂停/恢复操作；不引入 MichengAI 调度器、不删除重建任务、不复制任务状态。按钮与 `schedule_pause` / `schedule_resume` 共用此入口，`schedule_status` 只读本根聊天的任务；不额外增加批准弹窗，不授予文件、网络或子 Agent 权限。暂停仅阻止尚未进入原生投递的次数，已经投递到 Inbox 或开始运行的任务不取消。恢复保留原周期/时区并跳过已错过的次数；已过期的一次性任务结束且不补发。暂停任务保留 ID、历史及会话绑定，可编辑但不自动恢复；归档会话时暂停任务同样纳入原生停止处理。
 
 现有 active/inactive 数据无需迁移。暂停状态使用同一任务表；不支持把含 paused 行的数据交给未扩展的旧版本（旧版严格解码会拒绝，不会暗中执行）。回滚前先恢复/结束或明确删除所有暂停任务，并保留原数据备份。升级 DSH 时版本与源码哈希门禁要求重审本扩展；上游提供等价暂停接口后删除本扩展，不能静默混用。兼容层只传输实际回执，前端只展示提交后的状态。测试通过不等同真实桌面验收。
+
+## 2026-11-03 聊天发起安装
+
+前台主聊天可提出 MCP 或技能安装。桌面逐次审批具体命令、地址或技能目标。扩展设置服务在真实连接测试成功后原子保存新扩展及当前聊天的选择，下一轮重新加载。技能管理服务校验下载预览、目标冲突及写入结果。模型消费工具回执。配置写入、握手、工具发现和具体工具执行各自有独立证据。
+
+给定 GitHub 仓库时，宿主从该仓库读取根目录的 `server.json`。仓库身份、单一兼容的 Python stdio 包、固定位置参数和本地可执行文件共同确定可供审批的候选。清单缺失或候选不明确时，聊天仍可使用发布方文档给出的命令或 HTTP 端点。
+
+繁體：前景主聊天提出安裝，桌面逐次核准。GitHub 清單與本機 CLI 提供候選，擴充設定服務測試連線後儲存。技能管理服務預覽、套用並讀回結果。
+
+English: The foreground root chat proposes installation and the desktop confirms each target. A publisher manifest and matching local CLI can supply a candidate. Extension settings test the connection before saving. The skill manager owns preview, installation and readback.
+## 2026-11-03 已批准：本轮电脑操作的窗口身份
+
+模型在首次发现窗口前以 `window_title` 声明用户指定的准确标题；未指定时传空字符串。DesktopCoordinator 按本轮 token 保存该声明，重连、切换对话和新的窗口列表不能改写它。原生电脑工具消费租约元数据，并在输入前核对唯一可见窗口的标题、PID 与窗口句柄。目标不可识别仅阻止对应桌面操作，普通任务与原有权限审批仍由 Harness 管理。
+
+繁體：每輪在探索前聲明指定標題，原生工具在輸入前核對唯一可見視窗的身分。English: The host binds the requested window title before discovery for each turn. Native input requires a unique visible match and the observed window identity.

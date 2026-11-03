@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "이 기기의 모든 대화에 적용됩니다."
   },
   "sessionPermissions.container": {
     "defaultMessage": "루트 폴더: {path}. 파일을 쓰기 전에 프로젝트를 선택하세요."
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "이 기기의 모든 대화에 적용됩니다."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

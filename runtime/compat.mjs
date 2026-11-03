@@ -62,6 +62,7 @@ import { COMMON_QUERY_KEY, validateQuerySettings, commonQueryMetadata } from "./
 import { CodeProReviews, reviewInstructions } from "./codepro-review.mjs";
 import { TranscriptionService } from "./transcription.mjs";
 import { SafetyPolicy } from "./safety-policy.mjs";
+import { chatInstallTools, isChatInstallProposal } from './chat-install.mjs';
 import { ConversationEditing } from "./conversation-editing.mjs";
 import { listSubagentCatalog, readSubagentConversation, followSubagentConversation, subagentLifecycleUpdate } from "./subagent-conversations.mjs";
 import { McpApps } from "./mcp-apps.mjs";
@@ -864,6 +865,22 @@ export class Compat {
     const imageEnabled = await toolEnabled(s, this.settings, IMAGE_TOOL_NAME, resolvedExtensions);
     const videoEnabled = await toolEnabled(s, this.settings, VIDEO_TOOL_NAME, resolvedExtensions);
     const browserEnabled = await toolEnabled(s, this.settings, 'browser_control', resolvedExtensions);
+    const installTools = !s.agentProfile && !s.scheduleId && this.library ? chatInstallTools({
+      session: s, library: this.library, settings: this.settings,
+      foreground: () => {
+        const connection = this.active.get(s.id)?.connection;
+        return connection?.background ? undefined : connection;
+      },
+      confirm: async (name, args, explanation, { callId, signal }) => {
+        const connection = this.active.get(s.id)?.connection;
+        if (!connection?.ask || connection.background || !await this.approveTool(s,
+          { id: callId, name, arguments: args, safety: { requiresApproval: true, explanation } }, connection, signal))
+          throw Error('Installation was not approved.');
+      },
+    }) : [];
+    const enabledInstallTools = [];
+    for (const tool of installTools)
+      if (await toolEnabled(s, this.settings, tool.name, resolvedExtensions)) enabledInstallTools.push(tool);
     // Host tools are registered in the session scope below. Harness's native
     // allow list only accepts globally registered tools, not scoped additions.
     return {
@@ -877,6 +894,9 @@ ${s.agentProfile.prompt}
 Use this role throughout this workspace.` : basePrompt,
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
+        ...(enabledInstallTools.length ? [
+          `The foreground chat owns installation. For a single repository handle the dependent steps directly. ${enabledInstallTools.some(tool => tool.name === 'install_mcp_extension') ? 'For a GitHub tool, call install_mcp_extension with repository_url first. Follow the publisher manifest or linked setup guide and submit its MCP launch configuration for testing before changing dependencies.' : ''} ${enabledInstallTools.some(tool => tool.name === 'install_skill') ? 'For a skill, locate the published SKILL.md directory and use install_skill.' : ''} Work within the selected workspace. If the source lacks setup information, ask for the documented command or skill link. Report the verified result or specific missing prerequisite.`,
+        ] : []),
         // Keep the recipe identifiable as the current task among generic guidance.
         ...(s.recipe?.instructions ? [`## Current task instructions\n${s.recipe.instructions}`] : []),
         ...(s.type === "code_pro" ? [codeproInstructions] : []),
@@ -948,6 +968,7 @@ Use this role throughout this workspace.` : basePrompt,
       },
       toolFilter: { allow: nativeAllowed },
       tools: [
+        ...enabledInstallTools,
         ...(browserEnabled ? [browserTool({ sessionId: s.id, cwd: s.cwd, requestOwner: this,
           request: (method, params, signal) => {
             const connection = this.active.get(s.id)?.connection;
@@ -1035,6 +1056,13 @@ Use this role throughout this workspace.` : basePrompt,
     if (denied() || !(await this.toolAvailable(s, tool, extensions)))
       return { kind: 'deny', reason: 'The tool configuration changed before execution.' };
     tool.safety = safety;
+    // The tool prepares a settings proposal. Its executor presents the exact
+    // target to approveTool before applying it, including in full-access mode.
+    // An additional safety finding still follows the normal safety gate.
+    if (isChatInstallProposal(tool.name) && !safety.requiresApproval)
+      return tool.delegated || !this.active.get(s.id)?.connection?.ask || this.active.get(s.id)?.connection?.background
+        ? { kind: 'deny', reason: 'Installation requires the foreground root chat.' }
+        : { kind: 'allow' };
     const permissions = this.store.read(['toolPermissions']).toolPermissions ?? {};
     const permission = permissions[publicToolName(tool.name)] ?? permissions[tool.name];
     if (safety.requiresApproval || permission === 'ask_before')

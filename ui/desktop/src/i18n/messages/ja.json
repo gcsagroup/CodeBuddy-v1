@@ -6978,7 +6978,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "この端末のすべてのチャットに適用されます。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "ルートフォルダー：{path}。ファイルを書き込む前にプロジェクトを選択してください。"
@@ -6996,7 +6996,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "この端末のすべてのチャットに適用されます。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"

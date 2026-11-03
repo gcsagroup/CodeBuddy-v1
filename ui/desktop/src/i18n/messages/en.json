@@ -8682,6 +8682,9 @@
   "toolConfirmation.browserAction": {
     "defaultMessage": "{operation,select,open{Open page} observe{Read page} click{Click page element} type{Enter text on page} key{Send key to page} screenshot{Capture page} console{Read page console} close{Close page} other{Browser action}}"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "Arguments"
+  },
   "toolConfirmation.browserNode": {
     "defaultMessage": "Element {node}"
   },
@@ -8902,7 +8905,7 @@
     "defaultMessage": "Installed"
   },
   "toolbox.statusConfigured": {
-    "defaultMessage": "Enabled, connection not verified"
+    "defaultMessage": "Configured and enabled"
   },
   "toolbox.statusDisabled": {
     "defaultMessage": "Disabled"

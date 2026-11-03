@@ -30,9 +30,10 @@ test('native templates preserve chat-local histories, roles and resolved models 
     const child = isChild(body);
     const index = body.messages.findLastIndex(message => message.role === 'user' && /ROOT_ACTION_\d+/.test(JSON.stringify(message.content)));
     const action = index < 0 ? undefined : JSON.stringify(body.messages[index].content).match(/ROOT_ACTION_\d+/)[0];
-    const childIndex = body.messages.findLastIndex(message => message.role === 'user' && ['CHILD_SAVED_INITIAL', 'CHILD_SAVED_COLD'].some(marker => JSON.stringify(message.content).includes(marker)));
+    const childIndex = body.messages.findLastIndex(message => message.role === 'user' && ['CHILD_SAVED_INITIAL', 'CHILD_SAVED_COLD', 'CHILD_FRONTEND_ONLY'].some(marker => JSON.stringify(message.content).includes(marker)));
     const tool = child && childIndex >= 0 && !body.messages.slice(childIndex + 1).some(message => message.role === 'tool')
-      ? { name: 'search_mcp_tools', args: { names: ['grep', 'write', 'mcp__local__allowed', 'mcp__local__blocked', 'fixture_host_tool'] } }
+      ? { name: 'search_mcp_tools', args: { names: JSON.stringify(body.messages[childIndex].content).includes('CHILD_FRONTEND_ONLY')
+        ? ['subagent', 'send_message'] : ['grep', 'write', 'mcp__local__allowed', 'mcp__local__blocked', 'fixture_host_tool'] } }
       : !child && action && !body.messages.slice(index + 1).some(message => message.role === 'tool') ? plans.get(action) : undefined;
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
@@ -78,7 +79,11 @@ test('native templates preserve chat-local histories, roles and resolved models 
     return receipt.structuredContent.subagentId;
   };
   const byTask = marker => requests.filter(request => isChild(request) && request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes(marker)));
-  const saved = await spawn(main.sessionId, 'subagent', { description: 'Saved review', template: custom.id, prompt: 'CHILD_SAVED_INITIAL' });
+  assert.equal((await action(main.sessionId, 'subagent', { role: 'Reviewer' })).isError, true);
+  assert.deepEqual(await driver.listSubagentChildren(main.sessionId), []);
+  const saved = await spawn(main.sessionId, 'subagent', { template: custom.id, prompt: 'CHILD_SAVED_INITIAL' });
+  const followup = requests.filter(request => !isChild(request)).at(-1).tools.find(tool => tool.function.name === 'send_message');
+  assert.ok(followup?.function.parameters.required.includes('agent_id'), 'After a successful spawn the parent sees how to address its child');
   const savedRequest = byTask('CHILD_SAVED_INITIAL').at(-1);
   assert.ok(savedRequest, 'The native child must receive the delegated task');
   const requestCount = requests.length;
@@ -112,7 +117,8 @@ test('native templates preserve chat-local histories, roles and resolved models 
   assert.ok(byTask('CHILD_JULY_ONLY').at(-1).tools.every(tool => !['write', 'edit', 'pwsh', 'bash'].includes(tool.function.name)));
   await assert.rejects(driver.callTool(explorer, 'write', { file_path: join(root, 'must-not-exist'), content: 'no' }), /owned by subagent routing/);
   const role = '代码审查 {{component}}';
-  const reviewer = await spawn(main.sessionId, 'subagent', { description: 'Frontend review', role, prompt: 'CHILD_FRONTEND_ONLY' });
+  const reviewer = await spawn(main.sessionId, 'subagent', { role, prompt: 'CHILD_FRONTEND_ONLY' });
+  assert.ok(byTask('CHILD_FRONTEND_ONLY').at(-1).messages.some(message => message.role === 'tool' && message.content.includes('"missingNames":["subagent"]')));
   await action(main.sessionId, 'send_message', { agent_id: reviewer, message: 'CHILD_BACKEND_ONLY' });
   assert.equal((await driver.listSubagentChildren(main.sessionId)).find(row => row.id === reviewer).label, role);
   assert.equal(byTask('CHILD_BACKEND_ONLY').at(-1).model, 'fixture-generic');

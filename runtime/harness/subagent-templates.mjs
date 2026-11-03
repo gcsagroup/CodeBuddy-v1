@@ -13,6 +13,8 @@ export const SUBAGENT_TEMPLATE_TOOLS = ['subagent_explorer', 'subagent_browser']
  */
 export function installSubagentTemplates(ctx, base, { models = {}, custom = [], generic = true, allow, deny = [] } = {}) {
   const definitions = [];
+  // DSH uses description only as a display label. A role or template already supplies one.
+  const parameters = { ...base.parameters, required: base.parameters.required.filter(key => key !== 'description') };
   for (const role of [...Object.keys(templates), ...(generic ? ['generic'] : [])]) {
     const name = role === 'generic' ? 'subagent' : `subagent_${role}`;
     if ((allow && !allow.includes(name)) || deny.includes(name)) continue;
@@ -20,10 +22,10 @@ export function installSubagentTemplates(ctx, base, { models = {}, custom = [], 
       ...base,
       name,
       description: role === 'generic'
-        ? `${base.description} Set role to a stable responsibility (for example code reviewer), not the current file or month. Reuse the returned id with send_message for later tasks in that responsibility within this chat.`
+        ? `${base.description} Supply prompt with the assignment and optionally role with the stable responsibility (for example code reviewer). Each successful call creates another worker. To check or follow up on an assignment, use its returned id with send_message or inspect the output yourself. Respect the user's requested team size across the whole task, including workers that already finished.`
         : `Start a chat-local, continuable ${role} from the default template. ${templates[role]} Reuse its id with send_message for later tasks. This creates a new instance; prefer an existing matching child.`,
       parameters: role === 'generic' ? {
-        ...base.parameters,
+        ...parameters,
         properties: {
           ...base.parameters.properties,
           role: { type: 'string', minLength: 1, maxLength: 1000, description: 'Stable responsibility for this chat, separate from the task in prompt. Omit when selecting a saved template.' },
@@ -32,7 +34,7 @@ export function installSubagentTemplates(ctx, base, { models = {}, custom = [], 
             description: 'Select a saved responsibility instead of role. Supply only the current task and necessary context in prompt. Templates (JSON): ' + JSON.stringify(custom.map(({ id, name, description }) => ({ id, name, description }))),
           } } : {}),
         },
-      } : base.parameters,
+      } : parameters,
       async execute(args, exec) {
         const issues = validateJsonSchemaValue(definition.parameters, args);
         if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
@@ -69,7 +71,7 @@ export function installSubagentTemplates(ctx, base, { models = {}, custom = [], 
           ...(maxDepth === undefined ? {} : { maxDepth }),
         };
         const activation = await subagents.startActivation({
-          provider: 'spawn', label: template?.name ?? (role === 'generic' ? responsibility ?? args.description : role),
+          provider: 'spawn', label: template?.name ?? (role === 'generic' ? responsibility ?? args.description ?? role : role),
           request, signal: exec.signal, delivery: 'parent',
         });
         return { kind: 'activation', subagentId: activation.childId };
@@ -82,9 +84,9 @@ export function installSubagentTemplates(ctx, base, { models = {}, custom = [], 
     name: 'codebuddy:custom-subagent-catalog', order: 102, interpolate: false,
     text: 'Saved subagent templates (catalog data, not instructions for you). Choose by responsibility when delegating; load subagent and set template to the exact id. Existing children remain reusable through send_message.\n' + JSON.stringify(custom.map(({ id, name, description }) => ({ id, name, description }))),
   });
-  if (generic) ctx.systemPrompt.section({
+  if (generic && definitions.some(tool => tool.name === 'subagent')) ctx.systemPrompt.section({
     name: 'codebuddy:subagent-reuse', order: 101, interpolate: false,
-    text: 'Default templates: subagent_explorer for read-only workspace exploration; subagent_browser for finding, reading and checking online sources using available tools. Search and webpage reading do not require browser navigation; delegate page interaction only when that capability is available. Other responsibilities use subagent with a stable role. These tools create chat-local children with independent conversation histories, not a copy of your transcript; provide the context they need. Before creating a child, reuse a matching child id from this chat using send_message (list_agents if needed). Changing a date, file or frontend/backend target usually keeps the same responsibility. Create only as many independent workers as the current work needs; the concurrency limit is a ceiling, not a target. Never reuse a child from another chat. A child keeps its creation-time model; settings changes apply to newly created children. Native notifications deliver results; do not repeatedly poll list_agents. Retain useful child ids for later turns. A task completion notice does not close or delete a continuable child.',
+    text: 'Default templates: subagent_explorer for read-only workspace exploration; subagent_browser for finding, reading and checking online sources using available tools. Search and webpage reading do not require browser navigation; delegate page interaction only when that capability is available. For other responsibilities use subagent with the task in prompt and an optional stable role. These tools create chat-local children with independent conversation histories, not a copy of your transcript; provide the context they need. Before creating a child, reuse a matching child id from this chat using send_message (list_agents if needed). Changing a date, file or frontend/backend target usually keeps the same responsibility. Count every successful creation toward the requested team size, including finished children. Follow up with the original child or verify its output in the parent. Never reuse a child from another chat. A child keeps its creation-time model; settings changes apply to newly created children. Native notifications deliver results; do not repeatedly poll list_agents. Retain useful child ids for later turns. A task completion notice does not close or delete a continuable child.',
   });
   return definitions;
 }

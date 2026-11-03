@@ -9,7 +9,8 @@ const optionalNative = new Set(['browser_control', 'generate_image', 'generate_v
 const deferred = name => optionalNative.has(name) || name.startsWith('mcp__') || name.startsWith('git_') || name === 'github_runtime_status' || /^subagent_(coder|planner|reviewer|tester)$/.test(name);
 // Basic delivery actions remain visible, but only when the scoped registry
 // permits them. Discovery and permission/execution ownership stay unchanged.
-const deliveryTools = new Set(['write', 'edit', 'browser_control']);
+const deliveryTools = new Set(['write', 'edit', 'browser_control', 'install_mcp_extension', 'install_skill']);
+for (const name of deliveryTools) optionalNative.add(name);
 // Real Ollama Cloud calls emitted null for optional nullable values and strings
 // for referenced objects. Advertise omission and inline acyclic local references;
 // the registry retains the original schema and validates the actual call.
@@ -63,7 +64,7 @@ export function projectOptionalValues(schema, optional = false, root = schema, r
     if (result[key]) result[key] = projectOptionalValues(result[key], false, root, references);
   return result;
 }
-export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined) {
+export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined, applicable = () => true) {
   const project = tool => {
     const endpoint = modelEndpoint();
     if (!endpoint || new URL(endpoint).hostname !== 'ollama.com') return tool;
@@ -74,7 +75,12 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   // by discovery, otherwise reopening an old conversation reloads every tool.
   const selected = new Set(previous.some(tool => tool.name === 'search_mcp_tools')
     ? previous.filter(tool => deferred(tool.name)).slice(-16).map(tool => tool.name) : []);
-  const available = () => ctx.tools.schemas(agent).filter(tool => deferred(tool.name));
+  function select(name) {
+    selected.delete(name);
+    selected.add(name);
+    if (selected.size > 16) selected.delete(selected.values().next().value);
+  }
+  const available = () => ctx.tools.schemas(agent).filter(tool => deferred(tool.name) && applicable(tool.name));
   let computerSkillLoaded = false;
   // A successful, model-selected skill load reveals its bounded tool surface
   // without another model round-trip. Registry masks and execution gates remain
@@ -85,21 +91,24 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     // the next request can correct its arguments instead of guessing repeatedly.
     // This neither retries the action nor changes the registry/execution gates.
     if (exec.agent.id === agent.id && available().some(tool => tool.name === exec.name)) {
-      selected.delete(exec.name); selected.add(exec.name);
-      while (selected.size > 16) selected.delete(selected.values().next().value);
+      select(exec.name);
+    }
+    if (exec.agent.id === agent.id && !result.isError && result.value?.kind === 'activation' &&
+        typeof result.value.subagentId === 'string' && ['subagent', 'subagent_explorer', 'subagent_browser'].includes(exec.name)) {
+      for (const tool of available()) if (tool.name === 'send_message' || tool.name === 'list_agents') {
+        select(tool.name);
+      }
     }
     if (exec.agent.id === agent.id && exec.name === 'skill' && !result.isError &&
         result.value?.name === 'comfyui' && result.value?.provider === 'codebuddy-comfyui-skill') {
-      for (const tool of available()) if (['generate_image', 'generate_video'].includes(tool.name)) { selected.delete(tool.name); selected.add(tool.name); }
-      while (selected.size > 16) selected.delete(selected.values().next().value);
+      for (const tool of available()) if (['generate_image', 'generate_video'].includes(tool.name)) select(tool.name);
       return;
     }
     if (exec.agent.id !== agent.id || exec.name !== 'skill' || result.isError ||
         result.value?.name !== 'computer-use' || result.value?.provider !== 'codebuddy-computer-skill') return;
     computerSkillLoaded = true;
     const entryTools = new Set(['open_path', 'list_apps', 'get_app_state', 'click', 'press_key', 'type_text', 'drag', 'scroll', 'set_value', 'perform_secondary_action'].map(name => `mcp__qwen_computer__${name}`));
-    for (const tool of available()) if (entryTools.has(tool.name)) { selected.delete(tool.name); selected.add(tool.name); }
-    while (selected.size > 16) selected.delete(selected.values().next().value);
+    for (const tool of available()) if (entryTools.has(tool.name)) select(tool.name);
   });
   // Restricted observers/reviewers must keep their exact tool boundary.
   if (!available().length) return;
@@ -119,9 +128,10 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
       const matches = names.length ? tools.filter(tool => names.includes(tool.name))
         : scored.filter(item => !terms.length || item.score > 0).sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name)).map(item => item.tool);
       const page = matches.slice(offset, offset + 5);
-      for (const tool of page) { selected.delete(tool.name); selected.add(tool.name); }
-      while (selected.size > 16) selected.delete(selected.values().next().value);
-      return { tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)) };
+      for (const tool of page) select(tool.name);
+      return { tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)),
+        ...(!matches.length ? { availableNativeTools: tools.filter(tool => optionalNative.has(tool.name)).map(tool => tool.name),
+          guidance: 'No match in this session. Choose an available tool; repeating the same search cannot install or enable one.' } : {}) };
     },
   });
   ctx.systemPrompt.section({ name: 'codebuddy:mcp-discovery', order: 99, interpolate: false,
@@ -141,7 +151,7 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
   });
   ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const assembly = await next();
-    const tools = assembly.tools.filter(tool => !deferred(tool.name) || deliveryTools.has(tool.name) || selected.has(tool.name));
+    const tools = assembly.tools.filter(tool => applicable(tool.name) && (!deferred(tool.name) || deliveryTools.has(tool.name) || selected.has(tool.name)));
     const servers = new Set(tools.filter(tool => tool.name.startsWith('mcp__')).map(tool => getMcpToolMetadata(ctx, agent, tool.name)?.extensionName).filter(Boolean));
     // Server guidance is separate from schemas upstream. Keep it with loaded
     // server tools, without mutating shared connection scopes or their registry.

@@ -18,7 +18,7 @@ import { createScope, bindScopeParent, scopeChainOf } from '@deepseek-ai/dsh-sco
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
-import { profileEntries, CODEBUDDY_BEHAVIOR } from './profile.mjs';
+import { profileEntries, CODEBUDDY_BEHAVIOR, MANAGED_WORKSPACES_MARKER } from './profile.mjs';
 
 import { ensureGitEnvironment } from '../git-environment.mjs';
 import { mountNativeSchedule } from './native-schedule.mjs';
@@ -39,6 +39,8 @@ import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs'
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
 
+import { abortable } from './abortable.mjs';
+
 export const HARNESS_VERSION = '0.2.1-alpha.2';
 export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32c';
 
@@ -49,25 +51,19 @@ function nativeProviderRoute(provider, model) {
   return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...connection, model })).digest('hex').slice(0, 20);
 }
 
-function abortable(promise, signal) {
-  if (signal.aborted) return Promise.reject(signal.reason ?? new Error('Cancelled'));
-  return new Promise((resolvePromise, reject) => {
-    const onAbort = () => reject(signal.reason ?? new Error('Cancelled'));
-    signal.addEventListener('abort', onAbort, { once: true });
-    Promise.resolve(promise).then(resolvePromise, reject).finally(() => signal.removeEventListener('abort', onAbort));
-  });
-}
-
 /** Boot the official Harness Host and expose the existing CodeBuddy transport seam. */
-export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir } = {}) {
+export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instructionsHome, sharedSkillDir, managedWorkspaceRoot } = {}) {
   if (!dataDir) throw new TypeError('Harness dataDir is required for old/new data isolation');
   await ensureGitEnvironment();
   // The public entry establishes the alpha2 contracts before loading this driver.
-  const { foldSubagentDescriptor } = await import('@deepseek-ai/dsh-subagent');
+  const { delegationDepthOf, foldSubagentDescriptor } = await import('@deepseek-ai/dsh-subagent');
   const root = resolve(dataDir);
+  // The desktop's task container can itself live inside a development checkout.
+  // Give native instruction discovery a real boundary, including for existing tasks.
+  if (managedWorkspaceRoot) await mkdir(join(managedWorkspaceRoot, MANAGED_WORKSPACES_MARKER), { recursive: true });
   await mkdir(root, { recursive: true });
   const configPath = join(root, 'codebuddy-host.json');
-  await writeFile(configPath, JSON.stringify(profileEntries(root, resolve(cwd), resolve(instructionsHome ?? root), sharedSkillDir), null, 2));
+  await writeFile(configPath, JSON.stringify(profileEntries(root, resolve(cwd), resolve(instructionsHome ?? root), sharedSkillDir, managedWorkspaceRoot), null, 2));
   const runs = new Map();
   let nativeSchedule, nativeScheduleCallbacks;
   const maintenanceRuns = new Map();
@@ -95,6 +91,20 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   let skillRefresh = Promise.resolve();
   let selection = { provider: 'codebuddy-unconfigured', model: 'unconfigured' };
   const ctx = await boot('codebuddy-harness', configPath, [], host => {
+    // Both phases precede the transport observer. A stalled phase must be
+    // identifiable even if the first model request is never constructed.
+    async function tracePreparation(phase, agent, next) {
+      const start = performance.now();
+      const trace = status => console.info('[Harness prompt preparation]', JSON.stringify({
+        sessionId: agent?.id, phase, status, elapsedMs: Math.round(performance.now() - start),
+      }));
+      let slow = false;
+      const timer = setTimeout(() => { slow = true; trace('waiting'); }, 10000).unref();
+      try { return await next(); }
+      finally { clearTimeout(timer); if (slow) trace('settled'); }
+    }
+    host.on('system-prompt/assemble', (_assembly, { agent }, next) => tracePreparation('system-prompt/assemble', agent, next));
+    host.on('agent/pre-step', ({ agent }, next) => tracePreparation('agent/pre-step', agent, next));
     // Supply creation intent before the official preset service pins defaults.
     // Restored and forked native facts always win over product metadata.
     host.on('session/created', session => {
@@ -150,7 +160,8 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (!agent || agent.session.header.origin === 'subagent' || ctx.agents.get(agent.id) !== agent) return assembly;
     let snapshot;
     try {
-      const children = await ctx.subagents.listChildren(agent.id, signal);
+      // The active parent's own native projection already has its direct children.
+      const children = ctx.sessionProjections.snapshot(agent.session, ['subagentCatalog']).values.subagentCatalog;
       if (!children.length) return assembly;
       const turns = await Promise.all(children.map(async child => {
         if (!['one-shot', 'continuable'].includes(child.mode)) return { id: child.id, availability: 'unsupported' };
@@ -987,7 +998,17 @@ Keep progress updates brief, meaningful, and outcome-based.
             ? ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete', ...SCHEDULE_CONTROL_TOOLS].filter(name => ctx.tools.get(name)) : [])],
         }, shared?.key);
         const discovery = childFilter?.allow?.length === 0 ? undefined
-          : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
+          : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL, name => {
+            if (name === 'exit_plan_mode') {
+              const mode = ctx.planMode.get(agent);
+              return mode.pending ?? mode.active;
+            }
+            if (['subagent', 'subagent_explorer', 'subagent_browser', 'subagent_coder', 'subagent_planner', 'subagent_reviewer', 'subagent_tester'].includes(name)) {
+              const maxDepth = ctx.subagents.resolveMaxDepth();
+              return maxDepth === undefined || delegationDepthOf(agent) < maxDepth;
+            }
+            return true;
+          });
         if (discovery) {
           readOnlyDefinitions.add(discovery);
           // Loading tool schemas is internal plumbing, not a project operation.

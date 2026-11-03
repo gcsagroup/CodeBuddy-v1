@@ -8,6 +8,18 @@ import { DesktopCoordinator } from '../desktop-coordinator.mjs';
 import { spawn } from 'node:child_process';
 
 const tool = { name: 'mcp__qwen_computer__click' };
+test('window title is bound before discovery and isolated by prompt, including an explicitly unrestricted prompt', async t => {
+  const { begin } = fixture(t), first = begin('named');
+  const list = title => ({name: 'mcp__qwen_computer__list_apps', arguments: {window_title: title}});
+  const scope = turn => turn.metadata()['codebuddy/desktop-control'].windowTitle;
+  assert.equal(await first.execute(list('Parity Mac 1103'), () => scope(first)), 'Parity Mac 1103');
+  await assert.rejects(first.execute(list(''), () => assert.fail('scope widened')), /already bound/);
+  await assert.rejects(first.execute(list('Parity QA 472'), () => assert.fail('scope replaced')), /already bound/);
+  assert.equal(await first.execute(tool, () => scope(first)), 'Parity Mac 1103');
+  await first.end();
+  const second = begin('general');
+  assert.equal(await second.execute(list(''), () => scope(second)), '');
+});
 function nativeCall(turn, outcome, { name = tool.name, fail = false, version = 1 } = {}) {
   const call = { name };
   return turn.execute(call, async () => {

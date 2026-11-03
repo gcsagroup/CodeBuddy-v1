@@ -9,6 +9,12 @@ Use the configured desktop MCP to operate Windows or macOS applications. This gu
 3. `mcp__qwen_computer__list_apps` lists visible windows, not installed applications. Select the exact returned window identifier. Do not invent an English application name when the returned name is localized; keep separate windows and popovers distinct.
 4. Observe that exact window with `mcp__qwen_computer__get_app_state` before any click, key or text input. Inspect both the screenshot and accessibility tree. Never start with `press_key` or assume that the previously frontmost app still has focus.
 
+Before discovery, pass the user's exact requested window title as `window_title` on the first computer tool call. If the user named only an app, file, folder or contact, pass an empty string. The host retains the scope for this turn. Confirm the matching window in its observation before sending input. If the title is missing, refresh the list once using the same title. If it is still absent or ambiguous, leave all candidate windows untouched and report which title could not be identified. Verify the result in the same matched window.
+
+简体：用户指定窗口标题时，先匹配标题，再观察该窗口核对身份。刷新一次仍找不到或无法区分时，说明缺少哪个窗口，不在相似窗口上点击。
+
+繁體：使用者指定視窗標題時，先比對標題，再觀察該視窗確認身分。重新列出一次後仍找不到或無法區分時，說明缺少哪個視窗，不在相似視窗上點擊。
+
 ## Observe, act, verify
 
 - Keep routine control turns short: use the returned evidence to choose the next action, without narrating the same plan before every tool call. When the requested result is already visible in the last action's after-state, finish with a brief factual result. Do not add a separate observation or re-audit the full history just to write the final reply. Preserve all target, focus and permission checks.

@@ -15,8 +15,11 @@ final class InputDispatchReceipt {
         return try operation()
     }
 
-    func failureDescription(_ error: Error) -> String {
-        "\(error)" + (dispatched
+    func failureDescription(_ error: Error, scopedWindow: Bool = false) -> String {
+        if scopedWindow && !dispatched {
+            return "\(error) No requested input was dispatched. Keep the original window title. If it remains unavailable after one refresh, report that result and continue independent work."
+        }
+        return "\(error)" + (dispatched
             ? " Input may have occurred. Observe before retrying; do not replay an uncertain action."
             : " No requested input was dispatched. Observe get_app_state(app=foreground) and use that window's current observation before retrying.")
     }
@@ -109,6 +112,7 @@ struct NativeElement: Codable {
 }
 
 struct NativeRequest: Decodable {
+    var windowTitle: String?
     var controlDirectory: String?
     var controlIdentity: String?
     var inputVersion: String?

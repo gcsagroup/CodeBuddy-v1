@@ -714,9 +714,17 @@ function Build-Snapshot([string]$query, [int64]$expectedWindow=0, [int]$expected
     }
 }
 
-function List-Apps {
+function Get-ScopedWindows([string]$title) {
+    $visible = [OcuDesktop]::VisibleWindows()
+    if (-not $title) { return $visible }
+    $matched = @($visible | Where-Object { [string]::Equals([OcuDesktop]::Title($_), $title, [StringComparison]::Ordinal) })
+    if ($matched.Count -ne 1) { throw "Requested window title has $($matched.Count) exact visible matches. No input dispatched; do not substitute another window." }
+    return $matched
+}
+
+function List-Apps([string]$windowTitle) {
     $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($handle in [OcuDesktop]::VisibleWindows()) {
+    foreach ($handle in (Get-ScopedWindows $windowTitle)) {
         $ownerId = [OcuDesktop]::WindowProcessId($handle)
         $process = Get-Process -Id $ownerId -ErrorAction SilentlyContinue
         if ($null -eq $process) { continue }
@@ -1047,6 +1055,12 @@ $inputConflict = $false
 
 try {
     [OcuControl]::Begin([string]$operation.controlDirectory, [string]$operation.controlIdentity)
+    if ($operation.windowTitle -and $operation.tool -ne 'list_apps') {
+        $allowed = Get-ScopedWindows $operation.windowTitle
+        $target = Resolve-ObservedApp $operation.app $operation.expectedWindow $operation.expectedPid
+        if ($target.MainWindowHandle -ne $allowed) { throw 'Window is outside the requested title scope. No input dispatched.' }
+        $operation.app = "window:$($target.Id):$($allowed.ToInt64())"
+    }
     $inputReady = [OcuControl]::Prepare($operation.tool -eq 'get_app_state' -or $operation.tool -eq 'list_apps')
     if (-not $inputReady -and $operation.tool -ne 'open_path') {
         $inputConflict = $true
@@ -1062,7 +1076,7 @@ try {
         }
     } elseif ($operation.tool -eq "list_apps") {
         $feedbackToken = Start-DesktopFeedback $operation $null
-        $response = [pscustomobject]@{ ok = $true; text = (List-Apps) }
+        $response = [pscustomobject]@{ ok = $true; text = (List-Apps $operation.windowTitle) }
     } elseif ($operation.tool -eq "open_path") {
         [OcuControl]::Check()
         if (-not (Test-EnvFlagEnabled 'OPEN_COMPUTER_USE_WINDOWS_FOREGROUND_INPUT')) { throw 'Opening desktop documents requires --foreground-input opt-in.' }
@@ -1098,6 +1112,9 @@ try {
             }
         }
         $element = Find-Element $process $operation.element
+        if ($operation.windowTitle -and (Get-ScopedWindows $operation.windowTitle) -ne $hwnd) {
+            throw 'Window changed during activation. No input dispatched.'
+        }
         if ($null -ne $operation.element -and $null -eq $element) { throw 'Target element disappeared; re-observe before acting.' }
         $feedbackToken = Start-DesktopFeedback $operation $currentBounds
 

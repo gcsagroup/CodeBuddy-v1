@@ -170,7 +170,7 @@ export default function MessageUsageStats({
         <div
           tabIndex={0}
           aria-label={intl.formatMessage(i18n.total)}
-          className="flex items-center gap-2 text-xs leading-4 text-text-secondary hover:text-text-primary transition-colors cursor-default tabular-nums"
+          className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs leading-4 text-text-secondary hover:text-text-primary transition-colors cursor-default tabular-nums"
         >
           {compact ? (
             <>

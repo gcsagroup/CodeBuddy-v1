@@ -27,6 +27,10 @@ export function handleAcpSessionNotification(
     : undefined;
   acpChatSessionActions.applyAcpSessionNotification(notification);
   const update = notification.update;
+  if (update.sessionUpdate === 'session_info_update' && update._meta?.['codebuddy/agent-input'])
+    window.dispatchEvent(new CustomEvent(AppEvents.AGENT_INPUT_ADMITTED, {
+      detail: { sessionId: notification.sessionId },
+    }));
   if (update.sessionUpdate === 'session_info_update' && update._meta?.['codebuddy/questions'])
     applyNativeQuestionSnapshot(
       notification.sessionId,

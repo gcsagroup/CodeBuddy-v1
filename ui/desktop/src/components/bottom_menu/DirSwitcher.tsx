@@ -31,11 +31,11 @@ const i18n = defineMessages({
   },
   chooseDirectory: {
     id: 'dirSwitcher.chooseDirectory',
-    defaultMessage: 'Choose project…',
+    defaultMessage: 'Choose workspace…',
   },
   chooseFolder: {
     id: 'dirSwitcher.chooseFolder',
-    defaultMessage: 'Select project',
+    defaultMessage: 'Select workspace',
   },
   openInFinder: {
     id: 'dirSwitcher.openInFinder',
@@ -59,8 +59,8 @@ const DirNameLabel: React.FC<{ dir: string }> = ({ dir }) => {
   const { name, parent } = splitDirPath(dir);
   return (
     <div className="flex flex-col min-w-0 flex-1">
-      <span className="truncate text-sm text-text-primary">{name}</span>
-      {parent && <span className="truncate text-xs text-text-secondary/70">{parent}</span>}
+      <span className="truncate text-xs leading-4 text-text-primary">{name}</span>
+      {parent && <span className="truncate text-[10px] leading-3 text-text-secondary/70">{parent}</span>}
     </div>
   );
 };
@@ -197,7 +197,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
       <DropdownMenuTrigger asChild>
         <button
           ref={triggerRef}
-          className={`z-[100] ${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} min-w-0 text-text-primary/70 text-xs flex items-center gap-1 transition-colors px-1 min-h-7 ${className}`}
+          className={`${isDirectoryChooserOpen ? 'opacity-50' : 'hover:cursor-pointer hover:text-text-primary'} min-w-0 text-text-primary/70 text-xs flex items-center gap-1 transition-colors px-1 min-h-7 ${className}`}
           onPointerDown={(event) => {
             // Radix opens on pointer-down; wait for click to finish before showing a menu item
             // under the pointer, or the same gesture can select a recent directory.
@@ -225,7 +225,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         updatePositionStrategy="always"
-        className="w-[min(28rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto"
+        className="flex w-[min(19rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] flex-col overflow-hidden text-xs"
         side="top"
         align="start"
         onInteractOutside={(event) => {
@@ -235,10 +235,12 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
           }
         }}
       >
+        <div className="max-h-44 min-h-0 overflow-x-hidden overflow-y-auto">
         {workingDir && (
           <>
-            <DropdownMenuLabel>{intl.formatMessage(i18n.currentDirectory)}</DropdownMenuLabel>
+            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.currentDirectory)}</DropdownMenuLabel>
             <DropdownMenuItem
+              className="py-1"
               onSelect={() => void window.electron.openDirectoryInExplorer(workingDir)}
             >
               <FolderOpen className="mr-2 h-4 w-4 flex-shrink-0" />
@@ -247,10 +249,11 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>{intl.formatMessage(i18n.gitWorktrees)}</DropdownMenuLabel>
+            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.gitWorktrees)}</DropdownMenuLabel>
             {filteredWorktreeDirs.length > 0 ? (
               filteredWorktreeDirs.map((dir) => (
                 <DropdownMenuItem
+                  className="py-1"
                   key={`worktree-${dir}`}
                   onSelect={() => void handleSelectDirectory(dir)}
                 >
@@ -259,7 +262,7 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
                 </DropdownMenuItem>
               ))
             ) : (
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem disabled className="py-1 text-xs">
                 <GitBranch className="mr-2 h-4 w-4" />
                 <span>{intl.formatMessage(i18n.noWorktreesFound)}</span>
               </DropdownMenuItem>
@@ -269,10 +272,11 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
 
         {filteredRecentDirs.length > 0 && (
           <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{intl.formatMessage(i18n.recentDirectories)}</DropdownMenuLabel>
+            {workingDir && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="py-1 text-[10px]">{intl.formatMessage(i18n.recentDirectories)}</DropdownMenuLabel>
             {filteredRecentDirs.map((dir) => (
               <DropdownMenuItem
+                className="py-1"
                 key={`recent-${dir}`}
                 onSelect={() => void handleSelectDirectory(dir)}
               >
@@ -282,14 +286,17 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
             ))}
           </>
         )}
-
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void handleDirectoryChange()}>
+        </div>
+        {(workingDir || filteredRecentDirs.length > 0) && (
+          <DropdownMenuSeparator className="shrink-0" />
+        )}
+        <DropdownMenuItem className="shrink-0 py-1 text-xs" onSelect={() => void handleDirectoryChange()}>
           <Plus className="mr-2 h-4 w-4" />
           <span>{intl.formatMessage(i18n.chooseDirectory)}</span>
         </DropdownMenuItem>
         {workingDir && (
           <DropdownMenuItem
+            className="shrink-0 py-1 text-xs"
             onSelect={() => void window.electron.openDirectoryInExplorer(workingDir)}
           >
             <FolderOpen className="mr-2 h-4 w-4" />

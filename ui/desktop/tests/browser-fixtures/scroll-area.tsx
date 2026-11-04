@@ -29,6 +29,55 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { toastService } from '../../src/toasts';
 import { showExtensionLoadResults } from '../../src/utils/extensionErrorUtils';
+import ProgressiveMessageList from '../../src/components/ProgressiveMessageList';
+
+function HistoryFixture() {
+  const area = useRef<ScrollAreaHandle>(null);
+  const messages: Message[] = Array.from({ length: 48 }, (_, index) => [
+    {
+      id: `history-user-${index}`,
+      role: 'user' as const,
+      created: index * 10,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [{ type: 'text' as const, text: `History question ${index}` }],
+    },
+    {
+      id: `history-answer-${index}`,
+      role: 'assistant' as const,
+      created: index * 10 + 1,
+      metadata: { userVisible: true, agentVisible: true },
+      content: [
+        {
+          type: 'text' as const,
+          text: Array.from(
+            { length: 12 },
+            (_, line) =>
+              `History answer ${index} paragraph ${line}. Reading position must remain continuous.`
+          ).join('\n\n'),
+        },
+      ],
+    },
+  ]).flat();
+  return (
+    <IntlTestWrapper>
+      <MemoryRouter>
+        <main style={{ width: 800, padding: 24 }}>
+          <button onClick={() => area.current?.scrollToBottom()}>Latest</button>
+          <ScrollArea ref={area} autoScroll style={{ height: 520 }}>
+            <ProgressiveMessageList
+              messages={messages}
+              chat={{ sessionId: 'history-regression' }}
+              readOnly
+              maxVisibleMessages={8}
+              batchSize={8}
+              isUserMessage={(item) => item.role === 'user'}
+            />
+          </ScrollArea>
+        </main>
+      </MemoryRouter>
+    </IntlTestWrapper>
+  );
+}
 
 function AutoFoldFixture() {
   const area = useRef<ScrollAreaHandle>(null);
@@ -441,7 +490,9 @@ function ToastFixture() {
 
 const query = new URLSearchParams(window.location.search);
 createRoot(document.getElementById('root')!).render(
-  query.has('auto-fold') ? (
+  query.has('history') ? (
+    <HistoryFixture />
+  ) : query.has('auto-fold') ? (
     <AutoFoldFixture />
   ) : query.has('file-card') ? (
     <FileCardFixture />

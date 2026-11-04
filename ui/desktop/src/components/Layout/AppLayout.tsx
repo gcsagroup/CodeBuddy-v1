@@ -351,9 +351,8 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
         {/* Main content — no border / no card; just flows on the canvas. */}
         <WorkspaceSubagentProvider expanded={showCodeProTaskPanel && isCodeProTaskPanelExpanded}>
           <div ref={workAreaRef} className="relative flex-1 min-w-0 overflow-hidden min-h-0">
-            <motion.div
-              initial={false}
-              animate={{
+            <div
+              style={{
                 width: chatHidden
                   ? 0
                   : availableWidth -
@@ -363,11 +362,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                       panelWidth,
                       codeProTaskPanelLayout
                     ) ?? 0),
-              }}
-              transition={{
-                ...WORKSPACE_PANEL_TRANSITION,
-                duration:
-                  isPanelResizing || reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
               }}
               className="h-full min-w-0 overflow-hidden min-h-0"
               aria-hidden={chatHidden}
@@ -390,7 +384,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                   />
                 </div>
               </div>
-            </motion.div>
+            </div>
             {showNativeSchedule && nativeScheduleId && (
               <motion.aside
                 initial={{ opacity: 0, x: 12 }}

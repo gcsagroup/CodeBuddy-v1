@@ -14,6 +14,35 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('opens qualified inline-code paths through the file panel without guessing basenames or converting commands', () => {
+    const received = vi.fn();
+    window.addEventListener('codebuddy:open-workspace-file', received);
+    try {
+      const view = renderWithIntl(
+        <MarkdownContent
+          sessionId="file-links"
+          content={
+            '`bench30/outputs/T01/aggregates.json` · `C:\\work dir\\中文.md:12` · `run.py`\n\n```sh\npython bench30/run.py\n```\n\n`python bench30/run.py`'
+          }
+        />
+      );
+      const links = view.container.querySelectorAll('a');
+      expect(links).toHaveLength(2);
+      fireEvent.click(links[0]);
+      expect(received.mock.calls[0][0].detail).toMatchObject({
+        sessionId: 'file-links',
+        filePath: 'bench30/outputs/T01/aggregates.json',
+      });
+      fireEvent.click(links[1]);
+      expect(received.mock.calls[1][0].detail).toMatchObject({
+        filePath: 'C:/work dir/中文.md',
+        line: 12,
+      });
+      expect(view.container.querySelector('pre')).toHaveTextContent('python bench30/run.py');
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-file', received);
+    }
+  });
   it.each([
     ['indented code', '    const value = 1;\n    console.log(value);'],
     ['nested list', '- parent\n  - child\n\n    continued child\n- sibling'],
@@ -1017,19 +1046,31 @@ it.each([false, true])(
   }
 );
 
-it.each([false, true])('opens Windows backslash links produced by the model (streaming=%s)', (animateIncoming) => {
-  const opened = vi.fn();
-  window.addEventListener('codebuddy:open-workspace-file', opened);
-  try {
-    const filePath = String.raw`D:\CodeBuddy-v1\.local\acceptance\merge-acceptance.md`;
-    renderWithIntl(<MarkdownContent sessionId="windows-files" animateIncoming={animateIncoming} content={`[File](${filePath})`} />);
-    fireEvent.click(screen.getByRole('link', { name: 'File' }));
-    expect(opened).toHaveBeenCalledTimes(1);
-    expect(opened.mock.calls[0][0].detail).toEqual({ sessionId: 'windows-files', filePath: filePath.replace(/\\/g, '/') });
-  } finally {
-    window.removeEventListener('codebuddy:open-workspace-file', opened);
+it.each([false, true])(
+  'opens Windows backslash links produced by the model (streaming=%s)',
+  (animateIncoming) => {
+    const opened = vi.fn();
+    window.addEventListener('codebuddy:open-workspace-file', opened);
+    try {
+      const filePath = String.raw`D:\CodeBuddy-v1\.local\acceptance\merge-acceptance.md`;
+      renderWithIntl(
+        <MarkdownContent
+          sessionId="windows-files"
+          animateIncoming={animateIncoming}
+          content={`[File](${filePath})`}
+        />
+      );
+      fireEvent.click(screen.getByRole('link', { name: 'File' }));
+      expect(opened).toHaveBeenCalledTimes(1);
+      expect(opened.mock.calls[0][0].detail).toEqual({
+        sessionId: 'windows-files',
+        filePath: filePath.replace(/\\/g, '/'),
+      });
+    } finally {
+      window.removeEventListener('codebuddy:open-workspace-file', opened);
+    }
   }
-});
+);
 
 it.each(['C:/project/src/main.ts:141', 'C:/project/src/main.ts#L141'])(
   'preserves the source location for preview, editor and context menu: %s',

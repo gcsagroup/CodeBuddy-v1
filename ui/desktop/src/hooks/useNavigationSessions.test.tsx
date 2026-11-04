@@ -73,6 +73,18 @@ describe('new session sidebar refresh', () => {
     expect(mocks.navigate).toHaveBeenCalledWith('/codepro/toolbox');
   });
 
+  it('opens custom agents for the viewed chat but never reuses that target from a new-task page', async () => {
+    mocks.location = { pathname: '/codepro/pair', search: '?resumeSessionId=viewed-chat' };
+    const hook = renderHook(() => useNavigationSessions());
+    await act(async () => hook.result.current.handleNavClick('/custom-agents'));
+    expect(mocks.navigate).toHaveBeenLastCalledWith('/codepro/custom-agents?sessionId=viewed-chat', { state: undefined });
+    mocks.location = { pathname: '/codepro', search: '' };
+    hook.rerender();
+    act(() => hook.result.current.handleNavClick('/custom-agents'));
+    expect(mocks.navigate).toHaveBeenLastCalledWith('/codepro/custom-agents', { state: undefined });
+    hook.unmount();
+  });
+
   it('carries the actually viewed chat into automatic task creation', async () => {
     mocks.location = { pathname: '/codepro/pair', search: '?resumeSessionId=viewed-chat' };
     mocks.get.mockResolvedValue({ id: 'viewed-chat', name: 'Current task', workingDir: '',

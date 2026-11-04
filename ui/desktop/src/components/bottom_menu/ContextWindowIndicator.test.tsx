@@ -1,11 +1,23 @@
 import { render, screen } from '@testing-library/react';
-import { vi, it, expect } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { vi, it, expect, beforeEach, afterEach } from 'vitest';
+import { IntlTestWrapper } from '../../i18n/test-utils';
+import { AlertType } from '../alerts';
 import { ContextWindowIndicator } from './ContextWindowIndicator';
-vi.mock('../../i18n', () => ({ useIntl: () => ({ locale: 'en' }) }));
-vi.mock('./BottomMenuAlertPopover', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-it('distinguishes live estimates and unconfirmed capacity, then updates after compaction', () => {
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
+});
+afterEach(() => vi.unstubAllGlobals());
+
+it('shows usage on hover and updates provenance after compaction', async () => {
   const { rerender } = render(
     <ContextWindowIndicator
       totalTokens={7927}
@@ -13,11 +25,21 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
       usageSource="streaming_estimate"
       capacitySource="fallback"
       alerts={[]}
-    />
+    />,
+    { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByText('8k / 33k')).toHaveAttribute(
-    'title',
+  await userEvent.hover(
+    screen.getByRole('button', { name: 'Context usage: 7,927 / 32,768 (24%)' })
+  );
+  expect(await screen.findByRole('dialog')).toHaveTextContent('7.9k / 32.8k');
+  expect(screen.getByRole('dialog').querySelectorAll('p')).toHaveLength(2);
+  expect(screen.getByRole('button')).toHaveAttribute(
+    'aria-description',
     expect.stringContaining('between steps')
+  );
+  expect(screen.getByRole('button')).toHaveAttribute(
+    'aria-description',
+    expect.stringContaining('unconfirmed')
   );
   rerender(
     <ContextWindowIndicator
@@ -28,34 +50,55 @@ it('distinguishes live estimates and unconfirmed capacity, then updates after co
       alerts={[]}
     />
   );
-  expect(screen.getByText('3k / 66k')).toHaveAttribute(
-    'title',
+  expect(screen.getByRole('button', { name: 'Context usage: 3,200 / 65,536 (5%)' })).toBeVisible();
+  expect(screen.getByRole('button')).toHaveAttribute(
+    'aria-description',
     expect.stringContaining('reported by service')
   );
 });
 
-it('shows pending capacity without a fabricated 128k limit', () => {
-  render(<ContextWindowIndicator totalTokens={0} tokenLimit={0} alerts={[]} />);
-  expect(screen.getByText('0 / Unknown')).toHaveAttribute(
-    'title',
-    expect.stringContaining('pending')
+it('keeps zero visible without inventing unknown capacity or usage', async () => {
+  const { rerender } = render(
+    <ContextWindowIndicator totalTokens={0} tokenLimit={0} alerts={[]} />,
+    { wrapper: IntlTestWrapper }
   );
+  await userEvent.hover(screen.getByRole('button', { name: 'Context usage: 0 / Unknown' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('0k / Unknown');
+  expect(screen.getByRole('button')).toHaveAttribute(
+    'aria-description',
+    expect.stringContaining('Capacity pending')
+  );
+  rerender(<ContextWindowIndicator tokenLimit={262144} alerts={[]} />);
+  expect(screen.getByRole('button', { name: 'Context usage: Unknown / 262,144' })).toBeVisible();
+  rerender(<ContextWindowIndicator totalTokens={0} tokenLimit={262144} alerts={[]} />);
+  expect(screen.getByRole('button', { name: 'Context usage: 0 / 262,144 (0%)' })).toBeVisible();
 });
 
-it('keeps the counter stable while capacity provenance changes and explains fallback in its tooltip', () => {
-  const { rerender } = render(
+it('preserves over-capacity counts and keyboard access to the existing compact action', async () => {
+  const compact = vi.fn();
+  render(
     <ContextWindowIndicator
-      totalTokens={43000}
-      tokenLimit={262144}
-      capacitySource="fallback"
-      alerts={[]}
-    />
+      totalTokens={150000}
+      tokenLimit={100000}
+      alerts={[
+        {
+          type: AlertType.Warning,
+          message: 'Context',
+          showCompactButton: true,
+          progress: { current: 150000, total: 100000 },
+          onCompact: compact,
+        },
+      ]}
+    />,
+    { wrapper: IntlTestWrapper }
   );
-  expect(screen.getByText('43k / 262k')).toHaveAttribute(
-    'title',
-    expect.stringContaining('unconfirmed')
-  );
-  rerender(<ContextWindowIndicator totalTokens={43000} tokenLimit={262144} alerts={[]} />);
-  expect(screen.getByText('43k / 262k')).toBeVisible();
-  expect(screen.queryByText(/\?/)).toBeNull();
+  await userEvent.tab();
+  expect(
+    screen.getByRole('button', { name: 'Context usage: 150,000 / 100,000 (150%)' })
+  ).toHaveFocus();
+  expect(await screen.findByRole('dialog')).toHaveTextContent('150k / 100k');
+  await userEvent.keyboard('{Enter}');
+  expect(await screen.findByRole('dialog')).toBeVisible();
+  await userEvent.click(screen.getByRole('button', { name: 'Compact now' }));
+  expect(compact).toHaveBeenCalledOnce();
 });

@@ -437,6 +437,8 @@ export function AppInner() {
   const setView = useNavigation();
   const isSettingsRoute =
     location.pathname === '/settings' || location.pathname === '/codepro/settings';
+  const isCustomAgentsRoute =
+    location.pathname === '/custom-agents' || location.pathname === '/codepro/custom-agents';
   const settingsBackgroundLocation = isSettingsRoute
     ? (location.state as ViewOptions | null)?.backgroundLocation
     : undefined;
@@ -856,7 +858,7 @@ export function AppInner() {
                 path="/"
                 element={
                   <OnboardingGuard
-                    requireModel={!isSettingsRoute}
+                    requireModel={!isSettingsRoute && !isCustomAgentsRoute}
                     onConfigure={() =>
                       navigate(
                         withWorkspaceMode('/settings', getWorkspaceModeFromPath(location.pathname)),

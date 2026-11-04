@@ -28,6 +28,36 @@ const show = (path = 'report.docx') =>
     wrapper: IntlTestWrapper,
   });
 
+it('preserves read-only reference routing on render, retry and explicit application open', async () => {
+  invoke.mockImplementation(async (r) => (r.action === 'document-preview' ? reply('excel') : {}));
+  render(
+    <WorkspaceDocument
+      scope={scope}
+      path="C:/old-workspace/report.xlsx"
+      title="report.xlsx"
+      reference
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  expect(await screen.findByText('interactive-excel')).toBeVisible();
+  expect(invoke).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: 'document-preview',
+      reference: true,
+      path: 'C:/old-workspace/report.xlsx',
+    })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Reload file from disk' }));
+  expect(await screen.findByText('interactive-excel')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Open in default application' }));
+  expect(invoke).toHaveBeenCalledWith(
+    expect.objectContaining({ action: 'open-external', reference: true })
+  );
+  expect(
+    invoke.mock.calls.filter(([r]) => r.action === 'document-preview').every(([r]) => r.reference)
+  ).toBe(true);
+});
+
 it.each(['report.pdf', 'report.docx', 'report.pptx', 'report.xlsx'])(
   'delivers %s to its interactive renderer without opening another application',
   async (path) => {

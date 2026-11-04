@@ -46,6 +46,31 @@ it('streams media larger than text limits without base64 IPC and keeps it read-o
   await expect(registry.resolve(other)).resolves.toMatchObject({ mimeType: 'video/mp4' });
 });
 
+it('keeps an external media capability bound to one canonical file and revokes it', async () => {
+  const other = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-media-reference-'));
+  try {
+    const file = path.join(other, 'video.mp4');
+    await fs.writeFile(file, 'video');
+    await fs.symlink(
+      other,
+      path.join(root, 'linked'),
+      process.platform === 'win32' ? 'junction' : 'dir'
+    );
+    const registry = new PanelMediaRegistry();
+    const url = registry.grant(99, root, 'linked/video.mp4', await fs.realpath(file));
+    expect((await registry.resolve(url)).mimeType).toBe('video/mp4');
+    await expect(registry.resolve(registry.grant(99, root, 'linked/video.mp4'))).rejects.toThrow(
+      'outside'
+    );
+    registry.revoke(99);
+    await expect(registry.resolve(url)).rejects.toThrow('expired');
+    await expect(savePanelFile(root, file, 'changed', '')).rejects.toThrow('outside');
+    expect(await fs.readFile(file, 'utf8')).toBe('video');
+  } finally {
+    await fs.rm(other, { recursive: true, force: true });
+  }
+});
+
 it('rejects missing, traversal, unsupported, oversized and swapped links on each request', async () => {
   const registry = new PanelMediaRegistry();
   for (const file of ['missing.mp4', '../outside.mp4']) {

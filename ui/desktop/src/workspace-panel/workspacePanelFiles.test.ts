@@ -11,6 +11,7 @@ import {
   readPanelFile,
   savePanelFile,
   searchPanelFiles,
+  readPanelReference,
 } from './workspacePanelFiles';
 
 let root: string;
@@ -21,6 +22,44 @@ afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });
 });
 describe('workspace files using real filesystem data', () => {
+  it('inspects referenced documents and media individually without granting directory access or writes', async () => {
+    const other = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-referenced-files-'));
+    try {
+      for (const name of [
+        'report.xlsx',
+        'report.docx',
+        'report.pptx',
+        'report.pdf',
+        'image.png',
+        'video.mp4',
+      ]) {
+        const target = path.join(other, name);
+        await fs.writeFile(target, 'fixture');
+        expect(await inspectPanelFile(root, target, true)).toMatchObject({
+          path: await fs.realpath(target),
+          reference: true,
+        });
+        await expect(inspectPanelFile(root, target)).rejects.toThrow('outside');
+        await expect(savePanelFile(root, target, 'changed', '')).rejects.toThrow('outside');
+        if (/png|mp4/.test(name))
+          expect((await readPanelReference(root, target)).document).toMatchObject({
+            reference: true,
+            media: { kind: name.endsWith('png') ? 'image' : 'video' },
+          });
+      }
+      await expect(listPanelFiles(root, other)).rejects.toThrow('outside');
+      await expect(inspectPanelFile(root, other, true)).rejects.toThrow('regular file');
+      await expect(
+        inspectPanelFile(root, path.join(other, 'missing.xlsx'), true)
+      ).rejects.toThrow();
+      await fs.writeFile(path.join(other, 'huge.pdf'), Buffer.alloc(33 * 1024 * 1024));
+      await expect(inspectPanelFile(root, path.join(other, 'huge.pdf'), true)).rejects.toThrow(
+        'size limit'
+      );
+    } finally {
+      await fs.rm(other, { recursive: true, force: true });
+    }
+  });
   it('inspects large documents without reading a preview and only opens existing scoped documents', async () => {
     await fs.writeFile(path.join(root, 'report.docx'), Buffer.alloc(3 * 1024 * 1024));
     expect(await inspectPanelFile(root, 'report.docx')).toMatchObject({

@@ -700,9 +700,6 @@ export default function BaseChat({
           </header>
         )}
 
-        {session?.agent_profile && <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-full border border-border-primary px-4 py-1 text-sm text-text-secondary" title={session.model_config?.model_name}>
-          <span>{session.agent_profile.name}</span>
-        </div>}
         {workspaceReconfirmation && (
           <div className="mx-auto w-full max-w-2xl px-6">
             <CodeProWorkspaceReconfirmation

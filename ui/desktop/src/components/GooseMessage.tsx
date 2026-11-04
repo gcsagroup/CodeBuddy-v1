@@ -796,12 +796,12 @@ export default function GooseMessage({
         )}
 
         {showMessageFooter && (displayText.trim() || imagePaths.length > 0) && (
-          <div className="flex min-h-6 items-center justify-between gap-3 pt-1">
+          <div className="flex min-h-6 items-start justify-between gap-3 pt-1">
             {!isStreaming && (
-              <div className="text-xs font-mono text-text-secondary">{timestamp}</div>
+              <div className="shrink-0 text-xs font-mono text-text-secondary">{timestamp}</div>
             )}
             {!isTurnRunning && !isStreaming && (
-              <div className="codepro-message-actions ml-auto flex items-center gap-3">
+              <div className="codepro-message-actions ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-1">
                 {(showTextMessageActions || (plainTerminal && showMessageActions)) && (
                   <MessageCopyLink
                     text={displayText}

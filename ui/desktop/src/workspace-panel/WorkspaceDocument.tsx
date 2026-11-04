@@ -21,12 +21,14 @@ export function WorkspaceDocument({
   title,
   view,
   onViewChange,
+  reference,
 }: {
   scope: PanelScope;
   path: string;
   title: string;
   view?: DocumentView;
   onViewChange?: (view: DocumentView) => void;
+  reference?: boolean;
 }) {
   const intl = useIntl();
   const [attempt, setAttempt] = useState(0);
@@ -42,7 +44,13 @@ export function WorkspaceDocument({
     const kind = /\.xlsx$/i.test(path) ? 'excel' : 'pdf';
     void Promise.all([
       loadDshDocumentRenderer(kind),
-      window.electron.workspacePanel({ scope, action: 'document-preview', path, requestId }),
+      window.electron.workspacePanel({
+        scope,
+        action: 'document-preview',
+        path,
+        requestId,
+        reference,
+      }),
     ])
       .then(([renderer, reply]) => {
         if (lifetime.signal.aborted) return;
@@ -66,7 +74,7 @@ export function WorkspaceDocument({
         .workspacePanel({ scope, action: 'document-preview-cancel', requestId })
         .catch(() => {});
     };
-  }, [scope, path, attempt]);
+  }, [scope, path, attempt, reference]);
   const progress = (
     <p
       className="flex h-full items-center justify-center p-4 text-sm text-text-secondary"
@@ -96,7 +104,7 @@ export function WorkspaceDocument({
           aria-label={intl.formatMessage(m.openDocument)}
           onClick={() => {
             void window.electron
-              .workspacePanel({ scope, action: 'open-external', path })
+              .workspacePanel({ scope, action: 'open-external', path, reference })
               .catch(() => setFailed(true));
           }}
         >

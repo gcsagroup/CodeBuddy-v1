@@ -49,6 +49,7 @@ import {
   panelUrl,
   readPanelFile,
   readPanelReference,
+  resolvePanelReference,
   savePanelFile,
   searchPanelFiles,
 } from './workspacePanelFiles';
@@ -314,15 +315,27 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       const { file, document, external } = await readPanelReference(root, request.path);
       if (owners.get(owner.id) !== owner || owner.roots.get(scope) !== root)
         throw new Error('Reference or conversation changed; open the link again');
-      if (!external) {
-        if (document.media) document.media.url = mediaFiles.grant(owner.id, root, request.path);
+      if (!external || document.media) {
+        if (document.media)
+          document.media.url = mediaFiles.grant(
+            owner.id,
+            root,
+            request.path,
+            external ? file : undefined
+          );
         return { document };
       }
       return { reference: { path: file, content: document.content } };
     }
     case 'inspect': {
-      const file = await inspectPanelFile(root, request.path);
-      if (file.media) file.media.url = mediaFiles.grant(owner.id, root, request.path);
+      const file = await inspectPanelFile(root, request.path, request.reference);
+      if (file.media)
+        file.media.url = mediaFiles.grant(
+          owner.id,
+          root,
+          request.path,
+          file.reference ? file.path : undefined
+        );
       return { file };
     }
     case 'document-preview-cancel': {
@@ -343,7 +356,11 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
       const controller = new AbortController();
       owner.documentRequests.set(request.requestId, { scope, controller });
       try {
-        const file = await panelPath(root, request.path);
+        const resolveFile = async () =>
+          request.reference
+            ? (await resolvePanelReference(root, request.path)).file
+            : panelPath(root, request.path);
+        const file = await resolveFile();
         if (!isPanelDocument(file)) throw new Error('Unsupported preview document');
         const stat = await fs.stat(file);
         if (!stat.isFile() || stat.size > 32 * 1024 * 1024)
@@ -385,8 +402,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
             size: stat.size,
             read: async (signal, maxBytes) => {
               signal.throwIfAborted();
-              if ((await panelPath(root, request.path)) !== file)
-                throw new Error('Document path changed');
+              if ((await resolveFile()) !== file) throw new Error('Document path changed');
               const handle = await fs.open(file, 'r');
               try {
                 const current = await handle.stat();
@@ -429,7 +445,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     case 'open-external':
     case 'open-with': {
       const file = request.reference
-        ? (await readPanelReference(root, request.path)).file
+        ? (await resolvePanelReference(root, request.path)).file
         : await externalPanelFile(root, request.path);
       if (!canOpenPanelFileExternally(file))
         throw new Error('This file type can only be previewed in CodeBuddy');
@@ -442,7 +458,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
           codeEditorSettings,
           async () => {
             const current = request.reference
-              ? (await readPanelReference(root, request.path)).file
+              ? (await resolvePanelReference(root, request.path)).file
               : await externalPanelFile(root, request.path);
             if (
               current !== file ||
@@ -470,9 +486,17 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
     case 'file-menu': {
       const referenceAction =
         request.reference === true &&
-        ['file-menu', 'reveal', 'copy-path', 'copy-text', 'save-as'].includes(request.action);
+        [
+          'file-menu',
+          'reveal',
+          'copy-path',
+          'copy-text',
+          'copy-image',
+          'attach-image',
+          'save-as',
+        ].includes(request.action);
       const file = referenceAction
-        ? (await readPanelReference(root, request.path)).file
+        ? (await resolvePanelReference(root, request.path)).file
         : await panelPath(root, request.path);
       const stat = await fs.stat(file);
       if (!stat.isFile()) throw new Error('Path is not a regular file');
@@ -586,7 +610,7 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
             return {};
           // The source may have moved while the user chose a destination.
           const current = referenceAction
-            ? (await readPanelReference(root, request.path)).file
+            ? (await resolvePanelReference(root, request.path)).file
             : await panelPath(root, request.path);
           if (current !== file) throw new Error('Reference changed; open the link again');
           await fs.copyFile(current, destination.filePath);

@@ -132,6 +132,19 @@ describe('handleAcpSessionNotification', () => {
     vi.clearAllMocks();
   });
 
+  it('forwards native input admission only as a session-scoped invalidation', async () => {
+    const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
+    await handleAcpSessionNotification({ sessionId: SESSION_ID, update: {
+      sessionUpdate: 'session_info_update', _meta: { 'codebuddy/agent-input': { requestId: 'native-input', seq: 12 } },
+    } });
+    expect(dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: AppEvents.AGENT_INPUT_ADMITTED, detail: { sessionId: SESSION_ID },
+    }));
+    dispatchEvent.mockClear();
+    await handleAcpSessionNotification({ sessionId: SESSION_ID, update: { sessionUpdate: 'session_info_update' } });
+    expect(dispatchEvent).not.toHaveBeenCalled();
+  });
+
   it('dispatches SESSION_RENAMED when a session info notification changes the name', async () => {
     const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValueOnce(snapshotWithName('Old name'));

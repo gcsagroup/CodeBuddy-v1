@@ -23,6 +23,7 @@ vi.mock('./alerts', () => ({
 }));
 vi.mock('../hooks/useAudioRecorder', () => ({ useAudioRecorder: () => ({ isEnabled: false }) }));
 vi.mock('./bottom_menu/DirSwitcher', () => ({ DirSwitcher: () => null }));
+vi.mock('./custom-agents/AgentSelector', () => ({ AgentSelector: () => null }));
 vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({ default: () => null }));
 vi.mock('./bottom_menu/BottomMenuExtensionSelection', () => ({
   BottomMenuExtensionSelection: () => null,

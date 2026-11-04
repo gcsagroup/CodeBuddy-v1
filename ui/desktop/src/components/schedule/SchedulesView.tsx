@@ -31,7 +31,7 @@ import { useChatContext } from '../../contexts/ChatContext';
 import { acpGetSessionListItem } from '../../acp/sessions';
 
 const i18n = defineMessages({
-  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'A new chat each time' },
+  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'Open a new chat on every run' },
   currentSession: {
     id: 'scheduleModal.currentSession',
     defaultMessage: 'Follow up in the current chat',

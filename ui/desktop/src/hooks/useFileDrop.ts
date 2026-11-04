@@ -110,7 +110,7 @@ export const useFileDrop = (initialFiles: DroppedFile[] = []) => {
     };
   }, []);
 
-  const addFiles = useCallback(async (files: FileList) => {
+  const addFiles = useCallback(async (files: FileList | readonly File[]) => {
     if (files.length > 0) {
       const droppedFileObjects: DroppedFile[] = [];
 

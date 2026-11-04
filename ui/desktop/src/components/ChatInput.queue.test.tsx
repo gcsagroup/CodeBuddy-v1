@@ -38,6 +38,7 @@ vi.mock('./alerts', () => ({
 }));
 vi.mock('../hooks/useAudioRecorder', () => ({ useAudioRecorder: () => ({ isEnabled: false }) }));
 vi.mock('./bottom_menu/DirSwitcher', () => ({ DirSwitcher: () => null }));
+vi.mock('./custom-agents/AgentSelector', () => ({ AgentSelector: () => null }));
 vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({
   default: () => <button>Model selector</button>,
 }));
@@ -157,6 +158,72 @@ const sendNow = () => {
   return screen.getByRole('button', { name: /^Send (?:all )?now$|^Send saved drafts$/ });
 };
 
+describe('large pasted drafts', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
+    vi.mocked(getSessionExtensions).mockResolvedValue([]);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+  it('adds every selected file as a separate attachment without replacing typed text', async () => {
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const picker = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(picker.multiple).toBe(true);
+    const originalPathForFile = window.electron.getPathForFile;
+    window.electron.getPathForFile = file => `C:/picker-fixture/${file.name}`;
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'keep this draft' } });
+    fireEvent.change(picker, { target: { files: [new File(['first'], 'first.txt'), new File(['second'], 'second.pdf')] } });
+    await screen.findByText('first.txt');
+    await screen.findByText('second.pdf');
+    expect(screen.getByTestId('chat-input')).toHaveValue('keep this draft');
+    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
+    await waitFor(() => expect(submit).toHaveBeenCalledWith(expect.objectContaining({ msg: 'keep this draft C:/picker-fixture/first.txt C:/picker-fixture/second.pdf' }), expect.anything()));
+    window.electron.getPathForFile = originalPathForFile;
+  });
+  it('keeps selected insertion and later edits exact without putting the payload in the textarea', async () => {
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input') as HTMLTextAreaElement;
+    const payload = '中文🙂 {"line":"value"}\r\n'.repeat(18000);
+    fireEvent.change(input, { target: { value: 'before REPLACE after' } });
+    input.setSelectionRange(7, 14);
+    const paste = (text: string) => fireEvent.paste(input, { clipboardData: { files: [], getData: (type: string) => type === 'text/plain' ? text : '<b>do not parse large HTML</b>' } });
+    paste(payload);
+    expect(input.value).toBe('');
+    expect(screen.getByRole('button', { name: 'Remove pasted text' })).toBeVisible();
+    fireEvent.change(input, { target: { value: '\nfollow up' } });
+    input.setSelectionRange(1, 7);
+    const second = 'second'.repeat(1200);
+    paste(second);
+    fireEvent.change(input, { target: { value: '\nlast question' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0][0].msg).toBe('before ' + payload + ' after\n' + second + ' up\nlast question');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove pasted text' })).toBeNull());
+    expect(input.value).toBe('');
+  });
+
+  it('retains the complete collapsed draft after rejection and allows removing only its text block', async () => {
+    const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onRejectedBeforeAcceptance());
+    const view = setup(submit);
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input') as HTMLTextAreaElement;
+    const payload = '[Pasted Content 1000 chars]\n'.repeat(200);
+    fireEvent.paste(input, { clipboardData: { files: [], getData: () => payload } });
+    fireEvent.change(input, { target: { value: 'keep this' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0][0].msg).toBe(payload + 'keep this');
+    expect(input.value).toBe('keep this');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove pasted text' }));
+    expect(input.value).toBe('keep this');
+    expect(screen.queryByRole('button', { name: 'Remove pasted text' })).toBeNull();
+  });
+});
+
 describe('workspace images added to the composer', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -238,6 +305,13 @@ describe('workspace images added to the composer', () => {
       });
       expect(screen.getAllByRole('button', { name: 'Remove image' })).toHaveLength(10);
       expect(screen.getByText('You can attach up to 10 images to one message.')).toBeVisible();
+      vi.useFakeTimers();
+      try {
+        // Repeated attempts restart the short notice without leaving a sticky banner.
+        act(() => window.dispatchEvent(new CustomEvent(ATTACH_WORKSPACE_IMAGE, { detail: { sessionId: 'queue-test', name: 'extra.png', dataUrl: 'data:image/png;base64,aGVsbG8=' } })));
+        act(() => vi.advanceTimersByTime(4000));
+        expect(screen.queryByText('You can attach up to 10 images to one message.')).toBeNull();
+      } finally { vi.useRealTimers(); }
       expect(submit).not.toHaveBeenCalled();
     } finally {
       normalize.mockRestore();
@@ -247,6 +321,18 @@ describe('workspace images added to the composer', () => {
 
 describe('compact queue presentation', () => {
   const item = { id: 'first', content: 'First queued request', timestamp: 1, images: [] };
+  it('keeps a large queued message compact and preserves its complete text when edited', () => {
+    const text = '中文🙂\n'.repeat(24000);
+    const editMessage = vi.fn();
+    const view = render(<MessageQueue queuedMessages={[{ ...item, content: text }]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} onEditMessage={editMessage} />, { wrapper: IntlTestWrapper });
+    expect(view.container.textContent!.length).toBeLessThan(1000);
+    fireEvent.click(screen.getByRole('button', { name: /中文🙂/ }));
+    const editor = screen.getByRole('textbox') as HTMLTextAreaElement;
+    expect(editor.value).toBe('');
+    fireEvent.change(editor, { target: { value: '\nextra instruction' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(editMessage).toHaveBeenCalledWith(item.id, text + '\nextra instruction');
+  });
   it('shows one waiting message directly without an expand control', () => {
     render(
       <MessageQueue queuedMessages={[item]} onRemoveMessage={vi.fn()} onClearQueue={vi.fn()} />,
@@ -830,7 +916,7 @@ describe('ChatInput queue delivery', () => {
       { wrapper: IntlTestWrapper }
     );
     fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'unsent draft' } });
-    expect(screen.getByRole('button', { name: 'Attach file' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '添加附件或功能' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Approval mode' })).toBeVisible();
     expect(screen.getByRole('button', { name: /^Send$/ })).toBeVisible();
     expect(screen.queryByRole('button', { name: /^Stop$/ })).toBeNull();

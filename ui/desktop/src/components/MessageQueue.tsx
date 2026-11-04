@@ -3,6 +3,10 @@ import { X, Send, GripVertical, LoaderCircle, ChevronDown, ChevronUp } from 'luc
 import { Button } from './ui/button';
 import type { ImageData } from '../types/message';
 import { defineMessages, useIntl } from '../i18n';
+import { isLargeText, useCompactTextInput } from './pastedText';
+import { PastedTextPreview } from './PastedTextPreview';
+
+const queuePreview = (text: string) => (isLargeText(text) ? text.slice(0, 160) + '…' : text);
 
 const i18n = defineMessages({
   savedDrafts: {
@@ -100,6 +104,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const compactEdit = useCompactTextInput(editContent);
   const hasUncertainDelivery = queuedMessages.some(
     (message) => message.delivery === 'submitting' && !sendingMessageIds?.has(message.id)
   );
@@ -173,7 +178,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   : i18n.expandQueue
             )}
             aria-expanded={expanded}
-            title={nextMessage.content}
+            title={queuePreview(nextMessage.content)}
             onClick={() => setIsExpanded(!expanded)}
           >
             <span className="shrink-0">
@@ -185,7 +190,7 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                   })}
             </span>
             {!showList && !isDraftMode && (
-              <span className="min-w-0 truncate">{nextMessage.content}</span>
+              <span className="min-w-0 truncate">{queuePreview(nextMessage.content)}</span>
             )}
             {expanded ? (
               <ChevronUp className="size-3 shrink-0" />
@@ -207,10 +212,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
               <button
                 type="button"
                 className="min-w-0 truncate text-left hover:text-text-primary"
-                title={intl.formatMessage(i18n.clickToEdit, { content: nextMessage.content })}
+                title={intl.formatMessage(i18n.clickToEdit, {
+                  content: queuePreview(nextMessage.content),
+                })}
                 onClick={() => edit(nextMessage)}
               >
-                {nextMessage.content}
+                {queuePreview(nextMessage.content)}
               </button>
             )}
           </div>
@@ -308,12 +315,21 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                 )}
                 {editingMessage === message.id ? (
                   <div className="min-w-0 flex-1 space-y-2">
+                    {compactEdit.prefix && (
+                      <PastedTextPreview
+                        text={compactEdit.prefix}
+                        onRemove={() => {
+                          compactEdit.collapse('');
+                          setEditContent(compactEdit.editorValue);
+                        }}
+                      />
+                    )}
                     <textarea
                       autoFocus
                       rows={3}
                       className="w-full resize-y rounded-md border border-border-primary bg-background-primary px-2 py-1 text-sm"
-                      value={editContent}
-                      onChange={(event) => setEditContent(event.target.value)}
+                      value={compactEdit.editorValue}
+                      onChange={(event) => setEditContent(compactEdit.prefix + event.target.value)}
                     />
                     <div className="flex gap-2">
                       <Button
@@ -339,10 +355,12 @@ export const MessageQueue: React.FC<MessageQueueProps> = ({
                     type="button"
                     disabled={isSending(message)}
                     className="min-w-0 flex-1 whitespace-pre-wrap break-words text-left leading-5"
-                    title={intl.formatMessage(i18n.clickToEdit, { content: message.content })}
+                    title={intl.formatMessage(i18n.clickToEdit, {
+                      content: queuePreview(message.content),
+                    })}
                     onClick={() => edit(message)}
                   >
-                    {message.content}
+                    {queuePreview(message.content)}
                   </button>
                 )}
                 <Button

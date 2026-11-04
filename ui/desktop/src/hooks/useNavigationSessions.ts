@@ -13,7 +13,7 @@ import {
   type SessionListItem,
 } from '../acp/sessions';
 import { groupNavigationSessions } from '../utils/projectSessions';
-import { withWorkspaceMode } from '../utils/navigationUtils';
+import { createNavigationHandler, withWorkspaceMode } from '../utils/navigationUtils';
 import { isCodeProUnifiedModeEnabled } from '../codepro/unifiedMode';
 
 const MAX_RECENT_SESSIONS = 25;
@@ -235,6 +235,8 @@ export function useNavigationSessions() {
         } else {
           navigate(withWorkspaceMode('/', workspaceMode));
         }
+      } else if (path === '/custom-agents') {
+        createNavigationHandler(navigate, workspaceMode, location)('custom-agents');
       } else if (path === '/toolbox') {
         const sessionId = activeSessionId || new URLSearchParams(location.search).get('sessionId');
         navigate(withWorkspaceMode(`${path}${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`, workspaceMode));

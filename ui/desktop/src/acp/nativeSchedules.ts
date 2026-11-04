@@ -83,7 +83,7 @@ export async function updateNativeSchedule(
   return parsed;
 }
 export async function setNativeSchedulePaused(record: ScheduleCatalogEntry, paused: boolean) {
-  const started = performance.now();
+  const started = globalThis.performance.now();
   const operationId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const trace = (stage: string, details: Record<string, string | boolean | undefined> = {}) => {
     try {
@@ -97,7 +97,7 @@ export async function setNativeSchedulePaused(record: ScheduleCatalogEntry, paus
           action: paused ? 'pause' : 'resume',
           stage,
           at: new Date().toISOString(),
-          elapsedMs: Math.round(performance.now() - started),
+          elapsedMs: Math.round(globalThis.performance.now() - started),
           ...details,
         })
       );

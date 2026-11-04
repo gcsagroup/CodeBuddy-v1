@@ -27,7 +27,6 @@ vi.mock('../ChatInput', () => ({
     handleSubmit,
     initialValue,
     chatState,
-    onWorkingDirChange,
     modelToolbarSlot,
     onNextChatExtensionDraftChange,
   }: {
@@ -56,8 +55,6 @@ vi.mock('../ChatInput', () => ({
         >
           Choose MCP
         </button>
-        <button onClick={() => onWorkingDirChange?.('D:\\')}>Select root</button>
-        <button onClick={() => onWorkingDirChange?.('D:\\SchoolSystem')}>Select project</button>
         <span data-testid="draft-message">{input.msg}</span>
         <span data-testid="draft-image-count">{input.images.length}</span>
         <span data-testid="composer-state">{chatState}</span>
@@ -80,6 +77,12 @@ vi.mock('../ChatInput', () => ({
 }));
 vi.mock('../ChatInputCard', () => ({
   ChatInputCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('../bottom_menu/DirSwitcher', () => ({
+  DirSwitcher: ({ onWorkingDirChange }: { onWorkingDirChange: (path: string) => void }) => <>
+    <button onClick={() => onWorkingDirChange('D:\\')}>Select root</button>
+    <button onClick={() => onWorkingDirChange('D:\\SchoolSystem')}>Select project</button>
+  </>,
 }));
 vi.mock('../ConfigContext', () => ({
   useConfig: () => ({
@@ -221,9 +224,9 @@ describe('CodeProHub', () => {
 
     expect(screen.getByText('Multi-Agent development workspace')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Welcome to CodeBuddy' })).toBeVisible();
-    expect(screen.getByText('Automatic task breakdown')).toBeVisible();
-    expect(screen.getByText('Multi-model collaboration')).toBeVisible();
-    expect(screen.getByText('Edit in place with a complete activity trail')).toBeVisible();
+    expect(screen.queryByText('Automatic task breakdown')).not.toBeInTheDocument();
+    expect(screen.queryByText('Multi-model collaboration')).not.toBeInTheDocument();
+    expect(screen.queryByText('Edit in place with a complete activity trail')).not.toBeInTheDocument();
   });
 
   it('keeps the draft and blocks duplicate sends until session creation commits', async () => {

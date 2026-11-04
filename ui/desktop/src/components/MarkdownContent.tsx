@@ -14,6 +14,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
 import { remarkStreamReveal } from './remarkStreamReveal';
 import { remarkWindowsFileLinks } from './remarkWindowsFileLinks';
+import { remarkCodeFileLinks } from './remarkCodeFileLinks';
 import { rehypeIncomingText } from './rehypeIncomingText';
 import { StreamingMarkdownBlocks } from './streamingMarkdown';
 import './ui/stream-prose.css';
@@ -206,7 +207,11 @@ const CodeBlock = memo(function CodeBlock({
     // Re-tokenizing an ever-growing program stalls input and cancellation.
     // Keep every received character visible; large historical blocks also avoid
     // building thousands of syntax spans when reopening a conversation.
-    if (streaming || children.length > 8000) {
+    if (
+      streaming ||
+      children.length > 8000 ||
+      children.split('\n').some((line) => line.length >= 1000)
+    ) {
       return (
         <div
           data-plain-code
@@ -452,7 +457,12 @@ const MarkdownContent = memo(function MarkdownContent({
                 ? (event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    openWorkspaceFile({ sessionId, filePath, ...(line ? { line } : {}), action: 'file-menu' });
+                    openWorkspaceFile({
+                      sessionId,
+                      filePath,
+                      ...(line ? { line } : {}),
+                      action: 'file-menu',
+                    });
                   }
                 : /^https?:\/\//i.test(props.href ?? '')
                   ? (event) => {
@@ -516,6 +526,7 @@ const MarkdownContent = memo(function MarkdownContent({
         urlTransform={urlTransform}
         remarkPlugins={[
           remarkWindowsFileLinks,
+          remarkCodeFileLinks,
           [remarkGfm, { singleTilde: false }],
           [remarkMath, { singleDollarTextMath: false }],
           ...(revealAt !== undefined && canRevealTree
@@ -630,6 +641,7 @@ const StreamingBlock = memo(function StreamingBlock({
       urlTransform={urlTransform}
       remarkPlugins={[
         remarkWindowsFileLinks,
+        remarkCodeFileLinks,
         [remarkGfm, { singleTilde: false }],
         [remarkMath, { singleDollarTextMath: false }],
         remarkBreaks,

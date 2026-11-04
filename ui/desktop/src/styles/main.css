@@ -11,6 +11,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Floating menus need an opaque canvas even while theme tokens are changing. */
+.composer-menu-surface {
+  background-color: #ffffff;
+}
+.dark .composer-menu-surface {
+  background-color: #22252a;
+}
+
 @theme {
   --breakpoint-md: 930px;
 }

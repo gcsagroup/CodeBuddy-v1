@@ -1553,6 +1553,12 @@
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
+  "composerCommands.agent": {
+    "defaultMessage": "Custom agent"
+  },
+  "composerCommands.agentHint": {
+    "defaultMessage": "Choose or remove the main assistant for this conversation"
+  },
   "composerCommands.blocked": {
     "defaultMessage": "Needs attention"
   },
@@ -2514,10 +2520,10 @@
     "defaultMessage": "Voice Dictation Provider"
   },
   "dirSwitcher.chooseDirectory": {
-    "defaultMessage": "Choose project…"
+    "defaultMessage": "Choose workspace…"
   },
   "dirSwitcher.chooseFolder": {
-    "defaultMessage": "Select project"
+    "defaultMessage": "Select workspace"
   },
   "dirSwitcher.currentDirectory": {
     "defaultMessage": "Current project"
@@ -3599,12 +3605,6 @@
   "gooseMessage.outputLimitBudget": {
     "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
   },
-  "gooseMessage.outputLimitRecoveryPolicy": {
-    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
-  },
-  "gooseMessage.terminalDetails": {
-    "defaultMessage": "Why this task did not finish"
-  },
   "gooseMessage.outputLimitContinue": {
     "defaultMessage": "Try continuing"
   },
@@ -3621,13 +3621,19 @@
     "defaultMessage": "The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
   },
   "gooseMessage.outputLimitRecovered": {
-    "defaultMessage": "Automatic response-length recovery was used {attempts, plural, one {once} other {# times}} during this turn."
+    "defaultMessage": "{attempts,plural,one{Automatic response-length recovery was used once during this turn.} other{Automatic response-length recovery was used # times during this turn.}}"
   },
   "gooseMessage.outputLimitRecoveryFailed": {
-    "defaultMessage": "The model reached a response length limit again after {attempts, plural, one {one recovery attempt} other {# recovery attempts}}. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+    "defaultMessage": "{attempts,plural,one{The model reached a response length limit again after one recovery attempt. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.} other{The model reached a response length limit again after # recovery attempts. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.}}"
+  },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
   },
   "gooseMessage.outputRecoveryInterrupted": {
     "defaultMessage": "The automatic response-length recovery did not finish. See the error above; earlier results are preserved."
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "Why this task did not finish"
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "Stopped"
@@ -3935,14 +3941,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "JSON Schema Editor"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Type your answer…"
+  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "Cancel"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Your own answer (optional)"
-  },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "Type your answer…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4542,7 +4548,7 @@
     "defaultMessage": "Save"
   },
   "messageQueue.savedDrafts": {
-    "defaultMessage": "{count, plural, one {# saved draft} other {# saved drafts}}"
+    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
   },
   "messageQueue.sendAllNow": {
     "defaultMessage": "Send all now"
@@ -4555,9 +4561,6 @@
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Send all waiting messages together now"
-  },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Stop current processing and send all waiting messages together"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5208,7 +5211,7 @@
     "defaultMessage": "New"
   },
   "nativeSchedule.newPrompt": {
-    "defaultMessage": "Help me create an automatic reminder: "
+    "defaultMessage": "Help me create an automatic reminder:"
   },
   "nativeSchedule.next": {
     "defaultMessage": "Next: {time}"
@@ -5288,11 +5291,11 @@
   "nativeSchedule.zone": {
     "defaultMessage": "Time zone"
   },
-  "navigation.itemHome": {
-    "defaultMessage": "New Task"
-  },
   "navigation.itemCustomAgents": {
     "defaultMessage": "Custom Agents"
+  },
+  "navigation.itemHome": {
+    "defaultMessage": "New Task"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Media Library"
@@ -5329,6 +5332,9 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "Cancel"
@@ -6926,9 +6932,6 @@
   "scheduleModal.advanced": {
     "defaultMessage": "Advanced"
   },
-  "scheduleModal.browseYaml": {
-    "defaultMessage": "Browse for YAML file..."
-  },
   "scheduleModal.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -6947,41 +6950,17 @@
   "scheduleModal.currentSession": {
     "defaultMessage": "Follow up in the current chat"
   },
-  "scheduleModal.deepLink": {
-    "defaultMessage": "Deep link"
-  },
-  "scheduleModal.deepLinkPlaceholder": {
-    "defaultMessage": "Paste codebuddy://recipe link here..."
-  },
   "scheduleModal.destination": {
     "defaultMessage": "Run in"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "Edit Schedule"
   },
-  "scheduleModal.failedParseRecipe": {
-    "defaultMessage": "Failed to parse recipe from file."
-  },
-  "scheduleModal.failedReadFile": {
-    "defaultMessage": "Failed to read the selected file."
-  },
   "scheduleModal.followHint": {
     "defaultMessage": "Uses this chat’s history, model and permissions. Busy runs are skipped. Deleting the chat pauses the task."
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "Invalid deep link. Please use a codebuddy://recipe link."
-  },
-  "scheduleModal.invalidFileType": {
-    "defaultMessage": "Invalid file type: Please select a YAML file (.yaml or .yml)"
-  },
-  "scheduleModal.nameLabel": {
-    "defaultMessage": "Name:"
-  },
-  "scheduleModal.namePlaceholder": {
-    "defaultMessage": "e.g., daily-summary-job"
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "Uses the selected model. Without an override, each run uses the configured default."
   },
   "scheduleModal.newSession": {
     "defaultMessage": "Open a new chat on every run"
@@ -7013,12 +6992,6 @@
   "scheduleModal.scheduleLabel": {
     "defaultMessage": "Schedule:"
   },
-  "scheduleModal.selected": {
-    "defaultMessage": "Selected: {path}"
-  },
-  "scheduleModal.sourceLabel": {
-    "defaultMessage": "Source:"
-  },
   "scheduleModal.testAndEnable": {
     "defaultMessage": "Test & Enable"
   },
@@ -7027,9 +7000,6 @@
   },
   "scheduleModal.updating": {
     "defaultMessage": "Updating..."
-  },
-  "scheduleModal.yaml": {
-    "defaultMessage": "YAML"
   },
   "scheduleModel.currentChat": {
     "defaultMessage": "Follows the current chat"
@@ -7244,11 +7214,20 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "Session JSON copied"
   },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Text copied"
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "Copy JSON"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Copy text"
@@ -7288,6 +7267,12 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Loading JSON..."
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Failed to rename session: {error}"
@@ -9751,23 +9736,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "navigationPanel.workspaces": {
-    "defaultMessage": "Workspaces"
-  },
-  "sessionActionsHeader.openFolder": {
-    "defaultMessage": "Open folder"
-  },
-  "sessionActionsHeader.openFolderFailed": {
-    "defaultMessage": "Unable to open the session folder: {error}"
-  },
-  "sessionActionsHeader.copySessionId": {
-    "defaultMessage": "Copy session ID"
-  },
-  "sessionActionsHeader.copiedSessionId": {
-    "defaultMessage": "Session ID copied"
-  },
-  "sessionActionsHeader.copySessionIdFailed": {
-    "defaultMessage": "Unable to copy session ID: {error}"
   }
 }

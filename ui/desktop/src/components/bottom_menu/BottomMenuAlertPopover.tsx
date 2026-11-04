@@ -1,19 +1,45 @@
 import { AppEvents } from '../../constants/events';
-import React, { useRef, useEffect, useCallback, useId, useState } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FaCircle } from 'react-icons/fa';
 import { cn } from '../../utils';
 import { Alert, AlertType } from '../alerts';
 import { AlertBox } from '../alerts';
 
+const focusableAction = 'button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]';
+
 interface AlertPopoverProps {
   alerts: Alert[];
   children?: React.ReactNode;
+  triggerLabel?: string;
+  triggerDescription?: string;
+  triggerClassName?: string;
+  showIndicator?: boolean;
+  preview?: React.ReactNode;
 }
 
-export default function BottomMenuAlertPopover({ alerts, children }: AlertPopoverProps) {
+export default function BottomMenuAlertPopover({
+  alerts,
+  children,
+  triggerLabel,
+  triggerDescription,
+  triggerClassName,
+  showIndicator = true,
+  preview,
+}: AlertPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const shouldShowIndicator = alerts.length > 0;
+  const hasContent = shouldShowIndicator || Boolean(preview);
+  const pinned = useRef(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const retain = () => clearTimeout(hoverTimer.current);
+  const leave = () => {
+    if (!preview || pinned.current) return;
+    retain();
+    hoverTimer.current = setTimeout(() => setIsOpen(false), 180);
+  };
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
   const popoverId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -52,25 +78,20 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
   }, []);
 
   // Update position when popover opens
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen) {
       calculatePosition();
-      // Recalculate on window resize
       const handleResize = () => calculatePosition();
+      const observer =
+        typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(handleResize);
+      if (popoverRef.current) observer?.observe(popoverRef.current);
       window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
-    return undefined;
-  }, [isOpen, calculatePosition]);
-
-  // Recalculate position after popover is rendered to get actual height
-  useEffect(() => {
-    if (isOpen && popoverRef.current) {
-      // Small delay to ensure DOM is updated
-      const timer = setTimeout(() => {
-        calculatePosition();
-      }, 10);
-      return () => clearTimeout(timer);
+      window.addEventListener('scroll', handleResize, true);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scroll', handleResize, true);
+        observer?.disconnect();
+      };
     }
     return undefined;
   }, [isOpen, calculatePosition]);
@@ -83,13 +104,15 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
         !popoverRef.current.contains(event.target as Node) &&
         !triggerRef.current?.contains(event.target as Node)
       ) {
+        pinned.current = false;
         setIsOpen(false);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        pinned.current = false;
         triggerRef.current?.focus();
+        setIsOpen(false);
       }
     };
     if (isOpen) {
@@ -107,6 +130,7 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
   useEffect(() => {
     const handleHidePopover = () => {
       if (isOpen) {
+        pinned.current = false;
         setIsOpen(false);
       }
     };
@@ -131,56 +155,124 @@ export default function BottomMenuAlertPopover({ alerts, children }: AlertPopove
       ? 'text-[#00b300]' // Green color for info alerts
       : 'text-[#cc4b03]'; // Orange color for warning alerts
 
-  return (
-    <>
-      <div className="relative">
-        <button
-          type="button"
-          ref={triggerRef}
-          id={`${popoverId}-trigger`}
-          aria-expanded={isOpen && shouldShowIndicator}
-          aria-controls={isOpen && shouldShowIndicator ? popoverId : undefined}
-          aria-haspopup="dialog"
-          className="group/context-usage cursor-pointer flex items-center gap-1.5 min-h-5 rounded px-1"
-          onClick={() => {
-            if (alerts.length > 0) setIsOpen((open) => !open);
-          }}
-        >
-          {shouldShowIndicator && (
-            <div className={cn('relative', triggerColor)}>
-              <FaCircle size={5} />
-            </div>
-          )}
-          {children}
-        </button>
-      </div>
-
-      {/* Popover rendered separately to avoid blocking clicks */}
-      {isOpen && shouldShowIndicator && (
-        <div
-          ref={popoverRef}
-          id={popoverId}
-          role="dialog"
-          aria-labelledby={`${popoverId}-trigger`}
-          className={cn(
-            'fixed p-0 rounded-lg overflow-hidden bg-app border z-50 shadow-lg pointer-events-auto text-left',
-            alerts.every((alert) => alert.progress) ? 'w-max min-w-24 max-w-48' : 'w-[275px]'
-          )}
-          style={{
-            top: `${popoverPosition.top}px`,
-            left: `${popoverPosition.left}px`,
-            visibility: popoverPosition.top === 0 ? 'hidden' : 'visible',
-          }}
-        >
-          <div className="flex flex-col">
-            {alerts.map((alert, index) => (
-              <div key={index} className={cn(index > 0 && 'border-t border-white/20')}>
-                <AlertBox alert={alert} />
-              </div>
-            ))}
-          </div>
+  const trigger = (
+    <button
+      type="button"
+      ref={triggerRef}
+      id={`${popoverId}-trigger`}
+      aria-label={triggerLabel}
+      aria-description={triggerDescription}
+      aria-expanded={isOpen && hasContent}
+      aria-controls={isOpen && hasContent ? popoverId : undefined}
+      aria-haspopup={hasContent ? 'dialog' : undefined}
+      className={cn(
+        'group/context-usage cursor-pointer flex items-center gap-1.5 min-h-5 rounded px-1',
+        triggerClassName
+      )}
+      onClick={() => {
+        if (!hasContent) return;
+        if (preview) {
+          const next = !pinned.current || !isOpen;
+          pinned.current = next;
+          setIsOpen(next);
+        } else setIsOpen((open) => !open);
+      }}
+      onMouseEnter={() => {
+        retain();
+        if (preview) setIsOpen(true);
+      }}
+      onMouseLeave={leave}
+      onFocus={() => {
+        if (preview) setIsOpen(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab' || event.shiftKey || !isOpen) return;
+        // The body portal is outside the trigger's natural tab order.
+        const action = popoverRef.current?.querySelector<HTMLElement>(focusableAction);
+        if (action) {
+          event.preventDefault();
+          action.focus();
+        }
+      }}
+      onBlur={(event) => {
+        if (preview && !popoverRef.current?.contains(event.relatedTarget)) {
+          pinned.current = false;
+          setIsOpen(false);
+        }
+      }}
+    >
+      {showIndicator && shouldShowIndicator && (
+        <div className={cn('relative', triggerColor)}>
+          <FaCircle size={5} />
         </div>
       )}
+      {children}
+    </button>
+  );
+
+  return (
+    <>
+      <div className="relative">{trigger}</div>
+
+      {/* Popover rendered separately to avoid blocking clicks */}
+      {isOpen &&
+        hasContent &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            id={popoverId}
+            role="dialog"
+            aria-labelledby={`${popoverId}-trigger`}
+            onMouseEnter={retain}
+            onMouseLeave={leave}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Tab' && event.shiftKey &&
+                document.activeElement === popoverRef.current?.querySelector(focusableAction)
+              ) {
+                event.preventDefault();
+                triggerRef.current?.focus();
+              }
+            }}
+            onBlur={(event) => {
+              if (
+                preview &&
+                !popoverRef.current?.contains(event.relatedTarget) &&
+                !triggerRef.current?.contains(event.relatedTarget)
+              ) {
+                pinned.current = false;
+                setIsOpen(false);
+              }
+            }}
+            className={cn(
+              'fixed p-0 rounded-lg overflow-hidden z-[100] shadow-lg pointer-events-auto text-left',
+              preview
+                ? 'w-44 max-w-[calc(100vw-1.5rem)] bg-background-secondary text-text-secondary'
+                : alerts.every((alert) => alert.progress)
+                  ? 'w-max min-w-24 max-w-48 border bg-background-primary'
+                  : 'w-[275px] border bg-background-primary'
+            )}
+            style={{
+              top: `${popoverPosition.top}px`,
+              left: `${popoverPosition.left}px`,
+              visibility: popoverPosition.top === 0 ? 'hidden' : 'visible',
+            }}
+          >
+            <div className="flex flex-col">
+              {preview && (
+                <div className="bg-background-secondary px-3 py-2.5 text-center text-xs text-text-secondary">
+                  {preview}
+                </div>
+              )}
+              {alerts.map((alert, index) => (
+                <div key={index} className={cn(index > 0 && 'border-t border-white/20')}>
+                  <AlertBox alert={alert} />
+                </div>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

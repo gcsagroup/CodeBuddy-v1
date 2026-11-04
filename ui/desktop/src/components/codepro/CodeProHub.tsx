@@ -4,9 +4,9 @@ import {
   type NextChatExtensionDraft,
 } from '../../utils/nextChatExtensions';
 import { useNavigate } from 'react-router-dom';
-import { Bot, ListChecks, ShieldCheck } from 'lucide-react';
 import ChatInput from '../ChatInput';
 import { ChatInputCard } from '../ChatInputCard';
+import { DirSwitcher } from '../bottom_menu/DirSwitcher';
 import { useConfig } from '../ConfigContext';
 import { AppEvents } from '../../constants/events';
 import { ChatState } from '../../types/chatState';
@@ -175,11 +175,6 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const launchConsumedRef = useRef(false);
   const inspectingRef = useRef(false);
   const submissionLifecycleRef = useRef<MessageSubmissionLifecycle | undefined>(undefined);
-  const capabilities = [
-    { icon: ListChecks, label: intl.formatMessage(i18n.taskBreakdown) },
-    { icon: Bot, label: intl.formatMessage(i18n.modelCollaboration) },
-    { icon: ShieldCheck, label: intl.formatMessage(i18n.activityTrail) },
-  ];
 
   const openSession = useCallback(
     (session: Awaited<ReturnType<typeof createSession>>, intent: CodeProLaunchIntent) => {
@@ -402,20 +397,9 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           </p>
         </div>
 
-        <div
-          className="mb-4 flex flex-wrap gap-2"
-          aria-label={intl.formatMessage(i18n.capabilities)}
-        >
-          {capabilities.map(({ icon: Icon, label }) => (
-            <span
-              key={label}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border-primary bg-background-secondary px-2.5 py-1.5 text-sm text-text-secondary"
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              {label}
-            </span>
-          ))}
-        </div>
+        <fieldset disabled={inputBlocked} className="mb-2 flex min-w-0 items-center px-2">
+          <DirSwitcher className="" sessionId={undefined} workingDir={workingDir || rootContainer || ''} onWorkingDirChange={handleWorkingDirChange} />
+        </fieldset>
 
         <ChatInputCard>
           <>
@@ -464,6 +448,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
                 messages={[]}
                 disableAnimation={false}
                 onWorkingDirChange={handleWorkingDirChange}
+                hideWorkingDirSwitcher
                 workingDir={workingDir || rootContainer || ''}
                 inputRef={inputRef}
               />

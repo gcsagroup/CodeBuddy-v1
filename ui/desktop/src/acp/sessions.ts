@@ -17,6 +17,7 @@ import { canForkSession } from '../utils/sessionCapabilities';
 import { parseSessionMode } from '../utils/sessionMode';
 import { AppEvents } from '../constants/events';
 import { traceSessionLoad } from './sessionLoadTiming';
+import { consumeNextChatAgent, getNextChatAgent } from '../utils/nextChatAgent';
 
 // CurrentModeUpdate is the existing store's authority. Do not change the
 // global preference or optimistically claim a session permission change.
@@ -375,6 +376,8 @@ export async function acpNewSession(
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
+  const agentId = getNextChatAgent();
+  if (agentId) meta.customAgentId = agentId;
   if (recipe?.initialPermissionPreset)
     meta.initialPermissionPreset = recipe.initialPermissionPreset;
   if (gooseExtensions.length > 0) {
@@ -403,6 +406,7 @@ export async function acpNewSession(
   }
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.newSession(request);
+  consumeNextChatAgent(agentId);
   const sessionId = String(response.sessionId);
   const loadMeta = parseLoadMeta(response);
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });

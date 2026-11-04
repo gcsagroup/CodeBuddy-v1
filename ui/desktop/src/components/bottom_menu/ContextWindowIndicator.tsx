@@ -10,12 +10,6 @@ interface ContextWindowIndicatorProps {
   capacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
 }
 
-const formatTokenCount = (count: number): string => {
-  if (count >= 1_000_000) return `${Math.round(count / 1_000_000)}M`;
-  if (count >= 1_000) return `${Math.round(count / 1_000)}k`;
-  return count.toString();
-};
-
 const getProgressColor = (percentage: number): string => {
   if (percentage <= 75) return 'text-text-primary/70 group-hover/context-usage:text-text-primary';
   if (percentage <= 90) return 'text-orange-500';
@@ -69,21 +63,74 @@ export function ContextWindowIndicator({
     .filter(Boolean)
     .join(' · ');
 
+  const usageKnown = totalTokens !== undefined && Number.isFinite(totalTokens) && totalTokens >= 0;
+  const capacityKnown = Number.isFinite(tokenLimit) && tokenLimit > 0;
   const percentage =
-    totalTokens === undefined || !tokenLimit ? 0 : Math.round((totalTokens / tokenLimit) * 100);
-  const colorClass = getProgressColor(percentage);
+    usageKnown && capacityKnown ? Math.round((totalTokens / tokenLimit) * 100) : undefined;
+  const fill = Math.min(100, Math.max(0, percentage ?? 0));
+  const unknown = chinese ? '未知' : 'Unknown';
+  const counts = `${usageKnown ? Math.round(totalTokens).toLocaleString(locale) : unknown} / ${capacityKnown ? Math.round(tokenLimit).toLocaleString(locale) : unknown}`;
+  const formatK = (value: number) =>
+    `${(value / 1000).toLocaleString(locale, { maximumFractionDigits: 1 })}k`;
+  const compactCounts = `${usageKnown ? formatK(totalTokens) : unknown} / ${capacityKnown ? formatK(tokenLimit) : unknown}`;
+  const label = `${chinese ? '上下文用量' : 'Context usage'}: ${counts}${percentage === undefined ? '' : ` (${percentage}%)`}`;
+  const colorClass = getProgressColor(percentage ?? 0);
 
   return (
-    <div className="flex items-center h-full">
-      <BottomMenuAlertPopover alerts={alerts}>
-        <span className={`text-xs font-mono ${colorClass}`} title={title} aria-label={title}>
-          {totalTokens === undefined
-            ? chinese
-              ? '未知'
-              : 'Unknown'
-            : formatTokenCount(totalTokens)}{' '}
-          / {tokenLimit ? formatTokenCount(tokenLimit) : chinese ? '未知' : 'Unknown'}
-        </span>
+    <div className="flex shrink-0 items-center" data-testid="context-window-indicator">
+      <BottomMenuAlertPopover
+        alerts={alerts}
+        triggerLabel={label}
+        triggerDescription={title}
+        showIndicator={false}
+        triggerClassName="size-8 justify-center rounded-full p-0 hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+        preview={
+          <>
+            {percentage !== undefined && (
+              <p className="mb-1 tabular-nums">
+                {chinese ? `已用 ${percentage}%` : `${percentage}% used`}
+              </p>
+            )}
+            <p className="font-medium tabular-nums">{compactCounts}</p>
+          </>
+        }
+      >
+        <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" className={colorClass}>
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            className="opacity-20"
+          />
+          {percentage === undefined ? (
+            <circle
+              cx="10"
+              cy="10"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="2 4"
+              className="opacity-40"
+            />
+          ) : (
+            <circle
+              cx="10"
+              cy="10"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              pathLength="100"
+              strokeDasharray={`${fill} 100`}
+              transform="rotate(-90 10 10)"
+              className="transition-[stroke-dasharray] duration-150 motion-reduce:transition-none"
+            />
+          )}
+        </svg>
       </BottomMenuAlertPopover>
     </div>
   );

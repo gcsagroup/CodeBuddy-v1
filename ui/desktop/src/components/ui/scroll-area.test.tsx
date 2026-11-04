@@ -1,9 +1,58 @@
-import { createRef } from 'react';
+/* global Element */
+import { createRef, useContext } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ScrollArea, type ScrollAreaHandle } from './scroll-area';
+import { ScrollLayoutAnchorContext } from './scroll-follow-context';
 
 afterEach(() => vi.unstubAllGlobals());
+
+it('restores a prepended batch synchronously even when a reading anchor already exists', () => {
+  let hold: ((element: Element) => () => void) | null = null;
+  function ReadingContent() {
+    hold = useContext(ScrollLayoutAnchorContext);
+    return (
+      <section>
+        <p>Current paragraph</p>
+      </section>
+    );
+  }
+  const ref = createRef<ScrollAreaHandle>();
+  const view = render(
+    <ScrollArea ref={ref} autoScroll>
+      <ReadingContent />
+    </ScrollArea>
+  );
+  const viewport = ref.current!.viewportRef.current!;
+  Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 500 });
+  Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 3000 });
+  const rect = (top: number, height = 30) => ({
+    top,
+    bottom: top + height,
+    left: 0,
+    right: 500,
+    x: 0,
+    y: top,
+    width: 500,
+    height,
+    toJSON() {},
+  });
+  vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue(rect(0, 500));
+  let offset = 350;
+  const paragraph = view.getByText('Current paragraph');
+  vi.spyOn(paragraph, 'getBoundingClientRect').mockImplementation(() =>
+    rect(offset - viewport.scrollTop)
+  );
+  fireEvent.wheel(viewport, { deltaY: -20 });
+  viewport.scrollTop = 300;
+  fireEvent.scroll(viewport);
+  const release = hold!(paragraph.parentElement!);
+  offset += 800;
+  release();
+  expect(viewport.scrollTop).toBe(1100);
+  expect(paragraph.getBoundingClientRect().top).toBe(50);
+  expect(ref.current!.isFollowing).toBe(false);
+});
 
 it('keeps the file heading in place when a bottom show-more button moves down', () => {
   const observers: Array<() => void> = [];

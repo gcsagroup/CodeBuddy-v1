@@ -25,7 +25,7 @@ import { defineMessages, useIntl } from '../../i18n';
 import { useNavigation } from '../../hooks/useNavigation';
 
 const i18n = defineMessages({
-  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'A new chat each time' },
+  newSession: { id: 'scheduleModal.newSession', defaultMessage: 'Open a new chat on every run' },
   followSession: {
     id: 'scheduleModal.currentSession',
     defaultMessage: 'Follow up in the current chat',

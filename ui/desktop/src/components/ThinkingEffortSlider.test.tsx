@@ -28,6 +28,21 @@ const release = (value: number) => {
   fireEvent.pointerUp(slider(), { pointerId: 1 });
 };
 
+it('rotates the model and effort chevron clockwise when opening and closing', async () => {
+  const user = userEvent.setup();
+  render(<ModelThinkingMenu provider="p" model="m" presentation="slider" initialSettings={initial(five)} />,
+    { wrapper: IntlTestWrapper });
+  const trigger = screen.getByRole('button', { name: 'Thinking effort: High' });
+  const chevron = trigger.querySelector('.lucide-chevron-down');
+  expect(chevron).toHaveStyle({ transform: 'rotate(0deg)' });
+  await user.click(trigger);
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  expect(chevron).toHaveStyle({ transform: 'rotate(180deg)' });
+  await user.keyboard('{Escape}');
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(chevron).toHaveStyle({ transform: 'rotate(360deg)' });
+});
+
 it('previews continuous dragging immediately and saves one actual level on release', async () => {
   const user = userEvent.setup();
   render(

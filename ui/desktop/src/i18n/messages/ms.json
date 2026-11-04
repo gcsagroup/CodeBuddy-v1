@@ -1553,6 +1553,12 @@
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
+  "composerCommands.agent": {
+    "defaultMessage": "Custom agent"
+  },
+  "composerCommands.agentHint": {
+    "defaultMessage": "Choose or remove the main assistant for this conversation"
+  },
   "composerCommands.blocked": {
     "defaultMessage": "Needs attention"
   },
@@ -2003,6 +2009,12 @@
   "cronPicker.custom": {
     "defaultMessage": "Cron tersuai"
   },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "Custom"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "Every day"
+  },
   "cronPicker.day": {
     "defaultMessage": "Hari"
   },
@@ -2017,6 +2029,9 @@
   },
   "cronPicker.february": {
     "defaultMessage": "Februari"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "Run frequency"
   },
   "cronPicker.friday": {
     "defaultMessage": "Jumaat"
@@ -2075,6 +2090,9 @@
   "cronPicker.quarter": {
     "defaultMessage": "Suku"
   },
+  "cronPicker.repeat": {
+    "defaultMessage": "Ulang"
+  },
   "cronPicker.saturday": {
     "defaultMessage": "Sabtu"
   },
@@ -2090,6 +2108,9 @@
   "cronPicker.thursday": {
     "defaultMessage": "Khamis"
   },
+  "cronPicker.time": {
+    "defaultMessage": "Masa"
+  },
   "cronPicker.tuesday": {
     "defaultMessage": "Selasa"
   },
@@ -2098,6 +2119,12 @@
   },
   "cronPicker.week": {
     "defaultMessage": "Minggu"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "Every week"
   },
   "cronPicker.year": {
     "defaultMessage": "Tahun"
@@ -3566,11 +3593,47 @@
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
   },
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "The current context cannot leave enough room for a complete response. This turn has stopped and earlier results are preserved. You can select a model with more context, or reduce the input before continuing."
+  },
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
+  },
+  "gooseMessage.outputLimitContinue": {
+    "defaultMessage": "Try continuing"
+  },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "Continue the unfinished task. First check the existing results, preserve completed work, and finish only the remaining parts in smaller steps."
+  },
+  "gooseMessage.outputLimitDetails": {
+    "defaultMessage": "Limit details"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "This budget uses a fallback; the service output capacity has not been confirmed."
+  },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "{attempts,plural,one{Automatic response-length recovery was used once during this turn.} other{Automatic response-length recovery was used # times during this turn.}}"
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "{attempts,plural,one{The model reached a response length limit again after one recovery attempt. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.} other{The model reached a response length limit again after # recovery attempts. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.}}"
+  },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "The automatic response-length recovery did not finish. See the error above; earlier results are preserved."
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "Why this task did not finish"
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "Dihentikan"
@@ -3878,14 +3941,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "Editor JSON Schema"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "Taip jawapan anda…"
+  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "Batal"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "Jawapan anda sendiri (pilihan)"
-  },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "Taip jawapan anda…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4442,6 +4505,9 @@
   "messageQueue.clickToEdit": {
     "defaultMessage": "{content} (Klik untuk menyunting)"
   },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "Collapse saved drafts"
+  },
   "messageQueue.collapseQueue": {
     "defaultMessage": "Runtuhkan baris gilir"
   },
@@ -4453,6 +4519,9 @@
   },
   "messageQueue.continueSending": {
     "defaultMessage": "Mesej disimpan. Hantar sekarang apabila anda bersedia."
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "Expand saved drafts"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "Kembangkan baris gilir"
@@ -4478,17 +4547,20 @@
   "messageQueue.save": {
     "defaultMessage": "Simpan"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
+  },
   "messageQueue.sendAllNow": {
     "defaultMessage": "Hantar semua sekarang"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "Send saved drafts"
   },
   "messageQueue.sendNow": {
     "defaultMessage": "Hantar mesej ini sekarang"
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "Hantar semua mesej menunggu bersama-sama sekarang"
-  },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "Hentikan pemprosesan semasa dan hantar semua mesej menunggu bersama-sama"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5006,11 +5078,224 @@
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
   },
-  "navigation.itemHome": {
-    "defaultMessage": "Sembang Baharu"
+  "nativeSchedule.active": {
+    "defaultMessage": "Active"
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "All"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "Time (with UTC offset)"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "Close task details"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "The task changed. Reload before editing again."
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "Custom"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "Daily at {time} ({zone})"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "Date"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "Some earlier delivery records are unavailable."
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "No automation tasks"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "No saved deliveries yet"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "Every {count} minutes"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "Every day"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "Every {count} hours"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "Monthly"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "Every {count} seconds"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "Every week"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "Frequency"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "hours"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "Ended"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "Task instructions"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "Interval (minutes)"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "Repeat interval"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "Enter an interval of at least 60 whole seconds."
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "Saved legacy rules"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "Linked chat"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "minutes"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "This task was deleted or is unavailable."
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "The original instruction was not saved."
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "Day {day}"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "On these dates"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "Dates that do not exist in a month are skipped."
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "Monthly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "Load more"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "Task name"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "New"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "Help me create an automatic reminder:"
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "Next: {time}"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "No matching time zones"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "Once"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "Open"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "Pause"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "Paused"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "Task records"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "Delete task"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "Repeat"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "Resume"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "Retry"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "Rule"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "Run time"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "Save changes"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "Search automation tasks"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "Search UTC offset, IANA identifier or city"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "seconds"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "(System)"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "Time"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "Automation tasks"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "The linked chat is unavailable"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "Weekly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "Monday to Friday"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "Time zone"
   },
   "navigation.itemCustomAgents": {
     "defaultMessage": "Custom Agents"
+  },
+  "navigation.itemHome": {
+    "defaultMessage": "Sembang Baharu"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "Pustaka Media"
@@ -5047,6 +5332,9 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Sesi tanpa tajuk"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "Cancel"
@@ -6470,6 +6758,24 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "scheduleChat.choose": {
+    "defaultMessage": "Choose a chat"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "No chats found"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "Could not read chats. Reopen to retry."
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "Follow-up chat"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "Load more"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "Search chats"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "Tindakan"
   },
@@ -6623,8 +6929,8 @@
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "Melihat ID Jadual: {id}"
   },
-  "scheduleModal.browseYaml": {
-    "defaultMessage": "Layari fail YAML..."
+  "scheduleModal.advanced": {
+    "defaultMessage": "Lanjutan"
   },
   "scheduleModal.cancel": {
     "defaultMessage": "Batal"
@@ -6641,32 +6947,32 @@
   "scheduleModal.creating": {
     "defaultMessage": "Mencipta..."
   },
-  "scheduleModal.deepLink": {
-    "defaultMessage": "Pautan dalam"
+  "scheduleModal.currentSession": {
+    "defaultMessage": "Susulan dalam sembang semasa"
   },
-  "scheduleModal.deepLinkPlaceholder": {
-    "defaultMessage": "Tampal pautan codebuddy://recipe di sini..."
+  "scheduleModal.destination": {
+    "defaultMessage": "Jalankan dalam"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "Edit Jadual"
   },
-  "scheduleModal.failedParseRecipe": {
-    "defaultMessage": "Gagal menghuraikan resipi daripada fail."
-  },
-  "scheduleModal.failedReadFile": {
-    "defaultMessage": "Gagal membaca fail yang dipilih."
+  "scheduleModal.followHint": {
+    "defaultMessage": "Menggunakan sejarah, model dan kebenaran sembang ini. Pelaksanaan dilangkau jika sembang sibuk. Memadam sembang menjeda tugas."
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "Pautan dalam tidak sah. Sila gunakan pautan codebuddy://recipe."
   },
-  "scheduleModal.invalidFileType": {
-    "defaultMessage": "Jenis fail tidak sah: Sila pilih fail YAML (.yaml atau .yml)"
+  "scheduleModal.newSession": {
+    "defaultMessage": "Sembang baharu setiap kali"
   },
-  "scheduleModal.nameLabel": {
-    "defaultMessage": "Nama:"
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "Buka sembang dahulu untuk mencipta susulan."
   },
-  "scheduleModal.namePlaceholder": {
-    "defaultMessage": "cth., daily-summary-job"
+  "scheduleModal.prompt": {
+    "defaultMessage": "Arahan tugas"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "Terangkan tindakan, laporan dan masa untuk berhenti bagi setiap pelaksanaan."
   },
   "scheduleModal.provideValidRecipe": {
     "defaultMessage": "Sila sediakan sumber resipi yang sah."
@@ -6686,12 +6992,6 @@
   "scheduleModal.scheduleLabel": {
     "defaultMessage": "Jadual:"
   },
-  "scheduleModal.selected": {
-    "defaultMessage": "Dipilih: {path}"
-  },
-  "scheduleModal.sourceLabel": {
-    "defaultMessage": "Sumber:"
-  },
   "scheduleModal.testAndEnable": {
     "defaultMessage": "Test & Enable"
   },
@@ -6701,8 +7001,29 @@
   "scheduleModal.updating": {
     "defaultMessage": "Mengemas kini..."
   },
-  "scheduleModal.yaml": {
-    "defaultMessage": "YAML"
+  "scheduleModel.currentChat": {
+    "defaultMessage": "Follows the current chat"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "Default model"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "Effort"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "Model"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "Show all models"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "Could not read model settings"
   },
   "schedulePicker.runtimeWarning": {
     "defaultMessage": "CodeBuddy must remain running for automatic tasks. Missed runs are not replayed by default. A new automatic task stays paused until its test run succeeds."
@@ -6893,11 +7214,20 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "JSON sesi disalin"
   },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "Teks disalin"
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "Salin JSON"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "Salin teks"
@@ -6937,6 +7267,12 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "Memuatkan JSON..."
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "Gagal menamakan semula sesi: {error}"
@@ -9400,56 +9736,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "scheduleModal.prompt": {
-    "defaultMessage": "Arahan tugas"
-  },
-  "scheduleModal.promptPlaceholder": {
-    "defaultMessage": "Terangkan tindakan, laporan dan masa untuk berhenti bagi setiap pelaksanaan."
-  },
-  "scheduleModal.destination": {
-    "defaultMessage": "Jalankan dalam"
-  },
-  "scheduleModal.newSession": {
-    "defaultMessage": "Sembang baharu setiap kali"
-  },
-  "scheduleModal.currentSession": {
-    "defaultMessage": "Susulan dalam sembang semasa"
-  },
-  "scheduleModal.followHint": {
-    "defaultMessage": "Menggunakan sejarah, model dan kebenaran sembang ini. Pelaksanaan dilangkau jika sembang sibuk. Memadam sembang menjeda tugas."
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "Setiap pelaksanaan bermula secara berasingan menggunakan model lalai yang dikonfigurasi."
-  },
-  "scheduleModal.noCurrentChat": {
-    "defaultMessage": "Buka sembang dahulu untuk mencipta susulan."
-  },
-  "scheduleModal.advanced": {
-    "defaultMessage": "Lanjutan"
-  },
-  "cronPicker.repeat": {
-    "defaultMessage": "Ulang"
-  },
-  "cronPicker.time": {
-    "defaultMessage": "Masa"
-  },
-  "navigationPanel.workspaces": {
-    "defaultMessage": "Workspaces"
-  },
-  "sessionActionsHeader.openFolder": {
-    "defaultMessage": "Open folder"
-  },
-  "sessionActionsHeader.openFolderFailed": {
-    "defaultMessage": "Unable to open the session folder: {error}"
-  },
-  "sessionActionsHeader.copySessionId": {
-    "defaultMessage": "Copy session ID"
-  },
-  "sessionActionsHeader.copiedSessionId": {
-    "defaultMessage": "Session ID copied"
-  },
-  "sessionActionsHeader.copySessionIdFailed": {
-    "defaultMessage": "Unable to copy session ID: {error}"
   }
 }

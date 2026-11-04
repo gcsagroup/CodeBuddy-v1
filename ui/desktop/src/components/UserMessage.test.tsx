@@ -2,13 +2,15 @@ import { applyContentChunk } from '../acp/adapter/messages';
 import { act, render, screen } from '@testing-library/react';
 import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { Message } from '../types/message';
 import UserMessage from './UserMessage';
 import ProgressiveMessageList from './ProgressiveMessageList';
 
 describe('UserMessage', () => {
+  beforeEach(() => { vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); });
+  afterEach(() => vi.unstubAllGlobals());
   const message: Message = {
     id: 'short-message',
     role: 'user',
@@ -16,6 +18,32 @@ describe('UserMessage', () => {
     content: [{ type: 'text', text: '你好' }],
     metadata: { agentVisible: true, userVisible: true },
   };
+
+  it('bounds sent text and hover preview while preserving the complete resend', async () => {
+    const user = userEvent.setup();
+    const text = '{"nested":"中文🙂"}\n'.repeat(24000);
+    const update = vi.fn();
+    const view = render(
+      <UserMessage
+        message={{ ...message, content: [{ type: 'text', text }] }}
+        onMessageUpdate={update}
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    expect(view.container.textContent!.length).toBeLessThan(1000);
+    const textBlock = screen.getByRole('button', { name: 'Open pasted text as TXT' });
+    await user.hover(textBlock);
+    expect((await screen.findByRole('tooltip')).querySelector('pre')!.textContent!.length).toBeLessThanOrEqual(12000);
+    await user.unhover(textBlock);
+    await user.click(screen.getByRole('button', { name: /Edit message/ }));
+    const suffix = screen.getByRole('textbox', {
+      name: 'Edit message content',
+    }) as HTMLTextAreaElement;
+    expect(suffix.value).toBe('');
+    await user.type(suffix, '\nquestion');
+    await user.click(screen.getByRole('button', { name: 'Edit and resend message' }));
+    expect(update).toHaveBeenCalledWith(message.id, text + '\nquestion', 'edit');
+  });
 
   it.each([
     'https://github.com/Panniatong/Agent-Reach分析一下和这个网址里面的是什么',

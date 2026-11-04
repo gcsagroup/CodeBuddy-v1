@@ -326,8 +326,17 @@ export function WorkspacePanelContent({
     search = useRef<HTMLInputElement>(null),
     latest = useRef(state);
   const fail = useCallback((e: unknown) => {
-    if (alive.current) setError(String(e));
-  }, []);
+    if (!alive.current) return;
+    const reason = (e instanceof Error ? e.message : String(e))
+      .replace(/^Error invoking remote method '[^']+': /, '').replace(/^Error: /, '');
+    const message = /ENOENT|ENOTDIR/.test(reason) ? m.fileMissing
+      : /EACCES|EPERM/.test(reason) ? m.fileDenied
+      : /outside the session workspace/.test(reason) ? m.fileOutside
+      : /exceeds.*(?:limit|MB)|supports files up to/i.test(reason) ? m.fileTooLarge
+      : /unsupported|not a supported|could not be loaded/i.test(reason) ? m.fileUnsupported
+      : undefined;
+    setError(message ? intl.formatMessage(message) : reason);
+  }, [intl]);
   const update = useCallback(
     (apply: (s: WorkbenchState) => WorkbenchState) => {
       const next = apply(latest.current);
@@ -562,6 +571,7 @@ export function WorkspacePanelContent({
             scope,
             action: 'inspect',
             path: entry.path,
+            reference: referenceLink,
           });
           if (!alive.current) return;
           const file = reply?.file;
@@ -716,6 +726,7 @@ export function WorkspacePanelContent({
               scope,
               action: 'attach-image',
               path: target.filePath,
+              reference: true,
             });
             if (!alive.current) return;
             if (!reply?.attachment) {
@@ -994,7 +1005,7 @@ export function WorkspacePanelContent({
           ? {
               scope,
               path: filePath,
-              reference: tab.kind === 'reference',
+              reference: tab.kind === 'reference' || (tab.kind === 'file' && tab.document.reference) || (tab.kind === 'file-info' && tab.file.reference),
               ...('line' in tab && tab.line ? { line: tab.line } : {}),
             }
           : {}),
@@ -1064,7 +1075,7 @@ export function WorkspacePanelContent({
     try {
       const { document } = await window.electron.workspacePanel({
         scope,
-        action: 'read',
+        action: tab.document.reference ? 'read-reference' : 'read',
         path: tab.document.path,
       });
       if (document) {
@@ -1449,6 +1460,7 @@ export function WorkspacePanelContent({
               key={selected.id}
               scope={scope}
               path={selected.file.path}
+              reference={selected.file.reference}
               title={selected.title}
               view={selected.view}
               onViewChange={(view) =>
@@ -1672,7 +1684,8 @@ export function WorkspacePanelContent({
         inert={!expanded}
         className={`absolute right-0 bottom-0 z-20 overflow-hidden ${hasWindowTitleBar ? 'top-0' : 'top-8'}`}
         initial={false}
-        animate={{ width: expanded ? width : 0 }}
+        style={{ width: expanded ? width : 0 }}
+        animate={{ opacity: expanded ? 1 : 0 }}
         transition={{
           ...WORKSPACE_PANEL_TRANSITION,
           duration: resizing || reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,

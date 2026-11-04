@@ -97,9 +97,13 @@ export const createNavigationHandler = (
       case 'sessions':
         navigateWithinWorkspace('/sessions', options);
         break;
-      case 'custom-agents':
-        navigateWithinWorkspace('/custom-agents', options);
+      case 'custom-agents': {
+        const sessionId = options?.resumeSessionId ??
+          (currentLocation && ['/pair', '/codepro/pair'].includes(currentLocation.pathname)
+            ? new URLSearchParams(currentLocation.search).get('resumeSessionId') : null);
+        navigateWithinWorkspace(`/custom-agents${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`, options);
         break;
+      }
       case 'media-library':
         navigateWithinWorkspace('/media-library', options);
         break;

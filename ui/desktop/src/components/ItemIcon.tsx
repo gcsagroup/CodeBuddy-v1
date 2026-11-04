@@ -41,6 +41,7 @@ export const getItemIcon = (item: DisplayItem): IconInfo => {
   switch (item.itemType) {
     case 'Builtin':
       if (item.relativePath === 'file') return { Icon: Paperclip, color: 'currentColor' };
+      if (item.relativePath === 'agent') return { Icon: Bot, color: 'currentColor' };
       if (item.relativePath === 'permission') return { Icon: ShieldCheck, color: 'currentColor' };
       if (item.relativePath === 'model') return { Icon: Bot, color: 'currentColor' };
       if (item.relativePath === 'export') return { Icon: Download, color: 'currentColor' };

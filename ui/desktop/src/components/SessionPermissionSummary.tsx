@@ -206,20 +206,21 @@ export function PermissionPicker({
         <Popover.Trigger asChild>
           <button
             type="button"
-            className={`flex min-h-7 items-center gap-1.5 rounded-md px-1 text-xs hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${mode === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
+            className={`flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 text-xs hover:bg-background-secondary hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${mode === 'danger-full-access' ? 'text-orange-700 dark:text-orange-400' : 'text-text-secondary'}`}
             aria-label={intl.formatMessage(i18n.title)}
+            title={intl.formatMessage(saving ? i18n.pending : mode ? labels[mode] : i18n.unknown)}
           >
             {saving ? (
-              <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+              <LoaderCircle className="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
             ) : (
-              <ModeIcon className="size-3.5" aria-hidden="true" />
+              <ModeIcon className="size-3.5 shrink-0" aria-hidden="true" />
             )}
-            <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
+            <span className="min-w-0 max-w-28 truncate @max-[32rem]/composer:hidden">
               {intl.formatMessage(saving ? i18n.pending : mode ? labels[mode] : i18n.unknown)}
             </span>
             <DropdownChevron
               open={open}
-              className="size-3.5 group-data-[compact=true]/composer-toolbar:hidden"
+              className="size-3.5 shrink-0"
             />
           </button>
         </Popover.Trigger>

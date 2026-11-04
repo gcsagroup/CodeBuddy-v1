@@ -8,6 +8,7 @@ import { startHarnessService } from './harnessService';
 import { showMacUninstall } from './storage/macosUninstall';
 import { locationFile, readDataRoot, assertNoMigration } from '../../../runtime/storage-management.cjs';
 import { readFileResponse } from './storage/readFileResponse';
+import { registerPastedTextOpen } from './pastedTextMain';
 import {
   registerWorkspacePanel,
   registerWorkspaceMediaSession,
@@ -1395,7 +1396,7 @@ const createChat = async (
       width: mainWindowState.width,
       height: mainWindowState.height,
       minWidth: 480,
-      minHeight: 400,
+      minHeight: 600,
       resizable: true,
       icon: path.join(
         app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'src'),
@@ -2670,6 +2671,7 @@ ipcMain.handle('check-ollama', async () => {
 
 ipcMain.handle('read-file', async (_event, filePath) => readFileResponse(expandTilde(filePath)));
 
+registerPastedTextOpen();
 registerWorkspacePanel({
   get: () => getSettings().defaultCodeEditor,
   set: (editor) =>

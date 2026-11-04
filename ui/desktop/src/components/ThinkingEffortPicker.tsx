@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Check, ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
+import { Check, ChevronRight, LoaderCircle } from 'lucide-react';
+import { DropdownChevron } from './ui/DropdownChevron';
 import './ThinkingEffortSlider.css';
 import { defineMessages, useIntl } from '../i18n';
 import {
@@ -50,6 +51,7 @@ type ThinkingEffortPickerProps = {
   modelLabel?: string;
   onSelectModel?: () => void;
   triggerContent?: ReactNode;
+  modelMenuOpen?: boolean;
 };
 
 export function ThinkingEffortPicker(props: ThinkingEffortPickerProps) {
@@ -72,6 +74,7 @@ function ThinkingEffortSlider({
   modelLabel,
   onSelectModel,
   triggerContent,
+  modelMenuOpen = false,
 }: ThinkingEffortPickerProps) {
   const intl = useIntl();
   const [open, setOpen] = useState(false);
@@ -168,16 +171,16 @@ function ThinkingEffortSlider({
           aria-busy={saving || disabled}
           aria-label={`${title}: ${label(settings.value)}`}
           title={title}
-          className="flex min-h-7 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1 text-xs text-text-secondary transition-colors hover:text-text-primary disabled:opacity-60"
+          className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
         >
           {triggerContent}
           <span className="inline-grid shrink-0 text-left">
             <span className="col-start-1 row-start-1 flex items-center gap-1">
-              {label(settings.value)}
+              <span className="@max-[24rem]/composer:hidden">{label(settings.value)}</span>
               {saving ? (
                 <LoaderCircle className="size-3 shrink-0 animate-spin" aria-hidden="true" />
               ) : (
-                <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+                <DropdownChevron open={open || modelMenuOpen} className="size-3" />
               )}
             </span>
             {/* Reserve space after the arrow, keeping the visible label and arrow together. */}
@@ -185,7 +188,7 @@ function ThinkingEffortSlider({
               <span
                 key={effort}
                 aria-hidden="true"
-                className="invisible col-start-1 row-start-1 flex items-center gap-1"
+                className="invisible col-start-1 row-start-1 flex items-center gap-1 @max-[24rem]/composer:hidden"
               >
                 {label(effort)}
                 <span className="size-3 shrink-0" />
@@ -214,7 +217,7 @@ function ThinkingEffortSlider({
             }
           }}
           aria-label={title}
-          className="thinking-effort-popover z-[110] w-[min(15.5rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-2xl border border-border-primary bg-background-primary p-3 text-text-primary data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 duration-150 motion-reduce:animate-none"
+          className="composer-menu-surface thinking-effort-popover z-[110] w-[min(15.5rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-2xl border border-border-primary p-3 text-text-primary data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 duration-150 motion-reduce:animate-none"
         >
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-text-secondary">{title}</span>
@@ -420,7 +423,7 @@ function ThinkingEffortMenu({
           {showLabel ? (
             <ChevronRight className="size-3" aria-hidden="true" />
           ) : (
-            <ChevronDown className="size-3" aria-hidden="true" />
+            <DropdownChevron open={open} className="size-3" />
           )}
         </button>
       </Popover.Trigger>
@@ -484,6 +487,7 @@ export function ModelThinkingMenu({
   modelLabel,
   onSelectModel,
   triggerContent,
+  modelMenuOpen = false,
   disabled,
 }: {
   provider: string | null;
@@ -499,6 +503,7 @@ export function ModelThinkingMenu({
   modelLabel?: string;
   onSelectModel?: () => void;
   triggerContent?: ReactNode;
+  modelMenuOpen?: boolean;
   disabled?: boolean;
 }) {
   const intl = useIntl();
@@ -542,10 +547,10 @@ export function ModelThinkingMenu({
         disabled={disabled}
         title={readFailed ? intl.formatMessage(i18n.readFailed) : modelLabel}
         aria-label={modelLabel}
-        className="flex min-h-7 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1 text-xs text-text-secondary transition-colors hover:text-text-primary disabled:opacity-60"
+        className="flex h-8 min-w-0 max-w-full cursor-default items-center gap-1 rounded-md px-1.5 text-xs text-text-secondary transition-colors hover:bg-background-secondary hover:text-text-primary disabled:opacity-60"
       >
         {triggerContent}
-        <ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+        <DropdownChevron open={modelMenuOpen} className="size-3" />
       </button>
     );
   return (
@@ -571,6 +576,7 @@ export function ModelThinkingMenu({
           modelLabel={modelLabel}
           onSelectModel={onSelectModel}
           triggerContent={triggerContent}
+          modelMenuOpen={modelMenuOpen}
           disabled={disabled}
           showLabel={showLabel}
           openOnHover={showLabel}

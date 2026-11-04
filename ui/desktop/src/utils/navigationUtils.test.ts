@@ -32,6 +32,14 @@ describe('getWorkspaceModeFromPath', () => {
 });
 
 describe('createNavigationHandler', () => {
+  it('preserves the explicit source chat for custom agents without guessing from another page', () => {
+    const navigate = vi.fn();
+    const location = { pathname: '/codepro/pair', search: '?resumeSessionId=source-chat', hash: '', state: null, key: 'source' };
+    createNavigationHandler(navigate, 'codepro', location)('custom-agents', { section: 'create' });
+    expect(navigate).toHaveBeenLastCalledWith('/codepro/custom-agents?sessionId=source-chat', { state: { section: 'create' } });
+    createNavigationHandler(navigate, 'codepro', { ...location, pathname: '/codepro' })('custom-agents');
+    expect(navigate).toHaveBeenLastCalledWith('/codepro/custom-agents', { state: undefined });
+  });
   it('keeps settings, sessions, and toolbox inside CodePro', () => {
     const navigate = vi.fn();
     const setView = createNavigationHandler(navigate, 'codepro');

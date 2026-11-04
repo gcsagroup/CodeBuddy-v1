@@ -121,6 +121,7 @@ type ElectronAPI = {
   onDesktopFeedbackError: (callback: (message: string) => void) => () => void;
   petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
+  openPastedText: (text: string) => Promise<{ opened: boolean }>;
   workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
@@ -244,11 +245,13 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener('desktop-control-feedback-error', listener);
   },
   onDesktopControlCancel: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: DesktopControlState) => callback(state);
+    const listener = (_event: Electron.IpcRendererEvent, state: DesktopControlState) =>
+      callback(state);
     ipcRenderer.on('desktop-control-cancel', listener);
     return () => ipcRenderer.removeListener('desktop-control-cancel', listener);
   },
   workspacePanel: (request) => ipcRenderer.invoke('workspace-panel', request),
+  openPastedText: (text) => ipcRenderer.invoke('open-pasted-text', text),
   workspaceTabMenu: (request) => ipcRenderer.invoke('workspace-tab-menu', request),
   webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),
   platform: process.platform,

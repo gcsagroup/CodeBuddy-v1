@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath } from 'node:fs/promises';
+import { mkdtemp, realpath, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Compat } from '../compat.mjs';
@@ -16,9 +16,9 @@ import { pathToFileURL } from 'node:url';
 const desktopRequire = createRequire(new URL('../../ui/desktop/package.json', import.meta.url));
 const { zCreateElicitationRequest } = await import(pathToFileURL(desktopRequire.resolve('@agentclientprotocol/sdk/dist/schema/zod.gen.js')));
 
-async function fixture(t) {
+async function fixture(t, storageOptions) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'harness-authority-acp-')));
-  const store = await openStore(path.join(root, 'data'));
+  const store = await openStore(path.join(root, 'data'), storageOptions);
   await store.update(state => {
     state.providers = [{ id: 'fixture', engine: 'openai_compatible', apiUrl: 'http://127.0.0.1:1', models: ['fixture'], requiresAuth: false }];
     state.defaults = { providerId: 'fixture', modelId: 'fixture' };
@@ -48,6 +48,55 @@ async function fixture(t) {
   const prompt = text => request('session/prompt', { sessionId, prompt: [{ type: 'text', text }] });
   return { compat, driver, store, notices, sessions, scripts, sessionId, prompt, request, connection, setInitializer(fn) { initialize = fn; } };
 }
+
+test('a failed terminal checkpoint releases the transcript writer for the next prompt without restart', { timeout: 30_000 }, async t => {
+  const failure = Object.assign(new Error('fixture terminal snapshot is temporarily locked'), { code: 'EPERM' });
+  let deny = false;
+  const f = await fixture(t, { replaceFile: (from, to) => {
+    if (deny) throw failure;
+    return rename(from, to);
+  } });
+  let modelCalls = 0;
+  for (const text of ['first answer survives', 'next answer works']) f.scripts.push(async ({ onEvent }) => {
+    modelCalls++;
+    await onEvent({ type: 'text_delta', text });
+    if (modelCalls === 1) deny = true;
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await assert.rejects(f.prompt('first request'), error => error === failure);
+  assert.equal(f.compat.active.has(f.sessionId), false);
+  deny = false;
+  const result = await f.prompt('next request after lock release');
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(modelCalls, 2, 'repair retries projections, never the completed native turn');
+  const saved = f.store.readSession(f.sessionId);
+  for (const text of ['first request', 'first answer survives', 'next request after lock release', 'next answer works'])
+    assert.equal(saved.updates.filter(update => update.content?.text === text).length, 1);
+});
+
+test('desktop cleanup failure still settles the native attempt and transcript while preserving the error', async t => {
+  const f = await fixture(t);
+  const begin = f.compat.desktop.begin.bind(f.compat.desktop);
+  const failure = new Error('fixture desktop cleanup failed');
+  let fail = true;
+  f.compat.desktop.begin = (...args) => {
+    const turn = begin(...args), end = turn.end.bind(turn);
+    return { ...turn, async end() {
+      await end();
+      if (fail) { fail = false; throw failure; }
+    } };
+  };
+  for (const text of ['first durable answer', 'second durable answer']) f.scripts.push(async ({ onEvent }) => {
+    await onEvent({ type: 'text_delta', text });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await assert.rejects(f.prompt('desktop cleanup fixture'), error => error === failure);
+  assert.equal(f.compat.active.has(f.sessionId), false);
+  assert.equal(f.compat.runs.latest(f.sessionId).state, 'completed');
+  assert.equal((await f.prompt('next request')).stopReason, 'end_turn');
+  const texts = f.store.readSession(f.sessionId).updates.map(update => update.content?.text);
+  for (const text of ['first durable answer', 'second durable answer']) assert.equal(texts.filter(value => value === text).length, 1);
+});
 
 test('native questions preserve suggestions, custom answers, skip, timeout and cancellation at the ACP boundary', async t => {
   const f = await fixture(t), asked = [];
@@ -343,10 +392,16 @@ test('only explicit cancel adds a stop display marker after native settlement; s
     const pending = f.prompt('Continue the existing task.');
     await entered.promise;
     if (action === 'stop') await f.request('session/cancel', { sessionId: f.sessionId });
-    if (action === 'steer') await f.request('_goose/unstable/session/steer', {
-      sessionId: f.sessionId, expectedRunId: f.compat.runs.latest(f.sessionId).runId,
-      prompt: [{ type: 'text', text: 'Keep the answer brief.' }],
-    });
+    let acceptedSteer;
+    if (action === 'steer') {
+      acceptedSteer = await f.request('_goose/unstable/session/steer', {
+        sessionId: f.sessionId, expectedRunId: f.compat.runs.latest(f.sessionId).runId,
+        prompt: [{ type: 'text', text: 'Keep the answer brief.' }],
+      });
+      const chunk = f.notices.slice(firstNotice).map(n => n.params.update)
+        .find(update => update?.messageId === acceptedSteer.messageId);
+      assert.equal(chunk._meta.goose.steer, true, 'live admission carries its native delivery identity before the RPC receipt');
+    }
     assert.equal(f.notices.slice(firstNotice).some(n => n.params.update?.status?.data?.terminal_message_id), false);
     release.resolve(); await pending;
     const terminal = f.notices.slice(firstNotice).map(n => n.params.update?.status?.data).find(d => d?.terminal_message_id);
@@ -354,6 +409,11 @@ test('only explicit cancel adds a stop display marker after native settlement; s
     assert.equal(terminal.user_requested_stop, action === 'stop' ? true : undefined);
     const saved = f.store.read(['sessions']).sessions.find(s => s.id === f.sessionId).usageUpdates;
     assert.equal(saved.at(-1).status.data.user_requested_stop, terminal.user_requested_stop);
+    if (acceptedSteer) {
+      const history = f.store.read(['sessions']).sessions.find(s => s.id === f.sessionId).updates;
+      assert.equal(history.find(update => update.messageId === acceptedSteer.messageId)._meta.goose.steer, true,
+        'the accepted steer survives durable replay');
+    }
   }
 });
 
@@ -469,4 +529,35 @@ test('historical verification receipts do not certify later native work in a res
   assert.equal(terminal.report.verification_summary.length, 1, 'history remains visible');
   assert.equal(terminal.report.classification_counts.unverified, 1, 'old checks do not certify new work');
   assert.ok(terminal.report.limitations.length > 0);
+});
+
+test('native completion publishes the identified final answer before a slow compatibility checkpoint, without declaring host completion early', async t => {
+  const f = await fixture(t);
+  const original = f.compat.runs.finishHarnessAttempt.bind(f.compat.runs);
+  const reached = Promise.withResolvers(), release = Promise.withResolvers();
+  f.compat.runs.finishHarnessAttempt = async params => {
+    reached.resolve(); await release.promise; return original(params);
+  };
+  f.scripts.push(async ({ onEvent }) => {
+    await onEvent({ type: 'assistant_start', attemptId: 'native-final' });
+    await onEvent({ type: 'text_delta', text: 'Completed fixture.' });
+    await onEvent({ type: 'assistant_committed', hasText: true, sessionId: f.sessionId });
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  const running = f.prompt('Native display boundary');
+  try {
+    await reached.promise;
+    const updates = f.notices.map(notice => notice.params.update).filter(Boolean);
+    const phase = updates.find(update => update.status?.data?.type === 'codepro_response_phase')?.status.data;
+    const answer = updates.find(update => update.sessionUpdate === 'agent_message_chunk');
+    assert.ok(phase);
+    assert.equal(f.notices.find(notice => notice.params.update?.status?.data === phase).method,
+      '_goose/unstable/session/update');
+    assert.equal(phase.answer_message_id, answer.messageId);
+    assert.equal(phase.session_id, f.sessionId);
+    assert.equal(updates.some(update => update.status?.data?.terminal_message_id), false);
+    assert.notEqual(f.compat.runs.latest(f.sessionId).state, 'completed');
+  } finally { release.resolve(); }
+  await running;
+  assert.equal(f.compat.runs.latest(f.sessionId).state, 'completed');
 });

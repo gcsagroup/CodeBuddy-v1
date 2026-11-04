@@ -1553,6 +1553,12 @@
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
+  "composerCommands.agent": {
+    "defaultMessage": "Custom agent"
+  },
+  "composerCommands.agentHint": {
+    "defaultMessage": "Choose or remove the main assistant for this conversation"
+  },
   "composerCommands.blocked": {
     "defaultMessage": "Needs attention"
   },
@@ -2003,6 +2009,12 @@
   "cronPicker.custom": {
     "defaultMessage": "カスタムCron"
   },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "Custom"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "Every day"
+  },
   "cronPicker.day": {
     "defaultMessage": "日"
   },
@@ -2017,6 +2029,9 @@
   },
   "cronPicker.february": {
     "defaultMessage": "2月"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "Run frequency"
   },
   "cronPicker.friday": {
     "defaultMessage": "金曜日"
@@ -2075,6 +2090,9 @@
   "cronPicker.quarter": {
     "defaultMessage": "四半期"
   },
+  "cronPicker.repeat": {
+    "defaultMessage": "繰り返し"
+  },
   "cronPicker.saturday": {
     "defaultMessage": "土曜日"
   },
@@ -2090,6 +2108,9 @@
   "cronPicker.thursday": {
     "defaultMessage": "木曜日"
   },
+  "cronPicker.time": {
+    "defaultMessage": "時刻"
+  },
   "cronPicker.tuesday": {
     "defaultMessage": "火曜日"
   },
@@ -2098,6 +2119,12 @@
   },
   "cronPicker.week": {
     "defaultMessage": "週"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "Every week"
   },
   "cronPicker.year": {
     "defaultMessage": "年"
@@ -3566,11 +3593,47 @@
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
   },
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "The current context cannot leave enough room for a complete response. This turn has stopped and earlier results are preserved. You can select a model with more context, or reduce the input before continuing."
+  },
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
+  },
+  "gooseMessage.outputLimitContinue": {
+    "defaultMessage": "Try continuing"
+  },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "Continue the unfinished task. First check the existing results, preserve completed work, and finish only the remaining parts in smaller steps."
+  },
+  "gooseMessage.outputLimitDetails": {
+    "defaultMessage": "Limit details"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "This budget uses a fallback; the service output capacity has not been confirmed."
+  },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "{attempts,plural,one{Automatic response-length recovery was used once during this turn.} other{Automatic response-length recovery was used # times during this turn.}}"
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "{attempts,plural,one{The model reached a response length limit again after one recovery attempt. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.} other{The model reached a response length limit again after # recovery attempts. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.}}"
+  },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "The automatic response-length recovery did not finish. See the error above; earlier results are preserved."
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "Why this task did not finish"
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "停止しました"
@@ -3878,14 +3941,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "JSON Schema エディター"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "回答を入力…"
+  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "キャンセル"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "自由回答（任意）"
-  },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "回答を入力…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4442,6 +4505,9 @@
   "messageQueue.clickToEdit": {
     "defaultMessage": "{content}（クリックして編集）"
   },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "Collapse saved drafts"
+  },
   "messageQueue.collapseQueue": {
     "defaultMessage": "キューを折りたたむ"
   },
@@ -4453,6 +4519,9 @@
   },
   "messageQueue.continueSending": {
     "defaultMessage": "メッセージは保持されています。準備ができたら送信してください。"
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "Expand saved drafts"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "キューを展開"
@@ -4478,17 +4547,20 @@
   "messageQueue.save": {
     "defaultMessage": "保存"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
+  },
   "messageQueue.sendAllNow": {
     "defaultMessage": "すべて今すぐ送信"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "Send saved drafts"
   },
   "messageQueue.sendNow": {
     "defaultMessage": "このメッセージを今すぐ送信"
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "送信待ちのメッセージをまとめて送信"
-  },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "現在の処理を停止し、送信待ちのメッセージをまとめて送信"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5006,11 +5078,224 @@
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
   },
-  "navigation.itemHome": {
-    "defaultMessage": "新規チャット"
+  "nativeSchedule.active": {
+    "defaultMessage": "Active"
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "All"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "Time (with UTC offset)"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "Close task details"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "The task changed. Reload before editing again."
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "Custom"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "Daily at {time} ({zone})"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "Date"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "Some earlier delivery records are unavailable."
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "No automation tasks"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "No saved deliveries yet"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "Every {count} minutes"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "Every day"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "Every {count} hours"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "Monthly"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "Every {count} seconds"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "Every week"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "Frequency"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "hours"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "Ended"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "Task instructions"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "Interval (minutes)"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "Repeat interval"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "Enter an interval of at least 60 whole seconds."
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "Saved legacy rules"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "Linked chat"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "minutes"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "This task was deleted or is unavailable."
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "The original instruction was not saved."
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "Day {day}"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "On these dates"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "Dates that do not exist in a month are skipped."
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "Monthly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "Load more"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "Task name"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "New"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "Help me create an automatic reminder:"
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "Next: {time}"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "No matching time zones"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "Once"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "Open"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "Pause"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "Paused"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "Task records"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "Delete task"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "Repeat"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "Resume"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "Retry"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "Rule"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "Run time"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "Save changes"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "Search automation tasks"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "Search UTC offset, IANA identifier or city"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "seconds"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "(System)"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "Time"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "Automation tasks"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "The linked chat is unavailable"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "Weekly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "Monday to Friday"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "Time zone"
   },
   "navigation.itemCustomAgents": {
     "defaultMessage": "Custom Agents"
+  },
+  "navigation.itemHome": {
+    "defaultMessage": "新規チャット"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "メディアライブラリ"
@@ -5031,10 +5316,10 @@
     "defaultMessage": "Toolbox"
   },
   "navigationPanel.chats": {
-    "defaultMessage": "チャット"
+    "defaultMessage": "Tasks"
   },
   "navigationPanel.noChats": {
-    "defaultMessage": "最近のチャットはありません"
+    "defaultMessage": "No recent tasks"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
@@ -5047,6 +5332,9 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "無題のセッション"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "Cancel"
@@ -6470,6 +6758,24 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "scheduleChat.choose": {
+    "defaultMessage": "Choose a chat"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "No chats found"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "Could not read chats. Reopen to retry."
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "Follow-up chat"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "Load more"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "Search chats"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "操作"
   },
@@ -6623,8 +6929,8 @@
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "表示中のスケジュールID: {id}"
   },
-  "scheduleModal.browseYaml": {
-    "defaultMessage": "YAMLファイルを選択..."
+  "scheduleModal.advanced": {
+    "defaultMessage": "詳細設定"
   },
   "scheduleModal.cancel": {
     "defaultMessage": "キャンセル"
@@ -6641,32 +6947,32 @@
   "scheduleModal.creating": {
     "defaultMessage": "作成中..."
   },
-  "scheduleModal.deepLink": {
-    "defaultMessage": "ディープリンク"
+  "scheduleModal.currentSession": {
+    "defaultMessage": "現在のチャットでフォローアップ"
   },
-  "scheduleModal.deepLinkPlaceholder": {
-    "defaultMessage": "codebuddy://recipe リンクをここに貼り付け..."
+  "scheduleModal.destination": {
+    "defaultMessage": "実行先"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "スケジュールを編集"
   },
-  "scheduleModal.failedParseRecipe": {
-    "defaultMessage": "ファイルからレシピを解析できませんでした。"
-  },
-  "scheduleModal.failedReadFile": {
-    "defaultMessage": "選択したファイルを読み取れませんでした。"
+  "scheduleModal.followHint": {
+    "defaultMessage": "このチャットの履歴、モデル、権限を使用します。使用中は今回の実行をスキップし、チャットを削除するとタスクを一時停止します。"
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "無効なディープリンクです。codebuddy://recipe リンクを使用してください。"
   },
-  "scheduleModal.invalidFileType": {
-    "defaultMessage": "無効なファイル形式です。YAMLファイル（.yaml または .yml）を選択してください"
+  "scheduleModal.newSession": {
+    "defaultMessage": "毎回新しいチャット"
   },
-  "scheduleModal.nameLabel": {
-    "defaultMessage": "名前:"
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "フォローアップを作成するには、先にチャットを開いてください。"
   },
-  "scheduleModal.namePlaceholder": {
-    "defaultMessage": "例: daily-summary-job"
+  "scheduleModal.prompt": {
+    "defaultMessage": "タスクの指示"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "毎回の作業、報告内容、終了条件を入力してください。"
   },
   "scheduleModal.provideValidRecipe": {
     "defaultMessage": "有効なレシピソースを指定してください。"
@@ -6686,12 +6992,6 @@
   "scheduleModal.scheduleLabel": {
     "defaultMessage": "スケジュール:"
   },
-  "scheduleModal.selected": {
-    "defaultMessage": "選択済み: {path}"
-  },
-  "scheduleModal.sourceLabel": {
-    "defaultMessage": "ソース:"
-  },
   "scheduleModal.testAndEnable": {
     "defaultMessage": "Test & Enable"
   },
@@ -6701,8 +7001,29 @@
   "scheduleModal.updating": {
     "defaultMessage": "更新中..."
   },
-  "scheduleModal.yaml": {
-    "defaultMessage": "YAML"
+  "scheduleModel.currentChat": {
+    "defaultMessage": "Follows the current chat"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "Default model"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "Effort"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "Model"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "Show all models"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "Could not read model settings"
   },
   "schedulePicker.runtimeWarning": {
     "defaultMessage": "CodeBuddy must remain running for automatic tasks. Missed runs are not replayed by default. A new automatic task stays paused until its test run succeeds."
@@ -6893,11 +7214,20 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "セッションJSONをコピーしました"
   },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "テキストをコピーしました"
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "JSONをコピー"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "テキストをコピー"
@@ -6937,6 +7267,12 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "JSONを読み込み中..."
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "セッションの名前を変更できませんでした: {error}"
@@ -9400,38 +9736,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "scheduleModal.prompt": {
-    "defaultMessage": "タスクの指示"
-  },
-  "scheduleModal.promptPlaceholder": {
-    "defaultMessage": "毎回の作業、報告内容、終了条件を入力してください。"
-  },
-  "scheduleModal.destination": {
-    "defaultMessage": "実行先"
-  },
-  "scheduleModal.newSession": {
-    "defaultMessage": "毎回新しいチャット"
-  },
-  "scheduleModal.currentSession": {
-    "defaultMessage": "現在のチャットでフォローアップ"
-  },
-  "scheduleModal.followHint": {
-    "defaultMessage": "このチャットの履歴、モデル、権限を使用します。使用中は今回の実行をスキップし、チャットを削除するとタスクを一時停止します。"
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "毎回、設定済みの既定モデルで独立して開始します。"
-  },
-  "scheduleModal.noCurrentChat": {
-    "defaultMessage": "フォローアップを作成するには、先にチャットを開いてください。"
-  },
-  "scheduleModal.advanced": {
-    "defaultMessage": "詳細設定"
-  },
-  "cronPicker.repeat": {
-    "defaultMessage": "繰り返し"
-  },
-  "cronPicker.time": {
-    "defaultMessage": "時刻"
   }
 }

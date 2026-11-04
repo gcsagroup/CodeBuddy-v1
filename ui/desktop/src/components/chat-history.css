@@ -2,6 +2,30 @@
   animation: chat-history-enter 240ms ease-out;
 }
 
+[data-conversation-scroll] {
+  --conversation-fade-top: 0px;
+  --conversation-fade-bottom: 0px;
+}
+
+[data-conversation-scroll][data-scrolled='true'] {
+  --conversation-fade-top: 32px;
+}
+
+[data-conversation-scroll][data-more-below='true'] {
+  --conversation-fade-bottom: 32px;
+}
+
+/* Mask the reading viewport so fixed controls and its sibling scrollbar stay clear. */
+[data-conversation-scroll] > [data-radix-scroll-area-viewport] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--conversation-fade-top),
+    #000 calc(100% - var(--conversation-fade-bottom)),
+    transparent
+  );
+}
+
 @keyframes chat-history-enter {
   from {
     opacity: 0;

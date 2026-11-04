@@ -104,6 +104,7 @@ describe('composer slash commands', () => {
   it('exposes discoverable descriptions and keeps bare commands out of model requests', async () => {
     expect(composerCommandItems(intl).map((item) => item.relativePath)).toEqual([
       'file',
+      'agent',
       'goal',
       'plan',
       'compact',

@@ -167,7 +167,7 @@ function SubagentActivity({ turn }: { turn: SubagentTurn }) {
     {
       id: 'workspaceSubagent.status',
       defaultMessage:
-        '{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} other {Status not yet available}}',
+        '{state, select, running {Turn record still open} completed {Turn ended} failed {Turn failed} interrupted {Turn interrupted} limited {Output limit reached} blocked {Turn blocked} other {Status not yet available}}',
     },
     { state: turn?.status ?? 'unknown' }
   );

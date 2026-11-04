@@ -1553,6 +1553,12 @@
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
+  "composerCommands.agent": {
+    "defaultMessage": "Custom agent"
+  },
+  "composerCommands.agentHint": {
+    "defaultMessage": "Choose or remove the main assistant for this conversation"
+  },
   "composerCommands.blocked": {
     "defaultMessage": "Needs attention"
   },
@@ -2003,6 +2009,12 @@
   "cronPicker.custom": {
     "defaultMessage": "사용자 지정 cron"
   },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "Custom"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "Every day"
+  },
   "cronPicker.day": {
     "defaultMessage": "일"
   },
@@ -2017,6 +2029,9 @@
   },
   "cronPicker.february": {
     "defaultMessage": "2월"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "Run frequency"
   },
   "cronPicker.friday": {
     "defaultMessage": "금요일"
@@ -2075,6 +2090,9 @@
   "cronPicker.quarter": {
     "defaultMessage": "분기"
   },
+  "cronPicker.repeat": {
+    "defaultMessage": "반복"
+  },
   "cronPicker.saturday": {
     "defaultMessage": "토요일"
   },
@@ -2090,6 +2108,9 @@
   "cronPicker.thursday": {
     "defaultMessage": "목요일"
   },
+  "cronPicker.time": {
+    "defaultMessage": "시간"
+  },
   "cronPicker.tuesday": {
     "defaultMessage": "화요일"
   },
@@ -2098,6 +2119,12 @@
   },
   "cronPicker.week": {
     "defaultMessage": "주"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "Every week"
   },
   "cronPicker.year": {
     "defaultMessage": "연도"
@@ -3566,11 +3593,47 @@
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "Stopped at your request. Actions already taken are not undone; any unconfirmed results still need checking."
   },
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "The current context cannot leave enough room for a complete response. This turn has stopped and earlier results are preserved. You can select a model with more context, or reduce the input before continuing."
+  },
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "This task was interrupted and completion has not been confirmed. The conversation and operation records are available above."
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "The model response ended without a final reply. Earlier output and operation records are preserved."
+  },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "Requested output budget: {tokens} tokens. Automatic recovery attempts: {attempts}/{limit}."
+  },
+  "gooseMessage.outputLimitContinue": {
+    "defaultMessage": "Try continuing"
+  },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "Continue the unfinished task. First check the existing results, preserve completed work, and finish only the remaining parts in smaller steps."
+  },
+  "gooseMessage.outputLimitDetails": {
+    "defaultMessage": "Limit details"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "This budget uses a fallback; the service output capacity has not been confirmed."
+  },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "The model reached a response length limit before finishing this task. Earlier changes and operation records are preserved. You can try continuing, or select another model first."
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "{attempts,plural,one{Automatic response-length recovery was used once during this turn.} other{Automatic response-length recovery was used # times during this turn.}}"
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "{attempts,plural,one{The model reached a response length limit again after one recovery attempt. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.} other{The model reached a response length limit again after # recovery attempts. This task is unfinished. Earlier changes and operation records are preserved. You can try continuing, or select another model first.}}"
+  },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "At most one automatic retry per step and {limit} per turn. Another length limit in the same step stops the task."
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "The automatic response-length recovery did not finish. See the error above; earlier results are preserved."
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "Why this task did not finish"
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "중지됨"
@@ -3878,14 +3941,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "JSON 스키마 편집기"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "답변을 입력하세요…"
+  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "취소"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "직접 입력 (선택 사항)"
-  },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "답변을 입력하세요…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "Or write your own response"
@@ -4442,6 +4505,9 @@
   "messageQueue.clickToEdit": {
     "defaultMessage": "{content} (수정하려면 클릭하세요)"
   },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "Collapse saved drafts"
+  },
   "messageQueue.collapseQueue": {
     "defaultMessage": "대기열 축소"
   },
@@ -4453,6 +4519,9 @@
   },
   "messageQueue.continueSending": {
     "defaultMessage": "메시지가 보관되어 있습니다. 준비되면 전송하세요."
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "Expand saved drafts"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "대기열 확장"
@@ -4478,17 +4547,20 @@
   "messageQueue.save": {
     "defaultMessage": "저장"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "{count,plural,one{# saved draft} other{# saved drafts}}"
+  },
   "messageQueue.sendAllNow": {
     "defaultMessage": "모두 지금 전송"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "Send saved drafts"
   },
   "messageQueue.sendNow": {
     "defaultMessage": "지금 이 메시지 보내기"
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "대기 중인 모든 메시지를 지금 함께 전송"
-  },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "현재 작업을 중지하고 대기 중인 모든 메시지를 함께 전송"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "This queue changed in another window. Sending and saving are paused to avoid overwriting it. Keep this window open and compare the queued messages."
@@ -5006,11 +5078,224 @@
   "modelsBottomBar.switching": {
     "defaultMessage": "Switching model…"
   },
-  "navigation.itemHome": {
-    "defaultMessage": "새 채팅"
+  "nativeSchedule.active": {
+    "defaultMessage": "Active"
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "All"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "Time (with UTC offset)"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "Close task details"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "The task changed. Reload before editing again."
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "Custom"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "Daily at {time} ({zone})"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "Date"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "Some earlier delivery records are unavailable."
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "No automation tasks"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "No saved deliveries yet"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "Every {count} minutes"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "Every day"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "Every {count} hours"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "Monthly"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "Every {count} seconds"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "Every week"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "Frequency"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "hours"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "Ended"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "Task instructions"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "Interval (minutes)"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "Repeat interval"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "Enter an interval of at least 60 whole seconds."
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "Saved legacy rules"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "Linked chat"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "minutes"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "This task was deleted or is unavailable."
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "The original instruction was not saved."
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "Day {day}"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "On these dates"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "Dates that do not exist in a month are skipped."
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "Monthly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "Load more"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "Task name"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "New"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "Help me create an automatic reminder:"
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "Next: {time}"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "No matching time zones"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "Once"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "Open"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "Pause"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "Paused"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "Task records"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "Delete task"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "Repeat"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "Resume"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "Retry"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "Rule"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "Run time"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "Save changes"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "Search automation tasks"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "Search UTC offset, IANA identifier or city"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "seconds"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "(System)"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "Time"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "Automation tasks"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "The linked chat is unavailable"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "Weekly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "Monday to Friday"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "Time zone"
   },
   "navigation.itemCustomAgents": {
     "defaultMessage": "Custom Agents"
+  },
+  "navigation.itemHome": {
+    "defaultMessage": "새 채팅"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "미디어 라이브러리"
@@ -5031,10 +5316,10 @@
     "defaultMessage": "Toolbox"
   },
   "navigationPanel.chats": {
-    "defaultMessage": "채팅"
+    "defaultMessage": "Tasks"
   },
   "navigationPanel.noChats": {
-    "defaultMessage": "최근 채팅 없음"
+    "defaultMessage": "No recent tasks"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
@@ -5047,6 +5332,9 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "제목 없는 세션"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "Workspaces"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "Cancel"
@@ -6470,6 +6758,24 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "scheduleChat.choose": {
+    "defaultMessage": "Choose a chat"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "No chats found"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "Could not read chats. Reopen to retry."
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "Follow-up chat"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "Load more"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "Search chats"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "작업"
   },
@@ -6623,8 +6929,8 @@
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "일정 ID 보기: {id}"
   },
-  "scheduleModal.browseYaml": {
-    "defaultMessage": "YAML 파일 찾아보기..."
+  "scheduleModal.advanced": {
+    "defaultMessage": "고급"
   },
   "scheduleModal.cancel": {
     "defaultMessage": "취소"
@@ -6641,32 +6947,32 @@
   "scheduleModal.creating": {
     "defaultMessage": "생성 중..."
   },
-  "scheduleModal.deepLink": {
-    "defaultMessage": "딥링크"
+  "scheduleModal.currentSession": {
+    "defaultMessage": "현재 채팅에서 후속 작업"
   },
-  "scheduleModal.deepLinkPlaceholder": {
-    "defaultMessage": "codebuddy://recipe 링크를 여기에 붙여넣으세요..."
+  "scheduleModal.destination": {
+    "defaultMessage": "실행 위치"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "일정 편집"
   },
-  "scheduleModal.failedParseRecipe": {
-    "defaultMessage": "파일에서 레시피를 구문 분석하지 못했습니다."
-  },
-  "scheduleModal.failedReadFile": {
-    "defaultMessage": "선택한 파일을 읽지 못했습니다."
+  "scheduleModal.followHint": {
+    "defaultMessage": "이 채팅의 기록, 모델 및 권한을 사용합니다. 채팅이 사용 중이면 해당 실행을 건너뜁니다. 채팅을 삭제하면 작업이 일시 중지됩니다."
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "딥링크가 잘못되었습니다. codebuddy://recipe 링크를 이용해 주세요."
   },
-  "scheduleModal.invalidFileType": {
-    "defaultMessage": "잘못된 파일 형식: YAML 파일(.yaml 또는 .yml)을 선택하세요."
+  "scheduleModal.newSession": {
+    "defaultMessage": "매번 새 채팅"
   },
-  "scheduleModal.nameLabel": {
-    "defaultMessage": "이름:"
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "후속 작업을 만들려면 먼저 채팅을 여세요."
   },
-  "scheduleModal.namePlaceholder": {
-    "defaultMessage": "예: 일일 요약 작업"
+  "scheduleModal.prompt": {
+    "defaultMessage": "작업 지침"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "매 실행에서 할 일, 보고할 내용, 중단할 시점을 설명하세요."
   },
   "scheduleModal.provideValidRecipe": {
     "defaultMessage": "유효한 레시피 소스를 입력하세요."
@@ -6686,12 +6992,6 @@
   "scheduleModal.scheduleLabel": {
     "defaultMessage": "일정:"
   },
-  "scheduleModal.selected": {
-    "defaultMessage": "선택됨: {path}"
-  },
-  "scheduleModal.sourceLabel": {
-    "defaultMessage": "소스:"
-  },
   "scheduleModal.testAndEnable": {
     "defaultMessage": "Test & Enable"
   },
@@ -6701,8 +7001,29 @@
   "scheduleModal.updating": {
     "defaultMessage": "업데이트 중..."
   },
-  "scheduleModal.yaml": {
-    "defaultMessage": "YAML"
+  "scheduleModel.currentChat": {
+    "defaultMessage": "Follows the current chat"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "Default model"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "Effort"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "Model"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "Show all models"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "Could not read model settings"
   },
   "schedulePicker.runtimeWarning": {
     "defaultMessage": "CodeBuddy must remain running for automatic tasks. Missed runs are not replayed by default. A new automatic task stays paused until its test run succeeds."
@@ -6893,11 +7214,20 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "세션 JSON 복사됨"
   },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "Session ID copied"
+  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "텍스트가 복사되었습니다."
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "JSON 복사"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "Copy session ID"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "Unable to copy session ID: {error}"
   },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "텍스트 복사"
@@ -6937,6 +7267,12 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "JSON 불러오는 중..."
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "Open folder"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "Unable to open the session folder: {error}"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "세션 이름 변경 실패: {error}"
@@ -9400,38 +9736,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "scheduleModal.prompt": {
-    "defaultMessage": "작업 지침"
-  },
-  "scheduleModal.promptPlaceholder": {
-    "defaultMessage": "매 실행에서 할 일, 보고할 내용, 중단할 시점을 설명하세요."
-  },
-  "scheduleModal.destination": {
-    "defaultMessage": "실행 위치"
-  },
-  "scheduleModal.newSession": {
-    "defaultMessage": "매번 새 채팅"
-  },
-  "scheduleModal.currentSession": {
-    "defaultMessage": "현재 채팅에서 후속 작업"
-  },
-  "scheduleModal.followHint": {
-    "defaultMessage": "이 채팅의 기록, 모델 및 권한을 사용합니다. 채팅이 사용 중이면 해당 실행을 건너뜁니다. 채팅을 삭제하면 작업이 일시 중지됩니다."
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "설정된 기본 모델을 사용하여 매번 독립적으로 시작합니다."
-  },
-  "scheduleModal.noCurrentChat": {
-    "defaultMessage": "후속 작업을 만들려면 먼저 채팅을 여세요."
-  },
-  "scheduleModal.advanced": {
-    "defaultMessage": "고급"
-  },
-  "cronPicker.repeat": {
-    "defaultMessage": "반복"
-  },
-  "cronPicker.time": {
-    "defaultMessage": "시간"
   }
 }

@@ -185,17 +185,30 @@ describe('useChatSession steering acceptance', () => {
     );
   });
 
-  it.each(['no run', 'cancelling', 'slash command', 'image only'] as const)(
+  it('submits an image-only reminder through the native steer endpoint', async () => {
+    vi.mocked(acpSteerSession).mockResolvedValue({ runId: 'run-1', messageId: 'image-steer' });
+    const { result } = setup();
+    await expect(
+      result.current.onSteerQueuedMessage!({
+        msg: '',
+        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
+      })
+    ).resolves.toBe(true);
+    expect(acpSteerSession).toHaveBeenCalledWith(
+      'session-1',
+      expect.objectContaining({
+        content: expect.arrayContaining([expect.objectContaining({ type: 'image' })]),
+      }),
+      'run-1'
+    );
+  });
+
+  it.each(['no run', 'cancelling', 'slash command'] as const)(
     'returns false only before sending: %s',
     async (reason) => {
       if (reason === 'no run') state.snapshot.activeRunId = null;
       if (reason === 'cancelling') state.snapshot.pendingCancelPromptAttemptId = 'cancel-1';
-      const request =
-        reason === 'slash command'
-          ? { msg: '/clear', images: [] }
-          : reason === 'image only'
-            ? { msg: '', images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }] }
-            : input;
+      const request = reason === 'slash command' ? { msg: '/clear', images: [] } : input;
       const { result } = setup();
       await expect(result.current.onSteerQueuedMessage!(request)).resolves.toBe(false);
       expect(acpSteerSession).not.toHaveBeenCalled();

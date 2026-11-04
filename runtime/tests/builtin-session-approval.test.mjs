@@ -11,6 +11,7 @@ import { createHarnessDriver } from '../harness/index.mjs';
 import { Compat } from '../compat.mjs';
 import { openStore } from '../store.mjs';
 import { SafetyPolicy } from '../safety-policy.mjs';
+import { registerToolSessionApproval } from '../tool-session-approval.mjs';
 
 async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-builtin-approval-')));
@@ -22,7 +23,11 @@ async function fixture(t) {
   });
   const memory = new ProjectMemory(driver), questions = [], dispatches = [];
   const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
-  const f = { root, driver, store, questions, dispatches, choice: 'allow_always',
+  const connection = { async ask(_method, params) {
+    questions.push(params);
+    return { outcome: { outcome: 'selected', optionId: f.choice } };
+  } };
+  const f = { root, driver, store, host, connection, questions, dispatches, choice: 'allow_always',
     tools(s, owner = host) {
       return [browserTool({ sessionId: s.id, cwd: s.cwd, requestOwner: owner, request: async (_method, input) => {
         dispatches.push(input); return { id: 'fixture-tab', url: 'http://127.0.0.1/fixture' };
@@ -37,10 +42,7 @@ async function fixture(t) {
     invoke(s, name, args) {
       return driver.callTool(s.id, name, args, {
         onToolPolicy: call => host.toolPolicy(s, call, call.signal),
-        onPermission: call => host.approveTool(s, call, { async ask(_method, params) {
-          questions.push(params);
-          return { outcome: { outcome: 'selected', optionId: f.choice } };
-        } }, call.signal),
+        onPermission: call => host.approveTool(s, call, connection, call.signal),
       });
     },
   };
@@ -134,4 +136,37 @@ test('module settings revoke affected host grants while unrelated MCP settings r
   await f.driver.configureSession(s.id, { tools: f.tools(s) });
   for (const [name, , args] of cases) await f.invoke(s, name, args);
   assert.equal(f.questions.length, 5, 'Browser and pet reset; project memory stays authorized');
+});
+
+test('new host tools share an explicit declared capability range and reapprove expansion', { timeout: 30000 }, async t => {
+  const f = await fixture(t), s = await f.session();
+  f.host.businessApprovalClients = new WeakMap([[f.connection, 2]]);
+  f.choice = 'allow_business_session';
+  let names = ['fixture_export', 'fixture_inspect'];
+  f.tools = () => {
+    const business = { version: 2, id: 'report-processing', name: 'Process reports', description: 'Only this fixture workspace', tools: names };
+    return names.map(name => registerToolSessionApproval({ name, description: 'Synthetic host capability', inputSchema: { type: 'object', properties: {} }, execute: () => ({ checked: name }) },
+      { key: JSON.stringify([name, s.cwd]), dependencies: [f.host], business }));
+  };
+  await f.driver.configureSession(s.id, { tools: f.tools() });
+  for (const name of ['fixture_export', 'fixture_inspect', 'fixture_export'])
+    assert.equal((await f.invoke(s, name, {})).isError, false);
+  assert.equal(f.questions.length, 1, 'One declared capability covers both host tools across calls');
+  assert.deepEqual(f.questions[0]._meta.codepro.businessApproval.tools, names);
+  names = [...names, 'fixture_archive'];
+  await f.driver.configureSession(s.id, { tools: f.tools() });
+  f.choice = 'reject_once';
+  assert.equal((await f.invoke(s, 'fixture_archive', {})).isError, true);
+  assert.equal(f.questions.length, 2, 'Added host members require a new explicit choice');
+});
+
+test('an incomplete host capability declaration falls back to truthful per-tool approval', { timeout: 30000 }, async t => {
+  const f = await fixture(t), s = await f.session();
+  f.host.businessApprovalClients = new WeakMap([[f.connection, 2]]);
+  const tool = registerToolSessionApproval({ name: 'fixture_export', description: 'Synthetic export', inputSchema: { type: 'object', properties: {} }, execute: () => ({ checked: true }) },
+    { key: 'fixture-export', business: { version: 2, id: 'incomplete', name: 'Incomplete group', description: 'Declared members', tools: ['fixture_export', 'not_registered'] } });
+  await f.driver.configureSession(s.id, { tools: [tool] });
+  assert.equal((await f.invoke(s, 'fixture_export', {})).isError, false);
+  assert.equal(f.questions[0]._meta.codepro.businessApproval, undefined);
+  assert.ok(f.questions[0].options.some(option => option.optionId === 'allow_always'));
 });

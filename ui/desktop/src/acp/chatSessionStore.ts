@@ -1049,6 +1049,11 @@ function applyChatStateChanges(entry: StoreEntry, changes: AcpChatStateChange[])
         entry.tokenState = {
           ...entry.tokenState,
           ...change.tokenState,
+          ...(change.tokenState.contextLimit !== undefined &&
+          change.tokenState.contextLimit !== entry.tokenState.contextLimit &&
+          change.tokenState.contextCapacitySource === undefined
+            ? { contextCapacitySource: undefined }
+            : {}),
           ...(change.tokenState.totalTokens !== undefined ? { contextUsageKnown: true } : {}),
         };
         break;

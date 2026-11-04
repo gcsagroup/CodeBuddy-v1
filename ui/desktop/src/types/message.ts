@@ -233,6 +233,8 @@ export type MessageMetadata = {
   inference?: InferenceMetadata | null;
   steer?: boolean;
   usage?: MessageUsage | null;
+  // Replay-only presentation fact: the receipt has no matching source message.
+  usageUnattributed?: true;
   userVisible: boolean;
 };
 
@@ -525,4 +527,32 @@ export function getElicitationContent(
 export function hasCompletedToolCalls(message: Message): boolean {
   const toolRequests = getToolRequests(message);
   return toolRequests.length > 0;
+}
+
+/** Immediate steering stays inside its native execution turn. Queued inputs
+ * arrive as ordinary user messages and start a new display/change ledger turn.
+ */
+export function isConversationTurnStart(message: Message): boolean {
+  return (
+    message.role === 'user' &&
+    message.metadata.userVisible &&
+    !message.metadata.steer &&
+    message.content.some((content) => content.type === 'text' || content.type === 'image')
+  );
+}
+
+// Live-call lists can change at a step boundary before its result is presented.
+// ACP's per-call status remains authoritative while this execution turn is open.
+export function isToolCallInProgress(
+  request: ToolRequestMessageContent,
+  turnRunning: boolean,
+  activeToolCallIds?: readonly string[]
+): boolean {
+  return (
+    turnRunning &&
+    (activeToolCallIds === undefined ||
+      activeToolCallIds.includes(request.id) ||
+      request.metadata?.status === 'in_progress' ||
+      request.metadata?.status === 'pending')
+  );
 }

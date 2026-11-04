@@ -209,12 +209,25 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
     const holdLayoutAnchor = React.useCallback(
       (element: Element) => {
         const viewport = viewportRef.current;
-        if (!autoScroll || !viewport || !viewport.contains(element) || disclosureAnchorRef.current)
+        if (
+          !autoScroll ||
+          !viewport ||
+          !viewport.contains(element) ||
+          (disclosureAnchorRef.current && disclosureAnchorRef.current.kind !== 'reading')
+        )
           return () => {};
         stopFollowingMotion();
+        // A prepend must replace the ordinary reading anchor and compensate in
+        // the committing layout effect, before the browser can paint a jump.
+        // A turn wrapper may start far above view; keep the paragraph in view.
+        const bounds = viewport.getBoundingClientRect();
+        const readingElement =
+          userScrolledUpRef.current && contentRef.current
+            ? (firstVisibleAnchor(contentRef.current, bounds.top, bounds.bottom) ?? element)
+            : element;
         const anchor = {
-          element,
-          top: element.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+          element: readingElement,
+          top: readingElement.getBoundingClientRect().top - bounds.top,
           kind: 'layout' as const,
         };
         disclosureAnchorRef.current = anchor;
@@ -223,7 +236,9 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         return () => {
           if (disclosureAnchorRef.current !== anchor) return;
           restoreDisclosureAnchor();
-          disclosureAnchorRef.current = null;
+          disclosureAnchorRef.current = userScrolledUpRef.current
+            ? { ...anchor, kind: 'reading' }
+            : null;
           // Only a reader needs the old scroll range. Following reserved space
           // after automatic folding can put the entire final answer above view.
           if (!userScrolledUpRef.current) {

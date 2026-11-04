@@ -5,6 +5,27 @@ import type { ToolResponseMessageContent } from '../types/message';
 
 const intl = createIntl({ locale: 'en', messages: {} });
 
+describe('native automation task actions', () => {
+  it.each([
+    ['schedule_create', '创建', '建立', 'Create', 'Creating', 'Created'],
+    ['schedule_pause', '暂停', '暫停', 'Pause', 'Pausing', 'Paused'],
+    ['schedule_resume', '恢复', '恢復', 'Resume', 'Resuming', 'Resumed'],
+  ])('localizes %s without claiming success before its receipt', (name, simplified, traditional, base, running, completed) => {
+    for (const [locale, labels] of [
+      ['zh-CN', [`${simplified}自动化任务`, `正在${simplified}自动化任务`, `已${simplified}自动化任务`]],
+      ['zh-TW', [`${traditional}自動化任務`, `正在${traditional}自動化任務`, `已${traditional}自動化任務`]],
+      ['en', [`${base} automation task`, `${running} automation task`, `${completed} automation task`]],
+    ] as const) {
+      const local = createIntl({ locale, messages: {} });
+      expect(formatToolAction(local, name, {})).toBe(labels[0]);
+      expect(formatToolAction(local, name, {}, 'running')).toBe(labels[1]);
+      expect(formatToolAction(local, name, {}, 'completed')).toBe(labels[2]);
+      expect(formatToolAction(local, name, {}, 'running', 'name')).toBe(labels[0]);
+    }
+    expect(formatToolAction(intl, `mcp__external__${name}`, {}, 'running')).not.toBe(`${running} automation task`);
+  });
+});
+
 describe('media operation receipts', () => {
   const response = (
     receipt: Record<string, unknown>,

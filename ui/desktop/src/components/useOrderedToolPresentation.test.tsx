@@ -48,6 +48,44 @@ afterEach(() => {
 });
 
 describe('top-to-bottom streaming presentation', () => {
+  it.each([1, 10, 50])(
+    'bounds the whole received %i-operation burst, including cards, while preserving every prefix',
+    (count) => {
+      const { result, rerender, unmount } = renderHook(
+        ({ messages, active }) => useOrderedToolPresentation(messages, active),
+        { initialProps: { messages: [user], active: true } }
+      );
+      const content: Message['content'] = [
+        { type: 'text', text: prose },
+        ...Array.from({ length: count }, (_, index) => ({ ...command, id: `burst-${index}` })),
+        { type: 'text', text: 'The received result.' },
+      ];
+      const messages = [user, assistant(content)];
+      const original = JSON.stringify(messages);
+      rerender({ messages, active: false });
+      act(() => vi.advanceTimersByTime(96));
+      expect(result.current.pending).toBe(true);
+      const samples: number[] = [];
+      for (let elapsed = 96; elapsed < 800 && result.current.pending; elapsed += 48) {
+        const shown =
+          result.current.messages.find((message) => message.id === 'assistant')?.content ?? [];
+        const calls = shown.filter((part) => part.type === 'toolRequest');
+        samples.push(calls.length);
+        expect(calls.map((part) => part.id)).toEqual(
+          Array.from({ length: calls.length }, (_, index) => `burst-${index}`)
+        );
+        if (calls.length) expect(shown[0]).toEqual(content[0]);
+        act(() => vi.advanceTimersByTime(48));
+      }
+      expect(result.current.pending).toBe(false);
+      expect(result.current.messages).toEqual(messages);
+      if (count > 1) expect(samples.some((shown) => shown > 0 && shown < count)).toBe(true);
+      expect(JSON.stringify(messages)).toBe(original);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
   it.each(['permission', 'cancelled', 'interrupted', 'hidden'])(
     'does not delay %s behind buffered prose',
     (kind) => {

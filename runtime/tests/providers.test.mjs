@@ -210,6 +210,55 @@ test('service output capacities are per model, override catalog values and share
   assert.equal(api.requests.length, 1);
 });
 
+test('cloud context metadata does not hide a separately declared catalog output capacity', async t => {
+  t.mock.method(globalThis, 'fetch', async url => new Response(JSON.stringify(
+    new URL(url).pathname.endsWith('/api/show')
+      ? { model_info: { 'fixture.context_length': 65536 } }
+      : { data: [{ id: 'gpt-4' }] }
+  ), { headers: { 'content-type': 'application/json' } }));
+  const provider = { ...input('https://ollama.com/v1'), catalogProviderId: 'openai',
+    headers: { 'X-Fixture': 'partial-output-metadata' } };
+  const resolved = await driverProvider(provider, 'gpt-4');
+  assert.equal(resolved.contextWindow, 65536);
+  assert.equal(resolved.contextSource, 'service');
+  assert.equal(resolved.outputTokenCapacity, 8192);
+  assert.equal(resolved.outputTokenCapacitySource, 'catalog');
+});
+
+test('provider edits retain model output budgets without turning them into capacity', async t => {
+  const api = await endpoint(t);
+  const store = memoryStore();
+  await store.update(state => state.providers.push({ ...input(api.url), id: 'budget-fixture',
+    outputBudgets: { 'fixture-model': 65536 } }));
+  await saveProvider(store, { ...input(api.url), providerId: 'budget-fixture', displayName: 'Renamed fixture' }, true);
+  const saved = store.read().providers[0];
+  assert.deepEqual(saved.outputBudgets, { 'fixture-model': 65536 });
+  const resolved = await driverProvider(saved, 'fixture-model');
+  assert.equal(resolved.requestMaxTokens, 65536);
+  assert.equal(resolved.outputTokenCapacity, undefined);
+  await assert.rejects(driverProvider({ ...saved, outputBudgets: { 'fixture-model': 0 } }, 'fixture-model'), /positive integer/);
+});
+
+test('a delayed connection probe cannot overwrite a separately committed output budget', async t => {
+  const reached = Promise.withResolvers(), release = Promise.withResolvers();
+  t.after(() => release.resolve());
+  const api = await endpoint(t, async (req, res) => {
+    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
+    reached.resolve();
+    await release.promise;
+    res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] }));
+  });
+  const store = memoryStore();
+  await store.update(state => state.providers.push({ ...input(api.url), id: 'budget-race', outputBudgets: { 'fixture-model': 128 } }));
+  const editing = saveProvider(store, { ...input(api.url), providerId: 'budget-race', displayName: 'Edited connection' }, true);
+  await reached.promise;
+  await new RuntimeSettings(store).request('providers/config/save', { providerId: 'budget-race', fields: [{ key: 'maxTokens:fixture-model', value: '1024' }] });
+  release.resolve();
+  await editing;
+  assert.equal(store.read().providers[0].displayName, 'Edited connection');
+  assert.deepEqual(store.read().providers[0].outputBudgets, { 'fixture-model': 1024 });
+});
+
 function input(apiUrl, overrides = {}) {
   return {
     engine: "openai_compatible",

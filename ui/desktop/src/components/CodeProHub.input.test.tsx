@@ -23,6 +23,7 @@ vi.mock('./alerts', () => ({
 }));
 vi.mock('../hooks/useAudioRecorder', () => ({ useAudioRecorder: () => ({ isEnabled: false }) }));
 vi.mock('./bottom_menu/DirSwitcher', () => ({ DirSwitcher: () => null }));
+vi.mock('./custom-agents/AgentSelector', () => ({ AgentSelector: () => null }));
 vi.mock('./settings/models/bottom_bar/ModelsBottomBar', () => ({ default: () => null }));
 vi.mock('./bottom_menu/BottomMenuExtensionSelection', () => ({
   BottomMenuExtensionSelection: () => null,
@@ -244,11 +245,12 @@ describe('CodeProHub real composer setup', () => {
     await act(async () => resolveInspection([candidate]));
     await waitFor(() => expect(navigate).toHaveBeenCalledOnce());
     expect(startCodeProSession).toHaveBeenCalledOnce();
-    expect(startCodeProSession).toHaveBeenCalledWith({
+    expect(startCodeProSession).toHaveBeenCalledWith(expect.objectContaining({
       candidate,
       initialMessage: { msg: 'prepare project', images: [] },
       allExtensions: [],
-    });
+      workspaceOrigin: 'default',
+    }));
     expect(input).toHaveValue('');
     expect(screen.queryByText('Queue Paused')).toBeNull();
   });

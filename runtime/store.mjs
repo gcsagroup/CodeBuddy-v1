@@ -77,6 +77,9 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     }
   }
   let tail = Promise.resolve();
+  let serializedRoots = new Map();
+  // Keys are committed session objects; writers and readers receive copies.
+  let serializedSessions = new Map();
   const report = (measurement) => {
     try { Promise.resolve(onTiming?.(measurement)).catch(() => {}); } catch {}
   };
@@ -85,6 +88,131 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     const result = structuredClone(value);
     const elapsed = Math.round(performance.now() - started);
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
+    return result;
+  };
+  const update = (fn, keys, sessionId) => {
+    const queuedAt = Date.now(), queued = performance.now();
+    // A scoped draft never exposes unchanged history to its writer. All
+    // updates still share the same queue and atomically replace one snapshot.
+    const roots = keys === undefined ? undefined : [...keys];
+    const result = tail.then(async () => {
+      const started = performance.now();
+      const utilization = performance.eventLoopUtilization();
+      let previous = started, committed = false;
+      const phases = {};
+      const measure = (name) => {
+        const now = performance.now();
+        phases[name] = Math.round(now - previous);
+        previous = now;
+      };
+      try {
+        const index = sessionId === undefined ? -1 : state.sessions.findIndex(session => session.id === sessionId);
+        if (sessionId !== undefined && index === -1) throw new Error(`Transcript session is missing: ${sessionId}`);
+        const draft = structuredClone(sessionId !== undefined ? state.sessions[index]
+          : roots === undefined ? state : Object.fromEntries(roots.map(key => [key, state[key]])));
+        measure('clone_ms');
+        const value = await fn(draft);
+        const next = roots === undefined ? draft : { ...state };
+        if (sessionId !== undefined) {
+          if (draft.id !== sessionId) throw new TypeError('Store session update changed its identity');
+          // The writer may retain its draft or return a nested value. Neither
+          // reference may mutate the committed session behind the byte cache.
+          const committedSession = structuredClone(draft);
+          next.sessions = state.sessions.map((session, i) => i === index ? committedSession : session);
+        } else if (roots !== undefined) {
+          if (Object.keys(draft).some(key => !roots.includes(key)))
+            throw new TypeError('Store update wrote outside its selected roots');
+          for (const key of roots) {
+            if (Object.hasOwn(draft, key)) next[key] = draft[key];
+            else delete next[key];
+          }
+        }
+        measure('mutation_ms');
+        const tmp = file + "." + randomUUID() + ".tmp";
+        // Unselected roots still belong to the last committed snapshot. Reuse
+        // their UTF-8 bytes rather than re-encoding every old image and message.
+        // An unscoped write invalidates all roots; failed writes publish no cache.
+        const encoded = new Map();
+        let sessionBytes = serializedSessions;
+        const serialized = [Buffer.from('{')];
+        for (const key of Object.keys(next)) {
+          const cached = roots !== undefined && !roots.includes(key)
+            ? serializedRoots.get(key) : undefined;
+          let bytes = cached;
+          if (!bytes && key === 'sessions' && Array.isArray(next.sessions)) {
+            bytes = [Buffer.from('"sessions":[')];
+            sessionBytes = new Map();
+            for (const [i, session] of next.sessions.entries()) {
+              if (i) bytes.push(Buffer.from(','));
+              const item = serializedSessions.get(session) ?? Buffer.from(JSON.stringify(session) ?? 'null');
+              bytes.push(item);
+              sessionBytes.set(session, item);
+            }
+            bytes.push(Buffer.from(']'));
+          } else if (!bytes) {
+            const json = JSON.stringify(next[key]);
+            bytes = json === undefined ? undefined : [Buffer.from(`${JSON.stringify(key)}:${json}`)];
+            if (key === 'sessions') sessionBytes = new Map();
+          }
+          if (bytes === undefined) continue;
+          if (encoded.size) serialized.push(Buffer.from(','));
+          for (const chunk of bytes) serialized.push(chunk);
+          encoded.set(key, bytes);
+        }
+        serialized.push(Buffer.from('}\n'));
+        measure('serialize_ms');
+        try {
+          try {
+            // A rename protects readers, but cannot preserve an unflushed file
+            // across a system crash. Every replacement contains configuration
+            // and history, even when this caller changed only one small root.
+            await writeFile(tmp, serialized, { mode: 0o600, flush: true });
+          } finally {
+            measure('write_ms');
+          }
+          const replaceStarted = performance.now();
+          const retryBudgetMs = process.platform === 'win32' ? 5000 : 700;
+          let attempts = 0;
+          try {
+            for (;;) {
+              attempts++;
+              try { await replaceFile(tmp, file); break; }
+              catch (error) {
+                // Retry only this atomic replacement. A reader may outlive the
+                // previous 700ms window; permanent locks still fail in bounded time.
+                const remaining = retryBudgetMs - (performance.now() - replaceStarted);
+                if (!["EPERM", "EACCES", "EBUSY"].includes(error.code) || remaining <= 0) throw error;
+                await delay(Math.min(20 * 2 ** (attempts - 1), 200, remaining));
+              }
+            }
+          } finally {
+            phases.replace_attempts = attempts;
+            measure('replace_ms');
+          }
+        } catch (error) {
+          await unlink(tmp).catch(() => {});
+          throw error;
+        }
+        state = next;
+        serializedRoots = encoded;
+        serializedSessions = sessionBytes;
+        committed = true;
+        return value;
+      } finally {
+        // Diagnostics cannot change admission, atomic publication or errors.
+        const loop = performance.eventLoopUtilization(utilization);
+        report({
+          operation: 'commit', roots: roots ?? null,
+          ...(sessionId === undefined ? {} : { session_id: sessionId }),
+          queued_at_ms: queuedAt, at_ms: Date.now(),
+          queued_ms: Math.round(started - queued),
+          elapsed_ms: Math.round(performance.now() - started),
+          event_loop_active_ms: Math.round(loop.active), event_loop_idle_ms: Math.round(loop.idle),
+          ...phases, committed,
+        });
+      }
+    });
+    tail = result.catch(() => {});
     return result;
   };
   return {
@@ -98,83 +226,18 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
         Object.fromEntries(sessionFields.map(key => [key, session[key]]))) };
       return snapshot(selected, keys);
     },
-    // Identity checks select their fields before cloning, while history readers
-    // keep the complete detached snapshot and the same committed-state boundary.
     readSession: (id, { fields } = {}) => {
       const session = state.sessions.find(session => session.id === id);
       return snapshot(session === undefined || fields === undefined ? session
         : Object.fromEntries(fields.map(key => [key, session[key]])), ['sessions']);
     },
-    update(fn, keys) {
-      const queuedAt = Date.now(), queued = performance.now();
-      // A scoped draft never exposes unchanged history to its writer. All
-      // updates still share the same queue and atomically replace one snapshot.
-      const roots = keys === undefined ? undefined : [...keys];
-      const result = tail.then(async () => {
-        const started = performance.now();
-        const utilization = performance.eventLoopUtilization();
-        let previous = started, committed = false;
-        const phases = {};
-        const measure = (name) => {
-          const now = performance.now();
-          phases[name] = Math.round(now - previous);
-          previous = now;
-        };
-        try {
-          const draft = structuredClone(roots === undefined ? state
-            : Object.fromEntries(roots.map(key => [key, state[key]])));
-          measure('clone_ms');
-          const value = await fn(draft);
-          const next = roots === undefined ? draft : { ...state };
-          if (roots !== undefined) {
-            if (Object.keys(draft).some(key => !roots.includes(key)))
-              throw new TypeError('Store update wrote outside its selected roots');
-            for (const key of roots) {
-              if (Object.hasOwn(draft, key)) next[key] = draft[key];
-              else delete next[key];
-            }
-          }
-          measure('mutation_ms');
-          const tmp = file + "." + randomUUID() + ".tmp";
-          // This is a machine-owned snapshot, not an edited configuration file.
-          // Avoid rewriting indentation for every historical message on each turn.
-          const serialized = JSON.stringify(next) + "\n";
-          measure('serialize_ms');
-          await writeFile(tmp, serialized, { mode: 0o600 });
-          measure('write_ms');
-          try {
-            for (let attempt = 0; ; attempt++) {
-              try { await replaceFile(tmp, file); break; }
-              catch (error) {
-                // Windows readers and scanners can briefly hold the destination.
-                // Retry only the atomic replace; never delete the existing state.
-                if (!["EPERM", "EACCES", "EBUSY"].includes(error.code) || attempt >= 6) throw error;
-                await delay(Math.min(20 * 2 ** attempt, 200));
-              }
-            }
-          } catch (error) {
-            await unlink(tmp).catch(() => {});
-            throw error;
-          }
-          measure('replace_ms');
-          state = next;
-          committed = true;
-          return value;
-        } finally {
-          // Diagnostics cannot change admission, atomic publication or errors.
-          const loop = performance.eventLoopUtilization(utilization);
-          report({
-            operation: 'commit', roots: roots ?? null,
-            queued_at_ms: queuedAt, at_ms: Date.now(),
-            queued_ms: Math.round(started - queued),
-            elapsed_ms: Math.round(performance.now() - started),
-            event_loop_active_ms: Math.round(loop.active), event_loop_idle_ms: Math.round(loop.idle),
-            ...phases, committed,
-          });
-        }
-      });
-      tail = result.catch(() => {});
-      return result;
+    update: (fn, keys) => update(fn, keys),
+    // Session projection joins the same commit queue; it cannot see or mutate
+    // other conversations, and still replaces the same complete JSON snapshot.
+    // Keep the former options argument compatible; all commits are now durable.
+    updateSession(id, fn, _options = {}) {
+      if (typeof id !== 'string' || !id.length) return Promise.reject(new TypeError('Session id is required'));
+      return update(fn, ['sessions'], id);
     },
     flush: () => tail,
   };

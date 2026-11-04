@@ -41,3 +41,52 @@ it('shows unknown capacity honestly and saves or clears only the selected model'
     expect(acpSaveProviderConfig).toHaveBeenLastCalledWith('p', [], ['contextWindow:one'])
   );
 });
+
+it('saves a request budget without changing model capacity and can return to automatic defaults', async () => {
+  vi.mocked(acpReadProviderConfig).mockResolvedValue([
+    {
+      key: 'contextWindow:one',
+      value: JSON.stringify({ configured: null, contextWindow: 262144, contextSource: 'fallback' }),
+      isSet: false,
+      isSecret: false,
+      required: false,
+    },
+    {
+      key: 'maxTokens:one',
+      value: JSON.stringify({
+        configured: null,
+        capacityTokens: 65536,
+        capacitySource: 'service',
+        defaultTokens: 65536,
+      }),
+      isSet: false,
+      isSecret: false,
+      required: false,
+    },
+  ]);
+  vi.mocked(acpSaveProviderConfig).mockClear().mockResolvedValue();
+  const providers = [
+    { name: 'p', metadata: { display_name: 'LAN', known_models: [{ name: 'one' }] } },
+  ] as ProviderDetails[];
+  render(<ModelContextSettings providers={providers} />);
+  await screen.findByText(/tokens output capacity/);
+  const input = screen.getByLabelText('Output budget tokens');
+  fireEvent.change(input, { target: { value: '131072' } });
+  fireEvent.click(screen.getByText('Save output budget'));
+  expect(acpSaveProviderConfig).not.toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: '32768' } });
+  fireEvent.click(screen.getByText('Save output budget'));
+  await waitFor(() =>
+    expect(acpSaveProviderConfig).toHaveBeenCalledWith(
+      'p',
+      [{ key: 'maxTokens:one', value: '32768' }],
+      []
+    )
+  );
+  await screen.findByText(/Output budget saved/);
+  fireEvent.change(input, { target: { value: '' } });
+  fireEvent.click(screen.getByText('Save output budget'));
+  await waitFor(() =>
+    expect(acpSaveProviderConfig).toHaveBeenLastCalledWith('p', [], ['maxTokens:one'])
+  );
+});

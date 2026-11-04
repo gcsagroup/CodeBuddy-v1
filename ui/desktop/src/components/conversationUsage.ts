@@ -1,10 +1,14 @@
 import type { Message, MessageUsage } from '../types/message';
 
 /** Sum source message receipts once, never rendered parts or context-meter estimates. */
-export function conversationUsage(messages: Message[]): MessageUsage | undefined {
+export function conversationUsage(
+  messages: Message[],
+  { attributedOnly = false } = {}
+): MessageUsage | undefined {
   const receipts = new Map<string | Message, MessageUsage>();
   for (const message of messages)
-    if (message.metadata.usage) receipts.set(message.id ?? message, message.metadata.usage);
+    if (message.metadata.usage && !(attributedOnly && message.metadata.usageUnattributed))
+      receipts.set(message.id ?? message, message.metadata.usage);
   const sum: MessageUsage = {};
   for (const usage of receipts.values()) {
     for (const field of [

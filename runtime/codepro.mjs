@@ -206,6 +206,7 @@ function nativeTerminal({ result, error, aborted }, view) {
   const code = reason?.kind ?? ({ end_turn: 'completed', cancelled: 'aborted', max_tokens: 'max-tokens', max_turns: 'max-turns', refusal: 'blocked' })[result?.stopReason];
   const failure = error ?? (code === 'error' ? reason.error : null);
   if (aborted || view.stopRequested || code === 'aborted' || code === 'interrupted') return { state: 'paused', completionKind: null, reason: 'CodeBuddy execution paused', goal };
+  if (result?.stopReason === 'max_tokens') return { state: 'paused', completionKind: null, reason: '模型这一步达到输出长度限制，任务尚未完成。此前的修改和操作记录已保留。', goal };
   if (failure) return { state: 'failed', completionKind: null, reason: failure.message ?? String(failure), error: { message: failure.message ?? String(failure), ...(failure.code !== undefined ? { code: failure.code } : {}) }, goal };
   if (code !== 'completed' || result?.stopReason === 'max_turns') return { state: 'paused', completionKind: null, reason: `CodeBuddy stopped: ${result?.stopReason ?? code ?? 'unknown'}`, goal };
   if (goal && goal.phase !== 'complete') return { state: 'paused', completionKind: null, reason: goal.blockedReason?.message ?? `CodeBuddy goal is ${goal.phase}`, goal };
@@ -296,6 +297,7 @@ function activity(row, entry) {
 export class CodeProRuns {
   constructor(store, { onUpdate = () => {}, onCancel, onResume } = {}) {
     this.store = store;
+    this.pendingHarnessTerminals = new Map();
     this.onUpdate = onUpdate;
     this.onCancel = onCancel;
     this.onResume = onResume;
@@ -380,12 +382,35 @@ export class CodeProRuns {
     });
   }
   async finishHarnessAttempt(params) {
-    return this.mutate(params, (row, view) => {
-      if (view.executionOwner !== 'harness') throw fail('Native completion requires a Harness-owned run');
-      assertAttempt(view, params.attemptId);
-      interruptPending(row, view);
-      event(row, 'harness_attempt_finished', { attemptId: params.attemptId, ...nativeTerminal(params, view) });
-    });
+    let validated = false;
+    try {
+      const result = await this.mutate(params, (row, view) => {
+        if (view.executionOwner !== 'harness') throw fail('Native completion requires a Harness-owned run');
+        assertAttempt(view, params.attemptId);
+        interruptPending(row, view);
+        event(row, 'harness_attempt_finished', { attemptId: params.attemptId, ...nativeTerminal(params, view) });
+        validated = true;
+      });
+      if (this.pendingHarnessTerminals.get(params.sessionId)?.params.attemptId === params.attemptId)
+        this.pendingHarnessTerminals.delete(params.sessionId);
+      return result;
+    } catch (error) {
+      // Retain the received native terminal, not a fabricated replacement state.
+      // A later admission retries only its projection, never model/tool execution.
+      if (validated && this.pendingHarnessTerminals.get(params.sessionId)?.params.attemptId !== params.attemptId)
+        this.pendingHarnessTerminals.set(params.sessionId, { params });
+      throw error;
+    }
+  }
+  async finishPendingHarnessAttempt(sessionId) {
+    const pending = this.pendingHarnessTerminals.get(sessionId);
+    if (!pending) return;
+    if (this.context(pending.params).activeAttempt !== pending.params.attemptId) {
+      this.pendingHarnessTerminals.delete(sessionId);
+      return;
+    }
+    pending.retry ??= this.finishHarnessAttempt(pending.params).finally(() => { pending.retry = undefined; });
+    return pending.retry;
   }
   async recordHarnessEvent(params) {
     const native = params.event;

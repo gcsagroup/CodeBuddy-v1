@@ -419,6 +419,24 @@ describe('App Component - Brand New State', () => {
       resumeSessionId: 'resume-1',
       expectedIntent: null,
     },
+    {
+      label: 'directory draft without inheriting a previous recipe',
+      routeState: {
+        initialMessage: { msg: '', images: [] },
+        draftOnly: true,
+        noAutoSubmit: true,
+        workingDir: 'D:/projects/new-project',
+      },
+      recipeDeeplink: 'recipe://previous-project',
+      recipeId: 'previous-project-recipe',
+      resumeSessionId: null,
+      expectedIntent: {
+        initialMessage: { msg: '', images: [] },
+        draftOnly: true,
+        noAutoSubmit: true,
+        workingDir: 'D:/projects/new-project',
+      },
+    },
   ])(
     'routes CodePro Pair $label without creating an unbound session',
     async ({ routeState, recipeDeeplink, recipeId, resumeSessionId, expectedIntent }) => {
@@ -629,6 +647,26 @@ describe('App Component - Brand New State', () => {
         noAutoSubmit: true,
       },
     });
+  });
+
+  it('opens successive directory drafts in the current renderer without creating sessions', async () => {
+    render(<AppInner />, { wrapper: AppInnerTestWrapper });
+    await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
+    const handler = mockElectron.on.mock.calls.find(
+      ([channel]) => channel === 'set-initial-message'
+    )?.[1];
+    for (const workingDir of ['D:/projects/中文 project', 'D:/another-project']) {
+      handler({}, '', { workingDir, draftOnly: true, noAutoSubmit: true });
+      expect(mockNavigate).toHaveBeenLastCalledWith('/codepro/pair', {
+        state: {
+          initialMessage: { msg: '', images: [] },
+          workingDir,
+          draftOnly: true,
+          noAutoSubmit: true,
+        },
+      });
+    }
+    expect(createSession).not.toHaveBeenCalled();
   });
 
   it('keeps image-only input when a new main window delivers its pending message', async () => {

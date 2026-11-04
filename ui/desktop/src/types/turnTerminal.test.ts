@@ -16,6 +16,43 @@ const base = {
   finished_at: '2026-08-06T00:00:00Z',
 } as const;
 
+it('degrades malformed optional output budget details without rejecting old terminals', () => {
+  expect(parseTurnTerminalRecord(base)?.stop_reason).toBeUndefined();
+  const record = parseTurnTerminalRecord({
+    ...base,
+    stop_reason: 'max_tokens',
+    output_limit: {
+      automaticAttempts: 1,
+      maxAutomaticAttempts: 1,
+      budget: { requestedTokens: 'invalid' },
+    },
+  });
+  expect(record?.stop_reason).toBe('max_tokens');
+  expect(record?.output_limit?.automaticAttempts).toBe(1);
+  expect(record?.output_limit?.budget).toBeUndefined();
+  expect(
+    parseTurnTerminalRecord({
+      ...base,
+      output_limit: { automaticAttempts: 2, maxAutomaticAttempts: 1 },
+    })?.output_limit
+  ).toBeUndefined();
+});
+
+it('reads both legacy and two-attempt recovery annotations without accepting over-budget counts', () => {
+  for (const maxAutomaticAttempts of [1, 2]) {
+    const output_limit = { automaticAttempts: maxAutomaticAttempts, maxAutomaticAttempts };
+    expect(parseTurnTerminalRecord({ ...base, output_limit })?.output_limit).toEqual(output_limit);
+  }
+  for (const automaticAttempts of [-1, 1.5, 3]) {
+    expect(
+      parseTurnTerminalRecord({
+        ...base,
+        output_limit: { automaticAttempts, maxAutomaticAttempts: 2 },
+      })?.output_limit
+    ).toBeUndefined();
+  }
+});
+
 const report = {
   outcome: 'completed',
   classification_counts: {

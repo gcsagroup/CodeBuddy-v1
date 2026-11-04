@@ -42,4 +42,25 @@ describe('DirSwitcher while the workspace is unbound', () => {
 
     await waitFor(() => expect(window.electron.listRecentDirs).toHaveBeenCalledOnce());
   });
+
+  it('keeps older workspaces in a bounded vertical list and the chooser outside it', async () => {
+    window.electron.listRecentDirs = vi.fn().mockResolvedValue(Array.from({ length: 12 }, (_, i) => `D:\\Workspace${i + 1}`));
+    render(<DirSwitcher className="" sessionId={undefined} workingDir="" />, { wrapper: IntlTestWrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'Select workspace' }));
+    expect(await screen.findByText('Workspace4')).toBeVisible();
+    expect(screen.getByText('Workspace12')).toBeInTheDocument();
+    const list = screen.getByText('Workspace12').closest('.overflow-y-auto');
+    expect(list).toHaveClass('max-h-44', 'overflow-x-hidden');
+    const choose = screen.getByRole('menuitem', { name: 'Choose workspace…' });
+    expect(choose).toBeVisible();
+    expect(choose.closest('.overflow-y-auto')).toBeNull();
+  });
+
+  it('does not render an empty section separator before the only workspace action', async () => {
+    window.electron.listRecentDirs = vi.fn().mockResolvedValue([]);
+    render(<DirSwitcher className="" sessionId={undefined} workingDir="" />, { wrapper: IntlTestWrapper });
+    fireEvent.click(screen.getByRole('button', { name: 'Select workspace' }));
+    expect(await screen.findByRole('menuitem', { name: 'Choose workspace…' })).toBeVisible();
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+  });
 });

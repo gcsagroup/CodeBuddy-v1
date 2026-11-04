@@ -295,6 +295,7 @@ function initializeAcpClient(client: GooseClient): Promise<InitializeResponse> {
             workspaceConfirmationRefresh: 1,
             recipeParameterRequests: true,
             businessSessionApproval: 1,
+            extensibleBusinessApproval: 1,
           },
         },
       },

@@ -35,7 +35,8 @@ test.beforeAll(async () => {
           const extensions = [
             { type: 'builtin', name: 'qwen_computer', enabled: false },
             { type: 'builtin', name: 'git', enabled: true },
-            { type: 'streamable_http', name: 'github_official', uri: 'https://api.githubcopilot.com/mcp/', enabled: false }
+            { type: 'streamable_http', name: 'github_official', uri: 'https://api.githubcopilot.com/mcp/', enabled: false },
+            { type: 'streamable_http', name: 'weather_fixture', uri: 'https://example.com/mcp/', enabled: false }
           ];
           export const loadToolbox = async () => ({ model: buildToolboxModel({ extensions, apps: [], skills: [
             { type: 'builtinSkill', name: 'computer-use', description: 'Desktop guide', path: '/builtin/computer-use' }
@@ -74,8 +75,8 @@ test('grouped toolbox supports search, tabs and independent tool toggles at wide
     await expect(page.getByRole('button', { name: '代码仓库', exact: true })).toHaveCount(1);
     await expect(page.getByRole('button', { name: '本地 Git', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'GitHub', exact: true })).toHaveCount(0);
-    await page.getByRole('switch', { name: '打开电脑控制', exact: true }).click();
-    await expect(page.getByRole('switch', { name: '关闭电脑控制', exact: true })).toBeChecked();
+    await page.getByRole('switch', { name: '打开Computer Use', exact: true }).click();
+    await expect(page.getByRole('switch', { name: '关闭Computer Use', exact: true })).toBeChecked();
     await page.getByPlaceholder('搜索工具').fill('computer-use');
     await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '代码仓库', exact: true })).toHaveCount(0);
@@ -84,7 +85,8 @@ test('grouped toolbox supports search, tabs and independent tool toggles at wide
     await page.getByPlaceholder('搜索工具').fill('');
     await page.getByRole('tab', { name: '外部 MCP', exact: true }).click();
     await expect(page.getByRole('button', { name: '桌面操作指南', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '代码仓库', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '代码仓库', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'weather_fixture', exact: true })).toBeVisible();
     await page.getByRole('tab', { name: '全部', exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('toolbox-wide.png'), fullPage: true });
     await page.setViewportSize({ width: 650, height: 1000 });

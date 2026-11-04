@@ -284,15 +284,11 @@ export function useChatSession({
 
   const onSteerQueuedMessage = useCallback(
     async (input: UserInput): Promise<boolean> => {
+      if (isAcpRecovering()) return false;
       const { msg: userMessage, images } = input;
       const hasTextContent = userMessage.trim().length > 0;
       const hasNewMessage = hasTextContent || images.length > 0;
       if (!hasNewMessage) {
-        return false;
-      }
-
-      // ACP confirms picked-up steers with user text chunks; image-only steers cannot confirm pickup.
-      if (!hasTextContent) {
         return false;
       }
 

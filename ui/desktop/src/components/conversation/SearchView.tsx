@@ -1,4 +1,5 @@
 import React, { useState, useEffect, PropsWithChildren, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import SearchBar from './SearchBar';
 import { SearchHighlighter } from '../../utils/searchHighlighter';
 import debounce from 'lodash/debounce';
@@ -7,8 +8,12 @@ import debounce from 'lodash/debounce';
  * Props for the SearchView component
  */
 interface SearchViewProps {
+  /** Only the active surface responds to window-wide find commands. */
+  active?: boolean;
   /** Optional CSS class name */
   className?: string;
+  /** Render the search controls in the conversation header while retaining this search scope. */
+  searchBarContainer?: HTMLElement | null;
   /** Optional callback for search term changes */
   onSearch?: (term: string, caseSensitive: boolean) => void;
   /** Exposes the search UI state to content that loads history on demand. */
@@ -22,9 +27,9 @@ interface SearchViewProps {
   } | null;
   /** Placeholder text for the search input */
   placeholder?: string;
-  /** Show the case-sensitivity toggle (default: true). */
+  /** Show the case-sensitivity toggle (default: false). */
   showCaseSensitive?: boolean;
-  /** Show the previous/next match navigation arrows (default: true). */
+  /** Show the previous/next match navigation arrows (default: false). */
   showNavigation?: boolean;
   /** Highlight matches in the content via the find-in-page highlighter (default: true).
    * Set false when the search acts as a list filter, so the term only drives onSearch. */
@@ -41,15 +46,17 @@ interface SearchContainerElement extends HTMLDivElement {
  * Features debounced search for better performance with large content.
  */
 export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
+  active = true,
   className = '',
+  searchBarContainer,
   children,
   onSearch,
   onVisibilityChange,
   onNavigate,
   searchResults,
   placeholder,
-  showCaseSensitive = true,
-  showNavigation = true,
+  showCaseSensitive = false,
+  showNavigation = false,
   highlightMatches = true,
 }) => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
@@ -317,6 +324,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
 
   // Listen for keyboard events
   useEffect(() => {
+    if (!active) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = window.electron.platform === 'darwin';
 
@@ -363,10 +371,11 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSearchVisible, handleNavigate, handleSearch, handleUseSelectionFind]);
+  }, [active, isSearchVisible, handleNavigate, handleSearch, handleUseSelectionFind]);
 
   // Listen for Find menu commands
   useEffect(() => {
+    if (!active) return;
     window.electron.on('find-command', handleFindCommand);
     window.electron.on('find-next', handleFindNext);
     window.electron.on('find-previous', handleFindPrevious);
@@ -378,8 +387,22 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
       window.electron.off('find-previous', handleFindPrevious);
       window.electron.off('use-selection-find', handleUseSelectionFind);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - handlers are stable due to useCallback and useRef
+  }, [active, handleFindCommand, handleFindNext, handleFindPrevious, handleUseSelectionFind]);
+
+  const searchBar = isSearchVisible ? (
+    <SearchBar
+      onSearch={handleSearch}
+      onClose={handleCloseSearch}
+      onNavigate={handleNavigate}
+      searchResults={searchResults || internalSearchResults || undefined}
+      inputRef={searchInputRef}
+      initialSearchTerm={initialSearchTerm}
+      placeholder={placeholder}
+      showCaseSensitive={showCaseSensitive}
+      showNavigation={showNavigation}
+      inHeader={!!searchBarContainer}
+    />
+  ) : null;
 
   return (
     <div
@@ -392,19 +415,7 @@ export const SearchView: React.FC<PropsWithChildren<SearchViewProps>> = ({
       }}
       className={`search-container ${className}`}
     >
-      {isSearchVisible && (
-        <SearchBar
-          onSearch={handleSearch}
-          onClose={handleCloseSearch}
-          onNavigate={handleNavigate}
-          searchResults={searchResults || internalSearchResults || undefined}
-          inputRef={searchInputRef}
-          initialSearchTerm={initialSearchTerm}
-          placeholder={placeholder}
-          showCaseSensitive={showCaseSensitive}
-          showNavigation={showNavigation}
-        />
-      )}
+      {searchBarContainer ? createPortal(searchBar, searchBarContainer) : searchBar}
       {children}
     </div>
   );

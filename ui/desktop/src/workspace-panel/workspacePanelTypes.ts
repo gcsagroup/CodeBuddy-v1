@@ -9,6 +9,7 @@ export interface PanelEntry {
   kind: 'directory' | 'file' | 'link';
 }
 export interface PanelDocument {
+  reference?: boolean;
   path: string;
   content: string;
   version: string;
@@ -22,6 +23,7 @@ export interface PanelMedia {
   url: string;
 }
 export interface PanelFileInfo {
+  reference?: boolean;
   path: string;
   size: number;
   openExternally: boolean;

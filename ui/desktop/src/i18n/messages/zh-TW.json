@@ -1553,6 +1553,12 @@
   "composerCommands.active": {
     "defaultMessage": "進行中"
   },
+  "composerCommands.agent": {
+    "defaultMessage": "自訂智慧體"
+  },
+  "composerCommands.agentHint": {
+    "defaultMessage": "選用、切換或撤銷目前對話的主助手"
+  },
   "composerCommands.blocked": {
     "defaultMessage": "需要處理"
   },
@@ -2003,6 +2009,12 @@
   "cronPicker.custom": {
     "defaultMessage": "自訂 cron"
   },
+  "cronPicker.customFrequency": {
+    "defaultMessage": "Custom"
+  },
+  "cronPicker.daily": {
+    "defaultMessage": "Every day"
+  },
   "cronPicker.day": {
     "defaultMessage": "日"
   },
@@ -2017,6 +2029,9 @@
   },
   "cronPicker.february": {
     "defaultMessage": "二月"
+  },
+  "cronPicker.frequency": {
+    "defaultMessage": "Run frequency"
   },
   "cronPicker.friday": {
     "defaultMessage": "星期五"
@@ -2075,6 +2090,9 @@
   "cronPicker.quarter": {
     "defaultMessage": "季"
   },
+  "cronPicker.repeat": {
+    "defaultMessage": "重複"
+  },
   "cronPicker.saturday": {
     "defaultMessage": "星期六"
   },
@@ -2090,6 +2108,9 @@
   "cronPicker.thursday": {
     "defaultMessage": "星期四"
   },
+  "cronPicker.time": {
+    "defaultMessage": "時間"
+  },
   "cronPicker.tuesday": {
     "defaultMessage": "星期二"
   },
@@ -2098,6 +2119,12 @@
   },
   "cronPicker.week": {
     "defaultMessage": "週"
+  },
+  "cronPicker.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "cronPicker.weekly": {
+    "defaultMessage": "Every week"
   },
   "cronPicker.year": {
     "defaultMessage": "年"
@@ -2493,10 +2520,10 @@
     "defaultMessage": "語音聽寫供應商"
   },
   "dirSwitcher.chooseDirectory": {
-    "defaultMessage": "選擇專案…"
+    "defaultMessage": "選擇工作區…"
   },
   "dirSwitcher.chooseFolder": {
-    "defaultMessage": "選擇專案"
+    "defaultMessage": "選擇工作區"
   },
   "dirSwitcher.currentDirectory": {
     "defaultMessage": "目前專案"
@@ -3566,11 +3593,47 @@
   "gooseMessage.cancelledExplanation": {
     "defaultMessage": "已按你的要求停止。已經執行的操作不會自動撤銷；未確認的結果仍需核對。"
   },
+  "gooseMessage.contextBudgetExhausted": {
+    "defaultMessage": "目前上下文無法為完整回應保留足夠空間，本輪已停止，先前結果已保留。你可以改用上下文更大的模型，或精簡輸入後繼續。"
+  },
   "gooseMessage.interruptedExplanation": {
     "defaultMessage": "這輪執行已中斷，尚未確認完成。你可以往上查看保留的對話和操作紀錄。"
   },
   "gooseMessage.missingFinalReply": {
     "defaultMessage": "本輪模型回應已結束，但沒有傳回最終正文。先前的輸出和操作記錄已保留。"
+  },
+  "gooseMessage.outputLimitBudget": {
+    "defaultMessage": "本次請求的輸出額度：{tokens} token。自動恢復次數：{attempts}/{limit}。"
+  },
+  "gooseMessage.outputLimitContinue": {
+    "defaultMessage": "繼續嘗試"
+  },
+  "gooseMessage.outputLimitContinueRequest": {
+    "defaultMessage": "繼續未完成的任務。先核對既有結果，保留已完成的工作，只補完尚未完成的部分，並拆成較小的步驟執行。"
+  },
+  "gooseMessage.outputLimitDetails": {
+    "defaultMessage": "檢視限制詳情"
+  },
+  "gooseMessage.outputLimitFallback": {
+    "defaultMessage": "此額度來自預設值，服務實際支援的輸出容量尚未確認。"
+  },
+  "gooseMessage.outputLimitReached": {
+    "defaultMessage": "模型這一步達到輸出長度限制，任務尚未完成。先前的修改與操作紀錄已保留。你可以繼續嘗試，或更換模型後繼續。"
+  },
+  "gooseMessage.outputLimitRecovered": {
+    "defaultMessage": "本輪執行期間已自動恢復 {attempts} 次輸出長度受限的請求。"
+  },
+  "gooseMessage.outputLimitRecoveryFailed": {
+    "defaultMessage": "本輪自動恢復 {attempts} 次後，模型再次達到輸出長度限制，任務尚未完成。先前的修改與操作紀錄已保留。你可以繼續嘗試，或更換模型後繼續。"
+  },
+  "gooseMessage.outputLimitRecoveryPolicy": {
+    "defaultMessage": "同一步驟最多自動補試 1 次，本輪累計最多 {limit} 次；同一步驟再次受限就停止。"
+  },
+  "gooseMessage.outputRecoveryInterrupted": {
+    "defaultMessage": "輸出長度受限後的自動恢復未能完成。請查看本輪具體錯誤；先前結果已保留。"
+  },
+  "gooseMessage.terminalDetails": {
+    "defaultMessage": "查看未完成原因"
   },
   "gooseMessage.turnStopped": {
     "defaultMessage": "已停止"
@@ -3878,14 +3941,14 @@
   "jsonSchemaEditor.title": {
     "defaultMessage": "JSON Schema 編輯器"
   },
+  "jsonSchemaForm.answerPlaceholder": {
+    "defaultMessage": "輸入你的回答…"
+  },
   "jsonSchemaForm.cancel": {
     "defaultMessage": "取消"
   },
   "jsonSchemaForm.customAnswer": {
     "defaultMessage": "也可以填寫自己的答案"
-  },
-  "jsonSchemaForm.answerPlaceholder": {
-    "defaultMessage": "輸入你的回答…"
   },
   "jsonSchemaForm.customPlaceholder": {
     "defaultMessage": "或自行撰寫回覆"
@@ -4442,6 +4505,9 @@
   "messageQueue.clickToEdit": {
     "defaultMessage": "{content}（點擊以編輯）"
   },
+  "messageQueue.collapseDrafts": {
+    "defaultMessage": "收起已保留的草稿"
+  },
   "messageQueue.collapseQueue": {
     "defaultMessage": "收合佇列"
   },
@@ -4453,6 +4519,9 @@
   },
   "messageQueue.continueSending": {
     "defaultMessage": "訊息已保留，點選立即傳送即可繼續。"
+  },
+  "messageQueue.expandDrafts": {
+    "defaultMessage": "展開已保留的草稿"
   },
   "messageQueue.expandQueue": {
     "defaultMessage": "展開佇列"
@@ -4478,17 +4547,20 @@
   "messageQueue.save": {
     "defaultMessage": "儲存"
   },
+  "messageQueue.savedDrafts": {
+    "defaultMessage": "已保留 {count} 則草稿"
+  },
   "messageQueue.sendAllNow": {
     "defaultMessage": "全部立即傳送"
+  },
+  "messageQueue.sendDrafts": {
+    "defaultMessage": "傳送草稿"
   },
   "messageQueue.sendNow": {
     "defaultMessage": "立即傳送"
   },
   "messageQueue.sendTogether": {
     "defaultMessage": "將所有待傳送訊息一併傳送"
-  },
-  "messageQueue.stopAndSend": {
-    "defaultMessage": "停止目前任務，將所有待傳送訊息一併傳送"
   },
   "messageQueue.storageConflict": {
     "defaultMessage": "另一視窗已修改此佇列。為避免覆寫，已暫停傳送與儲存。請保持本視窗開啟並核對兩邊的待傳訊息。"
@@ -4500,7 +4572,7 @@
     "defaultMessage": "傳送結果尚不確定，請先核對對話中的紀錄，再決定是否重試。"
   },
   "messageQueue.waitingForCancellation": {
-    "defaultMessage": "正在等待停止確認，佇列中的訊息尚未傳送。"
+    "defaultMessage": "正在停止上一輪，確認後自動傳送這則新訊息。"
   },
   "messageQueue.waitingForPreviousPrompt": {
     "defaultMessage": "正在等待上一條請求結束，佇列中的訊息尚未傳送。"
@@ -5006,11 +5078,224 @@
   "modelsBottomBar.switching": {
     "defaultMessage": "正在切換模型…"
   },
-  "navigation.itemHome": {
-    "defaultMessage": "新任務"
+  "nativeSchedule.active": {
+    "defaultMessage": "Active"
+  },
+  "nativeSchedule.all": {
+    "defaultMessage": "All"
+  },
+  "nativeSchedule.at": {
+    "defaultMessage": "Time (with UTC offset)"
+  },
+  "nativeSchedule.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "nativeSchedule.close": {
+    "defaultMessage": "Close task details"
+  },
+  "nativeSchedule.confirmRemove": {
+    "defaultMessage": "Delete this task and its saved delivery records? Messages already sent to the chat remain."
+  },
+  "nativeSchedule.conflict": {
+    "defaultMessage": "The task changed. Reload before editing again."
+  },
+  "nativeSchedule.custom": {
+    "defaultMessage": "Custom"
+  },
+  "nativeSchedule.daily": {
+    "defaultMessage": "Daily at {time} ({zone})"
+  },
+  "nativeSchedule.date": {
+    "defaultMessage": "Date"
+  },
+  "nativeSchedule.deleted": {
+    "defaultMessage": "Deleted"
+  },
+  "nativeSchedule.deliveryHint": {
+    "defaultMessage": "These records confirm reminders reached the chat inbox, not that the model completed the work."
+  },
+  "nativeSchedule.earlier": {
+    "defaultMessage": "Some earlier delivery records are unavailable."
+  },
+  "nativeSchedule.empty": {
+    "defaultMessage": "No automation tasks"
+  },
+  "nativeSchedule.emptyRecords": {
+    "defaultMessage": "No saved deliveries yet"
+  },
+  "nativeSchedule.every": {
+    "defaultMessage": "Every {count} minutes"
+  },
+  "nativeSchedule.everyDay": {
+    "defaultMessage": "Every day"
+  },
+  "nativeSchedule.everyHours": {
+    "defaultMessage": "Every {count} hours"
+  },
+  "nativeSchedule.everyMonth": {
+    "defaultMessage": "Monthly"
+  },
+  "nativeSchedule.everySeconds": {
+    "defaultMessage": "Every {count} seconds"
+  },
+  "nativeSchedule.everyWeek": {
+    "defaultMessage": "Every week"
+  },
+  "nativeSchedule.frequency": {
+    "defaultMessage": "Frequency"
+  },
+  "nativeSchedule.hours": {
+    "defaultMessage": "hours"
+  },
+  "nativeSchedule.inactive": {
+    "defaultMessage": "Ended"
+  },
+  "nativeSchedule.instructions": {
+    "defaultMessage": "Task instructions"
+  },
+  "nativeSchedule.interval": {
+    "defaultMessage": "Interval (minutes)"
+  },
+  "nativeSchedule.intervalHint": {
+    "defaultMessage": "At least 60 seconds. The interval starts when the task is created or its timing rule changes, regardless of time zone."
+  },
+  "nativeSchedule.intervalValue": {
+    "defaultMessage": "Repeat interval"
+  },
+  "nativeSchedule.invalidInterval": {
+    "defaultMessage": "Enter an interval of at least 60 whole seconds."
+  },
+  "nativeSchedule.legacy": {
+    "defaultMessage": "Saved legacy rules"
+  },
+  "nativeSchedule.legacyHint": {
+    "defaultMessage": "Legacy rules and history remain saved. Their old timer is disabled. Recreate reminders in a chat to use native scheduling; running in a new chat each time is not supported."
+  },
+  "nativeSchedule.linked": {
+    "defaultMessage": "Linked chat"
+  },
+  "nativeSchedule.loading": {
+    "defaultMessage": "Loading…"
+  },
+  "nativeSchedule.localZone": {
+    "defaultMessage": "Date and time use the system time zone ({zone}). A one-time task stores the resulting instant."
+  },
+  "nativeSchedule.minutes": {
+    "defaultMessage": "minutes"
+  },
+  "nativeSchedule.missing": {
+    "defaultMessage": "This task was deleted or is unavailable."
+  },
+  "nativeSchedule.missingPrompt": {
+    "defaultMessage": "The original instruction was not saved."
+  },
+  "nativeSchedule.monthDay": {
+    "defaultMessage": "Day {day}"
+  },
+  "nativeSchedule.monthDays": {
+    "defaultMessage": "On these dates"
+  },
+  "nativeSchedule.monthHint": {
+    "defaultMessage": "Dates that do not exist in a month are skipped."
+  },
+  "nativeSchedule.monthly": {
+    "defaultMessage": "Monthly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.more": {
+    "defaultMessage": "Load more"
+  },
+  "nativeSchedule.name": {
+    "defaultMessage": "Task name"
+  },
+  "nativeSchedule.new": {
+    "defaultMessage": "New"
+  },
+  "nativeSchedule.newPrompt": {
+    "defaultMessage": "Help me create an automatic reminder:"
+  },
+  "nativeSchedule.next": {
+    "defaultMessage": "Next: {time}"
+  },
+  "nativeSchedule.noZones": {
+    "defaultMessage": "No matching time zones"
+  },
+  "nativeSchedule.once": {
+    "defaultMessage": "Once"
+  },
+  "nativeSchedule.open": {
+    "defaultMessage": "Open"
+  },
+  "nativeSchedule.pause": {
+    "defaultMessage": "Pause"
+  },
+  "nativeSchedule.pauseHint": {
+    "defaultMessage": "Pausing stops future triggers; work already delivered continues. Resuming skips missed occurrences."
+  },
+  "nativeSchedule.paused": {
+    "defaultMessage": "Paused"
+  },
+  "nativeSchedule.records": {
+    "defaultMessage": "Task records"
+  },
+  "nativeSchedule.remove": {
+    "defaultMessage": "Delete task"
+  },
+  "nativeSchedule.repeat": {
+    "defaultMessage": "Repeat"
+  },
+  "nativeSchedule.resume": {
+    "defaultMessage": "Resume"
+  },
+  "nativeSchedule.retry": {
+    "defaultMessage": "Retry"
+  },
+  "nativeSchedule.rule": {
+    "defaultMessage": "Rule"
+  },
+  "nativeSchedule.runTime": {
+    "defaultMessage": "Run time"
+  },
+  "nativeSchedule.save": {
+    "defaultMessage": "Save changes"
+  },
+  "nativeSchedule.search": {
+    "defaultMessage": "Search automation tasks"
+  },
+  "nativeSchedule.searchZone": {
+    "defaultMessage": "Search UTC offset, IANA identifier or city"
+  },
+  "nativeSchedule.seconds": {
+    "defaultMessage": "seconds"
+  },
+  "nativeSchedule.systemZone": {
+    "defaultMessage": "(System)"
+  },
+  "nativeSchedule.time": {
+    "defaultMessage": "Time"
+  },
+  "nativeSchedule.title": {
+    "defaultMessage": "Automation tasks"
+  },
+  "nativeSchedule.unavailable": {
+    "defaultMessage": "The linked chat is unavailable"
+  },
+  "nativeSchedule.weekdays": {
+    "defaultMessage": "Weekdays"
+  },
+  "nativeSchedule.weekly": {
+    "defaultMessage": "Weekly on {days} at {time} ({zone})"
+  },
+  "nativeSchedule.workdays": {
+    "defaultMessage": "Monday to Friday"
+  },
+  "nativeSchedule.zone": {
+    "defaultMessage": "Time zone"
   },
   "navigation.itemCustomAgents": {
     "defaultMessage": "自訂智慧體"
+  },
+  "navigation.itemHome": {
+    "defaultMessage": "新任務"
   },
   "navigation.itemMediaLibrary": {
     "defaultMessage": "素材庫"
@@ -5031,10 +5316,10 @@
     "defaultMessage": "工具箱"
   },
   "navigationPanel.chats": {
-    "defaultMessage": "交談"
+    "defaultMessage": "任務"
   },
   "navigationPanel.noChats": {
-    "defaultMessage": "沒有最近的交談"
+    "defaultMessage": "沒有最近的任務"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "專案名稱"
@@ -5047,6 +5332,9 @@
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "未命名工作階段"
+  },
+  "navigationPanel.workspaces": {
+    "defaultMessage": "工作區"
   },
   "needsWorkspace.cancel": {
     "defaultMessage": "取消"
@@ -6470,6 +6758,24 @@
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
   },
+  "scheduleChat.choose": {
+    "defaultMessage": "Choose a chat"
+  },
+  "scheduleChat.empty": {
+    "defaultMessage": "No chats found"
+  },
+  "scheduleChat.error": {
+    "defaultMessage": "Could not read chats. Reopen to retry."
+  },
+  "scheduleChat.label": {
+    "defaultMessage": "Follow-up chat"
+  },
+  "scheduleChat.more": {
+    "defaultMessage": "Load more"
+  },
+  "scheduleChat.search": {
+    "defaultMessage": "Search chats"
+  },
   "scheduleDetailView.actions": {
     "defaultMessage": "動作"
   },
@@ -6623,8 +6929,8 @@
   "scheduleDetailView.viewingScheduleId": {
     "defaultMessage": "正在檢視排程 ID：{id}"
   },
-  "scheduleModal.browseYaml": {
-    "defaultMessage": "瀏覽 YAML 檔案…"
+  "scheduleModal.advanced": {
+    "defaultMessage": "進階"
   },
   "scheduleModal.cancel": {
     "defaultMessage": "取消"
@@ -6641,32 +6947,32 @@
   "scheduleModal.creating": {
     "defaultMessage": "正在建立…"
   },
-  "scheduleModal.deepLink": {
-    "defaultMessage": "深層連結"
+  "scheduleModal.currentSession": {
+    "defaultMessage": "目前聊天跟進"
   },
-  "scheduleModal.deepLinkPlaceholder": {
-    "defaultMessage": "在此貼上 codebuddy://recipe 連結…"
+  "scheduleModal.destination": {
+    "defaultMessage": "執行方式"
   },
   "scheduleModal.editSchedule": {
     "defaultMessage": "編輯排程"
   },
-  "scheduleModal.failedParseRecipe": {
-    "defaultMessage": "無法從檔案剖析食譜。"
-  },
-  "scheduleModal.failedReadFile": {
-    "defaultMessage": "無法讀取所選檔案。"
+  "scheduleModal.followHint": {
+    "defaultMessage": "沿用此聊天的歷史、模型和權限。聊天忙碌時略過本次；刪除聊天會暫停任務。"
   },
   "scheduleModal.invalidDeepLink": {
     "defaultMessage": "無效的深層連結。請使用 codebuddy://recipe 連結。"
   },
-  "scheduleModal.invalidFileType": {
-    "defaultMessage": "無效的檔案類型：請選擇 YAML 檔案（.yaml 或 .yml）"
+  "scheduleModal.newSession": {
+    "defaultMessage": "每次新會話"
   },
-  "scheduleModal.nameLabel": {
-    "defaultMessage": "名稱："
+  "scheduleModal.noCurrentChat": {
+    "defaultMessage": "請先開啟聊天，再建立跟進任務。"
   },
-  "scheduleModal.namePlaceholder": {
-    "defaultMessage": "例如：daily-summary-job"
+  "scheduleModal.prompt": {
+    "defaultMessage": "任務內容"
+  },
+  "scheduleModal.promptPlaceholder": {
+    "defaultMessage": "說明每次要做什麼、回報什麼，以及何時停止。"
   },
   "scheduleModal.provideValidRecipe": {
     "defaultMessage": "請提供有效的食譜來源。"
@@ -6686,12 +6992,6 @@
   "scheduleModal.scheduleLabel": {
     "defaultMessage": "排程："
   },
-  "scheduleModal.selected": {
-    "defaultMessage": "已選取：{path}"
-  },
-  "scheduleModal.sourceLabel": {
-    "defaultMessage": "來源："
-  },
   "scheduleModal.testAndEnable": {
     "defaultMessage": "建立並啟用"
   },
@@ -6701,8 +7001,29 @@
   "scheduleModal.updating": {
     "defaultMessage": "正在更新…"
   },
-  "scheduleModal.yaml": {
-    "defaultMessage": "YAML"
+  "scheduleModel.currentChat": {
+    "defaultMessage": "Follows the current chat"
+  },
+  "scheduleModel.defaultModel": {
+    "defaultMessage": "Default model"
+  },
+  "scheduleModel.effort": {
+    "defaultMessage": "Effort"
+  },
+  "scheduleModel.empty": {
+    "defaultMessage": "No configured models"
+  },
+  "scheduleModel.loading": {
+    "defaultMessage": "Reading…"
+  },
+  "scheduleModel.model": {
+    "defaultMessage": "Model"
+  },
+  "scheduleModel.more": {
+    "defaultMessage": "Show all models"
+  },
+  "scheduleModel.readError": {
+    "defaultMessage": "Could not read model settings"
   },
   "schedulePicker.runtimeWarning": {
     "defaultMessage": "自動任務執行時 CodeBuddy 必須保持開啟。預設不會補跑錯過的任務。新自動任務會在測試執行成功前保持暫停。"
@@ -6893,11 +7214,20 @@
   "sessionActionsHeader.copiedJson": {
     "defaultMessage": "工作階段 JSON 已複製"
   },
+  "sessionActionsHeader.copiedSessionId": {
+    "defaultMessage": "已複製會話 ID"
+  },
   "sessionActionsHeader.copiedText": {
     "defaultMessage": "文字已複製"
   },
   "sessionActionsHeader.copyJson": {
     "defaultMessage": "複製 JSON"
+  },
+  "sessionActionsHeader.copySessionId": {
+    "defaultMessage": "複製會話 ID"
+  },
+  "sessionActionsHeader.copySessionIdFailed": {
+    "defaultMessage": "無法複製會話 ID：{error}"
   },
   "sessionActionsHeader.copyText": {
     "defaultMessage": "複製文字"
@@ -6937,6 +7267,12 @@
   },
   "sessionActionsHeader.loadingJson": {
     "defaultMessage": "正在載入 JSON…"
+  },
+  "sessionActionsHeader.openFolder": {
+    "defaultMessage": "開啟資料夾"
+  },
+  "sessionActionsHeader.openFolderFailed": {
+    "defaultMessage": "無法開啟會話資料夾：{error}"
   },
   "sessionActionsHeader.renameFailed": {
     "defaultMessage": "重新命名工作階段失敗：{error}"
@@ -9360,7 +9696,7 @@
     "defaultMessage": "讀取失敗，下方保留的是上次讀取的對話記錄。"
   },
   "workspaceSubagent.status": {
-    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} other {狀態尚不可用}}"
+    "defaultMessage": "{state, select, running {本輪記錄未結束} completed {本輪已結束} failed {本輪出錯} interrupted {本輪已中斷} limited {達到輸出上限} blocked {本輪受阻} other {狀態尚不可用}}"
   },
   "workspaceSubagent.title": {
     "defaultMessage": "子智慧體對話"
@@ -9403,38 +9739,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
-  },
-  "scheduleModal.prompt": {
-    "defaultMessage": "任務內容"
-  },
-  "scheduleModal.promptPlaceholder": {
-    "defaultMessage": "說明每次要做什麼、回報什麼，以及何時停止。"
-  },
-  "scheduleModal.destination": {
-    "defaultMessage": "執行方式"
-  },
-  "scheduleModal.newSession": {
-    "defaultMessage": "每次新會話"
-  },
-  "scheduleModal.currentSession": {
-    "defaultMessage": "目前聊天跟進"
-  },
-  "scheduleModal.followHint": {
-    "defaultMessage": "沿用此聊天的歷史、模型和權限。聊天忙碌時略過本次；刪除聊天會暫停任務。"
-  },
-  "scheduleModal.newHint": {
-    "defaultMessage": "每次獨立開始，使用已設定的預設模型。"
-  },
-  "scheduleModal.noCurrentChat": {
-    "defaultMessage": "請先開啟聊天，再建立跟進任務。"
-  },
-  "scheduleModal.advanced": {
-    "defaultMessage": "進階"
-  },
-  "cronPicker.repeat": {
-    "defaultMessage": "重複"
-  },
-  "cronPicker.time": {
-    "defaultMessage": "時間"
   }
 }

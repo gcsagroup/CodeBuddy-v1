@@ -7,10 +7,12 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  Download,
   ChevronDown,
   ChevronRight,
   Copy,
+  Archive,
+  Download,
+  FolderOpen,
   Edit2,
   FileJson,
   LoaderCircle,
@@ -19,6 +21,7 @@ import { toast } from 'react-toastify';
 import { AppEvents } from '../constants/events';
 import { defineMessages, useIntl } from '../i18n';
 import {
+  acpArchiveSession,
   acpExportSession,
   acpExportSessionLog,
   acpForkSession,
@@ -33,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 
@@ -54,6 +58,32 @@ const i18n = defineMessages({
     defaultMessage: 'Failed to export logs: {error}',
   },
   exportLog: { id: 'sessionActionsHeader.exportLog', defaultMessage: 'Export logs' },
+  openFolder: { id: 'sessionActionsHeader.openFolder', defaultMessage: 'Open folder' },
+  openFolderFailed: {
+    id: 'sessionActionsHeader.openFolderFailed',
+    defaultMessage: 'Unable to open the session folder: {error}',
+  },
+  copySessionId: { id: 'sessionActionsHeader.copySessionId', defaultMessage: 'Copy session ID' },
+  copiedSessionId: {
+    id: 'sessionActionsHeader.copiedSessionId',
+    defaultMessage: 'Session ID copied',
+  },
+  copySessionIdFailed: {
+    id: 'sessionActionsHeader.copySessionIdFailed',
+    defaultMessage: 'Unable to copy session ID: {error}',
+  },
+  archive: { id: 'sessions.action.archive', defaultMessage: 'Archive session' },
+  archived: { id: 'sessions.toast.archived', defaultMessage: 'Session archived' },
+  archiveFailed: {
+    id: 'sessions.toast.archiveFailed',
+    defaultMessage: 'Failed to update session archive: {error}',
+  },
+  export: { id: 'sessions.action.export', defaultMessage: 'Export session' },
+  exported: { id: 'sessions.toast.exported', defaultMessage: 'Session exported successfully' },
+  exportFailed: {
+    id: 'sessions.toast.exportFailed',
+    defaultMessage: 'Failed to export session: {error}',
+  },
   actionsLabel: {
     id: 'sessionActionsHeader.actionsLabel',
     defaultMessage: 'Session actions',
@@ -149,7 +179,7 @@ const STRING_PREVIEW_START = 96;
 const STRING_PREVIEW_END = 56;
 
 interface SessionActionsContextMenuProps {
-  session: { id: string; name: string; sessionType?: SessionType };
+  session: { id: string; name: string; workingDir?: string; sessionType?: SessionType };
   children: ReactNode;
   onSessionRenamed?: () => void;
 }
@@ -362,6 +392,8 @@ export function SessionActionsContextMenu({
   const [isExportingLog, setIsExportingLog] = useState(false);
   const exportingLog = useRef(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [fullTextSelection, setFullTextSelection] = useState<FullTextSelection | null>(null);
   const jsonLoadRequestId = useRef(0);
 
@@ -422,6 +454,63 @@ export function SessionActionsContextMenu({
       setIsDuplicating(false);
     }
   }, [intl, isDuplicating, session]);
+
+  const handleOpenFolder = async () => {
+    if (!session.workingDir) return;
+    try {
+      if (!(await window.electron.openDirectoryInExplorer(session.workingDir))) {
+        throw new Error(session.workingDir);
+      }
+    } catch (error) {
+      toast.error(intl.formatMessage(i18n.openFolderFailed, { error: errorMessage(error) }));
+    }
+  };
+
+  const handleCopySessionId = async () => {
+    try {
+      await navigator.clipboard.writeText(session.id);
+      toast.success(intl.formatMessage(i18n.copiedSessionId));
+    } catch (error) {
+      toast.error(intl.formatMessage(i18n.copySessionIdFailed, { error: errorMessage(error) }));
+    }
+  };
+
+  const handleArchive = async () => {
+    if (isArchiving) return;
+    setIsArchiving(true);
+    try {
+      await acpArchiveSession(session.id);
+      toast.success(intl.formatMessage(i18n.archived));
+    } catch (error) {
+      toast.error(intl.formatMessage(i18n.archiveFailed, { error: errorMessage(error) }));
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const json = await acpExportSession(session.id);
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const link = document.createElement('a');
+      try {
+        link.href = url;
+        link.download = `${session.name}.json`;
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+      toast.success(intl.formatMessage(i18n.exported));
+    } catch (error) {
+      toast.error(intl.formatMessage(i18n.exportFailed, { error: errorMessage(error) }));
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleViewJson = useCallback(async () => {
     if (!session) return;
@@ -534,6 +623,26 @@ export function SessionActionsContextMenu({
             <Edit2 className="size-4" />
             {intl.formatMessage(i18n.renameSession)}
           </DropdownMenuItem>
+          {session.workingDir && (
+            <DropdownMenuItem onSelect={() => void handleOpenFolder()}>
+              <FolderOpen className="size-4" />
+              {intl.formatMessage(i18n.openFolder)}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem disabled={isArchiving} onSelect={() => void handleArchive()}>
+            <Archive className="size-4" />
+            {intl.formatMessage(i18n.archive)}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => void handleCopySessionId()}>
+            <Copy className="size-4" />
+            {intl.formatMessage(i18n.copySessionId)}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={isExporting} onSelect={() => void handleExport()}>
+            <Download className="size-4" />
+            {intl.formatMessage(i18n.export)}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={isDuplicating || !canForkSession(session.sessionType)}
             title={
@@ -605,7 +714,7 @@ export function SessionActionsContextMenu({
             <DialogTitle>{intl.formatMessage(i18n.jsonTitle)}</DialogTitle>
           </DialogHeader>
           <div className="min-h-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary">
-            {isJsonLoading || isExportingLog ? (
+            {isJsonLoading ? (
               <div className="flex h-64 items-center justify-center gap-2 text-sm text-text-secondary">
                 <LoaderCircle className="size-4 animate-spin" />
                 {intl.formatMessage(i18n.loadingJson)}

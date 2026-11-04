@@ -36,11 +36,16 @@ for (const [label, expected] of [['本会话允许网页读取', 'session'], ['�
     const errors:string[]=[]; page.on('pageerror',error=>{errors.push(error.message); console.error('Fixture page error:',error.message);});
     try {
       await page.goto(server.resolvedUrls!.local[0]+'tests/browser-fixtures/web-read.html', {timeout:60000});
-      await expect(page.getByRole('button',{name:'深度思考',exact:true})).toHaveCount(2);
       await expect(page.getByText('正在查找可用工具',{exact:true})).toBeVisible();
-      await page.getByRole('button',{name:'深度思考',exact:true}).first().click();
-      await expect(page.getByText(/第一段分析。/)).toContainText('继续分析。');
       await expect(page.getByText(/允许本会话跨网站匿名读取公开网页/)).toBeVisible();
+      await page.getByRole('button',{name:'正在查找可用工具',exact:true}).click();
+      await page.getByRole('button',{name:'思考详情',exact:true}).click();
+      const thoughts = page.getByRole('button',{name:'深度思考',exact:true});
+      await expect(thoughts).toHaveCount(3);
+      for (let index = 0; index < 3; index += 1) await thoughts.nth(index).click();
+      for (const text of ['第一段分析。', '继续分析。', '找到可用工具后分析。']) {
+        await expect(page.getByText(text,{exact:true})).toBeVisible();
+      }
       await page.getByRole('button',{name:label,exact:true}).click();
       await expect(page.locator('#receipt')).toContainText('"optionId":"'+expected+'"');
       await page.screenshot({path:test.info().outputPath('web-read-'+expected+'.png'), fullPage:true});

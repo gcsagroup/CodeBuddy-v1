@@ -85,7 +85,7 @@ export default function ChatSessionsContainer({
   return (
     <div className="relative w-full h-full">
       {sessionsToRender.map((session) => {
-        const isVisible = session.sessionId === currentSessionId;
+        const isVisible = isChatVisible && session.sessionId === currentSessionId;
 
         return (
           <div

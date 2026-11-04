@@ -77,17 +77,20 @@ test('native retry owns recovery, exhaustion, cancellation and later turns for e
     assert.equal(counts.get('cancel'), 1);
     assert.equal((await driver.prompt(s.sessionId, 'empty_fixture_normal')).stopReason, 'end_turn', 'a cancelled backoff must not poison the next turn');
   });
-  await t.test('reasoning cut short by a token limit is not misclassified or retried', async () => {
+  await t.test('reasoning cut short by a token limit uses bounded output recovery, not empty-response retries', async () => {
     const s = await session(1, { maxTokens: 128 });
-    assert.equal((await driver.prompt(s.sessionId, 'empty_fixture_length')).stopReason, 'max_tokens');
-    assert.equal(counts.get('length'), 1);
-    assert.equal(lengthRequests[0].max_completion_tokens ?? lengthRequests[0].max_tokens, 128);
+    const result = await driver.prompt(s.sessionId, 'empty_fixture_length');
+    assert.equal(result.stopReason, 'max_tokens');
+    assert.equal(counts.get('length'), 2, 'one initial request and one recovery for the same native step');
+    assert.deepEqual(lengthRequests.map(request => request.max_completion_tokens ?? request.max_tokens), [128, 128], 'recovery preserves the selected request cap');
+    assert.deepEqual([result.outputLimit.automaticAttempts, result.outputLimit.maxAutomaticAttempts], [1, 2]);
     const history = await driver.history(s.sessionId);
-    const message = history.events.findLast(event => event.type === 'assistant/message');
-    const finish = message.data.stream.findLast(record => record.type === 'chunk' && record.chunk.type === 'finish').chunk;
-    assert.equal(message.data.usage.outputTokens, 128, 'the provider reached the explicit request cap');
-    assert.equal(finish.reason.kind, 'max-tokens', 'a fulfilled cap is neither EMPTY_RESPONSE nor a short-output failure');
-    assert.equal(history.events.filter(event => event.type === 'llm/retry').length, 0);
+    const attempts = history.events.filter(event => event.type === 'assistant/attempt');
+    assert.equal(attempts.length, 2);
+    assert.ok(attempts.every(event => event.data.stream.findLast(record => record.type === 'chunk' && record.chunk.type === 'finish').chunk.reason.failure.code === 'OUTPUT_LIMIT_REACHED'), 'both failed generations retain the specific length reason');
+    assert.equal(history.events.filter(event => event.type === 'assistant/message').length, 0, 'truncated reasoning is never committed as an answer');
+    assert.equal(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery').length, 1, 'the recovery allowance is committed once');
+    assert.equal(history.events.filter(event => event.type === 'llm/retry').length, 0, 'length recovery does not consume or borrow native network retries');
   });
   await t.test('a native child keeps upstream reasoning-only completion semantics and its parent can finish', async () => {
     const s = await session(); const events = [];

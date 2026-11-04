@@ -39,6 +39,21 @@ test('MCP screenshot fallback reuses observer and preserves ordered tool facts a
   assert.deepEqual(f.created[0].options.toolFilter, { allow: [] });
 });
 
+test('a large desktop text receipt stays complete without consuming the image observer query budget', async () => {
+  const f = fixture(), p = request();
+  const tree = 'Window fixture\n' + 'UIA node and visible text\n'.repeat(2000);
+  const content = [{ type: 'text', text: tree }, { type: 'image', mimeType: image.mediaType, data: image.data }];
+  const original = structuredClone(content);
+  const result = await f.service.prepareToolContent({ ...p, content, toolName: 'get_app_state' });
+  assert.deepEqual(content, original);
+  assert.deepEqual(result[0], content[0], 'The main model retains the entire original accessibility receipt');
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].content.filter(part => part.type === 'image').length, 1);
+  const observerText = f.calls[0].content.filter(part => part.type === 'text').map(part => part.text).join('\n');
+  assert.ok(observerText.length < 32000);
+  assert.equal(observerText.includes(tree), false, 'The observer describes pixels; it must not duplicate the text receipt');
+});
+
 test('always routes supported main images through one tool-free observer and wraps its text as untrusted data', async () => {
   const f = fixture({ main: 'supported' }), p = request(); p.routing.visionRoute.mode = 'always';
   p.content.push({ ...image }, { type: 'text', text: 'Second image' }); const original = structuredClone(p.content);

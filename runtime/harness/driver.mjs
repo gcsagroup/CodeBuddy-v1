@@ -1,5 +1,6 @@
 import { bindAgentPolicy } from './agent-policy.mjs';
 import { agentAllowsTool } from '../agent-profiles.mjs';
+import { DEFAULT_AGENT_SKILLS } from '../agent-presets.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,14 +8,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { flushLiveSessionLog, readSessionLogText } from '@deepseek-ai/dsh-session-log-export';
 import { isDeepStrictEqual } from 'node:util';
 import { boot } from '@deepseek-ai/dsh-app-boot';
-import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm';
+import { BlockAssembler, expandAssistantStream, LlmError } from '@deepseek-ai/dsh-llm';
 import { admitEncodedImages } from '@deepseek-ai/dsh-attachment';
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate';
 import compactionPlugin, { installCompactionRequestCompatibility } from './compaction.mjs';
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
-import { createScope, bindScopeParent, scopeChainOf } from '@deepseek-ai/dsh-scope';
+import { createScope, bindScopeParent, scopeChainOf, scopeParentOf } from '@deepseek-ai/dsh-scope';
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
@@ -34,10 +35,12 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
+import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { installMainAgentRole } from './main-agent-role.mjs';
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
 
@@ -49,7 +52,7 @@ export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32
 function nativeProviderRoute(provider, model) {
   // Newly discovered capability metadata cannot invalidate existing children
   // whose connection identity was recorded before that metadata was available.
-  const { outputTokenCapacity: _capacity, ...connection } = provider;
+  const { outputTokenCapacity: _capacity, outputTokenCapacitySource: _source, requestMaxTokens: _budget, ...connection } = provider;
   return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...connection, model })).digest('hex').slice(0, 20);
 }
 
@@ -74,8 +77,11 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const providers = new Map();
   const sessionSettings = new Map();
   const contextSources = new Map();
+  const outputSources = new Map();
   const streamingMeters = new Map();
   const sessionScopes = new Map();
+  const capabilityScopes = new WeakMap();
+  const mainAgentRoles = new WeakMap();
   const stdioConnections = new WeakMap();
   const directCalls = new Map();
   const toolReceipts = new Map();
@@ -88,6 +94,7 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const approvalOwners = new WeakMap();
   const builtinApprovals = new WeakMap();
   const builtinDefinitions = new WeakMap();
+  const builtinBusinessApprovals = new WeakMap();
   const initialPermissions = new Map();
   const approvalCalls = new Map();
   let skillRefresh = Promise.resolve();
@@ -175,7 +182,9 @@ Keep progress updates brief, meaningful, and outcome-based.
           return { id: child.id, label: child.label, ...(boundary ? {
             turn: boundary.data.turn, boundary: boundary.type, recordedAt: boundary.time,
             state: boundary.type === 'turn/end' ? 'ended' : ctx.agents.get(child.id)?.status === 'running' ? 'running' : 'unknown',
-            ...(boundary.type === 'turn/end' ? { reason: boundary.data.reason.kind, ...(boundary.data.reason.reason?.kind ? { cause: boundary.data.reason.reason.kind } : {}) } : {}),
+            ...(boundary.type === 'turn/end' ? { reason: boundary.data.reason.kind,
+              ...(boundary.data.reason.error?.code ? { errorCode: boundary.data.reason.error.code } : {}),
+              ...(boundary.data.reason.reason?.kind ? { cause: boundary.data.reason.reason.kind } : {}) } : {}),
           } : { availability: 'no-turn-record' }) };
         } catch { return { id: child.id, availability: 'unavailable' }; }
         finally { observation?.[Symbol.dispose](); }
@@ -243,6 +252,36 @@ Keep progress updates brief, meaningful, and outcome-based.
     };
   }
 
+  function builtinBusinessApproval(exec, rootAgent, registration, binding) {
+    const presentation = registration.scope.business;
+    if (!presentation) return undefined;
+    const names = presentation.tools ?? [exec.name];
+    if (!names.includes(exec.name)) return undefined;
+    // A displayed host group must consist entirely of live registered members
+    // declaring the same range. Missing members retain per-tool approval.
+    const currentBindings = () => names.map(name => {
+      const current = builtinApprovals.get(rootAgent)?.get(name);
+      const definition = ctx.tools.get(name, exec.agent);
+      const member = definition && builtinDefinitions.get(definition);
+      return current && member && sameToolSessionScope(member.scope, current.scope) &&
+        toolSessionApprovalScope(member.tool) === member.scope && isDeepStrictEqual(member.scope.business, presentation)
+        ? current : undefined;
+    });
+    const bindings = currentBindings();
+    if (bindings.some(member => !member)) return undefined;
+    let groups = builtinBusinessApprovals.get(rootAgent);
+    if (!groups) { groups = new Map(); builtinBusinessApprovals.set(rootAgent, groups); }
+    let group = groups.get(presentation.id);
+    if (!group || group.bindings.length !== bindings.length || bindings.some((member, index) => group.bindings[index] !== member)) {
+      group = { identity: presentation.tools ? Object.freeze({}) : binding.identity, bindings };
+      groups.set(presentation.id, group);
+    }
+    return { identity: group.identity, presentation,
+      isCurrent: () => groups.get(presentation.id) === group &&
+        currentBindings().every((member, index) => member && member === group.bindings[index]),
+    };
+  }
+
   async function builtinSessionApproval(exec, rootAgent) {
     const definition = ctx.tools.get(exec.name, exec.agent);
     const registration = definition && builtinDefinitions.get(definition);
@@ -250,13 +289,10 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (!registration || !binding || !sameToolSessionScope(registration.scope, binding.scope) ||
       toolSessionApprovalScope(registration.tool) !== registration.scope || !(await registration.scope.accepts(exec.arguments))) return undefined;
     exec.signal.throwIfAborted();
+    const business = builtinBusinessApproval(exec, rootAgent, registration, binding);
     return {
       identity: binding.identity, extensionSource: 'builtin',
-      ...(registration.scope.business ? { business: {
-        identity: binding.identity, presentation: registration.scope.business,
-        isCurrent: () => builtinApprovals.get(rootAgent)?.get(exec.name) === binding &&
-          ctx.tools.get(exec.name, exec.agent) === definition && toolSessionApprovalScope(registration.tool) === registration.scope,
-      } } : {}),
+      ...(business ? { business } : {}),
       isCurrent: () => builtinApprovals.get(rootAgent)?.get(exec.name) === binding &&
         ctx.tools.get(exec.name, exec.agent) === definition && toolSessionApprovalScope(registration.tool) === registration.scope,
     };
@@ -394,6 +430,31 @@ Keep progress updates brief, meaningful, and outcome-based.
     console.warn('[Harness model transport]', JSON.stringify(event));
   }), 'CodeBuddy model transport observation');
   ctx.effect(() => installModelResponseValidation(ctx), 'CodeBuddy model response validation');
+  const outputRecovery = installOutputRecovery(ctx, {
+    budgetSource: route => outputSources.get(route) ?? 'fallback',
+    publish: event => emit(runFor(ctx.agents.get(event.sessionId)), event),
+  });
+  ctx.effect(() => () => outputRecovery.dispose(), 'CodeBuddy native output recovery');
+  function outputLimitFor(agent, run, limited = false) {
+    const recovery = outputRecovery.stateOf(agent);
+    if (!recovery?.failures && !limited) return undefined;
+    return { automaticAttempts: recovery?.attempts ?? 0, maxAutomaticAttempts: recovery?.maxAttempts ?? OUTPUT_RECOVERY_LIMIT,
+      ...(run?.outputBudget ? { budget: run.outputBudget } : {}) };
+  }
+  ctx.on('codebuddy/request-fit', ({ sessionId, fit }) => {
+    const agent = ctx.agents.get(sessionId);
+    const budget = {
+      requestedTokens: fit.desiredMaxTokens, effectiveTokens: fit.effectiveMaxTokens,
+      capacityTokens: fit.modelMaxTokens, contextLimit: fit.contextWindow,
+      source: fit.explicitMaxTokens ? 'configured' : outputSources.get(fit.provider) ?? 'fallback',
+    };
+    const run = runFor(agent);
+    if (run && sessionId === run.sessionId && fit.purpose === undefined)
+      run.outputBudget = fit.outputCapApplied === false ? undefined : budget;
+    const event = { type: 'model_budget', sessionId, ...budget, applied: fit.outputCapApplied !== false, ...(fit.purpose ? { purpose: fit.purpose } : {}) };
+    emit(run, event);
+    console.warn('[Harness model budget]', JSON.stringify(event));
+  });
   const noticeAdmission = installSubagentNoticeAdmission(ctx, agent => runs.get(agent.id));
   ctx.effect(() => () => noticeAdmission.dispose(), 'CodeBuddy native subagent notice admission');
   ctx.on('agent/created', async ({ agent }) => {
@@ -418,7 +479,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         throw new Error('The original subagent model connection is unavailable; its model was not changed.');
       await configureProvider(provider, agent.options.model);
     }
-    const { thinkingEffort: _parentEffort, ...capabilities } = inherited;
+    const { thinkingEffort: _parentEffort, mainAgentRole: _mainAgentRole, ...capabilities } = inherited;
     await applySessionOptions(agent.id, capabilities, agent);
   });
   ctx.on('agent/disposed', ({ agent }) => {
@@ -434,10 +495,14 @@ Keep progress updates brief, meaningful, and outcome-based.
       mcpPlugin.getMcpResourceSessionApproval(ctx, exec.agent, exec.name, exec.arguments.server);
     const mcpBinding = currentMcpBinding();
     const binding = mcpBinding ?? webSessionApproval(exec, rootAgent) ?? await builtinSessionApproval(exec, rootAgent);
-    const business = mcpBinding
+    const currentBusinessBinding = () => mcpBinding
       ? (settingsFor(exec.agent)?.mcpApprovalScopes ?? []).map(scope =>
         mcpPlugin.getMcpBusinessSessionApproval(ctx, exec.agent, exec.name, scope)).find(Boolean)
       : binding?.business;
+    const businessBinding = currentBusinessBinding();
+    const business = businessBinding ? { ...businessBinding,
+      isCurrent: () => businessBinding.isCurrent() && currentBusinessBinding()?.identity === businessBinding.identity,
+    } : undefined;
     let sessionApproval;
     if (binding && rootAgent) {
       let owner = approvalOwners.get(rootAgent);
@@ -564,13 +629,16 @@ Keep progress updates brief, meaningful, and outcome-based.
       return;
     }
     if (frame.type !== 'chunk') {
+      const live = streamingMeters.get(agent.id);
       streamingMeters.delete(agent.id);
-      emit(run, { type: 'assistant_end', attemptId: frame.attemptId, sessionId: agent.id });
+      emit(run, { type: 'assistant_end', attemptId: frame.attemptId, sessionId: agent.id,
+        ...(frame.outcome?.eventType === 'assistant/attempt' && isOutputLimitFailure(live?.failureCode) ? { incompleteOutput: true } : {}) });
       return;
     }
     const chunk = frame.chunk;
     const live = streamingMeters.get(agent.id);
     if (live?.attemptId === frame.attemptId) {
+      if (chunk.type === 'finish') live.failureCode = chunk.reason.failure?.code;
       live.assembler.push(chunk);
       live.preview.push(chunk);
       if (chunk.type === 'tool-call-delta') {
@@ -636,6 +704,8 @@ Keep progress updates brief, meaningful, and outcome-based.
       emit(run, { type: 'user_questions', sessionId: session.id, snapshot: userQuestions(session) });
     if (event.type === 'user/message' && event.data.source?.kind === 'schedule')
       emit(run, { type: 'scheduled_message', message: event.data, sessionId: session.id });
+    if (event.type === 'user/message' && event.data.source?.kind === 'user' && event.data.source.rpcId)
+      emit(run, { type: 'agent_input', sessionId: session.id, requestId: event.data.source.rpcId, seq: event.seq });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -655,15 +725,32 @@ Keep progress updates brief, meaningful, and outcome-based.
       emit(run, contextUsage(session));
     if (event.type === 'turn/end' && runs.get(session.id) === run) {
       const reason = event.data.reason;
-      if (reason.kind === 'error') { run.error = Object.assign(new Error(reason.error.message), { code: reason.error.code }); run.reject(run.error); }
+      const limited = reason.kind === 'max-tokens' || reason.kind === 'error' && isOutputLimitFailure(reason.error.code);
+      const outputLimit = outputLimitFor(ctx.agents.get(session.id), run, limited);
+      if (reason.kind === 'error' && !limited) {
+        run.error = Object.assign(new Error(reason.error.message), { code: reason.error.code, ...(outputLimit ? { outputLimit } : {}) });
+        run.reject(run.error);
+      }
       else {
-        const stopReason = run.limitReached ? 'max_turns' : ({ completed: 'end_turn', aborted: 'cancelled', interrupted: 'cancelled', 'max-tokens': 'max_tokens', blocked: 'refusal' })[reason.kind];
-        if (stopReason) { run.lastResult = { stopReason, reason, ...(run.limitReached ? { limit: run.limitReached } : {}) }; settleRun(ctx.agents.get(session.id)); }
+        const stopReason = run.limitReached ? 'max_turns' : reason.kind === 'error' ? 'max_tokens' : ({ completed: 'end_turn', aborted: 'cancelled', interrupted: 'cancelled', 'max-tokens': 'max_tokens', blocked: 'refusal' })[reason.kind];
+        if (stopReason) {
+          run.lastResult = { stopReason, reason, ...(run.limitReached ? { limit: run.limitReached } : {}),
+            ...(outputLimit ? { outputLimit } : {}),
+          };
+          settleRun(ctx.agents.get(session.id));
+        }
         else { run.error = new Error(`Harness turn ended without completion: ${reason.kind}`); run.reject(run.error); }
       }
     }
   });
-  ctx.on('agent/error', ({ agent, error }) => runs.get(agent.id)?.reject(error));
+  ctx.on('agent/error', ({ agent, error }) => {
+    if (isOutputLimitFailure(error.code)) return;
+    const run = runs.get(agent.id);
+    const outputLimit = outputLimitFor(agent, run);
+    // This also settles errors while persisting turn/end, when no terminal
+    // event can follow. Preserve the actual failure after a recovery attempt.
+    run?.reject(Object.assign(error, outputLimit ? { outputLimit } : {}));
+  });
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const run = runFor(agent);
     if (run?.ready) await run.ready;
@@ -681,8 +768,12 @@ Keep progress updates brief, meaningful, and outcome-based.
   ctx.on('agent/request', async ({ agent }, next) => {
     const config = { ...await next() };
     const settings = settingsFor(agent);
+    const budget = agent.options.maxTokens ?? settings?.maxTokens;
+    if (budget !== undefined) config.maxTokens = budget;
+    const capacity = providers.get(config.provider)?.defaultMaxTokens;
+    if (capacity !== undefined && config.maxTokens > capacity)
+      throw new LlmError(`Requested output budget ${config.maxTokens} exceeds the configured service capacity ${capacity}. Lower the output budget before continuing.`, 'INVALID_OUTPUT_BUDGET');
     if (!settings) return config;
-    if (settings.maxTokens !== undefined) config.maxTokens = settings.maxTokens;
     if (settings.temperature !== undefined) config.temperature = settings.temperature;
     if (sessionSettings.has(agent.id)) {
       // Main-chat selection replaces the old effort; native children retain
@@ -720,8 +811,14 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (typeof model !== 'string' || !model.trim()) throw new Error('A model id is required.');
     const protocol = provider.protocol ?? 'openai-completions';
     const route = nativeProviderRoute(provider, model);
+    if (provider.requestMaxTokens !== undefined && (!Number.isSafeInteger(provider.requestMaxTokens) || provider.requestMaxTokens < 1))
+      throw new LlmError('Configured output budget must be a positive integer.', 'INVALID_OUTPUT_BUDGET');
+    if (provider.outputTokenCapacity !== undefined && provider.requestMaxTokens > provider.outputTokenCapacity)
+      throw new LlmError('Configured output budget exceeds the known model capacity.', 'INVALID_OUTPUT_BUDGET');
+    outputSources.set(route, provider.outputTokenCapacitySource ?? (provider.outputTokenCapacity === undefined ? 'fallback' : 'service'));
     const digest = route.slice('codebuddy-'.length);
-    if (!providers.has(route) || providers.get(route).defaultMaxTokens !== provider.outputTokenCapacity) {
+    if (!providers.has(route) || providers.get(route).defaultMaxTokens !== provider.outputTokenCapacity ||
+        providers.get(route).models[0].requestMaxTokens !== provider.requestMaxTokens) {
       const keyRef = `CODEBUDDY_MODEL_${digest}`;
       // Always explicit: never let pi-ai fall through to ambient API credentials.
       credentials.set(keyRef, provider.apiKey || 'codebuddy-no-key');
@@ -734,7 +831,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         // A discovered output capability is not a fixed request budget. Keep
         // native dynamic fitting; only an explicit budget becomes a call default.
         ...(provider.outputTokenCapacity === undefined ? {} : { defaultMaxTokens: provider.outputTokenCapacity }),
-        models: [{ id: model, contextWindow: provider.contextWindow ?? DEFAULT_CONTEXT_WINDOW, ...(provider.maxTokens === undefined ? {} : { maxTokens: provider.maxTokens }), input: provider.inputModalities ?? ['text'], ...(provider.reasoningEfforts !== undefined ? { reasoningEfforts: provider.reasoningEfforts } : {}) }],
+        models: [{ id: model, contextWindow: provider.contextWindow ?? DEFAULT_CONTEXT_WINDOW, ...(provider.maxTokens === undefined ? {} : { maxTokens: provider.maxTokens }), ...(provider.requestMaxTokens === undefined ? {} : { requestMaxTokens: provider.requestMaxTokens }), input: provider.inputModalities ?? ['text'], ...(provider.reasoningEfforts !== undefined ? { reasoningEfforts: provider.reasoningEfforts } : {}) }],
         // Choose the supported native wire format without changing the saved
         // route identity: old chat-local children must remain cold-resumable.
         ...(protocol === 'openai-completions' && new URL(provider.baseUrl).hostname === 'ollama.com'
@@ -797,9 +894,22 @@ Keep progress updates brief, meaningful, and outcome-based.
     stdioConnections.delete(agent);
     if (connections) await Promise.all([...connections.values()].map(entry => entry.fiber.dispose()));
   }
+  function capabilitiesFor(agent) {
+    let scope = capabilityScopes.get(agent);
+    if (scope) return scope;
+    if (scopeParentOf(agent) !== undefined) throw new Error('The Agent already has a composition owner; its scope cannot be replaced');
+    const key = {};
+    scope = { key, ...createScope(agent.ctx, key) };
+    bindScopeParent(agent, key);
+    capabilityScopes.set(agent, scope);
+    agent.ctx.effect(() => () => scope.dispose(), 'CodeBuddy stable inherited capabilities');
+    return scope;
+  }
   async function applySessionOptions(sessionId, options, createdAgent) {
     const agent = createdAgent ?? await resolveAgent(sessionId);
     if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
+    const capabilities = capabilitiesFor(agent);
+    const capabilityCtx = capabilities.ctx;
     const previous = sessionSettings.get(sessionId) ?? {};
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
@@ -861,7 +971,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     let localConnections = stdioConnections.get(agent);
     if (!localConnections) { localConnections = new Map(); stdioConnections.set(agent, localConnections); }
     for (const [name, entry] of localConnections) {
-      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(agent, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
+      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(capabilities.key, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
       localConnections.delete(name);
       await entry.fiber.dispose();
     }
@@ -874,13 +984,15 @@ Keep progress updates brief, meaningful, and outcome-based.
     }));
     const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
-    let binding = mcpBindings.get(agent);
+    let binding = mcpBindings.get(capabilities.key);
     const fiber = agent.ctx.isolate('compaction').plugin({
       name: 'codebuddy-session-capabilities',
+      inject: ['skills'],
       async apply(scoped) {
         bindAgentPolicy(agent, settings.agentProfile);
         // Shadow only the deployment identity; shared behavior and tool policies remain.
-        if (settings.agentProfile) scoped.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: '', interpolate: false });
+        if (settings.agentProfile && !settings.mainAgentRole && agent.session.header.origin !== 'subagent')
+          scoped.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: '', interpolate: false });
         scoped.effect(() => () => bindAgentPolicy(agent, undefined));
         if (settings.agentProfile) scoped.tools.guard(exec => agentAllowsTool(settings.agentProfile, exec.name) ? undefined : 'Tool disabled by the workspace agent');
         scoped.effect(() => async () => {
@@ -898,7 +1010,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         for (const tool of settings.tools ?? []) {
           if (tool.rootOnly && agent.session.header.origin === 'subagent') continue;
           if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
-          scoped.tools.register({
+          scoped.effect(() => capabilityCtx.tools.register({
             name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
             output: {
               schema: { type: 'object', additionalProperties: true },
@@ -942,14 +1054,14 @@ Keep progress updates brief, meaningful, and outcome-based.
               }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
             },
-          });
+          }), `CodeBuddy inherited host tool ${tool.name}`);
           // Only host-authored definitions contribute capabilities here. MCP
           // annotations are remote hints and never grant approval by themselves.
           if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
-            readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
+            readOnlyDefinitions.add(capabilityCtx.tools.get(tool.name, capabilities.key));
           }
           const builtinScope = toolSessionApprovalScope(tool);
-          if (builtinScope) builtinDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: builtinScope });
+          if (builtinScope) builtinDefinitions.set(capabilityCtx.tools.get(tool.name, capabilities.key), { tool, scope: builtinScope });
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
@@ -968,7 +1080,7 @@ Keep progress updates brief, meaningful, and outcome-based.
           if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: 'ready' };
           const started = performance.now();
           const config = stdioConfigs.get(server.serverName);
-          const connection = agent.ctx.plugin(mcpPlugin, config);
+          const connection = capabilityCtx.plugin(mcpPlugin, config);
           try {
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
@@ -987,7 +1099,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         ]);
         if (lease) {
           if (binding) binding.rebind(lease.key);
-          else { binding = bindScopeParent(agent, lease.key); mcpBindings.set(agent, binding); }
+          else { binding = bindScopeParent(capabilities.key, lease.key); mcpBindings.set(capabilities.key, binding); }
           connections.push(...lease.statuses);
           console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: lease.reused, servers: lease.statuses.length }));
         }
@@ -999,7 +1111,20 @@ Keep progress updates brief, meaningful, and outcome-based.
           ...settings.toolFilter,
           deny: [...(settings.toolFilter?.deny ?? []), ...(agent.session.header.origin === 'subagent'
             ? ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete', ...SCHEDULE_CONTROL_TOOLS].filter(name => ctx.tools.get(name)) : [])],
-        }, shared?.key);
+        // Host and stdio tools now live in the stable capability parent too.
+        // Keep those admitted definitions visible without widening a child's
+        // recorded tool filter or overriding explicit denials.
+        }, capabilities.key, registrationFilter);
+        if (settings.mainAgentRole && agent.session.header.origin !== 'subagent') {
+          const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
+          try {
+            const resourceServers = connections.filter(connection => connection.status === 'ready').map(connection => connection.serverName);
+            const role = installMainAgentRole(scoped, agent, capabilities.key, settings.mainAgentRole, observation.events, resourceServers);
+            mainAgentRoles.set(agent, role);
+            scoped.effect(() => () => { if (mainAgentRoles.get(agent) === role) mainAgentRoles.delete(agent); });
+          }
+          finally { observation[Symbol.dispose](); }
+        }
         const discovery = childFilter?.allow?.length === 0 ? undefined
           : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL, name => {
             if (name === 'exit_plan_mode') {
@@ -1405,6 +1530,34 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
+    mainAgentProfile(sessionId) { return mainAgentRoles.get(ctx.agents.get(sessionId))?.current() ?? null; },
+    async mainAgentUnavailable(sessionId, profile) {
+      if (!profile) return [];
+      const agent = ctx.agents.get(sessionId), capabilities = agent && capabilityScopes.get(agent);
+      if (!capabilities) return []; // No model or connection is started merely to open a menu.
+      const skillFailures = mainAgentRoles.get(agent)?.skillUnavailable(profile) ?? [];
+      if (profile.capabilities === 'inherit') return skillFailures;
+      const tools = new Set(ctx.tools.schemas(capabilities.key).map(tool => tool.name));
+      const skills = await ctx.skills.list({ cwd: ctx.workingDirectory.get(agent.session), scope: capabilities.key });
+      const servers = new Set((extensionStates.get(sessionId) ?? []).filter(server =>
+        [...scopeChainOf(agent), ctx.root].some(key => mcpPlugin.mcpConnectionStatus(key, server.serverName) === 'ready')).map(server => server.serverName));
+      return [...skillFailures, ...profile.tools.filter(name => !tools.has(name)).map(name => `工具 ${name}`),
+        ...profile.skills.filter(name => !skills.some(skill => skill.name === name) && !DEFAULT_AGENT_SKILLS.some(skill => skill.name === name)).map(name => `Skill ${name}`),
+        ...profile.mcpServers.filter(name => !servers.has(name)).map(name => `MCP ${name}`)];
+    },
+    async agentInputIds(sessionId, { committedOnly = false } = {}) {
+      if (!ctx.agents.get(sessionId) && !await ctx.sessionPersistence.stat(sessionId)) return [];
+      const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
+      try {
+        const ids = new Set();
+        for (const event of observation.events) {
+          const messages = event.type === 'user/message' ? [event.data]
+            : !committedOnly && event.type === 'agent/inbox/spliced' ? event.data.inserted : [];
+          for (const message of messages ?? []) if (message.source?.kind === 'user' && message.source.rpcId) ids.add(message.source.rpcId);
+        }
+        return [...ids];
+      } finally { observation[Symbol.dispose](); }
+    },
     async presentationContent(content) {
       return Promise.all(content.map(async block => {
         if (block?.type !== 'image' || !block.attachment) return block;
@@ -1430,7 +1583,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       if (runs.has(sessionId) || (agent && agent.status !== 'idle') || [...directCalls.values()].some(call => call.sessionId === sessionId) || ctx.jobs.list(sessionId).some(job => ['running', 'stopping'].includes(job.status))) throw new Error('Wait for active session operations and background jobs before releasing capabilities');
       await sessionScopes.get(sessionId)?.dispose();
       if (agent) await releaseStdioConnections(agent);
-      if (agent) { builtinApprovals.delete(agent); webApprovals.delete(agent); approvalOwners.delete(agent); }
+      if (agent) { builtinApprovals.delete(agent); builtinBusinessApprovals.delete(agent); webApprovals.delete(agent); approvalOwners.delete(agent); }
       sessionScopes.delete(sessionId); sessionSettings.delete(sessionId); extensionStates.delete(sessionId);
     },
     async rename(sessionId, title) { return ctx.sessionController.rename({ sessionId, title }); },

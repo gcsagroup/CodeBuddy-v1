@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { panelMedia, panelPath } from './workspacePanelFiles';
+import { panelMedia, panelPath, resolvePanelReference } from './workspacePanelFiles';
 
 export const MEDIA_SCHEME = 'codebuddy-media';
 
@@ -9,14 +9,22 @@ export const MEDIA_SCHEME = 'codebuddy-media';
 // A renderer reload/window close revokes its capabilities; paths are checked again
 // on every request so a replaced junction cannot escape the session workspace.
 export class PanelMediaRegistry {
-  private grants = new Map<string, { owner: number; root: string; file: string }>();
+  private grants = new Map<
+    string,
+    { owner: number; root: string; file: string; referenceFile?: string }
+  >();
 
-  grant(owner: number, root: string, file: string): string {
+  grant(owner: number, root: string, file: string, referenceFile?: string): string {
     for (const [token, item] of this.grants)
-      if (item.owner === owner && item.root === root && item.file === file)
+      if (
+        item.owner === owner &&
+        item.root === root &&
+        item.file === file &&
+        item.referenceFile === referenceFile
+      )
         return `${MEDIA_SCHEME}://preview/${token}`;
     const token = randomUUID();
-    this.grants.set(token, { owner, root, file });
+    this.grants.set(token, { owner, root, file, referenceFile });
     return `${MEDIA_SCHEME}://preview/${token}`;
   }
 
@@ -34,7 +42,11 @@ export class PanelMediaRegistry {
         ? this.grants.get(parsed.pathname.slice(1))
         : undefined;
     if (!item) throw new Error('Media preview expired');
-    const file = await panelPath(item.root, item.file);
+    const file = item.referenceFile
+      ? (await resolvePanelReference(item.root, item.file)).file
+      : await panelPath(item.root, item.file);
+    if (item.referenceFile && file !== item.referenceFile)
+      throw new Error('Media reference changed');
     const stat = await fs.stat(file);
     const media = panelMedia(file, stat.size);
     if (!stat.isFile() || !media) throw new Error('Unsupported media file');

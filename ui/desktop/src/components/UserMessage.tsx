@@ -11,6 +11,8 @@ import { Button } from './ui/button';
 import { defineMessages, useIntl } from '../i18n';
 import type { MessageEditType } from '../types/turnTerminal';
 import type { SessionType } from '../types/session';
+import { isLargeText, useCompactTextInput } from './pastedText';
+import { PastedTextPreview } from './PastedTextPreview';
 
 const i18n = defineMessages({
   pending: { id: 'userMessage.pending', defaultMessage: 'Waiting to send' },
@@ -94,6 +96,7 @@ export default function UserMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
+  const compactEdit = useCompactTextInput(editContent);
   const [error, setError] = useState<string | null>(null);
 
   const { textContent, imagePaths } = getTextAndImageContent(message);
@@ -131,11 +134,11 @@ export default function UserMessage({
   }, [canEdit, isEditing, initializeEditMode]);
 
   // Handle content changes in edit mode
-  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = compactEdit.prefix + e.target.value;
     setEditContent(newContent);
     setError(null); // Clear any previous errors
-  }, []);
+  };
 
   const handleSave = useCallback(() => {
     if (!canEdit) return;
@@ -178,7 +181,7 @@ export default function UserMessage({
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
-  }, [editContent, isEditing]);
+  }, [compactEdit.editorValue, isEditing]);
 
   if (message.metadata.scheduled)
     return (
@@ -200,9 +203,18 @@ export default function UserMessage({
         {isEditing && canEdit ? (
           // Truly wide, centered, in-place edit box replacing the bubble
           <div className="w-full max-w-4xl mx-auto text-text-primary rounded-xl border border-border-primary shadow-lg py-4 px-4 my-2 transition-all duration-200 ease-in-out">
+            {compactEdit.prefix && (
+              <PastedTextPreview
+                text={compactEdit.prefix}
+                onRemove={() => {
+                  compactEdit.collapse('');
+                  setEditContent(compactEdit.editorValue);
+                }}
+              />
+            )}
             <textarea
               ref={textareaRef}
-              value={editContent}
+              value={compactEdit.editorValue}
               onChange={handleContentChange}
               onKeyDown={handleKeyDown}
               className="w-full resize-none bg-transparent text-text-primary placeholder:text-text-secondary border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200 text-base leading-relaxed"
@@ -255,12 +267,22 @@ export default function UserMessage({
             <div className="flex-col max-w-[85%] w-fit">
               <div className="flex flex-col group">
                 {textContent.trim() && (
-                  <div className="flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4">
+                  <div
+                    className={
+                      isLargeText(textContent)
+                        ? 'flex min-w-0 text-text-primary'
+                        : 'flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4'
+                    }
+                  >
                     <div>
-                      <MarkdownContent
-                        content={textContent}
-                        className="!text-inherit prose-a:!text-inherit prose-headings:!text-inherit prose-strong:!text-inherit prose-em:!text-inherit prose-li:!text-inherit prose-p:!text-inherit user-message"
-                      />
+                      {isLargeText(textContent) ? (
+                        <PastedTextPreview text={textContent} />
+                      ) : (
+                        <MarkdownContent
+                          content={textContent}
+                          className="!text-inherit prose-a:!text-inherit prose-headings:!text-inherit prose-strong:!text-inherit prose-em:!text-inherit prose-li:!text-inherit prose-p:!text-inherit user-message"
+                        />
+                      )}
                     </div>
                   </div>
                 )}

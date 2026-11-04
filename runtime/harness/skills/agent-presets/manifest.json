@@ -1,0 +1,182 @@
+[
+  {
+    "name": "codebuddy-debug",
+    "upstreamName": "debug",
+    "title": "排查与修复",
+    "description": "Structured debugging session — reproduce, isolate, diagnose, and fix. Trigger with an error message or stack trace, \"this works in staging but not prod\", \"something broke after the deploy\", or when behavior diverges from expected and the cause isn't obvious.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-debug/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/engineering/skills/debug"
+  },
+  {
+    "name": "codebuddy-code-review",
+    "upstreamName": "code-review",
+    "title": "代码审查",
+    "description": "Review code changes for security, performance, and correctness. Trigger with a PR URL or diff, \"review this before I merge\", \"is this code safe?\", or when checking a change for N+1 queries, injection risks, missing edge cases, or error handling gaps.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-code-review/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/engineering/skills/code-review"
+  },
+  {
+    "name": "codebuddy-testing-strategy",
+    "upstreamName": "testing-strategy",
+    "title": "测试策略",
+    "description": "Design test strategies and test plans. Trigger with \"how should we test\", \"test strategy for\", \"write tests for\", \"test plan\", \"what tests do we need\", or when the user needs help with testing approaches, coverage, or test architecture.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-testing-strategy/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/engineering/skills/testing-strategy"
+  },
+  {
+    "name": "codebuddy-write-spec",
+    "upstreamName": "write-spec",
+    "title": "需求规格",
+    "description": "Write a feature spec or PRD from a problem statement or feature idea. Use when turning a vague idea or user request into a structured document, scoping a feature with goals and non-goals, defining success metrics and acceptance criteria, or breaking a big ask into a phased spec.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-write-spec/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/product-management/skills/write-spec"
+  },
+  {
+    "name": "codebuddy-explore-data",
+    "upstreamName": "explore-data",
+    "title": "数据探索",
+    "description": "Profile and explore a dataset to understand its shape, quality, and patterns. Use when encountering a new table or file, checking null rates and column distributions, spotting data quality issues like duplicates or suspicious values, or deciding which dimensions and metrics to analyze.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-explore-data/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/explore-data"
+  },
+  {
+    "name": "codebuddy-validate-data",
+    "upstreamName": "validate-data",
+    "title": "分析校验",
+    "description": "QA an analysis before sharing -- methodology, accuracy, and bias checks. Use when reviewing an analysis before a stakeholder presentation, spot-checking calculations and aggregation logic, verifying a SQL query's results look right, or assessing whether conclusions are actually supported by the data.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-validate-data/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/validate-data"
+  },
+  {
+    "name": "codebuddy-content-creation",
+    "upstreamName": "content-creation",
+    "title": "内容创作",
+    "description": "Draft marketing content across channels — blog posts, social media, email newsletters, landing pages, press releases, and case studies. Use when writing any marketing content, when you need channel-specific formatting, SEO-optimized copy, headline options, or calls to action.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": false
+    },
+    "file": "codebuddy-content-creation/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/marketing/skills/content-creation"
+  },
+  {
+    "name": "codebuddy-frontend-design",
+    "upstreamName": "frontend-design",
+    "title": "界面设计",
+    "description": "Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-frontend-design/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/skills/tree/ca45fc496a3436251f191354091d557da31c15b5/skills/frontend-design"
+  },
+  {
+    "name": "codebuddy-design-critique",
+    "upstreamName": "design-critique",
+    "title": "界面评审",
+    "description": "评审现有界面或设计稿的任务流程、信息层级与一致性，按影响给出具体建议。适合评审和改进方案，不要求重做视觉风格。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-design-critique/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/design/skills/design-critique"
+  },
+  {
+    "name": "codebuddy-design-system",
+    "upstreamName": "design-system",
+    "title": "设计系统",
+    "description": "检查、记录或扩展已有设计令牌与组件规范，处理状态、命名、复用和一致性；不为一次小改动建立整套系统。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-design-system/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/design/skills/design-system"
+  },
+  {
+    "name": "codebuddy-design-handoff",
+    "upstreamName": "design-handoff",
+    "title": "设计交付",
+    "description": "把已确定的界面方案整理为前端可实现的布局、状态、交互与响应式规格。适合设计交接，不替代用户需求决策。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-design-handoff/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/design/skills/design-handoff"
+  },
+  {
+    "name": "codebuddy-ux-copy",
+    "upstreamName": "ux-copy",
+    "title": "交互文案",
+    "description": "撰写或评审按钮、错误提示、空状态及确认对话框文案，结合真实操作结果与用户场景保持清晰、一致。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-ux-copy/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/design/skills/ux-copy"
+  },
+  {
+    "name": "codebuddy-synthesize-research",
+    "upstreamName": "synthesize-research",
+    "title": "研究归纳",
+    "description": "从已有访谈、反馈和调查材料提炼主题、证据与产品建议，保留来源、重复、分歧和不确定性。没有研究材料时不编造发现。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-synthesize-research/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/product-management/skills/synthesize-research"
+  },
+  {
+    "name": "codebuddy-data-visualization",
+    "upstreamName": "data-visualization",
+    "title": "数据可视化",
+    "description": "当图表有助于回答数据问题时，选择图形、标注单位与口径，提供可复查的静态或交互图表；简单数字回答不强制绘图。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": false
+    },
+    "file": "codebuddy-data-visualization/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/data/skills/data-visualization"
+  },
+  {
+    "name": "codebuddy-brand-review",
+    "upstreamName": "brand-review",
+    "title": "文案校验",
+    "description": "检查稿件的品牌语气、术语一致性及缺乏依据的承诺，提供具体修改。无品牌指南时做通用清晰度和事实声明检查。",
+    "invocation": {
+      "modelInvocable": true,
+      "userInvocable": true
+    },
+    "file": "codebuddy-brand-review/SKILL.md",
+    "sourceUrl": "https://github.com/anthropics/knowledge-work-plugins/tree/2574e29377c7173d0cecffef29a6ecbd7f8ccb5d/marketing/skills/brand-review"
+  }
+]

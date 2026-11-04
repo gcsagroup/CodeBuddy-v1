@@ -525,6 +525,20 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       };
     }, [loadSessions, debouncedSearchTerm]);
 
+    useEffect(() => {
+      const refreshSessions = () => {
+        void loadSessions(debouncedSearchTerm);
+      };
+      window.addEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+      window.addEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
+      window.addEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+      return () => {
+        window.removeEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
+        window.removeEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
+        window.removeEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+      };
+    }, [loadSessions, debouncedSearchTerm]);
+
     // Hide Nostr sharing when explicitly disabled via env var (restricted/enterprise bundles)
     useEffect(() => {
       const config = window.electron.getConfig();
@@ -608,7 +622,6 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
             await acpArchiveSession(session.id);
             toast.success(intl.formatMessage(i18n.archiveSuccess));
           }
-          await loadSessions();
         } catch (error) {
           toast.error(
             intl.formatMessage(i18n.archiveFailed, {
@@ -619,7 +632,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           setArchivingSessionId(null);
         }
       },
-      [intl, loadSessions]
+      [intl]
     );
 
     const handleDuplicateSession = useCallback(

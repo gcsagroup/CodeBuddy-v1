@@ -515,7 +515,12 @@ it.each(['keyboard', 'menu'] as const)(
       act(() => find?.[1]({} as IpcRendererEvent));
     }
     expect(screen.getByText('Search all history')).toBeVisible();
-    fireEvent.keyDown(screen.getByPlaceholderText('Search conversation...'), {
+    const searchInput = screen.getByPlaceholderText('Search conversation...');
+    expect(searchInput).toHaveFocus();
+    expect(
+      screen.getByRole('heading', { name: 'Saved history' }).closest('header')
+    ).toContainElement(searchInput);
+    fireEvent.keyDown(searchInput, {
       key: 'Escape',
     });
     await waitFor(() => expect(screen.getByText('Recent history')).toBeVisible());

@@ -2,6 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workStatusUpdates } from '../work-status.mjs';
 
+test('length and context failures retain their cause and child recovery is scoped', () => {
+  for (const [code, text] of [['OUTPUT_LIMIT_REACHED', '输出长度限制'], ['OUTPUT_TRUNCATED', '提前截断'], ['LOCAL_OUTPUT_BUDGET_EXHAUSTED', '上下文']]) {
+    const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+    const updates = project({ type: 'harness_event', sessionId: 'parent', event: { type: 'turn/end', data: { reason: { kind: 'error', error: { code } } } } });
+    assert.ok(updates[0].status.message.includes(text));
+    assert.doesNotMatch(updates[0].status.message, /原因尚未确认/);
+  }
+  const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+  assert.match(project({ type: 'output_recovery', sessionId: 'child' })[0].status.message, /^子任务：/);
+});
+
+test('output recovery progress consumes the host count and limit, including legacy limits', () => {
+  for (const limit of [1, 2]) {
+    const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
+    const update = project({ type: 'output_recovery', sessionId: 'parent', attempt: limit, maxAutomaticAttempts: limit });
+    assert.match(update[0].status.message, new RegExp(`\\(${limit}/${limit}\\)|（${limit}/${limit}）`));
+  }
+});
+
 test('native activity reconciles missing call results while preserving parallel calls and ignoring children', () => {
   const project = workStatusUpdates({ sessionId: 'parent', sourceMessageId: 'input', runId: 'run' });
   const active = event => project({ sessionId: 'parent', ...event })[0]?.status.data.active_tool_call_ids;

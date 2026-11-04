@@ -133,6 +133,7 @@ export default function BaseChat({
   const [savingModeSessionId, setSavingModeSessionId] = useState<string>();
   const [permissionOpenRequest, setPermissionOpenRequest] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
+  const [searchBarContainer, setSearchBarContainer] = useState<HTMLDivElement | null>(null);
   const modeSaving = savingModeSessionId === sessionId;
   const isMobile = useIsMobile();
   const navContext = useNavigationContextSafe();
@@ -687,17 +688,18 @@ export default function BaseChat({
         {conversationLayout && !renderHeader && (
           <header className="flex h-12 shrink-0 items-center gap-3 px-6 pr-16 pl-[var(--navigation-toolbar-inset,3.5rem)]">
             <h1
-              className="min-w-0 truncate text-base font-medium text-text-primary"
+              className="min-w-0 flex-1 truncate text-base font-medium text-text-primary"
               title={session?.name}
             >
               {displayTitle}
             </h1>
+            <div
+              ref={setSearchBarContainer}
+              className="ml-auto w-[min(20rem,70%)] shrink-0 empty:hidden"
+            />
           </header>
         )}
 
-        {session?.agent_profile && <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-full border border-border-primary px-4 py-1 text-sm text-text-secondary" title={session.model_config?.model_name}>
-          <span>{session.agent_profile.name}</span>
-        </div>}
         {workspaceReconfirmation && (
           <div className="mx-auto w-full max-w-2xl px-6">
             <CodeProWorkspaceReconfirmation
@@ -727,12 +729,14 @@ export default function BaseChat({
 
           <ScrollArea
             ref={scrollRef}
-            className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-6 pt-3' : contentClassName}`}
+            className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-2 pt-1' : contentClassName}`}
             autoScroll
             onBottomChange={setAtLatest}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
+            data-conversation-scroll=""
+            data-more-below={!atLatest}
             paddingX={6}
             paddingY={0}
           >
@@ -761,7 +765,12 @@ export default function BaseChat({
                     conversationLayout && 'mx-auto w-full max-w-[52rem]'
                   )}
                 >
-                  <SearchView onVisibilityChange={setSearchActive}>
+                  <SearchView
+                    active={isActiveSession}
+                    onVisibilityChange={setSearchActive}
+                    searchBarContainer={searchBarContainer}
+                    showNavigation
+                  >
                     <ProgressiveMessageList
                       searchActive={searchActive}
                       messages={presentedHistory}
@@ -803,7 +812,7 @@ export default function BaseChat({
                   </SearchView>
                 </div>
 
-                <div className="block h-8" />
+                <div className={conversationLayout ? 'block h-4' : 'block h-8'} />
               </>
             ) : null}
           </ScrollArea>
@@ -820,10 +829,14 @@ export default function BaseChat({
               type="button"
               aria-label={intl.formatMessage(i18n.latest)}
               title={intl.formatMessage(i18n.latest)}
-              className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               onClick={() => scrollRef.current?.scrollToBottom()}
             >
-              <ArrowDown className="size-5" strokeWidth={1.75} aria-hidden="true" />
+              <ArrowDown
+                className="size-[17px] translate-x-[0.5px]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             </button>
           )}
           {atLatest &&

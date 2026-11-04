@@ -26,6 +26,16 @@ describe('MentionPopover while the workspace is unbound', () => {
     window.electron.listFiles = vi.fn().mockResolvedValue([]);
   });
 
+  it('uses the shared command catalog for the add menu and keeps control-only actions in slash commands', async () => {
+    render(<MentionPopover isOpen addOnly isSlashCommand onClose={vi.fn()} onSelect={vi.fn()}
+      anchorRef={anchorRef} query="" selectedIndex={0} onSelectedIndexChange={vi.fn()} workingDir="" />,
+    { wrapper: IntlTestWrapper });
+    expect(await screen.findByRole('option', { name: /Custom agent/ })).toBeVisible();
+    expect(screen.getByRole('option', { name: /^File/ })).toBeVisible();
+    expect(screen.queryByRole('option', { name: /Export conversation/ })).not.toBeInTheDocument();
+    expect(document.body.querySelector('[data-composer-menu="add"]')).toHaveClass('composer-menu-surface');
+  });
+
   it('shows Toolbox skills, MCP and built-in tools even when slash discovery is pending', async () => {
     vi.mocked(listSlashCommandItems).mockReturnValueOnce(new Promise(() => {}));
     const mcp = {
@@ -183,7 +193,7 @@ it('follows an open menu through window and pane layout changes and stops observ
     return 7;
   });
   const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
-  let rect = new window.DOMRect(200, 400, 300, 20);
+  let rect = new window.DOMRect(200, 400, 600, 20);
   vi.spyOn(anchorRef.current, 'getBoundingClientRect').mockImplementation(() => rect);
   const view = render(
     <MentionPopover
@@ -199,15 +209,15 @@ it('follows an open menu through window and pane layout changes and stops observ
     />,
     { wrapper: IntlTestWrapper }
   );
-  const menu = view.container.firstElementChild;
-  expect(menu).toHaveStyle({ left: '200px', top: '390px', width: '300px' });
-  rect = new window.DOMRect(80, 250, 240, 20);
+  const menu = document.body.querySelector('[data-composer-menu]');
+  expect(menu).toHaveStyle({ left: '200px', top: '390px', width: '420px' });
+  rect = new window.DOMRect(80, 250, 400, 20);
   act(() => nextFrame(16));
-  expect(menu).toHaveStyle({ left: '80px', top: '240px', width: '240px' });
+  expect(menu).toHaveStyle({ left: '80px', top: '240px', width: '280px' });
   // A panel can move the anchor without a viewport resize or new typed input.
-  rect = new window.DOMRect(160, 290, 240, 20);
+  rect = new window.DOMRect(160, 290, 400, 20);
   act(() => nextFrame(32));
-  expect(menu).toHaveStyle({ left: '160px', top: '280px', width: '240px' });
+  expect(menu).toHaveStyle({ left: '160px', top: '280px', width: '280px' });
   view.unmount();
   expect(cancel).toHaveBeenCalledWith(7);
 });

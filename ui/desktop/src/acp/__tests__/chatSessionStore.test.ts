@@ -2563,3 +2563,32 @@ it('admits a new native scheduled turn after a completed human turn and does not
   expect(JSON.stringify(late.messages)).not.toContain('MUST_NOT_REOPEN');
   expect(late.messages.filter((message) => message.id === 'native-source')).toHaveLength(1);
 });
+
+it('retains capacity provenance across partial usage updates, but never carries it to a different capacity', () => {
+  const id = 'capacity-source-partial';
+  acpChatSessionActions.setMessages(id, []);
+  const initialUpdate = {
+    sessionUpdate: 'usage_update' as const,
+    used: 100,
+    contextLimit: 262144,
+    accumulatedInputTokens: 100,
+    accumulatedOutputTokens: 0,
+    _meta: { harness: { source: 'provider_actual', contextSource: 'fallback' } },
+  };
+  acpChatSessionActions.applyAcpGooseSessionNotification({ sessionId: id, update: initialUpdate });
+  const update = (limit: number) =>
+    acpChatSessionActions.applyAcpGooseSessionNotification({
+      sessionId: id,
+      update: {
+        sessionUpdate: 'usage_update',
+        used: 200,
+        contextLimit: limit,
+        accumulatedInputTokens: 200,
+        accumulatedOutputTokens: 0,
+      },
+    });
+  update(262144);
+  expect(acpChatSessionStore.getSnapshot(id)?.tokenState.contextCapacitySource).toBe('fallback');
+  update(1048576);
+  expect(acpChatSessionStore.getSnapshot(id)?.tokenState.contextCapacitySource).toBeUndefined();
+});

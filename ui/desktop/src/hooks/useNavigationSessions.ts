@@ -12,8 +12,8 @@ import {
   sessionTypeMatchesWorkspace,
   type SessionListItem,
 } from '../acp/sessions';
-import { groupSessionsByProject } from '../utils/projectSessions';
-import { withWorkspaceMode } from '../utils/navigationUtils';
+import { groupNavigationSessions } from '../utils/projectSessions';
+import { createNavigationHandler, withWorkspaceMode } from '../utils/navigationUtils';
 import { isCodeProUnifiedModeEnabled } from '../codepro/unifiedMode';
 
 const MAX_RECENT_SESSIONS = 25;
@@ -53,6 +53,13 @@ export function sessionToListItem(s: Session): SessionListItem {
     modelId: s.model_config?.model_name ?? undefined,
     userSetName: s.user_set_name ?? undefined,
     hasRecipe: !!s.recipe,
+    sessionType: s.session_type,
+    workspaceBinding: s.extension_data.workspaceBinding as SessionListItem['workspaceBinding'],
+    workspaceOrigin:
+      s.extension_data.workspaceOrigin === 'default' ||
+      s.extension_data.workspaceOrigin === 'selected'
+        ? s.extension_data.workspaceOrigin
+        : undefined,
   };
 }
 
@@ -68,9 +75,11 @@ export function useNavigationSessions() {
   );
 
   const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
-  const recentSessionsByProject = useMemo(
-    () => groupSessionsByProject(recentSessions),
-    [recentSessions]
+  const defaultRoot = window.appConfig?.get('CODEBUDDY_WORKSPACE_ROOT');
+  const { tasks: recentTaskSessions, projects: recentSessionsByProject } = useMemo(
+    () =>
+      groupNavigationSessions(recentSessions, typeof defaultRoot === 'string' ? defaultRoot : ''),
+    [recentSessions, defaultRoot]
   );
   const lastSessionIdRef = useRef<string | null>(null);
 
@@ -98,14 +107,18 @@ export function useNavigationSessions() {
   useEffect(() => {
     if (!activeSessionId) return;
     if (recentSessions.some((s) => s.id === activeSessionId)) return;
-
+    let disposed = false;
     acpGetSessionListItem(activeSessionId)
       .then((item) => {
+        if (disposed || item.archivedAt) return;
         setRecentSessions((prev) => prependUnique(prev, item));
       })
       .catch((error) => {
         console.error('Failed to fetch active session:', error);
       });
+    return () => {
+      disposed = true;
+    };
   }, [activeSessionId, recentSessions]);
 
   useEffect(() => {
@@ -155,6 +168,20 @@ export function useNavigationSessions() {
       pollingTimeouts.forEach(clearTimeout);
     };
   }, [sessionWorkspaceMode]);
+
+  useEffect(() => {
+    const archived = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+      setRecentSessions((previous) => previous.filter((session) => session.id !== sessionId));
+      void fetchSessions();
+    };
+    window.addEventListener(AppEvents.SESSION_ARCHIVED, archived);
+    window.addEventListener(AppEvents.SESSION_UNARCHIVED, fetchSessions);
+    return () => {
+      window.removeEventListener(AppEvents.SESSION_ARCHIVED, archived);
+      window.removeEventListener(AppEvents.SESSION_UNARCHIVED, fetchSessions);
+    };
+  }, [fetchSessions]);
 
   useEffect(() => {
     let fetchVersion = 0;
@@ -209,6 +236,8 @@ export function useNavigationSessions() {
         } else {
           navigate(withWorkspaceMode('/', workspaceMode));
         }
+      } else if (path === '/custom-agents') {
+        createNavigationHandler(navigate, workspaceMode, location)('custom-agents');
       } else if (path === '/toolbox') {
         const sessionId = activeSessionId || new URLSearchParams(location.search).get('sessionId');
         navigate(withWorkspaceMode(`${path}${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`, workspaceMode));
@@ -218,7 +247,10 @@ export function useNavigationSessions() {
         });
       } else if (path === '/schedules') {
         navigate(withWorkspaceMode(path, workspaceMode), {
-          state: { scheduleSessionId: currentSessionId || lastSessionIdRef.current || chatContext?.chat?.sessionId },
+          state: {
+            scheduleSessionId:
+              currentSessionId || lastSessionIdRef.current || chatContext?.chat?.sessionId,
+          },
         });
       } else {
         navigate(withWorkspaceMode(path, workspaceMode));
@@ -238,6 +270,7 @@ export function useNavigationSessions() {
 
   return {
     recentSessions,
+    recentTaskSessions,
     recentSessionsByProject,
     activeSessionId,
     fetchSessions,

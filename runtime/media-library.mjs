@@ -84,6 +84,7 @@ async function scanMediaLibrary(dataDir, sessions, deleted = []) {
               sessionName: session.name || session.title || session.id, root: workspace,
               kind: mediaKind, path: output.path, filename: path.basename(output.path), available,
               createdAt: new Date(job.created_at).toISOString(),
+              displayName: typeof job.display_name === 'string' ? job.display_name.trim().slice(0, 160) : '',
               prompt: typeof job.input?.prompt === 'string' ? job.input.prompt.slice(0, 12000) : '',
             });
           }
@@ -106,7 +107,7 @@ export async function readMediaLibrary(dataDir, sessions, query = {}, deleted = 
   const needle = search.trim().toLocaleLowerCase();
   const filtered = items.filter(item => (kind === 'all' || item.kind === kind) &&
     (!project || item.root === project) && (!needle ||
-      [item.prompt, item.sessionName, item.root, item.filename].some(value => value.toLocaleLowerCase().includes(needle))))
+      [item.displayName, item.prompt, item.sessionName, item.root, item.filename].some(value => value.toLocaleLowerCase().includes(needle))))
     .sort((a, b) => view === 'workspace' && a.root !== b.root ? (a.root < b.root ? -1 : 1) : orderKey(a) < orderKey(b) ? 1 : orderKey(a) > orderKey(b) ? -1 : 0);
   let remaining = filtered;
   if (cursor) {

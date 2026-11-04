@@ -221,6 +221,7 @@ export default function ModelsBottomBar({
                 presentation="slider"
                 modelLabel={getModelDisplayName(currentModel)}
                 onSelectModel={() => setOpen(true)}
+                modelMenuOpen={open}
                 disabled={!!switching}
                 triggerContent={
                   <>
@@ -229,7 +230,7 @@ export default function ModelsBottomBar({
                     ) : (
                       <Bot className="size-4 shrink-0" aria-hidden="true" />
                     )}
-                    <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
+                    <span className="min-w-0 max-w-44 truncate @max-[20rem]/composer:hidden">
                       {getModelDisplayName(currentModel)}
                     </span>
                   </>
@@ -252,7 +253,7 @@ export default function ModelsBottomBar({
               ) : (
                 <Bot className="size-4 shrink-0" aria-hidden="true" />
               )}
-              <span className="truncate group-data-[compact=true]/composer-toolbar:hidden">
+              <span className="min-w-0 max-w-44 truncate @max-[20rem]/composer:hidden">
                 {loadingSession
                   ? intl.formatMessage(i18n.loading)
                   : currentModel
@@ -261,7 +262,7 @@ export default function ModelsBottomBar({
               </span>
               <DropdownChevron
                 open={open}
-                className="size-3 shrink-0 group-data-[compact=true]/composer-toolbar:hidden"
+                className="size-3 shrink-0"
               />
             </button>
           </Popover.Trigger>
@@ -274,7 +275,7 @@ export default function ModelsBottomBar({
             sideOffset={8}
             collisionPadding={12}
             data-model-picker-list
-            className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(17.6rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-border-primary bg-background-primary p-[5px] text-text-primary shadow-md"
+            className="composer-menu-surface z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(17.6rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-border-primary p-[5px] text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <input

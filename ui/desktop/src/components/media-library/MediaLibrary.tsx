@@ -19,6 +19,7 @@ interface Asset {
   available: boolean;
   sizeBytes?: number;
   createdAt: string;
+  displayName?: string;
   prompt: string;
 }
 interface LibraryPage {
@@ -41,6 +42,7 @@ export function formatBytes(value?: number) {
   return `${(value / 1024 ** (exponent + 1)).toFixed(1)} ${units[exponent]}`;
 }
 function AssetCard({ asset, selected, editing, disabled, onSelect, onEnter }: { asset: Asset; selected: boolean; editing: boolean; disabled: boolean; onSelect: () => void; onEnter: () => void }) {
+  const title = asset.displayName || asset.prompt || asset.filename;
   const navigate = useNavigation();
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const origin = useRef({ x: 0, y: 0 });
@@ -80,7 +82,7 @@ function AssetCard({ asset, selected, editing, disabled, onSelect, onEnter }: { 
     } catch { setActionError(true); }
   };
   return (
-    <article ref={container} tabIndex={0} aria-label={t('Media: ', '素材：', '素材：') + (asset.prompt || asset.filename)}
+    <article ref={container} tabIndex={0} aria-label={t('Media: ', '素材：', '素材：') + title}
       className={`overflow-hidden rounded-xl border bg-background-primary outline-offset-2 ${selected ? 'border-text-primary ring-2 ring-text-primary' : 'border-border-primary'}`}
       onPointerDown={event => {
         suppressClick.current = false;
@@ -102,11 +104,11 @@ function AssetCard({ asset, selected, editing, disabled, onSelect, onEnter }: { 
       }}>
 
       <div className="flex items-center justify-between gap-2 px-4 py-2 text-xs text-text-secondary">
-        {editing ? <span className="flex items-center gap-2"><input type="checkbox" aria-label={t('Select ', '选择 ', '選擇 ') + (asset.prompt || asset.filename)} checked={selected} disabled={disabled} onChange={onSelect} />{t('Select', '选择', '選擇')}</span> : <span>{asset.kind === 'image' ? t('Image', '图片', '圖片') : t('Video', '视频', '影片')}</span>}
+        {editing ? <span className="flex items-center gap-2"><input type="checkbox" aria-label={t('Select ', '选择 ', '選擇 ') + title} checked={selected} disabled={disabled} onChange={onSelect} />{t('Select', '选择', '選擇')}</span> : <span>{asset.kind === 'image' ? t('Image', '图片', '圖片') : t('Video', '视频', '影片')}</span>}
         <span>{formatBytes(asset.sizeBytes)}</span>
       </div>
       <div className="flex h-52 items-center justify-center overflow-hidden bg-background-secondary p-2">
-        {media ? <WorkspaceMedia media={media} title={asset.prompt || asset.filename} /> : (
+        {media ? <WorkspaceMedia media={media} title={title} /> : (
           <p className="p-4 text-sm text-text-secondary" role="status">
             {!asset.available || error
               ? t('File unavailable. It may have been moved or deleted.', '文件不可用，可能已移动或删除。', '檔案無法使用，可能已移動或刪除。')
@@ -119,7 +121,7 @@ function AssetCard({ asset, selected, editing, disabled, onSelect, onEnter }: { 
           <span>{asset.kind === 'image' ? t('Image', '图片', '圖片') : t('Video', '视频', '影片')}</span>
           <time dateTime={asset.createdAt}>{new Date(asset.createdAt).toLocaleString()}</time>
         </div>
-        <p className="line-clamp-2 text-sm" title={asset.prompt}>{asset.prompt || asset.filename}</p>
+        <p className="line-clamp-2 text-sm" title={asset.prompt || title}>{title}</p>
         <p className="truncate text-xs text-text-secondary" title={asset.root}>{asset.root}</p>
         <p className="truncate text-xs text-text-secondary" title={asset.sessionName}>{asset.sessionName}</p>
         {actionError && <p role="alert" className="text-xs">{t('Could not open the file location.', '无法打开文件位置。', '無法開啟檔案位置。')}</p>}
@@ -188,8 +190,9 @@ export function MediaLibrary() {
     finally { if (generation === request.current) setLoading(false); }
   }, [kind, project, query, view]);
   useEffect(() => {
+    const activeRequest = request;
     void load();
-    return () => { request.current++; };
+    return () => { activeRequest.current++; };
   }, [load]);
   const toggle = (id: string) => setSelected(previous => {
     const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next;
@@ -308,7 +311,7 @@ export function MediaLibrary() {
           <h2 id="delete-media-title" className="text-lg font-semibold">{t('Delete selected media?', '删除选中的素材？', '刪除選取的素材？')}</h2>
           <p className="my-3 text-sm">{confirmation.length} · {formatBytes(confirmation.reduce((total, item) => total + (item.sizeBytes ?? 0), 0))}</p>
           <p className="text-sm">{t('Permanently delete these generated files and remove them from the library. This cannot be undone. Chats and workspaces are kept. Missing files are removed from this list only.', '将永久删除这些生成文件并从素材库移除，无法撤销。对话和工作区保留；已缺失的文件仅移除列表记录。', '將永久刪除這些產生檔案並從素材庫移除，無法復原。對話和工作區保留；已缺失檔案僅移除清單記錄。')}</p>
-          <ul className="my-4 max-h-48 overflow-auto text-xs text-text-secondary">{confirmation.map(item => <li key={item.id} className="mb-2 break-all"><span className="line-clamp-2">{item.prompt || item.filename}</span><span>{item.path}</span></li>)}</ul>
+          <ul className="my-4 max-h-48 overflow-auto text-xs text-text-secondary">{confirmation.map(item => <li key={item.id} className="mb-2 break-all"><span className="line-clamp-2">{item.displayName || item.prompt || item.filename}</span><span>{item.path}</span></li>)}</ul>
           {deleteError && <p role="alert" className="mb-3 text-sm">{deleteError}</p>}
           <div className="flex justify-end gap-3"><button autoFocus className={buttonClass} disabled={deleting} onClick={() => setConfirmation(undefined)}>{t('Cancel', '取消', '取消')}</button><button className={buttonClass} disabled={deleting} onClick={() => void deleteSelected()}>{deleting ? t('Deleting…', '删除中…', '刪除中…') : t('Permanently delete', '永久删除', '永久刪除')}</button></div>
         </div>

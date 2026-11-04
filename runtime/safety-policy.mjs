@@ -29,7 +29,9 @@ export class SafetyPolicy {
   }
 
   async configuration() {
-    const config = this.store.read().config ?? {};
+    // Shell approval needs configuration, never a clone of historical messages
+    // and image/tool payloads from every unrelated conversation.
+    const config = this.store.read(['config']).config ?? {};
     const enabled = override(this.overrides.promptEnabled) ?? boolean(configValue(config, 'SECURITY_PROMPT_ENABLED'));
     if (!enabled) return { enabled: false };
     const threshold = configValue(config, 'SECURITY_PROMPT_THRESHOLD') ?? 0.8;

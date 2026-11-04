@@ -7,6 +7,7 @@ import { openStore } from '../store.mjs';
 import { RuntimeSettings, validatePreference } from '../settings.mjs';
 import { listAvailableBuiltins } from '../builtin-extensions.mjs';
 import { driverProvider } from '../providers.mjs';
+import { Compat } from '../compat.mjs';
 import { zGetConfigExtensionsResponse_unstable, zCodeProModelRoutingReadResponse_unstable, zListPromptsResponse_unstable, zModelCapabilityResolveResponse_unstable } from '../../ui/sdk/src/generated/zod.gen.ts';
 
 async function fixture(t) {
@@ -48,6 +49,50 @@ test('per-model context capacity persists, clears, validates atomically and is n
   assert.equal((await driverProvider(f.store.read().providers[0],'two')).contextSource,'fallback');
   assert.equal(JSON.parse((await reopened.request('providers/config/read',{providerId:'capacity'})).fields.find(x=>x.key==='contextWindow:one').value).contextSource,'fallback');
 });
+test('per-model output budgets persist, clear and validate independently of capacity and thinking', async t => {
+  const f = await fixture(t);
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: [
+    { id: 'one', max_output_tokens: 131072 }, { id: 'two', max_output_tokens: 32768 },
+  ] }), { headers: { 'content-type': 'application/json' } }));
+  await f.store.update(state => state.providers.push({ id: 'output-budget', engine: 'openai_compatible',
+    apiUrl: 'https://output-budget-fixture.invalid/v1', models: ['one', 'two'], requiresAuth: false,
+    thinkingEfforts: { one: 'high' } }));
+  const save = fields => f.settings.request('providers/config/save', { providerId: 'output-budget', fields });
+  await save([{ key: 'maxTokens:one', value: '65536' }]);
+  const configured = await driverProvider(f.store.read().providers[0], 'one');
+  assert.equal(configured.requestMaxTokens, 65536);
+  assert.equal(configured.outputTokenCapacity, 131072, 'a request limit does not replace declared capacity');
+  assert.equal((await driverProvider(f.store.read().providers[0], 'two')).requestMaxTokens, undefined);
+  await assert.rejects(save([{ key: 'maxTokens:one', value: '1024' }, { key: 'maxTokens:two', value: '65536' }]), /capacity/);
+  await assert.rejects(save([{ key: 'maxTokens:one', value: '1.5' }]), /positive integer/);
+  await assert.rejects(save([{ key: 'maxTokens:missing', value: '1024' }]), /Unknown model/);
+  assert.deepEqual(f.store.read().providers[0].outputBudgets, { one: 65536 });
+  await f.store.flush();
+  const reopenedStore = await openStore(f.dir);
+  const reopened = new RuntimeSettings(reopenedStore);
+  const fields = (await reopened.request('providers/config/read', { providerId: 'output-budget' })).fields;
+  assert.equal(JSON.parse(fields.find(field => field.key === 'maxTokens:one').value).configured, 65536);
+  await reopened.request('providers/config/save', { providerId: 'output-budget', fields: [], clearFields: ['maxTokens:one'] });
+  assert.equal((await driverProvider(reopenedStore.read().providers[0], 'one')).requestMaxTokens, undefined);
+  assert.deepEqual(reopenedStore.read().providers[0].thinkingEfforts, { one: 'high' });
+});
+
+test('editing idle model budgets and metadata preserves live capability-owned approvals', async t => {
+  const f = await fixture(t);
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: [{ id: 'one' }] }), { headers: { 'content-type': 'application/json' } }));
+  await f.store.update(state => state.providers.push({ id: 'idle-model', engine: 'openai_compatible',
+    apiUrl: 'https://approval-budget-fixture.invalid/v1', models: ['one'], requiresAuth: false }));
+  const host = new Compat(f.store, {});
+  const owner = {}, permissions = new Map([['fixture-operation', 'allowed-in-this-session']]);
+  host.sessionToolApprovals.set(owner, permissions);
+  host.active.set('other-active-session', {});
+  host.session = () => ({ providerId: 'other-model' });
+  await host.settings.request('providers/config/save', { providerId: 'idle-model', fields: [{ key: 'maxTokens:one', value: '4096' }] });
+  assert.strictEqual(host.sessionToolApprovals.get(owner), permissions);
+  await host.settings.request('model-capabilities/save', { config: { version: 1, overrides: [] } });
+  assert.strictEqual(host.sessionToolApprovals.get(owner), permissions, 'Model metadata does not replace an authorized capability; its registry owns invalidation');
+});
+
 test('extension settings survive restart, protect MCP credentials and update atomically', async t => {
   const f = await fixture(t);
   const extension = { type: 'mcp', description: '本机隔离 MCP 使用统计验收；繁體 🔑', server: { name: 'local_fixture', type: 'http', url: 'http://127.0.0.1:1234/mcp', headers: [{ name: 'Authorization', value: 'Bearer fixture-sensitive-value' }] }, available_tools: ['read'] };

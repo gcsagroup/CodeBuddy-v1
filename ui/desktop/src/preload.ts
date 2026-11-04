@@ -121,6 +121,7 @@ type ElectronAPI = {
   onDesktopFeedbackError: (callback: (message: string) => void) => () => void;
   petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read' | 'pet-message-result', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
+  openPastedText: (text: string) => Promise<{ opened: boolean }>;
   workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
@@ -182,6 +183,9 @@ type ElectronAPI = {
   openNotificationsSettings: () => Promise<boolean>;
   isAnyWindowFocused: () => Promise<boolean>;
   getIsFullScreen: () => Promise<boolean>;
+  getWindowMenu: () => Promise<Array<{ index: number; label: string; enabled: boolean }>>;
+  openWindowMenu: (request: { index: number; x: number; y: number }) => Promise<void>;
+  setWindowTitleBarTheme: (theme: 'light' | 'dark') => void;
   onMouseBackButtonClicked: (callback: () => void) => void;
   offMouseBackButtonClicked: (callback: () => void) => void;
   on: (
@@ -241,11 +245,13 @@ const electronAPI: ElectronAPI = {
     return () => ipcRenderer.removeListener('desktop-control-feedback-error', listener);
   },
   onDesktopControlCancel: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: DesktopControlState) => callback(state);
+    const listener = (_event: Electron.IpcRendererEvent, state: DesktopControlState) =>
+      callback(state);
     ipcRenderer.on('desktop-control-cancel', listener);
     return () => ipcRenderer.removeListener('desktop-control-cancel', listener);
   },
   workspacePanel: (request) => ipcRenderer.invoke('workspace-panel', request),
+  openPastedText: (text) => ipcRenderer.invoke('open-pasted-text', text),
   workspaceTabMenu: (request) => ipcRenderer.invoke('workspace-tab-menu', request),
   webLinkMenu: (request) => ipcRenderer.invoke('web-link-menu', request),
   platform: process.platform,
@@ -335,6 +341,9 @@ const electronAPI: ElectronAPI = {
   openNotificationsSettings: () => ipcRenderer.invoke('open-notifications-settings'),
   isAnyWindowFocused: () => ipcRenderer.invoke('is-any-window-focused'),
   getIsFullScreen: () => ipcRenderer.invoke('get-is-fullscreen'),
+  getWindowMenu: () => ipcRenderer.invoke('window-menu-items'),
+  openWindowMenu: (request) => ipcRenderer.invoke('window-menu-open', request),
+  setWindowTitleBarTheme: (theme) => ipcRenderer.send('window-titlebar-theme', theme),
   onMouseBackButtonClicked: (callback: () => void) => {
     // Wrapper that ignores the event parameter.
     const wrappedCallback = (_event: Electron.IpcRendererEvent) => callback();

@@ -27,6 +27,8 @@ export const composerMessages = defineMessages({
   },
   file: { id: 'composerCommands.file', defaultMessage: 'File' },
   fileHint: { id: 'composerCommands.fileHint', defaultMessage: 'Attach a file to this message' },
+  agent: { id: 'composerCommands.agent', defaultMessage: 'Custom agent' },
+  agentHint: { id: 'composerCommands.agentHint', defaultMessage: 'Choose or remove the main assistant for this conversation' },
   permission: { id: 'composerCommands.permission', defaultMessage: 'Permissions' },
   permissionHint: {
     id: 'composerCommands.permissionHint',
@@ -190,6 +192,7 @@ export function isComposerControl(text: string): boolean {
 export function composerCommandItems(intl: IntlShape): DisplayItem[] {
   const entries = [
     ['file', 'file', 'fileHint'],
+    ['agent', 'agent', 'agentHint'],
     ['goal', 'goal', 'goalHint'],
     ['plan', 'plan', 'planHint'],
     ['compact', 'compact', 'compactHint'],
@@ -201,7 +204,7 @@ export function composerCommandItems(intl: IntlShape): DisplayItem[] {
     name: intl.formatMessage(composerMessages[title]),
     extra: intl.formatMessage(composerMessages[hint]),
     itemType: 'Builtin',
-    commandGroup: ['file', 'goal', 'plan'].includes(command) ? 'add' : 'control',
+    commandGroup: ['file', 'agent', 'goal', 'plan'].includes(command) ? 'add' : 'control',
     commandOrder,
     relativePath: command,
     insertText: `/${command} `,
@@ -209,8 +212,8 @@ export function composerCommandItems(intl: IntlShape): DisplayItem[] {
 }
 
 export function parseComposerUiCommand(text: string) {
-  const match = /^\/(file|permission|model|export)\s*$/.exec(text.trim());
-  return match?.[1] as 'file' | 'permission' | 'model' | 'export' | undefined;
+  const match = /^\/(file|agent|permission|model|export)\s*$/.exec(text.trim());
+  return match?.[1] as 'file' | 'agent' | 'permission' | 'model' | 'export' | undefined;
 }
 
 export async function prepareComposerCommand(

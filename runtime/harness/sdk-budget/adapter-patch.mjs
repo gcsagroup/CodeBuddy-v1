@@ -25,6 +25,12 @@ import { normalizeContext as normalizeRequestFitContext } from "@earendil-works/
 import { estimateContextTokens as estimateRequestFitTokens } from "@earendil-works/pi-ai/utils/estimate";
 import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThinking as adjustRequestFitThinking } from "@earendil-works/pi-ai/api/simple-options";`);
     replace('import { isContextOverflow } from "@earendil-works/pi-ai/utils/overflow";', 'import { isContextOverflow, isRecoverableLength } from "@earendil-works/pi-ai/utils/overflow";');
+    // A request default must not replace model capacity. Native prepareCall
+    // marks this default in request/header, so clearing it survives replay.
+    replace('\tmaxTokens: z.number().step(1).min(1),\n\tinput: z.array(z.union(MODALITIES)),',
+      '\tmaxTokens: z.number().step(1).min(1),\n\trequestMaxTokens: z.number().step(1).min(1),\n\tinput: z.array(z.union(MODALITIES)),');
+    replace('\t\tif (entry.maxTokens !== void 0) configuredMaxTokens.set(entry.id, entry.maxTokens);',
+      '\t\tconst requestMaxTokens = entry.requestMaxTokens ?? entry.maxTokens;\n\t\tif (requestMaxTokens !== void 0) configuredMaxTokens.set(entry.id, requestMaxTokens);');
     // Schemas otherwise alias the caller's mutable declarations after fitting.
     replace('\t\tparameters: tool.parameters\n', '\t\tparameters: structuredClone(tool.parameters)\n');
 
@@ -56,6 +62,9 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t\tversion: 1, requestId: requestFitId(), provider: options.provider, model: options.model,
 \t\t\tsource: "pi-ai-estimate-context-tokens", estimate,
 \t\t\tcontextWindow: model.contextWindow, safetyTokens: 4096,
+\t\t\tmodelMaxTokens: model.maxTokens, explicitMaxTokens: options.maxTokens !== void 0,
+\t\t\toutputCapApplied: model.api !== "openai-responses" || model.compat?.supportsMaxOutputTokens !== false,
+\t\t\t...options.purpose === void 0 ? {} : { purpose: options.purpose },
 \t\t\tdesiredMaxTokens, effectiveMaxTokens, minimumMaxTokens,
 \t\t\tavailable: model.contextWindow - estimate.tokens - 4096
 \t\t});
@@ -115,13 +124,21 @@ function mapStopReason(message, contextWindow, requestFit, reportedOutputTokens)
     replace('\tconst piAiOverflow = isContextOverflow(message, contextWindow);', `\tconst hasReportedOutput = reportedOutputTokens !== void 0 && message.usage.output === reportedOutputTokens;
 \tconst piAiOverflow = (message.stopReason !== "length" || hasReportedOutput) && isContextOverflow(message, contextWindow);`);
     replace('\t\tcase "length": return { kind: "max-tokens" };', `\t\tcase "length":
-\t\t\tif (requestFit !== void 0 && hasReportedOutput && isRecoverableLength(message, requestFit.desiredMaxTokens)) return {
+\t\t\tif (requestFit !== void 0 && requestFit.outputCapApplied !== false && hasReportedOutput && isRecoverableLength(message, requestFit.desiredMaxTokens)) return {
 \t\t\t\tkind: "error",
 \t\t\t\tfailure: {
 \t\t\t\t\tmessage: "pi-ai response ended before the requested output budget",
 \t\t\t\t\tcode: "OUTPUT_TRUNCATED",
 \t\t\t\t\trequestId: requestFit.requestId
 \t\t\t\t}
+\t\t\t};
+\t\t\tif (requestFit !== void 0 && requestFit.outputCapApplied !== false && requestFit.purpose === void 0 && hasReportedOutput) return {
+\t\t\t\tkind: "error",
+\t\t\t\tfailure: { message: "Model generation reached its output limit before completing the step.", code: "OUTPUT_LIMIT_REACHED", requestId: requestFit.requestId }
+\t\t\t};
+\t\t\tif (requestFit !== void 0 && requestFit.purpose === void 0) return {
+\t\t\t\tkind: "error",
+\t\t\t\tfailure: { message: "The service reported a response length stop; the applied output cap or output usage is unconfirmed.", code: "OUTPUT_LENGTH_STOP", requestId: requestFit.requestId }
 \t\t\t};
 \t\t\treturn { kind: "max-tokens" };`);
     replace('async function* toStreamChunks(events, contextWindow, callerSignal, requestedModel) {', 'async function* toStreamChunks(events, contextWindow, callerSignal, requestedModel, requestFit, reportedOutput) {');

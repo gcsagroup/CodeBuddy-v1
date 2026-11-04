@@ -44,6 +44,7 @@ export function resumeSession(session: Session, setView: setViewType) {
 }
 
 interface CreateSessionOptions {
+  workspaceOrigin?: 'default' | 'selected';
   initialPermissionPreset?: Session['goose_mode'];
   recipeDeeplink?: string;
   recipeId?: string;
@@ -83,13 +84,16 @@ async function createAcpSession(
           .map((entry) => entry.extension)
       : [];
   const recipeOptions = {
+    ...(options?.workspaceOrigin ? { workspaceOrigin: options.workspaceOrigin } : {}),
     recipeId: options?.recipeId,
     recipeDeeplink: options?.recipeDeeplink,
     workspaceMode: options?.workspaceMode,
     projectId: options?.projectId,
     workspaceBinding: options?.workspaceBinding,
     rootContainerPath: options?.rootContainerPath,
-    ...(options?.initialPermissionPreset ? { initialPermissionPreset: options.initialPermissionPreset } : {}),
+    ...(options?.initialPermissionPreset
+      ? { initialPermissionPreset: options.initialPermissionPreset }
+      : {}),
     ...(options?.workspaceLeaseId ? { workspaceLeaseId: options.workspaceLeaseId } : {}),
   };
   return acpChatSessionController.createSession(workingDir, gooseExtensions, recipeOptions);

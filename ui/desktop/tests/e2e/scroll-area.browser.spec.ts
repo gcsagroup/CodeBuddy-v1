@@ -2,19 +2,21 @@
 import { chromium, expect, test, type Browser, type Page, type Locator } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import { resolve, dirname, basename } from 'node:path';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 
 let server: ViteDevServer;
 let browser: Browser;
 let page: Page;
 let cacheDirectory: string;
+const historyCacheRoot = resolve('../../.local');
 
 test.beforeAll(async () => {
+  await mkdir(historyCacheRoot, { recursive: true });
   server = await createServer({
     configFile: resolve('vite.renderer.config.mts'),
     // Do not invalidate the running desktop's optimized dependencies.
-    cacheDir: (cacheDirectory = await mkdtemp(resolve(tmpdir(), 'codepro-scroll-vite-'))),
+    cacheDir: (cacheDirectory = await mkdtemp(resolve(historyCacheRoot, 'codepro-scroll-vite-'))),
+    optimizeDeps: { entries: ['tests/browser-fixtures/scroll-area.html'] },
     server: { host: '127.0.0.1', port: 0, hmr: false },
   });
   await server.listen();
@@ -34,11 +36,82 @@ test.afterAll(async () => {
   await server?.close();
   if (
     cacheDirectory &&
-    dirname(resolve(cacheDirectory)) === resolve(tmpdir()) &&
+    dirname(resolve(cacheDirectory)) === historyCacheRoot &&
     basename(cacheDirectory).startsWith('codepro-scroll-vite-')
   ) {
     await rm(cacheDirectory, { recursive: true, force: true });
   }
+});
+
+for (const anchoring of ['auto', 'none'] as const)
+  test(`prepending older turns preserves the visible paragraph before every paint (${anchoring})`, async () => {
+    await page.goto(
+      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?history`
+    );
+    const viewport = page.locator('[data-radix-scroll-area-viewport]');
+    await expect(page.getByText('History question 47', { exact: true })).toBeAttached();
+    await page.getByRole('button', { name: 'Latest', exact: true }).click();
+    await viewport.hover();
+    await page.mouse.wheel(0, -50);
+    await settle();
+    // Put an actual reading paragraph near the boundary, then let the real
+    // sentinel load the preceding batch. Record all paints, including any flash.
+    const samples = await viewport.evaluate(async (element, anchoring) => {
+      element.style.overflowAnchor = anchoring;
+      const paragraphs = Array.from(element.querySelectorAll('p'));
+      const paragraph = paragraphs.find((p) =>
+        p.textContent?.includes('History answer 44 paragraph 0.')
+      )!;
+      const beforeCount = element.querySelectorAll('section').length;
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event('scroll'));
+      const top = paragraph.getBoundingClientRect().top;
+      const offsets: number[] = [];
+      for (let frame = 0; frame < 24; frame++) {
+        await new Promise(requestAnimationFrame);
+        offsets.push(paragraph.isConnected ? paragraph.getBoundingClientRect().top - top : 100000);
+      }
+      return { offsets, beforeCount, afterCount: element.querySelectorAll('section').length };
+    }, anchoring);
+    expect(samples.afterCount).toBeGreaterThan(samples.beforeCount);
+    expect(Math.max(...samples.offsets.map(Math.abs))).toBeLessThan(2);
+  });
+
+test('continued upward wheel navigation loads all older turns without reversing reading position', async () => {
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?history`
+  );
+  const viewport = page.locator('[data-radix-scroll-area-viewport]');
+  await expect(page.getByText('History question 47', { exact: true })).toBeAttached();
+  await page.getByRole('button', { name: 'Latest', exact: true }).click();
+  await viewport.hover();
+  await viewport.evaluate((element) => {
+    const anchor = element.querySelector('p')!;
+    const samples: number[] = [];
+    Object.assign(window, { historyWheelSamples: samples });
+    const capture = () => {
+      samples.push(anchor.isConnected ? anchor.getBoundingClientRect().top : -100000);
+      if (element.querySelector('[data-history-sentinel]') || element.scrollTop > 0)
+        requestAnimationFrame(capture);
+    };
+    requestAnimationFrame(capture);
+  });
+  for (let step = 0; step < 100; step++) {
+    await page.mouse.wheel(0, -600);
+    if (
+      await viewport.evaluate(
+        (element) => !element.querySelector('[data-history-sentinel]') && element.scrollTop === 0
+      )
+    )
+      break;
+  }
+  await settle();
+  await expect(page.getByText('History question 0', { exact: true })).toBeVisible();
+  const reversals = await page.evaluate(() => {
+    const samples = (window as unknown as { historyWheelSamples: number[] }).historyWheelSamples;
+    return samples.slice(1).filter((top, index) => top < samples[index] - 2);
+  });
+  expect(reversals).toEqual([]);
 });
 
 test('automatic thought collapse keeps the final result in view without reserved blank space', async () => {
@@ -211,9 +284,9 @@ async function openSidebarFixture() {
   await settle();
 }
 
-test('sidebar project and Chats disclosures animate both ways without shifting their triggers', async () => {
+test('sidebar project and Tasks disclosures animate both ways without shifting their triggers', async () => {
   await openSidebarFixture();
-  for (const label of ['timeout', 'Chats']) {
+  for (const label of ['timeout', 'Tasks']) {
     const heading = page.getByRole('button', { name: label, exact: true });
     const body = page.locator(`[id="${await heading.getAttribute('aria-controls')}"]`);
     await sampleToggle(heading, body);
@@ -372,7 +445,7 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   const historyBody = page.locator(`[id="${await duration.getAttribute('aria-controls')}"]`);
   const nestedFile = page.getByRole('button', { name: '已查看文件 smoke_test_app.py' });
   const activity = page.getByRole('button', {
-    name: 'Operations recorded · 2 actions',
+    name: 'Operations recorded 2 actions',
     exact: true,
   });
   for (const row of [nestedFile, activity]) {
@@ -538,7 +611,7 @@ test('extension loading remains truthful until settled and an updated failure al
 
 test('actual recorded-operations group and nested operation both animate when closed and reopened', async () => {
   await openActivityFixture();
-  const group = page.getByRole('button', { name: 'Operations recorded · 2 actions', exact: true });
+  const group = page.getByRole('button', { name: 'Operations recorded 2 actions', exact: true });
   const groupBody = page.locator(`[id="${await group.getAttribute('aria-controls')}"]`);
   await sampleToggle(group, groupBody);
   const operation = page.getByRole('button', { name: /Activity:.*README.md/ });

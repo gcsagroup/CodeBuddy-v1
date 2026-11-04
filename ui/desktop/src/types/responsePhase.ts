@@ -10,6 +10,7 @@ export interface ResponsePhase {
   run_id: string;
   source_user_message_id: string;
   phase: 'answer';
+  answer_message_id?: string;
   created_at: number;
 }
 
@@ -21,6 +22,8 @@ export function parseResponsePhase(value: unknown): ResponsePhase | undefined {
     data.schema_version !== 1 ||
     data.event_type !== 'response_phase' ||
     data.phase !== 'answer' ||
+    (data.answer_message_id !== undefined &&
+      (typeof data.answer_message_id !== 'string' || !data.answer_message_id.trim())) ||
     typeof data.created_at !== 'number' ||
     !Number.isFinite(data.created_at) ||
     data.created_at < 0 ||

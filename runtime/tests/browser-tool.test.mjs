@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { browserTool, BROWSER_METHOD } from '../browser-tool.mjs';
 import { createHarnessDriver } from '../harness/index.mjs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 test('browser tool binds host session/workspace and validates before dispatch', async () => {
@@ -51,4 +51,51 @@ test('scoped browser tool remains discoverable with a native tool filter and enf
     await driver?.close();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('admitted host and stdio tools survive inherited masks, role changes and cold restart without ignoring denials', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'codebuddy-tool-visibility-'));
+  const script = path.join(root, 'fixture.mjs');
+  await writeFile(script, `import {createInterface} from 'node:readline';createInterface({input:process.stdin}).on('line',line=>{const m=JSON.parse(line);if(m.id===undefined)return;const result=m.method==='initialize'?{protocolVersion:'2025-03-26',capabilities:{tools:{}},serverInfo:{name:'fixture',version:'1'}}:m.method==='tools/list'?{tools:[{name:'ping',description:'Synthetic read',inputSchema:{type:'object',properties:{}}}]}:{content:[{type:'text',text:'pong'}]};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n');});`);
+  let driver, current = { id: 'inherited-role', revision: 1, name: 'Inherited role', prompt: 'Use the current task.', capabilities: 'inherit', skills: [], tools: [], mcpServers: [] };
+  t.after(async () => {
+    await driver?.close();
+    assert.equal(path.dirname(root), await realpath(os.tmpdir()));
+    await rm(root, { recursive: true, force: true });
+  });
+  const provider = { id: 'offline', protocol: 'openai-completions', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
+  const options = {
+    toolFilter: { allow: ['read'] },
+    mainAgentRole: { baseline: () => current, input: () => current },
+    tools: [browserTool({ sessionId: 'host-session', cwd: root, request: () => ({ id: 'tab', url: 'http://127.0.0.1/fixture' }) })],
+    mcpServers: [{ serverName: 'fixture', transport: 'stdio', command: process.execPath, args: [script], cwd: root }],
+  };
+  const names = async id => (await driver.listTools(id)).map(tool => tool.name);
+  const browserCall = id => driver.callTool(id, 'browser_control', { operation: 'open', path: 'index.html' }, { onPermission: () => true });
+  driver = await createHarnessDriver({ dataDir: path.join(root, 'harness'), cwd: root });
+  const { sessionId } = await driver.createSession({ cwd: root, provider, model: 'fixture', options });
+  for (const name of ['browser_control', 'mcp__fixture__ping']) assert.ok((await names(sessionId)).includes(name), name);
+  assert.equal((await browserCall(sessionId)).isError, false);
+  assert.equal((await driver.callTool(sessionId, 'mcp__fixture__ping', {}, { onPermission: () => true })).isError, false);
+
+  await driver.configureSession(sessionId, { toolFilter: { allow: ['read'], deny: ['browser_control'] } });
+  assert.ok(!(await names(sessionId)).includes('browser_control'));
+  assert.equal((await browserCall(sessionId)).isError, true, 'An explicit denial still blocks execution');
+
+  current = { ...current, capabilities: 'selected', tools: ['read'] };
+  await driver.configureSession(sessionId, options);
+  for (const name of ['browser_control', 'mcp__fixture__ping']) assert.ok(!(await names(sessionId)).includes(name), name);
+  current = null;
+  await driver.configureSession(sessionId, options);
+  for (const name of ['browser_control', 'mcp__fixture__ping']) assert.ok((await names(sessionId)).includes(name), name);
+
+  await driver.close();
+  driver = await createHarnessDriver({ dataDir: path.join(root, 'harness'), cwd: root });
+  await driver.createSession({ sessionId, cwd: root, provider, model: 'fixture', options });
+  for (const name of ['browser_control', 'mcp__fixture__ping']) assert.ok((await names(sessionId)).includes(name), name);
+  assert.equal((await browserCall(sessionId)).isError, false);
+  await driver.configureSession(sessionId, { mcpServers: [] });
+  assert.ok(!(await names(sessionId)).includes('mcp__fixture__ping'), 'Removed connections must disappear');
+  await driver.configureSession(sessionId, { tools: [] });
+  assert.ok(!(await names(sessionId)).includes('browser_control'), 'Removed host tools must disappear');
 });

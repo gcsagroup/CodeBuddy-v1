@@ -102,13 +102,16 @@ const replacements = [
     '\t\tctx.on("agent/request-error", async ({ agent, failure, signal }, next) => {',
     `\t\t// Local request fitting is distinct from a provider-confirmed overflow.
 \t\t// The LLM service owns the ephemeral original-envelope/fit association.
-\t\tctx.on("agent/request-error", async ({ agent, turn, failure, signal }, next) => {
+\t\tctx.on("agent/request-error", async ({ agent, turn, step, failure, signal }, next) => {
 \t\t\tif (signal.aborted || failure.code !== "LOCAL_OUTPUT_BUDGET_EXHAUSTED" && failure.code !== "OUTPUT_TRUNCATED") return next();
 \t\t\tconst recovery = ctx.llm.requestFitRecovery?.(failure);
-\t\t\tif (recovery === void 0 || this.requestFitRetries.has(agent) && this.requestFitRetries.get(agent) === turn) return next();
-\t\t\t// Consume the one attempt before summarization, including failed/no-op summaries.
-\t\t\t// An assistant message within the same turn must not replenish this allowance.
-\t\t\tthis.requestFitRetries.set(agent, turn);
+\t\t\tif (recovery === void 0) return next();
+\t\t\tconst allowance = ctx.bail("codebuddy/output-recovery-available", { agent, turn, step, fit: recovery.fit });
+\t\t\tconst previous = this.requestFitRetries.get(agent);
+\t\t\tif (allowance?.allowed === false || previous?.turn === turn && previous.step === step) return next();
+\t\t\t// Deduplicate failed/no-op summaries within a native step. The host
+\t\t\t// recovery projection owns the shared generation allowance.
+\t\t\tthis.requestFitRetries.set(agent, { turn, step });
 \t\t\tconst before = recovery.fit;
 \t\t\tconst generation = agent.session.surface.replaceGeneration;
 \t\t\tconst trigger = failure.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" ? "local-budget" : "output-truncation";
@@ -137,6 +140,8 @@ const replacements = [
 \t\t\t\t\treturn next();
 \t\t\t\t}
 \t\t\t\tif (result !== null) logResult(result, trigger + " recovery");
+\t\t\t\tconst admission = ctx.bail("codebuddy/output-recovery-started", { agent, turn, step, fit: before, strategy: "compact" });
+\t\t\t\tif (admission?.allowed === false || signal.aborted) return next();
 \t\t\t\treturn { kind: "retry" };
 \t\t\t} catch (recoveryError) {
 \t\t\t\tconst message = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);

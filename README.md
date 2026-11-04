@@ -12,6 +12,8 @@
 
 ## 当前版本
 
+2026-11-04 本地累计改进、提交关系、Windows 启动问题复盘及验证边界见[远端合并说明](docs/reconstruction/2026-11-04-merge-preparation.zh-CN.md)。
+
 CodeBuddy 将项目分析、代码修改、命令执行、Git 审查、项目记忆和工具扩展放在同一个桌面工作区。应用版本以 [ui/desktop/package.json](ui/desktop/package.json) 为准；近期图片操作、历史加载、滚动、插话与相关验证见[桌面交互开发说明](docs/reconstruction/2026-10-25-desktop-ux-and-history.zh-CN.md)。源码构建、自动测试和实际产品验收分别记录，不代表所有功能或平台均已通过。
 
 Windows 使用仓库根目录的 `start-preview.ps1` 启动开发版。开发版和安装版默认数据根统一为 `~/.CodeBuddy`，默认新工作区位于其中的 `workspaces`；模型、历史、宠物、日志和缓存均保存在数据根下。文件菜单提供“打开 CodeBuddy 数据目录”。`CODEBUDDY_HOME` 可指定整个数据根，`CODEBUDDY_WORKSPACE_ROOT` 可单独指定工作区；自动化测试必须显式使用隔离数据目录。历史 `.preview-data` 和 `.CodeBuddy-Harness` 不会在启动时自动导入或覆盖，迁移须先退出应用、备份并校验。安装版首次启动空数据目录时预置 `http://192.168.9.101:8001` 的局域网模型连接，用户仍可在设置中添加自己的模型；已有配置不被覆盖。详见[安装版默认模型](docs/installation-model-defaults.zh-CN.md)。详见[存储目录说明](docs/storage-layout.zh-CN.md)。
@@ -71,7 +73,7 @@ Windows 暂存还会从已准备的 Python 载荷复制正式版 `vcruntime140.d
 | Git 版本控制       | 查看状态、差异，并使用任务面板的审查入口       |
 | 项目记忆与历史     | 管理记忆，通过历史记录返回已有对话             |
 | 素材库             | 汇总生成图片和视频，支持时间／工作区视图、容量统计、预览及多选删除；[使用说明](docs/media-library.zh-CN.md) |
-| 自定义智能体       | 配置头像、模型、人设、Skill、工具及 MCP，创建绑定角色的新工作区；[使用与验证说明](docs/custom-agents.zh-CN.md)（语音暂未实现） |
+| 自定义智能体       | 从六个默认模板添加或自行配置，在当前聊天选用、切换或撤销；附带按需读取的 Skill；[使用与验证说明](docs/custom-agents.zh-CN.md)（语音暂未实现） |
 | 工具与扩展         | 按任务配置内置能力、MCP 服务和技能             |
 | Windows 电脑控制   | 支持桌面操作；复杂软件任务仍需逐项核对实际结果 |
 | 自动任务           | 直接填写任务与时间，每次新会话或跟进当前聊天   |

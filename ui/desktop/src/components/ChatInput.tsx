@@ -19,21 +19,17 @@ import {
 } from '../workspace-panel/workspaceFilePanel';
 import { getSessionExtensions, addSessionExtension } from '../acp/session-extensions';
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { ArrowUp, ScrollText } from 'lucide-react';
+import { ArrowUp, Plus, ScrollText } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
 import type { View, ViewOptions } from '../utils/navigationUtils';
 import { ChatInputStopButton } from './ChatInputStopButton';
 import { ImageLightbox } from './ImagePreview';
-import { Attach, Close, Microphone } from './icons';
+import { Close, Microphone } from './icons';
 import { ChatState } from '../types/chatState';
 import debounce from 'lodash/debounce';
 import { LocalMessageStorage } from '../utils/localMessageStorage';
-import {
-  readNewTaskDraft,
-  updateNewTaskDraft,
-  type NewTaskDraftKey,
-} from '../utils/newTaskDraft';
+import { readNewTaskDraft, updateNewTaskDraft, type NewTaskDraftKey } from '../utils/newTaskDraft';
 import { DirSwitcher } from './bottom_menu/DirSwitcher';
 import ModelsBottomBar from './settings/models/bottom_bar/ModelsBottomBar';
 import { cn } from '../utils';
@@ -64,7 +60,11 @@ import { useModelCapacity } from '../hooks/useModelCapacity';
 import { defineMessages, useIntl } from '../i18n';
 import TurndownService from 'turndown';
 import type { NextChatExtensionDraft } from '../utils/nextChatExtensions';
+import { AgentSelector } from './custom-agents/AgentSelector';
 import { QueuedMessageStorage, QueueStorageConflict } from '../utils/queuedMessageStorage';
+import { isLargeText, useCompactTextInput } from './pastedText';
+import { PastedTextPreview } from './PastedTextPreview';
+import { ComposerAttachmentTray } from './ComposerAttachmentTray';
 
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -156,7 +156,7 @@ const i18n = defineMessages({
   },
   waitingForCancellation: {
     id: 'messageQueue.waitingForCancellation',
-    defaultMessage: 'Waiting for cancellation confirmation. Your queued message has not been sent.',
+    defaultMessage: 'Stopping the previous turn. Your new message will be sent after confirmation.',
   },
   waitingForPreviousPrompt: {
     id: 'messageQueue.waitingForPreviousPrompt',
@@ -241,6 +241,7 @@ interface ChatInputProps {
   initialPrompt?: string;
   append?: (message: Message) => void;
   onWorkingDirChange?: (newDir: string) => Promise<void> | void;
+  hideWorkingDirSwitcher?: boolean;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   sessionModel?: string | null;
   sessionProvider?: string | null;
@@ -272,6 +273,7 @@ export default function ChatInput({
   onSubmissionAccepted,
   chatState = ChatState.Idle,
   onStop,
+  onSteerQueuedMessage,
   onPendingMessageChange,
   pauseQueueOnStop = false,
   queueProcessingBlocked = false,
@@ -295,6 +297,7 @@ export default function ChatInput({
   initialPrompt,
   append: _append,
   onWorkingDirChange,
+  hideWorkingDirSwitcher = false,
   inputRef,
   sessionModel,
   sessionProvider,
@@ -310,6 +313,7 @@ export default function ChatInput({
   );
   const [_value, setValue] = useState(startingValue);
   const [displayValue, setDisplayValue] = useState(startingValue); // For immediate visual feedback
+  const compactText = useCompactTextInput(displayValue);
   const previousInitialValue = useRef(initialValue);
   useEffect(() => {
     if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: displayValue });
@@ -319,8 +323,8 @@ export default function ChatInput({
     null
   );
   useEffect(() => setAttachmentPreview(null), [sessionId]);
-  const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(() =>
-    newTaskDraftKey ? (readNewTaskDraft(newTaskDraftKey).images ?? []) : []
+  const [pastedImages, setPastedImages] = useState<(PastedImage & { sourceSessionId?: string })[]>(
+    () => (newTaskDraftKey ? (readNewTaskDraft(newTaskDraftKey).images ?? []) : [])
   );
   const [isFilePickerOpen, setIsFilePickerOpen] = useState(false);
   const submitInFlightRef = useRef(false);
@@ -348,8 +352,15 @@ export default function ChatInput({
   );
   const [composerMode, setComposerMode] = useState<'goal' | 'plan' | null>(null);
   const [modelOpenRequest, setModelOpenRequest] = useState(0);
+  const [agentOpenRequest, setAgentOpenRequest] = useState(0);
   const [goalRefresh, setGoalRefresh] = useState(0);
   const [commandNotice, setCommandNotice] = useState<string | null>(null);
+  const [attachmentNotice, setAttachmentNotice] = useState<{ text: string } | null>(null);
+  useEffect(() => {
+    if (!attachmentNotice) return;
+    const timer = window.setTimeout(() => setAttachmentNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [attachmentNotice]);
   const commandControlInFlight = useRef<symbol | null>(null);
   useEffect(() => {
     const changed = (event: Event) => {
@@ -385,9 +396,9 @@ export default function ChatInput({
     [persistQueue]
   );
   const editingMessageIdRef = useRef<string | null>(null);
-  const sendAfterStopMessageIdRef = useRef<string | null>(null);
-  const sendAfterStopPauseRemainingRef = useRef(false);
-  const [sendAfterStopMessageId, setSendAfterStopMessageId] = useState<string | null>(null);
+  const pendingSendMessageIdRef = useRef<string | null>(null);
+  const pendingSendPauseRemainingRef = useRef(false);
+  const [pendingSendMessageId, setPendingSendMessageId] = useState<string | null>(null);
   const cancellationRequestedForQueueRef = useRef(false);
   const sendNowInFlightMessageIdsRef = useRef<Set<string>>(new Set());
   const [sendNowInFlightMessageIds, setSendNowInFlightMessageIds] = useState<ReadonlySet<string>>(
@@ -432,9 +443,9 @@ export default function ChatInput({
     setQueuedMessagesState(restored);
     queuePausedRef.current = restored.length > 0 || queueStorageFailedRef.current;
     editingMessageIdRef.current = null;
-    sendAfterStopMessageIdRef.current = null;
-    sendAfterStopPauseRemainingRef.current = false;
-    setSendAfterStopMessageId(null);
+    pendingSendMessageIdRef.current = null;
+    pendingSendPauseRemainingRef.current = false;
+    setPendingSendMessageId(null);
     cancellationRequestedForQueueRef.current = false;
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
@@ -463,7 +474,12 @@ export default function ChatInput({
       queuedMessages !== queuedMessagesRef.current
     )
       return;
-    const pending = queuedMessages.find((item) => item.presentation);
+    // A restored or stopped queue is held as drafts. Only the current explicit
+    // pending send is projected into the transcript; keep stored identity for
+    // acknowledgement reconciliation without displaying a second copy.
+    const pending = queuedMessages.find(
+      (item) => item.presentation && item.id === pendingSendMessageId
+    );
     onPendingMessageChange?.(
       sessionId,
       pending
@@ -480,7 +496,7 @@ export default function ChatInput({
           }
         : undefined
     );
-  }, [queuedMessages, sessionId, onPendingMessageChange]);
+  }, [queuedMessages, sessionId, onPendingMessageChange, pendingSendMessageId]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -503,20 +519,26 @@ export default function ChatInput({
     queuePausedRef.current = true;
   }, []);
 
-  const clearPendingSendAfterStop = useCallback((messageId?: string) => {
-    if (!messageId || sendAfterStopMessageIdRef.current === messageId) {
-      sendAfterStopMessageIdRef.current = null;
-      sendAfterStopPauseRemainingRef.current = false;
-      setSendAfterStopMessageId(null);
+  const clearPendingSend = useCallback((messageId?: string) => {
+    if (!messageId || pendingSendMessageIdRef.current === messageId) {
+      pendingSendMessageIdRef.current = null;
+      pendingSendPauseRemainingRef.current = false;
+      setPendingSendMessageId(null);
       cancellationRequestedForQueueRef.current = false;
     }
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && !queueProcessingBlocked) {
+      cancellationRequestedForQueueRef.current = false;
+    }
+  }, [isLoading, queueProcessingBlocked]);
+
   const clearQueueState = useCallback(() => {
     queuePausedRef.current = false;
-    sendAfterStopMessageIdRef.current = null;
-    sendAfterStopPauseRemainingRef.current = false;
-    setSendAfterStopMessageId(null);
+    pendingSendMessageIdRef.current = null;
+    pendingSendPauseRemainingRef.current = false;
+    setPendingSendMessageId(null);
     cancellationRequestedForQueueRef.current = false;
   }, []);
 
@@ -534,11 +556,11 @@ export default function ChatInput({
     if (!delivered.length) return;
     // Recover an acknowledgement lost during reload; never replay this request.
     queuePausedRef.current = true;
-    for (const item of delivered) clearPendingSendAfterStop(item.id);
+    for (const item of delivered) clearPendingSend(item.id);
     setQueuedMessages((items) =>
       items.filter((item) => !item.presentation || !confirmed.has(item.id))
     );
-  }, [messages, queuedMessages, sessionId, setQueuedMessages, clearPendingSendAfterStop]);
+  }, [messages, queuedMessages, sessionId, setQueuedMessages, clearPendingSend]);
 
   const { alerts, addAlert, clearAlerts } = useAlerts();
   const dropdownRef: React.RefObject<HTMLDivElement> = useRef<HTMLDivElement>(
@@ -583,7 +605,7 @@ export default function ChatInput({
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
-      setIsBottomBarNarrow(width < 480);
+      setIsBottomBarNarrow(width < 620);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -594,16 +616,23 @@ export default function ChatInput({
   }, [sessionId, workingDir]);
 
   const submitQueuedMessage = useCallback(
-    async (message: QueuedMessage, pauseAfterAcceptance = false, allowWhileLoading = false) => {
+    async (
+      message: QueuedMessage,
+      pauseAfterAcceptance = false,
+      allowWhileLoading = false,
+      delivery: 'queue' | 'steer' = 'queue'
+    ) => {
       const submittedSessionId = sessionId;
       const submittedStorage = queueStorageRef.current;
       const isCurrentQueueSession = () => queueSessionIdRef.current === submittedSessionId;
       if (
         message.delivery === 'submitting' ||
         queueStorageFailedRef.current ||
-        (isLoadingRef.current && !allowWhileLoading) ||
-        queueProcessingBlockedRef.current ||
-        sendNowInFlightMessageIdsRef.current.size > 0 ||
+        (delivery === 'queue' &&
+          ((isLoadingRef.current && !allowWhileLoading) || queueProcessingBlockedRef.current)) ||
+        [...sendNowInFlightMessageIdsRef.current].some(
+          (id) => delivery === 'queue' || queuedMessagesRef.current.some((item) => item.id === id)
+        ) ||
         editingMessageIdRef.current === message.id
       ) {
         return;
@@ -622,7 +651,7 @@ export default function ChatInput({
       const pauseUnaccepted = (uncertain: boolean) => {
         deliveryResolved = true;
         if (accepted || !isCurrentQueueSession()) return;
-        clearPendingSendAfterStop(message.id);
+        clearPendingSend(message.id);
         pauseRemainingQueue();
         if (!uncertain) {
           setQueuedMessages((items) =>
@@ -631,46 +660,53 @@ export default function ChatInput({
         }
       };
       try {
-        await handleSubmit(
-          {
-            msg: message.content,
-            images: message.images,
-            messageId: message.id,
-            desktopGeneration: typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
-            ...(message.presentation
-              ? { messageId: message.id, presentation: message.presentation }
-              : {}),
+        const input: UserInput = {
+          msg: message.content,
+          images: message.images,
+          messageId: message.id,
+          desktopGeneration:
+            typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
+          ...(message.presentation
+            ? { messageId: message.id, presentation: message.presentation }
+            : {}),
+        };
+        const lifecycle: MessageSubmissionLifecycle = {
+          onAccepted: () => {
+            if (accepted) return;
+            accepted = true;
+            if (!isCurrentQueueSession()) {
+              try {
+                if (submittedStorage)
+                  submittedStorage.write(
+                    submittedStorage.read().filter((item) => item.id !== message.id)
+                  );
+              } catch {
+                setQueueStorageError('save');
+              }
+              return;
+            }
+            LocalMessageStorage.addMessage(message.content);
+            clearPendingSend(message.id);
+            if (pauseAfterAcceptance) {
+              pauseRemainingQueue();
+            }
+            setQueuedMessages((previous) => {
+              const next = removeQueuedMessage(previous, message.id);
+              if (next.length === 0) clearQueueState();
+              return next;
+            });
           },
-          {
-            onAccepted: () => {
-              if (accepted) return;
-              accepted = true;
-              if (!isCurrentQueueSession()) {
-                try {
-                  if (submittedStorage)
-                    submittedStorage.write(
-                      submittedStorage.read().filter((item) => item.id !== message.id)
-                    );
-                } catch {
-                  setQueueStorageError('save');
-                }
-                return;
-              }
-              LocalMessageStorage.addMessage(message.content);
-              clearPendingSendAfterStop(message.id);
-              if (pauseAfterAcceptance) {
-                pauseRemainingQueue();
-              }
-              setQueuedMessages((previous) => {
-                const next = removeQueuedMessage(previous, message.id);
-                if (next.length === 0) clearQueueState();
-                return next;
-              });
-            },
-            onRejectedBeforeAcceptance: () => pauseUnaccepted(false),
-            onDeliveryUncertain: () => pauseUnaccepted(true),
-          }
-        );
+          onRejectedBeforeAcceptance: () => pauseUnaccepted(false),
+          onDeliveryUncertain: () => pauseUnaccepted(true),
+        };
+        if (delivery === 'steer') {
+          // A false return is a local refusal before dispatch. An exception can
+          // mean a lost receipt: preserve it as uncertain, never cancel/resend.
+          if (await onSteerQueuedMessage?.(input)) lifecycle.onAccepted();
+          else lifecycle.onRejectedBeforeAcceptance();
+        } else {
+          await handleSubmit(input, lifecycle);
+        }
         if (!accepted && !deliveryResolved) pauseUnaccepted(true);
       } catch {
         pauseUnaccepted(true);
@@ -682,8 +718,9 @@ export default function ChatInput({
     },
     [
       handleSubmit,
+      onSteerQueuedMessage,
       setSendNowInFlightMessage,
-      clearPendingSendAfterStop,
+      clearPendingSend,
       pauseRemainingQueue,
       clearQueueState,
       setQueuedMessages,
@@ -694,20 +731,20 @@ export default function ChatInput({
   useEffect(() => {
     if (queuedMessages !== queuedMessagesRef.current || queueStorageFailedRef.current) return;
     if (isLoading || queueProcessingBlocked || sendNowInFlightMessageIds.size > 0) return;
-    const pendingId = sendAfterStopMessageIdRef.current;
+    const pendingId = pendingSendMessageIdRef.current;
     const message = pendingId
       ? queuedMessages.find((item) => item.id === pendingId)
       : queuedMessages[0];
     if (!message || editingMessageIdRef.current === message.id) return;
     if (queuePausedRef.current && !pendingId) return;
-    const keepPaused = Boolean(pendingId && sendAfterStopPauseRemainingRef.current);
+    const keepPaused = Boolean(pendingId && pendingSendPauseRemainingRef.current);
     if (pendingId && !keepPaused) queuePausedRef.current = false;
     void submitQueuedMessage(message, keepPaused);
   }, [
     isLoading,
     queueProcessingBlocked,
     queuedMessages,
-    sendAfterStopMessageId,
+    pendingSendMessageId,
     sendNowInFlightMessageIds,
     submitQueuedMessage,
   ]);
@@ -717,6 +754,7 @@ export default function ChatInput({
     mentionStart: number;
     selectedIndex: number;
     isSlashCommand: boolean;
+    addOnly?: boolean;
   }>({
     isOpen: false,
     query: '',
@@ -846,11 +884,11 @@ export default function ChatInput({
       const image = (event as CustomEvent<WorkspaceImageAttachment>).detail;
       if (!image || image.sessionId !== sessionId) return;
       if (attachmentCountRef.current >= MAX_IMAGES_PER_MESSAGE) {
-        setCommandNotice(
-          attachmentIntlRef.current.formatMessage(i18n.imageLimit, {
+        setAttachmentNotice({
+          text: attachmentIntlRef.current.formatMessage(i18n.imageLimit, {
             count: MAX_IMAGES_PER_MESSAGE,
-          })
-        );
+          }),
+        });
         return;
       }
       attachmentCountRef.current += 1;
@@ -993,7 +1031,8 @@ export default function ChatInput({
     if (textAreaRef.current) {
       debouncedAutosize(textAreaRef.current);
     }
-  }, [debouncedAutosize, displayValue, textAreaRef]);
+    return () => debouncedAutosize.cancel();
+  }, [debouncedAutosize, compactText.editorValue, textAreaRef]);
 
   // Set consistent minimum height when displayValue is empty
   useEffect(() => {
@@ -1003,8 +1042,8 @@ export default function ChatInput({
   }, [displayValue, textAreaRef, minTextareaHeight]);
 
   const handleChange = (evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = evt.target.value;
-    const cursorPosition = evt.target.selectionStart;
+    const val = compactText.prefix + evt.target.value;
+    const cursorPosition = compactText.prefix.length + evt.target.selectionStart;
 
     setDisplayValue(val);
     updateValue(val);
@@ -1014,8 +1053,9 @@ export default function ChatInput({
   };
 
   const checkForMentionOrSlash = (text: string, cursorPosition: number) => {
-    const isSlashCommand = text.startsWith('/');
-    const beforeCursor = text.slice(0, cursorPosition);
+    const offset = compactText.prefix.length;
+    const isSlashCommand = offset === 0 && text.startsWith('/');
+    const beforeCursor = text.slice(offset, cursorPosition);
     const lastAtIndex = isSlashCommand ? 0 : beforeCursor.lastIndexOf('@');
 
     if (lastAtIndex === -1) {
@@ -1035,9 +1075,10 @@ export default function ChatInput({
       ...prev,
       isOpen: true,
       query: afterAt,
-      mentionStart: lastAtIndex,
+      mentionStart: offset + lastAtIndex,
       selectedIndex: 0, // Reset selection when query changes
       isSlashCommand,
+      addOnly: false,
       // filteredFiles will be populated by the MentionPopover component
     }));
   };
@@ -1116,8 +1157,24 @@ export default function ChatInput({
     const imageFiles = files.filter((file) => file.type.startsWith('image/'));
 
     if (imageFiles.length === 0) {
+      const plain = evt.clipboardData.getData('text/plain');
+      if (isLargeText(plain)) {
+        evt.preventDefault();
+        const textarea = textAreaRef.current;
+        const start = compactText.prefix.length + (textarea?.selectionStart ?? 0);
+        const end = compactText.prefix.length + (textarea?.selectionEnd ?? 0);
+        const next = displayValue.slice(0, start) + plain + displayValue.slice(end);
+        // Intercept before HTML parsing and before Chromium lays out the paste.
+        compactText.appendBlock(next);
+        setDisplayValue(next);
+        updateValue(next);
+        inputRevisionRef.current += 1;
+        setHasUserTyped(true);
+        setMentionPopover((prev) => ({ ...prev, isOpen: false }));
+        return;
+      }
       const html = evt.clipboardData.getData('text/html');
-      if (html) {
+      if (html && !isLargeText(html)) {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const hasLinks = doc.querySelectorAll('a[href]').length > 0;
         if (hasLinks) {
@@ -1126,17 +1183,19 @@ export default function ChatInput({
             evt.preventDefault();
             const textarea = textAreaRef.current;
             if (textarea) {
-              const start = textarea.selectionStart;
-              const end = textarea.selectionEnd;
+              const start = compactText.prefix.length + textarea.selectionStart;
+              const end = compactText.prefix.length + textarea.selectionEnd;
               const newValue =
                 displayValue.substring(0, start) + markdown + displayValue.substring(end);
               const cursorPos = start + markdown.length;
               setDisplayValue(newValue);
               updateValue(newValue);
+              inputRevisionRef.current += 1;
               setHasUserTyped(true);
               checkForMentionOrSlash(newValue, cursorPos);
               requestAnimationFrame(() => {
-                textarea.selectionStart = textarea.selectionEnd = cursorPos;
+                textarea.selectionStart = textarea.selectionEnd =
+                  cursorPos - compactText.prefix.length;
               });
             }
           }
@@ -1319,6 +1378,21 @@ export default function ChatInput({
       desktopGeneration: getDesktopOwnership().generation ?? '',
       images: convertImagesToImageData(),
     };
+    if (
+      !isLoading &&
+      queueProcessingBlocked &&
+      cancellationRequestedForQueueRef.current &&
+      onPendingMessageChange &&
+      !pendingSendMessageIdRef.current
+    ) {
+      const anchor = [...messages].reverse().find((message) => message.id)?.id;
+      if (anchor) {
+        newMessage.presentation = { afterMessageId: anchor };
+        pendingSendMessageIdRef.current = newMessage.id;
+        pendingSendPauseRemainingRef.current = true;
+        setPendingSendMessageId(newMessage.id);
+      }
+    }
     setQueuedMessages((prev) => {
       if (prev.length === 0) queuePausedRef.current = false;
       return [...prev, newMessage];
@@ -1343,7 +1417,10 @@ export default function ChatInput({
       if (uiCommand) {
         const revision = inputRevisionRef.current;
         try {
-          if (uiCommand === 'file') fileInputRef.current?.click();
+          if (uiCommand === 'file') {
+            if (isFilePickerOpen) return;
+            fileInputRef.current?.click();
+          } else if (uiCommand === 'agent') setAgentOpenRequest((value) => value + 1);
           else if (uiCommand === 'permission') {
             if (!onOpenPermissions) {
               setCommandNotice(intl.formatMessage(composerMessages.noSession));
@@ -1370,7 +1447,7 @@ export default function ChatInput({
             }
             setCommandNotice(intl.formatMessage(composerMessages.exported));
           }
-          if (inputRevisionRef.current === revision) {
+          if (!preserveDraft && inputRevisionRef.current === revision) {
             inputRevisionRef.current += 1;
             setDisplayValue('');
             setValue('');
@@ -1511,6 +1588,7 @@ export default function ChatInput({
     },
     [
       composerMode,
+      isFilePickerOpen,
       onOpenPermissions,
       sessionId,
       isLoading,
@@ -1591,7 +1669,7 @@ export default function ChatInput({
         void performSubmit();
         return;
       }
-      // Busy input is queued; only the explicit button cancels the current turn.
+      // Enter queues a follow-up; Send now steers, and only Stop cancels work.
       if (queueWhileBusy()) {
         return;
       }
@@ -1626,84 +1704,26 @@ export default function ChatInput({
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = () => {
-    if (isFilePickerOpen) return;
-    fileInputRef.current?.click();
-  };
-
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+    const picker = e.currentTarget;
+    const files = Array.from(picker.files ?? []);
+    if (!files.length) return;
     inputRevisionRef.current += 1;
-
-    if (newTaskDraftKey) {
-      await addLocalFiles(files);
-      e.target.value = '';
-      return;
+    let imageSlots = Math.max(0, MAX_IMAGES_PER_MESSAGE - attachmentCountRef.current);
+    const accepted = files.filter((file) => !file.type.startsWith('image/') || imageSlots-- > 0);
+    if (accepted.length !== files.length) {
+      setAttachmentNotice({
+        text: intl.formatMessage(i18n.imageLimit, { count: MAX_IMAGES_PER_MESSAGE }),
+      });
     }
-
     setIsFilePickerOpen(true);
-    const file = files[0];
-    const isImage = file.type.startsWith('image/');
-
-    if (isImage) {
-      trackFileAttached('file');
-
-      if (pastedImages.length >= MAX_IMAGES_PER_MESSAGE) {
-        console.warn(`Maximum ${MAX_IMAGES_PER_MESSAGE} images per message`);
-        setIsFilePickerOpen(false);
-        return;
-      }
-
-      const uniqueId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      setPastedImages((prev) => [
-        ...prev,
-        {
-          id: uniqueId,
-          dataUrl: '',
-          isLoading: true,
-          error: undefined,
-        },
-      ]);
-
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        const dataUrl = evt.target?.result as string;
-        if (dataUrl) {
-          const compressedDataUrl = await compressImageDataUrl(dataUrl);
-          setPastedImages((prev) =>
-            prev.map((img) =>
-              img.id === uniqueId
-                ? { ...img, dataUrl: compressedDataUrl, isLoading: false, error: undefined }
-                : img
-            )
-          );
-        }
-      };
-      reader.onerror = () => {
-        setPastedImages((prev) =>
-          prev.map((img) =>
-            img.id === uniqueId
-              ? { ...img, isLoading: false, error: intl.formatMessage(i18n.failedToReadImage) }
-              : img
-          )
-        );
-      };
-      reader.readAsDataURL(file);
-    } else {
-      trackFileAttached('file');
-      const path = window.electron.getPathForFile(file);
-      const newValue = displayValue.trim() ? `${displayValue.trim()} ${path}` : path;
-      setDisplayValue(newValue);
-      setValue(newValue);
-    }
-
-    textAreaRef.current?.focus();
-    setIsFilePickerOpen(false);
-    if (e.target) {
-      e.target.value = '';
+    try {
+      accepted.forEach(() => trackFileAttached('file'));
+      await addLocalFiles(accepted);
+    } finally {
+      picker.value = '';
+      setIsFilePickerOpen(false);
+      textAreaRef.current?.focus();
     }
   };
 
@@ -1760,7 +1780,7 @@ export default function ChatInput({
     }
     if (mentionPopover.isSlashCommand && parseComposerUiCommand(itemText)) {
       setMentionPopover((prev) => ({ ...prev, isOpen: false }));
-      void performSubmit(itemText.trim());
+      void performSubmit(itemText.trim(), mentionPopover.addOnly);
       return;
     }
     if (mentionPopover.isSlashCommand && ['/goal', '/plan'].includes(itemText.trim())) {
@@ -1772,12 +1792,16 @@ export default function ChatInput({
             if (revision !== inputRevisionRef.current) return;
             if (goal && goal.phase !== 'complete') {
               openGoalEditor(sessionId);
-              setDisplayValue('');
-              setValue('');
+              if (!mentionPopover.addOnly) {
+                setDisplayValue('');
+                setValue('');
+              }
             } else {
               setComposerMode('goal');
-              setDisplayValue('');
-              setValue('');
+              if (!mentionPopover.addOnly) {
+                setDisplayValue('');
+                setValue('');
+              }
               textAreaRef.current?.focus();
             }
             inputRevisionRef.current += 1;
@@ -1786,8 +1810,10 @@ export default function ChatInput({
         return;
       }
       setComposerMode(itemText.trim() === '/goal' ? 'goal' : 'plan');
-      setDisplayValue('');
-      setValue('');
+      if (!mentionPopover.addOnly) {
+        setDisplayValue('');
+        setValue('');
+      }
       inputRevisionRef.current += 1;
       setCommandNotice(null);
       setMentionPopover((prev) => ({ ...prev, isOpen: false }));
@@ -1806,7 +1832,7 @@ export default function ChatInput({
     // Replace the @ mention with the file path
     const beforeMention = displayValue.slice(0, mentionPopover.mentionStart);
     const afterMention = displayValue.slice(
-      mentionPopover.mentionStart + 1 + mentionPopover.query.length
+      mentionPopover.mentionStart + (mentionPopover.addOnly ? 0 : 1 + mentionPopover.query.length)
     );
     const newValue = `${beforeMention}${itemText}${afterMention}`;
 
@@ -1819,7 +1845,8 @@ export default function ChatInput({
     // Set cursor position after the inserted file path
     setTimeout(() => {
       if (textAreaRef.current) {
-        const newCursorPosition = beforeMention.length + itemText.length;
+        const newCursorPosition =
+          beforeMention.length + itemText.length - compactText.prefix.length;
         textAreaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
       }
     }, 0);
@@ -1868,7 +1895,7 @@ export default function ChatInput({
 
   const handleRemoveQueuedMessage = (messageId: string) => {
     if (sendNowInFlightMessageIdsRef.current.has(messageId)) return;
-    clearPendingSendAfterStop(messageId);
+    clearPendingSend(messageId);
     setQueuedMessages((prev) => prev.filter((msg) => msg.id !== messageId));
   };
 
@@ -1892,11 +1919,11 @@ export default function ChatInput({
     );
   };
 
-  const handleStopAndSend = async () => {
+  const handleSendNow = async () => {
     if (
       queueStorageFailedRef.current ||
       editingMessageIdRef.current ||
-      sendAfterStopMessageIdRef.current
+      pendingSendMessageIdRef.current
     )
       return;
     // Freeze only known-unsent input at the click. An unconfirmed delivery is
@@ -1927,6 +1954,10 @@ export default function ChatInput({
       ...previous.filter((message) => !mergedIds.has(message.id)),
     ]);
     if (queueStorageFailedRef.current) return;
+    if (isLoading && !canSubmitQueuedMessageWhileLoading && onSteerQueuedMessage) {
+      await submitQueuedMessage(messageToSend, keepOtherMessagesPaused, false, 'steer');
+      return;
+    }
     if (
       (!isLoading || canSubmitQueuedMessageWhileLoading) &&
       !queueProcessingBlocked &&
@@ -1941,12 +1972,11 @@ export default function ChatInput({
       return;
     }
 
-    // Cancel is a request, not permission to overlap session/prompt calls. The
-    // existing queue effect sends only after both display and transport settle.
-    sendAfterStopMessageIdRef.current = messageId;
-    sendAfterStopPauseRemainingRef.current = keepOtherMessagesPaused;
-    setSendAfterStopMessageId(messageId);
-    cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
+    // If no active steer endpoint is available, keep the message for the next
+    // turn. Never turn Send now into cancellation or overlap ordinary prompts.
+    pendingSendMessageIdRef.current = messageId;
+    pendingSendPauseRemainingRef.current = keepOtherMessagesPaused;
+    setPendingSendMessageId(messageId);
     pauseRemainingQueue();
     let anchor: string | undefined;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -1964,14 +1994,14 @@ export default function ChatInput({
       }))
     );
     if (queueStorageFailedRef.current) {
-      clearPendingSendAfterStop(messageId);
+      clearPendingSend(messageId);
       return;
     }
-    if ((isLoading || queueProcessingBlocked) && onStop) onStop();
   };
 
   const handleStop = () => {
-    clearPendingSendAfterStop();
+    clearPendingSend();
+    cancellationRequestedForQueueRef.current = (isLoading || queueProcessingBlocked) && !!onStop;
     if (pauseQueueOnStop && queuedMessages.length > 0) {
       pauseRemainingQueue();
     }
@@ -1985,7 +2015,7 @@ export default function ChatInput({
 
   return (
     <div
-      className={`flex flex-col relative h-auto p-4 transition-colors ${
+      className={`@container/composer flex min-w-0 flex-col relative h-auto p-3 transition-colors ${
         disableAnimation ? '' : 'page-transition'
       } ${
         isFocused
@@ -1999,6 +2029,7 @@ export default function ChatInput({
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         onChange={handleFileInputChange}
         style={{ display: 'none' }}
         accept="*/*"
@@ -2043,19 +2074,23 @@ export default function ChatInput({
           )}
         </div>
       )}
-      {queuedMessages.length > 0 && (
+      {queuedMessages.some(
+        (message) => !message.presentation || message.id !== pendingSendMessageId
+      ) && (
         <MessageQueue
-          queuedMessages={queuedMessages}
+          queuedMessages={queuedMessages.filter(
+            (message) => !message.presentation || message.id !== pendingSendMessageId
+          )}
           onRemoveMessage={handleRemoveQueuedMessage}
           onConfirmNotSent={handleConfirmNotSent}
           onClearQueue={handleClearQueue}
-          onStopAndSend={handleStopAndSend}
+          onSendNow={handleSendNow}
           onReorderMessages={handleReorderMessages}
           onEditMessage={handleEditMessage}
           onTriggerQueueProcessing={handleQueueEditComplete}
           editingMessageIdRef={editingMessageIdRef}
           sendingMessageIds={sendNowInFlightMessageIds}
-          waitingMessageId={sendAfterStopMessageId}
+          waitingMessageId={pendingSendMessageId}
           isPaused={queuePausedRef.current}
           isBusy={isLoading || queueProcessingBlocked}
           blockedReason={
@@ -2070,6 +2105,22 @@ export default function ChatInput({
           className="border-b border-border-primary"
         />
       )}
+      {pendingSendMessageId &&
+        queuedMessages.some(
+          (message) => message.id === pendingSendMessageId && message.presentation
+        ) && (
+          <p role="status" className="px-3 pb-2 text-xs text-text-secondary">
+            {intl.formatMessage(i18n.waitingForCancellation)}
+          </p>
+        )}
+      {attachmentNotice && (
+        <p
+          role="status"
+          className="mx-3 mb-2 rounded-lg bg-background-secondary px-3 py-2 text-xs text-text-secondary"
+        >
+          {attachmentNotice.text}
+        </p>
+      )}
       {commandNotice && (
         <div
           role="status"
@@ -2078,86 +2129,7 @@ export default function ChatInput({
           {commandNotice}
         </div>
       )}
-      {/* Input row with inline action buttons wrapped in form */}
-      <form onSubmit={onFormSubmit} className="relative">
-        <div className="relative flex items-start">
-          {composerMode && (
-            <button
-              type="button"
-              className="ml-3 mt-3 shrink-0 text-sm text-blue-500 hover:underline"
-              title={intl.formatMessage(composerMessages.cancelMode)}
-              aria-label={intl.formatMessage(composerMessages.cancelMode)}
-              onClick={() => {
-                setComposerMode(null);
-                textAreaRef.current?.focus();
-              }}
-            >
-              /
-              {intl.formatMessage(
-                composerMode === 'plan' ? composerMessages.plan : composerMessages.goalPrefix
-              )}
-            </button>
-          )}
-          <textarea
-            data-testid="chat-input"
-            autoFocus
-            id="dynamic-textarea"
-            placeholder={
-              isRecording
-                ? ''
-                : composerMode
-                  ? intl.formatMessage(
-                      composerMode === 'plan'
-                        ? composerMessages.planPlaceholder
-                        : composerMessages.goalPlaceholder
-                    )
-                  : (placeholder ?? intl.formatMessage(composerMessages.messagePlaceholder))
-            }
-            title={getNavigationShortcutText(intl)}
-            aria-label={placeholder}
-            value={displayValue}
-            onChange={handleChange}
-            onCompositionStart={handleCompositionStart}
-            onCompositionEnd={handleCompositionEnd}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            ref={textAreaRef}
-            rows={1}
-            readOnly={isRecording}
-            style={{
-              minHeight: `${minTextareaHeight}px`,
-              maxHeight: `${maxHeight}px`,
-              overflowY: 'auto',
-            }}
-            className="w-full min-w-0 flex-1 outline-none border-none focus:ring-0 bg-transparent px-3 pt-3 pb-1.5 text-sm resize-none text-text-primary placeholder:text-text-secondary"
-          />
-
-          {/* Recording/transcribing status indicator (floats above the bottom bar) */}
-          {(isRecording || isTranscribing) && (
-            <div className="absolute right-2 -bottom-2 bg-background-primary px-2 py-1 rounded text-xs whitespace-nowrap shadow-md border border-border-primary">
-              <span className="flex items-center gap-2">
-                {isRecording && (
-                  <span className="flex items-center gap-1 text-text-secondary">
-                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    {intl.formatMessage(i18n.listening)}
-                  </span>
-                )}
-                {isRecording && isTranscribing && <span className="text-text-secondary">•</span>}
-                {isTranscribing && (
-                  <span className="flex items-center gap-1 text-blue-500">
-                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    {intl.formatMessage(i18n.transcribing)}
-                  </span>
-                )}
-              </span>
-            </div>
-          )}
-        </div>
-      </form>
-
-      {/* Combined files and images preview */}
+      {/* All attachment types share a separate tray above the full-width editor. */}
       {attachmentPreview && (
         <ImageLightbox
           src={attachmentPreview.src}
@@ -2168,11 +2140,26 @@ export default function ChatInput({
           }}
         />
       )}
-      {(pastedImages.length > 0 || allDroppedFiles.length > 0) && (
-        <div className="flex flex-wrap gap-2 p-4 mt-2 border-t border-border-primary">
+      {(compactText.prefix || pastedImages.length > 0 || allDroppedFiles.length > 0) && (
+        <ComposerAttachmentTray>
+          {compactText.blocks.map((block) => (
+            <div key={block.id} data-attachment-kind="text" className="max-w-full pb-1">
+              <PastedTextPreview
+                text={block.text}
+                onRemove={() => {
+                  const remaining = compactText.removeBlock(block.id);
+                  setDisplayValue(remaining);
+                  updateValue(remaining);
+                  inputRevisionRef.current += 1;
+                  setHasUserTyped(true);
+                }}
+              />
+            </div>
+          ))}
+
           {/* Render pasted images first */}
           {pastedImages.map((img) => (
-            <div key={img.id} className="relative group w-20 h-20">
+            <div key={img.id} data-attachment-kind="image" className="relative group w-20 h-20">
               {img.dataUrl && (
                 <button
                   type="button"
@@ -2208,9 +2195,9 @@ export default function ChatInput({
                   type="button"
                   shape="round"
                   onClick={() => handleRemovePastedImage(img.id)}
-                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
+                  className="absolute -top-1 -right-1 z-10 bg-text-primary text-background-primary ring-2 ring-background-primary hover:bg-text-primary/85 hover:text-background-primary"
                   aria-label={intl.formatMessage(i18n.removeImage)}
-                  variant="outline"
+                  variant="ghost"
                   size="xs"
                 >
                   <Close />
@@ -2221,7 +2208,11 @@ export default function ChatInput({
 
           {/* Render dropped files after pasted images */}
           {allDroppedFiles.map((file) => (
-            <div key={file.id} className="relative group">
+            <div
+              key={file.id}
+              data-attachment-kind={file.isImage ? 'image' : file.isVideo ? 'video' : 'file'}
+              className="relative group max-w-full"
+            >
               {file.error && !file.isImage && (
                 <p role="alert" className="text-xs text-red-500 max-w-[200px]">
                   {file.error}
@@ -2277,9 +2268,9 @@ export default function ChatInput({
                   type="button"
                   shape="round"
                   onClick={() => handleRemoveDroppedFile(file.id)}
-                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity z-10"
+                  className="absolute -top-1 -right-1 z-10 bg-text-primary text-background-primary ring-2 ring-background-primary hover:bg-text-primary/85 hover:text-background-primary"
                   aria-label={intl.formatMessage(i18n.removeFile)}
-                  variant="outline"
+                  variant="ghost"
                   size="xs"
                 >
                   <Close />
@@ -2287,18 +2278,165 @@ export default function ChatInput({
               )}
             </div>
           ))}
-        </div>
+        </ComposerAttachmentTray>
       )}
 
-      {/* Compact mode keeps the three picker icons and their original triggers. */}
+      {/* Input row with inline action buttons wrapped in form */}
+      <form
+        onSubmit={onFormSubmit}
+        data-testid="composer-input-row"
+        className="relative w-full min-w-0"
+      >
+        <div className="relative flex w-full min-w-0 items-start">
+          {composerMode && (
+            <button
+              type="button"
+              className="ml-3 mt-3 shrink-0 text-sm text-blue-500 hover:underline"
+              title={intl.formatMessage(composerMessages.cancelMode)}
+              aria-label={intl.formatMessage(composerMessages.cancelMode)}
+              onClick={() => {
+                setComposerMode(null);
+                textAreaRef.current?.focus();
+              }}
+            >
+              /
+              {intl.formatMessage(
+                composerMode === 'plan' ? composerMessages.plan : composerMessages.goalPrefix
+              )}
+            </button>
+          )}
+          <textarea
+            data-testid="chat-input"
+            autoFocus
+            id="dynamic-textarea"
+            placeholder={
+              isRecording
+                ? ''
+                : composerMode
+                  ? intl.formatMessage(
+                      composerMode === 'plan'
+                        ? composerMessages.planPlaceholder
+                        : composerMessages.goalPlaceholder
+                    )
+                  : (placeholder ?? intl.formatMessage(composerMessages.messagePlaceholder))
+            }
+            title={getNavigationShortcutText(intl)}
+            aria-label={placeholder}
+            value={compactText.editorValue}
+            onChange={handleChange}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            ref={textAreaRef}
+            rows={1}
+            readOnly={isRecording}
+            style={{
+              minHeight: `${minTextareaHeight}px`,
+              maxHeight: `${maxHeight}px`,
+              overflowY: 'auto',
+              scrollbarWidth: 'none',
+            }}
+            className="w-full min-w-0 flex-1 outline-none border-none focus:ring-0 bg-transparent px-2 pt-3 pb-1.5 text-sm resize-none text-text-primary placeholder:text-text-secondary [&::-webkit-scrollbar]:hidden"
+          />
+
+          {/* Recording/transcribing status indicator (floats above the bottom bar) */}
+          {(isRecording || isTranscribing) && (
+            <div className="absolute right-2 -bottom-2 bg-background-primary px-2 py-1 rounded text-xs whitespace-nowrap shadow-md border border-border-primary">
+              <span className="flex items-center gap-2">
+                {isRecording && (
+                  <span className="flex items-center gap-1 text-text-secondary">
+                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    {intl.formatMessage(i18n.listening)}
+                  </span>
+                )}
+                {isRecording && isTranscribing && <span className="text-text-secondary">•</span>}
+                {isTranscribing && (
+                  <span className="flex items-center gap-1 text-blue-500">
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    {intl.formatMessage(i18n.transcribing)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+      </form>
+
+      {/* Move complete control groups together instead of wrapping individual actions. */}
       <div
         ref={bottomBarRef}
         data-compact={isBottomBarNarrow}
-        className="group/composer-toolbar flex flex-row items-center gap-2 px-3 py-2 relative"
+        className="group/composer-toolbar relative grid grid-cols-[minmax(0,max-content)_minmax(0,1fr)] items-center gap-x-1 px-1 pt-2 pb-1 @min-[36rem]/composer:gap-x-3"
       >
-        {/* Left: model selector */}
-        <Tooltip>
-          <div className="min-w-0 max-w-48">
+        <div className="flex min-w-0 max-w-full items-center gap-1">
+          <button
+            type="button"
+            aria-label="添加附件或功能"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-text-primary hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+            onClick={() => {
+              textAreaRef.current?.focus();
+              setMentionPopover({
+                isOpen: true,
+                isSlashCommand: true,
+                addOnly: true,
+                query: '',
+                mentionStart:
+                  compactText.prefix.length + (textAreaRef.current?.selectionStart ?? 0),
+                selectedIndex: 0,
+              });
+            }}
+          >
+            <Plus size={18} />
+          </button>
+          <div className="min-w-0 max-w-full">{modelToolbarSlot}</div>
+          <AgentSelector
+            sessionId={sessionId}
+            busy={isLoading}
+            openRequest={agentOpenRequest}
+            onManage={(create) =>
+              setView('custom-agents', {
+                resumeSessionId: sessionId ?? undefined,
+                ...(create ? { section: 'create' } : {}),
+              })
+            }
+          />
+
+          {/* Left: working directory (leaf folder name only) */}
+          {!globalConversation && !hideWorkingDirSwitcher &&
+            shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
+              <DirSwitcher
+                className=""
+                sessionId={sessionId ?? undefined}
+                workingDir={currentWorkingDir}
+                onWorkingDirChange={async (newDir) => {
+                  await onWorkingDirChange?.(newDir);
+                  setWorkingDirOverride(newDir);
+                }}
+              />
+            )}
+
+          <ComposerPlanMode
+            sessionId={sessionId}
+            busy={isLoading}
+            refreshKey={goalRefresh}
+            onExit={() => void performSubmit('/plan off', true)}
+          />
+        </div>
+
+        <div className="flex min-w-0 max-w-full items-center justify-end gap-1">
+          <ContextWindowIndicator
+            totalTokens={totalTokens}
+            tokenLimit={tokenLimit}
+            usageSource={contextUsageSource}
+            capacitySource={
+              capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined
+            }
+            alerts={alerts}
+          />
+          <div className="min-w-0">
             <ModelsBottomBar
               sessionId={sessionId}
               openRequest={modelOpenRequest}
@@ -2311,67 +2449,6 @@ export default function ChatInput({
               sessionLoaded={sessionLoaded}
             />
           </div>
-        </Tooltip>
-
-        <div className="shrink-0">{modelToolbarSlot}</div>
-
-        {/* Left: working directory (leaf folder name only) */}
-        {!globalConversation && shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
-          <DirSwitcher
-            className=""
-            sessionId={sessionId ?? undefined}
-            workingDir={currentWorkingDir}
-            onWorkingDirChange={async (newDir) => {
-              await onWorkingDirChange?.(newDir);
-              setWorkingDirOverride(newDir);
-            }}
-          />
-        )}
-
-        <ComposerPlanMode
-          sessionId={sessionId}
-          busy={isLoading}
-          refreshKey={goalRefresh}
-          onExit={() => void performSubmit('/plan off', true)}
-        />
-
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          {!isBottomBarNarrow && (
-            <>
-              {/* Right: context window indicator */}
-              <ContextWindowIndicator
-                totalTokens={totalTokens}
-                tokenLimit={tokenLimit}
-                usageSource={contextUsageSource}
-                capacitySource={
-                  capacity?.contextLimit === contextLimit ? contextCapacitySource : undefined
-                }
-                alerts={alerts}
-              />
-            </>
-          )}
-          {/* Attachment input remains available in a narrow workspace pane. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                aria-label={intl.formatMessage(i18n.attachFile)}
-                onClick={handleFileSelect}
-                disabled={isFilePickerOpen}
-                variant="ghost"
-                size="sm"
-                shape="round"
-                className={cn(
-                  'text-text-primary/70 hover:text-text-primary transition-colors',
-                  isFilePickerOpen ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                )}
-              >
-                <Attach className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{intl.formatMessage(i18n.attachFile)}</TooltipContent>
-          </Tooltip>
-
           {/* Right: mic — ghost icon, no background when idle */}
           {!isBottomBarNarrow && dictationProvider && (
             <Tooltip>
@@ -2459,6 +2536,7 @@ export default function ChatInput({
           ref={mentionPopoverRef}
           isOpen={mentionPopover.isOpen}
           isSlashCommand={mentionPopover.isSlashCommand}
+          addOnly={mentionPopover.addOnly}
           onClose={() => setMentionPopover((prev) => ({ ...prev, isOpen: false }))}
           onSelect={handleMentionItemSelect}
           anchorRef={textAreaRef}

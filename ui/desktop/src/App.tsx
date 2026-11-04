@@ -44,6 +44,7 @@ import { MediaLibrary } from './components/media-library/MediaLibrary';
 import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
+import { WindowsTitleBar } from './components/Layout/WindowsTitleBar';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -149,7 +150,10 @@ export const PairRouteWrapper = ({
     typeof routeState.recipeDeeplink === 'string' ? routeState.recipeDeeplink : undefined;
   const recipeIdFromRoute =
     typeof routeState.recipeId === 'string' ? routeState.recipeId : undefined;
-  const hasRouteRecipe = recipeDeeplinkFromRoute !== undefined || recipeIdFromRoute !== undefined;
+  const hasRouteRecipe =
+    routeState.draftOnly ||
+    recipeDeeplinkFromRoute !== undefined ||
+    recipeIdFromRoute !== undefined;
   const recipeDeeplink = hasRouteRecipe ? recipeDeeplinkFromRoute : recipeDeeplinkFromConfig;
   const recipeId = hasRouteRecipe ? recipeIdFromRoute : recipeIdFromConfig;
   const workspaceMode = getWorkspaceModeFromPath(location.pathname);
@@ -407,7 +411,7 @@ const ConfigureProvidersRoute = () => {
   const workspaceMode = getWorkspaceModeFromPath(location.pathname);
 
   return (
-    <div className="w-screen h-screen bg-background-primary">
+    <div className="w-full h-full bg-background-primary">
       <ProviderSettings
         onClose={() =>
           navigate(withWorkspaceMode('/settings', workspaceMode), {
@@ -434,6 +438,8 @@ export function AppInner() {
   const setView = useNavigation();
   const isSettingsRoute =
     location.pathname === '/settings' || location.pathname === '/codepro/settings';
+  const isCustomAgentsRoute =
+    location.pathname === '/custom-agents' || location.pathname === '/codepro/custom-agents';
   const settingsBackgroundLocation = isSettingsRoute
     ? (location.state as ViewOptions | null)?.backgroundLocation
     : undefined;
@@ -775,8 +781,29 @@ export function AppInner() {
       const initialMessage = args[0] as string;
       const options =
         (args[1] as
-          | { noAutoSubmit?: boolean; workingDir?: string; images?: UserInput['images'] }
+          | {
+              noAutoSubmit?: boolean;
+              draftOnly?: boolean;
+              workingDir?: string;
+              images?: UserInput['images'];
+            }
           | undefined) || {};
+
+      if (
+        options.draftOnly &&
+        typeof options.workingDir === 'string' &&
+        options.workingDir.trim()
+      ) {
+        navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
+          state: {
+            initialMessage: { msg: initialMessage, images: options.images ?? [] },
+            workingDir: options.workingDir,
+            draftOnly: true,
+            noAutoSubmit: true,
+          },
+        });
+        return;
+      }
 
       if ((initialMessage || options.images?.length) && !isProcessingRef.current) {
         isProcessingRef.current = true;
@@ -830,8 +857,12 @@ export function AppInner() {
       <ExtensionInstallModal addExtension={addExtension} setView={setView} />
       <RecipeParamsModalContainer />
       <div className="relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
-        <div className="titlebar-drag-region" />
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {window.appConfig?.get('WINDOW_TITLEBAR_OVERLAY') === true ? (
+          <WindowsTitleBar />
+        ) : (
+          <div className="titlebar-drag-region" />
+        )}
+        <div className="relative min-h-0 w-full flex-1">
           <CodeProRouteGuard unifiedMode={codeProUnifiedMode}>
             <Routes location={settingsBackgroundLocation ?? location}>
               <Route path="launcher" element={<LauncherView />} />
@@ -842,7 +873,7 @@ export function AppInner() {
                 path="/"
                 element={
                   <OnboardingGuard
-                    requireModel={!isSettingsRoute}
+                    requireModel={!isSettingsRoute && !isCustomAgentsRoute}
                     onConfigure={() =>
                       navigate(
                         withWorkspaceMode('/settings', getWorkspaceModeFromPath(location.pathname)),

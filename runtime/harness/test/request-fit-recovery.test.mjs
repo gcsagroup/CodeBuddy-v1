@@ -42,6 +42,9 @@ function fixture({ before = exhaustedFit, after = improvedFit, shrink = true, co
   const agent = { session };
   const ctx = {
     reflect: { provide() {} },
+    sessionProjections: { stateOf() {} },
+    emit() {},
+    bail(name, ...args) { return handlers.get(name)?.[0]?.(...args); },
     on(name, listener) { const list = handlers.get(name) ?? []; list.push(listener); handlers.set(name, list); return () => {}; },
     logger: { info() {}, warn: text => warnings.push(text) },
     llm: { requestFitRecovery: failure => failures.get(failure) },
@@ -66,7 +69,7 @@ function fixture({ before = exhaustedFit, after = improvedFit, shrink = true, co
   const next = Symbol('unhandled-request-error');
   return {
     engine, agent, session, messages, history, warnings, measurements, compactions, handlers, failure, next,
-    recover: (value = failure(), turn = 'turn-1', signal = new AbortController().signal) => budgetListener({ agent, turn, failure: value, signal }, () => next),
+    recover: (value = failure(), turn = 'turn-1', signal = new AbortController().signal, step = 1) => budgetListener({ agent, turn, step, failure: value, signal }, () => next),
   };
 }
 
@@ -82,15 +85,27 @@ test('local exhaustion and truncated output use the native request-error retry w
   }
 });
 
-test('recovery allowance is shared by both local codes for one turn and survives an assistant message', async () => {
+test('local compaction attempts are shared by both codes within a step and survive an assistant message', async () => {
   const f = fixture();
   assert.deepEqual(await f.recover(f.failure('LOCAL_OUTPUT_BUDGET_EXHAUSTED')), { kind: 'retry' });
   for (const handler of f.handlers.get('session/event')) handler(f.session, { type: 'assistant/message' });
   assert.strictEqual(await f.recover(f.failure('OUTPUT_TRUNCATED')), f.next);
   assert.equal(f.compactions.length, 1);
+  assert.deepEqual(await f.recover(f.failure('OUTPUT_TRUNCATED'), 'turn-1', new AbortController().signal, 2), { kind: 'retry' });
   assert.deepEqual(await f.recover(f.failure('OUTPUT_TRUNCATED'), 'turn-2'), { kind: 'retry' });
   for (const handler of f.handlers.get('agent/status')) handler({ agent: f.agent, status: 'idle' });
   assert.deepEqual(await f.recover(f.failure(), 'turn-2'), { kind: 'retry' });
+});
+
+test('the shared host allowance can deny compaction before summarization or retry admission', async () => {
+  const denied = fixture();
+  denied.handlers.set('codebuddy/output-recovery-available', [() => ({ allowed: false })]);
+  assert.strictEqual(await denied.recover(), denied.next);
+  assert.equal(denied.compactions.length, 0);
+  const changed = fixture();
+  changed.handlers.set('codebuddy/output-recovery-started', [() => ({ allowed: false })]);
+  assert.strictEqual(await changed.recover(), changed.next);
+  assert.equal(changed.compactions.length, 1);
 });
 
 test('no surface replacement, insufficient fit, and summary failures cannot authorize retry', async () => {

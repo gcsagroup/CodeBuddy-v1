@@ -1,6 +1,7 @@
 import { MAIN_CONVERSATION, ensureMainConversation, workspaceMemoryTool } from './main-conversation.mjs';
 import { nameFirstTurn } from './session-titles.mjs';
-import { agentProfileRequest, workspaceAgent, agentAllowsTool } from './agent-profiles.mjs';
+import { agentProfileRequest, workspaceAgent, agentAllowsTool, bindAgentInput, agentInputProfile, agentBaselineProfile, sessionAgentSelection, agentProfileChoice, createAgentSelection } from './agent-profiles.mjs';
+import { DEFAULT_AGENT_PRESETS, DEFAULT_AGENT_SKILLS } from './agent-presets.mjs';
 import { desktopControlPresentation, matchesDesktopCancel } from './desktop-control.mjs';
 import { DesktopCoordinator } from './desktop-coordinator.mjs';
 import { closeMediaStreams } from './comfyui-live.mjs';
@@ -51,7 +52,7 @@ import { harnessPrompt } from "./prompt-content.mjs";
 import { applyModelThinking, modelThinkingPreference } from "./model-settings.mjs";
 import { DEFAULT_CONTEXT_WINDOW } from './model-defaults.mjs';
 import { initialPermissionPreset, permissionPresets } from './permission-presets.mjs';
-import { mcpSessionApprovalScope } from './tool-session-approval.mjs';
+import { mcpSessionApprovalScope, businessPresentationForClient } from './tool-session-approval.mjs';
 import { HistoryService, updatesFromConversation } from "./history.mjs";
 import { loadLegacyConversation } from "./legacy-migration.mjs";
 import {
@@ -90,8 +91,8 @@ import {
 
 const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
-  'providerId', 'modelId', 'type', 'agentProfile', 'workspaceBinding', 'projectId', 'scheduleId',
-  'readonlyHistory', 'userSetName', 'archivedAt', 'globalConversation'];
+  'providerId', 'modelId', 'type', 'agentProfile', 'agentSelection', 'workspaceBinding', 'projectId', 'scheduleId',
+  'readonlyHistory', 'userSetName', 'archivedAt', 'workspaceOrigin', 'globalConversation'];
 
 function imageDisplayBlock(item) {
   if (item?.type !== "image") return item;
@@ -786,7 +787,8 @@ export class Compat {
         sessionType: scheduled ? "scheduled" : s.type,
         workspaceBinding: s.workspaceBinding,
         globalConversation: s.globalConversation === true,
-        agentProfile: s.agentProfile ? { id: s.agentProfile.id, name: s.agentProfile.name, avatar: s.agentProfile.avatar, revision: s.agentProfile.revision } : undefined,
+        agentProfile: (() => { const profile = sessionAgentSelection(s).profile; return profile ? { id: profile.id, name: profile.name, avatar: profile.avatar, revision: profile.revision } : undefined; })(),
+        workspaceOrigin: s.workspaceOrigin,
         projectId: s.projectId,
         activeRunId: this.runs.latest(s.id, state)?.runId,
         // Explicitly imported histories are retained records, including empty
@@ -800,7 +802,6 @@ export class Compat {
     };
   }
   options(s) {
-    if (s.agentProfile) return [];
     const p = this.store.read(["providers"]).providers.find((p) => p.id === s.providerId);
     if (!p) return [];
     return [
@@ -888,13 +889,15 @@ export class Compat {
     // allow list only accepts globally registered tools, not scoped additions.
     return {
       agentProfile: s.agentProfile,
+      mainAgentRole: {
+        baseline: () => agentBaselineProfile(this.store.readSession(s.id, { fields: ['agentProfile', 'agentSelection'] })),
+        input: requestId => agentInputProfile(this.store.readSession(s.id, { fields: ['agentProfile', 'agentSelection', 'agentInputs'] }), requestId),
+      },
       initialPermissionPreset: initialPermissionPreset(s, preferences),
       conversationLocale: this.clientLocales.get(s.id),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
-        s.agentProfile ? `## Workspace role: ${s.agentProfile.name}
-${s.agentProfile.prompt}
-Use this role throughout this workspace.` : basePrompt,
+        basePrompt,
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
         ...(enabledInstallTools.length ? [
@@ -929,9 +932,9 @@ Use this role throughout this workspace.` : basePrompt,
           onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
         });
       },
-      subagentModels: s.agentProfile ? {} : await resolveSubagentModels(state.config, state.providers,
+      subagentModels: await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
-      subagentTemplates: s.agentProfile ? [] : await resolveCustomSubagentTemplates(state.config, state.providers,
+      subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
       restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
@@ -1132,8 +1135,9 @@ Use this role throughout this workspace.` : basePrompt,
     const toolGrant = this.toolGrant(tool), businessGrant = this.businessGrant(tool);
     const reusable = Boolean(toolGrant && !safety.requiresApproval && currentPolicy().permission !== 'ask_before');
     if (reusable && (toolGrant?.allowed || businessGrant?.allowed)) return true;
-    const business = reusable && businessGrant && !directToolCall && this.businessApprovalClients?.has(connection)
-      ? approval.business : undefined;
+    const businessPresentation = reusable && businessGrant && !directToolCall
+      ? businessPresentationForClient(approval.business.presentation, this.businessApprovalClients?.get(connection)) : undefined;
+    const business = businessPresentation ? approval.business : undefined;
     const grant = business ? businessGrant : toolGrant;
 
     // Parallel calls wait for the same scope's explicit choice, then recheck the
@@ -1159,7 +1163,7 @@ Use this role throughout this workspace.` : basePrompt,
           _meta: {
             ...(directToolCall ? { goose: { directToolCall: true } } : {}),
             ...(reusable ? { codepro: { authorizationScope: 'session', authorizationTarget: approval.targetOrigin ?? tool.name, extensionSource: business ? 'builtin' : approval.extensionSource,
-              ...(business ? { permissionClass: 'external_write', businessApproval: business.presentation } : {}),
+              ...(business ? { permissionClass: 'external_write', businessApproval: businessPresentation } : {}),
               ...(approval.group && !business ? { authorizationGroup: approval.group } : {}),
               ...(approval.module && !business ? { authorizationModule: approval.module } : {}),
               ...(approval.group === 'web_read' || approval.targetOrigin ? { permissionClass: 'read_only' } : {}) } } : {}),
@@ -1170,16 +1174,25 @@ Use this role throughout this workspace.` : basePrompt,
             status: "pending",
             kind: "execute",
             rawInput: tool.arguments,
-            ...(safety.requiresApproval || approval?.targetOrigin || approval?.group === 'web_read'
+            ...(!reusable || approval?.targetOrigin || approval?.group === 'web_read'
               ? {
                   content: [
                     {
                       type: "content",
                       content: { type: "text", text: [
                         ...(safety.requiresApproval ? [safety.explanation] : []),
-                        ...(approval?.group === 'web_read' ? ['允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
+                        ...(approval?.group === 'web_read' ? [reusable
+                          ? '允许本会话匿名读取公开网页；不包括登录、提交、携带凭据或访问内网。'
+                          : '本次操作仅访问公开网页；不包括登录、提交、携带凭据或访问内网。'] : []),
+                        ...(!reusable ? [currentPolicy().permission === 'ask_before'
+                          ? '该工具设置为每次确认。本次允许仅适用于当前操作。'
+                          : safety.requiresApproval
+                            ? '本次操作触发了额外安全确认；此次允许不会授权后续操作。'
+                            : '本次允许仅适用于当前操作；后续调用仍需按当前权限规则确认。'] : []),
                         ...(approval?.targetOrigin
-                          ? [`允许本会话访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
+                          ? [reusable
+                              ? `会话许可仅覆盖 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`
+                              : `本次操作仅访问 ${approval.targetOrigin}（匿名网页读取，仅此站点；不包括其他站点、登录或提交）。`]
                           : []),
                       ].join('\n') },
                     },
@@ -1427,8 +1440,15 @@ Use this role throughout this workspace.` : basePrompt,
       p.sessionId &&
       this.sessionMutations.has(p.sessionId) &&
       method !== "session/cancel"
-    )
-      throw invalid("Wait for the session change to finish");
+    ) {
+      // The role picker refreshes when editing starts. Its read must observe
+      // the committed conversation, not report the edit's write lock as failure.
+      // Never defer executable/mutating requests across a conversation change.
+      if (method !== '_codebuddy/agents/current')
+        throw invalid("Wait for the session change to finish");
+      await this.sessionMutations.get(p.sessionId).done;
+      return this.request(method, p, connection);
+    }
     if (connection) {
       this.connections.add(connection);
       connection.sessionIds ??= new Set();
@@ -1454,13 +1474,15 @@ Use this role throughout this workspace.` : basePrompt,
       return this.apps.request(method.replace(prefix, ""), p);
     if (method === '_codebuddy/agents/catalog') {
       const extensions = await this.settings.extensions();
-      // Templates target new workspaces; no project directory exists yet.
+      // The role manager has no single project directory. Per-project discovery
+      // still runs in the native session when the selected role is applied.
       const managed = await this.library.skillRequest('list', {}, connection);
       const native = await this.driver.listTools?.() ?? [];
       const names = [...new Set([...native.map(t => t.name), 'browser_control', IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, PET_TOOL_NAME, 'project_memory', ...GIT_TOOL_NAMES])];
       return {
-        models: this.store.read(['providers']).providers.flatMap(provider => provider.models.map(model => ({ providerId: provider.id, modelId: model, label: provider.displayName + ' / ' + model }))),
-        skills: managed.skills.filter(s => s.enabled).map(s => ({ name: s.name, description: s.description })),
+        skills: [...managed.skills.filter(s => s.enabled).map(s => ({ name: s.name, description: s.description })),
+          ...DEFAULT_AGENT_SKILLS.map(s => ({ name: s.name, description: s.description, title: s.title, sourceUrl: s.sourceUrl, roleOnly: true }))],
+        presets: DEFAULT_AGENT_PRESETS,
         tools: names.filter(name => name !== 'skill').map(name => ({ name, description: native.find(t => t.name === name)?.description ?? name })),
         mcpServers: extensions.filter(e => e.enabled && !['developer', 'git', 'projectmemory'].includes(extensionName(e.extension))).map(e => ({ name: extensionName(e.extension), description: e.extension.description ?? extensionName(e.extension) })),
       };
@@ -1479,9 +1501,10 @@ Use this role throughout this workspace.` : basePrompt,
       return { sessionId: session.id, jobs: [...images, ...videos].sort((a, b) => b.created_at.localeCompare(a.created_at)) };
     }
     if (method === "initialize") {
-      this.businessApprovalClients ??= new WeakSet();
-      if (connection && p.clientCapabilities?._meta?.goose?.businessSessionApproval === 1)
-        this.businessApprovalClients.add(connection);
+      this.businessApprovalClients ??= new WeakMap();
+      const approvalCapabilities = p.clientCapabilities?._meta?.goose;
+      if (connection && approvalCapabilities?.businessSessionApproval === 1)
+        this.businessApprovalClients.set(connection, approvalCapabilities.extensibleBusinessApproval === 1 ? 2 : 1);
       else if (connection) this.businessApprovalClients.delete(connection);
       return {
         protocolVersion: 1,
@@ -1541,7 +1564,6 @@ Use this role throughout this workspace.` : basePrompt,
           ...this.store.read(["defaults"]).defaults,
           ...(prepared.providerId ? { providerId: prepared.providerId } : {}),
           ...(prepared.modelId ? { modelId: prepared.modelId } : {}),
-          ...(agentProfile ? { providerId: agentProfile.providerId, modelId: agentProfile.modelId } : {}),
         };
         const selectedProvider = this.provider(defaults.providerId);
         requireString(defaults.modelId, "default model");
@@ -1562,6 +1584,9 @@ Use this role throughout this workspace.` : basePrompt,
           modelId: defaults.modelId,
           type: codePro ? "code_pro" : "user",
           workspaceBinding: p._meta?.workspaceBinding ?? "writable_project",
+          ...(p._meta?.workspaceOrigin === 'default' || p._meta?.workspaceOrigin === 'selected'
+            ? { workspaceOrigin: p._meta.workspaceOrigin }
+            : {}),
           projectId: p._meta?.projectId ?? null,
           initialPermissionPreset: p._meta?.initialPermissionPreset ?? initialPermissionPreset({}, this.store.read(['preferences']).preferences),
           ...(await sealSessionExtensions(
@@ -1582,6 +1607,11 @@ Use this role throughout this workspace.` : basePrompt,
           messageCount: 0,
           updates: [],
         };
+        if (Object.hasOwn(p._meta ?? {}, 'customAgentId')) {
+          const profile = agentProfileChoice(this.store, p._meta.customAgentId);
+          s.agentSelection = createAgentSelection(profile, agentProfile ?? null);
+          s.agentInputs = {};
+        }
         await bindWorkspace();
         if (codePro)
           await this.workspaces.validateSession(s.id, s.cwd, {
@@ -1915,7 +1945,6 @@ Use this role throughout this workspace.` : basePrompt,
     }
     if (method === "session/set_config_option") {
       const s = this.session(p.sessionId);
-      if (s.agentProfile) throw invalid("This workspace uses its agent’s fixed model; create a new workspace to change it");
       if (this.active.has(s.id))
         throw invalid("Stop the current turn before changing its model");
       let selection;
@@ -2139,7 +2168,7 @@ Use this role throughout this workspace.` : basePrompt,
       case "session/extensions/add":
       case "session/extensions/remove": {
         const s = this.session(p.sessionId);
-        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed services');
+        if (s.agentProfile && !s.agentSelection) throw invalid('This workspace uses its agent’s fixed services');
         if (this.active.has(s.id))
           throw invalid("Stop the current turn before changing extensions");
         let extensions = (await selectedExtensions(s, this.settings)).map(
@@ -2328,7 +2357,7 @@ Use this role throughout this workspace.` : basePrompt,
       }
       case "session/system-prompt/set": {
         const s = this.session(p.sessionId);
-        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed persona');
+        if (s.agentProfile && !s.agentSelection) throw invalid('This workspace uses its agent’s fixed persona');
         if (this.active.has(s.id))
           throw invalid("Stop execution before changing its instructions");
         if (
@@ -2367,6 +2396,8 @@ Use this role throughout this workspace.` : basePrompt,
         )
           throw Object.assign(invalid("Run ended before the input could be added"), { harnessCode: 'PROMPT_IDLE' });
         const messageId = randomUUID();
+        await bindAgentInput(this.store, s.id, messageId, { profile: Object.hasOwn(active, 'agentProfile')
+          ? active.agentProfile : await this.driver.mainAgentProfile?.(s.id) ?? null });
         await this.driver.steer(s.id, prepared.content, {
           requestId: messageId,
           signal: active.controller.signal,
@@ -2378,7 +2409,7 @@ Use this role throughout this workspace.` : basePrompt,
             sessionUpdate: "user_message_chunk",
             content,
             messageId,
-            _meta: { goose: { messageId, created } },
+            _meta: { goose: { messageId, created, steer: true } },
           });
         active.userMessages.push(
           ...p.prompt.filter((c) => c.type === "text").map((c) => c.text),
@@ -2648,6 +2679,7 @@ Use this role throughout this workspace.` : basePrompt,
     trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
+      ...(!nativeObservationToken ? { agentProfile: sessionAgentSelection(s).profile } : {}),
       nativeAttached: Promise.withResolvers(),
       controller,
       connection,
@@ -2703,10 +2735,11 @@ Use this role throughout this workspace.` : basePrompt,
     let lastResponseTextAvailable;
     const created = Math.floor(Date.now() / 1000);
     let writer;
-    const notify = async (update) => {
-      await writer?.append(update);
-      updates.push(update);
-      connection.notify("session/update", { sessionId: s.id, update });
+    const notify = async (update, unstable = false) => {
+      if (unstable) await writer?.appendUsage(update);
+      else await writer?.append(update);
+      (unstable ? usageUpdates : updates).push(update);
+      connection.notify((unstable ? prefix : '') + "session/update", { sessionId: s.id, update });
     };
     const userId = p._meta?.["codeagentpro/source-message-id"] ?? randomUUID();
     // Persist only a display anchor. Native admission, cancellation and input
@@ -2737,6 +2770,7 @@ Use this role throughout this workspace.` : basePrompt,
         connection.notify('_goose/unstable/session/update', { sessionId: s.id, update });
     };
     try {
+      await this.runs.finishPendingHarnessAttempt(s.id);
       writer = await this.journal?.begin({
         sessionId: s.id,
         turnId: promptScope,
@@ -2761,6 +2795,7 @@ Use this role throughout this workspace.` : basePrompt,
           this.initialized.delete(s.id);
         }
       }
+      if (!nativeObservationToken) await bindAgentInput(this.store, s.id, userId, { profile: promptEntry.agentProfile });
       await this.ensureSession(s);
       trace('session_ready');
       controller.signal.throwIfAborted();
@@ -2854,6 +2889,19 @@ Use this role throughout this workspace.` : basePrompt,
         },
         onEvent: async (event) => {
           promptEntry.nativeAttached.resolve();
+          if (event.type === 'agent_input' && event.sessionId === s.id) {
+            // This is an invalidation receipt, not a second role snapshot.
+            // current() continues to derive adoption from the native log.
+            for (const observer of new Set([connection, ...this.connections]))
+              if (observer === connection || observer.sessionIds?.has(s.id)) {
+                try {
+                  observer.notify('session/update', { sessionId: s.id, update: {
+                    sessionUpdate: 'session_info_update', _meta: { 'codebuddy/agent-input': { requestId: event.requestId, seq: event.seq } },
+                  } });
+                } catch { console.warn('Agent selection display could not receive its native input receipt.'); }
+              }
+            return;
+          }
           if (event.type === 'scheduled_message' && event.sessionId === s.id) {
             const message = event.message;
             if (message.id !== userId) for (const part of message.content ?? []) {
@@ -2987,6 +3035,11 @@ Use this role throughout this workspace.` : basePrompt,
           if (event.sessionId && event.sessionId !== s.id) return;
           if (event.type === 'assistant_committed' && typeof event.hasText === 'boolean')
             lastResponseTextAvailable = event.hasText;
+          if (event.type === 'assistant_end' && event.incompleteOutput === true)
+            await notify({ sessionUpdate: 'status_message', status: { type: 'notice',
+              message: '上一段生成被截断，保留作过程记录；其中的工具草稿未执行。',
+              data: { type: 'output_attempt_incomplete', message_id: messageId },
+            } });
           // Native logs retain every receipt. Main-chat projection omits
           // delegation plumbing; child tools remain in their own transcript.
           if (event.type === 'tool_call' && event.internalControl === true) internalToolCalls.add(event.id);
@@ -3079,24 +3132,44 @@ Use this role throughout this workspace.` : basePrompt,
           ...callbacks, ...(nativeObservationToken ? { nativeObservationToken } : {}),
         });
         trace('native_prompt_settled');
+        // Native execution has ended. This durable presentation annotation can
+        // pair the final answer and committed file receipts while the larger
+        // compatibility snapshot is still being committed below.
+        if (result?.reason?.kind === 'completed' && !controller.signal.aborted &&
+            active?.run && active.attemptId && lastResponseTextAvailable === true) {
+          await notify({
+            sessionUpdate: 'status_message',
+            status: { type: 'progress', message: '', data: {
+              type: 'codepro_response_phase', schema_version: 1, event_type: 'response_phase',
+              event_id: `answer:${active.attemptId}`, session_id: s.id, run_id: active.run.runId,
+              source_user_message_id: userId, phase: 'answer', answer_message_id: messageId,
+              created_at: Date.now() / 1000,
+            } },
+          }, true);
+        }
       }
     } catch (error) {
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
     } finally {
-      await desktopTurn.end();
-      desktopControl.end();
+      let settlementError;
       try {
+        try { await desktopTurn.end(); }
+        catch (error) { settlementError = error; }
+        desktopControl.end();
         const active = this.active.get(s.id);
-        if (active?.run && active.attemptId)
-          await this.runs.finishHarnessAttempt({
-            sessionId: s.id,
-            runId: active.run.runId,
-            attemptId: active.attemptId,
-            result,
-            error: promptError,
-            aborted: controller.signal.aborted,
-          });
+        try {
+          if (active?.run && active.attemptId)
+            await this.runs.finishHarnessAttempt({
+              sessionId: s.id,
+              runId: active.run.runId,
+              attemptId: active.attemptId,
+              result,
+              error: promptError,
+              aborted: controller.signal.aborted,
+            });
+        } catch (error) { settlementError ??= error; }
+        if (settlementError) throw settlementError;
         if (active?.run && active.attemptId) {
           const context = this.runs.context({
             sessionId: s.id,
@@ -3128,6 +3201,9 @@ Use this role throughout this workspace.` : basePrompt,
                   ? "failed"
                 : "interrupted",
             ...(!completed && active.userRequestedStop ? { user_requested_stop: true } : {}),
+            ...(result?.stopReason === 'max_tokens' ? { stop_reason: 'max_tokens' } : {}),
+            ...(promptError?.code === 'LOCAL_OUTPUT_BUDGET_EXHAUSTED' ? { stop_reason: 'context_budget' } : {}),
+            ...((result?.outputLimit ?? promptError?.outputLimit) ? { output_limit: result?.outputLimit ?? promptError.outputLimit } : {}),
             visible_text_available: updates.some(
               (u) => u.sessionUpdate === "agent_message_chunk",
             ),
@@ -3228,10 +3304,21 @@ Use this role throughout this workspace.` : basePrompt,
             updatedAt: saved.updatedAt,
           },
         });
+      } catch (error) {
+        settlementError = error;
+        throw error;
       } finally {
         try {
-          if (controller.signal.aborted) this.desktop.discardContinuation(s.id, promptScope);
-        } finally { release(); }
+          // Run metadata or desktop settlement may fail before normal finalization.
+          // The journal still must close its writer and retain any unprojected records.
+          try { await writer?.finalize(); }
+          catch (error) { if (!settlementError) throw error; }
+        } finally {
+          try {
+            desktopControl.end();
+            if (controller.signal.aborted) this.desktop.discardContinuation(s.id, promptScope);
+          } finally { release(); }
+        }
       }
     }
     if (controller.signal.aborted) return { stopReason: "cancelled" };

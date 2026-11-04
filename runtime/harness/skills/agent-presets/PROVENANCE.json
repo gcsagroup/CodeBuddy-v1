@@ -1,0 +1,239 @@
+{
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "file": "codebuddy-debug/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "engineering/CONNECTORS.md",
+      "sha256": "00f8a815f649a0e54bc738057f050259c2b6e08534f3c2171f657b70bed6a131"
+    },
+    {
+      "file": "codebuddy-debug/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "engineering/skills/debug/SKILL.md",
+      "upstreamSha256": "e50bb92cbcb2715139f3a3cb9ff282a8f0f9ae794f8f35d81338654e2601d32a",
+      "sha256": "b63345494a69943e485f1a50e3e7a5abc12758fc06020dc6b819664309a81bab",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-code-review/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "engineering/CONNECTORS.md",
+      "sha256": "00f8a815f649a0e54bc738057f050259c2b6e08534f3c2171f657b70bed6a131"
+    },
+    {
+      "file": "codebuddy-code-review/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "engineering/skills/code-review/SKILL.md",
+      "upstreamSha256": "6303932f1b301c614a6f5a0099cd87a19e1cd1b7cbfa1a1e11e996edbca6426b",
+      "sha256": "bd28e76062dc7d04579c9be83d344c78c06928525f3b85606f20719b128a10df",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-testing-strategy/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "engineering/skills/testing-strategy/SKILL.md",
+      "upstreamSha256": "5c5e95830754bbdd838213fa05fc8f07523f591fd558fd3c86031ffd479f7a9e",
+      "sha256": "5c5e95830754bbdd838213fa05fc8f07523f591fd558fd3c86031ffd479f7a9e",
+      "adaptations": []
+    },
+    {
+      "file": "codebuddy-write-spec/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "product-management/CONNECTORS.md",
+      "sha256": "f52733eb0cd1b46f96cbf15bd9d8dd5215c9341d9323f42da076bcddccda2f5e"
+    },
+    {
+      "file": "codebuddy-write-spec/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "product-management/skills/write-spec/SKILL.md",
+      "upstreamSha256": "ca6670913878b4ac4582727562bfced5271492a5a800d934f68c9e7bc1cd4dcc",
+      "sha256": "b4cf6a684c1e017d74170f95c5fc4ac981b7038e3389bd50722dad9f17eb7395",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-explore-data/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "data/CONNECTORS.md",
+      "sha256": "79de0e9613ef7870e773b6dcdcb7d50f4bff2c0574c14ab5e0aeb29014dcec7b"
+    },
+    {
+      "file": "codebuddy-explore-data/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "data/skills/explore-data/SKILL.md",
+      "upstreamSha256": "af7590fa616360259da712b5ede5f79b817beb854c47a465f95774354988e8a2",
+      "sha256": "d6be1edd174637f54ccfd2f43b9922b1a3f1bb0092b49d3f31c9086c6f84b543",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-validate-data/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "data/CONNECTORS.md",
+      "sha256": "79de0e9613ef7870e773b6dcdcb7d50f4bff2c0574c14ab5e0aeb29014dcec7b"
+    },
+    {
+      "file": "codebuddy-validate-data/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "data/skills/validate-data/SKILL.md",
+      "upstreamSha256": "1e424822043480375b80aef9416227b1c8083af749ca536568716265f79ca54b",
+      "sha256": "2f11807cd3233eddb3873de1dc6731977e7ef41ec45844d90cd4357144dab7b9",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-content-creation/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "marketing/skills/content-creation/SKILL.md",
+      "upstreamSha256": "17f0bfd536502a91c760accaa1ae6c0c76c3812973571729664133e282c5dded",
+      "sha256": "17f0bfd536502a91c760accaa1ae6c0c76c3812973571729664133e282c5dded",
+      "adaptations": []
+    },
+    {
+      "file": "codebuddy-frontend-design/SKILL.md",
+      "repository": "anthropics/skills",
+      "revision": "ca45fc496a3436251f191354091d557da31c15b5",
+      "upstreamPath": "skills/frontend-design/SKILL.md",
+      "upstreamSha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "adaptations": []
+    },
+    {
+      "file": "codebuddy-design-critique/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/skills/design-critique/SKILL.md",
+      "upstreamSha256": "3a4f260eb9f60b431782bf6d90f22afb480c0c67860267a032df58a3e1bd19cd",
+      "sha256": "2783817f3355592c2007c55e0ebf0bfeded7ff977bf1f420f1646c819248e9ad",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-design-critique/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/CONNECTORS.md",
+      "sha256": "242e232bb37b2bd5778d2e88db7edb53a6100819a8f037d786a3e1a55b4d141f"
+    },
+    {
+      "file": "codebuddy-design-system/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/skills/design-system/SKILL.md",
+      "upstreamSha256": "fb31bd0144c43955106f01927126ae9fd2d4148be44c8d5887b3391f40c31445",
+      "sha256": "a3e80db58f7cb17b084a7b40e5e7d738714106a5f2ca8f67ba5d18f894c388ac",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-design-system/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/CONNECTORS.md",
+      "sha256": "242e232bb37b2bd5778d2e88db7edb53a6100819a8f037d786a3e1a55b4d141f"
+    },
+    {
+      "file": "codebuddy-design-handoff/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/skills/design-handoff/SKILL.md",
+      "upstreamSha256": "38f1efc807928030654218443ad07f6a37ac82de6b4d627a03113a3568d787b7",
+      "sha256": "bb11bb6bf6afd04050d30050af852a7f61afd9966f5be40ee81fba0af249f925",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-design-handoff/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/CONNECTORS.md",
+      "sha256": "242e232bb37b2bd5778d2e88db7edb53a6100819a8f037d786a3e1a55b4d141f"
+    },
+    {
+      "file": "codebuddy-ux-copy/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/skills/ux-copy/SKILL.md",
+      "upstreamSha256": "d46a00a62ec637e9ca9d5f7823ea3e0a4ec26dffc53bb5035f59b48ebfcdcde7",
+      "sha256": "b38daf15530fd3dc7ac4e8646cad392bb3122eba132665c1e0aa2d00b802ea1f",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-ux-copy/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "design/CONNECTORS.md",
+      "sha256": "242e232bb37b2bd5778d2e88db7edb53a6100819a8f037d786a3e1a55b4d141f"
+    },
+    {
+      "file": "codebuddy-synthesize-research/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "product-management/skills/synthesize-research/SKILL.md",
+      "upstreamSha256": "ae98c11102545c911a1ea5d8527be0e08a3db8e53327f2865f0db19bbb2d7e9c",
+      "sha256": "6a1ac80ad216e9e2b0d3c8a19cbab8b4514156a95ed38df40fda51e9c941b15b",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-synthesize-research/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "product-management/CONNECTORS.md",
+      "sha256": "f52733eb0cd1b46f96cbf15bd9d8dd5215c9341d9323f42da076bcddccda2f5e"
+    },
+    {
+      "file": "codebuddy-data-visualization/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "data/skills/data-visualization/SKILL.md",
+      "upstreamSha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d",
+      "sha256": "5811e8b3547cda6bc8af118aaf0d7589e8861cdc9facce6372dc78aea99ab87d",
+      "adaptations": []
+    },
+    {
+      "file": "codebuddy-brand-review/SKILL.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "marketing/skills/brand-review/SKILL.md",
+      "upstreamSha256": "759f29397a908c32521080247292a4e1c52ac01643bea70ccd6e807e86c1fa4b",
+      "sha256": "5c91d6c44563fc988c13991d2c96555d1eada7483dffeace848d40592314f86b",
+      "adaptations": [
+        "Made the CONNECTORS.md link local and bundled the original connector reference beside SKILL.md."
+      ]
+    },
+    {
+      "file": "codebuddy-brand-review/CONNECTORS.md",
+      "repository": "anthropics/knowledge-work-plugins",
+      "revision": "2574e29377c7173d0cecffef29a6ecbd7f8ccb5d",
+      "upstreamPath": "marketing/CONNECTORS.md",
+      "sha256": "e85d04dde99b220ba438cf1345212e7414da536fb7d781d83a4ad57270586630"
+    }
+  ]
+}

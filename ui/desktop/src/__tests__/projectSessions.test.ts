@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getProjectLabel,
   groupSessionsByProject,
+  groupNavigationSessions,
   projectPathIdentity,
 } from '../utils/projectSessions';
 import type { SessionListItem } from '../acp/sessions';
@@ -110,6 +111,56 @@ describe('groupSessionsByProject', () => {
     expect(projectPathIdentity('\\\\Server\\Share\\App\\')).toBe('\\\\server\\share\\app');
     expect(projectPathIdentity('//server/share/app')).toBe('\\\\server\\share\\app');
     expect(projectPathIdentity('/Users/me/App')).not.toBe(projectPathIdentity('/Users/me/app'));
+  });
+});
+
+describe('sidebar task and workspace sections', () => {
+  it('keeps explicit choices as projects and groups managed folders without relying on their names', () => {
+    const root = 'C:\\Users\\tester\\.CodeBuddy\\workspaces';
+    const result = groupNavigationSessions(
+      [
+        makeSession({ id: 'legacy-default', workingDir: root + '\\2026-11-02-session' }),
+        makeSession({ id: 'default', workingDir: 'D:\\moved-task', workspaceOrigin: 'default' }),
+        makeSession({
+          id: 'chosen-managed',
+          workingDir: root + '\\chosen',
+          workspaceOrigin: 'selected',
+        }),
+        makeSession({ id: 'chosen', workingDir: 'D:\\project', workspaceOrigin: 'selected' }),
+        makeSession({ id: 'unbound', workingDir: 'C:\\process', workspaceBinding: 'unbound' }),
+        makeSession({ id: 'unknown', workingDir: '' }),
+        makeSession({ id: 'sibling', workingDir: root + '-other\\project' }),
+        makeSession({ id: 'timestamp-project', workingDir: 'D:\\2026-11-02-session' }),
+      ],
+      root.toLowerCase().replace(/\\/gu, '/') + '/'
+    );
+    expect(result.tasks.map((s) => s.id).sort()).toEqual([
+      'default',
+      'legacy-default',
+      'unbound',
+      'unknown',
+    ]);
+    expect(result.projects.flatMap((group) => group.sessions.map((s) => s.id)).sort()).toEqual([
+      'chosen',
+      'chosen-managed',
+      'sibling',
+      'timestamp-project',
+    ]);
+    expect(result.tasks.find((s) => s.id === 'legacy-default')?.workingDir).toBe(
+      root + '\\2026-11-02-session'
+    );
+  });
+
+  it('does not guess a legacy task from its folder name when no managed root is available', () => {
+    const result = groupNavigationSessions(
+      [
+        makeSession({ id: 'legacy', workingDir: '/projects/2026-11-02-01' }),
+        makeSession({ id: 'known', workingDir: '/projects/task', workspaceOrigin: 'default' }),
+      ],
+      ''
+    );
+    expect(result.tasks.map((s) => s.id)).toEqual(['known']);
+    expect(result.projects[0].sessions[0].id).toBe('legacy');
   });
 });
 

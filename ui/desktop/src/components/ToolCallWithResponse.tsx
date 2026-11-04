@@ -452,10 +452,10 @@ export default function ToolCallWithResponse({
                 toolName={confirmationContent.toolName}
                 argumentsValue={confirmationContent.arguments}
               />
-              <ProjectMemoryApprovalSummary result={memoryApproval} />
               {confirmationContent.businessApproval && (
                 <BusinessApprovalScope approval={confirmationContent.businessApproval} />
               )}
+              <ProjectMemoryApprovalSummary result={memoryApproval} />
               <ToolApprovalButtons
                 data={{
                   id: confirmationContent.id,

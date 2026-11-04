@@ -3,9 +3,12 @@
  */
 export enum AppEvents {
   AGENT_PROFILES_CHANGED = 'agent-profiles-changed',
+  AGENT_INPUT_ADMITTED = 'agent-input-admitted',
   SESSION_CREATED = 'session-created',
   SESSION_EXTENSIONS_LOADED = 'session-extensions-loaded',
   SESSION_DELETED = 'session-deleted',
+  SESSION_ARCHIVED = 'session-archived',
+  SESSION_UNARCHIVED = 'session-unarchived',
   SESSION_RENAMED = 'session-renamed',
   SESSION_FORKED = 'session-forked',
   SESSION_CONVERSATION_CHANGED = 'session-conversation-changed',

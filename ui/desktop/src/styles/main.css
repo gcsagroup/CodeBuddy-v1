@@ -11,6 +11,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Floating menus need an opaque canvas even while theme tokens are changing. */
+.composer-menu-surface {
+  background-color: #ffffff;
+}
+.dark .composer-menu-surface {
+  background-color: #22252a;
+}
+
 @theme {
   --breakpoint-md: 930px;
 }
@@ -189,7 +197,7 @@
 
   /* Search highlighting */
   --highlight-color: rgba(255, 213, 0, 0.5);
-  --highlight-current: rgba(252, 213, 3, 0.6);
+  --highlight-current: rgba(251, 146, 60, 0.6);
 
   /* Sidebar aliases (shadcn sidebar component convention) */
   --sidebar: var(--color-background-secondary);
@@ -216,7 +224,7 @@
 
   /* Search highlighting */
   --highlight-color: rgba(255, 213, 0, 0.5);
-  --highlight-current: rgba(252, 213, 3, 0.6);
+  --highlight-current: rgba(251, 146, 60, 0.6);
 
   /* Sidebar aliases */
   --sidebar: var(--color-background-secondary);
@@ -621,6 +629,11 @@ body {
 
 .no-drag {
   -webkit-app-region: no-drag;
+}
+
+.windows-titlebar {
+  -webkit-app-region: drag;
+  padding-right: max(138px, calc(100% - env(titlebar-area-width, 100%)));
 }
 
 .bg-inline-code {

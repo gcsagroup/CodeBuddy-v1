@@ -12,6 +12,7 @@ import { scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
+import { agentPolicyFor } from './agent-policy.mjs';
 
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
@@ -105,15 +106,16 @@ export function getMcpBusinessSessionApproval(ctx, agent, name, scope) {
         .filter(([member]) => entry.approvals.has(member));
       if (!members.some(([member]) => member === name)) return undefined;
       const bindings = members.map(([member]) => entry.approvals.get(member));
-      let group = entry.businessApproval;
+      entry.businessApprovals ??= new Map();
+      let group = entry.businessApprovals.get(scope.business.id);
       if (!group || group.scope.key !== scope.key || bindings.length !== group.bindings.length ||
           bindings.some((value, index) => value !== group.bindings[index])) {
         group = { scope, bindings, identity: Object.freeze({}),
           presentation: Object.freeze({ ...scope.business, tools: members.map(([, raw]) => raw) }) };
-        entry.businessApproval = group;
+        entry.businessApprovals.set(scope.business.id, group);
       }
       return { identity: group.identity, presentation: group.presentation,
-        isCurrent: () => entry.businessApproval === group && binding.live() && scope.accepts(entry.config) &&
+        isCurrent: () => entry.businessApprovals.get(scope.business.id) === group && binding.live() && scope.accepts(entry.config) &&
           members.every(([member], index) => entry.approvals.get(member) === bindings[index]) };
     }
   }
@@ -338,7 +340,8 @@ export async function apply(ctx, config) {
       if (definition) entry.resourceDefinitions.set(name, definition);
     }
   });
-  ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false, text: () => instructions }); });
+  ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
+    text: ({ scope }) => agentPolicyFor(scope).every(policy => policy.mcpServers.includes(config.serverName)) ? instructions : '' }); });
   attempt = connect(true);
   try { await attempt; } catch (error) { await dispose(); throw error; }
 }

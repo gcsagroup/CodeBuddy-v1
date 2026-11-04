@@ -201,6 +201,27 @@ export function formatToolAction(
   response?: ToolResponseMessageContent
 ): string {
   const name = fullName.split(/__|::/).pop() ?? fullName;
+  if (fullName === name && ['schedule_create', 'schedule_pause', 'schedule_resume'].includes(name)) {
+    const scheduleActions: Record<string, [string, string, string]> = {
+      schedule_create: [
+        selectNativeText(intl.locale, 'Create automation task', '创建自动化任务', '建立自動化任務'),
+        selectNativeText(intl.locale, 'Creating automation task', '正在创建自动化任务', '正在建立自動化任務'),
+        selectNativeText(intl.locale, 'Created automation task', '已创建自动化任务', '已建立自動化任務'),
+      ],
+      schedule_pause: [
+        selectNativeText(intl.locale, 'Pause automation task', '暂停自动化任务', '暫停自動化任務'),
+        selectNativeText(intl.locale, 'Pausing automation task', '正在暂停自动化任务', '正在暫停自動化任務'),
+        selectNativeText(intl.locale, 'Paused automation task', '已暂停自动化任务', '已暫停自動化任務'),
+      ],
+      schedule_resume: [
+        selectNativeText(intl.locale, 'Resume automation task', '恢复自动化任务', '恢復自動化任務'),
+        selectNativeText(intl.locale, 'Resuming automation task', '正在恢复自动化任务', '正在恢復自動化任務'),
+        selectNativeText(intl.locale, 'Resumed automation task', '已恢复自动化任务', '已恢復自動化任務'),
+      ],
+    };
+    const action = scheduleActions[name];
+    return action[presentation === 'name' ? 0 : state === 'running' ? 1 : state === 'completed' ? 2 : 0];
+  }
   if (name === 'generate_image' || name === 'generate_video') {
     const receipt = generatedMediaReceipt(response);
     const displayName =

@@ -1,22 +1,78 @@
-import { fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { act, fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { SessionActionsContextMenu } from './SessionActionsHeader';
-import { acpExportSessionLog } from '../acp/sessions';
+import { acpArchiveSession, acpExportSession, acpExportSessionLog } from '../acp/sessions';
 import { toast } from 'react-toastify';
 
-vi.mock('../acp/sessions', () => ({
+vi.mock('../acp/sessions', async (original) => ({
+  ...(await original<typeof import('../acp/sessions')>()),
   acpExportSessionLog: vi.fn(),
+  acpArchiveSession: vi.fn(),
   acpExportSession: vi.fn(),
-  acpForkSession: vi.fn(),
-  acpRenameSession: vi.fn(),
 }));
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+beforeEach(() => vi.clearAllMocks());
 
 describe('SessionActionsContextMenu', () => {
+  it('opens the actual session directory and copies its ID without exporting the conversation', async () => {
+    const open = vi.fn().mockResolvedValue(true);
+    Object.assign(window.electron, { openDirectoryInExplorer: open });
+    testingRender(
+      <SessionActionsContextMenu
+        session={{ id: 'fixture-id', name: 'Folder task', workingDir: 'C:\\fixture\\task' }}
+      >
+        <div>Folder task</div>
+      </SessionActionsContextMenu>,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.contextMenu(screen.getByText('Folder task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open folder' }));
+    await waitFor(() => expect(open).toHaveBeenCalledExactlyOnceWith('C:\\fixture\\task'));
+    expect(toast.error).not.toHaveBeenCalled();
+    fireEvent.contextMenu(screen.getByText('Folder task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy session ID' }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('fixture-id'));
+    expect(acpExportSession).not.toHaveBeenCalled();
+  });
+
+  it('reports an unavailable folder rather than claiming it opened', async () => {
+    Object.assign(window.electron, { openDirectoryInExplorer: vi.fn().mockResolvedValue(false) });
+    testingRender(
+      <SessionActionsContextMenu
+        session={{ id: 'missing', name: 'Missing task', workingDir: 'C:\\missing' }}
+      >
+        <div>Missing task</div>
+      </SessionActionsContextMenu>,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.contextMenu(screen.getByText('Missing task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open folder' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('C:\\missing'))
+    );
+  });
+
+  it('shows archive success only after the host confirms it', async () => {
+    let finish!: () => void;
+    vi.mocked(acpArchiveSession).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    testingRender(
+      <SessionActionsContextMenu session={{ id: 'archive-fixture', name: 'Archive task' }}>
+        <div>Archive task</div>
+      </SessionActionsContextMenu>,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.contextMenu(screen.getByText('Archive task'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive session' }));
+    expect(acpArchiveSession).toHaveBeenCalledExactlyOnceWith('archive-fixture');
+    expect(toast.success).not.toHaveBeenCalled();
+    await act(async () => finish());
+    expect(toast.success).toHaveBeenCalledOnce();
+  });
   it('opens chat actions from the sidebar row right-click only', async () => {
     testingRender(
       <SessionActionsContextMenu

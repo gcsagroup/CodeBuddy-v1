@@ -17,6 +17,7 @@ import { canForkSession } from '../utils/sessionCapabilities';
 import { parseSessionMode } from '../utils/sessionMode';
 import { AppEvents } from '../constants/events';
 import { traceSessionLoad } from './sessionLoadTiming';
+import { consumeNextChatAgent, getNextChatAgent } from '../utils/nextChatAgent';
 
 // CurrentModeUpdate is the existing store's authority. Do not change the
 // global preference or optimistically claim a session permission change.
@@ -44,11 +45,14 @@ interface GooseSessionInfoMeta {
   lastMessageSnippet?: string;
   workspaceBinding?: 'unbound' | 'root_container' | 'project_container' | 'writable_project';
   rootContainerPath?: string;
+  workspaceOrigin?: 'default' | 'selected';
 }
 
 export interface SessionListItem {
   globalConversation?: boolean;
   agentProfile?: Session['agent_profile'];
+  workspaceOrigin?: 'default' | 'selected';
+  workspaceBinding?: GooseSessionInfoMeta['workspaceBinding'];
   id: string;
   name: string;
   workingDir: string;
@@ -140,6 +144,9 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
       ...(meta.readonlyHistory === true ? { readonlyHistory: true } : {}),
       ...(meta.workspaceBinding ? { workspaceBinding: meta.workspaceBinding } : {}),
       ...(meta.rootContainerPath ? { rootContainerPath: meta.rootContainerPath } : {}),
+      ...(meta.workspaceOrigin === 'default' || meta.workspaceOrigin === 'selected'
+        ? { workspaceOrigin: meta.workspaceOrigin }
+        : {}),
     },
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
@@ -160,7 +167,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     id: String(s.sessionId),
     globalConversation: meta.globalConversation === true,
     name: s.title ?? DEFAULT_CHAT_TITLE,
-    workingDir: s.cwd,
+    workingDir: meta.workspaceBinding === 'unbound' ? '' : s.cwd,
     updatedAt: s.updatedAt ?? '',
     messageCount: meta.messageCount ?? 0,
     lastMessageAt: meta.lastMessageAt,
@@ -173,6 +180,11 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
     agentProfile: sessionInfoToSession(s).agent_profile,
+    workspaceBinding: meta.workspaceBinding,
+    workspaceOrigin:
+      meta.workspaceOrigin === 'default' || meta.workspaceOrigin === 'selected'
+        ? meta.workspaceOrigin
+        : undefined,
   };
 }
 
@@ -350,6 +362,7 @@ export interface AcpNewSessionResult {
 }
 
 export interface AcpRecipeOptions {
+  workspaceOrigin?: 'default' | 'selected';
   initialPermissionPreset?: Session['goose_mode'];
   recipeId?: string;
   recipeDeeplink?: string;
@@ -367,6 +380,8 @@ export async function acpNewSession(
 ): Promise<AcpNewSessionResult> {
   const client = await getAcpClient();
   const meta: Record<string, unknown> = { client: 'goose-desktop' };
+  const agentId = getNextChatAgent();
+  if (agentId) meta.customAgentId = agentId;
   if (recipe?.initialPermissionPreset)
     meta.initialPermissionPreset = recipe.initialPermissionPreset;
   if (gooseExtensions.length > 0) {
@@ -389,11 +404,13 @@ export async function acpNewSession(
   if (recipe?.workspaceBinding) {
     meta.workspaceBinding = recipe.workspaceBinding;
   }
+  if (recipe?.workspaceOrigin) meta.workspaceOrigin = recipe.workspaceOrigin;
   if (recipe?.rootContainerPath) {
     meta.rootContainerPath = recipe.rootContainerPath;
   }
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.newSession(request);
+  consumeNextChatAgent(agentId);
   const sessionId = String(response.sessionId);
   const loadMeta = parseLoadMeta(response);
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
@@ -423,11 +440,13 @@ export async function acpRenameSession(sessionId: string, title: string): Promis
 export async function acpArchiveSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionArchive_unstable({ sessionId });
+  window.dispatchEvent(new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId } }));
 }
 
 export async function acpUnarchiveSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
   await client.goose.sessionUnarchive_unstable({ sessionId });
+  window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId } }));
 }
 
 export async function acpUpdateWorkingDir(sessionId: string, workingDir: string): Promise<void> {

@@ -30,17 +30,16 @@ function readRecords(text, file) {
 
 /** Durable ACP projection only. Harness remains the execution-history owner. */
 export async function openTranscriptJournal(store) {
-  if (typeof store?.directory !== 'string' || typeof store?.update !== 'function' || typeof store?.read !== 'function') throw new TypeError('A persistent runtime store is required');
+  if (typeof store?.directory !== 'string' || typeof store?.updateSession !== 'function' || typeof store?.read !== 'function') throw new TypeError('A persistent session runtime store is required');
   const directory = join(store.directory, 'transcript-journal');
   await mkdir(directory, { recursive: true });
   const writers = new Map();
+  const unsettled = new Map();
 
   async function project(records) {
     if (!records.length) return undefined;
     const first = records[0], last = records.at(-1);
-    return store.update((state) => {
-      const session = state.sessions.find((item) => item.id === first.sessionId);
-      if (!session) throw new Error(`Transcript session is missing: ${first.sessionId}`);
+    return store.updateSession(first.sessionId, (session) => {
       session.transcriptTurns ??= {};
       const key = identity(first.sessionId, first.turnId);
       const prior = session.transcriptTurns[key];
@@ -63,15 +62,11 @@ export async function openTranscriptJournal(store) {
       // If removal fails or the process dies here, replay does not duplicate them.
       session.transcriptTurns[key] = { turnId: first.turnId, seq: last.seq, messageCount };
       return { sessionId: first.sessionId, turnId: first.turnId, updates, usageUpdates, duplicate: false };
-    });
+    }, { durable: true });
   }
 
   async function settle(file, records) {
     const result = await project(records);
-    if (records.length) {
-      const committed = await open(join(store.directory, 'state.json'), 'r+');
-      try { await committed.sync(); } finally { await committed.close(); }
-    }
     await unlink(file);
     return result;
   }
@@ -101,16 +96,11 @@ export async function openTranscriptJournal(store) {
       if (title !== undefined && typeof title !== 'string') throw new TypeError('Transcript title must be text');
       if (writers.has(sessionId)) throw new Error(`A transcript turn is already active for ${sessionId}`);
       const key = identity(sessionId, turnId);
-      const session = store.readSession ? store.readSession(sessionId) : store.read(['sessions']).sessions.find((item) => item.id === sessionId);
-      if (!session) throw new Error(`Transcript session is missing: ${sessionId}`);
-      if (session.transcriptTurns?.[key]) throw new Error(`Transcript turn was already finalized: ${turnId}`);
       const file = join(directory, `${key}.ndjson`);
       const records = [];
       let tail = Promise.resolve(), finalization;
       writers.set(sessionId, key);
       let handle;
-      try { handle = await open(file, 'wx', 0o600); }
-      catch (error) { writers.delete(sessionId); throw error; }
       const write = (fields) => {
         const json = JSON.stringify(fields);
         const work = tail.then(async () => {
@@ -123,8 +113,24 @@ export async function openTranscriptJournal(store) {
         work.catch(() => {});
         return work;
       };
-      try { await write({ kind: 'begin', users, ...(title === undefined ? {} : { title }) }); }
-      catch (error) { await handle.close(); writers.delete(sessionId); throw error; }
+      try {
+        // A failed atomic snapshot leaves the durable journal authoritative.
+        // Project it before admitting a later turn, preserving transcript order.
+        const previous = unsettled.get(sessionId);
+        if (previous) {
+          await settle(previous.file, previous.records);
+          unsettled.delete(sessionId);
+        }
+        const session = store.readSession ? store.readSession(sessionId) : store.read(['sessions']).sessions.find((item) => item.id === sessionId);
+        if (!session) throw new Error(`Transcript session is missing: ${sessionId}`);
+        if (session.transcriptTurns?.[key]) throw new Error(`Transcript turn was already finalized: ${turnId}`);
+        handle = await open(file, 'wx', 0o600);
+        await write({ kind: 'begin', users, ...(title === undefined ? {} : { title }) });
+      } catch (error) {
+        await handle?.close().catch(() => {});
+        writers.delete(sessionId);
+        throw error;
+      }
       const append = (kind, update) => {
         if (finalization) return Promise.reject(new Error('Transcript turn is finalizing'));
         if (!update || typeof update !== 'object' || Array.isArray(update)) return Promise.reject(new TypeError('Transcript update must be an object'));
@@ -137,12 +143,16 @@ export async function openTranscriptJournal(store) {
         finalize() {
           if (!finalization) {
             finalization = (async () => {
+              let settled = false;
               try {
                 await tail;
                 await handle.close();
-                return await settle(file, records);
+                const result = await settle(file, records);
+                settled = true;
+                return result;
               } finally {
                 await handle.close().catch(() => {});
+                if (!settled) unsettled.set(sessionId, { file, records });
                 writers.delete(sessionId);
               }
             })();

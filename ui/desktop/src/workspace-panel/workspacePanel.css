@@ -37,7 +37,7 @@
 }
 .wb-header {
   display: flex;
-  height: 46px;
+  height: 48px;
   flex-shrink: 0;
   align-items: center;
   gap: 4px;

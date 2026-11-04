@@ -195,7 +195,7 @@ test('local exhaustion prevents HTTP while a genuine one-token remainder is lega
 });
 
 test('length classification retains raw reason and usage, without misclassifying explicit caps', async t => {
-  for (const [cap, output, expected] of [[1, 1, 'max-tokens'], [128, 128, 'max-tokens'], [128, 1, 'error']]) {
+  for (const [cap, output, expected] of [[1, 1, 'error'], [128, 128, 'error'], [128, 1, 'error']]) {
     await t.test(`cap ${cap}, output ${output}`, async t => {
       const f = fixture(t, { handleFetch: body => response(body, { stop: 'length', output }) });
       const call = await f.adapter.prepareCall('fixture', 'fixture');
@@ -206,7 +206,7 @@ test('length classification retains raw reason and usage, without misclassifying
       assert.equal(end.replayState.response.stopReason, 'length');
       assert.equal(chunks.find(chunk => chunk.type === 'usage').usage.outputTokens, output);
       if (expected === 'error') {
-        assert.equal(end.reason.failure.code, 'OUTPUT_TRUNCATED');
+        assert.equal(end.reason.failure.code, output < cap ? 'OUTPUT_TRUNCATED' : 'OUTPUT_LIMIT_REACHED');
         assert.equal(end.reason.failure.requestId, request.fit.requestId);
       }
     });
@@ -225,13 +225,13 @@ test('length classification retains raw reason and usage, without misclassifying
 
 test('length requires explicitly reported output usage, including zero, before recovery classification', async t => {
   for (const [name, usage, kind, code, usageInChoice = false] of [
-    ['absent usage', null, 'max-tokens'],
-    ['input-only usage', { prompt_tokens: 11 }, 'max-tokens'],
-    ['near-window input-only usage', { prompt_tokens: 65535 }, 'max-tokens'],
+    ['absent usage', null, 'error', 'OUTPUT_LENGTH_STOP'],
+    ['input-only usage', { prompt_tokens: 11 }, 'error', 'OUTPUT_LENGTH_STOP'],
+    ['near-window input-only usage', { prompt_tokens: 65535 }, 'error', 'OUTPUT_LENGTH_STOP'],
     ['near-window explicit zero', { prompt_tokens: 65535, completion_tokens: 0 }, 'error', 'CONTEXT_WINDOW_EXCEEDED'],
     ['explicit zero', { prompt_tokens: 11, completion_tokens: 0 }, 'error', 'OUTPUT_TRUNCATED'],
     ['choice fallback zero', { prompt_tokens: 11, completion_tokens: 0 }, 'error', 'OUTPUT_TRUNCATED', true],
-    ['choice fallback at cap', { prompt_tokens: 11, completion_tokens: 128 }, 'max-tokens', undefined, true],
+    ['choice fallback at cap', { prompt_tokens: 11, completion_tokens: 128 }, 'error', 'OUTPUT_LIMIT_REACHED', true],
   ]) {
     await t.test(name, async t => {
       const seen = [];
@@ -257,7 +257,7 @@ test('reported output presence belongs to one dispatch and does not weaken non-l
   const call = await f.adapter.prepareCall('fixture', 'fixture');
   const run = async () => collect((await call.prepareRequest(f.options({ maxTokens: 128 }))).stream());
   assert.equal(finish(await run()).reason.failure.code, 'OUTPUT_TRUNCATED');
-  assert.equal(finish(await run()).reason.kind, 'max-tokens');
+  assert.equal(finish(await run()).reason.failure.code, 'OUTPUT_LENGTH_STOP');
   assert.equal(finish(await run()).reason.failure.code, 'CONTEXT_WINDOW_EXCEEDED');
 });
 
@@ -289,8 +289,8 @@ test('Responses and Anthropic raw output counters distinguish missing final usag
       const request = await call.prepareRequest(f.options({ maxTokens: 128, onProviderStreamEvent: event => seen.push(event.type) }));
       const chunks = await collect(request.stream());
       const end = finish(chunks);
-      assert.equal(end.reason.kind, output === 0 ? 'error' : 'max-tokens');
-      assert.equal(end.reason.failure?.code, output === 0 ? 'OUTPUT_TRUNCATED' : undefined);
+      assert.equal(end.reason.kind, 'error');
+      assert.equal(end.reason.failure?.code, output === 0 ? 'OUTPUT_TRUNCATED' : output === 128 ? 'OUTPUT_LIMIT_REACHED' : 'OUTPUT_LENGTH_STOP');
       assert.equal(chunks.find(chunk => chunk.type === 'usage').usage.outputTokens, output ?? 0);
       assert.ok(seen.includes(api === 'anthropic-messages' ? 'message_delta' : 'response.incomplete'));
     });
@@ -358,7 +358,7 @@ test('Responses supportsMaxOutputTokens false retains its native omitted-cap con
   const call = await f.adapter.prepareCall('fixture', 'fixture');
   const request = await call.prepareRequest(f.options({ maxTokens: 1 }));
   assert.equal(request.fit.minimumMaxTokens, 1);
-  assert.equal(finish(await collect(request.stream())).reason.kind, 'max-tokens');
+  assert.equal(finish(await collect(request.stream())).reason.failure.code, 'OUTPUT_LENGTH_STOP');
   assert.equal(f.requests.length, 1);
   assert.equal(Object.hasOwn(f.requests[0], 'max_output_tokens'), false);
 });

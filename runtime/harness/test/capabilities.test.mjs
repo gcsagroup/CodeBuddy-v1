@@ -7,6 +7,8 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHarnessDriver } from '../index.mjs';
+import { FileSystemSkillProvider } from '@deepseek-ai/dsh-skill-filesystem';
+import { DEFAULT_AGENT_SKILLS } from '../../agent-presets.mjs';
 import { createConversationDriver } from '../../conversation-driver.mjs';
 import { listSubagentCatalog, readSubagentConversation } from '../../subagent-conversations.mjs';
 import sharp from 'sharp';
@@ -16,6 +18,7 @@ let driver, server, root, provider, mcpUrl;
 let siblingFixture, capacityFixture;
 let schemaPressureFixture;
 let overflowExecutions = 0;
+let mcpInitializations = 0;
 const requests = [], mcpCalls = [];
 before(async () => {
   root = await mkdtemp(join(tmpdir(), 'codebuddy-harness-capabilities-'));
@@ -27,7 +30,7 @@ before(async () => {
     if (req.url === '/mcp') {
       if (!('id' in request)) { res.writeHead(202).end(); return; }
       let result;
-      if (request.method === 'initialize') result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } };
+      if (request.method === 'initialize') { mcpInitializations++; result = { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' }, instructions: 'MCP_FIXTURE_INSTRUCTIONS' }; }
       else if (request.method === 'tools/list') result = { tools: [{ name: 'remember', description: 'A fixture memory transport', annotations: { readOnlyHint: true, destructiveHint: false }, inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }] };
       else if (request.method === 'tools/call') { mcpCalls.push({ ...request.params, authorization: req.headers.authorization }); result = { content: [{ type: 'text', text: `Stored: ${request.params.arguments.text}` }] }; }
       else { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'Unknown method' } })); return; }
@@ -114,6 +117,136 @@ before(async () => {
 });
 after(async () => { await driver?.close(); server?.closeAllConnections(); await new Promise(resolve => server?.close(resolve)); });
 async function session(options) { return driver.createSession({ sessionId: randomUUID(), cwd: root, provider, model: 'fixture-model', options }); }
+
+test('bundled role skills load all upstream guides on demand without starting a model request', async () => {
+  const role = { id: 'skill-bundle', revision: 1, name: 'Skill fixture', prompt: 'Fixture', capabilities: 'inherit', skills: DEFAULT_AGENT_SKILLS.map(skill => skill.name) };
+  const created = await session({ mainAgentRole: { baseline: () => role, input: () => role } });
+  const offered = await driver.listSkills(created.sessionId);
+  const sent = requests.length;
+  for (const skill of DEFAULT_AGENT_SKILLS) {
+    assert.ok(offered.some(item => item.name === skill.name));
+    const loaded = await driver.callTool(created.sessionId, 'skill', { name: skill.name }, { onPermission: () => true });
+    assert.equal(loaded.isError, false, `${skill.name}: ${JSON.stringify(loaded)}`);
+  }
+  assert.equal(requests.length, sent, 'reading guides does not launch a model or install a dependency');
+});
+
+test('role skill read failures are observable, retryable and scoped without starting model requests', async t => {
+  const original = FileSystemSkillProvider.prototype.get;
+  let outcome = 'missing';
+  t.mock.method(FileSystemSkillProvider.prototype, 'get', function(candidate, options) {
+    if (candidate.name === 'codebuddy-debug') {
+      if (outcome === 'missing') return undefined;
+      if (outcome === 'cancelled') throw Object.assign(new Error('Aborted'), { name: 'AbortError' });
+    }
+    return original.call(this, candidate, options);
+  });
+  const sent = requests.length;
+  for (const capabilities of ['inherit', 'selected']) {
+    const role = { id: `skill-failure-${capabilities}`, revision: 1, name: 'Skill fixture', prompt: 'Fixture', capabilities,
+      skills: ['codebuddy-debug'], tools: ['skill'], mcpServers: [] };
+    const options = { mainAgentRole: { baseline: () => role, input: () => role } };
+    assert.deepEqual(await driver.mainAgentUnavailable(randomUUID(), role), [], 'a cold query has no fabricated health result');
+    const created = await session(options), sibling = await session(options);
+    outcome = 'missing';
+    assert.equal((await driver.callTool(created.sessionId, 'skill', { name: 'codebuddy-debug' })).isError, true);
+    assert.deepEqual(await driver.mainAgentUnavailable(created.sessionId, role), ['Skill codebuddy-debug（上次加载失败，可重试）']);
+    assert.deepEqual(await driver.mainAgentUnavailable(sibling.sessionId, role), [], 'one session does not inherit another read failure');
+    assert.ok((await driver.listSkills(created.sessionId)).some(skill => skill.name === 'codebuddy-debug'), 'failed reads keep their retry entry');
+    outcome = 'success';
+    assert.equal((await driver.callTool(created.sessionId, 'skill', { name: 'codebuddy-debug' })).isError, false);
+    assert.deepEqual(await driver.mainAgentUnavailable(created.sessionId, role), []);
+    outcome = 'cancelled';
+    assert.equal((await driver.callTool(sibling.sessionId, 'skill', { name: 'codebuddy-debug' })).isError, true);
+    assert.deepEqual(await driver.mainAgentUnavailable(sibling.sessionId, role), [], 'cancellation is not a damaged resource');
+  }
+  assert.equal(requests.length, sent);
+});
+
+test('main agent roles follow admitted native input identities, mask inherited host and MCP tools, and restore without reconnecting', async () => {
+  const roleA = { id: 'backend', revision: 1, name: '后端助手', prompt: 'Literal role {{unknown_template}}',
+    tools: ['read', 'role_allowed', 'read_mcp_resource', 'list_mcp_resources'], skills: ['codebuddy-debug'], mcpServers: [] };
+  const roleB = { id: 'ai', revision: 1, name: 'AI 助手', prompt: 'AI_ROLE_MARKER', capabilities: 'inherit', skills: ['codebuddy-write-spec'] };
+  const bindings = new Map([['agent-input-a', roleA], ['agent-input-b', roleB], ['agent-input-default', null]]);
+  const options = { mainAgentRole: { baseline: () => null, input: id => {
+    if (!bindings.has(id)) throw Error('Missing saved role binding');
+    return bindings.get(id);
+  } }, tools: ['role_allowed', 'role_hidden'].map(name => ({ name, description: name,
+    inputSchema: { type: 'object', properties: {} }, execute: async () => ({ ok: true }) })),
+  mcpServers: [{ serverName: 'role_memory', url: mcpUrl, transport: 'streamable-http' }] };
+  const created = await session(options);
+  assert.ok(!(await driver.listSkills(created.sessionId)).some(skill => skill.name.startsWith('codebuddy-')), 'unselected defaults do not add role skills');
+  const connects = mcpInitializations;
+  await driver.prompt(created.sessionId, 'fixture_custom_agent_a', { requestId: 'agent-input-a' });
+  assert.deepEqual((await driver.listSkills(created.sessionId)).map(skill => skill.name), ['codebuddy-debug']);
+  const loadedSkill = await driver.callTool(created.sessionId, 'skill', { name: 'codebuddy-debug' }, { onPermission: () => true });
+  assert.equal(loadedSkill.isError, false, JSON.stringify(loadedSkill));
+  assert.match(JSON.stringify(loadedSkill.content), /Reproduction/);
+  assert.deepEqual(await driver.agentInputIds(created.sessionId, { committedOnly: true }), ['agent-input-a']);
+  assert.ok(JSON.stringify(requests.at(-1).messages).includes('Literal role {{unknown_template}}'));
+  let names = (await driver.listTools(created.sessionId)).map(tool => tool.name);
+  assert.ok(names.includes('role_allowed'));
+  assert.ok(!names.includes('role_hidden'));
+  assert.ok(!names.includes('mcp__role_memory__remember'));
+  assert.ok(names.includes('subagent'), 'choosing a main role cannot disable native delegation');
+  assert.doesNotMatch(JSON.stringify(requests.at(-1).messages), /MCP_FIXTURE_INSTRUCTIONS/);
+  assert.equal((await driver.callTool(created.sessionId, 'list_mcp_resources', { server: 'role_memory' }, { onPermission: () => true })).isError, true);
+  assert.equal((await driver.callTool(created.sessionId, 'role_hidden', {}, { onPermission: () => true })).isError, true);
+  await driver.close();
+  driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
+  assert.deepEqual(await driver.agentInputIds(created.sessionId, { committedOnly: true }), ['agent-input-a'], 'role state can be read cold without starting an agent');
+  await driver.createSession({ sessionId: created.sessionId, cwd: root, provider, model: 'fixture-model', options });
+  names = (await driver.listTools(created.sessionId)).map(tool => tool.name);
+  assert.ok(!names.includes('role_hidden'), 'cold restore uses the admitted A input, not a newer UI selection');
+  const restoredConnects = mcpInitializations;
+  await driver.prompt(created.sessionId, 'fixture_custom_agent_b', { requestId: 'agent-input-b' });
+  const switchedSkills = (await driver.listSkills(created.sessionId)).map(skill => skill.name);
+  assert.ok(switchedSkills.includes('codebuddy-write-spec'));
+  assert.ok(!switchedSkills.includes('codebuddy-debug'), 'role switching invalidates the native skill catalog');
+  assert.equal((await driver.callTool(created.sessionId, 'skill', { name: 'codebuddy-debug' }, { onPermission: () => true })).isError, true);
+  assert.ok(JSON.stringify(requests.at(-1).messages).includes('AI_ROLE_MARKER'));
+  names = (await driver.listTools(created.sessionId)).map(tool => tool.name);
+  assert.ok(names.includes('role_hidden'));
+  assert.ok(names.includes('mcp__role_memory__remember'));
+  bindings.set('agent-input-b-loaded', roleB);
+  await driver.callTool(created.sessionId, 'search_mcp_tools', { names: ['mcp__role_memory__remember'] }, { onPermission: () => true });
+  await driver.prompt(created.sessionId, 'fixture_custom_agent_b_loaded', { requestId: 'agent-input-b-loaded' });
+  assert.match(JSON.stringify(requests.at(-1).messages), /MCP_FIXTURE_INSTRUCTIONS/);
+  await driver.prompt(created.sessionId, 'fixture_custom_agent_default', { requestId: 'agent-input-default' });
+  assert.ok(!(await driver.listSkills(created.sessionId)).some(skill => skill.name.startsWith('codebuddy-')), 'cancelling removes role-only skill discovery');
+  const history = await driver.history(created.sessionId);
+  const effectiveSystem = history.events.findLast(event => event.type === 'system/message')?.data.message;
+  assert.ok(JSON.stringify(effectiveSystem).includes('You are CodeBuddy'));
+  assert.ok(!JSON.stringify(effectiveSystem).includes('AI_ROLE_MARKER'));
+  assert.equal(mcpInitializations, restoredConnects, 'role changes preserve the actual MCP connection generation');
+  assert.ok(restoredConnects >= connects);
+  const sent = requests.length;
+  await assert.rejects(driver.prompt(created.sessionId, 'fixture_unbound_agent', { requestId: 'missing-agent-input' }), /Missing saved role binding/);
+  assert.equal(requests.length, sent, 'an unbound candidate cannot make a model request');
+  assert.ok((await driver.listTools(created.sessionId)).some(tool => tool.name === 'role_hidden'), 'a rejected candidate leaves the last admitted role intact');
+});
+
+test('main agent role remains separate from two concurrently executing native children', { timeout: 15000 }, async () => {
+  capacityFixture = { ...Promise.withResolvers(), started: 0, ready: Promise.withResolvers() };
+  const role = { id: 'parallel-main', revision: 1, name: '后端助手', prompt: 'MAIN_ROLE_ONLY_MARKER', capabilities: 'inherit', skills: ['codebuddy-debug'] };
+  const start = requests.length;
+  const created = await session({ mainAgentRole: { baseline: () => null, input: () => role } });
+  const events = [];
+  const running = driver.prompt(created.sessionId, 'fixture_capacity_parent_update', {
+    requestId: 'main-role-parallel-input', onPermission: () => true, onEvent: event => events.push(event),
+  });
+  try {
+    await capacityFixture.ready.promise;
+    assert.equal(capacityFixture.started, 2, 'both child model requests are in flight before either finishes');
+    const children = requests.slice(start).filter(request => request.messages.some(message => message.role === 'user' && JSON.stringify(message.content).includes('fixture_capacity_child')));
+    assert.equal(children.length, 2);
+    assert.ok(children.every(request => !JSON.stringify(request.messages).includes('MAIN_ROLE_ONLY_MARKER')));
+    assert.ok(children.every(request => !JSON.stringify(request.messages).includes('codebuddy-debug')), 'main-only skill mounts are not inherited by children');
+    assert.equal(events.filter(event => event.type === 'subagent_start').length, 2);
+  } finally { capacityFixture.resolve(); }
+  await running;
+  assert.equal(events.filter(event => event.type === 'subagent_end').length, 2);
+});
 
 test('read-only approval capabilities bind to actual native and host definitions', async () => {
   const created = await session();

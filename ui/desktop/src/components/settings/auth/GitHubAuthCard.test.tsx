@@ -29,7 +29,7 @@ beforeEach(() => {
 describe('GitHub account card on the Harness desktop', () => {
   it('loads and refreshes the real connection component without a retired ACP auth request', async () => {
     vi.mocked(window.electron.githubCliStatus).mockResolvedValue({ state: 'check_failed' });
-    render(<GitHubAuthCard />, { wrapper: IntlTestWrapper });
+    const view = render(<GitHubAuthCard />, { wrapper: IntlTestWrapper });
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Check connection' })).toBeEnabled()
     );
@@ -37,7 +37,8 @@ describe('GitHub account card on the Harness desktop', () => {
       state: 'connected',
       login: 'octocat',
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Check connection' }));
+    view.unmount();
+    render(<GitHubAuthCard />, { wrapper: IntlTestWrapper });
     expect(await screen.findByText('GitHub account: octocat')).toBeVisible();
     expect(getAcpClient).not.toHaveBeenCalled();
     expect(screen.queryByText('Unable to check the GitHub connection.')).not.toBeInTheDocument();

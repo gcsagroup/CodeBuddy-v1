@@ -25,6 +25,7 @@ export const llmPatch = {
 \t\t\t\tif (prepareRequest === void 0) iterator = dispatch(projectedOptions)[Symbol.asyncIterator]();
 \t\t\t\telse {
 \t\t\t\t\tconst request = await prepareRequest(projectedOptions);
+\t\t\t\t\tthis.ctx.emit("codebuddy/request-fit", { sessionId: options.sessionId, fit: request.fit });
 \t\t\t\t\tlet fitRecoveryDispatched = false;
 \t\t\t\t\tconst summaryConfig = options.purpose === "compaction" ? Object.freeze({ ...resolvedConfig, ...resolvedConfig.stop === void 0 ? {} : { stop: Object.freeze([...resolvedConfig.stop]) } }) : void 0;
 \t\t\t\t\tconst summaryTools = options.purpose === "compaction" ? deepFreeze(structuredClone(resolvedOptions.tools)) : void 0;
@@ -75,7 +76,7 @@ export const llmPatch = {
 \t\t}
 \t\trememberRequestFitFailure(chunk, recovery, options) {
 \t\t\tconst failure = chunk.type === "finish" && chunk.reason.kind === "error" ? chunk.reason.failure : void 0;
-\t\t\tconst mainFailure = options.purpose === void 0 && (failure?.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "OUTPUT_TRUNCATED");
+\t\t\tconst mainFailure = options.purpose === void 0 && (failure?.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "OUTPUT_TRUNCATED" || failure?.code === "OUTPUT_LIMIT_REACHED");
 \t\t\tconst summaryPreflight = options.purpose === "compaction" && failure?.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED";
 \t\t\tif ((!mainFailure && !summaryPreflight) || recovery === void 0 || failure.requestId !== recovery.fit.requestId) return;
 \t\t\t// Failures are consumed synchronously by native request-error recovery.

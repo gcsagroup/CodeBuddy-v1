@@ -28,6 +28,119 @@ const usage = (messageId: string, value: MessageUsage) => ({
 });
 
 describe('message usage receipt identity', () => {
+  it('keeps orphaned replay receipts without charging them to the latest answer', () => {
+    const adapter = createAcpSessionNotificationAdapter();
+    adapter.apply(content('latest'));
+    adapter.applyGoose(usage('old-missing-1', { inputTokens: 65833, outputTokens: 473 }), true);
+    adapter.applyGoose(usage('old-missing-2', { inputTokens: 113, outputTokens: 54 }), true);
+    adapter.applyGoose(usage('latest', { inputTokens: 59, outputTokens: 16 }), true);
+    const messages = adapter.getMessages();
+
+    expect(conversationUsage(messages)).toEqual({ inputTokens: 66005, outputTokens: 543 });
+    expect(conversationUsage(messages, { attributedOnly: true })).toEqual({
+      inputTokens: 59,
+      outputTokens: 16,
+    });
+    expect(messages.filter((message) => message.metadata.usageUnattributed)).toHaveLength(2);
+  });
+
+  it.each(['agent_message_chunk', 'agent_thought_chunk', 'tool_call'] as const)(
+    'attributes a replay receipt when its matching %s arrives later',
+    (kind) => {
+      const adapter = createAcpSessionNotificationAdapter();
+      adapter.applyGoose(usage('late-content', { outputTokens: 32768 }), true);
+      expect(conversationUsage(adapter.getMessages(), { attributedOnly: true })).toBeUndefined();
+      adapter.apply(
+        kind === 'tool_call' ? tool('late-content', 't1') : content('late-content', kind)
+      );
+      expect(conversationUsage(adapter.getMessages(), { attributedOnly: true })).toEqual({
+        outputTokens: 32768,
+      });
+      expect(adapter.getMessages()[0].metadata.usageUnattributed).toBeUndefined();
+    }
+  );
+
+  it('keeps a content-free failed attempt beside its original host notice on replay', () => {
+    const adapter = createAcpSessionNotificationAdapter();
+    adapter.apply({
+      sessionId,
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        messageId: 'older-user',
+        content: { type: 'text', text: 'Earlier task' },
+      },
+    });
+    adapter.applyGoose(
+      {
+        sessionId,
+        update: {
+          sessionUpdate: 'status_message',
+          status: {
+            type: 'notice',
+            message: 'Incomplete output',
+            data: { type: 'output_attempt_incomplete', message_id: 'failed-attempt' },
+          },
+        },
+      },
+      true
+    );
+    adapter.apply({
+      sessionId,
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        messageId: 'latest-user',
+        content: { type: 'text', text: 'Calculate' },
+      },
+    });
+    adapter.apply(content('latest'));
+    adapter.applyGoose(usage('failed-attempt', { outputTokens: 32768 }), true);
+    adapter.applyGoose(usage('latest', { outputTokens: 16 }), true);
+    const messages = adapter.getMessages();
+    const split = messages.findIndex((message) => message.id === 'latest-user');
+    expect(conversationUsage(messages.slice(0, split), { attributedOnly: true })).toEqual({
+      outputTokens: 32768,
+    });
+    expect(conversationUsage(messages.slice(split), { attributedOnly: true })).toEqual({
+      outputTokens: 16,
+    });
+  });
+
+  it('places an early orphan receipt beside a later exact failure notice', () => {
+    const adapter = createAcpSessionNotificationAdapter();
+    adapter.applyGoose(usage('failed-attempt', { outputTokens: 32768 }), true);
+    const before = adapter.getMessages();
+    adapter.apply({
+      sessionId,
+      update: {
+        sessionUpdate: 'user_message_chunk',
+        messageId: 'current-user',
+        content: { type: 'text', text: 'Current task' },
+      },
+    });
+    adapter.applyGoose(
+      {
+        sessionId,
+        update: {
+          sessionUpdate: 'status_message',
+          status: {
+            type: 'notice',
+            message: 'Incomplete output',
+            data: { type: 'output_attempt_incomplete', message_id: 'failed-attempt' },
+          },
+        },
+      },
+      true
+    );
+    const messages = adapter.getMessages();
+    expect(messages[0].id).toBe('current-user');
+    expect(messages[1].id).toBe('failed-attempt');
+    expect(messages[1].metadata.usageUnattributed).toBeUndefined();
+    expect(before[0].metadata.usageUnattributed).toBe(true);
+    expect(conversationUsage(messages.slice(1), { attributedOnly: true })).toEqual({
+      outputTokens: 32768,
+    });
+  });
+
   it.each([
     {
       model: 'Gemma',

@@ -1,5 +1,29 @@
 import { defineMessages } from '../i18n';
 export const panelMessages = defineMessages({
+  fileMissing: {
+    id: 'workspacePanel.fileMissing',
+    defaultMessage: 'This file was moved or deleted. Check its location and open the link again.',
+  },
+  fileDenied: {
+    id: 'workspacePanel.fileDenied',
+    defaultMessage:
+      'Windows denied access to this file. Check its permissions or choose a readable copy.',
+  },
+  fileOutside: {
+    id: 'workspacePanel.fileOutside',
+    defaultMessage:
+      'This action is limited to the current workspace. Files from another workspace can be opened as read-only references.',
+  },
+  fileTooLarge: {
+    id: 'workspacePanel.fileTooLarge',
+    defaultMessage:
+      'This file exceeds the preview size limit. Open a smaller copy or use its original application.',
+  },
+  fileUnsupported: {
+    id: 'workspacePanel.fileUnsupported',
+    defaultMessage:
+      'This format cannot be previewed. Use Open in application or save a supported copy.',
+  },
   readOnlyReference: {
     id: 'workspacePanel.readOnlyReference',
     defaultMessage: 'Read-only reference; the workspace and file permissions are unchanged.',

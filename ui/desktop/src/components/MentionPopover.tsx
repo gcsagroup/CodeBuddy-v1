@@ -1,4 +1,5 @@
 import { composerCommandItems } from './composerCommands';
+import { createPortal } from 'react-dom';
 import {
   forwardRef,
   useCallback,
@@ -112,6 +113,7 @@ interface MentionPopoverProps {
   anchorRef: RefObject<HTMLElement | null>;
   query: string;
   isSlashCommand: boolean;
+  addOnly?: boolean;
   selectedIndex: number;
   onSelectedIndexChange: (index: number) => void;
   workingDir?: string;
@@ -194,6 +196,7 @@ const MentionPopover = forwardRef<
       anchorRef,
       query,
       isSlashCommand,
+      addOnly = false,
       selectedIndex,
       onSelectedIndexChange,
       workingDir,
@@ -206,6 +209,7 @@ const MentionPopover = forwardRef<
     const [isLoading, setIsLoading] = useState(false);
     const [inventoryError, setInventoryError] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
+    const [initialHeight, setInitialHeight] = useState<number | null>(null);
     const [position, setPosition] = useState<{ x: number; y: number; width: number } | null>(null);
     useLayoutEffect(() => {
       if (!isOpen) return;
@@ -465,9 +469,16 @@ const MentionPopover = forwardRef<
       return orderA - orderB;
     };
 
+    const availableItems = useMemo(
+      () =>
+        addOnly
+          ? items.filter((item) => item.itemType !== 'Builtin' || item.commandGroup === 'add')
+          : items,
+      [items, addOnly]
+    );
     const displayItems = useMemo((): DisplayItemWithMatch[] => {
       if (!query.trim()) {
-        return items
+        return availableItems
           .map((file) => ({
             ...file,
             matchScore: 0,
@@ -488,7 +499,7 @@ const MentionPopover = forwardRef<
           });
       }
 
-      return items
+      return availableItems
         .map((file) => {
           const matches = [
             { match: fuzzyMatch(query, file.name), text: file.name },
@@ -533,7 +544,7 @@ const MentionPopover = forwardRef<
           const typeComparison = compareByType(a, b);
           return typeComparison || a.name.localeCompare(b.name);
         });
-    }, [items, query, currentWorkingDir, isSlashCommand, intl]);
+    }, [availableItems, query, currentWorkingDir, isSlashCommand, intl]);
 
     const getSelectionText = (item: DisplayItem): string => {
       if (item.insertText) {
@@ -547,6 +558,18 @@ const MentionPopover = forwardRef<
       }
       return item.extra;
     };
+
+    // Keep the first populated menu's footprint while remote inventory arrives.
+    // Later entries scroll inside it rather than pushing the menu upwards.
+    useLayoutEffect(() => {
+      if (!isOpen) {
+        setInitialHeight(null);
+        return;
+      }
+      if (!isSlashCommand || initialHeight !== null || !displayItems.length) return;
+      const height = popoverRef.current?.getBoundingClientRect().height;
+      if (height) setInitialHeight(height);
+    }, [isOpen, isSlashCommand, initialHeight, displayItems.length, position]);
 
     // Expose methods to parent component
     useImperativeHandle(
@@ -656,6 +679,8 @@ const MentionPopover = forwardRef<
 
       if (isOpen) {
         loadData();
+      } else {
+        setItems([]);
       }
 
       return () => {
@@ -705,25 +730,33 @@ const MentionPopover = forwardRef<
 
     if (!isOpen || !position) return null;
 
-    return (
+    const compactMenu = addOnly || isSlashCommand;
+    const menuWidth = Math.min(
+      compactMenu ? Math.max(280, Math.min(448, position.width * 0.7)) : position.width,
+      window.innerWidth - 32
+    );
+
+    return createPortal(
       <div
         ref={popoverRef}
-        className="fixed z-50 bg-background-primary border border-border-primary rounded-2xl shadow-lg"
+        data-composer-menu={addOnly ? 'add' : isSlashCommand ? 'commands' : 'mentions'}
+        className={`composer-menu-surface fixed z-50 border border-border-primary shadow-lg ${compactMenu ? 'overflow-hidden rounded-xl' : 'rounded-2xl'}`}
         style={{
-          width: Math.min(position.width ?? 640, window.innerWidth - 32),
-          maxHeight: Math.max(80, Math.min(560, position.y - 24)),
-          left: Math.max(
-            16,
-            Math.min(
-              position.x,
-              window.innerWidth - Math.min(position.width ?? 640, window.innerWidth - 32) - 16
-            )
-          ),
+          width: menuWidth,
+          height: compactMenu && initialHeight !== null ? initialHeight : undefined,
+          maxHeight: Math.max(80, Math.min(compactMenu ? 392 : 560, position.y - 24)),
+          left: Math.max(16, Math.min(position.x, window.innerWidth - menuWidth - 16)),
           top: position.y - 10, // Position above the chat input
           transform: 'translateY(-100%)', // Move it fully above
         }}
       >
-        <div className="p-3 flex flex-col min-h-0" style={{ maxHeight: 'inherit' }}>
+        <div
+          className={`${compactMenu ? 'p-2' : 'p-3'} flex flex-col min-h-0`}
+          style={{
+            maxHeight: 'inherit',
+            height: compactMenu && initialHeight !== null ? '100%' : undefined,
+          }}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2"></div>
@@ -746,8 +779,8 @@ const MentionPopover = forwardRef<
               <div
                 role="listbox"
                 ref={listRef}
-                className="space-y-1 min-h-0 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-borderStandard scrollbar-track-transparent"
-                style={{ maxHeight: isSlashCommand ? '520px' : '280px' }}
+                className={`${compactMenu ? 'space-y-0.5 overflow-x-hidden' : 'space-y-1'} min-h-0 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-borderStandard scrollbar-track-transparent`}
+                style={{ maxHeight: isSlashCommand ? '520px' : '280px', scrollbarGutter: 'stable' }}
               >
                 {displayItems.map((item, index) => (
                   <div
@@ -758,7 +791,7 @@ const MentionPopover = forwardRef<
                         commandGroup(item) !== commandGroup(displayItems[index - 1])) && (
                         <div
                           aria-hidden="true"
-                          className="px-2 pb-1 pt-2 text-xs text-text-secondary"
+                          className="px-2 pb-0.5 pt-1 text-[11px] leading-4 text-text-secondary"
                         >
                           {intl.formatMessage(groupLabels[commandGroup(item)])}
                         </div>
@@ -771,29 +804,43 @@ const MentionPopover = forwardRef<
                           : undefined
                       }
                       aria-selected={index === selectedIndex}
-                      title={item.toolboxItem ? intl.formatMessage(i18n.inventoryHint) : undefined}
+                      title={
+                        isSlashCommand
+                          ? `${item.name}${item.extra ? ` — ${item.extra}` : ''}${item.toolboxItem ? `\n${intl.formatMessage(i18n.inventoryHint)}` : ''}`
+                          : undefined
+                      }
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => handleItemClick(index)}
                       data-selected={index === selectedIndex}
-                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                      className={`flex items-center ${compactMenu ? 'gap-2 px-2 py-1.5' : 'gap-3 p-2'} rounded-md cursor-pointer transition-colors ${
                         index === selectedIndex ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'
                       }`}
                     >
-                      <div className="flex-shrink-0 text-text-secondary">
+                      <div
+                        className={`flex-shrink-0 text-text-secondary ${compactMenu ? '[&>svg]:size-3.5' : ''}`}
+                      >
                         <ItemIcon item={item} />
                       </div>
-                      <div className="flex-1 min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                        <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-text-primary">
-                          <span>{item.name}</span>
+                      <div
+                        className={`flex-1 min-w-0 flex items-baseline gap-x-3 ${compactMenu ? '' : 'flex-wrap gap-y-0.5'}`}
+                      >
+                        <div
+                          className={`flex items-baseline text-text-primary ${compactMenu ? 'min-w-0 flex-1 gap-x-1.5 text-xs leading-4' : 'flex-wrap gap-x-2 text-sm'}`}
+                        >
+                          <span className={compactMenu ? 'min-w-0 truncate' : undefined}>
+                            {item.name}
+                          </span>
                           {isSlashCommand &&
                             (!item.toolboxItem || item.relativePath !== item.name) && (
-                              <span className="text-xs text-text-secondary">
+                              <span className="max-w-[45%] shrink-0 truncate text-[11px] leading-4 text-text-secondary">
                                 {item.toolboxItem ? '' : '/'}
                                 {item.relativePath}
                               </span>
                             )}
                         </div>
-                        <div className="min-w-[10rem] flex-1 break-words text-right text-xs text-text-secondary line-clamp-2">
+                        <div
+                          className={`text-right text-text-secondary ${compactMenu ? 'min-w-0 flex-[0_1_44%] truncate text-[11px] leading-4' : 'min-w-[10rem] flex-1 break-words text-xs line-clamp-2'}`}
+                        >
                           {item.extra}
                         </div>
                       </div>
@@ -812,7 +859,8 @@ const MentionPopover = forwardRef<
             </>
           )}
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 );

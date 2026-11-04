@@ -14,6 +14,9 @@ export function panelMediaType(file: string): PanelMedia | undefined {
     '.jpeg': 'image/jpeg',
     '.gif': 'image/gif',
     '.webp': 'image/webp',
+    '.avif': 'image/avif',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
     '.mp4': 'video/mp4',
     '.webm': 'video/webm',
     '.mov': 'video/quicktime',
@@ -50,22 +53,35 @@ export async function panelPath(root: string, requested: string): Promise<string
 }
 
 // Desktop references authorize this file only, never its containing directory.
-export async function readPanelReference(root: string, requested: string) {
+export async function resolvePanelReference(root: string, requested: string) {
   if (typeof requested !== 'string' || requested.includes('\0'))
     throw new Error('Invalid reference path');
-  const file = await fs.realpath(path.resolve(root, requested));
-  const external = !inside(root, file);
+  const realRoot = await fs.realpath(root);
+  const file = await fs.realpath(path.resolve(realRoot, requested));
+  const external = !inside(realRoot, file);
   const stat = await fs.stat(file);
-  if (!stat.isFile() || (external && stat.size > LIMIT))
-    throw new Error('Reference must be a regular text file of at most 2 MiB');
+  if (!stat.isFile()) throw new Error('Reference must be a regular file');
+  const media = panelMedia(file, stat.size);
+  const limit = media ? undefined : isPanelDocument(file) ? 32 * 1024 * 1024 : LIMIT;
+  if (limit && stat.size > limit) throw new Error('Reference exceeds the preview size limit');
+  if ((await fs.realpath(path.resolve(realRoot, requested))) !== file)
+    throw new Error('Reference changed; open the link again');
+  return { file, external, stat, realRoot };
+}
+
+export async function readPanelReference(root: string, requested: string) {
+  const { file, external, realRoot } = await resolvePanelReference(root, requested);
   const document = await readPanelFile(
-    external ? path.dirname(file) : root,
+    external ? path.dirname(file) : realRoot,
     external ? path.basename(file) : file
   );
-  if (external && (document.binary || document.media || document.image))
-    throw new Error('External reference supports text and source code only');
-  if ((await fs.realpath(path.resolve(root, requested))) !== file)
+  if (external && document.binary) throw new Error('Unsupported reference format or text encoding');
+  if ((await fs.realpath(path.resolve(realRoot, requested))) !== file)
     throw new Error('Reference changed; open the link again');
+  if (external) {
+    document.path = file;
+    document.reference = true;
+  }
   return { file, document, external };
 }
 
@@ -155,13 +171,20 @@ export function isPanelDocument(file: string): boolean {
   return externalDocuments.has(path.extname(file).toLowerCase());
 }
 
-export async function inspectPanelFile(root: string, requested: string): Promise<PanelFileInfo> {
+export async function inspectPanelFile(
+  root: string,
+  requested: string,
+  reference = false
+): Promise<PanelFileInfo> {
   const realRoot = await fs.realpath(root);
-  const file = await panelPath(realRoot, requested);
+  const file = reference
+    ? (await resolvePanelReference(realRoot, requested)).file
+    : await panelPath(realRoot, requested);
   const stat = await fs.stat(file);
   if (!stat.isFile()) throw new Error('Path is not a regular file');
   return {
-    path: path.relative(realRoot, file),
+    path: inside(realRoot, file) ? path.relative(realRoot, file) : file,
+    ...(!inside(realRoot, file) ? { reference: true } : {}),
     size: stat.size,
     openExternally: externalDocuments.has(path.extname(file).toLowerCase()),
     media: panelMedia(file, stat.size),

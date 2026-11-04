@@ -11,7 +11,8 @@ vi.mock('react-router-dom', () => ({
 }));
 
 vi.mock('./BaseChat', () => ({
-  default: ({ sessionId }: { sessionId: string }) => <div>{sessionId}</div>,
+  default: ({ sessionId, isActiveSession }: { sessionId: string; isActiveSession: boolean }) =>
+    <div data-active={isActiveSession}>{sessionId}</div>,
 }));
 
 vi.mock('../acp/acpConnection', () => ({
@@ -31,6 +32,16 @@ describe('ChatSessionsContainer', () => {
     acpChatSessionActions.setChatState('session-1', ChatState.Idle);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it('keeps background chats mounted while marking only the visible chat active', () => {
+    const props = { setChat: vi.fn(), activeSessions: [{ sessionId: 'session-1' }, { sessionId: 'session-2' }] };
+    const view = render(<ChatSessionsContainer {...props} isChatVisible />);
+    expect(view.getByText('session-1')).toHaveAttribute('data-active', 'true');
+    expect(view.getByText('session-2')).toHaveAttribute('data-active', 'false');
+    view.rerender(<ChatSessionsContainer {...props} isChatVisible={false} />);
+    expect(view.getByText('session-1')).toHaveAttribute('data-active', 'false');
+    expect(view.getByText('session-2')).toHaveAttribute('data-active', 'false');
+  });
 
   it('restores active chat sessions after ACP reconnects', () => {
     let onRecoveryChanged: ((recovering: boolean) => void) | undefined;

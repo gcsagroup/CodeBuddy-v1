@@ -67,6 +67,8 @@ import {
 import {
   getToolRequests,
   getToolResponses,
+  isConversationTurnStart,
+  isToolCallInProgress,
   getAnyToolConfirmationData,
   getPendingToolConfirmationIds,
   type Message,
@@ -230,13 +232,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     if (props.renderMessage) return props.messages;
     const turns: Message[][] = [];
     for (const message of props.messages) {
-      if (
-        !turns.length ||
-        (message.role === 'user' &&
-          message.metadata.userVisible &&
-          getToolResponses(message).length === 0)
-      )
-        turns.push([]);
+      if (!turns.length || isConversationTurnStart(message)) turns.push([]);
       turns[turns.length - 1].push(message);
     }
     // History can replay terminal receipts after all conversation messages. Bind
@@ -332,11 +328,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
     let turnStart = -1;
     for (let index = startIndex; index >= 0; index -= 1) {
       const message = projectedMessages[index];
-      if (
-        message.role === 'user' &&
-        message.metadata.userVisible &&
-        getToolResponses(message).length === 0
-      ) {
+      if (isConversationTurnStart(message)) {
         turnStart = index;
         break;
       }
@@ -1063,6 +1055,7 @@ function ProgressiveMessageListContent({
         if (cancelling && terminal?.status === 'cancelled' && receiptOnly) return null;
         const plainStopReceipt =
           terminal &&
+          !terminal.stop_reason &&
           (terminal.status === 'cancelled' || terminal.status === 'interrupted') &&
           terminal.checkpoint_id === null &&
           terminal.retry_strategy === 'not_available' &&
@@ -1225,8 +1218,7 @@ function ProgressiveMessageListContent({
                     : [];
               }
               const response = responses.get(request.id);
-              const active =
-                !!isStreamingMessage && (activeToolCallIds?.includes(request.id) ?? true);
+              const active = isToolCallInProgress(request, !!isStreamingMessage, activeToolCallIds);
               const status = resolveToolLoadingStatus(response, active, request);
               const call = presentedToolCall(request);
               const outcome = call && computerToolOutcome(call.name, request.id, response);
@@ -1245,7 +1237,7 @@ function ProgressiveMessageListContent({
               (request) =>
                 !responses.has(request.id) &&
                 (approvals.has(request.id) ||
-                  (!!isStreamingMessage && (activeToolCallIds?.includes(request.id) ?? true)))
+                  isToolCallInProgress(request, !!isStreamingMessage, activeToolCallIds))
             );
           const latestPart = group[group.length - 1];
           const thinkingNow =
@@ -1647,11 +1639,7 @@ function ProgressiveMessageListContent({
     // ordered presenter is waiting to release the next visible message.
     if (messages.length === 0) return null;
     const starts = messages.flatMap((message, index) =>
-      message.role === 'user' &&
-      message.metadata.userVisible &&
-      message.content.some((content) => content.type === 'text' || content.type === 'image')
-        ? [index]
-        : []
+      isConversationTurnStart(message) ? [index] : []
     );
     if (starts.length === 0 || starts[0] !== 0) starts.unshift(0);
     const renderSlice = (
@@ -1716,6 +1704,7 @@ function ProgressiveMessageListContent({
           let terminalIndex = -1;
           let lastToolIndex = -1;
           let answerBoundaryIndex = -1;
+          let answerMessageId: string | undefined;
           turn.forEach((message, index) => {
             if (getToolRequests(message).length > 0) lastToolIndex = index;
             const record = getTurnTerminalRecord(message);
@@ -1736,8 +1725,10 @@ function ProgressiveMessageListContent({
               phase.source_user_message_id === turn[0]?.id &&
               (!streaming || !activeRunId || phase.run_id === activeRunId) &&
               (!terminal || phase.run_id === terminal.run_id)
-            )
+            ) {
               answerBoundaryIndex = index;
+              answerMessageId = phase.answer_message_id;
+            }
           });
           const hasAnswerBoundary = answerBoundaryIndex > lastToolIndex;
           const hasTerminalBoundary =
@@ -1757,14 +1748,14 @@ function ProgressiveMessageListContent({
             index += 1
           ) {
             const message = sourceMessages[index];
-            if (message.role === 'user' && getToolResponses(message).length === 0) break;
+            if (isConversationTurnStart(message)) break;
             if (getToolRequests(message).length > 0) {
               laterToolReceived = true;
               break;
             }
           }
-          // Keep every public reply mounted outside the process disclosures.
-          // Bound host facts can settle presentation, never execute or seal a turn.
+          // A bound host boundary folds stage text with work history and keeps
+          // the final reply outside. It never executes or seals a turn.
           const awaitingNativePermission = turn
             .flatMap(getToolRequests)
             .some((request) => livePermissions.has(request.id));
@@ -1807,7 +1798,11 @@ function ProgressiveMessageListContent({
           ) {
             turn.forEach((message, index) => {
               if (index < lastToolIndex || getTurnTerminalRecord(message)) return;
-              if (hasAnswerBoundary && index <= answerBoundaryIndex) return;
+              if (
+                hasAnswerBoundary &&
+                (answerMessageId ? message.id !== answerMessageId : index <= answerBoundaryIndex)
+              )
+                return;
               if (message.role !== 'assistant') return;
               let afterTool = 0;
               if (index === lastToolIndex)
@@ -1849,17 +1844,15 @@ function ProgressiveMessageListContent({
           let rawEnd = sourceMessages.length;
           for (let index = rawStart + 1; rawStart >= 0 && index < sourceMessages.length; index++) {
             const message = sourceMessages[index];
-            if (
-              message.role === 'user' &&
-              message.metadata.userVisible &&
-              message.content.some((part) => part.type === 'text' || part.type === 'image')
-            ) {
+            if (isConversationTurnStart(message)) {
               rawEnd = index;
               break;
             }
           }
           const usage = hasTerminalBoundary
-            ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn)
+            ? conversationUsage(rawStart >= 0 ? sourceMessages.slice(rawStart, rawEnd) : turn, {
+                attributedOnly: true,
+              })
             : undefined;
           const completedAt =
             hasTerminalBoundary && terminal ? Date.parse(terminal.finished_at) / 1000 : undefined;
@@ -1894,7 +1887,7 @@ function ProgressiveMessageListContent({
                   : undefined,
                 { usage, created: completedAt }
               )}
-              {hasTerminalBoundary && (
+              {(hasTerminalBoundary || (hasAnswerBoundary && answerMessageId && !pending)) && (
                 <CodeProConversationFiles
                   messages={turn}
                   sourceChanges={conversationChanges}

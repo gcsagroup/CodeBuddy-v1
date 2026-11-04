@@ -25,6 +25,34 @@ async function fixture(executionOwner = 'harness', options = {}) {
 const goal = (phase = 'active') => ({ id: 'native-goal', revision: 1, objective: 'Implement multiple modules', phase, maxGoalRounds: 12, activation: phase === 'active' ? 'armed' : 'disarmed' });
 const native = (binding, type, seq, data) => ({ ...binding, nativeSessionId: 'native-session', event: { type, seq, time: 1000 + seq, data } });
 
+test('failed native-terminal projection retries once and never revives a superseded attempt', async () => {
+  for (const superseded of [false, true]) {
+    const f = await fixture();
+    const update = f.store.update.bind(f.store);
+    const locked = Object.assign(new Error('fixture replace denied'), { code: 'EPERM' });
+    let deny = true;
+    f.store.update = (operation, ...args) => update(draft => {
+      const result = operation(draft);
+      if (deny) throw locked;
+      return result;
+    }, ...args);
+    await assert.rejects(f.runs.finishHarnessAttempt({ ...f.binding, result: { reason: { kind: 'completed' } } }), error => error === locked);
+    assert.equal(f.runs.context(f.binding).state, 'running');
+    deny = false;
+    if (superseded) await f.runs.endAttempt({ ...f.binding, reason: 'Owner acknowledged the interrupted attempt' });
+    const before = f.store.read().codeproRuns[0].events.length;
+    await Promise.all([f.runs.finishPendingHarnessAttempt('session'), f.runs.finishPendingHarnessAttempt('session')]);
+    const events = f.store.read().codeproRuns[0].events;
+    assert.equal(events.length - before, superseded ? 0 : 1);
+    assert.equal(events.filter(e => e.eventType === 'harness_attempt_finished').length, superseded ? 0 : 1);
+    assert.equal(f.runs.context(f.binding).activeAttempt, null);
+    if (!superseded) assert.equal(f.runs.context(f.binding).state, 'completed');
+    await assert.rejects(f.runs.finishHarnessAttempt({ ...f.binding, attemptId: 'stale-attempt', result: {} }), /Stale or inactive/);
+    await f.runs.finishPendingHarnessAttempt('session');
+    assert.equal(f.store.read().codeproRuns[0].events.length, events.length, 'invalid requests must not poison recovery');
+  }
+});
+
 test('internal delegation retains audit evidence without creating main-chat activity rows', async () => {
   const f=await fixture();
   await f.runs.recordToolStart({...f.binding,callId:'internal-send',name:'send_message',internal:true});

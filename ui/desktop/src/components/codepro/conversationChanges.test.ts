@@ -415,3 +415,42 @@ describe('conversation change evidence ledger', () => {
     });
   });
 });
+
+it('keeps immediate steering writes in the original turn and queued follow-ups separate', () => {
+  const steer = { ...user('steer'), metadata: { ...metadata, steer: true } };
+  const childWrite = request('child-steer', '/fixture/child.py');
+  const tool = childWrite.content[0];
+  if (tool.type !== 'toolRequest') throw new Error('Expected fixture tool');
+  tool.metadata = { ...tool.metadata, parentUserMessageId: 'steer' };
+  const history = conversationChangeMessages(
+    [
+      user('original'),
+      ...operation('first', '/fixture/first.py'),
+      steer,
+      ...operation('second', '/fixture/second.py'),
+      user('queued'),
+      ...operation('third', '/fixture/third.py'),
+    ],
+    [
+      {
+        id: 'child',
+        messages: [
+          childWrite,
+          response('child-steer', {
+            path: '/fixture/child.py',
+            before: '',
+            after: 'child\n',
+          }),
+        ],
+      },
+    ]
+  );
+  const turns = collectConversationChanges(history);
+  expect(turns.map((turn) => turn.id)).toEqual(['original', 'queued']);
+  expect(turns[0].files.map((file) => file.path)).toEqual([
+    '/fixture/first.py',
+    '/fixture/second.py',
+    '/fixture/child.py',
+  ]);
+  expect(turns[1].files.map((file) => file.path)).toEqual(['/fixture/third.py']);
+});

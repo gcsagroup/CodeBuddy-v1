@@ -24,7 +24,9 @@ export class VisionRouting {
   async prepareToolContent({ content, toolName, ...request }) {
     const prepared = await this.preparePrompt({ ...request, requireAuxiliary: true,
       content: [{ type: 'text', text: `Describe the images returned by ${toolName}. Preserve relevant visual details, visible text, coordinates and labels when present, and uncertainty. This is observation only.` },
-        ...content.filter(block => block.type === 'text' || block.type === 'image').map(block => block.type === 'image' ? { type: 'image', mediaType: block.mimeType, data: block.data } : block)],
+        // The main model receives the complete text receipt below. Sending its
+        // accessibility tree again would exhaust the observer's query budget.
+        ...content.filter(block => block.type === 'image').map(block => ({ type: 'image', mediaType: block.mimeType, data: block.data }))],
     });
     if (!prepared.observations.length) throw new Error('Auxiliary tool image observation is missing');
     let inserted = false;

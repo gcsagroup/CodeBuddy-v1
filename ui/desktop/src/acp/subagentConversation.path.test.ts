@@ -4,6 +4,7 @@ import { getAcpControlClient } from './acpConnection';
 import {
   applySubagentViewNotification,
   readSubagentConversation,
+  createSubagentConversationProjection,
   watchSubagentConversation,
 } from './subagentConversation';
 vi.mock('./acpConnection', () => ({ getAcpControlClient: vi.fn() }));
@@ -96,4 +97,46 @@ it('binds live frames to the exact subscription and root, reconnects only its ob
     close();
     vi.useRealTimers();
   }
+});
+
+it('projects a child output-limit exit without showing an open or unknown turn, and accepts a later restart', () => {
+  const projection = createSubagentConversationProjection('child');
+  projection.append([
+    { seq: 1, type: 'turn/start', time: 1000, data: { turn: 1 } },
+    { seq: 2, type: 'turn/end', time: 2000, data: { turn: 1, reason: { kind: 'max-tokens' } } },
+  ]);
+  expect(projection.status).toBe('limited');
+  projection.append([{ seq: 3, type: 'turn/start', time: 3000, data: { turn: 2 } }]);
+  expect(projection.status).toBe('running');
+  projection.append([
+    {
+      seq: 4,
+      type: 'turn/end',
+      time: 4000,
+      data: {
+        turn: 2,
+        reason: { kind: 'completed' },
+      },
+    },
+  ]);
+  expect(projection.status).toBe('completed');
+});
+
+it.each([
+  'OUTPUT_LIMIT_REACHED',
+  'OUTPUT_TRUNCATED',
+  'OUTPUT_LENGTH_STOP',
+  'LOCAL_OUTPUT_BUDGET_EXHAUSTED',
+])('uses native %s to mark a settled child as limited', (code) => {
+  const projection = createSubagentConversationProjection('child');
+  projection.append([
+    { seq: 1, type: 'turn/start', time: 1, data: { turn: 1 } },
+    {
+      seq: 2,
+      type: 'turn/end',
+      time: 2,
+      data: { turn: 1, reason: { kind: 'error', error: { code, message: 'fixture' } } },
+    },
+  ]);
+  expect(projection.status).toBe('limited');
 });

@@ -29,6 +29,8 @@ const i18n = defineMessages({
 });
 
 export function businessApprovalName(intl: IntlShape, approval: BusinessApproval): string {
+  if (!['computer-use', 'image-generation', 'video-generation'].includes(approval.id))
+    return approval.name ?? approval.id;
   return intl.formatMessage(
     approval.id === 'computer-use'
       ? i18n.computer
@@ -46,8 +48,19 @@ export default function BusinessApprovalScope({ approval }: { approval: Business
       data-testid="business-approval-scope"
     >
       <p>
-        {intl.formatMessage(approval.id === 'computer-use' ? i18n.computerScope : i18n.mediaScope)}
+        {approval.version === 2 ? approval.description :
+          intl.formatMessage(approval.id === 'computer-use' ? i18n.computerScope : i18n.mediaScope)}
       </p>
+      {approval.details && (
+        <dl className="space-y-1 break-all">
+          {approval.details.map((item, index) => (
+            <div key={`${index}:${item.label}`}>
+              <dt className="font-medium">{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {approval.service && (
         <dl className="space-y-1 break-all">
           {(
@@ -70,7 +83,8 @@ export default function BusinessApprovalScope({ approval }: { approval: Business
           <ul className="mt-1 space-y-1">
             {approval.tools.map((tool) => (
               <li key={tool}>
-                {formatToolAction(intl, `mcp__qwen_computer__${tool}`, {}, undefined, 'name')}
+                {approval.version === 2 ? tool :
+                  formatToolAction(intl, `mcp__qwen_computer__${tool}`, {}, undefined, 'name')}
               </li>
             ))}
           </ul>

@@ -54,6 +54,7 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
   const groups = new Map<string, { path: string; sessions: SessionListItem[] }>();
 
   for (const session of sessions) {
+    if (session.globalConversation) continue;
     const path = normalizeProjectPath(session.workingDir);
     const identity = projectPathIdentity(path);
     const existing = groups.get(identity);
@@ -72,7 +73,7 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
     );
     return {
       path,
-      label: getProjectLabel(path),
+      label: projectSessions.find(session => session.agentProfile)?.agentProfile?.name || getProjectLabel(path),
       sessions: sortedSessions,
       lastActivityAt: getSessionActivityTime(
         sortedSessions[0] ?? ({ updatedAt: '' } as SessionListItem)

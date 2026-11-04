@@ -1,3 +1,4 @@
+import { getMainConversation, deliverMainConversationMessage } from './pets/mainConversation';
 import { useEffect, useState, useRef } from 'react';
 import { IpcRendererEvent } from 'electron';
 import {
@@ -465,20 +466,34 @@ export function AppInner() {
     };
     window.electron.on('pet-create-session', createPetSession);
     const sendPetMessage = (_event: IpcRendererEvent, message: unknown) => {
-      try {
-        navigate('/codepro/pair', {
-          state: { initialMessage: parsePetMessage(message), noAutoSubmit: false },
-        });
-      } catch {
-        /* Invalid cross-window input must not create an empty conversation. */
-      }
+      const deliveryId = (message as { deliveryId?: string } | null)?.deliveryId;
+      void (async () => {
+        const input = parsePetMessage(message);
+        const sessionId = await getMainConversation();
+        navigate(`/codepro/pair?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
+        await deliverMainConversationMessage(sessionId, { ...input, ...(deliveryId ? { messageId: deliveryId } : {}) });
+        window.electron.petSignal('pet-message-result', { deliveryId });
+      })().catch(error => {
+        window.electron.petSignal('pet-message-result', { deliveryId, error: error instanceof Error ? error.message : '无法发送到主对话' });
+        toast.error(error instanceof Error ? error.message : '无法发送到主对话');
+      });
     };
-    window.electron.on('pet-send-message', sendPetMessage);
+    const unsubscribePetMessages = window.electron.on('pet-send-message', sendPetMessage);
+    const unsubscribePetPermissions = window.electron.on('pet-resolve-permission', (_event, payload) => {
+      const value = payload as { sessionId: string; permission: { requestId: string; token: string; action: import('./types/permissions').Permission }; deliveryId: string };
+      void import('./acp/permissionRequests').then(({ resolvePetPermission }) => {
+        const { requestId, token, action } = value.permission;
+        const accepted = resolvePetPermission(value.sessionId, requestId, token, action);
+        window.electron.petSignal('pet-message-result', { deliveryId: value.deliveryId, ...(accepted ? {} : { error: '审批请求已失效或已处理，请查看最新通知' }) });
+      }).catch(() => window.electron.petSignal('pet-message-result', { deliveryId: value.deliveryId, error: '无法处理审批，请重试' }));
+    });
     return () => {
       window.electron.off('pet-open-session', openPetSession);
       window.electron.off('pet-pause-session', pausePetSession);
       window.electron.off('pet-create-session', createPetSession);
-      window.electron.off('pet-send-message', sendPetMessage);
+      if (unsubscribePetMessages) unsubscribePetMessages();
+      else window.electron.off('pet-send-message', sendPetMessage);
+      unsubscribePetPermissions?.();
     };
   }, [location.pathname, navigate]);
 

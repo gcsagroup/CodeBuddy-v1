@@ -165,3 +165,4 @@ gooseselftest/
 
 # Explicitly approved shared distribution credentials; packaged locally, never committed
 /runtime/distribution-credentials.json
+/.artifacts

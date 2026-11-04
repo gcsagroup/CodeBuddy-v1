@@ -22,7 +22,7 @@ export class ConversationEditing {
     this.store = store; this.driver = driver;
     this.isActive = isActive; this.beforeTruncate = beforeTruncate; this.onChanged = onChanged;
   }
-  handles(method) { return ['session/fork', 'session/conversation/truncate'].includes(method.replace(/^_goose\/unstable\//, '')); }
+  handles(method) { return ['session/fork', 'session/conversation/truncate', '_codebuddy/main-conversation/clear'].includes(method.replace(/^_goose\/unstable\//, '')); }
   async request(method, params = {}) {
     const name = method.replace(/^_goose\/unstable\//, '');
     if (!this.handles(method)) throw Object.assign(new Error(`Unsupported conversation operation: ${method}`), { code: -32601 });
@@ -33,12 +33,14 @@ export class ConversationEditing {
       if (source.readonlyHistory) throw invalid('Imported history is read-only; start a new task');
       if (source.archivedAt) throw invalid('Unarchive this session before editing or copying it');
       if (this.isActive(source.id)) throw invalid('Stop the active prompt before editing or copying this session');
-      const isTruncate = name === 'session/conversation/truncate';
+      const isClear = name === '_codebuddy/main-conversation/clear';
+      if (isClear && !source.globalConversation) throw invalid('Only the main conversation can be cleared here');
+      const isTruncate = isClear || name === 'session/conversation/truncate';
       if (!isTruncate && source.type === 'code_pro') throw invalid('CodePro sessions use new tasks instead of conversation forks');
       if (isTruncate && source.type === 'code_pro' && !this.beforeTruncate) throw invalid('CodePro run cancellation must be connected before editing');
       if (params.cwd !== undefined && params.cwd !== source.cwd) throw invalid('A conversation fork must keep its source workspace');
       const cutoff = isTruncate ? params.truncateFrom : params._meta?.conversationBefore;
-      const prefix = cutoff === undefined && !isTruncate ? { updates: source.updates ?? [], usageUpdates: source.usageUpdates ?? [] } : prefixAt(source, cutoff);
+      const prefix = isClear ? { updates: [], usageUpdates: [] } : cutoff === undefined && !isTruncate ? { updates: source.updates ?? [], usageUpdates: source.usageUpdates ?? [] } : prefixAt(source, cutoff);
       const nativeSourceId = this.driver.nativeSessionId(source.id);
       const snapshot = digest(source);
       const sourceHistory = await this.driver.history(source.id);
@@ -49,7 +51,7 @@ export class ConversationEditing {
       const requestedIndex = prefix.requestId ? (source.updates ?? []).findIndex(update => metaId(update) === prefix.requestId) : -1;
       const nativeBoundary = requestedIndex < 0 ? undefined : (source.updates ?? []).slice(requestedIndex).find(update => update.sessionUpdate === 'user_message_chunk' && sourceRequests.has(metaId(update)));
       const beforeRequestId = nativeBoundary ? metaId(nativeBoundary) : undefined;
-      const forked = await this.driver.fork(source.id, beforeRequestId ? { beforeRequestId } : {});
+      const forked = await this.driver.fork(source.id, isClear ? { atSeq: 0 } : beforeRequestId ? { beforeRequestId } : {});
       const history = await this.driver.history(forked.sessionId);
       const nativeRequests = [...new Set(history.events.filter(event => event.type === 'agent/inbox/spliced').flatMap(event => event.data.inserted ?? []).filter(item => item.source?.kind === 'user').map(item => item.source.rpcId))];
       const displayedRequests = [...new Set(prefix.updates.filter(u => u.sessionUpdate === 'user_message_chunk').map(metaId).filter(id => sourceRequests.has(id)))];
@@ -68,7 +70,7 @@ export class ConversationEditing {
           live.updates = prefix.updates; live.usageUpdates = prefix.usageUpdates;
           live.messageCount = countMessages(prefix.updates); live.updatedAt = now;
           live.conversationEdits ??= [];
-          live.conversationEdits.push({ id: randomUUID(), createdAt: now, previousNativeSessionId: nativeSourceId, nativeSessionId: forked.sessionId, truncateFrom: cutoff, beforeRequestId: prefix.requestId, workspaceEffectsRetained: true });
+          live.conversationEdits.push({ id: randomUUID(), createdAt: now, previousNativeSessionId: nativeSourceId, nativeSessionId: forked.sessionId, ...(isClear ? { cleared: true } : { truncateFrom: cutoff, beforeRequestId: prefix.requestId }), workspaceEffectsRetained: true });
           result = {};
         } else {
           const id = randomUUID();

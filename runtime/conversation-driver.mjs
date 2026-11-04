@@ -77,6 +77,7 @@ export function createConversationDriver(driver, store) {
       return { ...result, records: result.records.map(record => ({ ...record, sessionId: ids.get(record.sessionId) ?? record.sessionId })) };
     },
     nativeSessionId: nativeId,
+    generateTitle(id, input) { return driver.generateTitle(nativeId(id), input); },
     withConversationLock: lock,
     isConversationBusy: id => busy.has(id) || waitingPrompts.has(id),
     async createSession(input) {

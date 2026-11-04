@@ -14,6 +14,14 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('wraps long fenced code lines without a horizontal scroll container', () => {
+    const text = 'long_identifier_'.repeat(30);
+    const { container } = renderWithIntl(<MarkdownContent content={'```markdown\n' + text + '\n```'} />);
+    const code = container.querySelector('code');
+    expect(code).toHaveStyle({ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
+    expect(container.querySelector('.overflow-x-auto')).toBeNull();
+    expect(code).toHaveTextContent(text);
+  });
   it.each([
     ['indented code', '    const value = 1;\n    console.log(value);'],
     ['nested list', '- parent\n  - child\n\n    continued child\n- sibling'],

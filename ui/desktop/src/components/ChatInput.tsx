@@ -1,3 +1,4 @@
+import { receiveMainConversationMessages } from '../pets/mainConversation';
 import { ComposerGoalBar } from './ComposerGoalBar';
 import { ComposerPlanMode } from './ComposerPlanMode';
 import {
@@ -245,6 +246,7 @@ interface ChatInputProps {
   sessionProvider?: string | null;
   sessionLoaded?: boolean;
   workingDir?: string | null;
+  globalConversation?: boolean;
   latestInference?: Message['metadata']['inference'] | null;
   nextChatExtensionDraft?: NextChatExtensionDraft;
   onNextChatExtensionDraftChange?: (draft: NextChatExtensionDraft) => void;
@@ -298,6 +300,7 @@ export default function ChatInput({
   sessionProvider,
   sessionLoaded,
   workingDir,
+  globalConversation = false,
   latestInference,
   nextChatExtensionDraft,
   onNextChatExtensionDraftChange,
@@ -436,6 +439,22 @@ export default function ChatInput({
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    return receiveMainConversationMessages(sessionId, input => {
+      if (queueStorageFailedRef.current || !queueStorageRef.current) throw new Error('无法保存主对话消息，请重试');
+      if (input.messageId && queuedMessagesRef.current.some(item => item.id === input.messageId)) return;
+      const next = [...queuedMessagesRef.current, {
+        id: input.messageId ?? crypto.randomUUID(), content: input.msg, images: input.images,
+        timestamp: Date.now(), desktopGeneration: getDesktopOwnership().generation ?? '',
+      }];
+      if (!persistQueue(next)) throw new Error('无法保存主对话消息，请检查消息队列');
+      if (queuedMessagesRef.current.length === 0) queuePausedRef.current = false;
+      queuedMessagesRef.current = next;
+      setQueuedMessagesState(next);
+    });
+  }, [sessionId, persistQueue]);
 
   useLayoutEffect(() => {
     if (
@@ -616,6 +635,7 @@ export default function ChatInput({
           {
             msg: message.content,
             images: message.images,
+            messageId: message.id,
             desktopGeneration: typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
             ...(message.presentation
               ? { messageId: message.id, presentation: message.presentation }
@@ -2296,7 +2316,7 @@ export default function ChatInput({
         <div className="shrink-0">{modelToolbarSlot}</div>
 
         {/* Left: working directory (leaf folder name only) */}
-        {shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
+        {!globalConversation && shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
           <DirSwitcher
             className=""
             sessionId={sessionId ?? undefined}

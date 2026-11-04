@@ -119,7 +119,7 @@ type ElectronAPI = {
   desktopControl: (state: DesktopControlState | null) => void;
   onDesktopControlCancel: (callback: (state: DesktopControlState) => void) => () => void;
   onDesktopFeedbackError: (callback: (message: string) => void) => () => void;
-  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read' | 'pet-message-result', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
   workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
@@ -187,7 +187,7 @@ type ElectronAPI = {
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
-  ) => void;
+  ) => (() => void) | void;
   off: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
@@ -349,6 +349,9 @@ const electronAPI: ElectronAPI = {
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
   ) => {
     ipcRenderer.on(channel, callback);
+    // Close over the original proxy: callbacks crossing contextBridge again
+    // are not a reliable identity for removing an existing listener.
+    return () => ipcRenderer.off(channel, callback);
   },
   off: (
     channel: string,
@@ -359,8 +362,8 @@ const electronAPI: ElectronAPI = {
   emit: (channel: string, ...args: unknown[]) => {
     ipcRenderer.emit(channel, ...args);
   },
-  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => {
-    if (channel === 'pet-hit-test' || channel === 'pet-task' || channel === 'pet-read')
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read' | 'pet-message-result', payload: unknown) => {
+    if (channel === 'pet-hit-test' || channel === 'pet-task' || channel === 'pet-read' || channel === 'pet-message-result')
       ipcRenderer.send(channel, payload);
   },
   broadcastThemeChange: (themeData: {

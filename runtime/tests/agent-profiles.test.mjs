@@ -35,8 +35,11 @@ test('workspace snapshots survive profile edits, deletion, reopening and nested 
   const { profile: saved } = await f.request('save', { profile });
   const created = await f.request('create-workspace', { id: saved.id });
   const session = f.store.readSession(created.sessionId);
+  assert.ok((await f.request('workspaces')).directories.some(directory => path.resolve(directory).toLowerCase() === path.resolve(session.cwd).toLowerCase()));
   assert.equal(session.modelId, 'fixed');
-  assert.equal(session.title, profile.name);
+  assert.equal(session.title, '新对话');
+  assert.equal(created.workspaceName, profile.name);
+  assert.equal(created.workingDir, session.cwd);
   assert.deepEqual(session.agentProfile, saved);
   assert.deepEqual(created.configOptions, []);
   const options = await f.host.sessionOptions(session);
@@ -96,7 +99,7 @@ test('logo and uploaded PNG avatars persist in workspace snapshots; unsafe avata
   const { profile: saved } = await f.request('save', { profile: { ...profile, avatar: png } });
   const created = await f.request('create-workspace', { id: saved.id });
   assert.equal(f.store.readSession(created.sessionId).agentProfile.avatar, png);
-  assert.equal(f.store.readSession(created.sessionId).title, profile.name);
+  assert.equal(f.store.readSession(created.sessionId).title, '新对话');
   const reopened = await openStore(f.root);
   assert.equal((await workspaceAgent(reopened, f.store.readSession(created.sessionId).cwd)).avatar, png);
   for (const avatar of ['https://example.com/avatar.png', 'data:image/svg+xml,<svg/>', 'data:image/png;base64,YQ==', 'x'.repeat(350001)])

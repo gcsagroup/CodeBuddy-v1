@@ -752,3 +752,13 @@ English: The foreground root chat proposes installation and the desktop confirms
 模型在首次发现窗口前以 `window_title` 声明用户指定的准确标题；未指定时传空字符串。DesktopCoordinator 按本轮 token 保存该声明，重连、切换对话和新的窗口列表不能改写它。原生电脑工具消费租约元数据，并在输入前核对唯一可见窗口的标题、PID 与窗口句柄。目标不可识别仅阻止对应桌面操作，普通任务与原有权限审批仍由 Harness 管理。
 
 繁體：每輪在探索前聲明指定標題，原生工具在輸入前核對唯一可見視窗的身分。English: The host binds the requested window title before discovery for each turn. Native input requires a unique visible match and the observed window identity.
+
+## 2026-11-04 已批准：全局主对话与宠物消息
+
+- `runtime/main-conversation.mjs` 与 Compat 是唯一主对话身份的 owner：通过不可由 ACP JSON 注入的内部标识创建，`globalConversation` 随现有会话原子持久化；并发获取合并，重启按记录恢复。官方 Harness 继续拥有执行与历史。
+- 宠物仅转交输入；Electron 主进程选定主窗口并等待入队回执。主窗口输入栏仍是消息持久队列的唯一 writer，沿用忙碌排队、停止暂停、重启确认和送达状态语义。宠物拿到入队确认后才清除草稿；入队不代表模型已经完成。
+- 主对话专属 `workspace_memory` 从已登记工作区按需只读召回。ProjectMemory 继续拥有候选／批准／禁用／过期判断，工具不得重新解释原文作为批准；返回来源，普通会话不注册此能力。文件系统与其他工具权限独立，不把记忆可读等同于跨项目可写。
+- UI 消费 `globalConversation` 排除项目分组；角色工作区的列表来源为既有 `agentWorkspaces` 绑定，不另存第二份角色绑定。
+- 宠物审批由现有前端 ACP pending request 注册表继续持有 resolver；宠物只显示该请求允许的操作，携带一次请求令牌交回原窗口。Electron 校验来源及任务归属，注册表拒绝过期令牌，不新增权限持久化或第二套审批策略。问题填答和工作区确认不转换成工具授权。
+- 对话展示标题由 Compat 在首轮结束后更新既有 `title` 字段，上层驱动适配调用 Harness 公开辅助标题推理接口，使用已登记模型路由但不开放工具；首句截断不再作为新对话标题来源。主对话及手动 `userSetName` 名称保持不变。智能体名称作为既有项目别名初始值，和对话标题独立；不迁移历史标题或改变执行历史所有权。
+- 主对话清空由既有 `ConversationEditing` 在会话锁下执行官方空历史分叉并更新投影，保留产品会话身份与独立记忆；非主对话或活动执行不允许调用。原生日志按既有审计规则保留。Electron 转交 ID 沿用为队列及提交 ID，接收端按 ID 合并重复通知，禁止按消息文本去重。

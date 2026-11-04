@@ -2,6 +2,7 @@ import { AppEvents } from '../../constants/events';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { CustomAgents } from './CustomAgents';
+import { getProjectAlias } from '../../utils/projectAliases';
 const { request, navigate } = vi.hoisted(() => ({ request: vi.fn(), navigate: vi.fn() }));
 vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
@@ -30,11 +31,12 @@ it('saves selected persona, avatar, model and capability lists without voice set
   expect(changed).toHaveBeenCalledOnce();
 });
 it('creates and navigates to the saved role workspace, with no client-chosen settings', async () => {
-  request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : { sessionId: 'new-session' });
+  request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : { sessionId: 'new-session', workingDir: 'C:/fixture/agent-id', workspaceName: profile.name });
   render(<CustomAgents />);
   fireEvent.click(await screen.findByRole('button', { name: '创建工作区' }));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=new-session'));
   expect(request).toHaveBeenCalledWith('_codebuddy/agents/create-workspace', { id: 'saved' });
+  expect(getProjectAlias('C:/fixture/agent-id', 'agent-id')).toBe(profile.name);
 });
 it('reports creation failures without navigating and confirms deletion separately', async () => {
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : Promise.reject(new Error('Model unavailable')));

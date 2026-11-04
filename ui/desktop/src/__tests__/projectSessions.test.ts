@@ -19,6 +19,9 @@ function makeSession(overrides: Partial<SessionListItem> = {}): SessionListItem 
 }
 
 describe('groupSessionsByProject', () => {
+  it('keeps the persistent main conversation outside project groups', () => {
+    expect(groupSessionsByProject([makeSession({ globalConversation: true })])).toEqual([]);
+  });
   it('groups sessions by normalized working directory', () => {
     const groups = groupSessionsByProject([
       makeSession({ id: 'a', workingDir: '/tmp/goose' }),

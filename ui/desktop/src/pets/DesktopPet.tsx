@@ -45,6 +45,18 @@ const activityLabels = {
   stopping: t('Stopping…', '正在停止…', '正在停止…'),
 };
 function TaskCard({ task }: { task: PetTask }) {
+  const [approving, setApproving] = useState(false);
+  const [approvalError, setApprovalError] = useState('');
+  const permission = task.inputRequest?.permission;
+  useEffect(() => { setApproving(false); setApprovalError(''); }, [permission?.token]);
+  const decide = async (action: import('../types/permissions').Permission) => {
+    if (!permission || approving) return;
+    setApproving(true); setApprovalError('');
+    try {
+      await window.electron.desktopPet({ action: 'resolve-permission', sessionId: task.sessionId,
+        permission: { requestId: permission.requestId, token: permission.token, action } });
+    } catch (error) { setApprovalError(error instanceof Error ? error.message : '审批失败'); setApproving(false); }
+  };
   const activity = task.state === 'working' && task.activity;
   const inputLabel =
     task.inputRequest?.kind === 'question'
@@ -87,6 +99,7 @@ function TaskCard({ task }: { task: PetTask }) {
         )}
       </button>
       <div className="pet-task-actions">
+        {permission?.choices.map(choice => <button key={choice.action} type="button" disabled={approving} onClick={() => void decide(choice.action)}>{choice.label}</button>)}
         {task.state === 'working' && activity && activity.kind !== 'stopping' && (
           <button
             type="button"
@@ -111,6 +124,8 @@ function TaskCard({ task }: { task: PetTask }) {
           <ArrowUpRight size={12} aria-hidden="true" />
         </button>
       </div>
+      {permission && <details className="pet-approval-details"><summary>审批详情</summary><pre>{permission.details}</pre></details>}
+      {approvalError && <div role="alert" className="pet-approval-details">{approvalError}</div>}
     </div>
   );
 }
@@ -369,7 +384,7 @@ export default function DesktopPet() {
             >
               <div className="pet-composer-heading">
                 <MessageCircle size={14} aria-hidden="true" />
-                <strong>{t('New conversation', '新对话', '新對話')}</strong>
+                <strong>{t('Main conversation', '主对话', '主對話')}</strong>
                 <button
                   type="button"
                   disabled={sending}

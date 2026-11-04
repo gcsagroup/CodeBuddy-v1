@@ -1,0 +1,33 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { MainConversationRow } from './MainConversationRow';
+import { clearMainConversation } from '../../pets/mainConversation';
+import { acpChatSessionController } from '../../acp/chatSessionController';
+import { IntlTestWrapper } from '../../i18n/test-utils';
+vi.mock('../../pets/mainConversation', () => ({ getMainConversation: vi.fn(async () => 'main'), clearMainConversation: vi.fn(async () => {}) }));
+vi.mock('../../acp/chatSessionController', () => ({ acpChatSessionController: { restoreSession: vi.fn(async () => {}) } }));
+beforeEach(() => vi.clearAllMocks());
+it('requires confirmation, preserves memory wording and refreshes only after clear succeeds', async () => {
+  const open = vi.fn();
+  render(<MainConversationRow onOpen={open} />, { wrapper: IntlTestWrapper });
+  fireEvent.click(screen.getByRole('button', { name: '清空主对话历史' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('保留已保存的记忆');
+  expect(clearMainConversation).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '取消' }));
+  expect(clearMainConversation).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '清空主对话历史' }));
+  fireEvent.click(screen.getByRole('button', { name: '清空历史' }));
+  await waitFor(() => expect(open).toHaveBeenCalledWith('main'));
+  expect(clearMainConversation).toHaveBeenCalledOnce();
+  expect(acpChatSessionController.restoreSession).toHaveBeenCalledWith('main');
+});
+it('keeps the confirmation open when an active conversation rejects clearing', async () => {
+  vi.mocked(clearMainConversation).mockRejectedValueOnce(new Error('任务正在执行'));
+  const open = vi.fn();
+  render(<MainConversationRow onOpen={open} />, { wrapper: IntlTestWrapper });
+  fireEvent.click(screen.getByRole('button', { name: '清空主对话历史' }));
+  fireEvent.click(screen.getByRole('button', { name: '清空历史' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('任务正在执行');
+  expect(open).not.toHaveBeenCalled();
+  expect(acpChatSessionController.restoreSession).not.toHaveBeenCalled();
+});

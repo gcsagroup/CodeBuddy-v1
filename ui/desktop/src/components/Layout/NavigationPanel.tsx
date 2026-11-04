@@ -1,3 +1,4 @@
+import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
@@ -499,6 +500,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
+      <MainConversationRow onOpen={handleSessionClick} />
       <NavigationChatsSection>
         {recentSessions.length === 0 ? (
           <div className="px-3 py-2 text-xs text-text-secondary">

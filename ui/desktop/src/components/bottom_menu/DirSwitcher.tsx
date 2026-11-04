@@ -1,3 +1,4 @@
+import { getAcpControlClient } from '../../acp/acpConnection';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, FolderDot, FolderOpen, GitBranch, Plus } from 'lucide-react';
 import {
@@ -95,14 +96,15 @@ export const DirSwitcher: React.FC<DirSwitcherProps> = ({
     setRecentDirs([]);
     setWorktreeDirs([]);
 
-    const [recent, worktrees] = await Promise.all([
+    const [recent, worktrees, agentWorkspaces] = await Promise.all([
       window.electron.listRecentDirs().catch(() => []),
       workingDir ? window.electron.listGitWorktreeDirs(workingDir).catch(() => []) : [],
+      getAcpControlClient().then(client => client.extMethod('_codebuddy/agents/workspaces', {}) as Promise<{ directories: string[] }>).then(result => result.directories).catch(() => []),
     ]);
 
     if (version !== refreshVersionRef.current) return;
 
-    setRecentDirs(recent);
+    setRecentDirs([...new Set([...recent, ...agentWorkspaces])]);
     setWorktreeDirs(worktrees);
   }, [workingDir]);
 

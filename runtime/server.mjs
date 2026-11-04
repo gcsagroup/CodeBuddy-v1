@@ -83,6 +83,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "listSubagentChildren",
           "listSessions",
           "rename",
+          "generateTitle",
           "readResource",
           "listResources",
           "invalidateMcpServers",

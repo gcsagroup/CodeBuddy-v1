@@ -40,6 +40,7 @@ export function sessionToListItem(s: Session): SessionListItem {
   return {
     id: s.id,
     agentProfile: s.agent_profile,
+    globalConversation: s.global_conversation,
     name: getSessionDisplayName(s),
     workingDir: s.working_dir,
     updatedAt: s.updated_at,

@@ -970,6 +970,7 @@ export default function BaseChat({
                 onStop={stopStreaming}
                 onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
+                globalConversation={session?.global_conversation}
                 pauseQueueOnStop={pauseQueueOnStop}
                 queueProcessingBlocked={
                   queueProcessingBlocked || acpRecovering || modeSaving || !!workspaceReconfirmation

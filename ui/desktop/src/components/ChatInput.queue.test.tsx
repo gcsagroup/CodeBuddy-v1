@@ -1,3 +1,4 @@
+import { deliverMainConversationMessage } from '../pets/mainConversation';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -165,6 +166,23 @@ describe('workspace images added to the composer', () => {
     vi.mocked(getSessionExtensions).mockResolvedValue([]);
   });
   afterEach(() => vi.unstubAllGlobals());
+  it('persists pet main conversation messages while busy and drains them in order once idle', async () => {
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const view = setup(submit);
+    await act(async () => {
+      await Promise.all(Array.from({ length: 3 }, () => deliverMainConversationMessage('queue-test', { msg: 'pet first', images: [], messageId: 'pet-delivery-first' })));
+      await deliverMainConversationMessage('queue-test', { msg: 'pet second', images: [] });
+    });
+    expect(submit).not.toHaveBeenCalled();
+    const saved = new QueuedMessageStorage(localStorage, 'queue-test').read();
+    expect(saved.map(message => message.content)).toEqual(['pet first', 'pet second']);
+    view.changeState(ChatState.Idle);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls.map(([input]) => input.msg)).toEqual(['pet first', 'pet second']);
+    expect(submit.mock.calls[0][0].messageId).toBe('pet-delivery-first');
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
+  });
+
   it('keeps the image as a draft until Send and never transfers it into another session', async () => {
     const normalize = vi
       .spyOn(conversion, 'compressImageDataUrl')
@@ -1410,7 +1428,7 @@ describe('ChatInput queue delivery', () => {
     initial.changeState(ChatState.Idle);
     await userEvent.click(sendNow());
     await waitFor(() => expect(submit).toHaveBeenCalledOnce());
-    expect(submit.mock.calls[0][0]).toEqual({ msg: 'inspect this image', images, desktopGeneration: '' });
+    expect(submit.mock.calls[0][0]).toEqual({ msg: 'inspect this image', images, messageId: 'rejected-image', desktopGeneration: '' });
     initial.unmount();
     const restored = setup(submit);
     restored.changeState(ChatState.Idle);

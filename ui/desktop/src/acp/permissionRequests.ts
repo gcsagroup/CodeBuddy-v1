@@ -8,6 +8,7 @@ import {
 } from './chatSessionStore';
 
 interface PendingPermissionRequest {
+  token: string;
   request: RequestPermissionRequest;
   resolve: (response: RequestPermissionResponse) => void;
   runId: string | null;
@@ -17,6 +18,25 @@ interface PendingPermissionRequest {
 
 const pendingRequests = new Map<string, PendingPermissionRequest>();
 const listeners = new Set<() => void>();
+
+export function petPermissionRequest(sessionId: string, toolCallId: string) {
+  const pending = pendingRequests.get(permissionRequestKey(sessionId, toolCallId));
+  if (!pending) return undefined;
+  const actions: Permission[] = ['allow_once', 'always_allow', 'deny_once', 'always_deny'];
+  return {
+    requestId: toolCallId, token: pending.token,
+    choices: actions.flatMap(action => {
+      const id = permissionOptionIdForAction(pending.request, action);
+      const option = pending.request.options.find(item => item.optionId === id);
+      return option ? [{ action, label: option.name }] : [];
+    }),
+  };
+}
+
+export function resolvePetPermission(sessionId: string, requestId: string, token: string, action: Permission): boolean {
+  const pending = pendingRequests.get(permissionRequestKey(sessionId, requestId));
+  return !!pending && pending.token === token && resolveAcpPermissionRequest(sessionId, requestId, action);
+}
 
 export function isAcpPermissionRequestPending(sessionId: string, toolCallId: string): boolean {
   return pendingRequests.has(permissionRequestKey(sessionId, toolCallId));
@@ -58,6 +78,7 @@ export async function requestAcpPermission(
 
   return new Promise<RequestPermissionResponse>((resolve) => {
     const pending: PendingPermissionRequest = {
+      token: crypto.randomUUID(),
       request,
       resolve,
       runId: acpChatSessionStore.getSnapshot(request.sessionId)?.activeRunId ?? null,

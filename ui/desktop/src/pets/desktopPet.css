@@ -112,11 +112,14 @@
   overflow: hidden;
 }
 .pet-task-actions {
+  flex-wrap: wrap;
   display: flex;
   justify-content: flex-end;
   padding: 2px 12px 10px;
   gap: 6px;
 }
+.pet-approval-details { padding: 0 12px 10px; font-size: 11px; }
+.pet-approval-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .pet-task-actions button {
   display: inline-flex;
   align-items: center;

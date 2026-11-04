@@ -32,6 +32,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('approves a live tool request directly without navigating and shows the tool details', async () => {
+  request.mockResolvedValue({ ...snapshot, task: { sessionId: 'approval', title: '新对话', state: 'input', inputRequest: { kind: 'permission', permission: { requestId: 'call', token: 'live', choices: [{ action: 'allow_once', label: '批准一次' }, { action: 'deny_once', label: '拒绝' }], details: 'write file: notes.md' } } } });
+  await act(async () => { render(<DesktopPet />); });
+  expect(screen.getByText('write file: notes.md')).toBeInTheDocument();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '批准一次' })); });
+  expect(request).toHaveBeenCalledWith({ action: 'resolve-permission', sessionId: 'approval', permission: { requestId: 'call', token: 'live', action: 'allow_once' } });
+  expect(request.mock.calls.some(([input]) => input.action === 'open-task')).toBe(false);
+});
+
 it('plays a blocked reaction once, retains the badge, and rearms only on a new failure', async () => {
   const blocked = {
     sessionId: 'blocked',

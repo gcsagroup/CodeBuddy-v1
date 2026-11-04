@@ -628,13 +628,12 @@ export default function GooseMessage({
             if (providerThinkingSuppressed) return null;
             if (groupedProcess) {
               return showGroupedThinking ? (
-                <ThinkingContent
-                  key={key}
-                  content={getThinkingContent({ ...message, content: block.content }) ?? ''}
-                  isExpanded={false}
-                  isStreaming={thinkingActive && index === contentBlocks.length - 1}
-                  storageKey={message.id ? `provider-${message.id}-${block.start}` : undefined}
-                />
+                <div key={key} className="codepro-thinking-details my-2 text-sm text-text-secondary">
+                  <MarkdownContent
+                    content={getThinkingContent({ ...message, content: block.content }) ?? ''}
+                    className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
+                  />
+                </div>
               ) : null;
             }
             const active = thinkingActive && index === contentBlocks.length - 1;

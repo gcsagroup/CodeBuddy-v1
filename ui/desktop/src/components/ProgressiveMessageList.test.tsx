@@ -1034,10 +1034,11 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(compactGroups()).toHaveLength(1);
     openProcess();
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
-    for (const toggle of screen.getAllByRole('button', { name: /^Thinking(?: \(updating\))?$/ })) {
-      if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
-    }
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(compactGroups()[0].querySelectorAll('button')).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')).toBeNull();
+    expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className)
+      .not.toMatch(/max-h-|overflow-y-auto|overflow-y-scroll/);
     for (const text of ['First thought.', 'Continued thought.', 'After discovery.'])
       expect(screen.getByText(text)).toBeVisible();
     expect(records).toEqual(original);

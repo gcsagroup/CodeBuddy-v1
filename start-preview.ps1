@@ -1,5 +1,9 @@
 param([switch]$OrdinaryChat, [switch]$SkipOptionalToolCheck)
 $ErrorActionPreference = 'Stop'
+$localEnvironment = Join-Path $PSScriptRoot 'environment\activate.ps1'
+if (Test-Path -LiteralPath $localEnvironment -PathType Leaf) {
+  . $localEnvironment
+}
 $candidates = @()
 if ($env:CODEBUDDY_NODE) { $candidates += $env:CODEBUDDY_NODE }
 $installed = Get-Command node -ErrorAction SilentlyContinue

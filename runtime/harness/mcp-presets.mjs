@@ -9,11 +9,15 @@ function canonical(value) {
   return value;
 }
 
-export function restrictSessionTools(ctx, filter, sharedKey) {
-  if (!sharedKey || filter.allow === undefined) return ctx.tools.restrict(filter);
+export function restrictSessionTools(ctx, filter, inheritedScope, inheritedFilter) {
+  if (!inheritedScope || filter.allow === undefined) return ctx.tools.restrict(filter);
   let previous, signature;
   const refresh = () => {
-    const inherited = ctx.tools.schemas(sharedKey).filter(tool => ctx.tools.get(tool.name, sharedKey) !== ctx.tools.get(tool.name)).map(tool => tool.name);
+    const inherited = ctx.tools.schemas(inheritedScope).filter(tool =>
+      ctx.tools.get(tool.name, inheritedScope) !== ctx.tools.get(tool.name) &&
+      (!inheritedFilter?.allow || inheritedFilter.allow.includes(tool.name)) &&
+      !inheritedFilter?.deny?.includes(tool.name)
+    ).map(tool => tool.name);
     const next = JSON.stringify(inherited);
     if (next === signature) return;
     // Set before changing the mask: the official registry emits tools/change

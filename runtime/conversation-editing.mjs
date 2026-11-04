@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 const invalid = message => Object.assign(new Error(message), { code: -32602 });
 const metaId = update => update.messageId ?? update._meta?.goose?.messageId;
-const digest = session => createHash('sha256').update(JSON.stringify([session.nativeSessionId ?? session.id, session.updates ?? [], session.usageUpdates ?? []])).digest('hex');
+const digest = session => createHash('sha256').update(JSON.stringify([session.nativeSessionId ?? session.id, session.updates ?? [], session.usageUpdates ?? [], session.agentSelection, session.agentInputs, session.agentProfile])).digest('hex');
 const countMessages = updates => new Set(updates.filter(u => ['user_message_chunk', 'agent_message_chunk', 'agent_thought_chunk', 'tool_call', 'tool_call_update'].includes(u.sessionUpdate)).map(metaId).filter(Boolean)).size;
 
 function prefixAt(session, cutoff) {
@@ -74,6 +74,9 @@ export class ConversationEditing {
           const id = randomUUID();
           const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: `${source.title} (fork)`, createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }) } };
           for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'workspaceOrigin', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
+          // The native prefix still refers to its original input identities.
+          // Copy configuration snapshots, never resolve old turns from today's template.
+          for (const key of ['agentProfile', 'agentSelection', 'agentInputs']) if (source[key] !== undefined) copy[key] = structuredClone(source[key]);
           state.sessions.push(copy);
           result = { sessionId: id };
         }

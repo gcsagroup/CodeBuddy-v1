@@ -17,6 +17,29 @@ async function fixture() {
   return { directory, store };
 }
 
+test('a failed projection is retried before the next turn without losing order or duplicating records', async () => {
+  const { store } = await fixture();
+  const persist = store.updateSession.bind(store);
+  const locked = Object.assign(new Error('fixture snapshot locked'), { code: 'EPERM' });
+  let deny = false;
+  store.updateSession = (...args) => deny ? Promise.reject(locked) : persist(...args);
+  const journal = await openTranscriptJournal(store);
+  const first = await journal.begin({ sessionId: 'session-fixture', turnId: 'locked-turn', users: [user('first request')] });
+  await first.append(reply('first answer'));
+  deny = true;
+  await assert.rejects(first.finalize(), error => error === locked);
+  await assert.rejects(journal.begin({ sessionId: 'session-fixture', turnId: 'not-admitted', users: [user('must not appear')] }), error => error === locked);
+  deny = false;
+  const second = await journal.begin({ sessionId: 'session-fixture', turnId: 'next-turn', users: [user('second request')] });
+  assert.deepEqual(store.readSession('session-fixture').updates.map(update => update.content.text), ['first request', 'first answer']);
+  await second.append(reply('second answer'));
+  await second.finalize();
+  await openTranscriptJournal(store);
+  assert.deepEqual(store.readSession('session-fixture').updates.map(update => update.content.text), ['first request', 'first answer', 'second request', 'second answer']);
+  assert.equal(store.readSession('session-fixture').messageCount, 4);
+  assert.deepEqual(await readdir(journal.directory), []);
+});
+
 test('ordered journal chunks commit once with usage and title in the runtime store', async () => {
   const { store } = await fixture();
   const journal = await openTranscriptJournal(store);

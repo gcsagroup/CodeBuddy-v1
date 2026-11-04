@@ -111,7 +111,8 @@ test('official fork powers in-place edits, preserves old native facts, maps host
 test('forking before the first prompt leaves no queued old input; plain full fork keeps history but never a run or approval receipt', async t => {
   const f = await fixture(t), id = await f.create();
   await f.turn(id, 'USER_ORIGINAL', 10);
-  await f.store.update(s => Object.assign(s.sessions.find(s => s.id === id), { transcriptTurns: { previous: { seq: 10 } }, approvals: ['old'], activeRunId: 'old' }));
+  const role = { version: 1, revision: 3, selected: 'role-a:2', baseline: 'default', profiles: { default: null, 'role-a:2': { name: 'Saved role snapshot' } } };
+  await f.store.update(s => Object.assign(s.sessions.find(s => s.id === id), { transcriptTurns: { previous: { seq: 10 } }, approvals: ['old'], activeRunId: 'old', agentSelection: role, agentInputs: { 'original-request': 'role-a:2' } }));
   const editing = new ConversationEditing(f.store, f.driver);
   const empty = await editing.request('session/fork', { sessionId: id, cwd: f.directory, _meta: { conversationBefore: 10 } });
   assert.equal(f.store.read().sessions.find(s => s.id === empty.sessionId).updates.length, 0);
@@ -121,6 +122,8 @@ test('forking before the first prompt leaves no queued old input; plain full for
   const copy = f.store.read().sessions.find(s => s.id === full.sessionId);
   assert.equal(copy.updates.length, 2); assert.equal(copy.activeRunId, undefined); assert.equal(copy.approvals, undefined); assert.equal(copy.transcriptTurns, undefined);
   assert.equal(copy.forkedFrom.sessionId, id);
+  assert.deepEqual(copy.agentSelection, role);
+  assert.deepEqual(copy.agentInputs, { 'original-request': 'role-a:2' });
   await f.setup(full.sessionId); await f.turn(full.sessionId, 'USER_FOLLOW_UP', 30);
   assert.match(JSON.stringify(f.requests.at(-1).messages), /USER_ORIGINAL/);
   assert.equal(f.store.read().sessions.find(s => s.id === id).updates.length, 2);

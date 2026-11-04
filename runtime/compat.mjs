@@ -1,4 +1,5 @@
-import { agentProfileRequest, workspaceAgent, agentAllowsTool } from './agent-profiles.mjs';
+import { agentProfileRequest, workspaceAgent, agentAllowsTool, bindAgentInput, agentInputProfile, agentBaselineProfile, sessionAgentSelection, agentProfileChoice, createAgentSelection } from './agent-profiles.mjs';
+import { DEFAULT_AGENT_PRESETS, DEFAULT_AGENT_SKILLS } from './agent-presets.mjs';
 import { desktopControlPresentation, matchesDesktopCancel } from './desktop-control.mjs';
 import { DesktopCoordinator } from './desktop-coordinator.mjs';
 import { closeMediaStreams } from './comfyui-live.mjs';
@@ -87,7 +88,7 @@ import {
 
 const prefix = "_goose/unstable/";
 const sessionInfoFields = ['id', 'cwd', 'title', 'updatedAt', 'createdAt', 'messageCount',
-  'providerId', 'modelId', 'type', 'agentProfile', 'workspaceBinding', 'projectId', 'scheduleId',
+  'providerId', 'modelId', 'type', 'agentProfile', 'agentSelection', 'workspaceBinding', 'projectId', 'scheduleId',
   'readonlyHistory', 'userSetName', 'archivedAt', 'workspaceOrigin'];
 
 function imageDisplayBlock(item) {
@@ -782,7 +783,7 @@ export class Compat {
         modelId: s.modelId,
         sessionType: scheduled ? "scheduled" : s.type,
         workspaceBinding: s.workspaceBinding,
-        agentProfile: s.agentProfile ? { id: s.agentProfile.id, name: s.agentProfile.name, avatar: s.agentProfile.avatar, revision: s.agentProfile.revision } : undefined,
+        agentProfile: (() => { const profile = sessionAgentSelection(s).profile; return profile ? { id: profile.id, name: profile.name, avatar: profile.avatar, revision: profile.revision } : undefined; })(),
         workspaceOrigin: s.workspaceOrigin,
         projectId: s.projectId,
         activeRunId: this.runs.latest(s.id, state)?.runId,
@@ -797,7 +798,6 @@ export class Compat {
     };
   }
   options(s) {
-    if (s.agentProfile) return [];
     const p = this.store.read(["providers"]).providers.find((p) => p.id === s.providerId);
     if (!p) return [];
     return [
@@ -869,13 +869,15 @@ export class Compat {
     // allow list only accepts globally registered tools, not scoped additions.
     return {
       agentProfile: s.agentProfile,
+      mainAgentRole: {
+        baseline: () => agentBaselineProfile(this.store.readSession(s.id, { fields: ['agentProfile', 'agentSelection'] })),
+        input: requestId => agentInputProfile(this.store.readSession(s.id, { fields: ['agentProfile', 'agentSelection', 'agentInputs'] }), requestId),
+      },
       initialPermissionPreset: initialPermissionPreset(s, preferences),
       conversationLocale: this.clientLocales.get(s.id),
       mcpRequestMetadata: (serverName) => serverName === "commonqueries" && extensions.some(e => isBuiltinMcp(e.extension) && e.extension.name === "commonqueries") ? commonQueryMetadata(this.store) : undefined,
       systemPrompt: [
-        s.agentProfile ? `## Workspace role: ${s.agentProfile.name}
-${s.agentProfile.prompt}
-Use this role throughout this workspace.` : basePrompt,
+        basePrompt,
         ...instructions.filter((x) => x.mode !== "set").map((x) => x.text),
         ...(memoryInstructions ? [memoryInstructions] : []),
         // Keep the recipe identifiable as the current task among generic guidance.
@@ -906,9 +908,9 @@ Use this role throughout this workspace.` : basePrompt,
           onProgress: sessionId === s.id ? this.active.get(s.id)?.visionProgress : undefined,
         });
       },
-      subagentModels: s.agentProfile ? {} : await resolveSubagentModels(state.config, state.providers,
+      subagentModels: await resolveSubagentModels(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
-      subagentTemplates: s.agentProfile ? [] : await resolveCustomSubagentTemplates(state.config, state.providers,
+      subagentTemplates: await resolveCustomSubagentTemplates(state.config, state.providers,
         (providerId, modelId) => this.settings.request('model-capabilities/resolve', { providerId, modelId })),
       restoreSubagentProvider: async (model, matches, recorded) => {
         for (const provider of this.store.read(['providers']).providers) {
@@ -1383,8 +1385,15 @@ Use this role throughout this workspace.` : basePrompt,
       p.sessionId &&
       this.sessionMutations.has(p.sessionId) &&
       method !== "session/cancel"
-    )
-      throw invalid("Wait for the session change to finish");
+    ) {
+      // The role picker refreshes when editing starts. Its read must observe
+      // the committed conversation, not report the edit's write lock as failure.
+      // Never defer executable/mutating requests across a conversation change.
+      if (method !== '_codebuddy/agents/current')
+        throw invalid("Wait for the session change to finish");
+      await this.sessionMutations.get(p.sessionId).done;
+      return this.request(method, p, connection);
+    }
     if (connection) {
       this.connections.add(connection);
       connection.sessionIds ??= new Set();
@@ -1404,13 +1413,15 @@ Use this role throughout this workspace.` : basePrompt,
       return this.apps.request(method.replace(prefix, ""), p);
     if (method === '_codebuddy/agents/catalog') {
       const extensions = await this.settings.extensions();
-      // Templates target new workspaces; no project directory exists yet.
+      // The role manager has no single project directory. Per-project discovery
+      // still runs in the native session when the selected role is applied.
       const managed = await this.library.skillRequest('list', {}, connection);
       const native = await this.driver.listTools?.() ?? [];
       const names = [...new Set([...native.map(t => t.name), 'browser_control', IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, PET_TOOL_NAME, 'project_memory', ...GIT_TOOL_NAMES])];
       return {
-        models: this.store.read(['providers']).providers.flatMap(provider => provider.models.map(model => ({ providerId: provider.id, modelId: model, label: provider.displayName + ' / ' + model }))),
-        skills: managed.skills.filter(s => s.enabled).map(s => ({ name: s.name, description: s.description })),
+        skills: [...managed.skills.filter(s => s.enabled).map(s => ({ name: s.name, description: s.description })),
+          ...DEFAULT_AGENT_SKILLS.map(s => ({ name: s.name, description: s.description, title: s.title, sourceUrl: s.sourceUrl, roleOnly: true }))],
+        presets: DEFAULT_AGENT_PRESETS,
         tools: names.filter(name => name !== 'skill').map(name => ({ name, description: native.find(t => t.name === name)?.description ?? name })),
         mcpServers: extensions.filter(e => e.enabled && !['developer', 'git', 'projectmemory'].includes(extensionName(e.extension))).map(e => ({ name: extensionName(e.extension), description: e.extension.description ?? extensionName(e.extension) })),
       };
@@ -1491,7 +1502,6 @@ Use this role throughout this workspace.` : basePrompt,
           ...this.store.read(["defaults"]).defaults,
           ...(prepared.providerId ? { providerId: prepared.providerId } : {}),
           ...(prepared.modelId ? { modelId: prepared.modelId } : {}),
-          ...(agentProfile ? { providerId: agentProfile.providerId, modelId: agentProfile.modelId } : {}),
         };
         const selectedProvider = this.provider(defaults.providerId);
         requireString(defaults.modelId, "default model");
@@ -1535,6 +1545,11 @@ Use this role throughout this workspace.` : basePrompt,
           messageCount: 0,
           updates: [],
         };
+        if (Object.hasOwn(p._meta ?? {}, 'customAgentId')) {
+          const profile = agentProfileChoice(this.store, p._meta.customAgentId);
+          s.agentSelection = createAgentSelection(profile, agentProfile ?? null);
+          s.agentInputs = {};
+        }
         await bindWorkspace();
         if (codePro)
           await this.workspaces.validateSession(s.id, s.cwd, {
@@ -1868,7 +1883,6 @@ Use this role throughout this workspace.` : basePrompt,
     }
     if (method === "session/set_config_option") {
       const s = this.session(p.sessionId);
-      if (s.agentProfile) throw invalid("This workspace uses its agent’s fixed model; create a new workspace to change it");
       if (this.active.has(s.id))
         throw invalid("Stop the current turn before changing its model");
       let selection;
@@ -2095,7 +2109,7 @@ Use this role throughout this workspace.` : basePrompt,
       case "session/extensions/add":
       case "session/extensions/remove": {
         const s = this.session(p.sessionId);
-        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed services');
+        if (s.agentProfile && !s.agentSelection) throw invalid('This workspace uses its agent’s fixed services');
         if (this.active.has(s.id))
           throw invalid("Stop the current turn before changing extensions");
         let extensions = (await selectedExtensions(s, this.settings)).map(
@@ -2284,7 +2298,7 @@ Use this role throughout this workspace.` : basePrompt,
       }
       case "session/system-prompt/set": {
         const s = this.session(p.sessionId);
-        if (s.agentProfile) throw invalid('This workspace uses its agent’s fixed persona');
+        if (s.agentProfile && !s.agentSelection) throw invalid('This workspace uses its agent’s fixed persona');
         if (this.active.has(s.id))
           throw invalid("Stop execution before changing its instructions");
         if (
@@ -2323,6 +2337,8 @@ Use this role throughout this workspace.` : basePrompt,
         )
           throw Object.assign(invalid("Run ended before the input could be added"), { harnessCode: 'PROMPT_IDLE' });
         const messageId = randomUUID();
+        await bindAgentInput(this.store, s.id, messageId, { profile: Object.hasOwn(active, 'agentProfile')
+          ? active.agentProfile : await this.driver.mainAgentProfile?.(s.id) ?? null });
         await this.driver.steer(s.id, prepared.content, {
           requestId: messageId,
           signal: active.controller.signal,
@@ -2599,6 +2615,7 @@ Use this role throughout this workspace.` : basePrompt,
     trace('received', receivedAtMs);
     const replay = { turnId: promptScope, users: [], updates, usageUpdates };
     const promptEntry = {
+      ...(!nativeObservationToken ? { agentProfile: sessionAgentSelection(s).profile } : {}),
       nativeAttached: Promise.withResolvers(),
       controller,
       connection,
@@ -2689,6 +2706,7 @@ Use this role throughout this workspace.` : basePrompt,
         connection.notify('_goose/unstable/session/update', { sessionId: s.id, update });
     };
     try {
+      await this.runs.finishPendingHarnessAttempt(s.id);
       writer = await this.journal?.begin({
         sessionId: s.id,
         turnId: promptScope,
@@ -2718,6 +2736,7 @@ Use this role throughout this workspace.` : basePrompt,
           this.initialized.delete(s.id);
         }
       }
+      if (!nativeObservationToken) await bindAgentInput(this.store, s.id, userId, { profile: promptEntry.agentProfile });
       await this.ensureSession(s);
       trace('session_ready');
       controller.signal.throwIfAborted();
@@ -2811,6 +2830,19 @@ Use this role throughout this workspace.` : basePrompt,
         },
         onEvent: async (event) => {
           promptEntry.nativeAttached.resolve();
+          if (event.type === 'agent_input' && event.sessionId === s.id) {
+            // This is an invalidation receipt, not a second role snapshot.
+            // current() continues to derive adoption from the native log.
+            for (const observer of new Set([connection, ...this.connections]))
+              if (observer === connection || observer.sessionIds?.has(s.id)) {
+                try {
+                  observer.notify('session/update', { sessionId: s.id, update: {
+                    sessionUpdate: 'session_info_update', _meta: { 'codebuddy/agent-input': { requestId: event.requestId, seq: event.seq } },
+                  } });
+                } catch { console.warn('Agent selection display could not receive its native input receipt.'); }
+              }
+            return;
+          }
           if (event.type === 'scheduled_message' && event.sessionId === s.id) {
             const message = event.message;
             if (message.id !== userId) for (const part of message.content ?? []) {
@@ -3061,19 +3093,24 @@ Use this role throughout this workspace.` : basePrompt,
       trace(controller.signal.aborted ? 'cancelled' : 'failed');
       promptError = error;
     } finally {
-      await desktopTurn.end();
-      desktopControl.end();
+      let settlementError;
       try {
+        try { await desktopTurn.end(); }
+        catch (error) { settlementError = error; }
+        desktopControl.end();
         const active = this.active.get(s.id);
-        if (active?.run && active.attemptId)
-          await this.runs.finishHarnessAttempt({
-            sessionId: s.id,
-            runId: active.run.runId,
-            attemptId: active.attemptId,
-            result,
-            error: promptError,
-            aborted: controller.signal.aborted,
-          });
+        try {
+          if (active?.run && active.attemptId)
+            await this.runs.finishHarnessAttempt({
+              sessionId: s.id,
+              runId: active.run.runId,
+              attemptId: active.attemptId,
+              result,
+              error: promptError,
+              aborted: controller.signal.aborted,
+            });
+        } catch (error) { settlementError ??= error; }
+        if (settlementError) throw settlementError;
         if (active?.run && active.attemptId) {
           const context = this.runs.context({
             sessionId: s.id,
@@ -3212,10 +3249,21 @@ Use this role throughout this workspace.` : basePrompt,
             updatedAt: saved.updatedAt,
           },
         });
+      } catch (error) {
+        settlementError = error;
+        throw error;
       } finally {
         try {
-          if (controller.signal.aborted) this.desktop.discardContinuation(s.id, promptScope);
-        } finally { release(); }
+          // Run metadata or desktop settlement may fail before normal finalization.
+          // The journal still must close its writer and retain any unprojected records.
+          try { await writer?.finalize(); }
+          catch (error) { if (!settlementError) throw error; }
+        } finally {
+          try {
+            desktopControl.end();
+            if (controller.signal.aborted) this.desktop.discardContinuation(s.id, promptScope);
+          } finally { release(); }
+        }
       }
     }
     if (controller.signal.aborted) return { stopReason: "cancelled" };

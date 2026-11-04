@@ -34,7 +34,7 @@ test('real Harness enforces role guard for scope-local tools and filters Skill l
   assert.equal(effects, 0);
 });
 
-test('actual parent and spawned child requests carry the same persona, model and restricted capability catalog', { timeout: 30000 }, async t => {
+test('actual main identity stays out of child requests while shared policy and capability limits remain', { timeout: 30000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-role-request-'));
   const requests = [];
   let mainStep = 0;
@@ -57,17 +57,23 @@ test('actual parent and spawned child requests carry the same persona, model and
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'state'), cwd: root });
   t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(root, { recursive: true, force: true }); });
   const sessionId = randomUUID();
-  const tools = ['search_mcp_tools', 'subagent'];
+  const mainRole = { id: 'main-role', revision: 1, name: 'Research partner', capabilities: 'inherit', prompt: 'MAIN_PERSONA_SENTINEL: You are a careful research partner.' };
   await driver.createSession({ sessionId, cwd: root, model: 'pinned-role-model', provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture' }, options: {
-    systemPrompt: 'ROLE_PERSONA_SENTINEL: You are a careful research partner.',
-    agentProfile: { skills: [], tools, mcpServers: [] }, toolFilter: { allow: ['subagent'] },
+    systemPrompt: 'SHARED_SESSION_POLICY: Keep confirmed project facts and capability limits.',
+    mainAgentRole: { baseline: () => null, input: () => mainRole },
+    toolFilter: { allow: ['subagent'] },
   } });
-  await driver.prompt(sessionId, [{ type: 'text', text: 'Delegate a short probe.' }], { onPermission: async () => true });
+  await driver.prompt(sessionId, [{ type: 'text', text: 'Delegate a short probe.' }], { requestId: 'main-role-request', onPermission: async () => true });
   await childSeen.promise;
   for (const body of requests) {
     assert.equal(body.model, 'pinned-role-model');
-    assert.match(JSON.stringify(body.messages), /ROLE_PERSONA_SENTINEL/);
-    assert.ok(!JSON.stringify(body.messages).includes('You are CodeBuddy, an AI software engineering assistant'));
+    assert.match(JSON.stringify(body.messages), /SHARED_SESSION_POLICY/);
+    const child = body.messages.some(m => m.role === 'user' && JSON.stringify(m.content).includes('CHILD_ROLE_PROBE'));
+    if (child) assert.doesNotMatch(JSON.stringify(body.messages), /MAIN_PERSONA_SENTINEL/);
+    else {
+      assert.match(JSON.stringify(body.messages), /MAIN_PERSONA_SENTINEL/);
+      assert.ok(!JSON.stringify(body.messages).includes('You are CodeBuddy, an AI software engineering assistant'));
+    }
     assert.ok(JSON.stringify(body.messages).includes(CODEBUDDY_BEHAVIOR));
     assert.ok(!body.tools?.some(tool => ['write', 'pwsh', 'bash', 'skill'].includes(tool.function.name)));
   }
@@ -78,5 +84,6 @@ test('actual parent and spawned child requests carry the same persona, model and
   const normal = JSON.stringify(requests.at(-1).messages);
   assert.ok(normal.includes('You are CodeBuddy, an AI software engineering assistant'));
   assert.ok(normal.includes(CODEBUDDY_BEHAVIOR));
-  assert.ok(!normal.includes('ROLE_PERSONA_SENTINEL'));
+  assert.ok(!normal.includes('MAIN_PERSONA_SENTINEL'));
+  assert.ok(!normal.includes('SHARED_SESSION_POLICY'));
 });

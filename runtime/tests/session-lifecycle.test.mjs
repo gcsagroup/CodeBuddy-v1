@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, writeFile, readFile, access, realpath } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, access, realpath, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHarnessDriver } from '../harness/index.mjs';
@@ -16,7 +16,7 @@ const ext = name => `_goose/unstable/${name}`;
 const allow = { outcome: { outcome: 'selected', optionId: 'allow_once' } };
 const stopped = pid => assert.throws(() => process.kill(pid, 0), /ESRCH/, `MCP process ${pid} must stop`);
 
-async function fixture(t) {
+async function fixture(t, storageOptions) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'codebuddy-session-lifecycle-')));
   const script = path.join(root, 'mcp.mjs'), pidFile = path.join(root, 'pids.jsonl');
   await writeFile(script, String.raw`import {appendFileSync} from 'node:fs'; import {createInterface} from 'node:readline';
@@ -42,7 +42,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
     emit({}, 'stop'); res.end('data: [DONE]\n\n');
   });
   await new Promise(resolve => model.listen(0, '127.0.0.1', resolve));
-  const store = await openStore(path.join(root, 'data'));
+  const store = await openStore(path.join(root, 'data'), storageOptions);
   await store.update(state => {
     state.providers = [{ id: 'fixture', displayName: 'Fixture', engine: 'openai_compatible', apiUrl: `http://127.0.0.1:${model.address().port}`, models: ['fixture'], requiresAuth: false }];
     state.defaults = { providerId: 'fixture', modelId: 'fixture' };
@@ -59,6 +59,33 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});`);
   const tool = (sessionId, name, args) => request(ext('tools/call'), { sessionId, name: `developer__${name}`, arguments: args });
   return { root, native, driver, store, compat, connection, request, create, pids, tool, slow };
 }
+
+test('real Harness continues the same chat after a failed terminal snapshot without rerunning the completed turn', { timeout: 35_000 }, async t => {
+  const locked = Object.assign(new Error('fixture terminal file is locked'), { code: 'EPERM' });
+  let deny = false;
+  const f = await fixture(t, { replaceFile: (from, to) => deny ? Promise.reject(locked) : rename(from, to) });
+  const id = await codeproSession(f);
+  const prompt = f.native.prompt.bind(f.native);
+  let nativeCalls = 0;
+  f.native.prompt = async (...args) => {
+    nativeCalls++;
+    const result = await prompt(...args);
+    if (nativeCalls === 1) deny = true;
+    return result;
+  };
+  await assert.rejects(f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'first native request' }] }), error => error === locked);
+  assert.equal(f.compat.active.has(id), false);
+  deny = false;
+  const result = await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'second native request' }] });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(nativeCalls, 2);
+  const saved = f.store.readSession(id);
+  for (const text of ['first native request', 'second native request'])
+    assert.equal(saved.updates.filter(update => update.sessionUpdate === 'user_message_chunk' && update.content.text === text).length, 1);
+  assert.equal(saved.messageCount, 4);
+  assert.equal(f.compat.runs.latest(id).state, 'completed');
+  assert.equal(f.driver.isConversationBusy(id), false);
+});
 
 for (const cancelled of [false, true]) test(`desktop resume during native completion waits for Compat settlement (cancelled=${cancelled})`, { timeout: 30_000 }, async t => {
   const f = await fixture(t);

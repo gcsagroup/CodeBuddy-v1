@@ -90,7 +90,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
     return result;
   };
-  const update = (fn, keys, sessionId, durable = false) => {
+  const update = (fn, keys, sessionId) => {
     const queuedAt = Date.now(), queued = performance.now();
     // A scoped draft never exposes unchanged history to its writer. All
     // updates still share the same queue and atomically replace one snapshot.
@@ -163,10 +163,10 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
         measure('serialize_ms');
         try {
           try {
-            // Final transcript projection must reach disk before its journal
-            // is removed. Sync the temporary file and close it inside this
-            // queue, rather than opening the destination alongside another write.
-            await writeFile(tmp, serialized, { mode: 0o600, flush: durable });
+            // A rename protects readers, but cannot preserve an unflushed file
+            // across a system crash. Every replacement contains configuration
+            // and history, even when this caller changed only one small root.
+            await writeFile(tmp, serialized, { mode: 0o600, flush: true });
           } finally {
             measure('write_ms');
           }
@@ -234,9 +234,10 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     update: (fn, keys) => update(fn, keys),
     // Session projection joins the same commit queue; it cannot see or mutate
     // other conversations, and still replaces the same complete JSON snapshot.
-    updateSession(id, fn, { durable = false } = {}) {
+    // Keep the former options argument compatible; all commits are now durable.
+    updateSession(id, fn, _options = {}) {
       if (typeof id !== 'string' || !id.length) return Promise.reject(new TypeError('Session id is required'));
-      return update(fn, ['sessions'], id, durable);
+      return update(fn, ['sessions'], id);
     },
     flush: () => tail,
   };

@@ -34,6 +34,7 @@ export async function openTranscriptJournal(store) {
   const directory = join(store.directory, 'transcript-journal');
   await mkdir(directory, { recursive: true });
   const writers = new Map();
+  const unsettled = new Map();
 
   async function project(records) {
     if (!records.length) return undefined;
@@ -95,16 +96,11 @@ export async function openTranscriptJournal(store) {
       if (title !== undefined && typeof title !== 'string') throw new TypeError('Transcript title must be text');
       if (writers.has(sessionId)) throw new Error(`A transcript turn is already active for ${sessionId}`);
       const key = identity(sessionId, turnId);
-      const session = store.readSession ? store.readSession(sessionId) : store.read(['sessions']).sessions.find((item) => item.id === sessionId);
-      if (!session) throw new Error(`Transcript session is missing: ${sessionId}`);
-      if (session.transcriptTurns?.[key]) throw new Error(`Transcript turn was already finalized: ${turnId}`);
       const file = join(directory, `${key}.ndjson`);
       const records = [];
       let tail = Promise.resolve(), finalization;
       writers.set(sessionId, key);
       let handle;
-      try { handle = await open(file, 'wx', 0o600); }
-      catch (error) { writers.delete(sessionId); throw error; }
       const write = (fields) => {
         const json = JSON.stringify(fields);
         const work = tail.then(async () => {
@@ -117,8 +113,24 @@ export async function openTranscriptJournal(store) {
         work.catch(() => {});
         return work;
       };
-      try { await write({ kind: 'begin', users, ...(title === undefined ? {} : { title }) }); }
-      catch (error) { await handle.close(); writers.delete(sessionId); throw error; }
+      try {
+        // A failed atomic snapshot leaves the durable journal authoritative.
+        // Project it before admitting a later turn, preserving transcript order.
+        const previous = unsettled.get(sessionId);
+        if (previous) {
+          await settle(previous.file, previous.records);
+          unsettled.delete(sessionId);
+        }
+        const session = store.readSession ? store.readSession(sessionId) : store.read(['sessions']).sessions.find((item) => item.id === sessionId);
+        if (!session) throw new Error(`Transcript session is missing: ${sessionId}`);
+        if (session.transcriptTurns?.[key]) throw new Error(`Transcript turn was already finalized: ${turnId}`);
+        handle = await open(file, 'wx', 0o600);
+        await write({ kind: 'begin', users, ...(title === undefined ? {} : { title }) });
+      } catch (error) {
+        await handle?.close().catch(() => {});
+        writers.delete(sessionId);
+        throw error;
+      }
       const append = (kind, update) => {
         if (finalization) return Promise.reject(new Error('Transcript turn is finalizing'));
         if (!update || typeof update !== 'object' || Array.isArray(update)) return Promise.reject(new TypeError('Transcript update must be an object'));
@@ -131,12 +143,16 @@ export async function openTranscriptJournal(store) {
         finalize() {
           if (!finalization) {
             finalization = (async () => {
+              let settled = false;
               try {
                 await tail;
                 await handle.close();
-                return await settle(file, records);
+                const result = await settle(file, records);
+                settled = true;
+                return result;
               } finally {
                 await handle.close().catch(() => {});
+                if (!settled) unsettled.set(sessionId, { file, records });
                 writers.delete(sessionId);
               }
             })();

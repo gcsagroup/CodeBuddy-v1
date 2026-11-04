@@ -1,11 +1,17 @@
 import { scopeChainOf } from '@deepseek-ai/dsh-scope';
 import SkillRegistry from '@deepseek-ai/dsh-skill';
 const policies = new WeakMap();
+const mainPolicies = new WeakMap();
 export function bindAgentPolicy(scope, policy) {
   if (policy) policies.set(scope, policy); else policies.delete(scope);
 }
 export function agentPolicyFor(scope) {
-  return scopeChainOf(scope).map(key => policies.get(key)).filter(Boolean);
+  return scopeChainOf(scope).flatMap(key => [policies.get(key), mainPolicies.get(key)?.()])
+    .filter(policy => policy && policy.capabilities !== 'inherit');
+}
+export function bindMainAgentPolicy(scope, policy) {
+  mainPolicies.set(scope, policy);
+  return () => { if (mainPolicies.get(scope) === policy) mainPolicies.delete(scope); };
 }
 // Override the public service interface in the host composition. The upstream
 // registry keeps discovery, invalidation and lifecycle ownership unchanged.

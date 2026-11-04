@@ -1,5 +1,6 @@
 import { bindAgentPolicy } from './agent-policy.mjs';
 import { agentAllowsTool } from '../agent-profiles.mjs';
+import { DEFAULT_AGENT_SKILLS } from '../agent-presets.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +15,7 @@ import compactionPlugin, { installCompactionRequestCompatibility } from './compa
 import * as mcpPlugin from './mcp-bridge.mjs';
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain';
 import { validateJsonSchemaValue } from '@deepseek-ai/dsh-tools';
-import { createScope, bindScopeParent, scopeChainOf } from '@deepseek-ai/dsh-scope';
+import { createScope, bindScopeParent, scopeChainOf, scopeParentOf } from '@deepseek-ai/dsh-scope';
 import { symbols } from '@deepseek-ai/cordis';
 import { z } from 'zod';
 import { PERSONA_PREFIX_SECTION } from '@deepseek-ai/dsh-system-prompt';
@@ -37,6 +38,7 @@ import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
 import { installSubagentTemplates } from './subagent-templates.mjs';
 import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs';
+import { installMainAgentRole } from './main-agent-role.mjs';
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
 
@@ -80,6 +82,8 @@ export async function createHarnessDriver({ dataDir, cwd = process.cwd(), instru
   const outputSources = new Map();
   const streamingMeters = new Map();
   const sessionScopes = new Map();
+  const capabilityScopes = new WeakMap();
+  const mainAgentRoles = new WeakMap();
   const stdioConnections = new WeakMap();
   const directCalls = new Map();
   const toolReceipts = new Map();
@@ -462,7 +466,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         throw new Error('The original subagent model connection is unavailable; its model was not changed.');
       await configureProvider(provider, agent.options.model);
     }
-    const { thinkingEffort: _parentEffort, ...capabilities } = inherited;
+    const { thinkingEffort: _parentEffort, mainAgentRole: _mainAgentRole, ...capabilities } = inherited;
     await applySessionOptions(agent.id, capabilities, agent);
   });
   ctx.on('agent/disposed', ({ agent }) => {
@@ -687,6 +691,8 @@ Keep progress updates brief, meaningful, and outcome-based.
       emit(run, { type: 'user_questions', sessionId: session.id, snapshot: userQuestions(session) });
     if (event.type === 'user/message' && event.data.source?.kind === 'schedule')
       emit(run, { type: 'scheduled_message', message: event.data, sessionId: session.id });
+    if (event.type === 'user/message' && event.data.source?.kind === 'user' && event.data.source.rpcId)
+      emit(run, { type: 'agent_input', sessionId: session.id, requestId: event.data.source.rpcId, seq: event.seq });
     if (event.type === 'user/message' && event.data.source?.kind === 'skill-invocation') {
       emit(run, { type: 'skill_loaded', name: event.data.source.name, seq: event.seq, sessionId: session.id });
     }
@@ -875,9 +881,22 @@ Keep progress updates brief, meaningful, and outcome-based.
     stdioConnections.delete(agent);
     if (connections) await Promise.all([...connections.values()].map(entry => entry.fiber.dispose()));
   }
+  function capabilitiesFor(agent) {
+    let scope = capabilityScopes.get(agent);
+    if (scope) return scope;
+    if (scopeParentOf(agent) !== undefined) throw new Error('The Agent already has a composition owner; its scope cannot be replaced');
+    const key = {};
+    scope = { key, ...createScope(agent.ctx, key) };
+    bindScopeParent(agent, key);
+    capabilityScopes.set(agent, scope);
+    agent.ctx.effect(() => () => scope.dispose(), 'CodeBuddy stable inherited capabilities');
+    return scope;
+  }
   async function applySessionOptions(sessionId, options, createdAgent) {
     const agent = createdAgent ?? await resolveAgent(sessionId);
     if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
+    const capabilities = capabilitiesFor(agent);
+    const capabilityCtx = capabilities.ctx;
     const previous = sessionSettings.get(sessionId) ?? {};
     // Obsolete role routing and per-session limits cannot alter this Host's
     // generic native delegation policy, including when replayed from old data.
@@ -939,7 +958,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     let localConnections = stdioConnections.get(agent);
     if (!localConnections) { localConnections = new Map(); stdioConnections.set(agent, localConnections); }
     for (const [name, entry] of localConnections) {
-      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(agent, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
+      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(capabilities.key, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
       localConnections.delete(name);
       await entry.fiber.dispose();
     }
@@ -952,13 +971,15 @@ Keep progress updates brief, meaningful, and outcome-based.
     }));
     const remoteServers = mcpServers.filter(server => !server.configurationError && server.transport === 'streamable-http');
     let shared;
-    let binding = mcpBindings.get(agent);
+    let binding = mcpBindings.get(capabilities.key);
     const fiber = agent.ctx.isolate('compaction').plugin({
       name: 'codebuddy-session-capabilities',
+      inject: ['skills'],
       async apply(scoped) {
         bindAgentPolicy(agent, settings.agentProfile);
         // Shadow only the deployment identity; shared behavior and tool policies remain.
-        if (settings.agentProfile) scoped.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: '', interpolate: false });
+        if (settings.agentProfile && !settings.mainAgentRole && agent.session.header.origin !== 'subagent')
+          scoped.systemPrompt.section({ name: PERSONA_PREFIX_SECTION, order: 0, text: '', interpolate: false });
         scoped.effect(() => () => bindAgentPolicy(agent, undefined));
         if (settings.agentProfile) scoped.tools.guard(exec => agentAllowsTool(settings.agentProfile, exec.name) ? undefined : 'Tool disabled by the workspace agent');
         scoped.effect(() => async () => {
@@ -975,7 +996,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         });
         for (const tool of settings.tools ?? []) {
           if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
-          scoped.tools.register({
+          scoped.effect(() => capabilityCtx.tools.register({
             name: tool.name, description: tool.description ?? '', parameters: tool.inputSchema ?? tool.parameters ?? { type: 'object', properties: {} },
             output: {
               schema: { type: 'object', additionalProperties: true },
@@ -1019,14 +1040,14 @@ Keep progress updates brief, meaningful, and outcome-based.
               }
               return value && typeof value === 'object' && !Array.isArray(value) ? value : { result: value ?? null };
             },
-          });
+          }), `CodeBuddy inherited host tool ${tool.name}`);
           // Only host-authored definitions contribute capabilities here. MCP
           // annotations are remote hints and never grant approval by themselves.
           if (tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false) {
-            readOnlyDefinitions.add(scoped.tools.get(tool.name, agent));
+            readOnlyDefinitions.add(capabilityCtx.tools.get(tool.name, capabilities.key));
           }
           const builtinScope = toolSessionApprovalScope(tool);
-          if (builtinScope) builtinDefinitions.set(scoped.tools.get(tool.name, agent), { tool, scope: builtinScope });
+          if (builtinScope) builtinDefinitions.set(capabilityCtx.tools.get(tool.name, capabilities.key), { tool, scope: builtinScope });
         }
         const compactFiber = scoped.plugin(compactionPlugin, {
           thresholdRatio: settings.autoCompactThreshold ?? 0.8,
@@ -1045,7 +1066,7 @@ Keep progress updates brief, meaningful, and outcome-based.
           if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: 'ready' };
           const started = performance.now();
           const config = stdioConfigs.get(server.serverName);
-          const connection = agent.ctx.plugin(mcpPlugin, config);
+          const connection = capabilityCtx.plugin(mcpPlugin, config);
           try {
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
@@ -1064,7 +1085,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         ]);
         if (lease) {
           if (binding) binding.rebind(lease.key);
-          else { binding = bindScopeParent(agent, lease.key); mcpBindings.set(agent, binding); }
+          else { binding = bindScopeParent(capabilities.key, lease.key); mcpBindings.set(capabilities.key, binding); }
           connections.push(...lease.statuses);
           console.info('[Harness MCP reuse]', JSON.stringify({ sessionId, reused: lease.reused, servers: lease.statuses.length }));
         }
@@ -1076,7 +1097,20 @@ Keep progress updates brief, meaningful, and outcome-based.
           ...settings.toolFilter,
           deny: [...(settings.toolFilter?.deny ?? []), ...(agent.session.header.origin === 'subagent'
             ? ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete', ...SCHEDULE_CONTROL_TOOLS].filter(name => ctx.tools.get(name)) : [])],
-        }, shared?.key);
+        // Host and stdio tools now live in the stable capability parent too.
+        // Keep those admitted definitions visible without widening a child's
+        // recorded tool filter or overriding explicit denials.
+        }, capabilities.key, registrationFilter);
+        if (settings.mainAgentRole && agent.session.header.origin !== 'subagent') {
+          const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
+          try {
+            const resourceServers = connections.filter(connection => connection.status === 'ready').map(connection => connection.serverName);
+            const role = installMainAgentRole(scoped, agent, capabilities.key, settings.mainAgentRole, observation.events, resourceServers);
+            mainAgentRoles.set(agent, role);
+            scoped.effect(() => () => { if (mainAgentRoles.get(agent) === role) mainAgentRoles.delete(agent); });
+          }
+          finally { observation[Symbol.dispose](); }
+        }
         const discovery = childFilter?.allow?.length === 0 ? undefined
           : installToolDiscovery(scoped, agent, () => providers.get(agent.options.provider)?.baseURL);
         if (discovery) {
@@ -1472,6 +1506,34 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async listSessions() { return (await ctx.sessionController.list({}, new AbortController().signal)).items; },
     async history(sessionId) { return ctx.sessionController.inspect(sessionId); },
+    mainAgentProfile(sessionId) { return mainAgentRoles.get(ctx.agents.get(sessionId))?.current() ?? null; },
+    async mainAgentUnavailable(sessionId, profile) {
+      if (!profile) return [];
+      const agent = ctx.agents.get(sessionId), capabilities = agent && capabilityScopes.get(agent);
+      if (!capabilities) return []; // No model or connection is started merely to open a menu.
+      const skillFailures = mainAgentRoles.get(agent)?.skillUnavailable(profile) ?? [];
+      if (profile.capabilities === 'inherit') return skillFailures;
+      const tools = new Set(ctx.tools.schemas(capabilities.key).map(tool => tool.name));
+      const skills = await ctx.skills.list({ cwd: ctx.workingDirectory.get(agent.session), scope: capabilities.key });
+      const servers = new Set((extensionStates.get(sessionId) ?? []).filter(server =>
+        [...scopeChainOf(agent), ctx.root].some(key => mcpPlugin.mcpConnectionStatus(key, server.serverName) === 'ready')).map(server => server.serverName));
+      return [...skillFailures, ...profile.tools.filter(name => !tools.has(name)).map(name => `工具 ${name}`),
+        ...profile.skills.filter(name => !skills.some(skill => skill.name === name) && !DEFAULT_AGENT_SKILLS.some(skill => skill.name === name)).map(name => `Skill ${name}`),
+        ...profile.mcpServers.filter(name => !servers.has(name)).map(name => `MCP ${name}`)];
+    },
+    async agentInputIds(sessionId, { committedOnly = false } = {}) {
+      if (!ctx.agents.get(sessionId) && !await ctx.sessionPersistence.stat(sessionId)) return [];
+      const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none' });
+      try {
+        const ids = new Set();
+        for (const event of observation.events) {
+          const messages = event.type === 'user/message' ? [event.data]
+            : !committedOnly && event.type === 'agent/inbox/spliced' ? event.data.inserted : [];
+          for (const message of messages ?? []) if (message.source?.kind === 'user' && message.source.rpcId) ids.add(message.source.rpcId);
+        }
+        return [...ids];
+      } finally { observation[Symbol.dispose](); }
+    },
     async presentationContent(content) {
       return Promise.all(content.map(async block => {
         if (block?.type !== 'image' || !block.attachment) return block;

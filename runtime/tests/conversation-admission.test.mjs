@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createConversationDriver } from '../conversation-driver.mjs';
 
+test('role recovery queries resolve the native identity after a conversation fork', async () => {
+  const calls = [];
+  const driver = createConversationDriver({
+    mainAgentProfile(id) { calls.push(id); return { name: 'Original role' }; },
+    agentInputIds(id) { calls.push(id); return ['original-input']; },
+  }, { readSession: () => ({ nativeSessionId: 'native-fork' }) });
+  assert.equal(driver.mainAgentProfile('visible-chat').name, 'Original role');
+  assert.deepEqual(driver.agentInputIds('visible-chat'), ['original-input']);
+  assert.deepEqual(calls, ['native-fork', 'native-fork']);
+});
+
 function fixture() {
   const tool = Promise.withResolvers(), started = Promise.withResolvers();
   const calls = [];

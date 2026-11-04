@@ -12,6 +12,7 @@ import { scopeOf, scopeChainOf } from '@deepseek-ai/dsh-scope';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
+import { agentPolicyFor } from './agent-policy.mjs';
 
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
@@ -339,7 +340,8 @@ export async function apply(ctx, config) {
       if (definition) entry.resourceDefinitions.set(name, definition);
     }
   });
-  ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false, text: () => instructions }); });
+  ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
+    text: ({ scope }) => agentPolicyFor(scope).every(policy => policy.mcpServers.includes(config.serverName)) ? instructions : '' }); });
   attempt = connect(true);
   try { await attempt; } catch (error) { await dispose(); throw error; }
 }

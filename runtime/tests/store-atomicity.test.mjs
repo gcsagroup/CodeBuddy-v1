@@ -7,6 +7,25 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openStore } from '../store.mjs';
 
+test('a disk flush failure cannot replace the last valid snapshot or publish a configuration change', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-flush-'));
+  const store = await openStore(root);
+  await store.update(s => { s.preferences = { saved: true }; });
+  const saved = await readFile(path.join(root, 'state.json'), 'utf8');
+  const handle = await open(path.join(root, 'probe'), 'w');
+  const prototype = Object.getPrototypeOf(handle);
+  await handle.close();
+  const sync = t.mock.method(prototype, 'sync', async function() {
+    throw Object.assign(new Error('Injected disk flush failure'), { code: 'EIO' });
+  });
+  await assert.rejects(store.update(s => { s.preferences.saved = false; }, ['preferences']), { code: 'EIO' });
+  assert.equal(sync.mock.callCount(), 1);
+  assert.deepEqual(store.read(['preferences']).preferences, { saved: true });
+  assert.equal(await readFile(path.join(root, 'state.json'), 'utf8'), saved);
+  assert.deepEqual((await openStore(root)).read(['preferences']).preferences, { saved: true });
+  assert.ok(!(await readdir(root)).some(name => name.endsWith('.tmp')));
+});
+
 test('single-session snapshots stay detached and observe only committed changes and deletion', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-session-snapshot-'));
   const store = await openStore(root);

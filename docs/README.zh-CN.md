@@ -29,6 +29,7 @@
 
 ## 交接与历史
 
+- [2026-11-04 全部改进与远端合并说明](reconstruction/2026-11-04-merge-preparation.zh-CN.md)
 - [2026-10-23 合并交接](reconstruction/2026-10-23-merge-handoff.zh-CN.md)
 - [逐提交修改原因](reconstruction/2026-10-23-commit-rationale.zh-CN.md)
 - [当批桌面交付记录](reconstruction/2026-10-23-desktop-delivery.zh-CN.md)

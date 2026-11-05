@@ -116,6 +116,7 @@ async function stopOwnedProcess(tracked) {
 
 async function waitForBackend(tracked, url, secret, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
+  let lastReadinessResult = 'No response';
   while (Date.now() < deadline) {
     if (tracked.ended) {
       throw new Error(`Harness bridge exited before readiness (${JSON.stringify(tracked.result)})`);
@@ -125,20 +126,24 @@ async function waitForBackend(tracked, url, secret, timeoutMs = 30000) {
         headers: { 'X-Secret-Key': secret },
         signal: AbortSignal.timeout(1000),
       });
+      lastReadinessResult = `Status HTTP ${response.status}`;
       if (response.ok) {
         const status = await response.json().catch(() => ({}));
         const auth = await fetch(`${url}/acp?token=${encodeURIComponent(secret)}`, {
           signal: AbortSignal.timeout(1000),
         });
+        lastReadinessResult = `ACP HTTP ${auth.status}`;
         if (auth.status === 406) return status;
         if (auth.status === 401 || auth.status === 403) throw new Error('Harness bridge rejected the preview secret');
       }
     } catch (error) {
       if (error.message === 'Harness bridge rejected the preview secret') throw error;
+      // Keep credentials out of diagnostics, including URLs in transport errors.
+      lastReadinessResult = `${error.name || 'Error'}${error.cause?.code ? ` (${error.cause.code})` : ''}`;
     }
     await delay(100);
   }
-  throw new Error(`Harness bridge readiness timed out at ${url}`);
+  throw new Error(`Harness bridge readiness timed out at ${url}: ${lastReadinessResult}`);
 }
 
 function defaultCommands(repoRoot) {

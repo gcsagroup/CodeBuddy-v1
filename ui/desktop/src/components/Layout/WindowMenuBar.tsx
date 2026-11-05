@@ -53,11 +53,15 @@ export function WindowMenuBar() {
             bar.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []
           );
           const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-          if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
             event.preventDefault();
-            buttons[
-              (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length
-            ]?.focus();
+            const next =
+              event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? buttons.length - 1
+                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+            buttons[next]?.focus();
           } else if (event.key === 'Escape') {
             returnFocus.current?.focus();
           } else if (event.key === 'ArrowDown') {

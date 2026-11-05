@@ -50,6 +50,7 @@ import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
 import 'react-toastify/dist/ReactToastify.css';
+import './components/extension-toast.css';
 import { useConfig } from './components/ConfigContext';
 import { ModelAndProviderProvider } from './components/ModelAndProviderContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -842,14 +843,8 @@ export function AppInner() {
       <PageViewTracker />
       <ToastContainer
         aria-label={intl.formatMessage(i18n.toastNotifications)}
-        toastClassName={() =>
-          `relative min-h-16 mb-4 p-2 rounded-lg
-               flex justify-between overflow-hidden cursor-pointer
-               text-text-inverse bg-background-inverse
-              `
-        }
-        style={{ width: '450px' }}
-        className="mt-6"
+        className="codebuddy-toasts"
+        hideProgressBar
         position="top-right"
         autoClose={3000}
         closeOnClick

@@ -1,4 +1,7 @@
+import { ToastContainer } from 'react-toastify';
+import { toastSuccess, toastLoading } from '../../toasts';
 import { describe, it, expect } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GroupedExtensionLoadingToast } from '../GroupedExtensionLoadingToast';
@@ -83,3 +86,50 @@ describe('GroupedExtensionLoadingToast', () => {
     expect(screen.getByText('Show details')).toBeInTheDocument();
   });
 });
+
+it('opens and closes extension details with the keyboard and keeps updates visible', async () => {
+  const user = userEvent.setup();
+  const view = (status: 'loading' | 'error') => (
+    <IntlTestWrapper>
+      <MemoryRouter>
+        <GroupedExtensionLoadingToast
+          extensions={[
+            {
+              name: 'browser-fixture',
+              status,
+              error: status === 'error' ? 'Connection timed out' : undefined,
+            },
+          ]}
+          totalCount={1}
+          isComplete={status === 'error'}
+        />
+      </MemoryRouter>
+    </IntlTestWrapper>
+  );
+  const { rerender } = render(view('loading'));
+  expect(screen.queryByText('Browser Fixture')).not.toBeInTheDocument();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'Expand details' })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(screen.getByText('Browser Fixture')).toBeVisible();
+  rerender(view('error'));
+  expect(screen.getByText('Connection timed out')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copy error' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Collapse details' }));
+  expect(screen.queryByText('Connection timed out')).not.toBeInTheDocument();
+});
+
+it.each([toastSuccess, toastLoading])(
+  'shows a notification body without requiring a title',
+  async (notify) => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <>
+        <button onClick={() => notify({ msg: 'Body without a heading' })}>Notify</button>
+        <ToastContainer />
+      </>
+    );
+    await user.click(screen.getByRole('button', { name: 'Notify' }));
+    expect(await screen.findByText('Body without a heading')).toBeVisible();
+  }
+);

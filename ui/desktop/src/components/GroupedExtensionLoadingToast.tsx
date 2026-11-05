@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Check, AlertTriangle, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { startNewSession } from '../sessions';
 import { useNavigation } from '../hooks/useNavigation';
@@ -90,11 +90,11 @@ export function GroupedExtensionLoadingToast({
   const getStatusIcon = (status: 'loading' | 'success' | 'error') => {
     switch (status) {
       case 'loading':
-        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+        return <Loader2 className="notification-spinner size-4" />;
       case 'success':
-        return <div className="w-4 h-4 rounded-full bg-green-500" />;
+        return <Check className="notification-success size-4 shrink-0" />;
       case 'error':
-        return <div className="w-4 h-4 rounded-full bg-red-500" />;
+        return <X className="notification-error size-4 shrink-0" />;
     }
   };
 
@@ -112,62 +112,70 @@ export function GroupedExtensionLoadingToast({
 
   const getSummaryIcon = () => {
     if (!isComplete) {
-      return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
+      return (
+        <span className="notification-status notification-info">
+          <Loader2 className="notification-spinner size-4" />
+        </span>
+      );
     }
 
     if (errorCount === 0) {
-      return <div className="w-5 h-5 rounded-full bg-green-500" />;
+      return (
+        <span className="notification-status notification-success">
+          <Check className="size-4" />
+        </span>
+      );
     }
 
-    return <div className="w-5 h-5 rounded-full bg-yellow-500" />;
+    return (
+      <span className="notification-status notification-warning">
+        <AlertTriangle className="size-4" />
+      </span>
+    );
   };
 
   return (
-    <div className="w-full">
+    <div className="extension-notification">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <div className="flex flex-col">
-          {/* Main summary section - clickable */}
-          <CollapsibleTrigger asChild>
-            <div className="flex items-start gap-3 pr-8 cursor-pointer hover:opacity-90 transition-opacity">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {getSummaryIcon()}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-base">{getSummaryText()}</div>
-                  {errorCount > 0 && (
-                    <div className="text-sm opacity-90">
-                      {intl.formatMessage(i18n.failedToLoad, { count: errorCount })}
-                    </div>
-                  )}
+          <div className="flex items-start gap-3">
+            {getSummaryIcon()}
+            <div className="min-w-0 flex-1 notification-copy">
+              <strong>{getSummaryText()}</strong>
+              {errorCount > 0 && (
+                <div className="notification-error">
+                  {intl.formatMessage(i18n.failedToLoad, { count: errorCount })}
                 </div>
-              </div>
+              )}
             </div>
-          </CollapsibleTrigger>
+          </div>
 
           {/* Expanded details section */}
           <CollapsibleContent className="codepro-disclosure-content">
-            <div className="mt-3 pt-3 border-t border-white/20">
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-2 pl-1">
+            <div className="notification-details">
+              <div className="notification-details-list">
                 {extensions.map((ext) => {
                   const friendlyName = formatExtensionName(ext.name);
 
                   return (
                     <div key={ext.name} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-xs">
                         {getStatusIcon(ext.status)}
                         <div className="flex-1 min-w-0 truncate">{friendlyName}</div>
                       </div>
                       {ext.status === 'error' && ext.error && (
                         <div className="ml-7 flex flex-col gap-2">
-                          <div className="text-xs opacity-75 break-words">
+                          <div className="notification-error-message">
                             {formatExtensionErrorMessage(
                               ext.error,
                               intl.formatMessage(i18n.failedToAddExtension)
                             )}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="notification-actions">
                             {ext.recoverHints && setView && (
                               <Button
                                 size="sm"
+                                variant="outline"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   startNewSession(
@@ -182,6 +190,7 @@ export function GroupedExtensionLoadingToast({
                             )}
                             <Button
                               size="sm"
+                              variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(ext.error!);
@@ -207,7 +216,7 @@ export function GroupedExtensionLoadingToast({
           {totalCount > 0 && (
             <CollapsibleTrigger asChild>
               <button
-                className="flex items-center justify-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity mt-2 py-1.5 w-full"
+                className="notification-details-toggle"
                 aria-label={
                   isOpen
                     ? intl.formatMessage(i18n.collapseDetails)

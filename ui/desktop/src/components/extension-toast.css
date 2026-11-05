@@ -36,3 +36,201 @@
     transition-duration: 1ms !important;
   }
 }
+/* Shared surface for every app notification, including direct toast.* callers. */
+.Toastify__toast-container.codebuddy-toasts {
+  width: min(380px, calc(100vw - 24px));
+  top: max(48px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  left: auto;
+  padding: 0;
+  font-family: var(--font-sans);
+  --toastify-color-success: #258367;
+  --toastify-icon-color-success: light-dark(#258367, #86cfb3);
+  --toastify-icon-color-error: light-dark(#b84150, #f49ba5);
+  --toastify-icon-color-warning: light-dark(#9c6a17, #e9c57d);
+  --toastify-icon-color-info: light-dark(#547ea7, #9bbde5);
+  --toastify-color-error: #c34c57;
+  --toastify-color-warning: #aa741f;
+  --toastify-color-info: #547ea7;
+  --toastify-spinner-color: #547ea7;
+  --toastify-spinner-color-empty-area: var(--color-border-primary);
+}
+.codebuddy-toasts .Toastify__toast {
+  width: 100%;
+  min-height: 60px;
+  margin-bottom: 10px;
+  padding: 16px 40px 16px 16px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 14px;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  box-shadow:
+    0 8px 28px rgb(15 23 42 / 9%),
+    0 2px 5px rgb(15 23 42 / 4%);
+  font-size: 13px;
+  line-height: 1.55;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+  cursor: default;
+}
+.codebuddy-toasts .Toastify__toast-icon {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 4px;
+  margin: 0 10px 0 0;
+  border-radius: 8px;
+  background: var(--color-background-secondary);
+}
+.codebuddy-toasts .Toastify__close-button {
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+}
+.codebuddy-toasts .Toastify__close-button:hover {
+  opacity: 1;
+  background: var(--color-background-secondary);
+}
+.codebuddy-toasts .Toastify__close-button:focus-visible,
+.notification-details-toggle:focus-visible {
+  outline: 2px solid var(--color-border-info);
+  outline-offset: 2px;
+}
+.codebuddy-toasts .Toastify__close-button > svg {
+  width: 14px;
+  height: 14px;
+}
+.notification-copy {
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.notification-copy strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.notification-copy strong + div {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.notification-actions:empty {
+  display: none;
+}
+.notification-actions button {
+  height: 28px;
+  padding-inline: 9px;
+  font-size: 12px;
+}
+.extension-notification {
+  width: 100%;
+  min-width: 0;
+}
+.notification-status {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.notification-success {
+  color: light-dark(#258367, #86cfb3);
+}
+.notification-error {
+  color: light-dark(#b84150, #f49ba5);
+}
+.notification-warning {
+  color: light-dark(#9c6a17, #e9c57d);
+}
+.notification-info {
+  color: light-dark(#547ea7, #9bbde5);
+}
+.notification-spinner {
+  animation: notification-spin 1s linear infinite;
+  flex-shrink: 0;
+}
+.notification-details {
+  border-top: 1px solid var(--color-border-primary);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.notification-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: min(256px, 45vh);
+  overflow: auto;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+.notification-error-message {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.notification-details-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin: 6px 0 0 40px;
+  padding: 3px 0;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.notification-details-toggle:hover {
+  color: var(--color-text-primary);
+}
+.codebuddy-toasts .Toastify__bounce-enter--top-right {
+  animation-name: codepro-extension-toast-in;
+  animation-duration: 220ms;
+}
+.codebuddy-toasts .Toastify__bounce-exit--top-right {
+  animation-name: codepro-extension-toast-out;
+  animation-duration: 160ms;
+}
+@keyframes notification-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 480px) {
+  .Toastify__toast-container.codebuddy-toasts {
+    right: 12px;
+    top: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .codebuddy-toasts .Toastify__toast {
+    animation-duration: 1ms;
+  }
+  .notification-spinner {
+    animation: none;
+  }
+}

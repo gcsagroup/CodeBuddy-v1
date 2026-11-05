@@ -844,36 +844,45 @@ describe('CodePro ordinary tool message presentation', () => {
     }
   );
 
-  it('hides successful internal routing cards over ACP but preserves distinct failed events', () => {
-    const props = {
-      sessionType: 'code_pro' as const,
-      chat: { sessionId: 'strategy' },
-      isUserMessage: (item: Message) => item.role === 'user',
-    };
-    const event = activity({
-      event_type: 'strategy_selected',
-      status: 'completed',
-      title: 'Routing bookkeeping',
-    });
-    const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
-    const receive = (data: ActivityEvent) =>
-      applyGooseSessionNotification(state, {
-        sessionId: data.session_id,
-        update: {
-          sessionUpdate: 'status_message',
-          status: { type: 'progress', message: data.title, data },
-        },
+  it.each([
+    ['strategy_selected', 'completed'],
+    ['plan_created', 'completed'],
+    ['plan_updated', 'completed'],
+    ['plan_created', 'running'],
+    ['plan_updated', 'running'],
+  ] as const)(
+    'hides projected %s %s cards over ACP but preserves distinct failed events',
+    (eventType, status) => {
+      const props = {
+        sessionType: 'code_pro' as const,
+        chat: { sessionId: 'strategy' },
+        isUserMessage: (item: Message) => item.role === 'user',
+      };
+      const event = activity({
+        event_type: eventType,
+        status,
+        title: 'Routing bookkeeping',
       });
-    receive(event);
-    const view = render(<ProgressiveMessageList {...props} messages={[...state.messages]} />, {
-      wrapper: IntlTestWrapper,
-    });
-    expect(screen.queryByTestId('message-container')).not.toBeInTheDocument();
-    receive({ ...event, event_id: 'failed-event', status: 'failed' });
-    expect(state.messages).toHaveLength(2);
-    view.rerender(<ProgressiveMessageList {...props} messages={[...state.messages]} />);
-    expect(screen.getByTestId('message-container')).toBeInTheDocument();
-  });
+      const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
+      const receive = (data: ActivityEvent) =>
+        applyGooseSessionNotification(state, {
+          sessionId: data.session_id,
+          update: {
+            sessionUpdate: 'status_message',
+            status: { type: 'progress', message: data.title, data },
+          },
+        });
+      receive(event);
+      const view = render(<ProgressiveMessageList {...props} messages={[...state.messages]} />, {
+        wrapper: IntlTestWrapper,
+      });
+      expect(screen.queryByTestId('message-container')).not.toBeInTheDocument();
+      receive({ ...event, event_id: 'failed-event', status: 'failed' });
+      expect(state.messages).toHaveLength(2);
+      view.rerender(<ProgressiveMessageList {...props} messages={[...state.messages]} />);
+      expect(screen.getByTestId('message-container')).toBeInTheDocument();
+    }
+  );
   it.each([false, true])(
     'separates internal checks from action counts, accepted later: %s',
     (accepted) => {
@@ -1246,6 +1255,53 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(plan).not.toHaveAttribute('open');
     expect(plan.querySelector('[aria-label="In progress"]')).not.toBeNull();
     expect(plan.querySelectorAll('.animate-spin')).toHaveLength(1);
+    fireEvent.click(plan.querySelector('summary')!);
+    expect(plan).toHaveAttribute('open');
+    const updated = structuredClone(changeTrace[1]);
+    const response = updated.content[0];
+    if (response.type !== 'toolResponse') throw new Error('Expected plan receipt');
+    const value = response.toolResult.value as {
+      structuredContent: { codepro_plan: { content: string; request_id: string } };
+    };
+    response.id = 'plan-update';
+    value.structuredContent.codepro_plan.request_id = 'plan-update';
+    value.structuredContent.codepro_plan.content = '- [x] Build backend\n- [-] Build frontend';
+    const nextRequest = structuredClone(activePlan);
+    if (nextRequest.content[0].type !== 'toolRequest') throw new Error('Expected plan call');
+    nextRequest.content[0].id = 'plan-update';
+    trace.push(nextRequest, updated);
+    view.rerender(dock([...trace]));
+    expect(screen.getByTestId('work-plan')).toBe(plan);
+    expect(plan).toHaveAttribute('open');
+    expect(plan.querySelector('summary')).toHaveTextContent('1 done · 1 in progress · 0 pending');
+    expect(plan.querySelector('li')?.className).not.toContain('line-through');
+    // Native todo updates increment the projected revision on the same run.
+    const binding = { session_id: 'ordinary-change', run_id: 'run-edu', requirement_revision: 2 };
+    trace.push({
+      ...context,
+      content: [
+        {
+          type: 'systemNotification',
+          notificationType: 'progressMessage',
+          msg: '',
+          data: {
+            type: 'codepro_plan_context',
+            schema_version: 1,
+            event_id: 'native-update',
+            session_id: 'ordinary-change',
+            selected: binding,
+            plan: {
+              binding,
+              request_id: 'native-plan-2',
+              content: '[x] Build backend\n[-] Build frontend',
+            },
+          },
+        },
+      ],
+    });
+    view.rerender(dock([...trace]));
+    expect(screen.getByTestId('work-plan')).toBe(plan);
+    expect(plan).toHaveAttribute('open');
     view.rerender(dock([...trace], false));
     expect(plan.querySelectorAll('.animate-spin')).toHaveLength(0);
     view.rerender(dock([...trace, { ...sourceUserMessage, id: 'next-turn' }]));

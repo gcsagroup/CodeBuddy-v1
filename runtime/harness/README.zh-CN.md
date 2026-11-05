@@ -1,5 +1,7 @@
 # CodeBuddy Harness 运行时
 
+桌面计划栏只消费现有宿主绑定的原生 todo 投影，折叠摘要显示完成／进行中／待处理数量，更新保持展开；成功计划工具和规划活动不再重复铺入聊天，失败与审批仍可见。
+
 流式消息以首个片段的观察时间为创建时间，工具结果使用原生事件时间；导出与重载保留该时间，不伪造旧会话的缺失时间。
 
 `tool-error-contract.mjs` 对锁定的原生工具错误序列化做内存适配，只补充有界、去重的传输错误码（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不复制底层异常地址、堆栈或凭据，不改变重试与终态。远端 MCP 未提供的原因仍未知。依据：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。

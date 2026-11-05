@@ -40,7 +40,7 @@ describe('user-readable operation evidence', () => {
         </CodeProPlan>
       </IntlProvider>
     );
-    expect(screen.getByText('1/3')).toBeInTheDocument();
+    expect(screen.getByText('1 done · 1 in progress · 1 pending')).toBeInTheDocument();
     expect(screen.queryByText('fallback')).not.toBeInTheDocument();
     expect(screen.getByLabelText('In progress')).toHaveClass('animate-spin');
     rerender(

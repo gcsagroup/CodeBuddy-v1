@@ -1499,6 +1499,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "工作計畫"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} 已完成 · {active} 進行中 · {pending} 待處理"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "此任務的較早計畫"
   },
@@ -1792,6 +1795,12 @@
   },
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 · {count} 项操作"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "從此輪建立對話分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
   },
   "conversationFiles.changes": {
     "defaultMessage": "會話修改紀錄（增刪按每次操作累計，不是工作區淨差異）"
@@ -5321,6 +5330,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "沒有最近的任務"
   },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置頂"
+  },
   "navigationPanel.projectName": {
     "defaultMessage": "專案名稱"
   },
@@ -7202,6 +7214,18 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "連線至 WARP 時，指令注入偵測的效果最佳（為了連接分類服務所必需）。"
   },
+  "sessionActions.branchHint": {
+    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置頂會話"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能儲存置頂設定：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置頂"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "工作階段動作"
   },
@@ -7415,12 +7439,6 @@
   "sessions.close": {
     "defaultMessage": "關閉"
   },
-  "sessions.delete.message": {
-    "defaultMessage": "您確定要刪除工作階段「{name}」嗎？此動作無法復原。"
-  },
-  "sessions.delete.title": {
-    "defaultMessage": "刪除工作階段"
-  },
   "sessions.edit.placeholder": {
     "defaultMessage": "輸入工作階段描述"
   },
@@ -7471,6 +7489,42 @@
   },
   "sessions.filter.today": {
     "defaultMessage": "今天"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "暫無已封存對話"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "從側欄封存的對話會出現在這裡，聊天內容會完整保留。"
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "封存不會刪除聊天內容，只會將對話從側欄收起。你可以隨時在這裡復原。"
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "對話"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} 個對話"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "確定永久刪除對話「{name}」？刪除後無法在 CodeBuddy 中復原。工作區中的檔案會保留。"
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "永久刪除對話"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "尋找過往對話，管理已封存的記錄。"
+  },
+  "sessions.history.more": {
+    "defaultMessage": "「{name}」的更多操作"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "無專案"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "永久刪除"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "復原"
   },
   "sessions.import": {
     "defaultMessage": "匯入工作階段"
@@ -9736,62 +9790,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
-  },
-  "sessions.history.archiveEmpty": {
-    "defaultMessage": "暫無已封存對話"
-  },
-  "sessions.history.archiveEmptyDescription": {
-    "defaultMessage": "從側欄封存的對話會出現在這裡，聊天內容會完整保留。"
-  },
-  "sessions.history.archiveNotice": {
-    "defaultMessage": "封存不會刪除聊天內容，只會將對話從側欄收起。你可以隨時在這裡復原。"
-  },
-  "sessions.history.conversations": {
-    "defaultMessage": "對話"
-  },
-  "sessions.history.count": {
-    "defaultMessage": "{count} 個對話"
-  },
-  "sessions.history.deleteMessage": {
-    "defaultMessage": "確定永久刪除對話「{name}」？刪除後無法在 CodeBuddy 中復原。工作區中的檔案會保留。"
-  },
-  "sessions.history.deleteTitle": {
-    "defaultMessage": "永久刪除對話"
-  },
-  "sessions.history.description": {
-    "defaultMessage": "尋找過往對話，管理已封存的記錄。"
-  },
-  "sessions.history.more": {
-    "defaultMessage": "「{name}」的更多操作"
-  },
-  "sessions.history.noProject": {
-    "defaultMessage": "無專案"
-  },
-  "sessions.history.permanentDelete": {
-    "defaultMessage": "永久刪除"
-  },
-  "sessions.history.restore": {
-    "defaultMessage": "復原"
-  },
-  "conversationBranch.action": {
-    "defaultMessage": "從此輪建立對話分支"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
-  },
-  "navigationPanel.pinned": {
-    "defaultMessage": "置頂"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "置頂會話"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "未能儲存置頂設定：{error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "取消置頂"
   }
 }

@@ -1499,6 +1499,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "Plan de travail"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} terminées · {active} en cours · {pending} en attente"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },
@@ -1792,6 +1795,12 @@
   },
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
@@ -5321,6 +5330,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
@@ -7202,6 +7214,18 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "La détection d'injection de commandes fonctionne mieux lorsqu'elle est connectée à WARP (requis pour atteindre le service de classification)."
   },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Actions de session"
   },
@@ -7415,12 +7439,6 @@
   "sessions.close": {
     "defaultMessage": "Fermer"
   },
-  "sessions.delete.message": {
-    "defaultMessage": "Voulez-vous vraiment supprimer la session « {name} » ? Cette action est irréversible."
-  },
-  "sessions.delete.title": {
-    "defaultMessage": "Supprimer la session"
-  },
   "sessions.edit.placeholder": {
     "defaultMessage": "Saisissez la description de la session"
   },
@@ -7471,6 +7489,42 @@
   },
   "sessions.filter.today": {
     "defaultMessage": "Today"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "No archived conversations"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "Conversations you archive from the sidebar will appear here. Their messages are kept."
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it."
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "Conversations"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} conversations"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "Permanently remove \"{name}\" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept."
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "Permanently delete conversation"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "Find past conversations and manage your archive."
+  },
+  "sessions.history.more": {
+    "defaultMessage": "More actions for {name}"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "No project"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "Permanently delete"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "Restore"
   },
   "sessions.import": {
     "defaultMessage": "Importer une session"
@@ -9736,62 +9790,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "sessions.history.archiveEmpty": {
-    "defaultMessage": "No archived conversations"
-  },
-  "sessions.history.archiveEmptyDescription": {
-    "defaultMessage": "Conversations you archive from the sidebar will appear here. Their messages are kept."
-  },
-  "sessions.history.archiveNotice": {
-    "defaultMessage": "Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it."
-  },
-  "sessions.history.conversations": {
-    "defaultMessage": "Conversations"
-  },
-  "sessions.history.count": {
-    "defaultMessage": "{count} conversations"
-  },
-  "sessions.history.deleteMessage": {
-    "defaultMessage": "Permanently remove \"{name}\" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept."
-  },
-  "sessions.history.deleteTitle": {
-    "defaultMessage": "Permanently delete conversation"
-  },
-  "sessions.history.description": {
-    "defaultMessage": "Find past conversations and manage your archive."
-  },
-  "sessions.history.more": {
-    "defaultMessage": "More actions for {name}"
-  },
-  "sessions.history.noProject": {
-    "defaultMessage": "No project"
-  },
-  "sessions.history.permanentDelete": {
-    "defaultMessage": "Permanently delete"
-  },
-  "sessions.history.restore": {
-    "defaultMessage": "Restore"
-  },
-  "conversationBranch.action": {
-    "defaultMessage": "Branch after this turn"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "This message has changed. Reload the conversation before branching."
-  },
-  "navigationPanel.pinned": {
-    "defaultMessage": "Pinned"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "Pin session"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "Could not save pin preference: {error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "Unpin session"
   }
 }

@@ -1,5 +1,7 @@
 # CodeBuddy Harness runtime
 
+The desktop plan dock consumes the existing host-bound native todo projection, shows completed/active/pending counts and preserves expansion on updates. Successful plan tools and planning activities no longer duplicate the dock in chat; errors and approval requests remain visible.
+
 Streaming messages retain their first observed timestamp; tool results use native event time. Export and reload preserve these times without fabricating missing historical timestamps.
 
 `tool-error-contract.mjs` applies a checked in-memory transform to the pinned native error serializer. It retains bounded, deduplicated transport codes such as `ECONNREFUSED` and `CERT_HAS_EXPIRED`, without copying cause addresses, stacks or credentials or changing retries/outcomes. Missing remote MCP causes remain unknown. Reference: [Node.js error.cause](https://nodejs.org/api/errors.html#errorcause).

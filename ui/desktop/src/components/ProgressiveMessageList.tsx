@@ -41,7 +41,7 @@ import {
   subscribeAcpPermissionRequests,
 } from '../acp/permissionRequests';
 import { isPlanTool, isProgressTool, presentedToolCall } from './codepro/CodeProToolContent';
-import { isPlanContextMessage, planFromResponse } from '../types/codeproPlan';
+import { isPlanContextMessage } from '../types/codeproPlan';
 import { ToolCallExpandable } from './ToolCallExpandable';
 import { CodeProWorkStep } from './codepro/CodeProWorkStep';
 import {
@@ -851,8 +851,7 @@ function ProgressiveMessageListContent({
                 !renderMessage &&
                 content.type === 'toolRequest' &&
                 isPlanTool(presentedToolCall(content)?.name ?? '') &&
-                responses.has(content.id) &&
-                !!planFromResponse(responses.get(content.id)!)
+                resolveToolLoadingStatus(responses.get(content.id), false, content) === 'success'
               )
                 return false;
               return true;
@@ -1486,6 +1485,9 @@ function ProgressiveMessageListContent({
                   item.kind === 'activity' &&
                   (item.activity.eventType === 'intent_started' ||
                     item.activity.eventType === 'intent_completed' ||
+                    ((item.activity.state === 'running' || item.activity.state === 'completed') &&
+                      (item.activity.eventType === 'plan_created' ||
+                        item.activity.eventType === 'plan_updated')) ||
                     (item.activity.state === 'completed' &&
                       (item.activity.eventType === 'strategy_selected' ||
                         item.activity.eventType === 'strategy_updated')))

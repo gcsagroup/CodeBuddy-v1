@@ -1499,6 +1499,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "작업 계획"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "완료 {completed} · 진행 중 {active} · 대기 {pending}"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },
@@ -1792,6 +1795,12 @@
   },
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
   },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
@@ -5321,6 +5330,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
@@ -7202,6 +7214,18 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "명령 인젝션 감지는 WARP에 연결했을 때 가장 잘 작동합니다. 분류 서비스에 연결하려면 WARP가 필요합니다."
   },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "세션 작업"
   },
@@ -7415,12 +7439,6 @@
   "sessions.close": {
     "defaultMessage": "닫기"
   },
-  "sessions.delete.message": {
-    "defaultMessage": "\"{name}\" 세션을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."
-  },
-  "sessions.delete.title": {
-    "defaultMessage": "세션 삭제"
-  },
   "sessions.edit.placeholder": {
     "defaultMessage": "세션 설명 입력"
   },
@@ -7471,6 +7489,42 @@
   },
   "sessions.filter.today": {
     "defaultMessage": "Today"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "No archived conversations"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "Conversations you archive from the sidebar will appear here. Their messages are kept."
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it."
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "Conversations"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} conversations"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "Permanently remove \"{name}\" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept."
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "Permanently delete conversation"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "Find past conversations and manage your archive."
+  },
+  "sessions.history.more": {
+    "defaultMessage": "More actions for {name}"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "No project"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "Permanently delete"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "Restore"
   },
   "sessions.import": {
     "defaultMessage": "세션 가져오기"
@@ -9736,62 +9790,5 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
-  },
-  "sessions.history.archiveEmpty": {
-    "defaultMessage": "No archived conversations"
-  },
-  "sessions.history.archiveEmptyDescription": {
-    "defaultMessage": "Conversations you archive from the sidebar will appear here. Their messages are kept."
-  },
-  "sessions.history.archiveNotice": {
-    "defaultMessage": "Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it."
-  },
-  "sessions.history.conversations": {
-    "defaultMessage": "Conversations"
-  },
-  "sessions.history.count": {
-    "defaultMessage": "{count} conversations"
-  },
-  "sessions.history.deleteMessage": {
-    "defaultMessage": "Permanently remove \"{name}\" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept."
-  },
-  "sessions.history.deleteTitle": {
-    "defaultMessage": "Permanently delete conversation"
-  },
-  "sessions.history.description": {
-    "defaultMessage": "Find past conversations and manage your archive."
-  },
-  "sessions.history.more": {
-    "defaultMessage": "More actions for {name}"
-  },
-  "sessions.history.noProject": {
-    "defaultMessage": "No project"
-  },
-  "sessions.history.permanentDelete": {
-    "defaultMessage": "Permanently delete"
-  },
-  "sessions.history.restore": {
-    "defaultMessage": "Restore"
-  },
-  "conversationBranch.action": {
-    "defaultMessage": "Branch after this turn"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "This message has changed. Reload the conversation before branching."
-  },
-  "navigationPanel.pinned": {
-    "defaultMessage": "Pinned"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "Pin session"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "Could not save pin preference: {error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "Unpin session"
   }
 }

@@ -7,6 +7,10 @@ import { defineMessages, useIntl } from '../../i18n';
 import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../../types/message';
 
 const messages = defineMessages({
+  planSummary: {
+    id: 'codeProToolContent.planSummary',
+    defaultMessage: '{completed} done · {active} in progress · {pending} pending',
+  },
   plan: { id: 'codeProToolContent.plan', defaultMessage: 'Work plan' },
   previousPlan: {
     id: 'codeProToolContent.previousPlan',
@@ -237,20 +241,24 @@ export function CodeProPlan({
   return (
     <details
       open={!compact || undefined}
-      className={`codepro-plan codepro-disclosure group/plan my-1 w-full max-w-[32rem] text-xs ${compact ? 'codepro-disclosure-popover relative' : ''}`}
+      className={`codepro-plan codepro-disclosure group/plan my-1 w-full text-xs ${compact ? 'codepro-disclosure-popover relative' : ''}`}
       data-testid="work-plan"
       data-request-id={requestId}
     >
-      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
+      <summary className="codepro-secondary-label flex w-full cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1.5 text-text-secondary hover:bg-background-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
         <ListChecks className="h-4 w-4" aria-hidden="true" />
         <span>{intl.formatMessage(historical ? messages.previousPlan : messages.plan)}</span>
         {compact && !historical && items.length > 0 && (
-          <span className="text-xs tabular-nums">
-            {items.filter((item) => item[1].toLowerCase() === 'x').length}/{items.length}
+          <span className="min-w-0 truncate text-xs tabular-nums">
+            {intl.formatMessage(messages.planSummary, {
+              completed: items.filter((item) => item[1].toLowerCase() === 'x').length,
+              active: items.filter((item) => item[1] === '-').length,
+              pending: items.filter((item) => item[1] === ' ').length,
+            })}
           </span>
         )}
         <ChevronRight
-          className={`h-3.5 w-3.5 transition-transform ${compact ? 'group-open/plan:-rotate-90' : 'group-open/plan:rotate-90'}`}
+          className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform ${compact ? 'group-open/plan:-rotate-90' : 'group-open/plan:rotate-90'}`}
           aria-hidden="true"
         />
       </summary>
@@ -283,7 +291,7 @@ export function CodeProPlan({
                           : '○'
                     }
                   />
-                  <div className={`min-w-0 ${checked ? 'line-through decoration-current/40' : ''}`}>
+                  <div className="min-w-0 break-words">
                     <MarkdownContent content={item[2]} className="[&_p]:mb-0" />
                   </div>
                 </li>

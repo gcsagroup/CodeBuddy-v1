@@ -1,5 +1,7 @@
 # CodeBuddy Harness 執行環境
 
+桌面計畫欄只消費現有宿主綁定的原生 todo 投影，摺疊摘要顯示完成／進行中／待處理數量，更新保持展開；成功計畫工具和規劃活動不再重複鋪入聊天，失敗與審批仍可見。
+
 串流訊息以首個片段的觀察時間為建立時間，工具結果使用原生事件時間；匯出與重新載入保留該時間，不偽造舊對話缺失的時間。
 
 `tool-error-contract.mjs` 對鎖定的原生工具錯誤序列化做記憶體適配，只補充有界、去重的傳輸錯誤碼（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不複製底層異常位址、堆疊或憑據，不改變重試與終態。遠端 MCP 未提供的原因仍未知。依據：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。

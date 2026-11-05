@@ -2,12 +2,10 @@ import { computerToolOutcome } from './computerToolOutcome';
 import { GeneratedMedia } from './GeneratedMedia';
 import { fileChangeReceipt, FileChangeCount } from './codepro/CodeProFileChange';
 import {
-  CodeProPlan,
   CodeProToolContent,
   hasReadableToolContent,
   isPlanTool,
   isProgressTool,
-  toolPlanContent,
 } from './codepro/CodeProToolContent';
 import { AppEvents } from '../constants/events';
 import { ToolIconWithStatus, ToolCallStatus } from './ToolCallStatusIndicator';
@@ -888,27 +886,10 @@ function ToolCallView({
       </div>
     );
   }
-  if (compact && isPlanTool(toolCall.name) && !isPendingApproval) {
-    return (
-      <>
-        <CodeProPlan
-          active={false}
-          requestId={requestId}
-          content={toolPlanContent(toolCall.arguments ?? {}, toolResponse)}
-        >
-          <CodeProToolContent
-            request={toolRequest}
-            name={toolCall.name}
-            args={toolCall.arguments ?? {}}
-            response={toolResponse}
-          />
-        </CodeProPlan>
-        {loadingStatus !== 'success' && (
-          <p className="text-xs text-text-secondary">{statusLabel}</p>
-        )}
-      </>
-    );
-  }
+  // The input dock owns plan presentation. Failed or approval-blocked tools
+  // still use the ordinary receipt UI; hiding a list must not hide a failure.
+  if (compact && isPlanTool(toolCall.name) && loadingStatus === 'success' && !isPendingApproval)
+    return null;
   const readable = compact && (hasReadableToolContent(toolCall.name) || loadingStatus === 'error');
   const childSessionId = getSubagentSessionId(toolResponse, notifications);
   const nativeChildReceipt = toolResponse?.metadata?.rawOutput;

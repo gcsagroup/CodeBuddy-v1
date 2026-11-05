@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -168,6 +169,7 @@ func (s *appSnapshot) result() toolCallResult {
 }
 
 type psRequest struct {
+	WindowTitle      string         `json:"windowTitle,omitempty"`
 	InputVersion     string         `json:"inputVersion,omitempty"`
 	ControlDirectory string         `json:"controlDirectory,omitempty"`
 	ControlIdentity  string         `json:"controlIdentity,omitempty"`
@@ -222,12 +224,14 @@ func (r psResponse) controlReceipt(result toolCallResult) toolCallResult {
 }
 
 type service struct {
-	snapshots         map[string]*appSnapshot
-	nextElementIndex  int
-	bridge            windowsBridge
-	controlDirectory  string
-	controlIdentity   string
-	controlGeneration string
+	windowTitle        string
+	windowScopeMissing bool
+	snapshots          map[string]*appSnapshot
+	nextElementIndex   int
+	bridge             windowsBridge
+	controlDirectory   string
+	controlIdentity    string
+	controlGeneration  string
 }
 
 func newService() *service {
@@ -237,6 +241,7 @@ func newService() *service {
 func (s *service) close() { s.bridge.close() }
 
 func (s *service) runRuntime(request psRequest) (*psResponse, error) {
+	request.WindowTitle = s.windowTitle
 	request.ControlDirectory, request.ControlIdentity = s.controlDirectory, s.controlIdentity
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		return s.bridge.call(context.Background(), request)
@@ -244,14 +249,30 @@ func (s *service) runRuntime(request psRequest) (*psResponse, error) {
 	return runRuntime(request)
 }
 
+// Preserve both native identifiers when a scoped caller omits the selector prefix.
+var compactWindowSelector = regexp.MustCompile(`^[1-9][0-9]*:[1-9][0-9]*$`)
+
 func (s *service) callTool(name string, args map[string]any) toolCallResult {
+	if s.windowScopeMissing {
+		return textResult("Declare window_title on list_apps or get_app_state before discovery: copy the exact window title specified by the user, or use an empty string when no title was specified. No desktop action was dispatched.", true)
+	}
+	if title, supplied := args["window_title"]; supplied && title != s.windowTitle {
+		return textResult("Requested window title does not match the current host scope. No desktop action was dispatched.", true)
+	}
+	if name == "open_path" && s.windowTitle != "" {
+		return textResult("Opening another path is outside the requested window. Use list_apps to find the bound window.", true)
+	}
+	app := requiredString(args, "app")
+	if s.windowTitle != "" && compactWindowSelector.MatchString(app) {
+		app = "window:" + app
+	}
 	switch name {
 	case "open_path":
 		return s.openPath(optionalString(args, "path"))
 	case "list_apps":
 		return s.listApps()
 	case "get_app_state":
-		return s.getAppState(requiredString(args, "app"))
+		return s.getAppState(app)
 	case "click":
 		if value, exists := args["mouse_button"]; exists {
 			button, ok := value.(string)
@@ -266,7 +287,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 			}
 		}
 		return s.click(
-			requiredString(args, "app"),
+			app,
 			optionalString(args, "element_index"),
 			optionalFloat(args, "x"),
 			optionalFloat(args, "y"),
@@ -275,13 +296,13 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		)
 	case "perform_secondary_action":
 		return s.performSecondaryAction(
-			requiredString(args, "app"),
+			app,
 			requiredString(args, "element_index"),
 			requiredString(args, "action"),
 		)
 	case "scroll":
 		return s.scroll(
-			requiredString(args, "app"),
+			app,
 			requiredString(args, "direction"),
 			requiredString(args, "element_index"),
 			floatValue(optionalFloat(args, "pages"), 1),
@@ -289,22 +310,22 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		)
 	case "drag":
 		return s.drag(
-			requiredString(args, "app"),
+			app,
 			requiredFloat(args, "from_x"),
 			requiredFloat(args, "from_y"),
 			requiredFloat(args, "to_x"),
 			requiredFloat(args, "to_y"),
 		)
 	case "type_text":
-		return s.typeText(requiredString(args, "app"), optionalString(args, "text"))
+		return s.typeText(app, optionalString(args, "text"))
 	case "press_key":
-		return s.pressKey(requiredString(args, "app"), requiredString(args, "key"))
+		return s.pressKey(app, requiredString(args, "key"))
 	case "set_value":
 		value, valid := args["value"].(string)
 		if !valid {
 			return textResult("Missing or invalid string argument: value", true)
 		}
-		return s.setValue(requiredString(args, "app"), requiredString(args, "element_index"), value)
+		return s.setValue(app, requiredString(args, "element_index"), value)
 	default:
 		return textResult(fmt.Sprintf("unsupportedTool(%q)", name), true)
 	}
@@ -841,6 +862,16 @@ func toolDefinitions() []toolDefinition {
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{"path": stringProperty("Existing absolute local file or folder path; no command, arguments, URL or wildcard")}, []string{"path"}),
 		})
+	}
+	for i := range definitions {
+		switch definitions[i].Name {
+		case "list_apps", "get_app_state", "open_path":
+			schema := definitions[i].InputSchema
+			schema["properties"].(map[string]any)["window_title"] = stringProperty("Before first discovery, copy the exact window title explicitly specified by the user. Use empty string if no window title was specified. Keep this scope for the turn.")
+			if definitions[i].Name == "list_apps" {
+				schema["required"] = []string{"window_title"}
+			}
+		}
 	}
 	return definitions
 }

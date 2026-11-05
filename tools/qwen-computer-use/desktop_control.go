@@ -39,6 +39,7 @@ func (s *service) prepareDesktopControl(params map[string]any) error {
 			}
 		}
 		s.controlDirectory, s.controlIdentity = "", ""
+		s.windowTitle, s.windowScopeMissing = "", false
 		return nil
 	}
 	if token == "" || generation == "" {
@@ -60,5 +61,8 @@ func (s *service) prepareDesktopControl(params map[string]any) error {
 		s.snapshots = map[string]*appSnapshot{}
 	}
 	s.controlDirectory, s.controlIdentity, s.controlGeneration = directory, string(raw), generation
+	title, declared := value["windowTitle"].(string)
+	_, scopedHost := value["windowTitle"]
+	s.windowTitle, s.windowScopeMissing = title, scopedHost && !declared
 	return nil
 }

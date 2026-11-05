@@ -102,8 +102,19 @@ func focusedWindow(pid: pid_t, candidates: [NativeWindow]) -> NativeWindow? {
 }
 
 @MainActor
+func scopedWindows(_ request: NativeRequest) throws -> [NativeWindow] {
+    let visible = windows()
+    guard let title = request.windowTitle, !title.isEmpty else { return visible }
+    let matches = visible.filter { $0.title == title }
+    guard matches.count == 1 else {
+        throw RuntimeFailure("Requested window title has \(matches.count) exact visible matches. No input dispatched; do not substitute another window.")
+    }
+    return matches
+}
+
+@MainActor
 func resolve(_ request: NativeRequest) throws -> NativeWindow {
-    let all = windows()
+    let all = try scopedWindows(request)
     if let id = request.expectedWindow, let pid = request.expectedPid {
         guard let exact = all.first(where: { $0.id == id && $0.pid == pid }) else {
             throw RuntimeFailure("Observed window disappeared or changed owner. Run list_apps and re-observe.")
@@ -270,9 +281,11 @@ struct NativeRuntime {
 
     @MainActor static func processRequest(_ input: Data) async {
         let receipt = InputDispatchReceipt()
+        var scopedWindow = false
         do {
             NSApplication.shared.setActivationPolicy(.prohibited)
             let request = try JSONDecoder().decode(NativeRequest.self, from: input)
+            scopedWindow = !(request.windowTitle ?? "").isEmpty
             if request.tool == "doctor" {
                 let diagnostic = DesktopEnvironmentDiagnostic(
                 session: CGSessionCopyCurrentDictionary() as? [String: Any], userID: getuid(),
@@ -295,7 +308,7 @@ struct NativeRuntime {
                 throw RuntimeFailure(permissionApplication.denied("Screen Recording"))
             }
             if request.tool == "list_apps" {
-                try emit(["ok": true, "text": windows().map { "\($0.selector) \($0.name) \($0.title.debugDescription)" }.joined(separator: "\n")])
+                try emit(["ok": true, "text": scopedWindows(request).map { "\($0.selector) \($0.name) \($0.title.debugDescription)" }.joined(separator: "\n")])
                 return
             }
             _ = monitor.start()
@@ -333,7 +346,7 @@ struct NativeRuntime {
                     try await Task.sleep(nanoseconds: 150_000_000)
                 }
                 try assertForeground(window, keyboard: request.requiresKeyboardFocus)
-                guard let current = windows().first(where: { $0.id == window.id && $0.pid == window.pid }) else { throw RuntimeFailure("Window closed during activation.") }
+                guard let current = try scopedWindows(request).first(where: { $0.id == window.id && $0.pid == window.pid }) else { throw RuntimeFailure("Window closed during activation.") }
                 try request.validateBinding(pid: current.pid, window: current.id, bounds: current.bounds)
                 let element = try request.element.map { try lookup($0, in: current) }
                 try monitor.validate(request)
@@ -351,7 +364,7 @@ struct NativeRuntime {
                 // a verified new keyboard target without replaying the action.
                 // Human input during capture must still be reported as a conflict.
                 if request.isInput { try monitor.validate(request) }
-                guard request.isInput, receipt.dispatched, let pid = frontmostPID(),
+                guard (request.windowTitle ?? "").isEmpty, request.isInput, receipt.dispatched, let pid = frontmostPID(),
                       let active = focusedWindow(pid: pid, candidates: windows()),
                       active.pid != window.pid || active.id != window.id else { throw error }
                 after = try await snapshot(active)
@@ -361,7 +374,7 @@ struct NativeRuntime {
             try emit(["ok": true, "actionDispatched": receipt.dispatched, "snapshot": after])
         } catch {
             try? emit(["ok": false, "actionDispatched": receipt.dispatched,
-                "inputConflict": error is DesktopInputConflict, "error": receipt.failureDescription(error)])
+                "inputConflict": error is DesktopInputConflict, "error": receipt.failureDescription(error, scopedWindow: scopedWindow)])
         }
     }
 

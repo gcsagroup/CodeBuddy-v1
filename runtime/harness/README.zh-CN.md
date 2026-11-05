@@ -1,5 +1,7 @@
 # CodeBuddy Harness 运行时
 
+两种导出使用系统桌面作为保存对话框默认目录，仅确认后写入。
+
 锁版预算兼容修复由 `sdk-budget-contract.mjs` 校验并在原生模块加载时应用，不改写 `node_modules`。最终请求的同一投影用于估价与派发；输出空间不足在 HTTP 前报 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，异常短 length 报 `OUTPUT_TRUNCATED`。本地预算／异常截断恢复每个原生 turn 最多尝试一次，且必须实际缩减并改善 fit 才重试；普通压力压缩仍按上游策略执行，网络 `always` 不能补充恢复次数。Completions 的合法 cap 1/128、普通 stop、原始 usage 和 Session v4 保持原语义。`index.mjs` 串行完成合同加载后再加载原 `driver.mjs` 实现；元数据与 schedule 入口同样先建立合同。版本或 SHA 变化会明确拒绝启动，升级须复审并优先采用等价上游合同，见 PROVENANCE.json。压力显示仍由原生 tokenMeter 负责，与 adapter 最终预算估计不同。
 
 远程 MCP 通过官方 `agent-preset-registry` 的长期作用域和租约跨会话复用；配置一致时仅首次连接，配置变化隔离新修订，既有会话保留原连接。最多保留 8 组可复用配置，仍被租用的旧修订由 Harness 继续保留。stdio 保持会话/工作目录隔离。工具列表变化会同步继承工具限制，执行仍逐会话审批；详见设计与真实窗口验收（历史文件，见 Git 历史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-CN.md`）。

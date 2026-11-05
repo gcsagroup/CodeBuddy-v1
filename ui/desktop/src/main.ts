@@ -2755,7 +2755,11 @@ ipcMain.handle('show-message-box', async (_event, options) => {
 });
 
 ipcMain.handle('show-save-dialog', async (_event, options) => {
-  return dialog.showSaveDialog(options);
+  const { defaultDirectory, ...dialogOptions } = options;
+  if (defaultDirectory === 'desktop') {
+    dialogOptions.defaultPath = path.join(app.getPath('desktop'), path.basename(dialogOptions.defaultPath || ''));
+  }
+  return dialog.showSaveDialog(dialogOptions);
 });
 
 ipcMain.handle('get-allowed-extensions', async () => {

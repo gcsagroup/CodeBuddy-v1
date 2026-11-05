@@ -505,18 +505,16 @@ export function SessionActionsContextMenu({
     if (isExporting) return;
     setIsExporting(true);
     try {
+      const destination = await window.electron.showSaveDialog({
+        title: intl.formatMessage(i18n.export),
+        defaultDirectory: 'desktop',
+        defaultPath: `session-${session.id.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (destination.canceled || !destination.filePath) return;
       const json = await acpExportSession(session.id);
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      const link = document.createElement('a');
-      try {
-        link.href = url;
-        link.download = `${session.name}.json`;
-        document.body.appendChild(link);
-        link.click();
-      } finally {
-        link.remove();
-        URL.revokeObjectURL(url);
-      }
+      if (!(await window.electron.writeFile(destination.filePath, json)))
+        throw new Error(intl.formatMessage(i18n.exportLogWriteFailed));
       toast.success(intl.formatMessage(i18n.exported));
     } catch (error) {
       toast.error(intl.formatMessage(i18n.exportFailed, { error: errorMessage(error) }));
@@ -562,6 +560,7 @@ export function SessionActionsContextMenu({
       const destination = await window.electron.showSaveDialog({
         title: intl.formatMessage(i18n.exportLog),
         message: intl.formatMessage(i18n.exportLogNotice),
+        defaultDirectory: 'desktop',
         defaultPath: `session-${session.id.replace(/[^a-zA-Z0-9_-]/g, '_')}.jsonl`,
         filters: [{ name: 'JSONL', extensions: ['jsonl'] }],
       });

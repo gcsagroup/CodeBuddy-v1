@@ -1,5 +1,7 @@
 # CodeBuddy Harness runtime
 
+Approval unavailability is distinct from user rejection. When native `approval:never` meets a host approval requirement, return `APPROVAL_UNAVAILABLE`; children must return the blocked action to the parent without expanding grants or automatically replaying it.
+
 Both exports default the save dialog to the system Desktop and write only after confirmation.
 
 `sdk-budget-contract.mjs` verifies the locked SDK and applies in-memory compatibility transforms without writing to `node_modules`. One final projection supplies both request fit and dispatch. Exhaustion fails before HTTP as `LOCAL_OUTPUT_BUDGET_EXHAUSTED`; short length becomes `OUTPUT_TRUNCATED`. Local-budget/short-length recovery may run once per native turn, only after a real surface reduction and improved fit; regular pressure compaction keeps upstream policy, and transport `always` cannot replenish recovery attempts. Explicit Completions caps 1/128, ordinary stop, original usage and Session v4 keep their meanings. `index.mjs` serializes contract loading before importing the original implementation in `driver.mjs`; metadata and schedule entries establish the same contract first. Version or SHA drift fails startup and requires review; prefer an equivalent upstream contract when available, as recorded in PROVENANCE.json. Native tokenMeter pressure and final adapter fit remain distinct measurements.

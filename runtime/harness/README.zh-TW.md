@@ -1,5 +1,7 @@
 # CodeBuddy Harness 執行環境
 
+審批不可用與使用者拒絕分開回報：原生 `approval:never` 且宿主仍要求審批時，回傳 `APPROVAL_UNAVAILABLE`；子 Agent 應交回父 Agent 審批或執行，不擴大授權、不自動重放。
+
 兩種匯出使用系統桌面作為儲存對話框預設目錄，僅確認後寫入。
 
 鎖版預算相容修復由 `sdk-budget-contract.mjs` 校驗並於原生模組載入時套用，不改寫 `node_modules`。最終請求的同一投影用於估價與派發；輸出空間不足於 HTTP 前回報 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，異常短 length 回報 `OUTPUT_TRUNCATED`。本機預算／異常截斷恢復每個原生 turn 最多嘗試一次，且必須實際縮減並改善 fit 才重試；一般壓力壓縮仍依上游策略執行，網路 `always` 不能補充恢復次數。Completions 的合法 cap 1/128、一般 stop、原始 usage 與 Session v4 保持原語意。`index.mjs` 依序完成合同載入後才載入原 `driver.mjs` 實作；中繼資料與 schedule 入口亦先建立合同。版本或 SHA 改變會明確拒絕啟動，升級須複審並優先採等價上游合同，見 PROVENANCE.json。壓力顯示仍由原生 tokenMeter 負責，與 adapter 最終預算估計不同。

@@ -44,10 +44,11 @@ test('one session approval covers four native MCP queries, later turns and only 
     const emit = (delta, finish_reason) => res.write(`data: ${JSON.stringify({ id: randomUUID(), object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
     if (JSON.stringify(body.messages[user]?.content).includes('SESSION_APPROVAL_DELEGATE')) {
       if (!replies.length) {
+        const cold = JSON.stringify(body.messages[user]?.content).includes('cold start');
         const name = reusableChild ? 'send_message' : 'subagent';
         const args = reusableChild ? { agent_id: reusableChild, message: 'Run the four child queries again.' }
           : { description: 'Reusable query worker', prompt: 'Run the four child queries.' };
-        emit({ role: 'assistant', tool_calls: [{ index: 0, id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }] }, 'tool_calls');
+        emit({ role: 'assistant', tool_calls: Array.from({ length: cold ? 3 : 1 }, (_, index) => ({ index, id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } })) }, 'tool_calls');
       } else {
         emit({ role: 'assistant', content: 'Delegated fixture dispatched.' }, 'stop');
       }
@@ -94,6 +95,18 @@ test('one session approval covers four native MCP queries, later turns and only 
   }, onPermission: call => {
     return host.approveTool(s, call, connection, call.signal);
   } });
+  const cold = await session();
+  await driver.prompt(cold.id, 'SESSION_APPROVAL_DELEGATE cold start', callbacks(cold));
+  const coldChildren = await driver.listSubagentChildren(cold.id);
+  assert.equal(coldChildren.length, 3);
+  assert.equal(questions.length, 0, 'Native child approval:never cannot open a user approval');
+  assert.equal(executions.length, 0, 'A cold child cannot execute without a grant');
+  for (const child of coldChildren) {
+    const history = JSON.stringify(await driver.history(child.id));
+    assert.match(history, /APPROVAL_UNAVAILABLE/);
+    assert.match(history, /parent agent for approval or execution/);
+    assert.doesNotMatch(history, /the user rejected tool/);
+  }
   const a = await session();
   const work = driver.prompt(a.id, 'Run the four local fixture queries.', callbacks(a));
   await firstQuestion.promise;

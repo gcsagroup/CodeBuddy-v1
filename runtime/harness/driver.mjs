@@ -553,6 +553,16 @@ Keep progress updates brief, meaningful, and outcome-based.
         const accepted = await active.onPermission?.(call);
         gate = { kind: accepted === true ? 'allow' : 'deny', reason: 'Direct tool approval was declined.' };
       }
+      // Native approval:never rejects without asking a user. Preserve that
+      // boundary, but do not attribute a policy decision to a human answer.
+      if (gate.kind === 'ask' && ctx.get('approval')?.effectivePolicy(exec.agent.session) === 'never') {
+        return { kind: 'deny',
+          reason: call.delegated
+            ? 'This child agent cannot request approval and this action has no applicable grant. Return the blocked action to the parent agent for approval or execution; do not retry equivalent tools to bypass approval. The user has not rejected this action.'
+            : 'This action requires approval, but approval requests are disabled for this session. The user has not rejected this action.',
+          info: { code: 'APPROVAL_UNAVAILABLE', delegated: call.delegated },
+        };
+      }
       return gate.kind === 'allow' ? next() : gate;
     } catch (error) {
       if (exec.signal.aborted || active.cancelRequested) return { kind: 'cancel' };

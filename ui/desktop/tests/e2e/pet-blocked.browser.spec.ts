@@ -34,6 +34,12 @@ test('blocked pet settles in the real renderer without clearing the task or repl
     await page.clock.runFor(10000);
     await expect(canvas).toHaveClass('pet-breathing');
     await page.screenshot({ path: test.info().outputPath('settled.png') });
+    await page.getByRole('button', { name: 'New task', exact: true }).click();
+    await expect(page.getByText('帮我开发天气应用', { exact: true })).toBeVisible();
+    await page.screenshot({ path: '../../.local/restoration-review/pet-temporary-title.png' });
+    await page.getByRole('button', { name: 'Named task', exact: true }).click();
+    await expect(page.getByText('天气应用', { exact: true })).toBeVisible();
+    await expect(page.getByText('帮我开发天气应用', { exact: true })).toHaveCount(0);
   } finally {
     await browser.close();
     await server.close();

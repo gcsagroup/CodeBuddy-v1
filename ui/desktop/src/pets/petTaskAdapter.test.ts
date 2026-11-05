@@ -14,13 +14,25 @@ describe('pet task observer', () => {
       ],
       chatState: ChatState.Streaming,
     } as unknown as AcpChatSessionSnapshot;
-    expect(petTaskFromSnapshot('new', pending).title).toBe('新对话');
+    expect(petTaskFromSnapshot('new', pending).title).toBe('Build my weather app');
     expect(
       petTaskFromSnapshot('new', {
         ...pending,
         session: { ...pending.session!, user_set_name: true },
       }).title
     ).toBe('New Session');
+  });
+  it('bounds temporary titles, falls back without text and yields to the saved title', () => {
+    const pending = {
+      ...snapshot,
+      session: { name: 'New Session', user_set_name: false },
+      messages: [{ id: 'u', role: 'user', content: [{ type: 'text', text: '任务'.repeat(80) }] }],
+    } as unknown as AcpChatSessionSnapshot;
+    expect(petTaskFromSnapshot('new', pending).title).toBe('任务'.repeat(40));
+    expect(petTaskFromSnapshot('new', { ...pending, messages: [] }).title).toBe('CodeBuddy');
+    expect(petTaskFromSnapshot('new', {
+      ...pending, session: { ...pending.session!, name: 'Saved title' },
+    }).title).toBe('Saved title');
   });
   it('reads structured input/work/error states and ignores message text', () => {
     expect(

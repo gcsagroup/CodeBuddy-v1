@@ -95,7 +95,7 @@ vi.mock('../../utils/workingDir', () => ({
 }));
 vi.mock('../../codepro/startCodeProSession', () => ({ startCodeProSession: vi.fn() }));
 vi.mock('../../sessions', () => ({ createSession: vi.fn() }));
-vi.mock('../../acp/preferences', () => ({ readPreferences: vi.fn() }));
+vi.mock('../../acp/preferences', () => ({ readPreferences: vi.fn(), savePreferences: vi.fn(async (values) => ({ revision: 2, values })) }));
 
 const inspection = {
   requestedPath: 'E:\\CodeProCp01\\Ledger',

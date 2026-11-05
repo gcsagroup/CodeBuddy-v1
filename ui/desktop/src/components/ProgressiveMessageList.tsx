@@ -194,6 +194,8 @@ interface ProgressiveMessageListProps {
   suppressProviderThinking?: boolean;
   foldTurns?: boolean;
   workspaceRoot?: string;
+  navigationTarget?: { messageId: string; request: number };
+  onNavigationReady?: (element: HTMLElement) => void;
 }
 
 export default function ProgressiveMessageList(props: ProgressiveMessageListProps) {
@@ -222,6 +224,8 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
 }
 
 function OrderedMessageList(props: ProgressiveMessageListProps) {
+  const navigationRoot = useRef<HTMLDivElement>(null);
+  const navigatedRequest = useRef<number | undefined>(undefined);
   const [visibleLimit, setVisibleLimit] = useState(props.maxVisibleMessages ?? 40);
   const following = useContext(ScrollFollowingContext);
   const holdAnchor = useContext(ScrollLayoutAnchorContext);
@@ -341,6 +345,10 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
       if (previous >= 0) startIndex = Math.min(startIndex, previous);
     }
   }
+  const navigationIndex = props.navigationTarget
+    ? projectedMessages.findIndex(message => message.id === props.navigationTarget?.messageId)
+    : -1;
+  if (navigationIndex >= 0) startIndex = Math.min(startIndex, navigationIndex);
   useLayoutEffect(() => {
     // Search can visit any old match. Keep the prior reading window so closing
     // search cannot pin the entire history when the reader is away from the tail.
@@ -373,8 +381,21 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
       onHistoryRendered?.(historySessionId);
     }
   }, [historyMessageCount, historySessionId, onHistoryRendered, presentation.pending]);
+  // ScrollArea exposes its handle in a parent layout effect. Navigate only after
+  // that commit, when both the historical anchor and the scroll handle exist.
+  const { navigationTarget, onNavigationReady } = props;
+  useEffect(() => {
+    const target = navigationTarget;
+    if (!target || navigatedRequest.current === target.request) return;
+    const anchor = Array.from(navigationRoot.current?.querySelectorAll<HTMLElement>('[data-chat-turn-id]') ?? [])
+      .find(element => element.dataset.chatTurnId === target.messageId);
+    if (anchor) {
+      navigatedRequest.current = target.request;
+      onNavigationReady?.(anchor);
+    }
+  }, [navigationTarget, onNavigationReady, presentation.messages]);
   return (
-    <>
+    <div ref={navigationRoot} className="contents">
       {startIndex > 0 && (
         <EarlierHistorySentinel
           onLoad={(element) => {
@@ -396,7 +417,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         sharedMediaJobs={mediaJobs}
         presentationPending={!props.renderMessage && presentation.pending}
       />
-    </>
+    </div>
   );
 }
 
@@ -1857,7 +1878,7 @@ function ProgressiveMessageListContent({
           const completedAt =
             hasTerminalBoundary && terminal ? Date.parse(terminal.finished_at) / 1000 : undefined;
           return (
-            <section key={turn[0]?.id ?? start} className="mb-6">
+            <section key={turn[0]?.id ?? start} data-chat-turn-id={turn[0]?.id} className="mb-6">
               {renderSlice(turn, 0, userEnd, streaming, pending, settled)}
               <TurnProcessHistory
                 settled={settled && hasHistory}

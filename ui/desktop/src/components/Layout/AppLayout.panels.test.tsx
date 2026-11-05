@@ -107,7 +107,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('keeps the navigation action in its owner while showing the button in the window header', async () => {
+it('keeps one navigation action beside the sidebar rather than duplicating it in the window header', async () => {
   vi.stubGlobal('appConfig', { get: (key: string) => key === 'WINDOW_TITLEBAR_OVERLAY' });
   state.setNav.mockClear();
   render(
@@ -118,7 +118,8 @@ it('keeps the navigation action in its owner while showing the button in the win
     { wrapper: IntlTestWrapper }
   );
   const toggle = await screen.findByRole('button', { name: 'Collapse navigation' });
-  expect(screen.getByTestId('titlebar-slot')).toContainElement(toggle);
+  expect(screen.getByTestId('titlebar-slot')).not.toContainElement(toggle);
+  expect(screen.getAllByRole('button', { name: 'Collapse navigation' })).toHaveLength(1);
   fireEvent.click(toggle);
   expect(state.setNav).toHaveBeenCalledWith(false);
 });

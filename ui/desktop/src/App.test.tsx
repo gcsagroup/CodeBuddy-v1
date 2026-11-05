@@ -1,3 +1,4 @@
+vi.mock('./components/Layout/WindowMenuBar', () => ({ WindowMenuBar: () => null }));
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**

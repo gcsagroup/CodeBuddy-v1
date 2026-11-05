@@ -19,6 +19,12 @@ const file = z.object({
   isVideo: z.boolean(),
   dataUrl: z.string().optional(),
   frameDataUrls: z.array(z.string()).optional(),
+  videoSample: z
+    .object({
+      durationSeconds: z.number().finite().positive(),
+      timestampsSeconds: z.array(z.number().finite().nonnegative()).max(6),
+    })
+    .optional(),
   isLoading: z.boolean().optional(),
   error: z.string().optional(),
 });

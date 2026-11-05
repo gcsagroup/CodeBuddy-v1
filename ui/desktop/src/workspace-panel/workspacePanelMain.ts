@@ -1,3 +1,4 @@
+import { openWindowsAssociation, chooseWindowsApplication } from './workspaceWindowsAssociations';
 import {
   app,
   clipboard,
@@ -18,7 +19,7 @@ import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { openCodeFile, type CodeEditorSettings } from './workspaceCodeEditor';
+import { openCodeFile, chooseTargetApplication, launchCodeEditor, type CodeEditorSettings } from './workspaceCodeEditor';
 import type { DocumentPreviewer } from '../../../../runtime/document-preview.mjs';
 import { MEDIA_SCHEME, PanelMediaRegistry, mediaRange } from './workspacePanelMedia';
 import type { IPty } from 'node-pty';
@@ -35,6 +36,7 @@ import type {
   WebLinkMenuChoice,
   PanelTabAction,
   PanelTabMenuRequest,
+  PanelLocalSelection,
 } from './workspacePanelTypes';
 import {
   listPanelFiles,
@@ -73,6 +75,7 @@ interface Owner {
   id: number;
   win: BrowserWindow;
   roots: Map<string, string>;
+  localSelections: Map<string, PanelLocalSelection>;
   terminals: Map<string, TerminalState>;
   browsers: Map<string, BrowserState>;
   documentPreviewer?: Promise<DocumentPreviewer>;
@@ -176,6 +179,7 @@ function ownerFor(event: IpcMainInvokeEvent): Owner {
       id: event.sender.id,
       win,
       roots: new Map(),
+      localSelections: new Map(),
       terminals: new Map(),
       browsers: new Map(),
     };
@@ -226,6 +230,11 @@ async function bindScope(owner: Owner, scope: PanelScope) {
     !path.isAbsolute(scope.root)
   )
     throw new Error('Select a session workspace first');
+  if (scope.sessionId.startsWith('desktop-files:')) {
+    const selection = owner.localSelections.get(scope.sessionId);
+    if (!selection || selection.scope.root !== scope.root)
+      throw new Error('Open this file or folder again using the file picker');
+  }
   const root = await fs.realpath(scope.root);
   if (!(await fs.stat(root)).isDirectory()) throw new Error('Session workspace is not a directory');
   const previous = owner.roots.get(scope.sessionId);
@@ -265,7 +274,78 @@ function browserFor(owner: Owner, id: string, scope: string) {
 async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply> {
   const root = await bindScope(owner, request.scope);
   const scope = request.scope.sessionId;
+  const selection = owner.localSelections.get(scope);
+  if (selection) {
+    // Picker grants belong to this window, are read-only, and never become Agent workspaces.
+    const allowed = [
+      'list',
+      'search',
+      'read',
+      'inspect',
+      'document-preview',
+      'document-preview-cancel',
+      'open-external',
+      'reveal',
+      'copy-path',
+      'open-directory',
+      'open-target',
+    ];
+    if (!allowed.includes(request.action) || request.reference)
+      throw new Error('Local file browsing is read-only');
+    if (selection.kind === 'file' && request.action !== 'document-preview-cancel') {
+      if (
+        !('path' in request) ||
+        ['list', 'search', 'open-directory'].includes(request.action) ||
+        (await panelPath(root, request.path)) !== path.join(root, selection.path)
+      )
+        throw new Error('Only the selected file can be accessed');
+    }
+  }
   switch (request.action) {
+    case 'open-target': {
+      const resolveTarget = async () => request.reference
+        ? (await readPanelReference(root, request.path)).file
+        : await panelPath(root, request.path);
+      const target = await resolveTarget();
+      const stat = await fs.stat(target);
+      const directory = stat.isDirectory();
+      if (!directory && (!stat.isFile() || !canOpenPanelFileExternally(target)))
+        throw new Error('This file type can only be previewed in CodeBuddy');
+      const validate = async () => {
+        if (await resolveTarget() !== target || owners.get(owner.id) !== owner || owner.roots.get(scope) !== root)
+          throw new Error('The file or conversation changed; open it again');
+        const current = await fs.stat(target);
+        if (current.isDirectory() !== directory || current.isFile() !== stat.isFile())
+          throw new Error('The selected file changed');
+      };
+      const textFile = isPanelEditorFile(target) || (!isPanelDocument(target) && !panelMediaType(target));
+      const choice = request.choose
+        ? await chooseTargetApplication(owner.win, directory, textFile, codeEditorSettings, { file: target, editorOnly: isPanelEditorFile(target) })
+        : 'default';
+      if (!choice) return {};
+      await validate();
+      if (choice === 'reveal') shell.showItemInFolder(target);
+      else if (choice === 'system') {
+        const handle = owner.win.getNativeWindowHandle();
+        await chooseWindowsApplication(target, handle.length === 8 ? Number(handle.readBigUInt64LE()) : handle.readUInt32LE());
+      } else if (typeof choice === 'object' && 'associationId' in choice) await openWindowsAssociation(target, choice.associationId);
+      else if (choice !== 'default') await launchCodeEditor(choice, target, directory ? undefined : request.line);
+      else if (!directory && isPanelEditorFile(target)) {
+        // Preserve the existing rule: opening source must not execute a script association.
+        await openCodeFile(owner.win, target, request.line, false, codeEditorSettings, validate);
+      } else {
+        const error = await shell.openPath(target);
+        if (error) throw new Error(error);
+      }
+      return {};
+    }
+    case 'open-directory': {
+      const directory = await panelPath(root, request.path);
+      if (!(await fs.stat(directory)).isDirectory()) throw new Error('Not a directory');
+      const error = await shell.openPath(directory);
+      if (error) throw new Error(error);
+      return {};
+    }
     case 'browser-control': {
       if (request.operation === 'open') {
         if (Boolean(request.url) === Boolean(request.htmlPath))
@@ -802,6 +882,34 @@ async function dispatch(owner: Owner, request: PanelRequest): Promise<PanelReply
 
 export function registerWorkspacePanel(editorSettings?: CodeEditorSettings) {
   codeEditorSettings = editorSettings ?? { get: () => null, set: () => {} };
+  ipcMain.handle(
+    'workspace-open-local',
+    async (event, kind: unknown): Promise<PanelLocalSelection | null> => {
+      const owner = ownerFor(event);
+      if (kind !== 'file' && kind !== 'directory') throw new Error('Invalid file picker type');
+      const result = await dialog.showOpenDialog(owner.win, {
+        properties: [kind === 'file' ? 'openFile' : 'openDirectory'],
+      });
+      if (result.canceled || !result.filePaths[0]) return null;
+      if (owners.get(owner.id) !== owner) throw new Error('Window changed while choosing a file');
+      const selected = await fs.realpath(result.filePaths[0]);
+      const stat = await fs.stat(selected);
+      if (kind === 'file' ? !stat.isFile() : !stat.isDirectory())
+        throw new Error('Invalid selection');
+      const scope = {
+        sessionId: `desktop-files:${randomUUID()}`,
+        root: kind === 'file' ? path.dirname(selected) : selected,
+      };
+      const selection: PanelLocalSelection = {
+        scope,
+        kind,
+        path: kind === 'file' ? path.basename(selected) : '',
+        name: path.basename(selected) || selected,
+      };
+      owner.localSelections.set(scope.sessionId, selection);
+      return selection;
+    }
+  );
   ipcMain.handle(
     'workspace-tab-menu',
     async (event, request: PanelTabMenuRequest): Promise<PanelReply> => {

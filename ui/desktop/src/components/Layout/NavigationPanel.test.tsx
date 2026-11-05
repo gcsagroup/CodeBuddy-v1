@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { NAV_ITEMS, SETTINGS_NAV_ITEM } from '../../hooks/useNavigationItems';
 import { PROJECT_ALIAS_STORAGE_KEY } from '../../utils/projectAliases';
-import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import { acpArchiveSession, type SessionListItem } from '../../acp/sessions';
 import {
   NavigationHeaderSlot,
   ProjectSessionGroup,
@@ -14,14 +14,14 @@ import {
 
 vi.mock('../../acp/sessions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../acp/sessions')>()),
-  acpRenameSession: vi.fn().mockResolvedValue(undefined),
+  acpArchiveSession: vi.fn().mockResolvedValue(undefined),
 }));
 
 function render(ui: ReactElement) {
   return testingRender(ui, { wrapper: IntlTestWrapper });
 }
 
-describe('chat row rename button', () => {
+describe('chat row archive button', () => {
   const session: SessionListItem = {
     id: 'rename-fixture',
     name: 'Original chat',
@@ -43,49 +43,35 @@ describe('chat row rename button', () => {
     expect(screen.getByText('🤖 My notes')).toBeVisible();
   });
 
-  it('saves through the existing session service without switching chats', async () => {
+  it('archives through the existing service without opening or renaming the chat', async () => {
     const onClick = vi.fn();
-    const onRenamed = vi.fn();
-    render(
-      <SessionRow
-        session={session}
-        active
-        status={undefined}
-        onClick={onClick}
-        onRenamed={onRenamed}
-      />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Rename session' }));
-    const input = screen.getByRole('textbox');
-    expect(input).toHaveFocus();
-    fireEvent.change(input, { target: { value: 'Updated chat' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    await waitFor(() => expect(onRenamed).toHaveBeenCalledOnce());
-    expect(acpRenameSession).toHaveBeenCalledExactlyOnceWith('rename-fixture', 'Updated chat');
+    render(<SessionRow session={session} active status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Rename session' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Archive session' }));
+    await waitFor(() => expect(acpArchiveSession).toHaveBeenCalledExactlyOnceWith('rename-fixture'));
     expect(onClick).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
-  it('cancels edits without saving and leaves normal chat navigation available', () => {
+  it('prevents duplicate requests and allows retry after an archive failure', async () => {
+    let rejectArchive!: (reason: Error) => void;
+    vi.mocked(acpArchiveSession).mockImplementationOnce(() => new Promise((_, reject) => { rejectArchive = reject; }));
     const onClick = vi.fn();
-    render(
-      <SessionRow
-        session={session}
-        active
-        status={undefined}
-        onClick={onClick}
-        onRenamed={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Rename session' }));
-    const input = screen.getByRole('textbox');
-    fireEvent.change(input, { target: { value: 'Discard this' } });
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(acpRenameSession).not.toHaveBeenCalled();
+    render(<SessionRow session={session} active status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
+    const archive = screen.getByRole('button', { name: 'Archive session' });
+    fireEvent.click(archive);
+    fireEvent.click(archive);
+    expect(archive).toBeDisabled();
+    expect(acpArchiveSession).toHaveBeenCalledOnce();
+    rejectArchive(new Error('Archive unavailable'));
+    await waitFor(() => expect(archive).toBeEnabled());
+    expect(screen.getByText('Original chat')).toBeVisible();
+    fireEvent.click(archive);
+    await waitFor(() => expect(acpArchiveSession).toHaveBeenCalledTimes(2));
     expect(onClick).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Original chat'));
     expect(onClick).toHaveBeenCalledOnce();
   });
-
   it('keeps the automation clock visible independently of chat activity', () => {
     const base = { session, active: true, hasSchedule: true, onClick: vi.fn(), onRenamed: vi.fn() };
     const view = render(<SessionRow {...base} status={undefined} />);
@@ -107,17 +93,17 @@ describe('chat row rename button', () => {
     expect(screen.queryByLabelText('Automation tasks')).not.toBeInTheDocument();
   });
 
-  it('keeps the rename entry disabled while the chat is streaming', () => {
+  it.each(['loading', 'streaming'] as const)('disables archive while the chat is %s', (streamState) => {
     render(
       <SessionRow
         session={session}
         active
-        status={{ streamState: 'streaming', hasUnreadActivity: false }}
+        status={{ streamState, hasUnreadActivity: false }}
         onClick={vi.fn()}
         onRenamed={vi.fn()}
       />
     );
-    expect(screen.getByRole('button', { name: 'Rename session' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Archive session' })).toBeDisabled();
   });
 });
 

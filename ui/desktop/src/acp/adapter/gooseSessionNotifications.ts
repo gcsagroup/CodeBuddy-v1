@@ -65,6 +65,15 @@ export function applyGooseSessionNotification(
     case 'status_message':
       if (update.status.data && typeof update.status.data === 'object') {
         const meter = update.status.data as Record<string, unknown>;
+        if (meter.event === 'request_budget' && meter.schema_version === 1) {
+          const { model, source, input, output, window } = meter;
+          if (typeof model !== 'string' || !model ||
+              (source !== 'vllm-tokenizer' && source !== 'pi-ai-estimate-context-tokens') ||
+              typeof input !== 'number' || !Number.isSafeInteger(input) || input < 0 ||
+              typeof output !== 'number' || !Number.isSafeInteger(output) || output < 0 ||
+              typeof window !== 'number' || !Number.isSafeInteger(window) || window < 1) return [];
+          return [{ type: 'tokenState', tokenState: { requestBudget: { model, source, input, output, window } } }];
+        }
         if (
           meter.event === 'context_meter' &&
           meter.schema_version === 1 &&

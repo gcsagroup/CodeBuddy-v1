@@ -5,7 +5,6 @@ import { defineMessages, useIntl } from '../../i18n';
 import {
   MessageSquareText,
   AlertCircle,
-  Calendar,
   Folder,
   Edit2,
   Trash2,
@@ -17,12 +16,18 @@ import {
   Copy,
   Archive,
   ArchiveRestore,
+  MoreHorizontal,
+  Search,
 } from 'lucide-react';
-import { Card } from '../ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
-import { SearchView } from '../conversation/SearchView';
 import { MainPanelLayout } from '../Layout/MainPanelLayout';
 import { groupSessionsByDate, sessionActivityAt, type DateGroup } from '../../utils/dateUtils';
 import { errorMessage } from '../../utils/conversionUtils';
@@ -53,7 +58,6 @@ import {
 import { acpChatSessionActions } from '../../acp/chatSessionStore';
 import { cancelAcpPermissionRequestsForSession } from '../../acp/permissionRequests';
 import { cancelAcpElicitationRequestsForSession } from '../../acp/elicitationRequests';
-import { getSearchShortcutText } from '../../utils/keyboardShortcuts';
 import { toPrimaryDeepLink } from '../../utils/deepLinkProtocol';
 
 const i18n = defineMessages({
@@ -104,11 +108,14 @@ const i18n = defineMessages({
     defaultMessage: 'Try adjusting your search terms',
   },
   loadingMore: { id: 'sessions.loadingMore', defaultMessage: 'Loading more sessions...' },
-  deleteTitle: { id: 'sessions.delete.title', defaultMessage: 'Delete Session' },
+  deleteTitle: {
+    id: 'sessions.history.deleteTitle',
+    defaultMessage: 'Permanently delete conversation',
+  },
   deleteMessage: {
-    id: 'sessions.delete.message',
+    id: 'sessions.history.deleteMessage',
     defaultMessage:
-      'Are you sure you want to delete the session "{name}"? This action cannot be undone.',
+      'Permanently remove "{name}" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept.',
   },
   duplicateSuccess: {
     id: 'sessions.toast.duplicated',
@@ -184,6 +191,30 @@ const i18n = defineMessages({
   archiveFailed: {
     id: 'sessions.toast.archiveFailed',
     defaultMessage: 'Failed to update session archive: {error}',
+  },
+  archiveNotice: {
+    id: 'sessions.history.archiveNotice',
+    defaultMessage:
+      'Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it.',
+  },
+  description: {
+    id: 'sessions.history.description',
+    defaultMessage: 'Find past conversations and manage your archive.',
+  },
+  conversations: { id: 'sessions.history.conversations', defaultMessage: 'Conversations' },
+  restore: { id: 'sessions.history.restore', defaultMessage: 'Restore' },
+  permanentDelete: { id: 'sessions.history.permanentDelete', defaultMessage: 'Permanently delete' },
+  more: { id: 'sessions.history.more', defaultMessage: 'More actions for {name}' },
+  noProject: { id: 'sessions.history.noProject', defaultMessage: 'No project' },
+  count: { id: 'sessions.history.count', defaultMessage: '{count} conversations' },
+  archiveEmpty: {
+    id: 'sessions.history.archiveEmpty',
+    defaultMessage: 'No archived conversations',
+  },
+  archiveEmptyDescription: {
+    id: 'sessions.history.archiveEmptyDescription',
+    defaultMessage:
+      'Conversations you archive from the sidebar will appear here. Their messages are kept.',
   },
 });
 
@@ -374,6 +405,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     const [showShareLinkModal, setShowShareLinkModal] = useState(false);
     const [sharingSessionId, setSharingSessionId] = useState<string | null>(null);
     const [archivingSessionId, setArchivingSessionId] = useState<string | null>(null);
+    const mutationRef = useRef(false);
+    const [deleting, setDeleting] = useState(false);
     const [nostrEnabled, setNostrEnabled] = useState(true);
     const [historyView, setHistoryView] = useState<HistoryView>('active');
     const [projectFilter, setProjectFilter] = useState('all');
@@ -390,6 +423,20 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     const hasLoadedRef = useRef(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+      const focusSearch = (event: KeyboardEvent) => {
+        if (
+          (window.electron.platform === 'darwin' ? event.metaKey : event.ctrlKey) &&
+          event.key.toLowerCase() === 'f'
+        ) {
+          event.preventDefault();
+          searchInputRef.current?.focus();
+        }
+      };
+      window.addEventListener('keydown', focusSearch);
+      return () => window.removeEventListener('keydown', focusSearch);
+    }, []);
 
     const projectOptions = useMemo(
       () => Array.from(new Set(sessions.map((session) => session.workingDir))).sort(),
@@ -411,6 +458,16 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     const visibleDateGroups = useMemo(() => {
       return dateGroups.slice(0, visibleGroupsCount);
     }, [dateGroups, visibleGroupsCount]);
+
+    const archiveGroups = useMemo(() => {
+      const groups = new Map<string, SessionListItem[]>();
+      for (const session of visibleSessions) {
+        const entries = groups.get(session.workingDir) ?? [];
+        entries.push(session);
+        groups.set(session.workingDir, entries);
+      }
+      return Array.from(groups, ([path, items]) => ({ path, sessions: items }));
+    }, [visibleSessions]);
 
     const previousSearchTermRef = useRef('');
     useEffect(() => {
@@ -532,10 +589,12 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       window.addEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
       window.addEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
       window.addEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+      window.addEventListener(AppEvents.SESSION_DELETED, refreshSessions);
       return () => {
         window.removeEventListener(AppEvents.SESSION_ARCHIVED, refreshSessions);
         window.removeEventListener(AppEvents.SESSION_UNARCHIVED, refreshSessions);
         window.removeEventListener(AppEvents.SESSION_RENAMED, refreshSessions);
+        window.removeEventListener(AppEvents.SESSION_DELETED, refreshSessions);
       };
     }, [loadSessions, debouncedSearchTerm]);
 
@@ -613,6 +672,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
     const handleArchiveSession = useCallback(
       async (session: SessionListItem) => {
+        if (mutationRef.current) return;
+        mutationRef.current = true;
         setArchivingSessionId(session.id);
         try {
           if (session.archivedAt) {
@@ -629,6 +690,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
             })
           );
         } finally {
+          mutationRef.current = false;
           setArchivingSessionId(null);
         }
       },
@@ -656,12 +718,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     );
 
     const handleConfirmDelete = useCallback(async () => {
-      if (!sessionToDelete) return;
-
-      setShowDeleteConfirmation(false);
+      if (!sessionToDelete || mutationRef.current) return;
+      mutationRef.current = true;
+      setDeleting(true);
       const sessionToDeleteId = sessionToDelete.id;
       const sessionName = sessionToDelete.name;
-      setSessionToDelete(null);
 
       try {
         await acpDeleteSession(sessionToDeleteId);
@@ -672,6 +733,8 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
         cancelAcpPermissionRequestsForSession(sessionToDeleteId);
         cancelAcpElicitationRequestsForSession(sessionToDeleteId);
         acpChatSessionActions.deleteSnapshot(sessionToDeleteId);
+        setShowDeleteConfirmation(false);
+        setSessionToDelete(null);
       } catch (error) {
         console.error('Error deleting session:', error);
         toast.error(
@@ -680,11 +743,14 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
             error: errorMessage(error, 'Unknown error'),
           })
         );
+      } finally {
+        mutationRef.current = false;
+        setDeleting(false);
       }
-      await loadSessions();
-    }, [sessionToDelete, loadSessions, intl]);
+    }, [sessionToDelete, intl]);
 
     const handleCancelDelete = useCallback(() => {
+      if (mutationRef.current) return;
       setShowDeleteConfirmation(false);
       setSessionToDelete(null);
     }, []);
@@ -912,153 +978,129 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       const displayName = session.name;
 
       return (
-        <Card
-          onClick={handleCardClick}
-          className={`h-full py-3 px-4 hover:shadow-default ${session.archivedAt ? 'cursor-default' : 'cursor-pointer'} transition-all duration-150 flex flex-col justify-between relative group`}
-        >
-          <div>
-            <h3 className="text-base break-words line-clamp-2 w-full mb-1">{displayName}</h3>
-            {session.archivedAt && (
-              <p className="text-xs text-text-secondary">
-                {intl.formatMessage(i18n.restoreForActions)}
-              </p>
-            )}
-            <div className="flex-1 mt-2">
-              <div className="flex items-center text-text-secondary text-xs">
-                <Calendar className="w-3 h-3 mr-1 flex-shrink-0" />
-                <span>{formatMessageTimestamp(Date.parse(sessionActivityAt(session)) / 1000)}</span>
-              </div>
-              <div className="flex items-center text-text-secondary text-xs">
-                <Folder className="w-3 h-3 mr-1 flex-shrink-0" />
-                <span className="truncate">{session.workingDir}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between mt-1">
-            <div className="flex items-center space-x-3 text-xs text-text-secondary">
-              <div className="flex items-center">
-                <MessageSquareText className="w-3 h-3 mr-1" />
-                <span className="font-mono">{session.messageCount}</span>
-              </div>
-            </div>
-          </div>
-          <div
-            className={`flex justify-end gap-1 ${session.archivedAt ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-          >
+        <article className="flex min-w-0 flex-wrap items-center gap-3 border-b border-border-primary px-4 py-3 last:border-b-0 hover:bg-background-secondary/40">
+          <div className="min-w-0 flex-1 basis-48">
             <button
-              onClick={handleOpenInNewWindowClick}
+              onClick={handleCardClick}
               disabled={Boolean(session.archivedAt)}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              title={intl.formatMessage(i18n.openInNewWindow)}
+              className="block max-w-full truncate text-left text-sm font-medium text-text-primary disabled:cursor-default hover:underline disabled:no-underline"
+              title={displayName}
             >
-              <ExternalLink className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+              {displayName}
             </button>
-            <button
-              onClick={handleEditClick}
-              disabled={Boolean(session.archivedAt)}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              title={intl.formatMessage(i18n.editSessionName)}
-            >
-              <Edit2 className="w-3 h-3 text-text-secondary hover:text-text-primary" />
-            </button>
-            <button
-              onClick={handleDuplicateClick}
-              disabled={Boolean(session.archivedAt) || !canForkSession(session.sessionType)}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              title={intl.formatMessage(
-                canForkSession(session.sessionType)
-                  ? i18n.duplicateSession
-                  : sessionCapabilityMessages.forkUnavailable
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+              <span>{formatMessageTimestamp(Date.parse(sessionActivityAt(session)) / 1000)}</span>
+              {historyView !== 'archived' && (
+                <span className="max-w-64 truncate" title={session.workingDir}>
+                  {session.workingDir}
+                </span>
               )}
-            >
-              <Copy className="w-3 h-3 text-text-secondary hover:text-text-primary" />
-            </button>
-            <button
+              {session.archivedAt && historyView !== 'archived' && (
+                <span className="rounded bg-background-tertiary px-1.5 py-0.5">
+                  {intl.formatMessage(i18n.archivedSessions)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleArchiveClick}
-              disabled={isArchiving}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-wait disabled:opacity-60"
+              disabled={Boolean(archivingSessionId) || deleting}
               title={intl.formatMessage(
                 session.archivedAt ? i18n.unarchiveSession : i18n.archiveSession
               )}
             >
               {isArchiving ? (
-                <LoaderCircle className="w-3 h-3 text-text-secondary animate-spin" />
+                <LoaderCircle className="size-3.5 animate-spin" />
               ) : session.archivedAt ? (
-                <ArchiveRestore className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+                <ArchiveRestore className="size-3.5" />
               ) : (
-                <Archive className="w-3 h-3 text-text-secondary hover:text-text-primary" />
+                <Archive className="size-3.5" />
               )}
-            </button>
-            <button
-              onClick={handleDeleteClick}
-              className="p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors"
-              title={intl.formatMessage(i18n.deleteSession)}
-            >
-              <Trash2 className="w-3 h-3 text-red-500 hover:text-red-600" />
-            </button>
-            <button
-              onClick={handleExportClick}
-              disabled={Boolean(session.archivedAt)}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-              title={intl.formatMessage(i18n.exportSession)}
-            >
-              <Download className="w-3 h-3 text-text-secondary hover:text-text-primary" />
-            </button>
-            {nostrEnabled && (
+              {intl.formatMessage(session.archivedAt ? i18n.restore : i18n.archiveSession)}
+            </Button>
+            {session.archivedAt ? (
               <button
-                onClick={handleShareClick}
-                disabled={isSharing || Boolean(session.archivedAt)}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer disabled:cursor-wait disabled:opacity-60"
-                title={intl.formatMessage(i18n.shareNostrSession)}
+                onClick={handleDeleteClick}
+                disabled={Boolean(archivingSessionId) || deleting}
+                className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 disabled:opacity-50"
+                title={intl.formatMessage(i18n.permanentDelete)}
+                aria-label={intl.formatMessage(i18n.permanentDelete)}
               >
-                {isSharing ? (
-                  <LoaderCircle className="w-3 h-3 text-text-secondary animate-spin" />
-                ) : (
-                  <Share2 className="w-3 h-3 text-text-secondary hover:text-text-primary" />
-                )}
+                <Trash2 className="size-4" />
               </button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-background-tertiary"
+                    aria-label={intl.formatMessage(i18n.more, { name: displayName })}
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={handleOpenInNewWindowClick}
+                    title={intl.formatMessage(i18n.openInNewWindow)}
+                  >
+                    <ExternalLink />
+                    {intl.formatMessage(i18n.openInNewWindow)}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleEditClick}
+                    title={intl.formatMessage(i18n.editSessionName)}
+                  >
+                    <Edit2 />
+                    {intl.formatMessage(i18n.editSessionName)}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDuplicateClick}
+                    disabled={!canForkSession(session.sessionType)}
+                    title={intl.formatMessage(
+                      canForkSession(session.sessionType)
+                        ? i18n.duplicateSession
+                        : sessionCapabilityMessages.forkUnavailable
+                    )}
+                  >
+                    <Copy />
+                    {intl.formatMessage(i18n.duplicateSession)}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleExportClick}
+                    title={intl.formatMessage(i18n.exportSession)}
+                  >
+                    <Download />
+                    {intl.formatMessage(i18n.exportSession)}
+                  </DropdownMenuItem>
+                  {nostrEnabled && (
+                    <DropdownMenuItem
+                      onClick={handleShareClick}
+                      disabled={isSharing}
+                      title={intl.formatMessage(i18n.shareNostrSession)}
+                    >
+                      <Share2 />
+                      {intl.formatMessage(i18n.shareNostrSession)}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={handleDeleteClick}
+                    disabled={Boolean(archivingSessionId) || deleting}
+                    variant="destructive"
+                    title={intl.formatMessage(i18n.permanentDelete)}
+                  >
+                    <Trash2 />
+                    {intl.formatMessage(i18n.permanentDelete)}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
-        </Card>
+        </article>
       );
     });
-
-    const SessionSkeleton = React.memo(({ variant = 0 }: { variant?: number }) => {
-      const titleWidths = ['w-3/4', 'w-2/3', 'w-4/5', 'w-1/2'];
-      const pathWidths = ['w-32', 'w-28', 'w-36', 'w-24'];
-      const tokenWidths = ['w-12', 'w-10', 'w-14', 'w-8'];
-
-      return (
-        <Card className="session-skeleton h-full py-3 px-4 flex flex-col justify-between">
-          <div className="flex-1">
-            <Skeleton className={`h-5 ${titleWidths[variant % titleWidths.length]} mb-2`} />
-            <div className="flex items-center mb-1">
-              <Skeleton className="h-3 w-3 mr-1 rounded-sm" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <div className="flex items-center mb-1">
-              <Skeleton className="h-3 w-3 mr-1 rounded-sm" />
-              <Skeleton className={`h-4 ${pathWidths[variant % pathWidths.length]}`} />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between mt-1 pt-2">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center">
-                <Skeleton className="h-3 w-3 mr-1 rounded-sm" />
-                <Skeleton className="h-4 w-8" />
-              </div>
-              <div className="flex items-center">
-                <Skeleton className="h-3 w-3 mr-1 rounded-sm" />
-                <Skeleton className={`h-4 ${tokenWidths[variant % tokenWidths.length]}`} />
-              </div>
-            </div>
-          </div>
-        </Card>
-      );
-    });
-
-    SessionSkeleton.displayName = 'SessionSkeleton';
 
     const renderActualContent = () => {
       if (error) {
@@ -1075,6 +1117,22 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
       }
 
       if (visibleSessions.length === 0) {
+        if (
+          historyView === 'archived' &&
+          !debouncedSearchTerm &&
+          projectFilter === 'all' &&
+          dateFilter === 'all'
+        ) {
+          return (
+            <div className="flex flex-col items-center gap-2 py-16 text-center text-text-secondary">
+              <Archive className="mb-2 size-8" />
+              <p className="font-medium text-text-primary">
+                {intl.formatMessage(i18n.archiveEmpty)}
+              </p>
+              <p className="max-w-sm text-sm">{intl.formatMessage(i18n.archiveEmptyDescription)}</p>
+            </div>
+          );
+        }
         // `sessions` holds the keyword-filtered set, so an empty result while searching
         // means "no matches" rather than "no sessions at all".
         if (debouncedSearchTerm || hasManagementFilter) {
@@ -1097,12 +1155,26 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
 
       return (
         <div className="space-y-8">
-          {visibleDateGroups.map((group) => (
-            <div key={group.label} className="space-y-4">
-              <div className="sticky top-0 z-10 bg-background-primary/95 backdrop-blur-sm">
-                <h2 className="text-text-secondary">{group.label}</h2>
+          {(historyView === 'archived'
+            ? archiveGroups.map((group) => ({
+                ...group,
+                label:
+                  group.path.split(/[\\/]/).filter(Boolean).pop() ||
+                  intl.formatMessage(i18n.noProject),
+              }))
+            : visibleDateGroups.map((group) => ({ ...group, path: group.label }))
+          ).map((group) => (
+            <section key={group.path} className="space-y-2">
+              <div className="flex min-w-0 items-center gap-2 px-1 text-sm text-text-secondary">
+                {historyView === 'archived' && <Folder className="size-4 shrink-0" />}
+                <h2 className="truncate font-medium" title={group.path}>
+                  {group.label}
+                </h2>
+                <span className="ml-auto shrink-0 text-xs">
+                  {intl.formatMessage(i18n.count, { count: group.sessions.length })}
+                </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+              <div className="overflow-hidden rounded-xl border border-border-primary bg-background-primary">
                 {group.sessions.map((session) => (
                   <SessionItem
                     key={session.id}
@@ -1119,7 +1191,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                   />
                 ))}
               </div>
-            </div>
+            </section>
           ))}
 
           {isPrefetchingSessions && (
@@ -1137,11 +1209,11 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
     return (
       <>
         <MainPanelLayout>
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="bg-background-primary px-8 pb-8 pt-16">
+          <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col min-h-0">
+            <div className="bg-background-primary px-4 pb-5 pt-8 sm:px-8">
               <div className="flex flex-col page-transition">
-                <div className="flex justify-between items-center mb-1">
-                  <h1 className="text-4xl font-light">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                  <h1 className="text-2xl font-semibold tracking-tight">
                     {workspaceMode === 'unified'
                       ? null
                       : workspaceMode === 'codepro'
@@ -1173,19 +1245,75 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                   </div>
                 </div>
                 <p className="text-sm text-text-secondary mb-4">
-                  {intl.formatMessage(i18n.chatHistoryDesc, { shortcut: getSearchShortcutText() })}
+                  {intl.formatMessage(i18n.description)}
                 </p>
+                <div className="mb-4 flex items-start gap-2 rounded-lg bg-background-secondary px-3 py-2.5 text-sm text-text-secondary">
+                  <Archive className="mt-0.5 size-4 shrink-0" />
+                  <p>{intl.formatMessage(i18n.archiveNotice)}</p>
+                </div>
+                <label className="mb-4 flex items-center gap-2 rounded-lg border border-border-primary px-3 py-2 text-text-secondary focus-within:ring-1 focus-within:ring-border-active">
+                  <Search className="size-4 shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => handleSearch(event.target.value)}
+                    aria-label={intl.formatMessage(i18n.searchPlaceholder)}
+                    placeholder={intl.formatMessage(i18n.searchPlaceholder)}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none"
+                  />
+                </label>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select
+                  <div
+                    role="tablist"
                     aria-label={intl.formatMessage(i18n.historyView)}
-                    value={historyView}
-                    onChange={(event) => setHistoryView(event.target.value as HistoryView)}
-                    className="rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary"
+                    className="mr-auto flex max-w-full items-center gap-1 rounded-lg bg-background-secondary p-1"
                   >
-                    <option value="active">{intl.formatMessage(i18n.activeSessions)}</option>
-                    <option value="archived">{intl.formatMessage(i18n.archivedSessions)}</option>
-                    <option value="all">{intl.formatMessage(i18n.allSessions)}</option>
-                  </select>
+                    {(['active', 'archived', 'all'] as const).map((view) => (
+                      <button
+                        key={view}
+                        role="tab"
+                        aria-selected={historyView === view}
+                        id={`history-tab-${view}`}
+                        aria-controls="history-results"
+                        tabIndex={historyView === view ? 0 : -1}
+                        onKeyDown={(event) => {
+                          const tabs = ['active', 'archived', 'all'] as const;
+                          const index = tabs.indexOf(view);
+                          const next =
+                            event.key === 'ArrowRight'
+                              ? (index + 1) % tabs.length
+                              : event.key === 'ArrowLeft'
+                                ? (index + tabs.length - 1) % tabs.length
+                                : event.key === 'Home'
+                                  ? 0
+                                  : event.key === 'End'
+                                    ? tabs.length - 1
+                                    : -1;
+                          if (next < 0) return;
+                          event.preventDefault();
+                          setHistoryView(tabs[next]);
+                          setVisibleGroupsCount(15);
+                          (
+                            event.currentTarget.parentElement?.children[next] as HTMLButtonElement
+                          )?.focus();
+                        }}
+                        onClick={() => {
+                          setHistoryView(view);
+                          setVisibleGroupsCount(15);
+                        }}
+                        className={`rounded-md px-3 py-1.5 text-sm transition-colors ${historyView === view ? 'bg-background-primary font-medium text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                      >
+                        {intl.formatMessage(
+                          view === 'active'
+                            ? i18n.conversations
+                            : view === 'archived'
+                              ? i18n.archivedSessions
+                              : i18n.allSessions
+                        )}
+                      </button>
+                    ))}
+                  </div>
                   <select
                     aria-label={intl.formatMessage(i18n.projectFilter)}
                     value={projectFilter}
@@ -1195,7 +1323,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     <option value="all">{intl.formatMessage(i18n.allProjects)}</option>
                     {projectOptions.map((workingDir) => (
                       <option key={workingDir} value={workingDir}>
-                        {workingDir}
+                        {workingDir || intl.formatMessage(i18n.noProject)}
                       </option>
                     ))}
                   </select>
@@ -1214,17 +1342,15 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 relative">
+            <div
+              id="history-results"
+              role="tabpanel"
+              aria-labelledby={`history-tab-${historyView}`}
+              className="flex-1 min-h-0 relative"
+            >
               <ScrollArea handleScroll={handleScroll} className="h-full" data-search-scroll-area>
-                <div ref={containerRef} className="h-full relative px-8">
-                  <SearchView
-                    onSearch={handleSearch}
-                    className="relative"
-                    placeholder={intl.formatMessage(i18n.searchPlaceholder)}
-                    showCaseSensitive={false}
-                    showNavigation={false}
-                    highlightMatches={false}
-                  >
+                <div ref={containerRef} className="h-full relative px-4 sm:px-8">
+                  <div className="relative pb-8">
                     {/* Skeleton layer - always rendered but conditionally visible */}
                     <div
                       className={`absolute inset-0 transition-opacity duration-300 ${
@@ -1233,41 +1359,22 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                           : 'opacity-0 z-0 pointer-events-none'
                       }`}
                     >
-                      <div className="space-y-8">
-                        {/* Today section */}
-                        <div className="space-y-4">
-                          <Skeleton className="h-6 w-16" />
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                            <SessionSkeleton variant={0} />
-                            <SessionSkeleton variant={1} />
-                            <SessionSkeleton variant={2} />
-                            <SessionSkeleton variant={3} />
-                            <SessionSkeleton variant={0} />
+                      <div
+                        className="overflow-hidden rounded-xl border border-border-primary"
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: 5 }, (_, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between gap-4 border-b border-border-primary p-4 last:border-b-0"
+                          >
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-2/3" />
+                              <Skeleton className="h-3 w-28" />
+                            </div>
+                            <Skeleton className="h-8 w-20" />
                           </div>
-                        </div>
-
-                        {/* Yesterday section */}
-                        <div className="space-y-4">
-                          <Skeleton className="h-6 w-20" />
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                            <SessionSkeleton variant={1} />
-                            <SessionSkeleton variant={2} />
-                            <SessionSkeleton variant={3} />
-                            <SessionSkeleton variant={0} />
-                            <SessionSkeleton variant={1} />
-                            <SessionSkeleton variant={2} />
-                          </div>
-                        </div>
-
-                        {/* Additional section */}
-                        <div className="space-y-4">
-                          <Skeleton className="h-6 w-24" />
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                            <SessionSkeleton variant={3} />
-                            <SessionSkeleton variant={0} />
-                            <SessionSkeleton variant={1} />
-                          </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
 
@@ -1279,7 +1386,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
                     >
                       {renderActualContent()}
                     </div>
-                  </SearchView>
+                  </div>
                 </div>
               </ScrollArea>
             </div>
@@ -1385,6 +1492,7 @@ const SessionListView: React.FC<SessionListViewProps> = React.memo(
           confirmLabel={intl.formatMessage(i18n.deleteTitle)}
           cancelLabel={intl.formatMessage(i18n.cancel)}
           confirmVariant="destructive"
+          isSubmitting={deleting}
           onConfirm={handleConfirmDelete}
           onCancel={handleCancelDelete}
         />

@@ -1,4 +1,5 @@
 import { registerDesktopControl } from './desktopControlMain';
+import { registerWindowMenu } from './windowMenu';
 import { maintainVisibleWindowFrames } from './utils/windowAnimation';
 import { applicationWindows, markAuxiliaryWindow, registerDesktopPet } from './pets/petMain';
 import { registerTrayLifecycle } from './utils/trayLifecycle';
@@ -1380,10 +1381,11 @@ const createChat = async (
 
     mainWindow = new BrowserWindow({
       show: false,
-      titleBarStyle: process.platform === 'linux' ? 'default' : 'hidden',
-      titleBarOverlay: process.platform === 'win32'
-        ? { color: '#f9fafb', symbolColor: '#3f434b', height: 40 }
-        : undefined,
+      titleBarStyle: process.platform === 'darwin' || process.platform === 'win32' ? 'hidden' : 'default',
+      ...(process.platform === 'win32' ? {
+        titleBarOverlay: { color: '#f6f7f9', symbolColor: '#505867', height: 36 },
+        autoHideMenuBar: true,
+      } : {}),
       trafficLightPosition: process.platform === 'darwin' ? { x: 20, y: 16 } : undefined,
       vibrancy: process.platform === 'darwin' ? 'window' : undefined,
       frame: process.platform !== 'darwin',
@@ -1648,6 +1650,14 @@ const createChat = async (
 
   // Set up local keyboard shortcuts that only work when the window is focused
   mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (process.platform === 'win32') {
+      // Keep native command accelerators, but let the compact renderer bar own
+      // menu navigation instead of revealing Electron's second menu row.
+      mainWindow.webContents.setIgnoreMenuShortcuts(
+        (input.alt && !input.control && !input.meta) ||
+        (input.key === 'F10' && !input.shift && !input.control && !input.alt)
+      );
+    }
     // Meta is the Windows key on Windows. Leave capture shortcuts to the OS;
     // Windows/Linux reload uses the native menu's Ctrl+R accelerator.
     if (
@@ -2497,43 +2507,7 @@ ipcMain.handle('get-is-fullscreen', (event) => {
   return win?.isFullScreen() ?? false;
 });
 
-ipcMain.handle('window-menu-items', (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return [];
-  return (Menu.getApplicationMenu()?.items ?? []).flatMap((item, index) =>
-    item.visible && item.submenu
-      ? [{ index, label: item.label.replace(/&(.)/g, '$1'), enabled: item.enabled }]
-      : []
-  );
-});
-
-ipcMain.handle('window-menu-open', (event, request: { index: number; x: number; y: number }) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return;
-  if (!Number.isInteger(request?.index) || !Number.isFinite(request?.x) || !Number.isFinite(request?.y)) {
-    throw new TypeError('Invalid window menu anchor');
-  }
-  const item = Menu.getApplicationMenu()?.items[request.index];
-  if (!item?.visible || !item.enabled || !item.submenu) return;
-  const zoom = event.sender.getZoomFactor();
-  const bounds = win.getContentBounds();
-  return new Promise<void>((resolve) => item.submenu!.popup({
-    window: win,
-    x: Math.max(0, Math.min(bounds.width - 1, Math.round(request.x * zoom))),
-    y: Math.max(0, Math.min(bounds.height - 1, Math.round(request.y * zoom))),
-    callback: resolve,
-  }));
-});
-
-ipcMain.on('window-titlebar-theme', (event, theme: unknown) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (process.platform !== 'win32' || !win || !applicationWindows().includes(win)) return;
-  if (theme !== 'light' && theme !== 'dark') return;
-  win.setTitleBarOverlay({
-    color: theme === 'dark' ? '#3f434b' : '#f9fafb',
-    symbolColor: theme === 'dark' ? '#ffffff' : '#3f434b',
-  });
-});
+registerWindowMenu((window) => applicationWindows().includes(window));
 
 // Add file/directory selection handler
 ipcMain.handle('select-file-or-directory', async (_event, defaultPath?: string) => {

@@ -4,6 +4,22 @@ import { useIntl } from '../i18n';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelBrowserState, PanelScope } from './workspacePanelTypes';
 
+function isBrowserCovered(viewport: DOMRect) {
+  // WebContentsView sits above the renderer. A Radix popover can have the
+  // dialog role even when it is entirely inside the chat column.
+  const layers = document.querySelectorAll(
+    '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-slot="dialog-overlay"], [data-slot="sheet-overlay"]'
+  );
+  for (const layer of layers) {
+    const box = layer.getBoundingClientRect();
+    if (!box.width || !box.height || window.getComputedStyle(layer).visibility !== 'visible') continue;
+    if (layer.getAttribute('aria-modal') === 'true') return true;
+    if (box.left < viewport.right && box.right > viewport.left &&
+        box.top < viewport.bottom && box.bottom > viewport.top) return true;
+  }
+  return false;
+}
+
 export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string }) {
   const intl = useIntl();
   const [state, setState] = useState<PanelBrowserState>();
@@ -22,10 +38,8 @@ export function WorkspaceBrowser({ scope, id }: { scope: PanelScope; id: string 
     const position = () => {
       if (!alive) return;
       const rect = host.current?.getBoundingClientRect();
-      const obscured =
-        document.hidden || !!document.querySelector('[role="dialog"], [role="alertdialog"]');
       const bounds =
-        rect && rect.width > 0 && rect.height > 0 && !obscured && pageVisible
+        pageVisible && !document.hidden && rect && rect.width > 0 && rect.height > 0 && !isBrowserCovered(rect)
           ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
           : null;
       const next = JSON.stringify(bounds);

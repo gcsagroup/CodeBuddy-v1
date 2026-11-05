@@ -1,3 +1,34 @@
+## 2026-11-04：文件页外部打开
+
+“文件”标签按需打开并可关闭，状态仅存在桌面会话内存中。路径栏分体按钮只作用于当前文件／目录：主按钮沿用默认打开方式，下拉菜单由主进程检测已安装编辑器并显示一次性选择，不改变系统文件关联。脚本仍走既有代码编辑器路径，不交给可能执行脚本的文件关联。`open-target` 沿用原会话／单文件授权，主进程在菜单返回后再次校验 realpath、对象类型及窗口生命周期；前端不能指定任意程序路径。没有新增聊天持久化或权限扩展，旧数据无需迁移。
+
+繁體：檔案頁按目前物件提供外部開啟；主程序持有程式探索與啟動，選單結束後重新驗證原授權和生命週期。不修改系統關聯或聊天資料，腳本仍以編輯器開啟。
+
+English: File-view controls open the current target. The main process discovers applications and revalidates the existing path grant and window lifetime after menu selection. One-shot choices do not change OS associations or chat storage; scripts retain the editor-only opening path.
+
+Windows 文件菜单通过 Shell 的 `SHAssocEnumHandlers(ASSOC_FILTER_RECOMMENDED)` 按文件类型读取推荐应用，并用 `AssocQueryString` 读取默认应用名称；应用图标来自系统关联。主进程持有查询和调用，选择后通过 `IAssocHandler.Invoke` 打开，其他应用入口使用系统 `SHOpenWithDialog`，不解析或拼接注册表命令，不修改默认应用。目录及脚本保留已安装编辑器列表；macOS/Linux 保留原有编辑器发现路径，不宣称已接入其系统关联列表。查询失败时保留默认打开和系统选择入口并显示原因。
+
+繁體：Windows 依檔案類型讀取系統推薦應用程式、預設名稱和圖示，以 Shell handler 開啟，其他應用程式使用系統選擇器；不修改系統預設。目錄和腳本保留編輯器路徑，macOS/Linux 保留原有行為。
+
+English: Windows discovers recommended handlers, default app names, and icons by file type using Shell APIs. The main process invokes the selected handler or the native Open With dialog without parsing registry commands or changing defaults. Directories and scripts retain editor discovery; macOS/Linux retain their existing behavior.
+
+## 2026-11-04：右侧本地文件浏览
+
+主进程 `workspacePanelMain.ts` 持有原生文件选择器返回的窗口级、内存内只读授权；单文件选择不授权同目录其他文件，目录选择沿用 realpath 工作区路径检查。渲染层只消费返回的 selection，复用现有文本、媒体与文档预览。不修改会话工作区、Agent 工具权限或聊天持久化；窗口退出、渲染进程重建及完整导航使授权失效。旧聊天数据无需迁移。
+
+繁體：主程序持有原生選擇器的視窗級唯讀授權，單檔選擇不授權同目錄其他檔案。目錄沿用 realpath 邊界；不改變對話工作區或 Agent 權限，視窗生命週期結束時失效。
+
+English: The main process owns window-local, in-memory read-only picker grants. A file grant excludes siblings; directory grants reuse realpath containment checks. Rendering reuses existing previews without changing session workspaces, Agent permissions, or chat persistence. Window disposal, renderer loss, and full navigation revoke grants; no data migration is needed.
+
+## 2026-11-04：输入框文件与对话引用
+
+桌面 `@` 菜单复用工作区面板的目录／搜索服务和 ACP 会话列表，只消费文件类型、路径、会话 ID、标题与更新时间；不按文件扩展名猜目录、不复制整份会话内容。会话选中后使用锁定 Harness 的规范 `dsh-session:` mention，沿用文本草稿和消息通道，不新增持久化引用表或公共 RPC。
+
+官方 `dsh-session-reference` 是引用解析、只读投影、预算、来源标记和快照持久化的唯一 owner。配置每条消息最多 3 个来源、每来源预览最多 24 KiB。只投影直接用户／助手文本与压缩检查点，排除工具、推理及其他注入上下文；旧对话里的指令和权限声明不能成为当前授权。快照保存后不随源对话变化而更新；前端的标签、移除和数量提示仅为交互，原生校验仍是最终门槛。旧消息和旧记录不迁移；未拥有原生历史的来源由原生 resolver 明确拒绝。
+
+繁體：桌面只列出候選並傳遞原生 mention；Harness 持有有界、唯讀、不受信任的對話快照。沿用文字草稿與訊息持久化，不新增引用資料表；來源更新不改寫已捕獲快照。
+
+English: Desktop lists candidates and sends native mentions. Harness owns bounded, read-only, untrusted session snapshots. Existing text drafts and message persistence are reused; no reference table or public RPC is added. Later source changes do not rewrite captured snapshots.
 ## 2026-11-04 已批准：桌面单文件只读引用与大文本展示
 
 桌面主进程 `workspacePanelFiles` 统一解析用户点击的单文件引用，工作区外引用由文本/源码扩展到 PDF、Word、Excel、PPT、图片与视频。引用不授权所在目录的枚举、写入、终端工作区或 Agent 工具权限；普通 `read/list/save` 仍受当前会话根目录约束。文档预览每次读取重新核对规范路径和文件版本；媒体主进程注册表只发放绑定指定文件的不可猜测能力 URL，读取时重新核对路径、类型及大小，窗口关闭/重载撤销。界面消费只读引用标记，刷新、右键和预览沿用同一检查，不通过切换会话根目录绕过限制。

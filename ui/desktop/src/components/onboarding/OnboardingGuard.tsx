@@ -92,7 +92,7 @@ export default function OnboardingGuard({
       <div
         role="status"
         aria-live="polite"
-        className="h-screen w-full bg-background-default flex flex-col items-center justify-center"
+        className="h-full w-full bg-background-default flex flex-col items-center justify-center"
       >
         <CodeBuddyMark className="size-8" />
         <div className="mt-4 flex items-center gap-2 text-sm text-text-muted">
@@ -108,7 +108,7 @@ export default function OnboardingGuard({
 
   const failed = checkState === 'error';
   return (
-    <div className="h-screen w-full bg-background-default flex flex-col items-center justify-center">
+    <div className="h-full w-full bg-background-default flex flex-col items-center justify-center">
       <div className="text-center max-w-md">
         <div className="mb-4">
           <CodeBuddyMark className="size-8 mx-auto" />

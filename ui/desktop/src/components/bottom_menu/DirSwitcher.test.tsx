@@ -57,6 +57,7 @@ describe('DirSwitcher while the workspace is unbound', () => {
   });
 
   it('does not render an empty section separator before the only workspace action', async () => {
+    request.mockResolvedValue({ directories: [] });
     window.electron.listRecentDirs = vi.fn().mockResolvedValue([]);
     render(<DirSwitcher className="" sessionId={undefined} workingDir="" />, { wrapper: IntlTestWrapper });
     fireEvent.click(screen.getByRole('button', { name: 'Select workspace' }));

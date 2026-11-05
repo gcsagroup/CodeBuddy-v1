@@ -2,7 +2,6 @@ import { composerCommandItems } from './composerCommands';
 import { createPortal } from 'react-dom';
 import {
   forwardRef,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useImperativeHandle,
@@ -18,8 +17,29 @@ import { listAgentMentionItems, listSlashCommandItems } from '../acp/autocomplet
 import { loadToolbox } from '../acp/toolbox';
 import { localizeToolboxItem } from './toolbox/toolboxLocalization';
 import type { ToolboxItem } from '../types/toolbox';
+import { acpListSessions } from '../acp/sessions';
+import { conversationMention } from './conversationMention';
 
 const i18n = defineMessages({
+  files: { id: 'mentionPopover.files', defaultMessage: 'Files and folders' },
+  conversations: { id: 'mentionPopover.conversations', defaultMessage: 'Conversations' },
+  agents: { id: 'mentionPopover.agents', defaultMessage: 'Agents' },
+  loading: { id: 'mentionPopover.loading', defaultMessage: 'Searching…' },
+  failed: {
+    id: 'mentionPopover.failed',
+    defaultMessage: 'Some results could not be loaded. Reopen the menu to retry.',
+  },
+  chooseProject: {
+    id: 'mentionPopover.chooseProject',
+    defaultMessage:
+      'Select a project to reference its files. You can still reference a conversation.',
+  },
+  empty: { id: 'mentionPopover.empty', defaultMessage: 'No files or conversations found.' },
+  more: {
+    id: 'mentionPopover.more',
+    defaultMessage: 'More results are available. Type a more specific name.',
+  },
+  keys: { id: 'mentionPopover.keys', defaultMessage: '↑ ↓ Select · Enter Insert · Esc Close' },
   addGroup: { id: 'mentionPopover.addGroup', defaultMessage: 'Add' },
   commandGroup: { id: 'mentionPopover.commandGroup', defaultMessage: 'Commands' },
   skillGroup: { id: 'mentionPopover.skillGroup', defaultMessage: 'Skills' },
@@ -55,7 +75,7 @@ const i18n = defineMessages({
 });
 
 type CommandItemType = 'Builtin' | 'Recipe' | 'Skill' | 'Agent';
-type DisplayItemType = CommandItemType | 'Directory' | 'File' | 'Mcp' | 'Tool';
+type DisplayItemType = CommandItemType | 'Directory' | 'File' | 'Mcp' | 'Tool' | 'Conversation';
 
 const typeOrder: Record<DisplayItemType, number> = {
   Agent: 0,
@@ -66,6 +86,7 @@ const typeOrder: Record<DisplayItemType, number> = {
   Recipe: 5,
   Mcp: 6,
   Tool: 7,
+  Conversation: 8,
 };
 
 export interface DisplayItem {
@@ -77,7 +98,12 @@ export interface DisplayItem {
   commandGroup?: 'add' | 'control';
   commandOrder?: number;
   toolboxItem?: ToolboxItem;
+  updatedAt?: string;
 }
+
+const mentionGroup = (item: DisplayItem) =>
+  item.itemType === 'Conversation' ? 1 : item.itemType === 'Agent' ? 2 : 0;
+const mentionGroupLabels = [i18n.files, i18n.conversations, i18n.agents];
 
 export interface DisplayItemWithMatch extends DisplayItem {
   matchScore: number;
@@ -233,235 +259,106 @@ const MentionPopover = forwardRef<
     }, [isOpen, anchorRef]);
     const listRef = useRef<HTMLDivElement>(null);
     const currentWorkingDir = workingDir ?? getInitialWorkingDir();
-
-    const scanDirectoryFromRoot = useCallback(
-      async (dirPath: string, relativePath = '', depth = 0): Promise<DisplayItem[]> => {
-        // Increase depth limit for better file discovery
-        if (depth > 5) return [];
-
-        try {
-          const items = await window.electron.listFiles(dirPath);
-          const results: DisplayItem[] = [];
-
-          // Common directories to prioritize or skip
-          const priorityDirs = [
-            'Desktop',
-            'Documents',
-            'Downloads',
-            'Projects',
-            'Development',
-            'Code',
-            'src',
-            'components',
-            'icons',
-          ];
-          const skipDirs = [
-            '.git',
-            '.svn',
-            '.hg',
-            'node_modules',
-            '__pycache__',
-            'target',
-            'dist',
-            'build',
-            '.cache',
-            '.npm',
-            '.yarn',
-            'Library',
-            'System',
-            'Applications',
-            '.Trash',
-          ];
-
-          const allowedHiddenDirs = [
-            '.github',
-            '.vscode',
-            '.idea',
-            '.config',
-            '.gitlab',
-            '.circleci',
-            '.azure',
-            '.jenkins',
-          ];
-
-          // Don't skip as many directories at deeper levels to find more items
-          const skipDirsAtDepth =
-            depth > 2 ? ['.git', '.svn', '.hg', 'node_modules', '__pycache__'] : skipDirs;
-
-          // Sort items to prioritize certain directories
-          const sortedItems = items.sort((a, b) => {
-            const aPriority = priorityDirs.includes(a);
-            const bPriority = priorityDirs.includes(b);
-            if (aPriority && !bPriority) return -1;
-            if (!aPriority && bPriority) return 1;
-            return a.localeCompare(b);
-          });
-
-          // Increase item limit per directory for better coverage
-          const itemLimit = depth === 0 ? 50 : depth === 1 ? 40 : 30;
-
-          for (const item of sortedItems.slice(0, itemLimit)) {
-            const fullPath = `${dirPath}/${item}`;
-            const itemRelativePath = relativePath ? `${relativePath}/${item}` : item;
-
-            // Skip items in the skip list
-            if (skipDirsAtDepth.includes(item)) {
-              continue;
-            }
-
-            // Skip hidden items except for allowed hidden directories
-            if (item.startsWith('.') && !allowedHiddenDirs.includes(item)) {
-              continue;
-            }
-
-            // First, check if this looks like a file based on extension
-            const hasExtension = item.includes('.');
-            const ext = item.split('.').pop()?.toLowerCase();
-            const commonExtensions = [
-              // Code items
-              'txt',
-              'md',
-              'js',
-              'ts',
-              'jsx',
-              'tsx',
-              'py',
-              'java',
-              'cpp',
-              'c',
-              'h',
-              'css',
-              'html',
-              'json',
-              'xml',
-              'yaml',
-              'yml',
-              'toml',
-              'ini',
-              'cfg',
-              'sh',
-              'bat',
-              'ps1',
-              'rb',
-              'go',
-              'rs',
-              'php',
-              'sql',
-              'r',
-              'scala',
-              'swift',
-              'kt',
-              'dart',
-              'vue',
-              'svelte',
-              'astro',
-              'scss',
-              'less',
-              // Documentation
-              'readme',
-              'license',
-              'changelog',
-              'contributing',
-              // Config items
-              'gitignore',
-              'dockerignore',
-              'editorconfig',
-              'prettierrc',
-              'eslintrc',
-              // Images and assets
-              'png',
-              'jpg',
-              'jpeg',
-              'gif',
-              'svg',
-              'ico',
-              'webp',
-              'bmp',
-              'tiff',
-              'tif',
-              // Vector and design items
-              'ai',
-              'eps',
-              'sketch',
-              'fig',
-              'xd',
-              'psd',
-              // Other common items
-              'pdf',
-              'doc',
-              'docx',
-              'xls',
-              'xlsx',
-              'ppt',
-              'pptx',
-            ];
-
-            // If it has a known file extension, treat it as a file
-            if (hasExtension && ext && commonExtensions.includes(ext)) {
-              results.push({
-                extra: fullPath,
-                name: item,
-                itemType: 'File',
-                relativePath: itemRelativePath,
-              });
-              continue;
-            }
-
-            // If it's a known file without extension (README, LICENSE, etc.)
-            const knownFiles = [
-              'readme',
-              'license',
-              'changelog',
-              'contributing',
-              'dockerfile',
-              'makefile',
-            ];
-            if (!hasExtension && knownFiles.includes(item.toLowerCase())) {
-              results.push({
-                extra: fullPath,
-                name: item,
-                itemType: 'File',
-                relativePath: itemRelativePath,
-              });
-              continue;
-            }
-
-            // Otherwise, try to determine if it's a directory
-            try {
-              await window.electron.listFiles(fullPath);
-
-              results.push({
-                name: item,
-                extra: fullPath,
-                itemType: 'Directory',
-                relativePath: itemRelativePath,
-              });
-
-              // Recursively scan directories more aggressively
-              if (depth < 4 || priorityDirs.includes(item)) {
-                const subFiles = await scanDirectoryFromRoot(fullPath, itemRelativePath, depth + 1);
-                results.push(...subFiles);
-              }
-            } catch {
-              // If we can't list it and it doesn't have a known extension, skip it
-              // This could be a file with an unknown extension or a permission issue
-            }
-          }
-
-          return results;
-        } catch (error) {
-          console.error(`Error scanning directory ${dirPath}:`, error);
-          return [];
-        }
-      },
-      []
+    const draftScope = useMemo(
+      () => ({ sessionId: `mention-${globalThis.crypto.randomUUID()}`, root: currentWorkingDir }),
+      [currentWorkingDir]
     );
 
-    const getDefaultStartPath = (): string => {
-      if (window.electron.platform === 'win32') return 'C:\\Users';
-      if (window.electron.platform === 'linux') return '/home';
-      return '/Users';
-    };
+    const [mentionError, setMentionError] = useState(false);
+    const [truncated, setTruncated] = useState(false);
+
+    useEffect(() => {
+      if (!isOpen || isSlashCommand) return;
+      let cancelled = false;
+      setItems([]);
+      setIsLoading(true);
+      setMentionError(false);
+      setTruncated(false);
+      const timer = setTimeout(() => {
+        let files: DisplayItem[] = [],
+          conversations: DisplayItem[] = [],
+          agents: DisplayItem[] = [];
+        const publish = () => {
+          if (!cancelled) setItems([...files, ...conversations, ...agents]);
+        };
+        const failed = () => {
+          if (!cancelled) setMentionError(true);
+        };
+        const tasks = [
+          acpListSessions(null, { keyword: query }, 'unified')
+            .then((page) => {
+              conversations = page.sessions
+                .filter(
+                  (session) =>
+                    session.id !== sessionId && session.messageCount > 0 && !session.archivedAt
+                )
+                .map((session) => ({
+                  name: session.name,
+                  extra: session.workingDir,
+                  relativePath: session.id,
+                  itemType: 'Conversation' as const,
+                  updatedAt: session.updatedAt,
+                  insertText: conversationMention(session.id, session.name),
+                }));
+              if (!cancelled && (page.nextCursor || conversations.length > 20)) setTruncated(true);
+              conversations = conversations.slice(0, 20);
+              publish();
+            })
+            .catch(failed),
+        ];
+        if (currentWorkingDir.trim()) {
+          tasks.push(
+            window.electron
+              .workspacePanel({
+                scope: sessionId ? { sessionId, root: currentWorkingDir } : draftScope,
+                ...(query.trim()
+                  ? { action: 'search' as const, query }
+                  : { action: 'list' as const, path: '' }),
+              })
+              .then((result) => {
+                const entries = (result.entries ?? []).filter(
+                  (entry) =>
+                    !(
+                      entry.kind === 'directory' &&
+                      ['.git', 'node_modules', 'target', '.venv'].includes(entry.name)
+                    )
+                );
+                const limit = query.trim() ? 40 : 8;
+                files = entries.slice(0, limit).map((entry) => ({
+                  name: entry.name,
+                  relativePath: entry.path,
+                  extra: entry.path,
+                  itemType: entry.kind === 'directory' ? ('Directory' as const) : ('File' as const),
+                  insertText:
+                    JSON.stringify(
+                      currentWorkingDir.replace(/\\/g, '/').replace(/\/+$/, '') +
+                        '/' +
+                        entry.path.replace(/\\/g, '/')
+                    ) + ' ',
+                }));
+                if (!cancelled && (result.truncated || entries.length > limit)) setTruncated(true);
+                publish();
+              })
+              .catch(failed)
+          );
+          tasks.push(
+            listAgentMentionItems(currentWorkingDir, sessionId ?? undefined)
+              .then((result) => {
+                agents = result;
+                publish();
+              })
+              .catch(failed)
+          );
+        }
+        void Promise.allSettled(tasks).then(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+      }, 180);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }, [isOpen, isSlashCommand, currentWorkingDir, draftScope, sessionId, query]);
 
     const compareByType = (a: DisplayItemWithMatch, b: DisplayItemWithMatch) => {
       const orderA = typeOrder[a.itemType] ?? Number.MAX_SAFE_INTEGER;
@@ -489,6 +386,10 @@ const MentionPopover = forwardRef<
               : 0,
           }))
           .sort((a, b) => {
+            if (!isSlashCommand && mentionGroup(a) !== mentionGroup(b))
+              return mentionGroup(a) - mentionGroup(b);
+            if (a.itemType === 'Conversation' && b.itemType === 'Conversation')
+              return (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
             if (isSlashCommand && commandGroup(a) !== commandGroup(b))
               return commandGroup(a) - commandGroup(b);
             if (isSlashCommand && a.commandOrder !== undefined && b.commandOrder !== undefined)
@@ -536,6 +437,8 @@ const MentionPopover = forwardRef<
         })
         .filter((file) => file.matchScore > 0)
         .sort((a, b) => {
+          if (!isSlashCommand && mentionGroup(a) !== mentionGroup(b))
+            return mentionGroup(a) - mentionGroup(b);
           if (isSlashCommand && commandGroup(a) !== commandGroup(b))
             return commandGroup(a) - commandGroup(b);
           // Sort by score first, then prefer items over directories, then alphabetically
@@ -545,6 +448,10 @@ const MentionPopover = forwardRef<
           return typeComparison || a.name.localeCompare(b.name);
         });
     }, [availableItems, query, currentWorkingDir, isSlashCommand, intl]);
+
+    useEffect(() => {
+      if (selectedIndex >= displayItems.length && selectedIndex !== 0) onSelectedIndexChange(0);
+    }, [displayItems.length, selectedIndex, onSelectedIndexChange]);
 
     const getSelectionText = (item: DisplayItem): string => {
       if (item.insertText) {
@@ -589,6 +496,7 @@ const MentionPopover = forwardRef<
     );
 
     useEffect(() => {
+      if (!isSlashCommand) return;
       let cancelled = false;
 
       const loadData = async () => {
@@ -656,14 +564,6 @@ const MentionPopover = forwardRef<
                 })
                 .catch(failed),
             ]);
-          } else {
-            // Fetch agents from server and scan files in parallel
-            const [agentItems, scannedFiles] = await Promise.all([
-              listAgentMentionItems(currentWorkingDir, sessionId ?? undefined).catch(() => []),
-              scanDirectoryFromRoot(currentWorkingDir || getDefaultStartPath()),
-            ]);
-            if (cancelled) return;
-            setItems([...agentItems, ...scannedFiles]);
           }
         } catch (error) {
           if (!cancelled) {
@@ -686,7 +586,7 @@ const MentionPopover = forwardRef<
       return () => {
         cancelled = true;
       };
-    }, [isOpen, isSlashCommand, scanDirectoryFromRoot, currentWorkingDir, sessionId, intl]);
+    }, [isOpen, isSlashCommand, currentWorkingDir, sessionId, intl]);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -757,11 +657,21 @@ const MentionPopover = forwardRef<
             height: compactMenu && initialHeight !== null ? '100%' : undefined,
           }}
         >
-          {isLoading ? (
+          {!isSlashCommand && !currentWorkingDir.trim() && (
+            <p className="px-2 pb-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.chooseProject)}
+            </p>
+          )}
+          {!isSlashCommand && mentionError && (
+            <p role="status" className="px-2 pb-2 text-xs text-text-secondary">
+              {intl.formatMessage(i18n.failed)}
+            </p>
+          )}
+          {isLoading && displayItems.length === 0 ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2"></div>
               <span className="ml-2 text-sm text-text-secondary">
-                {intl.formatMessage(isSlashCommand ? i18n.loadingCommands : i18n.scanningFiles)}
+                {intl.formatMessage(isSlashCommand ? i18n.loadingCommands : i18n.loading)}
               </span>
             </div>
           ) : (
@@ -786,6 +696,16 @@ const MentionPopover = forwardRef<
                   <div
                     key={`${item.itemType}-${item.relativePath}-${item.extra}-${item.insertText ?? ''}`}
                   >
+                    {!isSlashCommand &&
+                      (index === 0 ||
+                        mentionGroup(item) !== mentionGroup(displayItems[index - 1])) && (
+                        <div
+                          aria-hidden="true"
+                          className="px-2 pb-1 pt-2 text-xs text-text-secondary"
+                        >
+                          {intl.formatMessage(mentionGroupLabels[mentionGroup(item)])}
+                        </div>
+                      )}
                     {isSlashCommand &&
                       (index === 0 ||
                         commandGroup(item) !== commandGroup(displayItems[index - 1])) && (
@@ -807,7 +727,7 @@ const MentionPopover = forwardRef<
                       title={
                         isSlashCommand
                           ? `${item.name}${item.extra ? ` — ${item.extra}` : ''}${item.toolboxItem ? `\n${intl.formatMessage(i18n.inventoryHint)}` : ''}`
-                          : undefined
+                          : `${item.name}\n${item.extra}${item.updatedAt ? '\n' + item.updatedAt : ''}`
                       }
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => handleItemClick(index)}
@@ -844,18 +764,42 @@ const MentionPopover = forwardRef<
                           {item.extra}
                         </div>
                       </div>
+                      {item.updatedAt && Number.isFinite(Date.parse(item.updatedAt)) && (
+                        <time
+                          dateTime={item.updatedAt}
+                          className="shrink-0 text-xs text-text-secondary"
+                        >
+                          {intl.formatDate(item.updatedAt, { month: 'short', day: 'numeric' })}
+                        </time>
+                      )}
                     </div>
                   </div>
                 ))}
 
-                {!isLoading && displayItems.length === 0 && query && (
+                {!isLoading && displayItems.length === 0 && (
                   <div className="p-4 text-center text-text-secondary text-sm">
-                    {intl.formatMessage(isSlashCommand ? i18n.noCommandsFound : i18n.noItemsFound, {
-                      query,
-                    })}
+                    {intl.formatMessage(
+                      isSlashCommand
+                        ? i18n.noCommandsFound
+                        : query
+                          ? i18n.noItemsFound
+                          : i18n.empty,
+                      {
+                        query,
+                      }
+                    )}
                   </div>
                 )}
               </div>
+              {!isSlashCommand && (
+                <div className="mt-2 border-t border-border-primary pt-2 px-1 text-xs text-text-secondary">
+                  {isLoading
+                    ? intl.formatMessage(i18n.loading)
+                    : truncated
+                      ? intl.formatMessage(i18n.more)
+                      : intl.formatMessage(i18n.keys)}
+                </div>
+              )}
             </>
           )}
         </div>

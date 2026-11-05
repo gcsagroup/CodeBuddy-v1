@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Download,
   Bot,
+  MessageSquare,
 } from 'lucide-react';
 import { DisplayItem } from './MentionPopover';
 
@@ -39,6 +40,8 @@ interface IconInfo {
 
 export const getItemIcon = (item: DisplayItem): IconInfo => {
   switch (item.itemType) {
+    case 'Conversation':
+      return { Icon: MessageSquare, color: 'currentColor' };
     case 'Builtin':
       if (item.relativePath === 'file') return { Icon: Paperclip, color: 'currentColor' };
       if (item.relativePath === 'agent') return { Icon: Bot, color: 'currentColor' };

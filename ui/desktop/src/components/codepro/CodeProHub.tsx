@@ -123,7 +123,7 @@ const i18n = defineMessages({
   },
   goalPlaceholder: {
     id: 'codeProHub.goalPlaceholder',
-    defaultMessage: 'Describe your task, or type / to see commands…',
+    defaultMessage: 'Describe your task, / for commands, @ for files or conversations…',
   },
 });
 
@@ -301,6 +301,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           const session = await createSession(candidate.normalizedPath, {
             allExtensions: sessionExtensions,
             workspaceMode: 'codepro',
+            initialPermissionPreset,
             workspaceBinding: 'root_container',
             workspaceOrigin: 'selected',
             rootContainerPath: candidate.normalizedPath,
@@ -326,6 +327,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       setSetupError(null);
       try {
         const { session } = await startCodeProSession({
+          initialPermissionPreset,
           workspaceOrigin: pending.workspaceOrigin,
           candidate,
           initialMessage: pending.intent.initialMessage ?? { msg: '', images: [] },
@@ -354,7 +356,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         setIsCreating(false);
       }
     },
-    [sessionExtensions, isCreating, openSession]
+    [sessionExtensions, isCreating, openSession, initialPermissionPreset]
   );
 
   useEffect(() => {

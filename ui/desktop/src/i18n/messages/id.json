@@ -299,6 +299,9 @@
   "chatInput.recording": {
     "defaultMessage": "Merekam..."
   },
+  "chatInput.referenceLimit": {
+    "defaultMessage": "You can reference up to 3 conversations in one message. Remove a reference before adding another."
+  },
   "chatInput.removeFile": {
     "defaultMessage": "Hapus berkas"
   },
@@ -322,6 +325,9 @@
   },
   "chatInput.unknownType": {
     "defaultMessage": "Tipe tidak diketahui"
+  },
+  "chatInput.videoSampleScope": {
+    "defaultMessage": "{count} sampled frames · audio not analyzed"
   },
   "chatInput.viewEditRecipe": {
     "defaultMessage": "Lihat/Edit Resep"
@@ -1819,6 +1825,27 @@
   },
   "conversationLimitsDropdown.maxTurnsDescription": {
     "defaultMessage": "Giliran agen maksimum sebelum CodeBuddy meminta masukan pengguna"
+  },
+  "conversationReferences.hint": {
+    "defaultMessage": "Read-only background · Up to 3 conversations"
+  },
+  "conversationReferences.label": {
+    "defaultMessage": "Referenced conversations"
+  },
+  "conversationReferences.remove": {
+    "defaultMessage": "Remove reference: {title}"
+  },
+  "conversationTimeline.attachment": {
+    "defaultMessage": "Attachment message"
+  },
+  "conversationTimeline.navigation": {
+    "defaultMessage": "Conversation timeline"
+  },
+  "conversationTimeline.noReply": {
+    "defaultMessage": "No reply yet"
+  },
+  "conversationTimeline.turn": {
+    "defaultMessage": "Go to turn {number}: {text}"
   },
   "costTracker.costUnavailable": {
     "defaultMessage": "Data biaya tidak tersedia untuk {model} ({inputTokens} token masukan, {outputTokens} token keluaran)"
@@ -4445,11 +4472,29 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "Add"
   },
+  "mentionPopover.agents": {
+    "defaultMessage": "Agents"
+  },
+  "mentionPopover.chooseProject": {
+    "defaultMessage": "Select a project to reference its files. You can still reference a conversation."
+  },
   "mentionPopover.commandGroup": {
     "defaultMessage": "Commands"
   },
+  "mentionPopover.conversations": {
+    "defaultMessage": "Conversations"
+  },
   "mentionPopover.disabled": {
     "defaultMessage": "Disabled"
+  },
+  "mentionPopover.empty": {
+    "defaultMessage": "No files or conversations found."
+  },
+  "mentionPopover.failed": {
+    "defaultMessage": "Some results could not be loaded. Reopen the menu to retry."
+  },
+  "mentionPopover.files": {
+    "defaultMessage": "Files and folders"
   },
   "mentionPopover.inventoryFailed": {
     "defaultMessage": "Some Toolbox entries could not be loaded. Reopen the menu to retry."
@@ -4460,11 +4505,20 @@
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# item ditemukan} other{# item ditemukan}}"
   },
+  "mentionPopover.keys": {
+    "defaultMessage": "↑ ↓ Select · Enter Insert · Esc Close"
+  },
+  "mentionPopover.loading": {
+    "defaultMessage": "Searching…"
+  },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "Memuat perintah..."
   },
   "mentionPopover.mcpGroup": {
     "defaultMessage": "MCP servers"
+  },
+  "mentionPopover.more": {
+    "defaultMessage": "More results are available. Type a more specific name."
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "Tidak ada perintah yang cocok dengan \"{query}\""
@@ -5566,6 +5620,21 @@
   },
   "parameterInputModal.whatToDo": {
     "defaultMessage": "Apa yang ingin Anda lakukan?"
+  },
+  "pastedText.open": {
+    "defaultMessage": "Open pasted text as TXT"
+  },
+  "pastedText.openFailed": {
+    "defaultMessage": "Could not open the text copy. Please try again."
+  },
+  "pastedText.previewHint": {
+    "defaultMessage": "Preview of first {count} characters · Click the text block to open a TXT copy"
+  },
+  "pastedText.remove": {
+    "defaultMessage": "Remove pasted text"
+  },
+  "pastedText.text": {
+    "defaultMessage": "Pasted text · {count} characters"
   },
   "permissionModal.alwaysAllow": {
     "defaultMessage": "Selalu izinkan"
@@ -7415,12 +7484,6 @@
   "sessions.close": {
     "defaultMessage": "Tutup"
   },
-  "sessions.delete.message": {
-    "defaultMessage": "Apakah Anda yakin ingin menghapus sesi \"{name}\"? Tindakan ini tidak dapat dibatalkan."
-  },
-  "sessions.delete.title": {
-    "defaultMessage": "Hapus Sesi"
-  },
   "sessions.edit.placeholder": {
     "defaultMessage": "Masukkan deskripsi sesi"
   },
@@ -7471,6 +7534,42 @@
   },
   "sessions.filter.today": {
     "defaultMessage": "Today"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "No archived conversations"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "Conversations you archive from the sidebar will appear here. Their messages are kept."
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it."
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "Conversations"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} conversations"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "Permanently remove \"{name}\" from your conversation history? You cannot restore it in CodeBuddy. Files in the workspace will be kept."
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "Permanently delete conversation"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "Find past conversations and manage your archive."
+  },
+  "sessions.history.more": {
+    "defaultMessage": "More actions for {name}"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "No project"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "Permanently delete"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "Restore"
   },
   "sessions.import": {
     "defaultMessage": "Impor Sesi"
@@ -8981,6 +9080,9 @@
   "toolConfirmation.allowToolCallWithName": {
     "defaultMessage": "Izinkan {toolName}?"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "Arguments"
+  },
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
@@ -9470,6 +9572,9 @@
   "workspacePanel.back": {
     "defaultMessage": "Back"
   },
+  "workspacePanel.backToFolder": {
+    "defaultMessage": "Back to folder"
+  },
   "workspacePanel.binaryFile": {
     "defaultMessage": "{name} is a binary file or uses an unsupported text encoding. Text preview and editing are unavailable; the file is unchanged."
   },
@@ -9539,20 +9644,41 @@
   "workspacePanel.editor": {
     "defaultMessage": "File editor"
   },
+  "workspacePanel.emptyFolder": {
+    "defaultMessage": "This folder is empty."
+  },
   "workspacePanel.enterAddress": {
     "defaultMessage": "Enter an address above to browse a web page."
   },
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
+  "workspacePanel.fileDenied": {
+    "defaultMessage": "Windows denied access to this file. Check its permissions or choose a readable copy."
+  },
+  "workspacePanel.fileMissing": {
+    "defaultMessage": "This file was moved or deleted. Check its location and open the link again."
+  },
+  "workspacePanel.fileOutside": {
+    "defaultMessage": "This action is limited to the current workspace. Files from another workspace can be opened as read-only references."
+  },
+  "workspacePanel.fileTooLarge": {
+    "defaultMessage": "This file exceeds the preview size limit. Open a smaller copy or use its original application."
+  },
   "workspacePanel.fileTree": {
     "defaultMessage": "Workspace file tree"
+  },
+  "workspacePanel.fileUnsupported": {
+    "defaultMessage": "This format cannot be previewed. Use Open in application or save a supported copy."
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
+  },
+  "workspacePanel.filesTab": {
+    "defaultMessage": "Files"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9572,11 +9698,17 @@
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
+  "workspacePanel.localFilesHint": {
+    "defaultMessage": "Browse local files without changing this conversation’s workspace."
+  },
   "workspacePanel.maximize": {
     "defaultMessage": "Expand or restore panel"
   },
   "workspacePanel.mediaFailed": {
     "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
+  "workspacePanel.newTab": {
+    "defaultMessage": "New tab"
   },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "Select a workspace and open a conversation to use files and terminals."
@@ -9593,8 +9725,14 @@
   "workspacePanel.openFile": {
     "defaultMessage": "Buka file"
   },
+  "workspacePanel.openFolder": {
+    "defaultMessage": "Open folder"
+  },
   "workspacePanel.openImageTab": {
     "defaultMessage": "Buka gambar di tab baru"
+  },
+  "workspacePanel.openLocal": {
+    "defaultMessage": "Open file or folder"
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Buka di tab baru"
@@ -9656,6 +9794,9 @@
   "workspacePanel.selectFile": {
     "defaultMessage": "Select a file to preview"
   },
+  "workspacePanel.showCurrentFolder": {
+    "defaultMessage": "Open current folder in file manager"
+  },
   "workspacePanel.start": {
     "defaultMessage": "Start"
   },
@@ -9670,6 +9811,9 @@
   },
   "workspacePanel.terminalKeys": {
     "defaultMessage": "Ctrl+C interrupt"
+  },
+  "workspacePanel.toolsTitle": {
+    "defaultMessage": "Workspace tools"
   },
   "workspacePanel.unsaved": {
     "defaultMessage": "Unsaved changes"

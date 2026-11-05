@@ -86,6 +86,28 @@ vi.mock('./dshDocumentRenderer', () => ({
   DshDocumentRenderer: ({ kind }: { kind: string }) => <div>interactive-{kind}</div>,
 }));
 const mediaState = vi.hoisted(() => ({ jobs: [] as MediaJob[] }));
+it('shows a closable files tab and external-open controls only after entering files', async () => {
+  const originalPanel = window.electron.workspacePanel;
+  const ipc = vi.fn().mockResolvedValue({ entries: [] });
+  window.electron.workspacePanel = ipc;
+  const scope = { sessionId: 'file-toolbar-scope', root: 'C:/fixture' };
+  try {
+    render(<WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    expect(screen.queryByRole('tab', { name: 'Files' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open with' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Workspace files.*Browse/ }));
+    expect(await screen.findByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Open in default application' }));
+    await waitFor(() => expect(ipc).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: '', choose: false })));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open with' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open with' }));
+    await waitFor(() => expect(ipc).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: '', choose: true })));
+    fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
+    expect(screen.queryByRole('button', { name: 'Open with' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close Files' }));
+    expect(screen.queryByRole('tab', { name: 'Files' })).toBeNull();
+  } finally { window.electron.workspacePanel = originalPanel; }
+});
 vi.mock('./WorkspaceGeneration', async (original) => ({
   ...(await original<typeof import('./WorkspaceGeneration')>()),
   useMediaJobs: () => ({ jobs: mediaState.jobs, disconnected: false }),
@@ -552,7 +574,7 @@ it('opens document previews while preserving an edited file tab', async () => {
   );
   expect(await screen.findByText('interactive-pdf')).toBeVisible();
   fireEvent.click(await screen.findByRole('button', { name: 'Open in default application' }));
-  expect(invoke).toHaveBeenCalledWith({ scope, action: 'open-external', path: 'report.docx' });
+  expect(invoke).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: 'report.docx', choose: false }));
   fireEvent.click(screen.getByRole('tab', { name: /note.txt/ }));
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
 });
@@ -1029,7 +1051,7 @@ it('opens only this parent child in the existing panel and reuses its tab', asyn
   expect(screen.getByText('child-conversation:child-1')).toBeVisible();
   // Repeated clicks activate the same tab. Closing it must not close a runtime
   // terminal/browser or cancel the child Agent.
-  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
   fireEvent(
     window,
     new CustomEvent('codebuddy:open-subagent-conversation', {
@@ -1050,7 +1072,7 @@ it('removes Git and review launchers while keeping files and conversation change
   panel();
   expect(screen.queryByRole('tab', { name: 'Git and review' })).toBeNull();
   expect(screen.queryByRole('button', { name: /Git and review\s*Inspect/ })).toBeNull();
-  expect(screen.getByRole('tab', { name: 'Workspace files' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Workspace files.*Browse/ })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'Changes' })).toBeInTheDocument();
 });
 it('keeps removed Git entries absent before a session is bound', () => {
@@ -1117,7 +1139,7 @@ it('creates separate scoped terminal and browser tabs', async () => {
   const { scope } = panel();
   fireEvent.click(screen.getByRole('button', { name: /New terminal\s*Run/ }));
   expect(await screen.findByText('terminal:pty-1')).toBeVisible();
-  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
   fireEvent.click(screen.getByRole('button', { name: /Browser\s*Browse/ }));
   expect(await screen.findByText('browser:web-1')).toBeVisible();
   expect(invoke).toHaveBeenCalledWith({ scope, action: 'terminal-create' });
@@ -1269,7 +1291,7 @@ it('clears a previous error when returning to an existing file tab, keeping its 
   invoke.mockRejectedValueOnce(new Error('File changed on disk'));
   fireEvent.click(screen.getByRole('button', { name: 'Save file (Ctrl+S)' }));
   await screen.findByRole('alert');
-  fireEvent.click(screen.getAllByTitle('Start')[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
   expect(screen.queryByRole('alert')).toBeNull();
   fireEvent.click(screen.getByRole('tab', { name: /^note\.txt/ }));
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('local draft');
@@ -1318,4 +1340,20 @@ it('opens a local video in the right panel with playback controls and no editing
   expect(screen.getByRole('status')).toHaveTextContent('Media could not be loaded');
   fireEvent.click(screen.getByRole('button', { name: 'Reload file from disk' }));
   await waitFor(() => expect(view.container.querySelector('video')).toHaveAttribute('controls'));
+});
+
+it('replaces the new page with the chosen function and reopens one empty page from plus', async () => {
+  render(<WorkspacePanelContent scope={{ sessionId: 'new-tab-flow', root: 'C:/fixture' }} expanded width={560} onExpandedChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+  expect(screen.getByRole('tab', { name: 'New tab' })).toHaveAttribute('aria-selected', 'true');
+  fireEvent.click(screen.getByRole('button', { name: /Workspace files.*Browse/ }));
+  expect(screen.queryByRole('tab', { name: 'New tab' })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getAllByRole('tab').slice(0, 3).map(tab => tab.textContent)).toEqual(['Changes', 'Subagents', 'Files']);
+  fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
+  fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
+  expect(screen.getAllByRole('tab', { name: 'New tab' })).toHaveLength(1);
+  expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: /Workspace files.*Browse/ }));
+  expect(screen.queryByRole('tab', { name: 'New tab' })).toBeNull();
+  expect(screen.getAllByRole('tab', { name: 'Files' })).toHaveLength(1);
 });

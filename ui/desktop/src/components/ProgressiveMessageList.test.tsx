@@ -1982,3 +1982,17 @@ describe('tool cards across active-turn notification messages', () => {
     }
   });
 });
+
+it('reveals an unmounted historical turn for timeline navigation without dropping later replies', async () => {
+  const history = Array.from({ length: 70 }, (_, index) => ({ ...message(index), role: index % 2 ? 'assistant' as const : 'user' as const }));
+  const ready = vi.fn();
+  const props = { messages: history, chat: { sessionId: 'timeline-history-test' }, isUserMessage: (m: Message) => m.role === 'user', maxVisibleMessages: 4, onNavigationReady: ready };
+  const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
+  expect(view.container.querySelector('[data-chat-turn-id="message-0"]')).toBeNull();
+  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 1 }} />);
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
+  expect(ready.mock.calls[0][0]).toHaveAttribute('data-chat-turn-id', 'message-0');
+  expect(view.container.querySelector('[data-chat-turn-id="message-68"]')).not.toBeNull();
+  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 2 }} />);
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(2));
+});

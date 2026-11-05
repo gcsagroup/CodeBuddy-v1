@@ -1,4 +1,8 @@
-import { dialog, Menu, type BrowserWindow } from 'electron';
+import { app, dialog, Menu, nativeImage, type BrowserWindow } from 'electron';
+import {
+  queryWindowsAssociations,
+  type WindowsFileAssociations,
+} from './workspaceWindowsAssociations';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -59,6 +63,14 @@ export async function discoverCodeEditors(): Promise<CodeEditorPreference[]> {
     for (const root of roots)
       for (const [folder, exe, label, kind] of apps)
         candidates.push(editorAt(path.join(root, folder, exe), label, kind));
+    if (process.env.SystemRoot)
+      candidates.push(
+        editorAt(
+          path.join(process.env.SystemRoot, 'System32', 'notepad.exe'),
+          '记事本 / Notepad',
+          'generic'
+        )
+      );
     // PATH may contain an editor's bin folder even for a nonstandard install.
     // Resolve the executable itself; never run a .cmd shim through a shell.
     for (const root of (process.env.PATH ?? '').split(path.delimiter).filter(path.isAbsolute))
@@ -68,6 +80,7 @@ export async function discoverCodeEditors(): Promise<CodeEditorPreference[]> {
           candidates.push(editorAt(path.join(root, '..', exe), label, kind));
       }
   } else if (process.platform === 'darwin') {
+    candidates.push(editorAt('/System/Applications/TextEdit.app', 'TextEdit', 'generic'));
     for (const root of ['/Applications', path.join(os.homedir(), 'Applications')])
       for (const [name, kind] of [
         ['Visual Studio Code', 'vscode'],
@@ -148,8 +161,13 @@ async function chooseEditor(
     ]).popup({ window: win, callback: () => resolve(null) });
   });
   if (choice !== 'browse') return choice;
+  return browseApplication(win, settings);
+}
+
+async function browseApplication(win: BrowserWindow, settings: CodeEditorSettings) {
+  const t = settings.t ?? ((english: string) => english);
   const result = await dialog.showOpenDialog(win, {
-    title: t('Choose default code editor', '选择默认代码编辑器', '選擇預設程式碼編輯器'),
+    title: t('Choose an application', '选择应用', '選擇應用程式'),
     properties: ['openFile'],
     ...(process.platform === 'win32'
       ? { filters: [{ name: 'Application', extensions: ['exe'] }] }
@@ -204,6 +222,14 @@ export async function openCodeFile(
   if (!editor) return 'preview';
   // Re-check the owner and file after native menus/dialogs; never open a stale target.
   await validate();
+  await launchCodeEditor(editor, file, line);
+  if (editor !== stored) settings.set(editor);
+  return 'opened';
+}
+
+export async function launchCodeEditor(editor: CodeEditorPreference, file: string, line?: number) {
+  if (!(await available(editor)))
+    throw new Error('The selected application is no longer available');
   const location = Number.isSafeInteger(line) && line! > 0 ? line : undefined;
   const args =
     editor.kind === 'vscode'
@@ -228,6 +254,109 @@ export async function openCodeFile(
       resolve();
     });
   });
-  if (editor !== stored) settings.set(editor);
-  return 'opened';
+}
+
+export type TargetApplication =
+  | CodeEditorPreference
+  | { associationId: string }
+  | 'default'
+  | 'reveal'
+  | 'system'
+  | null;
+
+export async function chooseTargetApplication(
+  win: BrowserWindow,
+  directory: boolean,
+  textFile: boolean,
+  settings: CodeEditorSettings,
+  target?: { file: string; editorOnly: boolean }
+): Promise<TargetApplication> {
+  const t = settings.t ?? ((english: string) => english);
+  const useAssociations =
+    process.platform === 'win32' && !directory && target && !target.editorOnly;
+  let associations: WindowsFileAssociations | undefined;
+  let lookupFailed = false;
+  if (useAssociations) {
+    try {
+      associations = await queryWindowsAssociations(target.file);
+    } catch {
+      lookupFailed = true;
+    }
+  }
+  const editors = directory || textFile ? await discoverCodeEditors() : [];
+  const current = settings.get();
+  if (
+    (directory || textFile) &&
+    (await available(current)) &&
+    !editors.some((item) => item.path === (current as CodeEditorPreference).path)
+  )
+    editors.unshift(current as CodeEditorPreference);
+  const choices = editors.filter(
+    (editor) =>
+      (!directory || ['vscode', 'sublime'].includes(editor.kind)) &&
+      !associations?.handlers.some(
+        (handler) =>
+          handler.id.toLowerCase() === editor.path.toLowerCase() || handler.label === editor.label
+      )
+  );
+  const editorItems = await Promise.all(
+    choices.map(async (editor) => ({
+      label: editor.label,
+      icon: await app.getFileIcon(editor.path, { size: 'small' }).catch(() => undefined),
+      click: () => editor,
+    }))
+  );
+  const selected = await new Promise<TargetApplication | 'browse'>((resolve) => {
+    Menu.buildFromTemplate([
+      {
+        label: directory
+          ? t('File manager (default)', '文件资源管理器（默认）', '檔案管理員（預設）')
+          : target?.editorOnly
+            ? t('Open in code editor', '用代码编辑器打开', '使用程式碼編輯器開啟')
+            : associations?.defaultLabel
+              ? `${associations.defaultLabel}${t(' (default)', '（默认）', '（預設）')}`
+              : t('Default application', '系统默认应用', '系統預設應用程式'),
+        click: () => resolve('default'),
+      },
+      ...(lookupFailed
+        ? [
+            {
+              label: t(
+                'System app list unavailable',
+                '暂时无法读取系统应用列表',
+                '暫時無法讀取系統應用程式清單'
+              ),
+              enabled: false,
+            },
+          ]
+        : []),
+      ...(associations?.handlers ?? [])
+        .filter((handler) => handler.label !== associations?.defaultLabel)
+        .map((handler) => ({
+          label: handler.label,
+          icon: handler.icon?.startsWith('data:image/png;base64,')
+            ? nativeImage.createFromDataURL(handler.icon)
+            : undefined,
+          click: () => resolve({ associationId: handler.id }),
+        })),
+      ...(associations?.handlers.length && editorItems.length
+        ? [{ type: 'separator' as const }]
+        : []),
+      ...editorItems.map((item, index) => ({ ...item, click: () => resolve(choices[index]) })),
+      ...(!directory
+        ? [
+            {
+              label: t('Choose another application…', '选择其他应用…', '選擇其他應用程式…'),
+              click: () => resolve(useAssociations ? 'system' : 'browse'),
+            },
+          ]
+        : []),
+      { type: 'separator' as const },
+      {
+        label: t('Show in folder', '显示文件位置', '顯示檔案位置'),
+        click: () => resolve('reveal'),
+      },
+    ]).popup({ window: win, callback: () => resolve(null) });
+  });
+  return selected === 'browse' ? browseApplication(win, settings) : selected;
 }

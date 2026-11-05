@@ -162,6 +162,7 @@ export function canOpenPanelFileExternally(file: string): boolean {
   return (
     externalDocuments.has(extension) ||
     externalText.has(extension) ||
+    ['.gitignore', '.gitattributes', '.editorconfig', '.env'].includes(path.basename(file).toLowerCase()) ||
     isPanelEditorFile(file) ||
     !!panelMediaType(file)
   );

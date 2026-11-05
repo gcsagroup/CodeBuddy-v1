@@ -3,13 +3,27 @@ import os from 'node:os';
 import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { openCodeFile, type CodeEditorSettings } from './workspaceCodeEditor';
+import {
+  openCodeFile,
+  chooseTargetApplication,
+  type CodeEditorSettings,
+} from './workspaceCodeEditor';
 import type { CodeEditorPreference } from '../utils/settings';
 
-const hooks = vi.hoisted(() => ({ stat: vi.fn(), menu: vi.fn(), choose: vi.fn(), spawn: vi.fn() }));
+const hooks = vi.hoisted(() => ({
+  stat: vi.fn(),
+  menu: vi.fn(),
+  choose: vi.fn(),
+  spawn: vi.fn(),
+  associations: vi.fn(),
+  icon: vi.fn(),
+}));
 vi.mock('node:fs/promises', () => ({ default: { stat: hooks.stat } }));
 vi.mock('node:child_process', () => ({ spawn: hooks.spawn, default: { spawn: hooks.spawn } }));
+vi.mock('./workspaceWindowsAssociations', () => ({ queryWindowsAssociations: hooks.associations }));
 vi.mock('electron', () => ({
+  app: { getFileIcon: hooks.icon },
+  nativeImage: { createFromDataURL: (value: string) => value },
   dialog: { showOpenDialog: hooks.choose },
   Menu: { buildFromTemplate: hooks.menu },
 }));
@@ -26,6 +40,8 @@ let pick: (items: Item[]) => void;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  hooks.icon.mockResolvedValue(undefined);
+  hooks.associations.mockResolvedValue({ defaultLabel: '', handlers: [] });
   files = new Set([editor.path]);
   menu = [];
   pick = () => {};
@@ -146,3 +162,76 @@ it('reports a launch failure without switching to a system file association', as
   expect(prefs.set).not.toHaveBeenCalled();
   expect(hooks.spawn).toHaveBeenCalledOnce();
 });
+
+it('offers installed editors for directories and text without changing preferences', async () => {
+  const prefs = settings();
+  pick = (items) => items.find((item) => item.label === 'VS Code')?.click?.();
+  expect(await chooseTargetApplication(win, true, false, prefs)).toEqual(editor);
+  expect(menu.some((item) => /Notepad/.test(item.label))).toBe(false);
+  expect(prefs.set).not.toHaveBeenCalled();
+  pick = (items) => items.find((item) => item.label === 'Default application')?.click?.();
+  expect(await chooseTargetApplication(win, false, false, prefs)).toBe('default');
+  expect(menu.some((item) => item.label === 'VS Code')).toBe(false);
+  pick = () => {};
+  expect(await chooseTargetApplication(win, false, true, prefs)).toBeNull();
+  expect(hooks.spawn).not.toHaveBeenCalled();
+});
+
+it.skipIf(process.platform !== 'win32')(
+  'uses type-specific Shell handlers and default labels without changing associations',
+  async () => {
+    const prefs = settings();
+    hooks.associations.mockResolvedValue({
+      defaultLabel: 'Picture viewer',
+      handlers: [{ id: 'packaged-photos', label: 'Photos', icon: 'data:image/png;base64,AA==' }],
+    });
+    pick = (items) => items.find((item) => item.label === 'Photos')?.click?.();
+    expect(
+      await chooseTargetApplication(win, false, false, prefs, {
+        file: 'C:/image.png',
+        editorOnly: false,
+      })
+    ).toEqual({ associationId: 'packaged-photos' });
+    expect(menu[0].label).toBe('Picture viewer (default)');
+    expect(menu.some((item) => item.label === 'VS Code')).toBe(false);
+    hooks.associations.mockResolvedValue({ defaultLabel: 'Notepad', handlers: [] });
+    pick = (items) => items.find((item) => item.label === 'Choose another application…')?.click?.();
+    expect(
+      await chooseTargetApplication(win, false, true, prefs, {
+        file: 'C:/package.json',
+        editorOnly: false,
+      })
+    ).toBe('system');
+    expect(hooks.associations).toHaveBeenLastCalledWith('C:/package.json');
+    expect(menu[0].label).toBe('Notepad (default)');
+    expect(prefs.set).not.toHaveBeenCalled();
+  }
+);
+
+it('never discovers or launches script interpreters through file associations', async () => {
+  pick = () => {};
+  await chooseTargetApplication(win, false, true, settings(), {
+    file: 'C:/script.ps1',
+    editorOnly: true,
+  });
+  expect(hooks.associations).not.toHaveBeenCalled();
+  expect(menu[0].label).toBe('Open in code editor');
+  expect(hooks.spawn).not.toHaveBeenCalled();
+});
+
+it.skipIf(process.platform !== 'win32')(
+  'keeps the system chooser available when discovery fails',
+  async () => {
+    hooks.associations.mockRejectedValue(new Error('Unavailable'));
+    pick = (items) => items.find((item) => item.label === 'Choose another application…')?.click?.();
+    expect(
+      await chooseTargetApplication(win, false, false, settings(), {
+        file: 'C:/a.pdf',
+        editorOnly: false,
+      })
+    ).toBe('system');
+    expect(menu.some((item) => item.label === 'System app list unavailable' && !item.enabled)).toBe(
+      true
+    );
+  }
+);

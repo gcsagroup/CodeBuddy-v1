@@ -16,6 +16,7 @@ import { getSessionExtensions, addSessionExtension } from '../acp/session-extens
 import type { ToolboxItem } from '../types/toolbox';
 import * as conversion from '../utils/conversionUtils';
 import { ATTACH_WORKSPACE_IMAGE } from '../workspace-panel/workspaceFilePanel';
+import { conversationMention } from './conversationMention';
 
 const selection = vi.hoisted(() => ({ item: null as ToolboxItem | null }));
 vi.mock('../acp/session-extensions', () => ({
@@ -85,6 +86,7 @@ function setup(
   canSubmitQueuedMessageWhileLoading = false,
   pauseQueueOnStop = false,
   pendingProps: {
+    initialValue?: string;
     messages?: Message[];
     onPendingMessageChange?: (sessionId: string, message: Message | undefined) => void;
     onSubmissionAccepted?: () => void;
@@ -226,6 +228,26 @@ describe('large pasted drafts', () => {
 });
 
 describe('workspace images added to the composer', () => {
+  it('sends sampled video images with their inspection scope through the composer', async () => {
+    const submit = vi.fn();
+    render(<ChatInput sessionId="video-evidence" chatState={ChatState.Idle}
+      handleSubmit={submit} onStop={vi.fn()} setView={vi.fn()} droppedFiles={[{
+        id: 'video', name: 'sample.mp4', path: '/sample.mp4', type: 'video/mp4',
+        isImage: false, isVideo: true,
+        frameDataUrls: ['data:image/jpeg;base64,YQ==', 'data:image/jpeg;base64,Yg=='],
+        videoSample: { durationSeconds: 10, timestampsSeconds: [0.25, 9.75] },
+      }]} />, { wrapper: IntlTestWrapper });
+    expect(screen.getByText('2 sampled frames · audio not analyzed')).toBeVisible();
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'Describe the clip' } });
+    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    const sent = submit.mock.calls[0][0];
+    expect(sent.msg).toContain('[Video inspection scope]');
+    expect(sent.msg).toContain('0:09.750');
+    expect(sent.msg).toContain('"audioAnalyzed":false');
+    expect(sent.images.map((image: { data: string }) => image.data)).toEqual(['YQ==', 'Yg==']);
+  });
+
   beforeEach(() => {
     localStorage.clear();
     vi.stubGlobal(
@@ -470,6 +492,45 @@ describe('compact queue presentation', () => {
 });
 
 describe('ChatInput queue delivery', () => {
+  it('keeps referenced conversations as chips across rejection and submits their canonical URI on retry', async () => {
+    const reference = conversationMention('native-source', 'Previous task').trim();
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) =>
+      lifecycle?.onRejectedBeforeAcceptance()
+    );
+    const view = setup(submit, undefined, false, false, { initialValue: `Continue work\n${reference}` });
+    view.changeState(ChatState.Idle);
+    const input = screen.getByTestId('chat-input');
+    expect(input).toHaveValue('Continue work');
+    expect(screen.getByRole('button', { name: 'Remove reference: Previous task' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0].msg).toBe(`Continue work\n${reference}`);
+    expect(input).toHaveValue('Continue work');
+    expect(screen.getByRole('button', { name: 'Remove reference: Previous task' })).toBeVisible();
+    submit.mockImplementation(async (_input, lifecycle) => lifecycle?.onAccepted());
+    fireEvent.change(input, { target: { value: 'Continue with the new requirement' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
+    expect(submit.mock.calls[1][0].msg).toBe(`Continue with the new requirement\n${reference}`);
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Remove reference: Previous task' })).toBeNull();
+  });
+
+  it('preserves a reference-only message through queue persistence and reload', async () => {
+    const reference = conversationMention('native-source', 'Previous task').trim();
+    const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
+    const view = setup(submit, undefined, false, false, { initialValue: reference });
+    fireEvent.keyDown(screen.getByTestId('chat-input'), { key: 'Enter' });
+    await waitFor(() => expect(new QueuedMessageStorage(localStorage, 'queue-test').read()[0]?.content).toBe(reference));
+    expect(screen.queryByRole('button', { name: 'Remove reference: Previous task' })).toBeNull();
+    view.unmount();
+    const restored = setup(submit);
+    restored.changeState(ChatState.Idle);
+    await userEvent.click(sendNow());
+    await waitFor(() => expect(submit).toHaveBeenCalledOnce());
+    expect(submit.mock.calls[0][0].msg).toBe(reference);
+  });
+
   it('persists the original desktop generation and keeps it on automatic delivery after Escape', async () => {
     updateDesktopOwnership({ paused: false, revision: null, generation: 'before', owner: null, queue: [] });
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());

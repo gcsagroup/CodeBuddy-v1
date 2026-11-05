@@ -1,7 +1,16 @@
 import { Recipe } from '../recipe';
 import type { Message } from './message';
 
+export type RequestBudget = {
+  model: string;
+  source: 'vllm-tokenizer' | 'pi-ai-estimate-context-tokens';
+  input: number;
+  output: number;
+  window: number;
+};
+
 export type TokenState = {
+  requestBudget?: RequestBudget;
   contextLimit?: number;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';

@@ -1,5 +1,7 @@
 import { getMainConversation, deliverMainConversationMessage } from './pets/mainConversation';
 import { useEffect, useState, useRef } from 'react';
+import { WindowMenuBar } from './components/Layout/WindowMenuBar';
+import './styles/desktop-shell.css';
 import { IpcRendererEvent } from 'electron';
 import {
   HashRouter,
@@ -44,7 +46,6 @@ import { MediaLibrary } from './components/media-library/MediaLibrary';
 import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
-import { WindowsTitleBar } from './components/Layout/WindowsTitleBar';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
@@ -856,13 +857,9 @@ export function AppInner() {
       />
       <ExtensionInstallModal addExtension={addExtension} setView={setView} />
       <RecipeParamsModalContainer />
-      <div className="relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
-        {window.appConfig?.get('WINDOW_TITLEBAR_OVERLAY') === true ? (
-          <WindowsTitleBar />
-        ) : (
-          <div className="titlebar-drag-region" />
-        )}
-        <div className="relative min-h-0 w-full flex-1">
+      <div data-platform={window.electron?.platform} className="desktop-shell relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
+        {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <WindowMenuBar />}
+        <div className="relative w-full flex-1 min-h-0">
           <CodeProRouteGuard unifiedMode={codeProUnifiedMode}>
             <Routes location={settingsBackgroundLocation ?? location}>
               <Route path="launcher" element={<LauncherView />} />

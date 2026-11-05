@@ -39,13 +39,16 @@ describe('history copy capability', () => {
     render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
       wrapper: IntlTestWrapper,
     });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'More actions for Project task' }));
     const unavailable = await screen.findByTitle(
       'Copying is unavailable for this session. Start a new task to work independently.'
     );
-    expect(unavailable).toBeDisabled();
-    const user = userEvent.setup();
+    expect(unavailable).toHaveAttribute('aria-disabled', 'true');
     await user.click(unavailable);
     expect(acpForkSession).not.toHaveBeenCalled();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'More actions for Ordinary chat' }));
     await user.click(screen.getByTitle('Duplicate session'));
     expect(acpForkSession).toHaveBeenCalledWith('ordinary');
   });

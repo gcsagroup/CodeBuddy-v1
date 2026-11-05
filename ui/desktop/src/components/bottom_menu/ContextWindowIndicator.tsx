@@ -2,7 +2,10 @@ import BottomMenuAlertPopover from './BottomMenuAlertPopover';
 import { Alert } from '../alerts';
 import { useIntl } from '../../i18n';
 
+import type { RequestBudget } from '../../types/chat';
+
 interface ContextWindowIndicatorProps {
+  requestBudget?: RequestBudget;
   totalTokens?: number;
   tokenLimit: number;
   alerts: Alert[];
@@ -17,6 +20,7 @@ const getProgressColor = (percentage: number): string => {
 };
 
 export function ContextWindowIndicator({
+  requestBudget,
   totalTokens,
   tokenLimit,
   alerts,
@@ -27,14 +31,17 @@ export function ContextWindowIndicator({
   const chinese = locale.startsWith('zh');
   const estimated = usageSource === 'local_estimate' || usageSource === 'streaming_estimate';
   const title = [
+    requestBudget && (chinese
+      ? `最近请求预检（${requestBudget.source === 'vllm-tokenizer' ? '服务端计数' : '本地估算'}） 输入 ${requestBudget.input}，输出上限 ${requestBudget.output}，窗口 ${requestBudget.window}`
+      : `Last request preflight (${requestBudget.source === 'vllm-tokenizer' ? 'server count' : 'local estimate'}) — input ${requestBudget.input}, output cap ${requestBudget.output}, window ${requestBudget.window}`),
     usageSource === 'streaming_estimate'
       ? chinese
         ? '生成中实时估算；在步骤边界检查自动压缩'
         : 'Live generation estimate; auto-compaction is checked between steps'
       : estimated
         ? chinese
-          ? 'CodeBuddy 保守估算，非计费量'
-          : 'CodeBuddy conservative estimate, not billed usage'
+          ? '会话用量估算；发送时按当前模型另行核算输入和输出预算'
+          : 'Session estimate. Input and output budgets are checked for the selected model when sending'
         : chinese
           ? '上下文用量'
           : 'Context usage',

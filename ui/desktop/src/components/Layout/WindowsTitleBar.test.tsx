@@ -9,7 +9,7 @@ vi.mock('../../contexts/ThemeContext', () => ({
 
 const getWindowMenu = vi.fn();
 const openWindowMenu = vi.fn();
-const setWindowTitleBarTheme = vi.fn();
+const setTitlebarTheme = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -18,10 +18,12 @@ beforeEach(() => {
     { index: 4, label: 'Ayuda', enabled: true },
   ]);
   openWindowMenu.mockResolvedValue(undefined);
+  setTitlebarTheme.mockResolvedValue(undefined);
   Object.assign(window.electron, {
+    platform: 'win32',
     getWindowMenu,
     openWindowMenu,
-    setWindowTitleBarTheme,
+    setTitlebarTheme,
   });
 });
 
@@ -38,7 +40,7 @@ it('uses the host menu labels and native index, and tracks the native popup life
   vi.spyOn(help, 'getBoundingClientRect').mockReturnValue({ left: 64, bottom: 40 } as DOMRect);
 
   await userEvent.click(help);
-  expect(openWindowMenu).toHaveBeenCalledWith({ index: 4, x: 64, y: 40 });
+  expect(openWindowMenu).toHaveBeenCalledWith(4, 64, 40);
   expect(help).toHaveAttribute('aria-expanded', 'true');
   await act(async () => closeMenu());
   expect(help).toHaveAttribute('aria-expanded', 'false');
@@ -51,8 +53,8 @@ it('supports moving between menus and opening a native menu with the keyboard', 
   await userEvent.keyboard('{ArrowRight}');
   expect(screen.getByRole('menuitem', { name: 'Ayuda' })).toHaveFocus();
   await userEvent.keyboard('{ArrowDown}');
-  expect(openWindowMenu).toHaveBeenCalledWith(expect.objectContaining({ index: 4 }));
-  expect(setWindowTitleBarTheme).toHaveBeenCalledWith('light');
+  expect(openWindowMenu).toHaveBeenCalledWith(4, expect.any(Number), expect.any(Number));
+  expect(setTitlebarTheme).toHaveBeenCalledWith('light');
 });
 
 it('keeps the input focus when opening a menu with the mouse so editing commands retain their target', async () => {

@@ -108,6 +108,7 @@ vi.mock('./ProgressiveMessageList', () => ({
 }));
 
 beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   fixture.activeToolCallIds = [];
   fixture.readonly = true;
   fixture.loading = false;
@@ -127,7 +128,7 @@ beforeEach(() => {
   Object.assign(window.electron, { logInfo: vi.fn() });
 });
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it('moves the actual footer from A through model output to B and resets its action clock', () => {
   vi.useFakeTimers();

@@ -8,6 +8,11 @@ import Hub from './Hub';
 import { createSession } from '../sessions';
 import { clearNewTaskDraft, updateNewTaskDraft } from '../utils/newTaskDraft';
 
+vi.mock('../acp/preferences', () => ({
+  readPreferences: vi.fn(async () => ({ revision: 1, values: [{ key: 'gooseMode', value: 'workspace-write', isMutable: true }] })),
+  savePreferences: vi.fn(async (values) => ({ revision: 2, values })),
+}));
+
 const navigate = vi.fn();
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
 vi.mock('./ConfigContext', () => ({ useConfig: () => ({ extensionsList: [] }) }));
@@ -278,7 +283,7 @@ describe('CodeProHub real composer setup', () => {
     expect(navigate).toHaveBeenCalledOnce();
   });
 
-  it('lets the user choose permissions before the first send and passes only that new-chat draft', async () => {
+  it('lets the user choose permissions before the first send and uses the confirmed permission for its first send', async () => {
     const user = userEvent.setup();
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
     await user.click(screen.getByRole('button', { name: 'How should actions be approved?' }));

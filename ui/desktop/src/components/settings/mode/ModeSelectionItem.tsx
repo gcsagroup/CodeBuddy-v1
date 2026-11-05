@@ -16,7 +16,7 @@ const i18n = defineMessages({
   autonomousDescription: {
     id: 'modeSelectionItem.autonomousDescription',
     defaultMessage:
-      'Run without the file and command sandbox. Explicit tool restrictions still apply; operations requiring approval cannot ask.',
+      'The file and command sandbox is off. Explicit tool restrictions still apply. Installing an MCP extension requires confirmation each time.',
   },
   manualLabel: {
     id: 'modeSelectionItem.manualLabel',

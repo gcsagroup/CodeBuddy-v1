@@ -121,7 +121,7 @@ const named = (
 ) => response(id, jobId, status, { display_name: name, ...extra });
 
 describe('media task presentation', () => {
-  it('uses one collapsed, bounded process entry for eight distinct failures without assuming a batch or merging their receipts', () => {
+  it('uses one collapsed process entry for eight distinct failures without assuming a batch or merging their receipts', () => {
     const ids = Array.from(
       { length: 8 },
       (_, index) => `11111111-2222-4333-8444-${String(index + 1).padStart(12, '0')}`
@@ -142,7 +142,7 @@ describe('media task presentation', () => {
     expect(view.container.querySelector('[data-media-job-id]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Image generation unsuccessful' }));
     const group = view.container.querySelector('.codepro-process-details');
-    expect(group).toHaveClass('max-h-72', 'overflow-y-auto');
+    expect(group).not.toHaveClass('max-h-72', 'overflow-y-auto');
     const jobs = view.container.querySelectorAll('[data-media-job-id]');
     expect(jobs).toHaveLength(8);
     const first = jobs[0] as HTMLElement;
@@ -598,9 +598,10 @@ describe('media task presentation', () => {
       openProcesses(view.container);
       expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
       openProcesses(view.container);
-      expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
-      fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
-      const thinking = [...view.container.querySelectorAll('.codepro-thinking-record')];
+      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+      expect(screen.getByText('Before media.')).toBeVisible();
+      expect(screen.getByText('After media.')).toBeVisible();
+      const thinking = [...view.container.querySelectorAll('.codepro-thinking-details')];
       expect(thinking).toHaveLength(2);
       for (const record of thinking) {
         expect(record.closest('[data-media-job-id]')).toBeNull();
@@ -608,7 +609,7 @@ describe('media task presentation', () => {
       }
       const ordered = [
         ...view.container.querySelectorAll(
-          '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
+          '.codepro-thinking-details, [data-media-job-id], [data-tool-call-id="command"]'
         ),
       ];
       expect(ordered).toEqual([
@@ -685,15 +686,15 @@ describe('media task presentation', () => {
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2);
     const later = view.container.querySelectorAll('[data-process-group]')[1] as HTMLElement;
-    expect(later.querySelector('.codepro-group-heading')).toBeNull();
+    expect(later.querySelector('.codepro-group-heading')).not.toBeNull();
     expect(within(later).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(within(later).getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
-    expect(later.querySelector('.codepro-thinking-record')).not.toBeNull();
+    expect(within(later).getByText('Checking the remote task.')).toBeVisible();
+    expect(later.querySelector('.codepro-thinking-details')).not.toBeNull();
     expect(later.querySelector('[data-media-job-id]')).toBeNull();
   });
 
   it.each([1, 2, 3])(
-    'uses the original single-thought entry and preserves the existing %s-thought disclosure hierarchy',
+    'shows all %s thoughts directly after expanding their process',
     (count) => {
       const trace = Array.from({ length: count }, (_, index) =>
         message('thought-' + index, 'assistant', [
@@ -702,22 +703,10 @@ describe('media task presentation', () => {
       );
       const view = render(history(trace), { wrapper: IntlTestWrapper });
       openProcesses(view.container);
-      if (count === 1) {
-        expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-        expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
-        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
-        expect(screen.queryByText('Reasoning part 0')).toBeNull();
-        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-        expect(screen.getByText('Reasoning part 0')).toBeVisible();
-        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-        expect(screen.queryByText('Reasoning part 0')).toBeNull();
-      } else {
-        expect(view.container.querySelector('.codepro-group-heading')).not.toBeNull();
-        openProcesses(view.container);
-        expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
-        fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
-        expect(view.container.querySelectorAll('.codepro-thinking-record')).toHaveLength(count);
-        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(count + 1);
+      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+      expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(count);
+      for (let index = 0; index < count; index++) {
+        expect(screen.getByText('Reasoning part ' + index)).toBeVisible();
       }
     }
   );
@@ -733,9 +722,7 @@ describe('media task presentation', () => {
       { wrapper: IntlTestWrapper }
     );
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+    openProcesses(view.container);
     expect(view.container).toHaveTextContent('First fragment.');
     expect(view.container).toHaveTextContent('Second fragment.');
   });
@@ -759,14 +746,14 @@ describe('media task presentation', () => {
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     openProcesses(view.container);
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+    expect(screen.getByText('Before the image.')).toBeVisible();
     const ordered = [
       ...view.container.querySelectorAll(
-        '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
+        '.codepro-thinking-details, [data-media-job-id], [data-tool-call-id="command"]'
       ),
     ];
     expect(ordered).toHaveLength(3);
-    expect(ordered[0]).toHaveClass('codepro-thinking-record');
+    expect(ordered[0]).toHaveClass('codepro-thinking-details');
     expect(ordered[1]).toHaveAttribute('data-media-job-id', jobA);
     expect(ordered[2]).toHaveAttribute('data-tool-call-id', 'command');
     expect(screen.queryByText('KSampler: actual failure')).toBeNull();

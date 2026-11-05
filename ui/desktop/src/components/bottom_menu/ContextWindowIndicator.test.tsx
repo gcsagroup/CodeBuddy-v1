@@ -43,6 +43,7 @@ it('shows usage on hover and updates provenance after compaction', async () => {
   );
   rerender(
     <ContextWindowIndicator
+      requestBudget={{ model: 'switched', source: 'vllm-tokenizer', input: 58666, output: 2774, window: 65536 }}
       totalTokens={3200}
       tokenLimit={65536}
       usageSource="local_estimate"
@@ -50,6 +51,7 @@ it('shows usage on hover and updates provenance after compaction', async () => {
       alerts={[]}
     />
   );
+  expect(screen.getByRole('button')).toHaveAttribute('aria-description', expect.stringMatching(/server count.*58666.*2774.*65536/));
   expect(screen.getByRole('button', { name: 'Context usage: 3,200 / 65,536 (5%)' })).toBeVisible();
   expect(screen.getByRole('button')).toHaveAttribute(
     'aria-description',

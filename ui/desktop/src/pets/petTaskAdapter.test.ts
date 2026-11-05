@@ -14,7 +14,7 @@ describe('pet task observer', () => {
       ],
       chatState: ChatState.Streaming,
     } as unknown as AcpChatSessionSnapshot;
-    expect(petTaskFromSnapshot('new', pending).title).toBe('Build my weather app');
+    expect(petTaskFromSnapshot('new', pending).title).toBe('新对话');
     expect(
       petTaskFromSnapshot('new', {
         ...pending,

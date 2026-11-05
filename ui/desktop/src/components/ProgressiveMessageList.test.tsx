@@ -184,6 +184,19 @@ const sourceUserMessage: Message = {
   metadata: { userVisible: true, agentVisible: true },
 };
 
+it('keeps the committed compaction receipt visible in the conversation', async () => {
+  const receipt: Message = {
+    id: 'compact-receipt', role: 'assistant', created: 2,
+    content: [{ type: 'systemNotification', notificationType: 'progressMessage', msg: '', data: {
+      schema_version: 1, event: 'compaction_lifecycle', operation_id: 'compact-one',
+      status: 'completed', trigger: 'auto', started_at: '2026-11-05T00:00:00Z',
+    } }], metadata: { userVisible: true, agentVisible: false },
+  };
+  render(<ProgressiveMessageList messages={[sourceUserMessage, receipt]} chat={{sessionId:'receipt-test'}}
+    sessionType="code_pro" isUserMessage={m => m.role === 'user'} />, { wrapper: IntlTestWrapper });
+  expect(await screen.findByText('Context automatically compacted')).toBeVisible();
+});
+
 it('keeps native lifecycle captions at the same disclosure level as ordinary work records', async () => {
   const adapter = createAcpSessionNotificationAdapter([sourceUserMessage]);
   for (const phase of ['start', 'end'] as const)
@@ -1074,10 +1087,11 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(compactGroups()).toHaveLength(1);
     openProcess();
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
-    for (const toggle of screen.getAllByRole('button', { name: /^Thinking(?: \(updating\))?$/ })) {
-      if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
-    }
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(compactGroups()[0].querySelectorAll('button')).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')).toBeNull();
+    expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className)
+      .not.toMatch(/max-h-|overflow-y-auto|overflow-y-scroll/);
     for (const text of ['First thought.', 'Continued thought.', 'After discovery.'])
       expect(screen.getByText(text)).toBeVisible();
     expect(records).toEqual(original);
@@ -2036,4 +2050,18 @@ describe('tool cards across active-turn notification messages', () => {
       await permissionResponse;
     }
   });
+});
+
+it('reveals an unmounted historical turn for timeline navigation without dropping later replies', async () => {
+  const history = Array.from({ length: 70 }, (_, index) => ({ ...message(index), role: index % 2 ? 'assistant' as const : 'user' as const }));
+  const ready = vi.fn();
+  const props = { messages: history, chat: { sessionId: 'timeline-history-test' }, isUserMessage: (m: Message) => m.role === 'user', maxVisibleMessages: 4, onNavigationReady: ready };
+  const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
+  expect(view.container.querySelector('[data-chat-turn-id="message-0"]')).toBeNull();
+  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 1 }} />);
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
+  expect(ready.mock.calls[0][0]).toHaveAttribute('data-chat-turn-id', 'message-0');
+  expect(view.container.querySelector('[data-chat-turn-id="message-68"]')).not.toBeNull();
+  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 2 }} />);
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(2));
 });

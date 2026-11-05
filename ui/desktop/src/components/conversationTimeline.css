@@ -1,0 +1,79 @@
+.conversation-timeline {
+  position: absolute;
+  left: 2px;
+  top: 16px;
+  bottom: 24px;
+  width: 22px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.conversation-timeline::-webkit-scrollbar {
+  display: none;
+}
+.conversation-timeline-tick {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 7px;
+  max-height: 18px;
+  flex: 1 1 18px;
+  padding: 0 5px;
+  cursor: pointer;
+}
+.conversation-timeline-tick span {
+  height: 2px;
+  width: 8px;
+  border-radius: 2px;
+  background: var(--color-text-secondary);
+  opacity: 0.3;
+  transition:
+    width 0.15s ease,
+    opacity 0.15s ease;
+}
+.conversation-timeline-tick:hover span,
+.conversation-timeline-tick:focus-visible span,
+.conversation-timeline-tick[data-visible='true'] span {
+  width: 16px;
+  opacity: 0.95;
+}
+.conversation-timeline-tick[data-visible='true'] span {
+  background: var(--color-text-primary);
+  opacity: 1;
+}
+.conversation-timeline-tick:focus-visible {
+  outline: 1px solid var(--color-text-secondary);
+  border-radius: 3px;
+}
+.conversation-timeline-preview {
+  width: min(330px, calc(100vw - 60px));
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px #00000014;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.conversation-timeline-preview strong,
+.conversation-timeline-preview p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  line-height: 1.6;
+}
+.conversation-timeline-preview p {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  -webkit-line-clamp: 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-timeline-tick span {
+    transition: none;
+  }
+}

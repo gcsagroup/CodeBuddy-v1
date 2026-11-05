@@ -6,9 +6,8 @@ import type { Session } from '../types/session';
 import { acpSetSessionMode } from '../acp/sessions';
 import { all_goose_modes } from './settings/mode/ModeSelectionItem';
 import { parseSessionMode } from '../utils/sessionMode';
-import { readPreferences } from '../acp/preferences';
+import { readPreferences, savePreferences } from '../acp/preferences';
 import { DropdownChevron } from './ui/DropdownChevron';
-import { readNewTaskDraft, updateNewTaskDraft, type NewTaskDraftKey } from '../utils/newTaskDraft';
 
 const i18n = defineMessages({
   projectContainer: {
@@ -23,7 +22,7 @@ const i18n = defineMessages({
   busy: {
     id: 'sessionPermissions.busy',
     defaultMessage:
-      'Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions.',
+      'Applies to all chats on this device. Actions already in progress keep their permissions.',
   },
   error: {
     id: 'sessionPermissions.saveError',
@@ -32,7 +31,7 @@ const i18n = defineMessages({
   onlySession: {
     id: 'sessionPermissions.onlySession',
     defaultMessage:
-      'Applies to this conversation only. Existing tool permission rules still apply.',
+      'Applies to all chats on this device. Individual tool rules still apply.',
   },
   autoLabel: { id: 'sessionPermissions.autoLabel', defaultMessage: 'Full access' },
   manualLabel: {
@@ -67,7 +66,7 @@ const i18n = defineMessages({
   fullAccess: {
     id: 'sessionPermissions.fullAccess',
     defaultMessage:
-      'The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply.',
+      'The file and command sandbox is off. Explicit tool restrictions still apply. Installing an MCP extension requires confirmation each time.',
   },
   unknownScope: {
     id: 'sessionPermissions.unknownScope',
@@ -104,36 +103,27 @@ export function SessionPermissionSummary({
 
 type PermissionPreset = NonNullable<Session['goose_mode']>;
 
-// Before a session exists this is only a user draft. It becomes execution
-// authority after session/new returns the preset committed by DSH.
-export function useInitialPermissionPreset(key: NewTaskDraftKey) {
-  const [preset, setPreset] = useState<PermissionPreset | undefined>(() =>
-    parseSessionMode(readNewTaskDraft(key).permissionPreset)
-  );
-  const selected = useRef(Boolean(preset));
+export function useInitialPermissionPreset() {
+  const [preset, setPreset] = useState<PermissionPreset>();
+  const revision = useRef(-1);
+  const apply = (snapshot: Awaited<ReturnType<typeof readPreferences>>) => {
+    if (snapshot.revision < revision.current) return;
+    revision.current = snapshot.revision;
+    const value = snapshot.values.find(entry => entry.key === 'gooseMode')?.value;
+    setPreset(value == null ? 'workspace-write' : parseSessionMode(value));
+  };
   useEffect(() => {
-    let cancelled = false;
-    void readPreferences(['gooseMode'])
-      .then((snapshot) => {
-        if (cancelled || selected.current) return;
-        const value = snapshot.values.find((entry) => entry.key === 'gooseMode')?.value;
-        setPreset(value == null ? 'workspace-write' : parseSessionMode(value));
-      })
-      .catch(() => {
-        /* Keep unknown; the user may still choose explicitly. */
-      });
-    return () => {
-      cancelled = true;
+    let active = true;
+    const refresh = () => {
+      void readPreferences(['gooseMode']).then(snapshot => { if (active) apply(snapshot); }).catch(() => {});
     };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
   }, []);
-  return [
-    preset,
-    (value: PermissionPreset) => {
-      selected.current = true;
-      updateNewTaskDraft(key, { permissionPreset: value });
-      setPreset(value);
-    },
-  ] as const;
+  return [preset, async (value: PermissionPreset) => {
+    apply(await savePreferences([{ key: 'gooseMode', value, isMutable: true }]));
+  }] as const;
 }
 
 export function PermissionPicker({

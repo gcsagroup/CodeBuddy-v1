@@ -25,12 +25,11 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { ChevronRight, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, {
   codeProTerminalPresentation,
   hasMissingFinalReply,
-  isRepeatedToolThinking,
 } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
@@ -195,6 +194,8 @@ interface ProgressiveMessageListProps {
   suppressProviderThinking?: boolean;
   foldTurns?: boolean;
   workspaceRoot?: string;
+  navigationTarget?: { messageId: string; request: number };
+  onNavigationReady?: (element: HTMLElement) => void;
 }
 
 export default function ProgressiveMessageList(props: ProgressiveMessageListProps) {
@@ -223,6 +224,8 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
 }
 
 function OrderedMessageList(props: ProgressiveMessageListProps) {
+  const navigationRoot = useRef<HTMLDivElement>(null);
+  const navigatedRequest = useRef<number | undefined>(undefined);
   const [visibleLimit, setVisibleLimit] = useState(props.maxVisibleMessages ?? 40);
   const following = useContext(ScrollFollowingContext);
   const holdAnchor = useContext(ScrollLayoutAnchorContext);
@@ -342,6 +345,10 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
       if (previous >= 0) startIndex = Math.min(startIndex, previous);
     }
   }
+  const navigationIndex = props.navigationTarget
+    ? projectedMessages.findIndex(message => message.id === props.navigationTarget?.messageId)
+    : -1;
+  if (navigationIndex >= 0) startIndex = Math.min(startIndex, navigationIndex);
   useLayoutEffect(() => {
     // Search can visit any old match. Keep the prior reading window so closing
     // search cannot pin the entire history when the reader is away from the tail.
@@ -374,8 +381,21 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
       onHistoryRendered?.(historySessionId);
     }
   }, [historyMessageCount, historySessionId, onHistoryRendered, presentation.pending]);
+  // ScrollArea exposes its handle in a parent layout effect. Navigate only after
+  // that commit, when both the historical anchor and the scroll handle exist.
+  const { navigationTarget, onNavigationReady } = props;
+  useEffect(() => {
+    const target = navigationTarget;
+    if (!target || navigatedRequest.current === target.request) return;
+    const anchor = Array.from(navigationRoot.current?.querySelectorAll<HTMLElement>('[data-chat-turn-id]') ?? [])
+      .find(element => element.dataset.chatTurnId === target.messageId);
+    if (anchor) {
+      navigatedRequest.current = target.request;
+      onNavigationReady?.(anchor);
+    }
+  }, [navigationTarget, onNavigationReady, presentation.messages]);
   return (
-    <>
+    <div ref={navigationRoot} className="contents">
       {startIndex > 0 && (
         <EarlierHistorySentinel
           onLoad={(element) => {
@@ -397,38 +417,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         sharedMediaJobs={mediaJobs}
         presentationPending={!props.renderMessage && presentation.pending}
       />
-    </>
-  );
-}
-
-function ProcessDetails({
-  hasThinking,
-  children,
-}: {
-  hasThinking: boolean;
-  children: (showThinking: boolean) => React.ReactNode;
-}) {
-  const intl = useIntl();
-  const [showThinking, setShowThinking] = useState(false);
-  return (
-    <>
-      {hasThinking && (
-        <button
-          type="button"
-          aria-pressed={showThinking}
-          aria-expanded={showThinking}
-          className="mb-1 inline-flex items-center gap-1 self-start text-left text-xs text-text-secondary hover:text-text-primary"
-          onClick={() => setShowThinking((shown) => !shown)}
-        >
-          {intl.formatMessage(i18n.thinkingDetails)}
-          <ChevronRight
-            aria-hidden="true"
-            className={`h-3 w-3 shrink-0 transition-transform ${showThinking ? 'rotate-90' : ''}`}
-          />
-        </button>
-      )}
-      {children(showThinking)}
-    </>
+    </div>
   );
 }
 
@@ -590,6 +579,8 @@ function ProgressiveMessageListContent({
   const renderSystemNotification = useCallback(
     (notification: SystemNotificationContent, isActiveActivity: boolean, messageIndex?: number) => {
       switch (notification.notificationType) {
+        case 'progressMessage':
+          return <SystemNotificationInline notification={notification} />;
         case 'creditsExhausted':
           return <CreditsExhaustedNotification notification={notification} />;
         case 'codeProActivity':
@@ -1194,19 +1185,6 @@ function ProgressiveMessageListContent({
           const onlyMedia =
             groupRequests.length > 0 && groupRequests.every((request) => mediaJobs.has(request.id));
           const mediaOnlyView = onlyMedia && groupMedia.length > 0;
-          const thinkingCount = suppressProviderThinking
-            ? 0
-            : group.reduce((count, item) => {
-                if (isRepeatedToolThinking(parts.get(item)?.message ?? item, sourceMessages))
-                  return count;
-                return (
-                  count +
-                  item.content.filter(
-                    (content, offset) =>
-                      content.type === 'thinking' && item.content[offset - 1]?.type !== 'thinking'
-                  ).length
-                );
-              }, 0);
           // A hidden poll can leave an empty transport shell, but cannot hide
           // original thinking, ordinary tools, lifecycle events or approvals.
           if (
@@ -1248,24 +1226,6 @@ function ProgressiveMessageListContent({
           // A late reasoning block changes content, never the group's identity.
           const groupIdentity = message.id ?? requests[0]?.id ?? index;
           const identity = `${groupIdentity}:${part?.start ?? 0}`;
-          const hasVisibleTool = groupRequests.some((request) => {
-            const job = mediaJobs.get(request.id);
-            return !job || job.anchorId === request.id || approvals.has(request.id);
-          });
-          // A single thought already owns a disclosure. Keep that original
-          // renderer in place without adding two more thought-only headers.
-          if (thinkingCount === 1 && !hasVisibleTool && !group.some(lifecycleNotification)) {
-            return (
-              <div
-                key={`tools-${identity}`}
-                className="my-0.5 w-full max-w-[52rem]"
-                data-testid="message-container"
-                data-process-group=""
-              >
-                {group.map((item) => renderToolMessage(item, true, pendingIds))}
-              </div>
-            );
-          }
           const attentionStates = group
             .flatMap(getToolRequests)
             .flatMap((request): ('failed' | 'unknown')[] => {
@@ -1303,7 +1263,12 @@ function ProgressiveMessageListContent({
             );
           const latestPart = group[group.length - 1];
           const thinkingNow =
-            !activeRequest && !settled && isStreamingMessage && isThinkingMessage(latestPart);
+            !activeRequest &&
+            !settled &&
+            isStreamingMessage &&
+            !!latestPart.id &&
+            thinkingActivity?.messageId === latestPart.id &&
+            isThinkingMessage(latestPart);
           const headlineRequest = activeRequest ?? groupRequests[groupRequests.length - 1];
           const headlineCall = headlineRequest ? presentedToolCall(headlineRequest) : undefined;
           const headlineStatus = headlineRequest
@@ -1360,7 +1325,8 @@ function ProgressiveMessageListContent({
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable
+                scrollable={false}
+                contentClassName="codepro-process-details bg-transparent py-0.5"
                 label={label}
                 icon={
                   thinkingNow ? (
@@ -1405,13 +1371,7 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  <ProcessDetails hasThinking={thinkingCount > 1}>
-                    {(showThinking) =>
-                      group.map((item) =>
-                        renderToolMessage(item, showThinking || thinkingCount === 1, pendingIds)
-                      )
-                    }
-                  </ProcessDetails>
+                  {group.map((item) => renderToolMessage(item, true, pendingIds))}
                 </div>
               </ToolCallExpandable>
               {awaitingApproval && (
@@ -1922,7 +1882,7 @@ function ProgressiveMessageListContent({
           const completedAt =
             hasTerminalBoundary && terminal ? Date.parse(terminal.finished_at) / 1000 : undefined;
           return (
-            <section key={turn[0]?.id ?? start} className="mb-6">
+            <section key={turn[0]?.id ?? start} data-chat-turn-id={turn[0]?.id} className="mb-6">
               {renderSlice(turn, 0, userEnd, streaming, pending, settled)}
               <TurnProcessHistory
                 settled={settled && hasHistory}

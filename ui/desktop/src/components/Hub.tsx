@@ -60,7 +60,7 @@ export default function Hub({
 }) {
   const intl = useIntl();
   const { extensionsList } = useConfig();
-  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset('code');
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
   const [workingDir, setWorkingDir] = useState(
     () => initialWorkingDir ?? readNewTaskDraft('code').workingDir ?? getInitialWorkingDir()
   );
@@ -114,7 +114,6 @@ export default function Hub({
       const launch = await runWithOrdinaryWorkingDir(workingDir, (selectedWorkingDir) =>
         createSession(selectedWorkingDir, {
           ...sessionOptions,
-          ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
         })
       );
       if (!launch) {

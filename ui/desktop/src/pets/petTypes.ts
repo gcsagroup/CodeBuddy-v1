@@ -39,7 +39,8 @@ export interface PetTask {
   title: string;
   state: PetTaskState;
   terminalId?: string;
-  inputRequest?: { kind: 'question' | 'permission' | 'workspace'; summary?: string };
+  inputRequest?: { kind: 'question' | 'permission' | 'workspace'; summary?: string;
+    permission?: { requestId: string; token: string; choices: Array<{ action: import('../types/permissions').Permission; label: string }>; details: string } };
   activity?: {
     kind: 'waiting' | 'thinking' | 'responding' | 'tool' | 'compacting' | 'starting' | 'stopping';
     toolName?: string;
@@ -66,7 +67,9 @@ export interface PetRequest {
     | 'drag-end'
     | 'compose'
     | 'context-menu'
-    | 'send-message';
+    | 'send-message'
+    | 'resolve-permission';
+  permission?: { requestId: string; token: string; action: import('../types/permissions').Permission };
   preferences?: Partial<Pick<PetPreferences, 'visible' | 'selectedId' | 'size' | 'reducedMotion'>>;
   sessionId?: string;
   composing?: boolean;

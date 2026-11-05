@@ -1,4 +1,5 @@
 import GooseLogo from './GooseLogo';
+import { Layers3 } from 'lucide-react';
 import AnimatedIcons from './AnimatedIcons';
 import { ChatState } from '../types/chatState';
 import { defineMessages, useIntl } from '../i18n';
@@ -38,6 +39,8 @@ export function isCheckingExecutionResults(message?: string): boolean {
 }
 
 const i18n = defineMessages({
+  compactionHint: { id: 'loadingGoose.compactionHint', defaultMessage: 'Generating a continuation summary. Original messages remain in this conversation.' },
+  compactionWait: { id: 'loadingGoose.compactionWait', defaultMessage: 'Still waiting for the model. Large conversations may take longer; you can stop and retry.' },
   loadingConversation: {
     id: 'loadingGoose.loadingConversation',
     defaultMessage: 'loading conversation...',
@@ -127,6 +130,26 @@ const LoadingGoose = ({
       })
     : message || localizedStateMessage.replace(/CodeBuddy/g, assistantName);
   const icon = STATE_ICONS[chatState];
+
+  if (compacting) return (
+    <div data-testid="loading-indicator" role="status" aria-live="polite" aria-busy="true"
+      className="my-2 overflow-hidden rounded-xl border border-border-primary bg-background-secondary/50">
+      <div className="flex items-start gap-2.5 px-3 py-2.5">
+        <Layers3 className="mt-0.5 size-4 shrink-0 text-text-secondary motion-safe:animate-pulse" />
+        <div className="min-w-0 space-y-1">
+          <span className="sr-only">{intl.formatMessage(i18n.compacting)}</span>
+          <p aria-hidden="true" className="text-xs font-medium text-text-primary">{displayMessage}</p>
+          <p className="text-xs leading-relaxed text-text-secondary">{intl.formatMessage(i18n.compactionHint)}</p>
+          {now - Date.parse(compactionLifecycle.startedAt) >= 30000 && (
+            <p className="text-xs leading-relaxed text-text-secondary">{intl.formatMessage(i18n.compactionWait)}</p>
+          )}
+        </div>
+      </div>
+      <div aria-hidden="true" className="h-0.5 bg-border-primary/40">
+        <div className="h-full w-1/3 bg-text-secondary/35 motion-safe:animate-pulse" />
+      </div>
+    </div>
+  );
 
   return (
     <div className="w-full animate-fade-slide-up">

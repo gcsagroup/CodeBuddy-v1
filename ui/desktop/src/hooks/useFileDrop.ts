@@ -1,5 +1,6 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { compressImageDataUrl, errorMessage } from '../utils/conversionUtils';
+import { videoSampleTimes, type VideoSample } from '../utils/videoEvidence';
 
 export interface DroppedFile {
   id: string;
@@ -10,12 +11,12 @@ export interface DroppedFile {
   isVideo: boolean;
   dataUrl?: string;
   frameDataUrls?: string[];
+  videoSample?: VideoSample;
   isLoading?: boolean;
   error?: string;
 }
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
-const VIDEO_FRAME_COUNT = 6;
 const VIDEO_FRAME_MAX_EDGE = 1280;
 
 export function isSupportedVideoFile(file: Pick<File, 'type' | 'name'>): boolean {
@@ -53,6 +54,13 @@ function waitForMediaEvent(
 }
 
 export async function extractVideoFrames(file: File): Promise<string[]> {
+  return (await extractVideoSample(file)).frameDataUrls;
+}
+
+export async function extractVideoSample(file: File): Promise<{
+  frameDataUrls: string[];
+  videoSample: VideoSample;
+}> {
   if (file.size > MAX_VIDEO_BYTES) {
     throw new Error('Video is larger than the 200 MB limit');
   }
@@ -60,9 +68,10 @@ export async function extractVideoFrames(file: File): Promise<string[]> {
   const video = document.createElement('video');
   video.preload = 'metadata';
   video.muted = true;
-  video.src = objectUrl;
   try {
-    await waitForMediaEvent(video, 'loadedmetadata');
+    const metadataReady = waitForMediaEvent(video, 'loadedmetadata');
+    video.src = objectUrl;
+    await metadataReady;
     if (!Number.isFinite(video.duration) || video.duration <= 0) {
       throw new Error('Video duration is unavailable');
     }
@@ -73,15 +82,18 @@ export async function extractVideoFrames(file: File): Promise<string[]> {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas is unavailable');
 
+    if (!video.videoWidth || !video.videoHeight) throw new Error('Video has no decodable visual track');
     const frames: string[] = [];
-    for (let index = 0; index < VIDEO_FRAME_COUNT; index += 1) {
+    const timestampsSeconds: number[] = [];
+    for (const timestamp of videoSampleTimes(video.duration)) {
       const seeked = waitForMediaEvent(video, 'seeked');
-      video.currentTime = (video.duration * (index + 1)) / (VIDEO_FRAME_COUNT + 1);
+      video.currentTime = timestamp;
       await seeked;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       frames.push(canvas.toDataURL('image/jpeg', 0.8));
+      timestampsSeconds.push(video.currentTime);
     }
-    return frames;
+    return { frameDataUrls: frames, videoSample: { durationSeconds: video.duration, timestampsSeconds } };
   } finally {
     video.removeAttribute('src');
     video.load();
@@ -197,11 +209,11 @@ export const useFileDrop = (initialFiles: DroppedFile[] = []) => {
 
           reader.readAsDataURL(file);
         } else if (droppedFile.isVideo && !droppedFile.error) {
-          extractVideoFrames(file)
-            .then((frameDataUrls) => {
+          extractVideoSample(file)
+            .then((sample) => {
               setDroppedFiles((prev) =>
                 prev.map((item) =>
-                  item.id === droppedFile.id ? { ...item, frameDataUrls, isLoading: false } : item
+                  item.id === droppedFile.id ? { ...item, ...sample, isLoading: false } : item
                 )
               );
             })

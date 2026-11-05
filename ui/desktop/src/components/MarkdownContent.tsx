@@ -226,7 +226,8 @@ const CodeBlock = memo(function CodeBlock({
         >
           <code
             style={{
-              whiteSpace: 'pre',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
               fontFamily: 'var(--font-mono)',
               fontSize: 'var(--conversation-code-size, 14px)',
             }}
@@ -248,12 +249,13 @@ const CodeBlock = memo(function CodeBlock({
           maxWidth: '100%',
           borderRadius: '8px',
           lineHeight: '1.6',
+          overflowX: 'hidden',
         }}
         codeTagProps={{
           style: {
-            whiteSpace: 'pre',
+            whiteSpace: 'pre-wrap',
             wordBreak: 'normal',
-            overflowWrap: 'normal',
+            overflowWrap: 'anywhere',
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--conversation-code-size, 14px)',
           },
@@ -261,6 +263,7 @@ const CodeBlock = memo(function CodeBlock({
         // Performance optimizations for SyntaxHighlighter
         showLineNumbers={false} // Disable line numbers for better performance
         wrapLines={false} // Disable line wrapping for better performance
+        wrapLongLines
         lineProps={undefined} // Don't add extra props to each line
       >
         {children}
@@ -280,7 +283,7 @@ const CodeBlock = memo(function CodeBlock({
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </button>
-      <div className="w-full overflow-x-auto">{memoizedSyntaxHighlighter}</div>
+      <div className="w-full min-w-0">{memoizedSyntaxHighlighter}</div>
     </div>
   );
 });

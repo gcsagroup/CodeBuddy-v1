@@ -5,20 +5,13 @@ import type { PetTask } from './petTypes';
 import { getToolRequests } from '../types/message';
 import { presentedToolCall } from '../components/codepro/CodeProToolContent';
 import { currentWorkStage } from '../components/codepro/currentWorkStage';
+import { petPermissionRequest } from '../acp/permissionRequests';
 
 export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionSnapshot): PetTask {
-  const firstPrompt = snapshot.messages
-    .find((message) => message.role === 'user')
-    ?.content.filter((content) => content.type === 'text')
-    .map((content) => content.text)
-    .join(' ')
-    .trim()
-    .slice(0, 80);
   const name = snapshot.session?.name;
-  // Runtime replaces its placeholder after the first turn. Identify the chat while it is still running.
   const title =
     !name || (!snapshot.session?.user_set_name && name === 'New Session')
-      ? firstPrompt || 'CodeBuddy'
+      ? '新对话'
       : name;
   const task: PetTask = { sessionId, title, state: 'idle' };
   if (snapshot.chatState === ChatState.WaitingForUserInput || snapshot.workspaceReconfirmation) {
@@ -32,6 +25,7 @@ export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionS
             (c.data.actionType === 'toolConfirmation' && pending.has(`permission:${c.data.id}`)))
       );
     const data = request?.type === 'actionRequired' ? request.data : undefined;
+    const permission = data?.actionType === 'toolConfirmation' ? petPermissionRequest(sessionId, data.id) : undefined;
     return {
       ...task,
       state: 'input',
@@ -40,7 +34,10 @@ export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionS
         : data?.actionType === 'elicitation'
           ? { kind: 'question', summary: data.message.slice(0, 240) }
           : data?.actionType === 'toolConfirmation'
-            ? { kind: 'permission', summary: (data.prompt || data.toolName).slice(0, 240) }
+            ? { kind: 'permission', summary: (data.prompt || data.toolName).slice(0, 240), ...(permission ? { permission: {
+                ...permission, choices: permission.choices.filter(choice => data.availableActions?.includes(choice.action as import('../types/message').ToolPermissionAction)),
+                details: `${data.toolName}\n${data.prompt ?? ''}\n${JSON.stringify(data.arguments, null, 2)}`,
+              } } : {}) }
             : undefined,
     };
   }

@@ -10,6 +10,7 @@ import LoadingGoose, {
   isCheckingExecutionResults,
 } from './LoadingGoose';
 import ProgressiveMessageList from './ProgressiveMessageList';
+import { ConversationTimeline } from './ConversationTimeline';
 import ElicitationDock, { partitionElicitationMessages } from './ElicitationDock';
 import { elicitationContent } from '../acp/adapter/elicitations';
 import { MainPanelLayout } from './Layout/MainPanelLayout';
@@ -123,6 +124,22 @@ export default function BaseChat({
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef<ScrollAreaHandle>(null);
+  const [navigationTarget, setNavigationTarget] = useState<{ sessionId: string; messageId: string; request: number }>();
+  const navigationSequence = useRef(0);
+  const navigateToTurn = useCallback((messageId: string) => {
+    const scroller = scrollRef.current;
+    // Stop tail following before older history is mounted.
+    scroller?.scrollToPosition({ top: scroller.viewportRef.current?.scrollTop ?? 0, behavior: 'auto' });
+    setNavigationTarget({ sessionId, messageId, request: ++navigationSequence.current });
+  }, [sessionId]);
+  const revealTurn = useCallback((element: HTMLElement) => {
+    const viewport = scrollRef.current?.viewportRef.current;
+    if (!viewport) return;
+    scrollRef.current?.scrollToPosition({
+      top: viewport.scrollTop + element.getBoundingClientRect().top - viewport.getBoundingClientRect().top - 12,
+      behavior: 'auto',
+    });
+  }, []);
   const [atLatest, setAtLatest] = useState(true);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
@@ -686,7 +703,7 @@ export default function BaseChat({
         {/* Custom header */}
         {renderHeader && renderHeader()}
         {conversationLayout && !renderHeader && (
-          <header className="flex h-12 shrink-0 items-center gap-3 px-6 pr-16 pl-[var(--navigation-toolbar-inset,3.5rem)]">
+          <header className="shell-chat-header flex h-12 shrink-0 items-center gap-3 px-6 pr-16 pl-[var(--navigation-toolbar-inset,3.5rem)]">
             <h1
               className="min-w-0 flex-1 truncate text-base font-medium text-text-primary"
               title={session?.name}
@@ -774,6 +791,8 @@ export default function BaseChat({
                     <ProgressiveMessageList
                       searchActive={searchActive}
                       messages={presentedHistory}
+                      navigationTarget={navigationTarget?.sessionId === sessionId ? navigationTarget : undefined}
+                      onNavigationReady={revealTurn}
                       sessionType={session?.session_type}
                       workspaceRoot={session?.working_dir}
                       chat={{ sessionId }}
@@ -817,6 +836,9 @@ export default function BaseChat({
             ) : null}
           </ScrollArea>
 
+          {!showHistoryLoading && <ConversationTimeline
+            key={sessionId} messages={presentedHistory} scrollRef={scrollRef} onNavigate={navigateToTurn}
+          />}
           {showHistoryLoading && (
             <div
               aria-hidden="true"
@@ -830,7 +852,7 @@ export default function BaseChat({
               aria-label={intl.formatMessage(i18n.latest)}
               title={intl.formatMessage(i18n.latest)}
               className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              onClick={() => scrollRef.current?.scrollToBottom()}
+              onClick={() => { setNavigationTarget(undefined); scrollRef.current?.scrollToBottom(); }}
             >
               <ArrowDown
                 className="size-[17px] translate-x-[0.5px]"
@@ -983,6 +1005,7 @@ export default function BaseChat({
                 onStop={stopStreaming}
                 onPendingMessageChange={onPendingMessageChange}
                 onSteerQueuedMessage={onSteerQueuedMessage}
+                globalConversation={session?.global_conversation}
                 pauseQueueOnStop={pauseQueueOnStop}
                 queueProcessingBlocked={
                   queueProcessingBlocked || acpRecovering || modeSaving || !!workspaceReconfirmation
@@ -1004,6 +1027,7 @@ export default function BaseChat({
                 contextLimit={
                   tokenState.contextLimit ?? session?.model_config?.context_limit ?? undefined
                 }
+                requestBudget={tokenState.requestBudget}
                 contextUsageSource={tokenState.contextUsageSource}
                 contextCapacitySource={tokenState.contextCapacitySource}
                 accumulatedInputTokens={

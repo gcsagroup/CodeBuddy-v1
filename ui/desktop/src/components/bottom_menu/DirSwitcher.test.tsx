@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { DirSwitcher } from './DirSwitcher';
 
+const request = vi.hoisted(() => vi.fn());
+vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
+
 describe('DirSwitcher while the workspace is unbound', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    request.mockResolvedValue({ directories: ['D:/Agents/Writer'] });
     window.electron.listRecentDirs = vi.fn().mockResolvedValue(['D:\\Recent']);
     window.electron.listGitWorktreeDirs = vi.fn().mockResolvedValue(['D:\\Worktree']);
     window.electron.openDirectoryInExplorer = vi.fn().mockResolvedValue(undefined);
@@ -21,6 +25,8 @@ describe('DirSwitcher while the workspace is unbound', () => {
     fireEvent.click(trigger!);
 
     await waitFor(() => expect(window.electron.listRecentDirs).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Writer')).toBeVisible();
+    expect(request).toHaveBeenCalledWith('_codebuddy/agents/workspaces', {});
     expect(window.electron.listGitWorktreeDirs).not.toHaveBeenCalled();
     expect(window.electron.openDirectoryInExplorer).not.toHaveBeenCalled();
   });
@@ -51,6 +57,7 @@ describe('DirSwitcher while the workspace is unbound', () => {
   });
 
   it('does not render an empty section separator before the only workspace action', async () => {
+    request.mockResolvedValue({ directories: [] });
     window.electron.listRecentDirs = vi.fn().mockResolvedValue([]);
     render(<DirSwitcher className="" sessionId={undefined} workingDir="" />, { wrapper: IntlTestWrapper });
     fireEvent.click(screen.getByRole('button', { name: 'Select workspace' }));

@@ -75,6 +75,7 @@ vi.mock('electron', () => ({
     handle: (name: string, handler: (...args: unknown[]) => Promise<unknown>) =>
       host.handlers.set(name, handler),
     on: (name: string, handler: (...args: unknown[]) => void) => host.signals.set(name, handler),
+    removeListener: (name: string) => host.signals.delete(name),
   },
   nativeImage: {},
   screen: {
@@ -112,12 +113,15 @@ import { restorePetBounds } from './petPolicy';
 
 describe('bundled pet registry and saved selection', () => {
   beforeEach(async () => {
-    host.root = await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-pet-test-'));
+    host.root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'codebuddy-pet-test-')));
     host.invalid.clear();
     host.extraWindows.length = 0;
     host.handlers.clear();
     host.signals.clear();
-    host.sender.send.mockClear();
+    host.sender.send.mockReset();
+    host.sender.send.mockImplementation((channel, payload) => {
+      if (channel === 'pet-send-message' || channel === 'pet-resolve-permission') host.signals.get('pet-message-result')?.({ sender: host.sender }, { deliveryId: payload.deliveryId });
+    });
     host.show.mockClear();
     host.focus.mockClear();
     host.minimized = false;
@@ -345,6 +349,7 @@ describe('bundled pet registry and saved selection', () => {
       showInactive: vi.fn(),
       hide: vi.fn(),
       setFocusable: vi.fn(),
+      setSkipTaskbar: vi.fn(),
       focus: vi.fn(),
       getBounds: () => ({ x: 1700, y: 800, width: 160, height: 213 }),
     };
@@ -364,6 +369,12 @@ describe('bundled pet registry and saved selection', () => {
     floating.setAlwaysOnTop.mockClear();
     floating.moveTop.mockClear();
     const event = { sender: contents };
+    host.signals.get('pet-task')!({ sender: host.sender }, { sessionId: 'approval', title: 'Approval', state: 'input', inputRequest: { kind: 'permission', permission: { requestId: 'call', token: 'live', choices: [{ action: 'deny_once', label: '拒绝' }], details: 'file write' } } });
+    await expect(host.handlers.get('desktop-pet')!(event, { action: 'resolve-permission', sessionId: 'approval', permission: { requestId: 'call', token: 'old', action: 'deny_once' } })).rejects.toThrow('失效');
+    await host.handlers.get('desktop-pet')!(event, { action: 'resolve-permission', sessionId: 'approval', permission: { requestId: 'call', token: 'live', action: 'deny_once' } });
+    expect(host.sender.send).toHaveBeenCalledWith('pet-resolve-permission', expect.objectContaining({ sessionId: 'approval', permission: { requestId: 'call', token: 'live', action: 'deny_once' } }));
+    expect(host.focus).not.toHaveBeenCalled();
+    expect(host.show).not.toHaveBeenCalled();
     const hit = host.signals.get('pet-hit-test')!;
     hit(event, true);
     hit(event, true);
@@ -455,7 +466,9 @@ describe('bundled pet registry and saved selection', () => {
       'Invalid pet message'
     );
     await host.handlers.get('desktop-pet')!(event, { action: 'compose', composing: true });
-    expect(floating.setFocusable).toHaveBeenLastCalledWith(true);
+    expect(host.createWindow).toHaveBeenCalledWith(expect.objectContaining({ focusable: true, skipTaskbar: true }));
+    expect(floating.setFocusable).not.toHaveBeenCalled();
+    expect(floating.setSkipTaskbar).toHaveBeenLastCalledWith(true);
     expect(floating.focus).toHaveBeenCalledOnce();
     expect(contents.focus).toHaveBeenCalledOnce();
     floating.setIgnoreMouseEvents.mockClear();
@@ -477,17 +490,18 @@ describe('bundled pet registry and saved selection', () => {
     expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', {
       msg: '新的任务🙂',
       images: [],
+      deliveryId: expect.any(String),
     });
-    expect(floating.setFocusable).toHaveBeenLastCalledWith(false);
+    expect(floating.setFocusable).not.toHaveBeenCalled();
     await host.handlers.get('desktop-pet')!(event, { action: 'compose', composing: false });
-    expect(floating.setFocusable).toHaveBeenLastCalledWith(false);
+    expect(floating.setFocusable).not.toHaveBeenCalled();
     const image = { mimeType: 'image/png', data: 'eA==' };
     await host.handlers.get('desktop-pet')!(event, {
       action: 'send-message',
       message: '',
       images: [image],
     });
-    expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', { msg: '', images: [image] });
+    expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', { msg: '', images: [image], deliveryId: expect.any(String) });
     await expect(
       host.handlers.get('desktop-pet')!(event, {
         action: 'send-message',

@@ -47,7 +47,7 @@ export const composerMessages = defineMessages({
   exported: { id: 'composerCommands.exported', defaultMessage: 'Conversation export started.' },
   messagePlaceholder: {
     id: 'composerCommands.messagePlaceholder',
-    defaultMessage: 'Send a message, / for commands, @ for files',
+    defaultMessage: 'Send a message, / for commands, @ for files or conversations',
   },
   goalPrefix: { id: 'composerCommands.goalPrefix', defaultMessage: 'Goal' },
   editPrefix: { id: 'composerCommands.editPrefix', defaultMessage: 'Edit goal' },

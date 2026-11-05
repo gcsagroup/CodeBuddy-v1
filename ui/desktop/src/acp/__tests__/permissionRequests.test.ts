@@ -9,6 +9,8 @@ import {
   expireAcpPermissionRequestsForTurn,
   isAcpPermissionRequestPending,
   subscribeAcpPermissionRequests,
+  petPermissionRequest,
+  resolvePetPermission,
 } from '../permissionRequests';
 import {
   acpChatSessionActions,
@@ -27,6 +29,19 @@ vi.mock('../chatSessionStore', () => ({
     resolveUserInputRequest: vi.fn(),
   },
 }));
+
+it('pet decisions share the pending request and reject stale tokens and repeated approval', async () => {
+  const first = requestAcpPermission(permissionRequest('pet', 'call'));
+  const old = petPermissionRequest('pet', 'call')!;
+  const second = requestAcpPermission(permissionRequest('pet', 'call'));
+  await expect(first).resolves.toEqual({ outcome: { outcome: 'cancelled' } });
+  const live = petPermissionRequest('pet', 'call')!;
+  expect(resolvePetPermission('pet', 'call', old.token, 'allow_once')).toBe(false);
+  expect(resolvePetPermission('pet', 'call', live.token, 'always_allow')).toBe(false);
+  expect(resolvePetPermission('pet', 'call', live.token, 'deny_once')).toBe(true);
+  expect(resolvePetPermission('pet', 'call', live.token, 'allow_once')).toBe(false);
+  await expect(second).resolves.toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } });
+});
 
 function permissionRequest(sessionId: string, toolCallId: string): RequestPermissionRequest {
   return {

@@ -30,6 +30,7 @@ export async function acpSetSessionMode(
 }
 
 interface GooseSessionInfoMeta {
+  globalConversation?: boolean;
   readonlyHistory?: boolean;
   messageCount?: number;
   createdAt?: string;
@@ -48,6 +49,7 @@ interface GooseSessionInfoMeta {
 }
 
 export interface SessionListItem {
+  globalConversation?: boolean;
   agentProfile?: Session['agent_profile'];
   workspaceOrigin?: 'default' | 'selected';
   workspaceBinding?: GooseSessionInfoMeta['workspaceBinding'];
@@ -129,6 +131,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
 
   return {
     id: String(s.sessionId),
+    global_conversation: meta.globalConversation === true,
     ...(role && typeof role.id === 'string' && typeof role.name === 'string' && typeof role.avatar === 'string' && typeof role.revision === 'number'
       ? { agent_profile: { id: role.id, name: role.name, avatar: role.avatar, revision: role.revision } } : {}),
     name: s.title ?? DEFAULT_CHAT_TITLE,
@@ -162,6 +165,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
   const meta = sessionInfoMeta(s);
   return {
     id: String(s.sessionId),
+    globalConversation: meta.globalConversation === true,
     name: s.title ?? DEFAULT_CHAT_TITLE,
     workingDir: meta.workspaceBinding === 'unbound' ? '' : s.cwd,
     updatedAt: s.updatedAt ?? '',

@@ -52,6 +52,18 @@ describe('persistent new-task drafts', () => {
     );
   });
 
+
+  it('persists video observation times and legacy drafts without metadata', async () => {
+    const source = path.join(root, 'clip.mp4');
+    await writeFile(source, 'fixture');
+    const file = { id: 'v', name: 'clip.mp4', path: source, type: 'video/mp4', isImage: false, isVideo: true,
+      frameDataUrls: ['data:image/jpeg;base64,YQ=='], videoSample: { durationSeconds: 1, timestampsSeconds: [0.5] } };
+    await store.request(12, { action: 'update', key: 'code', patch: { files: [file, { ...file, id: 'old', videoSample: undefined }] } });
+    const restored = await new DraftStore(path.join(root, 'drafts')).request(13, { action: 'read' });
+    expect(restored.code!.files![0].videoSample).toEqual(file.videoSample);
+    expect(restored.code!.files![1].videoSample).toBeUndefined();
+  });
+
   it('isolates windows and modes and reclaims the closed window slot', async () => {
     await store.request(1, { action: 'update', key: 'code', patch: { text: 'ordinary' } });
     await store.request(1, { action: 'update', key: 'codepro', patch: { text: 'first' } });

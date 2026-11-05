@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen } from 'electron';
+import { randomUUID } from 'node:crypto';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, type IpcMainEvent } from 'electron';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -63,6 +64,7 @@ export async function registerDesktopPet(options: {
   let petWindow: BrowserWindow | null = null;
   let ignoresMouse = true;
   let composing = false;
+  let messageWindowId: number | undefined;
   let drag: {
     cursor: { x: number; y: number };
     x: number;
@@ -222,7 +224,9 @@ export async function registerDesktopPet(options: {
         hasShadow: false,
         resizable: false,
         skipTaskbar: true,
-        focusable: false,
+        // Keep a native input context for Windows IME. showInactive and mouse
+        // pass-through keep the idle pet from activating itself.
+        focusable: true,
         alwaysOnTop: true,
         show: false,
         webPreferences: {
@@ -230,7 +234,7 @@ export async function registerDesktopPet(options: {
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
-          // This non-focusable overlay must animate while another app is active.
+          // The overlay must animate while another app is active.
           backgroundThrottling: false,
         },
       });
@@ -331,6 +335,7 @@ export async function registerDesktopPet(options: {
           'compose',
           'context-menu',
           'send-message',
+          'resolve-permission',
         ].includes(request.action)
       )
         throw new Error('Pet window request denied');
@@ -341,7 +346,7 @@ export async function registerDesktopPet(options: {
           if (!fromPet) throw new Error('Pet menu request denied');
           const label = (en: string, cn: string, tw: string) =>
             selectNativeText(app.getLocale(), en, cn, tw);
-          petWindow!.setFocusable(true);
+          petWindow!.setSkipTaskbar(true);
           const choice = await new Promise<'hide' | 'settings' | undefined>((resolve) => {
             Menu.buildFromTemplate([
               {
@@ -352,7 +357,7 @@ export async function registerDesktopPet(options: {
               { label: label('Hide pet', '隐藏宠物', '隱藏寵物'), click: () => resolve('hide') },
             ]).popup({ window: petWindow!, callback: () => resolve(undefined) });
           });
-          petWindow?.setFocusable(composing);
+          petWindow?.setSkipTaskbar(true);
           if (choice === 'hide') {
             preferences = { ...preferences, visible: false };
             save();
@@ -373,7 +378,7 @@ export async function registerDesktopPet(options: {
           if (!fromPet || typeof request.composing !== 'boolean')
             throw new Error('Invalid pet composer request');
           composing = request.composing;
-          petWindow!.setFocusable(composing);
+          petWindow!.setSkipTaskbar(true);
           if (request.composing) {
             petWindow!.setIgnoreMouseEvents(false);
             ignoresMouse = false;
@@ -385,22 +390,31 @@ export async function registerDesktopPet(options: {
         case 'send-message': {
           if (!fromPet) throw new Error('Invalid pet message');
           const message = parsePetMessage({ msg: request.message, images: request.images ?? [] });
+          if (!applicationWindows().length) await options.openChat({});
           const windows = applicationWindows();
-          const destination = windows.find((window) => window.isFocused()) ?? windows[0];
-          if (destination) {
-            if (destination.isMinimized()) destination.restore();
-            destination.show();
-            destination.focus();
-            destination.webContents.send('pet-send-message', message);
-          } else {
-            await options.openChat({
-              query: message.msg,
-              images: message.images,
-              noAutoSubmit: false,
-            });
-          }
+          const destination = windows.find(window => window.id === messageWindowId) ?? windows[0];
+          if (!destination) throw new Error('无法打开主对话窗口，请重试');
+          messageWindowId = destination.id;
+          if (destination.isMinimized()) destination.restore();
+          destination.show();
+          destination.focus();
+          const deliveryId = randomUUID();
+          await new Promise<void>((resolve, reject) => {
+            const finish = (_event: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+              if (_event.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
+              clearTimeout(timeout);
+              ipcMain.removeListener('pet-message-result', finish);
+              if (result.error) reject(new Error(result.error)); else resolve();
+            };
+            const timeout = setTimeout(() => {
+              ipcMain.removeListener('pet-message-result', finish);
+              reject(new Error('主对话接收超时，请先检查主对话的消息队列，避免重复发送'));
+            }, 30000);
+            ipcMain.on('pet-message-result', finish);
+            destination.webContents.send('pet-send-message', { ...message, deliveryId });
+          });
           composing = false;
-          petWindow!.setFocusable(false);
+          petWindow!.setSkipTaskbar(true);
           restoreOverlayOrder();
           break;
         }
@@ -476,6 +490,28 @@ export async function registerDesktopPet(options: {
             restoreOverlayOrder();
           }
           break;
+        case 'resolve-permission': {
+          if (!fromPet || !request.sessionId || !request.permission) throw new Error('Invalid pet approval');
+          const { requestId, token, action } = request.permission;
+          const owner = [...tasksByWindow].find(([, tasks]) => {
+            const pending = tasks.get(request.sessionId!)?.inputRequest?.permission;
+            return pending?.requestId === requestId && pending.token === token && pending.choices.some(choice => choice.action === action);
+          });
+          const destination = owner && BrowserWindow.fromId(owner[0]);
+          if (!destination || destination.isDestroyed()) throw new Error('审批请求已失效，请查看最新通知');
+          const deliveryId = randomUUID();
+          await new Promise<void>((resolve, reject) => {
+            const finish = (reply: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+              if (reply.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
+              clearTimeout(timeout); ipcMain.removeListener('pet-message-result', finish);
+              if (result.error) reject(new Error(result.error)); else resolve();
+            };
+            const timeout = setTimeout(() => { ipcMain.removeListener('pet-message-result', finish); reject(new Error('审批结果尚未确认，请检查最新通知')); }, 10000);
+            ipcMain.on('pet-message-result', finish);
+            destination.webContents.send('pet-resolve-permission', { sessionId: request.sessionId, permission: request.permission, deliveryId });
+          });
+          break;
+        }
         case 'open-task':
         case 'pause-task': {
           const task =

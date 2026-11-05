@@ -5,6 +5,7 @@ import type { SessionNotification } from '@agentclientprotocol/sdk';
 import { acpChatSessionActions as actions } from '../acp/chatSessionStore';
 import type { Session } from '../types/session';
 import type { PetTask } from './petTypes';
+import { requestAcpPermission, resolvePetPermission } from '../acp/permissionRequests';
 
 const signal = vi.fn();
 let sessionId: string;
@@ -46,6 +47,17 @@ describe('ACP pet notification lifecycle', () => {
     Object.assign(window.electron, { desktopPet: vi.fn(), petSignal: signal });
   });
   afterEach(() => actions.deleteSnapshot(sessionId));
+
+  it('publishes actionable live approvals and removes them after the pet resolves the same RPC', async () => {
+    actions.startPromptAttempt(sessionId, 'attempt', 'user');
+    const response = requestAcpPermission({ sessionId, toolCall: { toolCallId: 'call', title: 'Read notes', rawInput: { path: 'notes.md' } }, options: [{ optionId: 'yes', kind: 'allow_once', name: '允许一次' }, { optionId: 'no', kind: 'reject_once', name: '拒绝' }] });
+    const pending = lastTask().inputRequest?.permission;
+    expect(pending?.choices.map(choice => choice.action)).toEqual(['allow_once', 'deny_once']);
+    expect(pending?.details).toContain('notes.md');
+    expect(resolvePetPermission(sessionId, pending!.requestId, pending!.token, 'allow_once')).toBe(true);
+    await expect(response).resolves.toEqual({ outcome: { outcome: 'selected', optionId: 'yes' } });
+    expect(lastTask().inputRequest?.permission).toBeUndefined();
+  });
 
   it('shows live work and its structured completion without replaying historical completions', () => {
     actions.startSessionLoad(sessionId);

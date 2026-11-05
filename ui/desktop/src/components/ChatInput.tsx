@@ -1,3 +1,5 @@
+import { receiveMainConversationMessages } from '../pets/mainConversation';
+import { droppedImageUrls, videoEvidenceContext, videoTimestamp } from '../utils/videoEvidence';
 import { ComposerGoalBar } from './ComposerGoalBar';
 import { ComposerPlanMode } from './ComposerPlanMode';
 import {
@@ -25,6 +27,7 @@ import type { View, ViewOptions } from '../utils/navigationUtils';
 import { ChatInputStopButton } from './ChatInputStopButton';
 import { ImageLightbox } from './ImagePreview';
 import { Close, Microphone } from './icons';
+import type { RequestBudget } from '../types/chat';
 import { ChatState } from '../types/chatState';
 import debounce from 'lodash/debounce';
 import { LocalMessageStorage } from '../utils/localMessageStorage';
@@ -38,6 +41,12 @@ import { useModelAndProvider } from './ModelAndProviderContext';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { toastError } from '../toasts';
 import MentionPopover, { DisplayItem, DisplayItemWithMatch } from './MentionPopover';
+import { ConversationReferences } from './ConversationReferences';
+import {
+  conversationMentions,
+  splitConversationDraft,
+  combineConversationDraft,
+} from './conversationMention';
 import { ContextWindowIndicator } from './bottom_menu/ContextWindowIndicator';
 import { DroppedFile, useFileDrop } from '../hooks/useFileDrop';
 import { Recipe } from '../recipe';
@@ -101,6 +110,11 @@ const MAX_IMAGES_PER_MESSAGE = 10;
 const MANUAL_COMPACT_TRIGGER = '/compact';
 
 const i18n = defineMessages({
+  referenceLimit: {
+    id: 'chatInput.referenceLimit',
+    defaultMessage:
+      'You can reference up to 3 conversations in one message. Remove a reference before adding another.',
+  },
   dictationError: {
     id: 'chatInput.dictationError',
     defaultMessage: 'Dictation Error',
@@ -227,6 +241,7 @@ interface ChatInputProps {
   setView: (view: View, options?: ViewOptions) => void;
   totalTokens?: number;
   contextLimit?: number;
+  requestBudget?: RequestBudget;
   contextUsageSource?: 'provider_actual' | 'local_estimate' | 'streaming_estimate';
   contextCapacitySource?: 'service' | 'catalog' | 'configured' | 'fallback';
   accumulatedInputTokens?: number;
@@ -246,6 +261,7 @@ interface ChatInputProps {
   sessionProvider?: string | null;
   sessionLoaded?: boolean;
   workingDir?: string | null;
+  globalConversation?: boolean;
   latestInference?: Message['metadata']['inference'] | null;
   nextChatExtensionDraft?: NextChatExtensionDraft;
   onNextChatExtensionDraftChange?: (draft: NextChatExtensionDraft) => void;
@@ -285,6 +301,7 @@ export default function ChatInput({
   setView,
   totalTokens,
   contextLimit,
+  requestBudget,
   contextUsageSource,
   contextCapacitySource,
   messages = [],
@@ -301,6 +318,7 @@ export default function ChatInput({
   sessionProvider,
   sessionLoaded,
   workingDir,
+  globalConversation = false,
   latestInference,
   nextChatExtensionDraft,
   onNextChatExtensionDraftChange,
@@ -309,12 +327,23 @@ export default function ChatInput({
     () => initialValue || (newTaskDraftKey ? (readNewTaskDraft(newTaskDraftKey).text ?? '') : '')
   );
   const [_value, setValue] = useState(startingValue);
-  const [displayValue, setDisplayValue] = useState(startingValue); // For immediate visual feedback
+  const [displayValue, setDisplayValue] = useState(
+    () => splitConversationDraft(startingValue).body
+  );
+  const [referenceText, setReferenceText] = useState(
+    () => splitConversationDraft(startingValue).references
+  );
+  const draftText = combineConversationDraft(displayValue, referenceText);
+  const restoreDraft = useCallback((text: string) => {
+    const parsed = splitConversationDraft(text);
+    setDisplayValue(parsed.body);
+    setReferenceText(parsed.references);
+  }, []);
   const compactText = useCompactTextInput(displayValue);
   const previousInitialValue = useRef(initialValue);
   useEffect(() => {
-    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: displayValue });
-  }, [displayValue, newTaskDraftKey]);
+    if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: draftText });
+  }, [draftText, newTaskDraftKey]);
   const [isFocused, setIsFocused] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState<{ src: string; title: string } | null>(
     null
@@ -447,6 +476,22 @@ export default function ChatInput({
     sendNowInFlightMessageIdsRef.current = new Set();
     setSendNowInFlightMessageIds(new Set());
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    return receiveMainConversationMessages(sessionId, input => {
+      if (queueStorageFailedRef.current || !queueStorageRef.current) throw new Error('无法保存主对话消息，请重试');
+      if (input.messageId && queuedMessagesRef.current.some(item => item.id === input.messageId)) return;
+      const next = [...queuedMessagesRef.current, {
+        id: input.messageId ?? globalThis.crypto.randomUUID(), content: input.msg, images: input.images,
+        timestamp: Date.now(), desktopGeneration: getDesktopOwnership().generation ?? '',
+      }];
+      if (!persistQueue(next)) throw new Error('无法保存主对话消息，请检查消息队列');
+      if (queuedMessagesRef.current.length === 0) queuePausedRef.current = false;
+      queuedMessagesRef.current = next;
+      setQueuedMessagesState(next);
+    });
+  }, [sessionId, persistQueue]);
 
   useLayoutEffect(() => {
     if (
@@ -644,6 +689,7 @@ export default function ChatInput({
         const input: UserInput = {
           msg: message.content,
           images: message.images,
+          messageId: message.id,
           desktopGeneration:
             typeof message.desktopGeneration === 'string' ? message.desktopGeneration : '',
           ...(message.presentation
@@ -805,24 +851,24 @@ export default function ChatInput({
     if (newTaskDraftKey && previousInitialValue.current === initialValue) return;
     previousInitialValue.current = initialValue;
     setValue(initialValue);
-    setDisplayValue(initialValue);
+    restoreDraft(initialValue);
     setPastedImages([]);
     setHistoryIndex(-1);
     setIsInGlobalHistory(false);
     setHasUserTyped(false);
-  }, [initialValue, newTaskDraftKey]);
+  }, [initialValue, newTaskDraftKey, restoreDraft]);
 
   // Handle recipe prompt updates
   useEffect(() => {
     // If recipe is accepted and we have an initial prompt, and no messages yet, and we haven't set it before
     if (recipeAccepted && initialPrompt && messages.length === 0) {
-      setDisplayValue(initialPrompt);
+      restoreDraft(initialPrompt);
       setValue(initialPrompt);
       setTimeout(() => {
         textAreaRef.current?.focus();
       }, 0);
     }
-  }, [recipeAccepted, initialPrompt, messages.length, textAreaRef]);
+  }, [recipeAccepted, initialPrompt, messages.length, textAreaRef, restoreDraft]);
 
   const [isComposing, setIsComposing] = useState(false);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -1038,15 +1084,22 @@ export default function ChatInput({
     const beforeCursor = text.slice(offset, cursorPosition);
     const lastAtIndex = isSlashCommand ? 0 : beforeCursor.lastIndexOf('@');
 
-    if (lastAtIndex === -1) {
+    if (
+      lastAtIndex === -1 ||
+      (!isSlashCommand && /[a-zA-Z0-9._%+-]/.test(beforeCursor[lastAtIndex - 1] ?? ''))
+    ) {
       // No @ found, close mention popover
       setMentionPopover((prev) => ({ ...prev, isOpen: false }));
       return;
     }
 
-    // Check if there's a space between @ and cursor (which would end the mention)
+    // File and conversation names may contain spaces; slash commands still end at a space.
     const afterAt = beforeCursor.slice(lastAtIndex + 1);
-    if (afterAt.includes(' ') || afterAt.includes('\n')) {
+    if (
+      (isSlashCommand && afterAt.includes(' ')) ||
+      afterAt.includes('\n') ||
+      afterAt.startsWith('[')
+    ) {
       setMentionPopover((prev) => ({ ...prev, isOpen: false }));
       return;
     }
@@ -1080,7 +1133,7 @@ export default function ChatInput({
 
     const droppedImageData: ImageData[] = allDroppedFiles
       .filter((file) => !file.error && !file.isLoading)
-      .flatMap((file) => [...(file.dataUrl ? [file.dataUrl] : []), ...(file.frameDataUrls ?? [])])
+      .flatMap(droppedImageUrls)
       .map((dataUrl) => {
         const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
         return matches ? { data: matches[2], mimeType: matches[1] } : null;
@@ -1101,19 +1154,26 @@ export default function ChatInput({
               : undefined) ?? file.path
         );
 
+      const evidence = videoEvidenceContext(
+        allDroppedFiles,
+        pastedImages.filter(
+          (image) => !image.error && !image.isLoading && /^data:[^;]+;base64,.+$/.test(image.dataUrl)
+        ).length
+      );
       if (droppedFilePaths.length > 0) {
         const pathsString = droppedFilePaths.join(' ');
-        return text ? `${text} ${pathsString}` : pathsString;
+        return (text ? `${text} ${pathsString}` : pathsString) + evidence;
       }
       return text;
     },
-    [allDroppedFiles, newTaskDraftKey]
+    [allDroppedFiles, newTaskDraftKey, pastedImages]
   );
 
   const clearInputState = useCallback(() => {
     if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: '', images: [], files: [] });
     setComposerMode(null);
     setDisplayValue('');
+    setReferenceText('');
     setValue('');
     setPastedImages([]);
     if (onFilesProcessed && droppedFiles.length > 0) {
@@ -1293,7 +1353,7 @@ export default function ChatInput({
 
     // Save current input if we're just starting to navigate history
     if (historyIndex === -1) {
-      setSavedInput(displayValue || '');
+      setSavedInput(draftText || '');
       setIsInGlobalHistory(commandHistory.length === 0);
     }
 
@@ -1337,10 +1397,10 @@ export default function ChatInput({
     if (newIndex !== historyIndex) {
       setHistoryIndex(newIndex);
       if (newIndex === -1) {
-        setDisplayValue(savedInput || '');
+        restoreDraft(savedInput || '');
         setValue(savedInput || '');
       } else {
-        setDisplayValue(newValue || '');
+        restoreDraft(newValue || '');
         setValue(newValue || '');
       }
       // Reset hasUserTyped when we populate from history
@@ -1353,7 +1413,7 @@ export default function ChatInput({
     if ((!isLoading && !queueProcessingBlocked) || !hasSubmittableContent) return false;
     const newMessage: QueuedMessage = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      content: appendDroppedFilePaths(displayValue.trim()),
+      content: appendDroppedFilePaths(draftText.trim()),
       timestamp: Date.now(),
       desktopGeneration: getDesktopOwnership().generation ?? '',
       images: convertImagesToImageData(),
@@ -1384,7 +1444,7 @@ export default function ChatInput({
   const canSubmit =
     !isLoading &&
     !queueProcessingBlocked &&
-    (displayValue.trim() ||
+    (draftText.trim() ||
       pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
       allDroppedFiles.some((file) => !file.error && !file.isLoading));
 
@@ -1430,6 +1490,7 @@ export default function ChatInput({
           if (!preserveDraft && inputRevisionRef.current === revision) {
             inputRevisionRef.current += 1;
             setDisplayValue('');
+            setReferenceText('');
             setValue('');
             setComposerMode(null);
           }
@@ -1453,6 +1514,7 @@ export default function ChatInput({
           inputRevisionRef.current += 1;
           setComposerMode(null);
           setDisplayValue('');
+          setReferenceText('');
           setValue('');
         };
         try {
@@ -1489,11 +1551,13 @@ export default function ChatInput({
       if (submitInFlightRef.current || sendNowInFlightMessageIdsRef.current.size > 0) return;
 
       const imageData = convertImagesToImageData();
-      const textToSend = appendDroppedFilePaths(commandText);
+      const textToSend = appendDroppedFilePaths(
+        combineConversationDraft(commandText, referenceText)
+      );
 
       if (textToSend || imageData.length > 0) {
         const submittedDraft = createSubmittedDraftState(
-          displayValue,
+          draftText,
           imageData,
           inputRevisionRef.current
         );
@@ -1510,8 +1574,8 @@ export default function ChatInput({
             accepted = true;
             clearPendingDraft();
             setGoalRefresh((value) => value + 1);
-            if (displayValue.trim()) {
-              LocalMessageStorage.addMessage(displayValue);
+            if (draftText.trim()) {
+              LocalMessageStorage.addMessage(draftText);
             } else {
               const droppedFilePaths = allDroppedFiles
                 .filter((file) => !file.isImage && !file.error && !file.isLoading)
@@ -1536,7 +1600,7 @@ export default function ChatInput({
             clearPendingDraft();
             const rejected = rejectSubmittedDraft(submittedDraft, inputRevisionRef.current);
             if (!rejected.shouldRestore) return;
-            setDisplayValue(rejected.text);
+            restoreDraft(rejected.text);
             setValue(rejected.text);
             setPastedImages(submittedPastedImages);
             setLocalDroppedFiles(submittedLocalDroppedFiles);
@@ -1576,6 +1640,9 @@ export default function ChatInput({
       convertImagesToImageData,
       appendDroppedFilePaths,
       displayValue,
+      draftText,
+      referenceText,
+      restoreDraft,
       pastedImages,
       localDroppedFiles,
       allDroppedFiles,
@@ -1674,7 +1741,7 @@ export default function ChatInput({
     const canSubmit =
       !isLoading &&
       !queueProcessingBlocked &&
-      (displayValue.trim() ||
+      (draftText.trim() ||
         pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
         allDroppedFiles.some((file) => !file.error && !file.isLoading));
     if (canSubmit) {
@@ -1712,6 +1779,23 @@ export default function ChatInput({
   selectionSessionRef.current = sessionId;
 
   const handleMentionItemSelect = async (itemText: string, item?: DisplayItem) => {
+    const incoming = conversationMentions(itemText)[0];
+    if (incoming) {
+      const selected = new Set(
+        conversationMentions(referenceText).map((reference) => reference.uri)
+      );
+      if (!selected.has(incoming.uri) && selected.size >= 3) {
+        setCommandNotice(intl.formatMessage(i18n.referenceLimit));
+        setMentionPopover((previous) => ({ ...previous, isOpen: false }));
+        return;
+      }
+      setCommandNotice(null);
+      const selectedMention = itemText.trim();
+      if (!selected.has(incoming.uri)) {
+        setReferenceText((previous) => combineConversationDraft(previous, selectedMention));
+      }
+      itemText = '';
+    }
     if (item?.toolboxItem) {
       if (toolboxSelectionRef.current) return;
       const selected = item.toolboxItem;
@@ -1774,12 +1858,14 @@ export default function ChatInput({
               openGoalEditor(sessionId);
               if (!mentionPopover.addOnly) {
                 setDisplayValue('');
+                setReferenceText('');
                 setValue('');
               }
             } else {
               setComposerMode('goal');
               if (!mentionPopover.addOnly) {
                 setDisplayValue('');
+                setReferenceText('');
                 setValue('');
               }
               textAreaRef.current?.focus();
@@ -1792,6 +1878,7 @@ export default function ChatInput({
       setComposerMode(itemText.trim() === '/goal' ? 'goal' : 'plan');
       if (!mentionPopover.addOnly) {
         setDisplayValue('');
+        setReferenceText('');
         setValue('');
       }
       inputRevisionRef.current += 1;
@@ -1833,7 +1920,7 @@ export default function ChatInput({
   };
 
   const hasSubmittableContent =
-    displayValue.trim() ||
+    draftText.trim() ||
     pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
     allDroppedFiles.some((file) => !file.error && !file.isLoading);
   const actionVisibility = chatInputActionVisibility(
@@ -1995,7 +2082,7 @@ export default function ChatInput({
 
   return (
     <div
-      className={`@container/composer flex min-w-0 flex-col relative h-auto p-3 transition-colors ${
+      className={`shell-composer @container/composer flex min-w-0 flex-col relative h-auto p-3 transition-colors ${
         disableAnimation ? '' : 'page-transition'
       } ${
         isFocused
@@ -2109,6 +2196,16 @@ export default function ChatInput({
           {commandNotice}
         </div>
       )}
+      {/* Input row with inline action buttons wrapped in form */}
+      <ConversationReferences
+        text={referenceText}
+        onChange={(next) => {
+          inputRevisionRef.current += 1;
+          setReferenceText(next);
+          setCommandNotice(null);
+          textAreaRef.current?.focus();
+        }}
+      />
       {/* All attachment types share a separate tray above the full-width editor. */}
       {attachmentPreview && (
         <ImageLightbox
@@ -2237,8 +2334,19 @@ export default function ChatInput({
                     <p className="text-sm text-text-primary truncate" title={file.name}>
                       {file.name}
                     </p>
-                    <p className="text-xs text-text-secondary">
-                      {file.type || intl.formatMessage(i18n.unknownType)}
+                    <p
+                      className="text-xs text-text-secondary"
+                      title={file.videoSample?.timestampsSeconds.map(videoTimestamp).join(', ')}
+                    >
+                      {file.isVideo && file.videoSample
+                        ? intl.formatMessage(
+                            {
+                              id: 'chatInput.videoSampleScope',
+                              defaultMessage: '{count} sampled frames · audio not analyzed',
+                            },
+                            { count: file.frameDataUrls?.length ?? 0 }
+                          )
+                        : file.type || intl.formatMessage(i18n.unknownType)}
                     </p>
                   </div>
                 </div>
@@ -2385,7 +2493,7 @@ export default function ChatInput({
           />
 
           {/* Left: working directory (leaf folder name only) */}
-          {!hideWorkingDirSwitcher &&
+          {!globalConversation && !hideWorkingDirSwitcher &&
             shouldShowWorkingDirectorySwitcher(Boolean(onWorkingDirChange)) && (
               <DirSwitcher
                 className=""
@@ -2408,6 +2516,7 @@ export default function ChatInput({
 
         <div className="flex min-w-0 max-w-full items-center justify-end gap-1">
           <ContextWindowIndicator
+            requestBudget={requestBudget?.model === effectiveModel ? requestBudget : undefined}
             totalTokens={totalTokens}
             tokenLimit={tokenLimit}
             usageSource={contextUsageSource}

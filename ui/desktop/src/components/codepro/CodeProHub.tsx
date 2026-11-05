@@ -123,7 +123,7 @@ const i18n = defineMessages({
   },
   goalPlaceholder: {
     id: 'codeProHub.goalPlaceholder',
-    defaultMessage: 'Describe your task, or type / to see commands…',
+    defaultMessage: 'Describe your task, / for commands, @ for files or conversations…',
   },
 });
 
@@ -142,7 +142,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
   const navigate = useNavigate();
   const setView = useNavigation();
   const { extensionsList } = useConfig();
-  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset('codepro');
+  const [initialPermissionPreset, setInitialPermissionPreset] = useInitialPermissionPreset();
   const [extensionDraft, setExtensionDraft] = useState<NextChatExtensionDraft>();
   const draftForMenu = extensionDraft ?? createNextChatExtensionDraft(extensionsList);
   const sessionExtensions = useMemo(
@@ -301,10 +301,10 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
           const session = await createSession(candidate.normalizedPath, {
             allExtensions: sessionExtensions,
             workspaceMode: 'codepro',
+            initialPermissionPreset,
             workspaceBinding: 'root_container',
             workspaceOrigin: 'selected',
             rootContainerPath: candidate.normalizedPath,
-            ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
             ...(pending.intent.recipeDeeplink
               ? { recipeDeeplink: pending.intent.recipeDeeplink }
               : {}),
@@ -327,13 +327,13 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
       setSetupError(null);
       try {
         const { session } = await startCodeProSession({
+          initialPermissionPreset,
           workspaceOrigin: pending.workspaceOrigin,
           candidate,
           initialMessage: pending.intent.initialMessage ?? { msg: '', images: [] },
           allExtensions: sessionExtensions,
           recipeDeeplink: pending.intent.recipeDeeplink,
           recipeId: pending.intent.recipeId,
-          ...(initialPermissionPreset ? { initialPermissionPreset } : {}),
         });
         if (pending.intent.recipeId) {
           void recordCommonTaskSessionStarted(pending.intent.recipeId, session.id);
@@ -356,7 +356,7 @@ export function CodeProHub({ launchIntent }: { launchIntent?: CodeProLaunchInten
         setIsCreating(false);
       }
     },
-    [sessionExtensions, initialPermissionPreset, isCreating, openSession]
+    [sessionExtensions, isCreating, openSession, initialPermissionPreset]
   );
 
   useEffect(() => {

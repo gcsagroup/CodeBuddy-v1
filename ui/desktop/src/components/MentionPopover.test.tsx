@@ -4,6 +4,10 @@ import { listAgentMentionItems, listSlashCommandItems } from '../acp/autocomplet
 import { IntlTestWrapper } from '../i18n/test-utils';
 import MentionPopover from './MentionPopover';
 import { loadToolbox } from '../acp/toolbox';
+import { acpListSessions } from '../acp/sessions';
+vi.mock('../acp/sessions', () => ({
+  acpListSessions: vi.fn().mockResolvedValue({ sessions: [], nextCursor: null }),
+}));
 vi.mock('../acp/toolbox', () => ({ loadToolbox: vi.fn() }));
 
 vi.mock('../acp/autocomplete', () => ({
@@ -24,6 +28,8 @@ describe('MentionPopover while the workspace is unbound', () => {
     });
     HTMLElement.prototype.scrollIntoView = vi.fn();
     window.electron.listFiles = vi.fn().mockResolvedValue([]);
+    window.electron.workspacePanel = vi.fn().mockResolvedValue({ entries: [] });
+    vi.mocked(acpListSessions).mockResolvedValue({ sessions: [], nextCursor: null });
   });
 
   it('uses the shared command catalog for the add menu and keeps control-only actions in slash commands', async () => {
@@ -162,6 +168,114 @@ describe('MentionPopover while the workspace is unbound', () => {
       expect(listSlashCommandItems).not.toHaveBeenCalled();
       expect(window.electron.listFiles).not.toHaveBeenCalled();
     });
+  });
+
+  it('shows conversations without a project, excludes self, and inserts a stable native reference', async () => {
+    const session = {
+      id: 'source',
+      name: 'School project',
+      workingDir: 'D:/school',
+      updatedAt: '2026-11-01T10:00:00Z',
+      createdAt: '',
+      messageCount: 4,
+    };
+    vi.mocked(acpListSessions).mockResolvedValue({
+      sessions: [session, { ...session, id: 'current' }],
+      nextCursor: null,
+    });
+    const onSelect = vi.fn();
+    render(
+      <MentionPopover
+        isOpen
+        onClose={vi.fn()}
+        onSelect={onSelect}
+        anchorRef={anchorRef}
+        query=""
+        isSlashCommand={false}
+        selectedIndex={0}
+        onSelectedIndexChange={vi.fn()}
+        workingDir=""
+        sessionId="current"
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    const row = await screen.findByRole('option', { name: /School project/ });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    fireEvent.click(row);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.stringMatching(/^@\[School project\]\(dsh-session:/)
+    );
+    expect(window.electron.workspacePanel).not.toHaveBeenCalled();
+  });
+
+  it('shows typed file results while conversations are pending and preserves filenames with spaces', async () => {
+    vi.mocked(acpListSessions).mockReturnValue(new Promise(() => {}));
+    window.electron.workspacePanel = vi
+      .fn()
+      .mockResolvedValue({
+        entries: [{ name: 'odd file.xyz', path: 'src/odd file.xyz', kind: 'file' }],
+        truncated: true,
+      });
+    const onSelect = vi.fn();
+    render(
+      <MentionPopover
+        isOpen
+        onClose={vi.fn()}
+        onSelect={onSelect}
+        anchorRef={anchorRef}
+        query="odd file"
+        isSlashCommand={false}
+        selectedIndex={0}
+        onSelectedIndexChange={vi.fn()}
+        workingDir="D:/project"
+      />,
+      { wrapper: IntlTestWrapper }
+    );
+    fireEvent.click(await screen.findByRole('option', { name: /odd file.xyz/ }));
+    expect(onSelect).toHaveBeenCalledWith('"D:/project/src/odd file.xyz" ');
+    expect(window.electron.workspacePanel).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'search', query: 'odd file' })
+    );
+  });
+
+  it('discards a stale search response after the query changes', async () => {
+    let finish!: (value: { sessions: []; nextCursor: null }) => void;
+    vi.mocked(acpListSessions).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const props = {
+      isOpen: true,
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+      anchorRef,
+      query: 'old',
+      isSlashCommand: false,
+      selectedIndex: 0,
+      onSelectedIndexChange: vi.fn(),
+      workingDir: '',
+    };
+    const view = render(<MentionPopover {...props} />, { wrapper: IntlTestWrapper });
+    await waitFor(() => expect(acpListSessions).toHaveBeenCalled());
+    vi.mocked(acpListSessions).mockResolvedValue({
+      sessions: [
+        {
+          id: 'new',
+          name: 'new result',
+          workingDir: '',
+          createdAt: '',
+          updatedAt: '',
+          messageCount: 2,
+        },
+      ],
+      nextCursor: null,
+    });
+    view.rerender(<MentionPopover {...props} query="new" />);
+    await screen.findByRole('option', { name: /new result/ });
+    await act(async () => finish({ sessions: [], nextCursor: null }));
+    expect(screen.getByRole('option', { name: /new result/ })).toBeVisible();
   });
 
   it('loads built-in slash commands without requiring a workspace', async () => {

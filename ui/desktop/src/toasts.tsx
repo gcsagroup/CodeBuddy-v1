@@ -106,7 +106,7 @@ class ToastService {
       autoClose: isComplete ? 5000 : false,
       closeButton: true,
       closeOnClick: false,
-      pauseOnHover: false,
+      pauseOnHover: true,
       pauseOnFocusLoss: false,
       transition: extensionToastTransition,
     };
@@ -176,9 +176,9 @@ type ToastSuccessProps = { title?: string; msg?: string; toastOptions?: ToastOpt
 
 export function toastSuccess({ title, msg, toastOptions = {} }: ToastSuccessProps) {
   return toast.success(
-    <div>
-      {title ? <strong className="font-medium">{title}</strong> : null}
-      {title ? <div>{msg}</div> : null}
+    <div className="notification-copy">
+      {title && <strong>{title}</strong>}
+      {msg && <div>{msg}</div>}
     </div>,
     { ...commonToastOptions, autoClose: 3000, ...toastOptions }
   );
@@ -213,14 +213,18 @@ function ToastErrorContent({
   };
 
   return (
-    <div className="flex gap-4 pr-8">
-      <div className="flex-grow">
+    <div className="notification-copy">
+      <div className="min-w-0">
         {title && <strong className="font-medium">{title}</strong>}
         {msg && <div>{msg}</div>}
       </div>
-      <div className="flex-none flex items-center gap-2">
+      <div className="notification-actions">
         {showRecovery && (
-          <Button onClick={() => startNewSession(recoverHints, setView, getInitialWorkingDir())}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => startNewSession(recoverHints, setView, getInitialWorkingDir())}
+          >
             {intl.formatMessage(i18n.askCodeBuddy)}
           </Button>
         )}
@@ -241,7 +245,9 @@ function ToastErrorContent({
           </Tooltip>
         )}
         {traceback && !hasBoth && (
-          <Button onClick={handleCopyError}>{intl.formatMessage(i18n.copyError)}</Button>
+          <Button size="sm" variant="outline" onClick={handleCopyError}>
+            {intl.formatMessage(i18n.copyError)}
+          </Button>
         )}
       </div>
     </div>
@@ -263,9 +269,9 @@ type ToastLoadingProps = {
 
 export function toastLoading({ title, msg, toastOptions }: ToastLoadingProps) {
   return toast.loading(
-    <div>
-      {title ? <strong className="font-medium">{title}</strong> : null}
-      {title ? <div>{msg}</div> : null}
+    <div className="notification-copy">
+      {title && <strong>{title}</strong>}
+      {msg && <div>{msg}</div>}
     </div>,
     { ...commonToastOptions, autoClose: false, ...toastOptions }
   );

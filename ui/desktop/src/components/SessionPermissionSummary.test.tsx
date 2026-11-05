@@ -47,7 +47,7 @@ describe('SessionPermissionSummary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
     expect(
       screen.getByText(
-        'Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions.'
+        'Applies to all chats on this device. Actions already in progress keep their permissions.'
       )
     ).toBeVisible();
     expect(screen.getAllByRole('radio')).toHaveLength(3);
@@ -100,7 +100,7 @@ describe('SessionPermissionSummary', () => {
     expect(screen.getByRole('radio', { name: /Full access/ })).toBeChecked();
     expect(
       screen.getByText(
-        'Applies to this conversation only. Existing tool permission rules still apply.'
+        'Applies to all chats on this device. Individual tool rules still apply.'
       )
     ).toBeVisible();
   });
@@ -142,8 +142,8 @@ it('does not claim that full access still has a file sandbox', () => {
   );
   fireEvent.click(screen.getByRole('button', { name: 'How should actions be approved?' }));
   expect(
-    screen.getByText(
-      'The file and command sandbox is disabled for this Agent. Explicit tool restrictions still apply.'
-    )
+    screen.getAllByText(
+      /file and command sandbox is off.*Installing an MCP extension requires confirmation each time/
+    )[0]
   ).toBeVisible();
 });

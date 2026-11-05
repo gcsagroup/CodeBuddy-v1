@@ -1,3 +1,4 @@
+import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
@@ -92,7 +93,7 @@ const NavRow: React.FC<NavRowProps> = ({ item, active, onClick }) => {
   const intl = useIntl();
   const Icon = item.icon;
   return (
-    <button onClick={onClick} className={navItemClass(active)}>
+    <button onClick={onClick} className={cn('shell-nav-item', navItemClass(active))} aria-current={active ? 'page' : undefined}>
       <Icon className="size-[18px] flex-shrink-0 text-text-secondary" />
       <span className="text-left flex-1 truncate">{getNavItemLabel(item, intl)}</span>
       {item.getTag && (
@@ -549,10 +550,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       initial={false}
       animate={{ opacity: isNavExpanded ? 1 : 0 }}
       transition={{ duration: reducedMotion ? 0 : 0.18 }}
-      className={cn(
-        'bg-[#f9fafb] dark:bg-background-secondary outline-none flex flex-col h-full',
-        className
-      )}
+      className={cn('shell-navigation bg-background-primary outline-none flex flex-col h-full', className)}
     >
       <NavigationHeaderSlot
         workspaceMode={workspaceMode}
@@ -573,6 +571,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ))}
       </div>
 
+      <MainConversationRow onOpen={handleSessionClick} />
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {pinnedSessions.length > 0 && (
           <NavigationChatsSection title={intl.formatMessage(i18n.pinned)}>

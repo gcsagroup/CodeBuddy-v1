@@ -1799,6 +1799,12 @@
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
   },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
+  },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
@@ -5375,6 +5381,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
@@ -7270,6 +7279,18 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "명령 인젝션 감지는 WARP에 연결했을 때 가장 잘 작동합니다. 분류 서비스에 연결하려면 WARP가 필요합니다."
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "세션 작업"

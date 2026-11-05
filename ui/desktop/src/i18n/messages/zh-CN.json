@@ -1799,6 +1799,12 @@
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 {count} 项操作"
   },
+  "conversationBranch.action": {
+    "defaultMessage": "从此轮创建对话分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
+  },
   "conversationFiles.changes": {
     "defaultMessage": "逐次修改记录（增删行数按每次操作计算，不是工作区净差异）"
   },
@@ -5375,6 +5381,9 @@
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的任务"
   },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置顶"
+  },
   "navigationPanel.projectName": {
     "defaultMessage": "项目名称"
   },
@@ -7271,6 +7280,18 @@
   "securityToggle.warpNotice": {
     "defaultMessage": "连接到 WARP 时，命令注入检测效果最佳（访问分类服务需要 WARP）。"
   },
+  "sessionActions.branchHint": {
+    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置顶会话"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能保存置顶设置：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置顶"
+  },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "会话操作"
   },
@@ -7302,13 +7323,13 @@
     "defaultMessage": "复制文本"
   },
   "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "创建会话副本失败：{error}"
+    "defaultMessage": "创建对话分支失败：{error}"
   },
   "sessionActionsHeader.duplicateSession": {
-    "defaultMessage": "创建会话副本"
+    "defaultMessage": "创建对话分支"
   },
   "sessionActionsHeader.duplicated": {
-    "defaultMessage": "已创建会话副本"
+    "defaultMessage": "已创建对话分支"
   },
   "sessionActionsHeader.exportLog": {
     "defaultMessage": "导出日志"
@@ -7452,7 +7473,7 @@
     "defaultMessage": "删除会话"
   },
   "sessions.action.duplicate": {
-    "defaultMessage": "复制会话"
+    "defaultMessage": "创建对话分支"
   },
   "sessions.action.editName": {
     "defaultMessage": "编辑会话名称"
@@ -7629,10 +7650,10 @@
     "defaultMessage": "会话删除成功"
   },
   "sessions.toast.duplicateFailed": {
-    "defaultMessage": "复制会话失败：{error}"
+    "defaultMessage": "创建对话分支失败：{error}"
   },
   "sessions.toast.duplicated": {
-    "defaultMessage": "会话“{name}”复制成功"
+    "defaultMessage": "已从“{name}”创建分支"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "导出会话失败：{error}"

@@ -86,8 +86,8 @@ describe('SessionActionsContextMenu', () => {
     expect(screen.queryByText('Rename session')).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByText('Ledger chat'));
     expect(await screen.findByText('Rename session')).toBeVisible();
-    expect(screen.getByText('Duplicate session')).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: 'Duplicate session' })).not.toHaveAttribute(
+    expect(screen.getByText('Branch conversation')).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Branch conversation' })).not.toHaveAttribute(
       'data-disabled'
     );
     expect(screen.getByText('View session JSON')).toBeVisible();
@@ -95,7 +95,7 @@ describe('SessionActionsContextMenu', () => {
     expect(screen.queryByText('View recent model interactions')).not.toBeInTheDocument();
   });
 
-  it('disables CodePro copying and explains how to start independent work', async () => {
+  it('allows CodePro to branch into independent conversation', async () => {
     testingRender(
       <SessionActionsContextMenu
         session={{ id: 'codepro-1', name: 'CodePro task', sessionType: 'code_pro' }}
@@ -105,9 +105,9 @@ describe('SessionActionsContextMenu', () => {
       { wrapper: IntlTestWrapper }
     );
     fireEvent.contextMenu(screen.getByText('CodePro task'));
-    const item = await screen.findByRole('menuitem', { name: 'Duplicate session' });
-    expect(item).toHaveAttribute('data-disabled');
-    expect(item).toHaveAttribute('title', expect.stringContaining('Start a new task'));
+    const item = await screen.findByRole('menuitem', { name: 'Branch conversation' });
+    expect(item).not.toHaveAttribute('data-disabled');
+    expect(item).toHaveAttribute('title', expect.stringContaining('Files remain shared'));
   });
 
   for (const outcome of ['saved', 'cancelled', 'read-error', 'write-error'])

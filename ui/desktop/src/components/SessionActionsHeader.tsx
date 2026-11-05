@@ -10,6 +10,9 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  GitBranch,
+  Pin,
+  PinOff,
   Archive,
   Download,
   FolderOpen,
@@ -18,6 +21,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { setSessionPinned, useSessionPins } from '../utils/sessionPins';
 import { AppEvents } from '../constants/events';
 import { defineMessages, useIntl } from '../i18n';
 import {
@@ -41,6 +45,10 @@ import {
 } from './ui/dropdown-menu';
 
 const i18n = defineMessages({
+  pin: { id: 'sessionActions.pin', defaultMessage: 'Pin session' },
+  unpin: { id: 'sessionActions.unpin', defaultMessage: 'Unpin session' },
+  pinFailed: { id: 'sessionActions.pinFailed', defaultMessage: 'Could not save pin preference: {error}' },
+  branchHint: { id: 'sessionActions.branchHint', defaultMessage: 'Continue in an independent conversation. Files remain shared; running tasks are not copied.' },
   exportLogWriteFailed: {
     id: 'sessionActionsHeader.exportLogWriteFailed',
     defaultMessage: 'The log file could not be saved.',
@@ -94,7 +102,7 @@ const i18n = defineMessages({
   },
   duplicateSession: {
     id: 'sessionActionsHeader.duplicateSession',
-    defaultMessage: 'Duplicate session',
+    defaultMessage: 'Branch conversation',
   },
   viewJson: {
     id: 'sessionActionsHeader.viewJson',
@@ -130,11 +138,11 @@ const i18n = defineMessages({
   },
   duplicated: {
     id: 'sessionActionsHeader.duplicated',
-    defaultMessage: 'Session duplicated',
+    defaultMessage: 'Conversation branch created',
   },
   duplicateFailed: {
     id: 'sessionActionsHeader.duplicateFailed',
-    defaultMessage: 'Failed to duplicate session: {error}',
+    defaultMessage: 'Failed to branch conversation: {error}',
   },
   jsonTitle: {
     id: 'sessionActionsHeader.jsonTitle',
@@ -182,6 +190,7 @@ interface SessionActionsContextMenuProps {
   session: { id: string; name: string; workingDir?: string; sessionType?: SessionType };
   children: ReactNode;
   onSessionRenamed?: () => void;
+  onSessionForked?: (id: string) => void;
 }
 
 interface ParsedSessionJson {
@@ -379,8 +388,11 @@ export function SessionActionsContextMenu({
   session,
   children,
   onSessionRenamed,
+  onSessionForked,
 }: SessionActionsContextMenuProps) {
   const intl = useIntl();
+  const pins = useSessionPins();
+  const pinned = pins.includes(session.id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -441,7 +453,8 @@ export function SessionActionsContextMenu({
 
     setIsDuplicating(true);
     try {
-      await acpForkSession(session.id);
+      const id = await acpForkSession(session.id);
+      onSessionForked?.(id);
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_CREATED));
       toast.success(intl.formatMessage(i18n.duplicated));
     } catch (error) {
@@ -453,7 +466,7 @@ export function SessionActionsContextMenu({
     } finally {
       setIsDuplicating(false);
     }
-  }, [intl, isDuplicating, session]);
+  }, [intl, isDuplicating, session, onSessionForked]);
 
   const handleOpenFolder = async () => {
     if (!session.workingDir) return;
@@ -610,6 +623,12 @@ export function SessionActionsContextMenu({
         <DropdownMenuTrigger asChild>
           <div
             onPointerDown={(event) => event.preventDefault()}
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest('[data-session-menu-trigger]')) {
+                event.stopPropagation();
+                setMenuOpen(true);
+              }
+            }}
             onContextMenu={(event) => {
               event.preventDefault();
               setMenuOpen(true);
@@ -619,6 +638,13 @@ export function SessionActionsContextMenu({
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuItem onSelect={() => {
+            try { setSessionPinned(session.id, !pinned); }
+            catch (error) { toast.error(intl.formatMessage(i18n.pinFailed, { error: errorMessage(error) })); }
+          }}>
+            {pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+            {intl.formatMessage(pinned ? i18n.unpin : i18n.pin)}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setIsRenameOpen(true)}>
             <Edit2 className="size-4" />
             {intl.formatMessage(i18n.renameSession)}
@@ -648,14 +674,14 @@ export function SessionActionsContextMenu({
             title={
               !canForkSession(session.sessionType)
                 ? intl.formatMessage(sessionCapabilityMessages.forkUnavailable)
-                : undefined
+                : intl.formatMessage(i18n.branchHint)
             }
             onSelect={() => void handleDuplicate()}
           >
             {isDuplicating ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
-              <Copy className="size-4" />
+              <GitBranch className="size-4" />
             )}
             {intl.formatMessage(i18n.duplicateSession)}
           </DropdownMenuItem>

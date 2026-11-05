@@ -119,11 +119,11 @@ const i18n = defineMessages({
   },
   duplicateSuccess: {
     id: 'sessions.toast.duplicated',
-    defaultMessage: 'Session "{name}" duplicated successfully',
+    defaultMessage: 'Branch created from "{name}"',
   },
   duplicateFailed: {
     id: 'sessions.toast.duplicateFailed',
-    defaultMessage: 'Failed to duplicate session: {error}',
+    defaultMessage: 'Failed to branch conversation: {error}',
   },
   deleteSuccess: { id: 'sessions.toast.deleted', defaultMessage: 'Session deleted successfully' },
   deleteFailed: {
@@ -147,7 +147,7 @@ const i18n = defineMessages({
   copied: { id: 'sessions.toast.copied', defaultMessage: 'Copied to clipboard' },
   openInNewWindow: { id: 'sessions.action.openNewWindow', defaultMessage: 'Open in new window' },
   editSessionName: { id: 'sessions.action.editName', defaultMessage: 'Edit session name' },
-  duplicateSession: { id: 'sessions.action.duplicate', defaultMessage: 'Duplicate session' },
+  duplicateSession: { id: 'sessions.action.duplicate', defaultMessage: 'Branch conversation' },
   deleteSession: { id: 'sessions.action.delete', defaultMessage: 'Delete session' },
   exportSession: { id: 'sessions.action.export', defaultMessage: 'Export session' },
   restoreForActions: {

@@ -9778,5 +9778,41 @@
   },
   "pastedText.openFailed": {
     "defaultMessage": "未能打开文本副本，请重试。"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "暂无已归档对话"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "从侧栏归档的对话会出现在这里，聊天内容会完整保留。"
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "归档不会删除聊天内容，只会将对话从侧栏收起。你可以随时在这里恢复。"
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "对话"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} 个对话"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "确定永久删除对话“{name}”？删除后无法在 CodeBuddy 中恢复。工作区中的文件会保留。"
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "永久删除对话"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "查找过往对话，管理已归档的记录。"
+  },
+  "sessions.history.more": {
+    "defaultMessage": "“{name}”的更多操作"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "无项目"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "永久删除"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "恢复"
   }
 }

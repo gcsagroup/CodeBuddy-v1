@@ -3,7 +3,8 @@ import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
+import { Archive, Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { useNavigationContext } from './NavigationContext';
@@ -15,9 +16,9 @@ import {
   type NavItem,
 } from '../../hooks/useNavigationItems';
 import { AppEvents } from '../../constants/events';
-import { InlineEditText } from '../common/InlineEditText';
 import { SessionIndicators } from '../SessionIndicators';
-import { acpRenameSession, type SessionListItem } from '../../acp/sessions';
+import { acpArchiveSession, type SessionListItem } from '../../acp/sessions';
+import { errorMessage } from '../../utils/conversionUtils';
 import { cn } from '../../utils';
 import type { ProjectGroup } from '../../utils/projectSessions';
 import {
@@ -118,18 +119,47 @@ export const SessionRow: React.FC<SessionRowProps> = ({
   onRenamed,
 }) => {
   const intl = useIntl();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const archiving = useRef(false);
   // Older versions embedded the role avatar in the generated title itself.
   const role = session.agentProfile;
   const displayName = role && session.name === role.avatar + ' ' + role.name ? role.name : session.name;
   const isStreaming = status?.streamState === 'streaming';
   const hasError = status?.streamState === 'error';
   const hasUnread = status?.hasUnreadActivity ?? false;
+  const archiveLabel = intl.formatMessage({
+    id: 'sessions.action.archive',
+    defaultMessage: 'Archive session',
+  });
+  const isBusy = isStreaming || status?.streamState === 'loading';
+
+  const handleArchive = async () => {
+    if (archiving.current || isBusy) return;
+    archiving.current = true;
+    setIsArchiving(true);
+    try {
+      await acpArchiveSession(session.id);
+      toast.success(intl.formatMessage({
+        id: 'sessions.toast.archived', defaultMessage: 'Session archived',
+      }));
+    } catch (error) {
+      toast.error(intl.formatMessage({
+        id: 'sessions.toast.archiveFailed',
+        defaultMessage: 'Failed to update session archive: {error}',
+      }, { error: errorMessage(error) }));
+    } finally {
+      archiving.current = false;
+      setIsArchiving(false);
+    }
+  };
 
   return (
     <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed}>
       <div
-        onClick={() => !isEditing && onClick()}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest('button')) return;
+          onClick();
+        }}
         className={cn(
           'group/session-row relative flex min-h-7 items-center gap-1.5 py-1 rounded-[10px] cursor-pointer text-sm font-normal',
           nested ? '-ml-3 mr-1 pl-6 pr-2' : 'mx-1 min-h-8 px-3',
@@ -147,30 +177,23 @@ export const SessionRow: React.FC<SessionRowProps> = ({
             className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5 text-text-secondary"
           />
         )}
-        <InlineEditText
-          value={displayName}
-          onSave={async (newName) => {
-            await acpRenameSession(session.id, newName);
-            window.dispatchEvent(
-              new CustomEvent(AppEvents.SESSION_RENAMED, {
-                detail: { sessionId: session.id, newName, userInitiated: true },
-              })
-            );
-            onRenamed();
+        <span className="min-w-0 flex-1 truncate text-text-primary" title={displayName}>
+          {displayName || intl.formatMessage(i18n.untitledSession)}
+        </span>
+        <button
+          type="button"
+          aria-label={archiveLabel}
+          title={archiveLabel}
+          disabled={isBusy || isArchiving}
+          aria-busy={isArchiving}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleArchive();
           }}
-          placeholder={intl.formatMessage(i18n.untitledSession)}
-          disabled={isStreaming}
-          singleClickEdit={false}
-          editButtonLabel={intl.formatMessage({
-            id: 'sessionActionsHeader.renameSession',
-            defaultMessage: 'Rename session',
-          })}
-          editButtonClassName="opacity-0 group-hover/session-row:opacity-60"
-          className="truncate flex-1 !px-0 !py-0 hover:bg-transparent text-text-primary group-hover/session-row:text-neutral-950 dark:group-hover/session-row:text-neutral-50"
-          editClassName="min-w-0 flex-1 !text-sm"
-          onEditStart={() => setIsEditing(true)}
-          onEditEnd={() => setIsEditing(false)}
-        />
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary opacity-0 transition-opacity group-hover/session-row:opacity-100 group-focus-within/session-row:opacity-100 hover:bg-background-secondary hover:text-text-primary focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <Archive className="size-3.5" aria-hidden="true" />
+        </button>
         <SessionIndicators isStreaming={isStreaming} hasUnread={hasUnread} hasError={hasError} />
       </div>
     </SessionActionsContextMenu>

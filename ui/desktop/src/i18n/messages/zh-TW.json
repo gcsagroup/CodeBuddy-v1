@@ -9736,5 +9736,41 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
+  },
+  "sessions.history.archiveEmpty": {
+    "defaultMessage": "暫無已封存對話"
+  },
+  "sessions.history.archiveEmptyDescription": {
+    "defaultMessage": "從側欄封存的對話會出現在這裡，聊天內容會完整保留。"
+  },
+  "sessions.history.archiveNotice": {
+    "defaultMessage": "封存不會刪除聊天內容，只會將對話從側欄收起。你可以隨時在這裡復原。"
+  },
+  "sessions.history.conversations": {
+    "defaultMessage": "對話"
+  },
+  "sessions.history.count": {
+    "defaultMessage": "{count} 個對話"
+  },
+  "sessions.history.deleteMessage": {
+    "defaultMessage": "確定永久刪除對話「{name}」？刪除後無法在 CodeBuddy 中復原。工作區中的檔案會保留。"
+  },
+  "sessions.history.deleteTitle": {
+    "defaultMessage": "永久刪除對話"
+  },
+  "sessions.history.description": {
+    "defaultMessage": "尋找過往對話，管理已封存的記錄。"
+  },
+  "sessions.history.more": {
+    "defaultMessage": "「{name}」的更多操作"
+  },
+  "sessions.history.noProject": {
+    "defaultMessage": "無專案"
+  },
+  "sessions.history.permanentDelete": {
+    "defaultMessage": "永久刪除"
+  },
+  "sessions.history.restore": {
+    "defaultMessage": "復原"
   }
 }

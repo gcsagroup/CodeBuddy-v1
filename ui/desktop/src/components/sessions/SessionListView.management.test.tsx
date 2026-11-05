@@ -1,11 +1,12 @@
 import { toast } from 'react-toastify';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { AppEvents } from '../../constants/events';
 import {
   acpArchiveSession,
+  acpDeleteSession,
   acpExportSession,
   acpListSessions,
   acpUnarchiveSession,
@@ -16,6 +17,7 @@ import SessionListView from './SessionListView';
 vi.mock('../../acp/sessions', () => ({
   acpListSessions: vi.fn(),
   acpArchiveSession: vi.fn(),
+  acpDeleteSession: vi.fn(),
   acpExportSession: vi.fn(),
   acpUnarchiveSession: vi.fn(),
 }));
@@ -45,6 +47,7 @@ function session(
 describe('history management filters and archive actions', () => {
   beforeEach(() => {
     vi.mocked(acpListSessions).mockReset();
+    vi.mocked(acpDeleteSession).mockReset();
     vi.mocked(acpArchiveSession).mockReset();
     vi.mocked(acpUnarchiveSession).mockReset();
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -72,11 +75,13 @@ describe('history management filters and archive actions', () => {
         ),
       ].filter((item) => filter?.includeArchived || !item.archivedAt),
     }));
-    vi.mocked(acpArchiveSession).mockImplementation(async sessionId => {
+    vi.mocked(acpArchiveSession).mockImplementation(async (sessionId) => {
       window.dispatchEvent(new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId } }));
     });
-    vi.mocked(acpUnarchiveSession).mockImplementation(async sessionId => {
-      window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId } }));
+    vi.mocked(acpUnarchiveSession).mockImplementation(async (sessionId) => {
+      window.dispatchEvent(
+        new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId } })
+      );
     });
   });
 
@@ -93,7 +98,7 @@ describe('history management filters and archive actions', () => {
     expect(await screen.findByText('Recent project A')).toBeVisible();
     expect(screen.queryByText('Archived project A')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('History view'), { target: { value: 'archived' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Archived' }));
     expect(await screen.findByText('Archived project A')).toBeVisible();
     expect(screen.queryByText('Recent project A')).not.toBeInTheDocument();
 
@@ -108,21 +113,21 @@ describe('history management filters and archive actions', () => {
       wrapper: IntlTestWrapper,
     });
     await screen.findByText('Recent project A');
-    expect(screen.getAllByTitle('Export session')[0]).toBeEnabled();
-    fireEvent.change(screen.getByLabelText('History view'), { target: { value: 'archived' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Archived' }));
     await screen.findByText('Archived project A');
     await userEvent.click(screen.getByText('Archived project A'));
     expect(onSelect).not.toHaveBeenCalled();
     for (const title of ['Open in new window', 'Edit session name', 'Export session']) {
-      expect(screen.getByTitle(title)).toBeDisabled();
+      expect(screen.queryByTitle(title)).not.toBeInTheDocument();
     }
     expect(
       screen.getByText(
-        'Restore this session before opening, editing, duplicating, exporting or sharing it.'
+        'Archiving keeps your conversation and removes it from the sidebar. Restore it here whenever you need it.'
       )
     ).toBeVisible();
     expect(screen.getByTitle('Unarchive session')).toBeEnabled();
-    expect(screen.getByTitle('Delete session')).toBeEnabled();
+    expect(screen.getByTitle('Permanently delete')).toBeEnabled();
   });
 
   it('reports export errors instead of leaving an unhandled request', async () => {
@@ -131,7 +136,10 @@ describe('history management filters and archive actions', () => {
       wrapper: IntlTestWrapper,
     });
     await screen.findByText('Recent project A');
-    await userEvent.click(screen.getAllByTitle('Export session')[0]);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'More actions for Recent project A' })
+    );
+    await userEvent.click(screen.getByTitle('Export session'));
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Failed to export session: Snapshot is unavailable')
     );
@@ -164,5 +172,63 @@ describe('history management filters and archive actions', () => {
     await userEvent.click(archiveButtons[0]);
     expect(acpArchiveSession).toHaveBeenCalledWith('Recent project A');
     await waitFor(() => expect(acpListSessions).toHaveBeenCalledTimes(2));
+  });
+  it('confirms permanent deletion, preserves a failed row, and prevents duplicate submissions', async () => {
+    let rejectDelete!: (error: Error) => void;
+    vi.mocked(acpDeleteSession).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectDelete = reject;
+        })
+    );
+    render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
+      wrapper: IntlTestWrapper,
+    });
+    await screen.findByText('Recent project A');
+    await userEvent.click(screen.getByRole('tab', { name: 'Archived' }));
+    await userEvent.click(screen.getByTitle('Permanently delete'));
+    expect(acpDeleteSession).not.toHaveBeenCalled();
+    let dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/Files in the workspace will be kept/)).toBeVisible();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(acpDeleteSession).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByTitle('Permanently delete'));
+    dialog = screen.getByRole('dialog');
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Permanently delete conversation' })
+    );
+    expect(within(dialog).getByRole('button', { name: 'Processing...' })).toBeDisabled();
+    expect(acpDeleteSession).toHaveBeenCalledTimes(1);
+    rejectDelete(new Error('Busy session'));
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole('button', { name: 'Permanently delete conversation' })
+      ).toBeEnabled()
+    );
+    expect(screen.getByText('Archived project A')).toBeInTheDocument();
+    vi.mocked(acpDeleteSession).mockResolvedValueOnce(undefined);
+    vi.mocked(acpListSessions).mockResolvedValueOnce({ sessions: [], nextCursor: null });
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Permanently delete conversation' })
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByText('No archived conversations')).toBeVisible();
+    expect(acpDeleteSession).toHaveBeenLastCalledWith('Archived project A');
+  });
+
+  it('keeps the archive available when restore fails and permits a retry', async () => {
+    vi.mocked(acpUnarchiveSession).mockRejectedValueOnce(new Error('Offline'));
+    render(<SessionListView onSelectSession={vi.fn()} workspaceMode="unified" />, {
+      wrapper: IntlTestWrapper,
+    });
+    await screen.findByText('Recent project A');
+    await userEvent.click(screen.getByRole('tab', { name: 'Archived' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to update session archive: Offline')
+    );
+    expect(screen.getByText('Archived project A')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Restore' })).toBeEnabled();
+    expect(acpDeleteSession).not.toHaveBeenCalled();
   });
 });

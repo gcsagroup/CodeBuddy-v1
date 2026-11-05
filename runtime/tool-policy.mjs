@@ -25,6 +25,7 @@ export function hostToolExtensionName(name) {
 }
 export async function toolEnabled(session, settings, name, resolved) {
   if (!agentAllowsTool(session.agentProfile, name)) return false;
+  if (name === 'workspace_memory') return session.globalConversation === true;
   if (name === "codebuddy_task") return session.type === "code_pro";
   const snapshot =
     resolved ?? (await resolveSessionExtensions(session, settings));

@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, relative, isAbsolute, sep } from "node:path";
 import {
   readFile,
   readdir,
@@ -47,6 +47,22 @@ export class SkillCatalog {
 
   async roots(cwd) {
     const roots = await this.reader.roots(cwd);
+    if (cwd && this.config.managedWorkspaceRoot) {
+      const container = this.config.managedWorkspaceRoot;
+      const withinContainer = relative(container, cwd);
+      const task = withinContainer.split(sep)[0];
+      if (task && task !== '..' && !isAbsolute(withinContainer)) {
+        const boundary = join(container, task);
+        for (const root of roots) {
+          if (!root.projectRoot) continue;
+          const withinProject = relative(root.projectRoot, boundary);
+          if (withinProject && withinProject.split(sep)[0] !== '..' && !isAbsolute(withinProject)) {
+            root.path = join(boundary, relative(root.projectRoot, root.path));
+            root.projectRoot = boundary;
+          }
+        }
+      }
+    }
     roots.push({ path: this.sharedRoot, source: "shared", rank: 600 });
     const seen = new Set();
     const result = [];

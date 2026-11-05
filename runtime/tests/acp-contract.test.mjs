@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm, writeFile, readFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -618,6 +618,32 @@ test("session rename, archive, search and provider removal preserve readable res
   );
   await reopened.request("session/delete", { sessionId });
   assert.equal((await reopened.request("session/list")).sessions.length, 0);
+});
+
+test('archived conversations survive restart, restore their original messages, and delete without removing workspace files', async t => {
+  const fixture = await setup(t);
+  let client = fixture.client;
+  await configure(client);
+  const sessionId = await newSession(client, fixture.dataDir);
+  const file = path.join(fixture.dataDir, 'user-project-file.txt');
+  await writeFile(file, 'Keep my project file');
+  await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Archive retention fixture' }] });
+  const before = await client.request(ext('session/export'), { sessionId });
+  await client.request(ext('session/archive'), { sessionId });
+  client = await fixture.restart();
+  assert.equal((await client.request('session/list')).sessions.some(s => s.sessionId === sessionId), false);
+  const archive = (await client.request('session/list', { _meta: { includeArchived: true } })).sessions.find(s => s.sessionId === sessionId);
+  assert.ok(archive._meta.archivedAt);
+  await client.request(ext('session/unarchive'), { sessionId });
+  const after = await client.request(ext('session/export'), { sessionId });
+  assert.equal(JSON.stringify(after).includes('Archive retention fixture'), true);
+  assert.ok(JSON.parse(before.data).conversation.length > 0);
+  assert.deepEqual(JSON.parse(after.data).conversation, JSON.parse(before.data).conversation);
+  await client.request('session/delete', { sessionId });
+  client = await fixture.restart();
+  assert.equal((await client.request('session/list', { _meta: { includeArchived: true } })).sessions.some(s => s.sessionId === sessionId), false);
+  await assert.rejects(client.request(ext('session/unarchive'), { sessionId }));
+  assert.equal(await readFile(file, 'utf8'), 'Keep my project file');
 });
 
 test('native mode selection changes during a prompt without a second product approval decision', async t => {

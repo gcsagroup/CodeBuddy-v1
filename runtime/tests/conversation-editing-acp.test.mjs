@@ -26,13 +26,19 @@ async function connect(url) {
 test('real ACP CodePro edit cancels the old run, keeps file effects and logs, and starts a fresh run on the same UI identity', { timeout: 40_000 }, async t => {
   const directory = await realpath(await mkdtemp(join(tmpdir(), 'codebuddy-acp-edit-')));
   const cwd = join(directory, 'project'), dataDir = join(directory, 'data'), output = join(cwd, 'retained-effect.txt');
-  const requests = [], counts = { original: 0, replaced: 0 }, failures = [];
+  const requests = [], counts = { original: 0, replaced: 0 }, failures = [], titleRequests = [];
   const model = createServer(async (req, res) => {
     if (req.method === 'GET') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ data: [{ id: 'edit-model' }] })); return; }
     try {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw);
       if (request.stream !== true) { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: 'fixture-test', object: 'chat.completion', choices: [{ index: 0, message: { role: 'assistant', content: 'OK' }, finish_reason: 'stop' }] })); return; }
+      if (request.messages.some(message => message.role === 'system' && JSON.stringify(message.content).includes('Summarize the supplied first conversation turn'))) {
+        titleRequests.push(request);
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.end(`data: ${JSON.stringify({ id: 'title-fixture', object: 'chat.completion.chunk', model: 'edit-model', choices: [{ index: 0, delta: { role: 'assistant', content: '文件修改与恢复' }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+        return;
+      }
       requests.push(request);
       const text = [...request.messages].reverse().find(m => m.role === 'user' && /ACP_EDIT_(ORIGINAL|REPLACED)/.test(JSON.stringify(m.content)));
       const mode = JSON.stringify(text?.content).includes('ACP_EDIT_REPLACED') ? 'replaced' : 'original';
@@ -65,13 +71,22 @@ test('real ACP CodePro edit cancels the old run, keeps file effects and logs, an
   await client.request(ext('config/extensions/set-enabled'), { configKey: 'commonqueries', enabled: false });
   const provider = await client.request(ext('providers/custom/create'), { engine: 'openai_compatible', displayName: 'Conversation fixture', apiUrl: `http://127.0.0.1:${model.address().port}`, requiresAuth: false, models: ['edit-model'], supportsStreaming: true, headers: {} });
   await client.request(ext('defaults/save'), { providerId: provider.providerId, modelId: 'edit-model' });
+  // A brand-new main conversation has no native session yet. Clearing it must
+  // initialize safely and keep the singleton identity through the ACP route.
+  const main = await client.request('_codebuddy/main-conversation/ensure');
+  await client.request('_codebuddy/main-conversation/clear', { sessionId: main.sessionId });
+  assert.equal((await client.request('_codebuddy/main-conversation/ensure')).sessionId, main.sessionId);
   const lease = await client.request(ext('workspace/lease/acquire'), { requestedPath: cwd, expectedState: 'missing', expectedIdentity: workspaceIdentity(cwd) });
   const session = await client.request('session/new', { cwd, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } });
   const id = session.sessionId, userId = randomUUID();
+  assert.equal((JSON.parse(await readFile(join(dataDir, 'state.json'), 'utf8'))).sessions.find(s => s.id === id).title, '新对话');
   const prompt = (text, sourceId) => client.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text }], _meta: { 'codeagentpro/source-message-id': sourceId } });
   assert.equal((await prompt('ACP_EDIT_ORIGINAL develop a temporary file', userId)).stopReason, 'end_turn');
   const stored = () => readFile(join(dataDir, 'state.json'), 'utf8').then(JSON.parse);
   const before = await stored(), oldRun = before.codeproRuns.at(-1), source = before.sessions.find(s => s.id === id);
+  assert.equal(source.title, '文件修改与恢复');
+  assert.equal(titleRequests.length, 1);
+  assert.match(JSON.stringify(titleRequests[0].messages), /original fixture left its task open/);
   const oldSnapshot = client.notifications.filter(m => m.method === ext('codepro/run/update')).at(-1).params.snapshot;
   assert.equal(oldSnapshot.state, 'paused');
   assert.ok(oldRun.events.some(e => e.eventType === 'harness_event' && e.payload.event.type === 'goal/change'));

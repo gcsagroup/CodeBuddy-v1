@@ -1,6 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import CompactionEngine, { installCompactionRequestCompatibility } from '../compaction.mjs';
+import CompactionEngine, { checkpointFileReferences, includeFileReferences, installCompactionRequestCompatibility } from '../compaction.mjs';
+
+test('file references survive repeated checkpoints, using paired successful filesystem receipts from the selected span only', () => {
+  const events = [];
+  function read(path, extra = {}) {
+    const seq = events.length;
+    events.push({ type: 'tool/call', data: { name: 'read', callId: String(seq), ...extra.call } },
+      { type: 'tool/result', sourceEventSeqs: [seq], data: {
+        message: { toolCallId: String(seq), isError: false, ...extra.message },
+        meta: { path, lines: [{ number: 37, text: 'private row' }, { number: 45 }] },
+      } });
+    return seq + 1;
+  }
+  const first = read('data/input.tsv');
+  const failed = read('failed', { message: { isError: true } });
+  const foreign = read('mcp-output', { call: { name: 'mcp__external__read' } });
+  const mismatch = read('unpaired', { message: { toolCallId: 'different' } });
+  read('outside-selection');
+  events.push({ type: 'user/message', data: { source: { kind: 'compact-checkpoint' } },
+    sourceEventSeqs: [first, failed, foreign, mismatch] });
+  const checkpoint = events.length - 1;
+  const recent = Array.from({ length: 12 }, (_, n) => read('file-' + n));
+  const session = { eventAt: seq => events[seq] };
+  const seqs = [checkpoint, ...recent];
+  const refs = checkpointFileReferences(session, seqs);
+  assert.deepEqual(refs, [ 'data/input.tsv', ...recent.slice(-7).map((_, n) => 'file-' + (5 + n)) ]
+    .map(path => ({ path, lines: [37, 45] })));
+  const base = { role: 'user', source: { kind: 'compact-checkpoint' }, content: [{ type: 'text', text: 'Original summary' }] };
+  const meter = { estimateMessage: m => m.content.reduce((n, block) => n + block.text.length, 0) };
+  assert.strictEqual(includeFileReferences(base, session, seqs, 100, meter), base);
+  const enriched = includeFileReferences(base, session, seqs, 220, meter);
+  assert.ok(meter.estimateMessage(enriched) < 220);
+  assert.match(enriched.content.at(-1).text, /data\/input\.tsv/);
+  assert.doesNotMatch(enriched.content.at(-1).text, /private row/);
+});
 
 function fixture(reason = { kind: 'stop' }) {
   let request;

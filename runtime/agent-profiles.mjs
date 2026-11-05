@@ -125,6 +125,7 @@ export function agentBaselineProfile(session) {
 
 export async function agentProfileRequest(host, action, input, connection) {
   const store = host.store;
+  if (action === 'workspaces') return { directories: Object.keys(store.read(['agentWorkspaces']).agentWorkspaces ?? {}) };
   const current = async sessionId => {
     const committedInputs = await host.driver.agentInputIds?.(sessionId, { committedOnly: true }) ?? [];
     const session = host.session(sessionId);
@@ -201,7 +202,8 @@ export async function agentProfileRequest(host, action, input, connection) {
     const key = workspaceIdentity(lease.workingDir);
     try {
       await store.update(state => { state.agentWorkspaces ??= {}; state.agentWorkspaces[key] = profile; }, ['agentWorkspaces']);
-      return await host.request('session/new', { cwd: lease.workingDir, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } }, connection);
+      const created = await host.request('session/new', { cwd: lease.workingDir, mcpServers: [], _meta: { workspaceMode: 'codepro', workspaceLeaseId: lease.leaseId } }, connection);
+      return { ...created, workingDir: lease.workingDir, workspaceName: profile.name };
     } catch (error) {
       // session/new may report a permission-service failure after committing
       // the conversation. Never detach a committed workspace's role policy.

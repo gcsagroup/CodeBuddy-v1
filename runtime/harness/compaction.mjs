@@ -1,6 +1,64 @@
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
+import { createUserMessage } from '@deepseek-ai/dsh-llm';
 
 class UnchangedCheckpoint extends Error {}
+
+// Only follow the compacted surface span and the spans replaced by earlier
+// checkpoints. A sibling turn, a failed call or arbitrary tool text is not a
+// file receipt. Keep file content out of the checkpoint.
+export function checkpointFileReferences(session, seqs) {
+  const found = new Map();
+  const seen = new Set();
+  const spans = [seqs.values()];
+  while (spans.length && seen.size < 8192) {
+    const next = spans.at(-1).next();
+    if (next.done) { spans.pop(); continue; }
+    const seq = next.value;
+    if (seen.has(seq)) continue;
+    seen.add(seq);
+    const event = session.eventAt(seq);
+    if (event.type === 'user/message' && event.data.source?.kind === 'compact-checkpoint') {
+      if (event.sourceEventSeqs) spans.push(event.sourceEventSeqs.values());
+      continue;
+    }
+    if (event.type !== 'tool/result' || event.data.message.isError) continue;
+    const { meta, message } = event.data;
+    if (typeof meta?.path !== 'string' || !meta.path || meta.path.length > 512) continue;
+    const call = event.sourceEventSeqs?.map(id => session.eventAt(id)).find(e =>
+      e.type === 'tool/call' && e.data.callId === message.toolCallId);
+    if (!call || !['read', 'write', 'edit'].includes(call.data.name)) continue;
+    const ref = { path: meta.path };
+    if (call.data.name === 'read') {
+      const first = meta.lines?.[0]?.number, last = meta.lines?.at(-1)?.number;
+      if (Number.isSafeInteger(first) && first > 0 && Number.isSafeInteger(last) && last >= first)
+        ref.lines = [first, last];
+    }
+    const key = JSON.stringify(ref);
+    if (found.keys().next().value === key) continue;
+    found.delete(key);
+    found.set(key, ref);
+    // Preserve the earliest reference and the most recent working set.
+    if (found.size > 8) found.delete([...found.keys()][1]);
+  }
+  return [...found.values()];
+}
+
+export function includeFileReferences(checkpoint, session, seqs, replacedTokens, meter) {
+  const refs = checkpointFileReferences(session, seqs);
+  if (!refs.length) return checkpoint;
+  const maxTokens = Math.min(replacedTokens - 1, meter.estimateMessage(checkpoint) + 512);
+  const selected = [];
+  let result = checkpoint;
+  for (const ref of [refs[0], ...refs.slice(1).reverse()]) {
+    const text = 'For exact current values, read the listed path. For lines [first,last] use offset=first, limit=last-first+1.\n' +
+      JSON.stringify([...selected, ref]);
+    const candidate = createUserMessage({ content: [...checkpoint.content, { type: 'text', text }], source: checkpoint.source });
+    if (meter.estimateMessage(candidate) > maxTokens) continue;
+    selected.push(ref);
+    result = candidate;
+  }
+  return result;
+}
 
 // 0.2.1-alpha.2 omits the routed reasoning control on auxiliary summary calls.
 // Some chat templates put that control at the beginning of the system prompt,
@@ -30,6 +88,27 @@ export function installCompactionRequestCompatibility(ctx, currentEffort = () =>
 // Keep selection, balancing, transaction, retry and overflow policy upstream.
 export default class CompactionEngine extends BasicCompactionEngine {
   pressureAttempts = new WeakMap();
+  manualSurfaces = new WeakMap();
+
+  async compactNow(agent, signal, sourceCommandId) {
+    signal.throwIfAborted();
+    const surface = () => JSON.stringify(agent.session.surface.nodes);
+    // Repeating /compact without new conversation evidence needlessly summarizes
+    // the same checkpoint again. Keep native admission and cancellation checks.
+    if (this.manualSurfaces.get(agent) === surface()) {
+      return agent.runMaintenance(async (agentSignal) => {
+        AbortSignal.any([agentSignal, signal]).throwIfAborted();
+        return null;
+      });
+    }
+    const result = await super.compactNow(agent, signal, sourceCommandId);
+    if (result) this.manualSurfaces.set(agent, surface());
+    return result;
+  }
+
+  regionDependencies() {
+    return { ...super.regionDependencies(), includeFileReferences };
+  }
 
   async compactIfNeeded(agent, trigger, signal) {
     if (trigger !== 'pressure') return super.compactIfNeeded(agent, trigger, signal);

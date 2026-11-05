@@ -42,6 +42,13 @@ test('model transport publishes bounded public waiting phases without diagnostic
     const [update] = project({ type: 'model_diagnostic', sessionId: 'parent', phase, status: 200, timings: [{ private: 'diagnostic' }], requestId: 'internal-request' });
     assert.equal(update.status.data.model_request_phase, expected);
     assert.equal(update.status.data.phase, 'model');
+    assert.equal(update.status.message, '');
+    if (phase === 'start') {
+      for (const purpose of [undefined, 'compaction']) {
+        assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'request_budget',
+          purpose, source: 'pi-ai-estimate-context-tokens', input: 29047, output: 32768, window: 512000 }), []);
+      }
+    }
     assert.doesNotMatch(JSON.stringify(update), /diagnostic|internal-request|timings/);
   }
   assert.deepEqual(project({ type: 'model_diagnostic', sessionId: 'parent', phase: 'response_headers', status: 200 }), [], 'headers alone must not change the waiting label or restart its clock');
@@ -247,4 +254,14 @@ test('child retries clear on that worker recovery without clearing another worke
   native('second', 'llm/retry', { ...retry, retry: 2 });
   assert.deepEqual(native('first', 'llm/retry-started'), [], 'The other worker retry stays visible');
   assert.equal(native('second', 'llm/retry-started')[0].status.message, '');
+});
+
+test('a structured context overflow takes precedence over the observed HTTP 400', () => {
+  const project = workStatusUpdates({ sessionId: 'root' });
+  project({ type: 'model_diagnostic', sessionId: 'root', phase: 'end', status: 400 });
+  const [notice] = project({ type: 'harness_event', sessionId: 'root', event: {
+    type: 'turn/end', data: { reason: { kind: 'error', error: { code: 'CONTEXT_WINDOW_EXCEEDED' } } },
+  } });
+  assert.match(notice.status.message, /上下文/);
+  assert.doesNotMatch(notice.status.message, /API 基础路径/);
 });

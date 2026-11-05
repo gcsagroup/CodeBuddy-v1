@@ -1,3 +1,4 @@
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import { savedFixtureResponse } from './comfyui-catalog-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,6 +25,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
     if (!request.stream) { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content: 'OK' } }] })); return; }
+    if (answerTitleRequest(request, res)) return;
     requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'image-check', object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);

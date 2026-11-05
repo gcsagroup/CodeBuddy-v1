@@ -62,7 +62,7 @@ function fixture({ before = exhaustedFit, after = improvedFit, shrink = true, co
     failures.set(value, { fit: before, async measure(options) {
       measurements.push(options);
       if (measureError) throw measureError;
-      return after;
+      return Array.isArray(after) ? after[Math.min(measurements.length - 1, after.length - 1)] : after;
     } });
     return value;
   }
@@ -123,7 +123,8 @@ test('no surface replacement, insufficient fit, and summary failures cannot auth
     const f = fixture(options);
     assert.strictEqual(await f.recover(), f.next);
     assert.strictEqual(await f.recover(), f.next, 'a failed/no-op attempt cannot repeatedly summarize within the turn');
-    assert.equal(f.compactions.length, 1);
+    const improvedButInsufficient = options.after?.estimate?.tokens < exhaustedFit.estimate.tokens && options.after?.available > exhaustedFit.available && (options.after.available < 1 || options.after.effectiveMaxTokens < 1);
+    assert.equal(f.compactions.length, improvedButInsufficient ? 2 : 1, 'an improving segment may continue once, but unchanged fit stops the next segment');
   }
 });
 
@@ -471,4 +472,16 @@ test('pressure refuses an inner checkpoint-only shrink while forced and manual c
 test('patch fails closed when a native anchor drifts', () => {
   assert.throws(() => compactionPatch.transform(nativeSource.replace('overflowAgents =', 'changedOverflowAgents =')), /Review the native compaction/);
   assert.throws(() => compactionPatch.transform(nativeSource.replace('end: surfaceNodes[keepFromIdx - 1]', 'end: changedSelectorTail')), /Review the native compaction/);
+});
+
+test('a measured downshift continues only while the same route gains room, stopping on a plateau', async () => {
+  const before = { ...exhaustedFit, source: 'vllm-tokenizer', available: -5000 };
+  const partial = { ...before, estimate: { tokens: 9800 }, available: -500 };
+  const ready = { ...improvedFit, source: before.source };
+  const f = fixture({ before, after: [partial, ready] });
+  assert.deepEqual(await f.recover(), { kind: 'retry' });
+  assert.equal(f.compactions.length, 2);
+  const stalled = fixture({ before, after: [partial, partial] });
+  assert.equal(await stalled.recover(), stalled.next);
+  assert.equal(stalled.compactions.length, 2);
 });

@@ -71,6 +71,41 @@ async function fixture(t) {
   return { directory, requests, resourceCalls, mcp, provider, options, setup, create, turn, hostCalls, get store() { return store; }, get driver() { return driver; }, get rawDriver() { return rawDriver; }, async restart() { await driver.close(); store = await openStore(join(directory, 'product')); rawDriver = await createHarnessDriver({ dataDir: join(directory, 'native'), cwd: directory }); driver = createConversationDriver(rawDriver, store); } };
 }
 
+test('auxiliary title inference uses the conversation route and both sides without exposing tools', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.turn(id, 'USER_FIRST_TITLE', 10);
+  assert.equal(await f.driver.generateTitle(id, { user: 'USER_FIRST_TITLE', assistant: 'ASSISTANT_TITLE_CONTEXT' }), 'FIXTURE_ANSWER');
+  const request = f.requests.at(-1);
+  assert.match(JSON.stringify(request.messages), /USER_FIRST_TITLE/);
+  assert.match(JSON.stringify(request.messages), /ASSISTANT_TITLE_CONTEXT/);
+  assert.equal(request.tools?.length ?? 0, 0);
+});
+
+test('clearing main history keeps its identity and memory, drops model context and survives restart', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.turn(id, 'USER_OLD_MAIN', 10);
+  const editing = new ConversationEditing(f.store, f.driver);
+  await assert.rejects(editing.request('_codebuddy/main-conversation/clear', { sessionId: id }), /Only the main/);
+  await f.store.update(s => { s.sessions.find(s => s.id === id).globalConversation = true; });
+  // Memory lives outside conversation events; preserve a real native memory entry.
+  await f.driver.memory.set('clear-fixture', 'keep', { text: 'remember me' });
+  const memoryBefore = await f.driver.memory.get('clear-fixture', 'keep');
+  const busy = new ConversationEditing(f.store, f.driver, { isActive: () => true });
+  await assert.rejects(busy.request('_codebuddy/main-conversation/clear', { sessionId: id }), /active prompt/);
+  await editing.request('_codebuddy/main-conversation/clear', { sessionId: id });
+  const cleared = f.store.read().sessions.find(s => s.id === id);
+  assert.equal(cleared.globalConversation, true);
+  assert.equal(cleared.messageCount, 0);
+  assert.deepEqual(cleared.updates, []);
+  assert.deepEqual(cleared.usageUpdates, []);
+  assert.deepEqual(await f.driver.memory.get('clear-fixture', 'keep'), memoryBefore);
+  await f.restart(); await f.setup(id);
+  await f.turn(id, 'USER_NEW_MAIN', 20);
+  assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages), /USER_OLD_MAIN/);
+  assert.match(JSON.stringify(f.requests.at(-1).messages), /USER_NEW_MAIN/);
+  assert.deepEqual(await f.driver.memory.get('clear-fixture', 'keep'), memoryBefore);
+});
+
 test('official fork powers in-place edits, preserves old native facts, maps host/permission/event identities, and survives restart', async t => {
   const f = await fixture(t), id = await f.create();
   await f.turn(id, 'USER_KEEP', 10);

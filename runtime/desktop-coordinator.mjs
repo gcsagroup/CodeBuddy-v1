@@ -163,7 +163,8 @@ export class DesktopCoordinator {
         if (this.pauseRevision() !== null) throw controlError('paused', pausedMessage);
         const owner = this.readLease();
         if (owner?.token !== turn.token) throw controlError('stale', staleMessage);
-        return { 'codebuddy/desktop-control': { version: 1, token: turn.token, generation: owner.generation } };
+        return { 'codebuddy/desktop-control': { version: 1, token: turn.token, generation: owner.generation,
+          windowTitle: turn.windowTitle ?? null } };
       },
       end: async () => {
         turn.closed = true;
@@ -195,6 +196,15 @@ export class DesktopCoordinator {
     if (turn.epoch !== this.epoch()) turn.desktopStopped = true;
     if (turn.desktopStopped) throw controlError('stopped', turn.failureMessage ?? stoppedMessage);
     if (turn.withdrawn) throw controlError('withdrawn', 'DESKTOP_WITHDRAWN: 用户已退出本轮电脑控制排队；原任务保留，继续独立的非桌面工作。');
+    const title = tool.arguments?.window_title;
+    if (title !== undefined) {
+      if (!['mcp__qwen_computer__list_apps', 'mcp__qwen_computer__get_app_state', 'mcp__qwen_computer__open_path'].includes(tool.name)
+        || typeof title !== 'string' || (title !== '' && !title.trim()))
+        throw Error('Declare the exact requested window_title on the first desktop discovery call.');
+      if (turn.windowTitle !== undefined && title !== turn.windowTitle)
+        throw Error('The window title for this turn is already bound. No input dispatched.');
+      turn.windowTitle = title;
+    }
     mkdirSync(this.directory, { recursive: true });
     if (!this.timer) {
       this.timer = setInterval(() => {

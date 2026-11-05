@@ -1,3 +1,4 @@
+import { requestBudgetChannel } from './sdk-budget/vllm-count.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { channel } from 'node:diagnostics_channel';
 import { randomUUID } from 'node:crypto';
@@ -32,7 +33,8 @@ export function observeModelTransport(ctx, publish) {
   const listeners = {
     'undici:request:create': ({ request }) => {
       const scope = context.getStore();
-      if (scope) {
+      // The optional count request is preparation, not an inference attempt.
+      if (scope && !request.path?.split('?')[0].endsWith('/tokenize')) {
         scope.requests += 1;
         const timing = { request: scope.requests, createdMs: Math.round(performance.now() - scope.started) };
         requests.set(request, { scope, timing });
@@ -65,6 +67,8 @@ export function observeModelTransport(ctx, publish) {
       if (scope) for (const code of codesOf(error)) scope.transportCodes.add(code);
     },
   };
+  const budget = info => context.getStore()?.report?.('request_budget', info);
+  requestBudgetChannel.subscribe(budget);
   for (const [name, listener] of Object.entries(listeners)) channel(name).subscribe(listener);
   const dispose = ctx.on('llm/stream', (options, next) => {
     const scope = {
@@ -122,6 +126,7 @@ export function observeModelTransport(ctx, publish) {
   });
   return () => {
     dispose();
+    requestBudgetChannel.unsubscribe(budget);
     for (const [name, listener] of Object.entries(listeners)) channel(name).unsubscribe(listener);
     context.disable();
   };

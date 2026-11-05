@@ -73,7 +73,7 @@ export class RuntimeSettings {
     assertCurrent();
     return { configured, entries, assertCurrent };
   }
-  async saveExtension(p, replacing = false) {
+  async saveExtension(p, replacing = false, { installingSessionId, signal } = {}) {
     const extension = structuredClone(p.extension);
     if (!extension || !['builtin', 'platform', 'mcp'].includes(extension.type)) throw invalid('Invalid extension type');
     const key = configKey(extension);
@@ -92,6 +92,14 @@ export class RuntimeSettings {
     const protectedValue = extension.type === 'mcp' ? await protectSecret(JSON.stringify(extension)) : undefined;
     const changed = await this.store.update(async state => {
       const index = state.extensions.findIndex(x => x.configKey === (replacing ? p.configKey : key));
+      if (installingSessionId) {
+        signal.throwIfAborted();
+        if (index >= 0) throw invalid('Extension name already exists');
+        const chat = state.sessions.find(item => item.id === installingSessionId);
+        if (!chat || chat.archivedAt || chat.readonlyHistory || chat.agentProfile) throw invalid('Chat cannot install extensions');
+        if (Array.isArray(chat.extensions) && !chat.extensions.some(item => extensionName(item) === extensionName(extension)))
+          chat.extensions.push(extensionName(extension));
+      }
       if (replacing && index < 0) throw invalid('Extension was removed; reload configuration');
       if (state.extensions.some((x, i) => i !== index && x.configKey === key)) throw invalid('Extension name already exists');
       const old = state.extensions[index];

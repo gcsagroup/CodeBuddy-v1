@@ -15,7 +15,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { SkillDownloader } from "./skill-download.mjs";
+import { SkillDownloader, skillDownloadUrl } from "./skill-download.mjs";
 import { assertRecipeExecutable } from "./recipe-execution.mjs";
 import { zRecipeDto } from "../ui/sdk/dist/generated/zod.gen.js";
 import { Context } from "./harness/node_modules/@deepseek-ai/cordis/lib/index.js";
@@ -233,7 +233,7 @@ function treeVersion(files) {
   );
 }
 
-async function publishSkillFiles(target, files) {
+async function publishSkillFiles(target, files, signal) {
   await noLinks(target);
   const parent = path.dirname(target);
   await mkdir(parent, { recursive: true });
@@ -249,6 +249,7 @@ async function publishSkillFiles(target, files) {
   const staged = await mkdtemp(path.join(stagingRoot, "install-"));
   try {
     for (const file of files) {
+      signal?.throwIfAborted();
       const stagedFile = inside(staged, file.relativePath);
       await atomicWrite(stagedFile, file.buffer, true);
       if (file.executable) await chmod(stagedFile, 0o700);
@@ -256,6 +257,7 @@ async function publishSkillFiles(target, files) {
     if ((await pathIdentity(target)) !== expected)
       throw invalid("filesystem_identity_changed");
     if (await exists(target)) throw invalid("destination_conflict");
+    signal?.throwIfAborted();
     await rename(staged, target);
   } finally {
     // Only this generated sibling staging directory is eligible for cleanup.
@@ -300,6 +302,7 @@ export class LibraryService {
     );
     this.recoveryRoot = path.join(this.root, "skill-recovery");
     this.previews = new Map();
+    this.publishedDownloads = new Map();
     this.tail = Promise.resolve();
   }
 
@@ -1046,12 +1049,39 @@ export class LibraryService {
       source,
       target,
       files,
-      importVersion: treeVersion(files),
+      importVersion: treeVersion(files.slice().sort((a, b) => a.relativePath.localeCompare(b.relativePath))),
       identity: await pathIdentity(target),
       hasConflict: await exists(target),
       requiresConfirmation: false,
       download,
     };
+  }
+
+  async prepareChatDownload(input, connection) {
+    const { projectDir, destination, url } = input;
+    if (!skillName(destination.name) || destination.name.length > 64)
+      throw invalid("missing_name");
+    const sourceKey = hash(skillDownloadUrl(url).href);
+    const source = { rootKind: destination.rootKind, rootId: destination.rootId, relativePath: destination.name };
+    const { target } = await this.sourcePath(projectDir, source);
+    const conflict = () => invalid("destination_conflict", "A skill already exists at the selected destination; its source or contents differ.");
+    if (await exists(target)) {
+      const receipt = this.publishedDownloads.get(target);
+      if (receipt) {
+        const skill = await this.managedSkill(projectDir, source);
+        if (receipt.sourceKey !== sourceKey || receipt.version !== skill.version) throw conflict();
+        return { skill };
+      }
+    }
+    const preview = await this.previewDownload(input, connection);
+    if (!preview.hasConflict) return { preview };
+    // After a process restart, verify against a fresh publisher snapshot.
+    // The project can modify its own SKILL.md and source metadata together.
+    const pending = this.previews.get(preview.previewToken);
+    const skill = await this.managedSkill(projectDir, source);
+    if (!pending?.download || !pending.files.some(file => file.relativePath === ".codebuddy-source.json") ||
+        pending.importVersion !== skill.version) throw conflict();
+    return { skill };
   }
 
   async previewDownload(input, connection) {
@@ -1119,7 +1149,7 @@ export class LibraryService {
       );
       row.controller.signal.throwIfAborted();
       const response = this.registerPreview(
-        inspected,
+        { ...inspected, sourceKey: hash(skillDownloadUrl(input.url).href) },
         { projectDir: input.projectDir, change },
         connection,
       );
@@ -1135,7 +1165,7 @@ export class LibraryService {
     }
   }
 
-  async apply(token, connection) {
+  async apply(token, connection, signal) {
     const pending = this.previews.get(token);
     if (!pending || pending.connection !== connection || pending.applying)
       throw invalid("invalid_preview");
@@ -1236,7 +1266,12 @@ export class LibraryService {
             skill: await this.managedSkill(pending.projectDir, fresh.source),
           };
         } else if (fresh.files) {
-          await publishSkillFiles(fresh.target, fresh.files);
+          await publishSkillFiles(fresh.target, fresh.files, signal);
+          if (pending.download) {
+            this.publishedDownloads.set(fresh.target, { sourceKey: pending.sourceKey, version: fresh.importVersion });
+            if (this.publishedDownloads.size > 64)
+              this.publishedDownloads.delete(this.publishedDownloads.keys().next().value);
+          }
           result = {
             skill: await this.managedSkill(pending.projectDir, fresh.source),
           };

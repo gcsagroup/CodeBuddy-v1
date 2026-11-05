@@ -60,6 +60,7 @@ test('native plan mode reaches the model, survives restart and exits without cha
   await f.driver.setPlanMode(f.sessionId, false);
   assert.equal((await f.driver.getPlanMode(f.sessionId)).active, false);
   await f.driver.prompt(f.sessionId, 'Continue normally', { onPermission: () => false });
+  assert.ok(!f.requests.at(-1).tools.some(tool => tool.function.name === 'exit_plan_mode'));
   assert.doesNotMatch(JSON.stringify(f.requests.at(-1).messages.filter(m => m.role === 'system')), /Plan mode is active/);
   await assert.rejects(f.driver.setPlanMode(f.sessionId, 'yes'), /boolean/);
 });

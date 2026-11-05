@@ -12,6 +12,8 @@
 
 鎖版預算相容修復由 `sdk-budget-contract.mjs` 校驗並於原生模組載入時套用，不改寫 `node_modules`。最終請求的同一投影用於估價與派發；輸出空間不足於 HTTP 前回報 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，異常短 length 回報 `OUTPUT_TRUNCATED`。本機預算／異常截斷恢復每個原生 turn 最多嘗試一次，且必須實際縮減並改善 fit 才重試；一般壓力壓縮仍依上游策略執行，網路 `always` 不能補充恢復次數。Completions 的合法 cap 1/128、一般 stop、原始 usage 與 Session v4 保持原語意。`index.mjs` 依序完成合同載入後才載入原 `driver.mjs` 實作；中繼資料與 schedule 入口亦先建立合同。版本或 SHA 改變會明確拒絕啟動，升級須複審並優先採等價上游合同，見 PROVENANCE.json。壓力顯示仍由原生 tokenMeter 負責，與 adapter 最終預算估計不同。
 
+已由模型目錄識別的 vLLM Chat Completions 在相同部署的聊天分詞端點核算訊息、工具和模板參數，再為輸出保留空間。不支援的模板或計數失敗時採用本機估算。服務端明確回報摘要超限時縮小至完整的工具呼叫邊界；在同一次恢復中，只有服務端計數持續下降才繼續分段。
+
 遠端 MCP 透過官方 `agent-preset-registry` 的長期作用域和租約跨會話重用；設定一致時僅首次連線，設定變化隔離新修訂，既有會話保留原連線。最多保留 8 組可重用設定，仍被租用的舊修訂由 Harness 繼續保留。stdio 維持會話/工作目錄隔離。工具清單變化會同步繼承工具限制，執行仍逐會話審批；詳見設計與真實視窗驗收（歷史文件，見 Git 歷史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-TW.md`）。
 
 長目標由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目標 CAS、自動續輪、輪數上限及暫停。`prompt` 在原生目標 active + armed 時保持開啟，等待官方續輪結束；一般無目標對話正常結束。回傳的 `goal` 是官方 GoalView。Stop 取消本次執行並 disarm；重新啟動保持 disarmed，不自行重播工作。明確暫停目標的恢復使用結構化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立權限及事件承載再呼叫官方 resume。`getGoal` 唯讀；`controlGoal` 支援 pause，以及已有承載執行中的 resume；閒置時直接 resume 會被拒絕。
@@ -85,3 +87,6 @@ node --test test/mcp-apps.test.mjs test/mcp-metadata.test.mjs test/mcp-startup.t
 ```
 
 `node --test test/driver.test.mjs test/capabilities.test.mjs`：Windows 28/28、退出碼 0。真實官方 Harness、原生 PowerShell、隔離暫存目錄與本機受控模型／MCP 服務，涵蓋參數實際請求、非同步回執、MCP 隔離與離線降級、技能、子 Agent 路由／核准／取消、背景任務、步驟上限、壓縮、影像重啟復用、檔案回執隔離、記憶重啟與憑據不落盤。`node --test tests/transcripts.test.mjs`（runtime 目錄）4/4，含跨程序強制終止、截斷尾列與提交後清理失敗恢復。這不代表真實模型大專案品質、全部 UI、桌面 E2E、macOS 或舊資料遷移驗收。
+
+
+輸入框 `@` 按檔案／對話分組，檔案重用工作區面板目錄與搜尋，對話重用 ACP 清單。來源透過官方 `dsh-session-reference`（鎖定版本、MIT）作為唯讀、不受信任背景捕獲；最多 3 個來源，每來源預覽 24 KiB。長引用會依官方策略截斷並帶省略提示，不保證全文無損；未設定 spill 時不提供全文回取。支援原生對話；不遷移舊的非原生歷史。引用不恢復舊任務，也不繼承舊授權。採用官方服務而非前端複製全文，避免第二套投影與持久化；不需新依賴。

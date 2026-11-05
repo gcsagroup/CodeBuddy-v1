@@ -48,7 +48,9 @@
         "@deepseek-ai/dsh-compaction-basic/lib/index.js": "b7ac52f20a36430cf01a66b3a36f23a48ffdb22708d714dbe1fff541b5df4ec5",
         "@deepseek-ai/dsh-llm-retry/lib/index.js": "cbb99f1c5038e4a9167aedf333343cb3e3adfb5c9f45a37ef7562b024429d050"
       },
+      "deploymentCounting": "Discovered vLLM chat routes share Pi's pinned wire serializer with a same-deployment /tokenize request. A validated count and deployment limit constrain the final wire cap. Estimated fallback remains available. Server-confirmed summary overflow also shortens at native balanced boundaries. Measured local exhaustion permits up to eight strictly improving regions within one recovery.",
       "piHelperSha256": {
+        "api/openai-completions.js": "5a79cc5aa41dee180692695e65771720d1ea556e9a978649dc2040278be51753",
         "api/simple-options.js": "9b3cc0ae6daa86fdc050bc0cb0f3f986401e64ccddbde6757183c9f8ad411be2",
         "utils/estimate.js": "b5b606011ab0dce2a5db309dd812c9b8ddd0bbcbc9416de699fb9cd087cc84d6",
         "utils/transcript.js": "4c772c6691be0c5b4c308a09e3eeaa4d965b59e39652442b3aef0600ffb5fccb",

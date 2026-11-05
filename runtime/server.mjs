@@ -33,6 +33,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           m.createHarnessDriver({
             dataDir: path.join(dataDir, "harness"),
             instructionsHome: path.dirname(dataDir),
+            managedWorkspaceRoot: process.env.CODEBUDDY_WORKSPACE_ROOT ?? path.join(dataDir, 'workspaces'),
           }),
         ));
       // Boot the official Host while the desktop is opening, not on Send.
@@ -85,6 +86,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
           "listSubagentChildren",
           "listSessions",
           "rename",
+          "generateTitle",
           "readResource",
           "listResources",
           "invalidateMcpServers",

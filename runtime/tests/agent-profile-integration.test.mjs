@@ -11,6 +11,8 @@ import { createConversationDriver } from '../conversation-driver.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 import { createCompatServer } from '../server.mjs';
 
+import { answerTitleRequest } from './fixtures/title-request.mjs';
+
 async function connect(url, secret) {
   const socket = new WebSocket(`${url.replace('http:', 'ws:')}/acp?token=${secret}`);
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
@@ -47,7 +49,9 @@ test('role workspace survives a complete Compat and Harness restart with its ori
       return res.end(JSON.stringify({ data: [{ id: 'fixed' }, { id: 'other' }] }));
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (answerTitleRequest(body, res)) return;
+    requests.push(body);
     assert.equal(notifications.filter(n => n.params.update?._meta?.['codebuddy/agent-input']).length, requests.length,
       'the client receives native admission before model output, including after restart');
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -117,7 +121,9 @@ test('the actual server forwards native role queries and restores an adopted cho
       return res.end(JSON.stringify({ data: [{ id: 'fixture-model' }] }));
     }
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw); requests.push(body);
+    const body = JSON.parse(raw);
+    if (answerTitleRequest(body, res)) return;
+    requests.push(body);
     await beforeOutput();
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     for (const [delta, finish_reason] of [[{ role: 'assistant', content: 'ROLE_SERVER_OK' }, null], [{}, 'stop']])

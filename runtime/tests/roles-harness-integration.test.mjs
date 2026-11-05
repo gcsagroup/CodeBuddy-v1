@@ -1,3 +1,4 @@
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -74,6 +75,7 @@ async function modelFixture(cwd, completedChildren) {
       let raw = ''; for await (const chunk of req) raw += chunk;
       const request = JSON.parse(raw);
       if (req.url.endsWith('/api/show')) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({capabilities:['completion','thinking','tools'],thinking:{values:['low','medium','high'],default:'medium'}})); return; }
+    if (answerTitleRequest(request, res)) return;
       requests.push(request);
       if (!request.stream) { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] })); return; }
       assert.equal(request.model, 'selected-main', 'the current session model owns main and child requests despite saved role routes');

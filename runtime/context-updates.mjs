@@ -30,6 +30,11 @@ export function contextUpdates({ sessionId, runId, signal } = {}) {
   const starts = new Map();
   return event => {
     if (event.sessionId && event.sessionId !== sessionId) return [];
+    if (event.type === 'model_diagnostic' && event.phase === 'request_budget' && !event.purpose)
+      return [{ sessionUpdate: 'status_message', status: { type: 'progress', message: '', data: {
+        schema_version: 1, event: 'request_budget', model: event.model, source: event.source,
+        input: event.input, output: event.output, window: event.window,
+      } } }];
     if (event.type === 'context_usage') {
       if (!Number.isFinite(event.used) || !Number.isFinite(event.contextLimit)) return [];
       return [{

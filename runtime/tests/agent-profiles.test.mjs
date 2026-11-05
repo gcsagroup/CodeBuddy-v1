@@ -262,8 +262,11 @@ test('legacy workspace snapshots keep their capability limits while model choice
   const { profile: saved } = await f.request('save', { profile });
   const created = await f.request('create-workspace', { id: saved.id });
   const session = f.store.readSession(created.sessionId);
+  assert.ok((await f.request('workspaces')).directories.some(directory => path.resolve(directory).toLowerCase() === path.resolve(session.cwd).toLowerCase()));
   assert.equal(session.modelId, 'other');
-  assert.equal(session.title, profile.name);
+  assert.equal(session.title, '新对话');
+  assert.equal(created.workspaceName, profile.name);
+  assert.equal(created.workingDir, session.cwd);
   assert.deepEqual(session.agentProfile, saved);
   assert.ok(created.configOptions.some(option => option.id === 'model'));
   const options = await f.host.sessionOptions(session);
@@ -325,7 +328,7 @@ test('logo and uploaded PNG avatars persist in workspace snapshots; unsafe avata
   const { profile: saved } = await f.request('save', { profile: { ...profile, avatar: png } });
   const created = await f.request('create-workspace', { id: saved.id });
   assert.equal(f.store.readSession(created.sessionId).agentProfile.avatar, png);
-  assert.equal(f.store.readSession(created.sessionId).title, profile.name);
+  assert.equal(f.store.readSession(created.sessionId).title, '新对话');
   const { profile: updated } = await f.request('save', { profile: { ...saved, avatar: '🦉' } });
   assert.equal(updated.avatar, '🦉');
   const reopened = await openStore(f.root);

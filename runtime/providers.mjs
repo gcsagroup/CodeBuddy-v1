@@ -779,6 +779,7 @@ export async function driverProvider(provider, model, { legacyThinking = false }
   return {
     id: provider.id,
     baseUrl: modelBase(provider),
+    ...(protocol === "openai-completions" && cachedModels(provider)?.templateBackends?.[model] === "vllm" ? { countBackend: "vllm" } : {}),
     apiKey,
     headers,
     // The official Harness/pi-ai adapter owns serialization and streaming.

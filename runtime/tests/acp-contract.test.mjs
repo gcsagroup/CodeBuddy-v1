@@ -685,6 +685,31 @@ test('all six native mode transitions round-trip the execution owner selection',
   }
 });
 
+test('stream and exported messages retain observation times instead of the whole turn start', async t => {
+  const time = 1793849482000;
+  const driver = controlledDriver(async (sessionId, _content, { onEvent }) => {
+    const emit = (offset, data) => onEvent({ sessionId, time: time + offset * 1000, ...data });
+    await emit(10, { type: 'text_delta', text: 'Preparing ' });
+    await emit(20, { type: 'text_delta', text: 'request.' });
+    await emit(30, { type: 'tool_call', id: 'read-time', name: 'read_file', arguments: {} });
+    await emit(90, { type: 'tool_result', id: 'read-time', messageId: 'result-time', result: [{ type: 'text', text: 'Read complete' }], isError: false });
+    await emit(120, { type: 'text_delta', text: 'Finished.' });
+    return { stopReason: 'end_turn' };
+  });
+  const { client, dataDir } = await setup(t, driver); await configure(client);
+  const sessionId = await confirmedPermissionSession(client, dataDir);
+  await client.request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Timeline fixture' }] });
+  const live = updates(client, sessionId).filter(u => ['agent_message_chunk', 'tool_call', 'tool_call_update'].includes(u.sessionUpdate));
+  assert.deepEqual(live.map(u => u._meta.goose.created), [10, 10, 10, 90, 120].map(seconds => time / 1000 + seconds));
+  const data = JSON.parse((await client.request(ext('session/export'), { sessionId })).data);
+  assert.deepEqual(data.conversation.slice(1).map(m => m.created), [10, 90, 120].map(seconds => time / 1000 + seconds));
+  client.notifications.length = 0;
+  await client.request('session/load', { sessionId, cwd: dataDir, mcpServers: [] });
+  const replay = updates(client, sessionId).filter(u => ['agent_message_chunk', 'tool_call', 'tool_call_update'].includes(u.sessionUpdate));
+  // Reload coalesces the two text deltas, but keeps their first observation time.
+  assert.deepEqual(replay.map(u => u._meta.goose.created), [10, 10, 90, 120].map(seconds => time / 1000 + seconds));
+});
+
 test('internal delegation receipts stay out of main chat live and on replay', async t => {
   const driver=controlledDriver(async(_id,_content,{onEvent,onToolPolicy})=>{
     for(const [i,name] of ['subagent','send_message','list_agents','interrupt_agent'].entries()) {

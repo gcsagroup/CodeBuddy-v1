@@ -1,5 +1,7 @@
 # CodeBuddy Harness runtime
 
+Streaming messages retain their first observed timestamp; tool results use native event time. Export and reload preserve these times without fabricating missing historical timestamps.
+
 `tool-error-contract.mjs` applies a checked in-memory transform to the pinned native error serializer. It retains bounded, deduplicated transport codes such as `ECONNREFUSED` and `CERT_HAS_EXPIRED`, without copying cause addresses, stacks or credentials or changing retries/outcomes. Missing remote MCP causes remain unknown. Reference: [Node.js error.cause](https://nodejs.org/api/errors.html#errorcause).
 
 Approval unavailability is distinct from user rejection. When native `approval:never` meets a host approval requirement, return `APPROVAL_UNAVAILABLE`; children must return the blocked action to the parent without expanding grants or automatically replaying it.

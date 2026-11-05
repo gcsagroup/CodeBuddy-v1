@@ -341,7 +341,8 @@ Keep progress updates brief, meaningful, and outcome-based.
   });
   function emit(run, event) {
     if (!run) return;
-    run.events = run.events.then(() => run.onEvent?.(event));
+    const observed = { ...event, time: event.time ?? Date.now() };
+    run.events = run.events.then(() => run.onEvent?.(observed));
     run.events.catch(error => { run.error = error; run.reject(error); });
   }
   ctx.on('user-questions/request', async (request, next) => {
@@ -689,7 +690,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       try { args = JSON.parse(args); } catch { /* Preserve invalid native input for error display. */ }
       const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, event.data.name);
       emit(run, { type: 'tool_call', id: event.data.callId, name: event.data.name,
-        internalControl: isInternalControl(agent, event.data.name), arguments: args, sessionId: session.id,
+        internalControl: isInternalControl(agent, event.data.name), arguments: args, sessionId: session.id, time: event.time,
         ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
     }
     // Native turn/start is synchronous and precedes inbox claim. Cancelling at
@@ -711,7 +712,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       const receiptKey = `${session.id}\0${msg.toolCallId}`;
       const receipt = toolReceipts.get(receiptKey);
       toolReceipts.delete(receiptKey);
-      emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, ...receipt });
+      emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, time: event.time, ...receipt });
     }
     if (event.type === 'assistant/message') emit(run, {
       type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,

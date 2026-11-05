@@ -2670,6 +2670,11 @@ export class Compat {
     let afterToolResult = false;
     let lastResponseTextAvailable;
     const created = Math.floor(Date.now() / 1000);
+    const messageTimes = new Map();
+    const createdFor = (id, time) => {
+      if (!messageTimes.has(id)) messageTimes.set(id, Math.floor((time ?? Date.now()) / 1000));
+      return messageTimes.get(id);
+    };
     let writer;
     const notify = async (update, unstable = false) => {
       if (unstable) await writer?.appendUsage(update);
@@ -3012,7 +3017,7 @@ export class Compat {
                   : "agent_thought_chunk",
               content: { type: "text", text: event.text },
               messageId,
-              _meta: { goose: { messageId, created } },
+              _meta: { goose: { messageId, created: createdFor(messageId, event.time) } },
             });
           else if (event.type === "tool_call") {
             await notify({
@@ -3025,7 +3030,7 @@ export class Compat {
               _meta: {
                 goose: {
                   messageId,
-                  created,
+                  created: createdFor(messageId, event.time),
                   toolCall: { toolName: event.name, extensionName: "harness" },
                   ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}),
                 },
@@ -3034,7 +3039,7 @@ export class Compat {
           } else if (event.type === "tool_result") {
             await notify(await toolResultUpdate(event, {
               messageId: event.messageId ?? randomUUID(),
-              created,
+              created: Math.floor((event.time ?? Date.now()) / 1000),
             }, this.driver));
             afterToolResult = true;
           } else if (event.type === "usage") {

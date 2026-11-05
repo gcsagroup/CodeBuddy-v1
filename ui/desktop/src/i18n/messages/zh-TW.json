@@ -299,6 +299,9 @@
   "chatInput.recording": {
     "defaultMessage": "錄音中…"
   },
+  "chatInput.referenceLimit": {
+    "defaultMessage": "每則訊息最多引用 3 個對話，請先移除一個引用。"
+  },
   "chatInput.removeFile": {
     "defaultMessage": "移除檔案"
   },
@@ -322,6 +325,9 @@
   },
   "chatInput.unknownType": {
     "defaultMessage": "未知的類型"
+  },
+  "chatInput.videoSampleScope": {
+    "defaultMessage": "已擷取 {count} 幀 · 未分析聲音"
   },
   "chatInput.viewEditRecipe": {
     "defaultMessage": "檢視/編輯食譜"
@@ -879,7 +885,7 @@
     "defaultMessage": "多 Agent 協作開發"
   },
   "codeProHub.goalPlaceholder": {
-    "defaultMessage": "描述任務，或輸入 / 查看功能…"
+    "defaultMessage": "描述任務，/ 查看功能，@ 檔案或對話…"
   },
   "codeProHub.leaseBackedStartFailed": {
     "defaultMessage": "無法在所選工作區中啟動 CodePro。"
@@ -1638,7 +1644,7 @@
     "defaultMessage": "正在連接所選工具…"
   },
   "composerCommands.messagePlaceholder": {
-    "defaultMessage": "傳送訊息，/ 查看功能，@ 引用檔案"
+    "defaultMessage": "傳送訊息，/ 查看功能，@ 檔案或對話"
   },
   "composerCommands.model": {
     "defaultMessage": "模型"
@@ -1828,6 +1834,27 @@
   },
   "conversationLimitsDropdown.maxTurnsDescription": {
     "defaultMessage": "CodeBuddy 要求使用者輸入前的最大代理回合數"
+  },
+  "conversationReferences.hint": {
+    "defaultMessage": "唯讀背景參考 · 最多引用 3 個對話"
+  },
+  "conversationReferences.label": {
+    "defaultMessage": "引用的對話"
+  },
+  "conversationReferences.remove": {
+    "defaultMessage": "移除引用：{title}"
+  },
+  "conversationTimeline.attachment": {
+    "defaultMessage": "附件訊息"
+  },
+  "conversationTimeline.navigation": {
+    "defaultMessage": "對話定位"
+  },
+  "conversationTimeline.noReply": {
+    "defaultMessage": "尚無回覆"
+  },
+  "conversationTimeline.turn": {
+    "defaultMessage": "跳至第 {number} 輪：{text}"
   },
   "costTracker.costUnavailable": {
     "defaultMessage": "{model} 無可用的費用資料（輸入 {inputTokens} 個權杖，輸出 {outputTokens} 個權杖）"
@@ -4454,11 +4481,29 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "新增"
   },
+  "mentionPopover.agents": {
+    "defaultMessage": "智慧體"
+  },
+  "mentionPopover.chooseProject": {
+    "defaultMessage": "選擇專案後可引用其中的檔案，也可以先引用對話。"
+  },
   "mentionPopover.commandGroup": {
     "defaultMessage": "指令"
   },
+  "mentionPopover.conversations": {
+    "defaultMessage": "對話"
+  },
   "mentionPopover.disabled": {
     "defaultMessage": "已停用"
+  },
+  "mentionPopover.empty": {
+    "defaultMessage": "沒有找到檔案或對話。"
+  },
+  "mentionPopover.failed": {
+    "defaultMessage": "部分結果載入失敗，重新開啟選單可重試。"
+  },
+  "mentionPopover.files": {
+    "defaultMessage": "檔案與資料夾"
   },
   "mentionPopover.inventoryFailed": {
     "defaultMessage": "部分工具箱項目暫未載入，重新開啟選單可重試。"
@@ -4469,11 +4514,20 @@
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{找到 # 個項目} other{找到 # 個項目}}"
   },
+  "mentionPopover.keys": {
+    "defaultMessage": "↑ ↓ 選擇 · Enter 插入 · Esc 關閉"
+  },
+  "mentionPopover.loading": {
+    "defaultMessage": "正在搜尋…"
+  },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "正在載入指令…"
   },
   "mentionPopover.mcpGroup": {
     "defaultMessage": "MCP 服務"
+  },
+  "mentionPopover.more": {
+    "defaultMessage": "還有更多結果，請輸入更具體的名稱。"
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "找不到符合「{query}」的指令"
@@ -4662,7 +4716,7 @@
     "defaultMessage": "測試"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效；需要額外審批的操作無法發起審批。"
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效。每次安裝 MCP 擴充功能都需要確認。"
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "完全存取"
@@ -5578,6 +5632,21 @@
   },
   "parameterInputModal.whatToDo": {
     "defaultMessage": "您想要執行什麼操作？"
+  },
+  "pastedText.open": {
+    "defaultMessage": "以 TXT 開啟貼上文字"
+  },
+  "pastedText.openFailed": {
+    "defaultMessage": "無法開啟文字副本，請重試。"
+  },
+  "pastedText.previewHint": {
+    "defaultMessage": "預覽前 {count} 字元 · 按一下文字區塊開啟 TXT 副本"
+  },
+  "pastedText.remove": {
+    "defaultMessage": "移除貼上文字"
+  },
+  "pastedText.text": {
+    "defaultMessage": "已貼上文字 · {count} 字元"
   },
   "permissionModal.alwaysAllow": {
     "defaultMessage": "一律允許"
@@ -7338,7 +7407,7 @@
     "defaultMessage": "完全存取"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "變更作用於目前 Agent。已執行的操作不回滾，既有子 Agent 保留建立時繼承的權限。"
+    "defaultMessage": "對本機所有對話生效。進行中的操作沿用原權限。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目錄：{path}。寫入檔案前需選擇專案。"
@@ -7350,13 +7419,13 @@
     "defaultMessage": "工作目錄：{path}。這不代表所有操作均已獲准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "目前 Agent 不使用檔案與命令沙箱，明確的工具限制仍有效。"
+    "defaultMessage": "不使用檔案與命令沙箱。明確的工具限制仍有效。每次安裝 MCP 擴充功能都需要確認。"
   },
   "sessionPermissions.manualLabel": {
     "defaultMessage": "僅可檢視"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "只影響目前會話；既有工具權限規則仍然生效。"
+    "defaultMessage": "對本機所有對話生效。個別工具的授權規則仍然適用。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "工具批准與權限"
@@ -9035,6 +9104,9 @@
   "toolConfirmation.allowToolCallWithName": {
     "defaultMessage": "允許 {toolName}？"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "參數（依傳遞順序）"
+  },
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
@@ -9261,7 +9333,7 @@
     "defaultMessage": "已安裝"
   },
   "toolbox.statusConfigured": {
-    "defaultMessage": "已啟用，未驗證連線"
+    "defaultMessage": "已設定並啟用"
   },
   "toolbox.statusDisabled": {
     "defaultMessage": "已停用"
@@ -9524,6 +9596,9 @@
   "workspacePanel.back": {
     "defaultMessage": "上一頁"
   },
+  "workspacePanel.backToFolder": {
+    "defaultMessage": "返回資料夾"
+  },
   "workspacePanel.binaryFile": {
     "defaultMessage": "{name} 是二進位檔案或採用暫不支援的文字編碼，暫不支援文字預覽與編輯。檔案內容未變更。"
   },
@@ -9593,20 +9668,41 @@
   "workspacePanel.editor": {
     "defaultMessage": "檔案編輯器"
   },
+  "workspacePanel.emptyFolder": {
+    "defaultMessage": "此資料夾為空。"
+  },
   "workspacePanel.enterAddress": {
     "defaultMessage": "在上方輸入位址開始瀏覽網頁。"
   },
   "workspacePanel.exited": {
     "defaultMessage": "已結束"
   },
+  "workspacePanel.fileDenied": {
+    "defaultMessage": "Windows 拒絕存取此檔案，請檢查權限或選擇可讀取的副本。"
+  },
+  "workspacePanel.fileMissing": {
+    "defaultMessage": "檔案已移動或刪除，請確認位置後重新開啟連結。"
+  },
+  "workspacePanel.fileOutside": {
+    "defaultMessage": "此操作僅限目前工作區；其他工作區的檔案可作為唯讀引用開啟。"
+  },
+  "workspacePanel.fileTooLarge": {
+    "defaultMessage": "檔案超過預覽大小限制，請開啟較小副本或使用原應用程式。"
+  },
   "workspacePanel.fileTree": {
     "defaultMessage": "工作區檔案樹"
+  },
+  "workspacePanel.fileUnsupported": {
+    "defaultMessage": "此格式暫時無法預覽，請使用原應用程式開啟或另存為支援的格式。"
   },
   "workspacePanel.files": {
     "defaultMessage": "工作區檔案"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "瀏覽目前會話工作區的檔案"
+  },
+  "workspacePanel.filesTab": {
+    "defaultMessage": "檔案"
   },
   "workspacePanel.forward": {
     "defaultMessage": "下一頁"
@@ -9626,11 +9722,17 @@
   "workspacePanel.loading": {
     "defaultMessage": "載入中"
   },
+  "workspacePanel.localFilesHint": {
+    "defaultMessage": "瀏覽本機檔案，不變更目前對話的工作區。"
+  },
   "workspacePanel.maximize": {
     "defaultMessage": "展開或還原面板"
   },
   "workspacePanel.mediaFailed": {
     "defaultMessage": "媒體載入失敗，請重新載入預覽，或檢查本機檔案和格式。"
+  },
+  "workspacePanel.newTab": {
+    "defaultMessage": "新增"
   },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "選擇工作區並開啟會話後，即可使用檔案與終端機。"
@@ -9647,8 +9749,14 @@
   "workspacePanel.openFile": {
     "defaultMessage": "開啟檔案"
   },
+  "workspacePanel.openFolder": {
+    "defaultMessage": "開啟資料夾"
+  },
   "workspacePanel.openImageTab": {
     "defaultMessage": "在新分頁中開啟圖片"
+  },
+  "workspacePanel.openLocal": {
+    "defaultMessage": "開啟檔案或資料夾"
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "在新分頁中開啟"
@@ -9710,6 +9818,9 @@
   "workspacePanel.selectFile": {
     "defaultMessage": "選擇檔案以預覽"
   },
+  "workspacePanel.showCurrentFolder": {
+    "defaultMessage": "在檔案管理員中開啟目前資料夾"
+  },
   "workspacePanel.start": {
     "defaultMessage": "開始"
   },
@@ -9724,6 +9835,9 @@
   },
   "workspacePanel.terminalKeys": {
     "defaultMessage": "Ctrl+C 中斷"
+  },
+  "workspacePanel.toolsTitle": {
+    "defaultMessage": "工作區工具"
   },
   "workspacePanel.unsaved": {
     "defaultMessage": "未儲存"
@@ -9790,5 +9904,44 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "上下文壓縮已取消，原上下文已保留。"
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "上下文已自動壓縮"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "上下文已壓縮"
+  },
+  "compaction.failed": {
+    "defaultMessage": "上下文壓縮失敗，原上下文已保留。"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "從此輪建立對話分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "正在產生接續任務所需的摘要，原始訊息保留在對話中。"
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "仍在等待模型回應。較長對話可能耗時較久，可停止後重試。"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置頂"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置頂會話"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能儲存置頂設定：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置頂"
   }
 }

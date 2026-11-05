@@ -299,6 +299,9 @@
   "chatInput.recording": {
     "defaultMessage": "Registrazione in corso..."
   },
+  "chatInput.referenceLimit": {
+    "defaultMessage": "You can reference up to 3 conversations in one message. Remove a reference before adding another."
+  },
   "chatInput.removeFile": {
     "defaultMessage": "Rimuovi file"
   },
@@ -322,6 +325,9 @@
   },
   "chatInput.unknownType": {
     "defaultMessage": "Tipo sconosciuto"
+  },
+  "chatInput.videoSampleScope": {
+    "defaultMessage": "{count} sampled frames · audio not analyzed"
   },
   "chatInput.viewEditRecipe": {
     "defaultMessage": "Visualizza/Modifica ricetta"
@@ -1828,6 +1834,27 @@
   },
   "conversationLimitsDropdown.maxTurnsDescription": {
     "defaultMessage": "Numero massimo di turni dell'agente prima che CodeBuddy richieda l'input dell'utente"
+  },
+  "conversationReferences.hint": {
+    "defaultMessage": "Read-only background · Up to 3 conversations"
+  },
+  "conversationReferences.label": {
+    "defaultMessage": "Referenced conversations"
+  },
+  "conversationReferences.remove": {
+    "defaultMessage": "Remove reference: {title}"
+  },
+  "conversationTimeline.attachment": {
+    "defaultMessage": "Attachment message"
+  },
+  "conversationTimeline.navigation": {
+    "defaultMessage": "Conversation timeline"
+  },
+  "conversationTimeline.noReply": {
+    "defaultMessage": "No reply yet"
+  },
+  "conversationTimeline.turn": {
+    "defaultMessage": "Go to turn {number}: {text}"
   },
   "costTracker.costUnavailable": {
     "defaultMessage": "Dati sui costi non disponibili per {model} ({inputTokens} token di input, {outputTokens} token di output)"
@@ -4454,11 +4481,29 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "Add"
   },
+  "mentionPopover.agents": {
+    "defaultMessage": "Agents"
+  },
+  "mentionPopover.chooseProject": {
+    "defaultMessage": "Select a project to reference its files. You can still reference a conversation."
+  },
   "mentionPopover.commandGroup": {
     "defaultMessage": "Commands"
   },
+  "mentionPopover.conversations": {
+    "defaultMessage": "Conversations"
+  },
   "mentionPopover.disabled": {
     "defaultMessage": "Disabled"
+  },
+  "mentionPopover.empty": {
+    "defaultMessage": "No files or conversations found."
+  },
+  "mentionPopover.failed": {
+    "defaultMessage": "Some results could not be loaded. Reopen the menu to retry."
+  },
+  "mentionPopover.files": {
+    "defaultMessage": "Files and folders"
   },
   "mentionPopover.inventoryFailed": {
     "defaultMessage": "Some Toolbox entries could not be loaded. Reopen the menu to retry."
@@ -4469,11 +4514,20 @@
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{# elemento trovato} other{# elementi trovati}}"
   },
+  "mentionPopover.keys": {
+    "defaultMessage": "↑ ↓ Select · Enter Insert · Esc Close"
+  },
+  "mentionPopover.loading": {
+    "defaultMessage": "Searching…"
+  },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "Caricamento comandi..."
   },
   "mentionPopover.mcpGroup": {
     "defaultMessage": "MCP servers"
+  },
+  "mentionPopover.more": {
+    "defaultMessage": "More results are available. Type a more specific name."
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "Nessun comando trovato corrispondente a \"{query}\""
@@ -5578,6 +5632,21 @@
   },
   "parameterInputModal.whatToDo": {
     "defaultMessage": "Cosa desideri fare?"
+  },
+  "pastedText.open": {
+    "defaultMessage": "Open pasted text as TXT"
+  },
+  "pastedText.openFailed": {
+    "defaultMessage": "Could not open the text copy. Please try again."
+  },
+  "pastedText.previewHint": {
+    "defaultMessage": "Preview of first {count} characters · Click the text block to open a TXT copy"
+  },
+  "pastedText.remove": {
+    "defaultMessage": "Remove pasted text"
+  },
+  "pastedText.text": {
+    "defaultMessage": "Pasted text · {count} characters"
   },
   "permissionModal.alwaysAllow": {
     "defaultMessage": "Consenti sempre"
@@ -7338,7 +7407,7 @@
     "defaultMessage": "Full access (Autonomous)"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "Changes apply to this Agent. Running actions are unchanged; existing subagents keep their delegated permissions."
+    "defaultMessage": "Si applica a tutte le chat su questo dispositivo."
   },
   "sessionPermissions.container": {
     "defaultMessage": "Cartella radice: {path}. Seleziona un progetto prima di scrivere file."
@@ -7356,7 +7425,7 @@
     "defaultMessage": "Read only"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "Applies to this conversation only. Existing tool permission rules still apply."
+    "defaultMessage": "Si applica a tutte le chat su questo dispositivo."
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "How should actions be approved?"
@@ -9035,6 +9104,9 @@
   "toolConfirmation.allowToolCallWithName": {
     "defaultMessage": "Consentire {toolName}?"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "Arguments"
+  },
   "toolConfirmation.branch": {
     "defaultMessage": "Branch"
   },
@@ -9524,6 +9596,9 @@
   "workspacePanel.back": {
     "defaultMessage": "Back"
   },
+  "workspacePanel.backToFolder": {
+    "defaultMessage": "Back to folder"
+  },
   "workspacePanel.binaryFile": {
     "defaultMessage": "{name} is a binary file or uses an unsupported text encoding. Text preview and editing are unavailable; the file is unchanged."
   },
@@ -9593,20 +9668,41 @@
   "workspacePanel.editor": {
     "defaultMessage": "File editor"
   },
+  "workspacePanel.emptyFolder": {
+    "defaultMessage": "This folder is empty."
+  },
   "workspacePanel.enterAddress": {
     "defaultMessage": "Enter an address above to browse a web page."
   },
   "workspacePanel.exited": {
     "defaultMessage": "Exited"
   },
+  "workspacePanel.fileDenied": {
+    "defaultMessage": "Windows denied access to this file. Check its permissions or choose a readable copy."
+  },
+  "workspacePanel.fileMissing": {
+    "defaultMessage": "This file was moved or deleted. Check its location and open the link again."
+  },
+  "workspacePanel.fileOutside": {
+    "defaultMessage": "This action is limited to the current workspace. Files from another workspace can be opened as read-only references."
+  },
+  "workspacePanel.fileTooLarge": {
+    "defaultMessage": "This file exceeds the preview size limit. Open a smaller copy or use its original application."
+  },
   "workspacePanel.fileTree": {
     "defaultMessage": "Workspace file tree"
+  },
+  "workspacePanel.fileUnsupported": {
+    "defaultMessage": "This format cannot be previewed. Use Open in application or save a supported copy."
   },
   "workspacePanel.files": {
     "defaultMessage": "Workspace files"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "Browse files in this session workspace"
+  },
+  "workspacePanel.filesTab": {
+    "defaultMessage": "Files"
   },
   "workspacePanel.forward": {
     "defaultMessage": "Forward"
@@ -9626,11 +9722,17 @@
   "workspacePanel.loading": {
     "defaultMessage": "Loading"
   },
+  "workspacePanel.localFilesHint": {
+    "defaultMessage": "Browse local files without changing this conversation’s workspace."
+  },
   "workspacePanel.maximize": {
     "defaultMessage": "Expand or restore panel"
   },
   "workspacePanel.mediaFailed": {
     "defaultMessage": "Media could not be loaded. Reload the preview or check the local file and format."
+  },
+  "workspacePanel.newTab": {
+    "defaultMessage": "New tab"
   },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "Select a workspace and open a conversation to use files and terminals."
@@ -9647,8 +9749,14 @@
   "workspacePanel.openFile": {
     "defaultMessage": "Apri file"
   },
+  "workspacePanel.openFolder": {
+    "defaultMessage": "Open folder"
+  },
   "workspacePanel.openImageTab": {
     "defaultMessage": "Apri immagine in una nuova scheda"
+  },
+  "workspacePanel.openLocal": {
+    "defaultMessage": "Open file or folder"
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "Apri in una nuova scheda"
@@ -9710,6 +9818,9 @@
   "workspacePanel.selectFile": {
     "defaultMessage": "Select a file to preview"
   },
+  "workspacePanel.showCurrentFolder": {
+    "defaultMessage": "Open current folder in file manager"
+  },
   "workspacePanel.start": {
     "defaultMessage": "Start"
   },
@@ -9724,6 +9835,9 @@
   },
   "workspacePanel.terminalKeys": {
     "defaultMessage": "Ctrl+C interrupt"
+  },
+  "workspacePanel.toolsTitle": {
+    "defaultMessage": "Workspace tools"
   },
   "workspacePanel.unsaved": {
     "defaultMessage": "Unsaved changes"
@@ -9790,5 +9904,44 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "Context compaction cancelled. The previous context is preserved."
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "Context automatically compacted"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "Context compacted"
+  },
+  "compaction.failed": {
+    "defaultMessage": "Context compaction failed. The previous context is preserved."
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "Generating a continuation summary. Original messages remain in this conversation."
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
   }
 }

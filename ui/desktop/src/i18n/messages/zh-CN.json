@@ -299,6 +299,9 @@
   "chatInput.recording": {
     "defaultMessage": "录音中…"
   },
+  "chatInput.referenceLimit": {
+    "defaultMessage": "每条消息最多引用 3 个对话，请先移除一个引用。"
+  },
   "chatInput.removeFile": {
     "defaultMessage": "移除文件"
   },
@@ -322,6 +325,9 @@
   },
   "chatInput.unknownType": {
     "defaultMessage": "未知类型"
+  },
+  "chatInput.videoSampleScope": {
+    "defaultMessage": "已抽取 {count} 帧 · 未分析声音"
   },
   "chatInput.viewEditRecipe": {
     "defaultMessage": "查看/编辑配方"
@@ -879,7 +885,7 @@
     "defaultMessage": "多 Agent 协作开发"
   },
   "codeProHub.goalPlaceholder": {
-    "defaultMessage": "描述任务，或输入 / 查看功能…"
+    "defaultMessage": "描述任务，/ 查看功能，@ 文件或对话…"
   },
   "codeProHub.leaseBackedStartFailed": {
     "defaultMessage": "无法在所选工作区中启动 CodePro。"
@@ -1638,7 +1644,7 @@
     "defaultMessage": "正在连接所选工具…"
   },
   "composerCommands.messagePlaceholder": {
-    "defaultMessage": "发送消息，/ 查看功能，@ 引用文件"
+    "defaultMessage": "发送消息，/ 查看功能，@ 文件或对话"
   },
   "composerCommands.model": {
     "defaultMessage": "模型"
@@ -1828,6 +1834,27 @@
   },
   "conversationLimitsDropdown.maxTurnsDescription": {
     "defaultMessage": "CodeBuddy 请求用户输入前的最大 agent 轮次"
+  },
+  "conversationReferences.hint": {
+    "defaultMessage": "只读背景参考 · 最多引用 3 个对话"
+  },
+  "conversationReferences.label": {
+    "defaultMessage": "引用的对话"
+  },
+  "conversationReferences.remove": {
+    "defaultMessage": "移除引用：{title}"
+  },
+  "conversationTimeline.attachment": {
+    "defaultMessage": "附件消息"
+  },
+  "conversationTimeline.navigation": {
+    "defaultMessage": "对话定位"
+  },
+  "conversationTimeline.noReply": {
+    "defaultMessage": "暂无回复"
+  },
+  "conversationTimeline.turn": {
+    "defaultMessage": "跳转到第 {number} 轮：{text}"
   },
   "costTracker.costUnavailable": {
     "defaultMessage": "无法获取 {model} 的费用数据（输入 {inputTokens}、输出 {outputTokens} 令牌）"
@@ -4454,11 +4481,29 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "添加"
   },
+  "mentionPopover.agents": {
+    "defaultMessage": "智能体"
+  },
+  "mentionPopover.chooseProject": {
+    "defaultMessage": "选择项目后可引用其中的文件，也可以先引用对话。"
+  },
   "mentionPopover.commandGroup": {
     "defaultMessage": "指令"
   },
+  "mentionPopover.conversations": {
+    "defaultMessage": "对话"
+  },
   "mentionPopover.disabled": {
     "defaultMessage": "已禁用"
+  },
+  "mentionPopover.empty": {
+    "defaultMessage": "没有找到文件或对话。"
+  },
+  "mentionPopover.failed": {
+    "defaultMessage": "部分结果加载失败，重新打开菜单可重试。"
+  },
+  "mentionPopover.files": {
+    "defaultMessage": "文件与文件夹"
   },
   "mentionPopover.inventoryFailed": {
     "defaultMessage": "部分工具箱条目暂未加载，重新打开菜单可重试。"
@@ -4469,11 +4514,20 @@
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count,plural,one{找到 # 项} other{找到 # 项}}"
   },
+  "mentionPopover.keys": {
+    "defaultMessage": "↑ ↓ 选择 · Enter 插入 · Esc 关闭"
+  },
+  "mentionPopover.loading": {
+    "defaultMessage": "正在搜索…"
+  },
   "mentionPopover.loadingCommands": {
     "defaultMessage": "正在加载命令…"
   },
   "mentionPopover.mcpGroup": {
     "defaultMessage": "MCP 服务"
+  },
+  "mentionPopover.more": {
+    "defaultMessage": "还有更多结果，请输入更具体的名称。"
   },
   "mentionPopover.noCommandsFound": {
     "defaultMessage": "未找到匹配“{query}”的命令"
@@ -4662,7 +4716,7 @@
     "defaultMessage": "测试"
   },
   "modeSelectionItem.autonomousDescription": {
-    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效；需要额外审批的操作无法发起审批。"
+    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效。每次安装 MCP 扩展都需要确认。"
   },
   "modeSelectionItem.autonomousLabel": {
     "defaultMessage": "完全访问"
@@ -5578,6 +5632,21 @@
   },
   "parameterInputModal.whatToDo": {
     "defaultMessage": "你想做什么？"
+  },
+  "pastedText.open": {
+    "defaultMessage": "以 TXT 打开粘贴文本"
+  },
+  "pastedText.openFailed": {
+    "defaultMessage": "未能打开文本副本，请重试。"
+  },
+  "pastedText.previewHint": {
+    "defaultMessage": "预览前 {count} 字符 · 单击文本块打开 TXT 副本"
+  },
+  "pastedText.remove": {
+    "defaultMessage": "移除粘贴文本"
+  },
+  "pastedText.text": {
+    "defaultMessage": "已粘贴文本 · {count} 字符"
   },
   "permissionModal.alwaysAllow": {
     "defaultMessage": "始终允许"
@@ -7338,7 +7407,7 @@
     "defaultMessage": "完全访问"
   },
   "sessionPermissions.busy": {
-    "defaultMessage": "更改作用于当前 Agent。已运行的操作不回滚，已有子 Agent 保留创建时继承的权限。"
+    "defaultMessage": "对本机所有对话生效。进行中的操作沿用原权限。"
   },
   "sessionPermissions.container": {
     "defaultMessage": "根目录：{path}。写入文件前需选择项目。"
@@ -7350,13 +7419,13 @@
     "defaultMessage": "工作目录：{path}。这不代表所有操作均已获准。"
   },
   "sessionPermissions.fullAccess": {
-    "defaultMessage": "当前 Agent 不使用文件与命令沙箱，明确的工具限制仍有效。"
+    "defaultMessage": "不使用文件与命令沙箱。明确的工具限制仍有效。每次安装 MCP 扩展都需要确认。"
   },
   "sessionPermissions.manualLabel": {
     "defaultMessage": "仅可查看"
   },
   "sessionPermissions.onlySession": {
-    "defaultMessage": "仅影响当前会话，已有工具权限规则仍然有效。"
+    "defaultMessage": "对本机所有对话生效。单个工具的授权规则仍然适用。"
   },
   "sessionPermissions.pickerTitle": {
     "defaultMessage": "如何批准操作？"
@@ -9035,6 +9104,9 @@
   "toolConfirmation.allowToolCallWithName": {
     "defaultMessage": "允许 {toolName} 吗？"
   },
+  "toolConfirmation.arguments": {
+    "defaultMessage": "参数（按传递顺序）"
+  },
   "toolConfirmation.branch": {
     "defaultMessage": "分支"
   },
@@ -9261,7 +9333,7 @@
     "defaultMessage": "已安装"
   },
   "toolbox.statusConfigured": {
-    "defaultMessage": "已启用，未验证连接"
+    "defaultMessage": "已配置并启用"
   },
   "toolbox.statusDisabled": {
     "defaultMessage": "已停用"
@@ -9524,6 +9596,9 @@
   "workspacePanel.back": {
     "defaultMessage": "后退"
   },
+  "workspacePanel.backToFolder": {
+    "defaultMessage": "返回文件夹"
+  },
   "workspacePanel.binaryFile": {
     "defaultMessage": "{name} 是二进制文件或采用暂不支持的文本编码，暂不支持文本预览和编辑。文件内容未改变。"
   },
@@ -9593,20 +9668,41 @@
   "workspacePanel.editor": {
     "defaultMessage": "文件编辑器"
   },
+  "workspacePanel.emptyFolder": {
+    "defaultMessage": "此文件夹为空。"
+  },
   "workspacePanel.enterAddress": {
     "defaultMessage": "在上方输入地址开始浏览网页。"
   },
   "workspacePanel.exited": {
     "defaultMessage": "已退出"
   },
+  "workspacePanel.fileDenied": {
+    "defaultMessage": "Windows 拒绝访问此文件，请检查权限或选择可读取的副本。"
+  },
+  "workspacePanel.fileMissing": {
+    "defaultMessage": "文件已移动或删除，请确认位置后重新打开链接。"
+  },
+  "workspacePanel.fileOutside": {
+    "defaultMessage": "此操作仅限当前工作区；其他工作区的文件可作为只读引用打开。"
+  },
+  "workspacePanel.fileTooLarge": {
+    "defaultMessage": "文件超过预览大小限制，请打开较小副本或使用原应用。"
+  },
   "workspacePanel.fileTree": {
     "defaultMessage": "工作区文件树"
+  },
+  "workspacePanel.fileUnsupported": {
+    "defaultMessage": "此格式暂时无法预览，请使用原应用打开或另存为支持的格式。"
   },
   "workspacePanel.files": {
     "defaultMessage": "工作区文件"
   },
   "workspacePanel.filesHint": {
     "defaultMessage": "浏览当前会话工作区的文件"
+  },
+  "workspacePanel.filesTab": {
+    "defaultMessage": "文件"
   },
   "workspacePanel.forward": {
     "defaultMessage": "前进"
@@ -9626,11 +9722,17 @@
   "workspacePanel.loading": {
     "defaultMessage": "加载中"
   },
+  "workspacePanel.localFilesHint": {
+    "defaultMessage": "浏览本地文件，不改变当前对话的工作区。"
+  },
   "workspacePanel.maximize": {
     "defaultMessage": "展开或还原面板"
   },
   "workspacePanel.mediaFailed": {
     "defaultMessage": "媒体加载失败，请重新加载预览，或检查本地文件和格式。"
+  },
+  "workspacePanel.newTab": {
+    "defaultMessage": "新建"
   },
   "workspacePanel.noWorkspace": {
     "defaultMessage": "选择工作区并打开会话后，即可使用文件和终端。"
@@ -9647,8 +9749,14 @@
   "workspacePanel.openFile": {
     "defaultMessage": "打开文件"
   },
+  "workspacePanel.openFolder": {
+    "defaultMessage": "打开文件夹"
+  },
   "workspacePanel.openImageTab": {
     "defaultMessage": "在新标签页中打开图像"
+  },
+  "workspacePanel.openLocal": {
+    "defaultMessage": "打开文件或文件夹"
   },
   "workspacePanel.openWebTab": {
     "defaultMessage": "在新标签页中打开"
@@ -9710,6 +9818,9 @@
   "workspacePanel.selectFile": {
     "defaultMessage": "选择文件进行预览"
   },
+  "workspacePanel.showCurrentFolder": {
+    "defaultMessage": "在文件管理器中打开当前文件夹"
+  },
   "workspacePanel.start": {
     "defaultMessage": "开始"
   },
@@ -9724,6 +9835,9 @@
   },
   "workspacePanel.terminalKeys": {
     "defaultMessage": "Ctrl+C 中断"
+  },
+  "workspacePanel.toolsTitle": {
+    "defaultMessage": "工作区工具"
   },
   "workspacePanel.unsaved": {
     "defaultMessage": "未保存"
@@ -9791,46 +9905,43 @@
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切换器"
   },
-  "pastedText.text": {
-    "defaultMessage": "已粘贴文本 · {count} 字符"
+  "compaction.cancelled": {
+    "defaultMessage": "上下文压缩已取消，原上下文已保留。"
   },
-  "pastedText.preview": {
-    "defaultMessage": "查看文本"
+  "compaction.completedAuto": {
+    "defaultMessage": "上下文已自动压缩"
   },
-  "pastedText.remove": {
-    "defaultMessage": "移除粘贴文本"
+  "compaction.completedManual": {
+    "defaultMessage": "上下文已压缩"
   },
-  "pastedText.previous": {
-    "defaultMessage": "上一页"
+  "compaction.failed": {
+    "defaultMessage": "上下文压缩失败，原上下文已保留。"
   },
-  "pastedText.next": {
-    "defaultMessage": "下一页"
+  "conversationBranch.action": {
+    "defaultMessage": "从此轮创建对话分支"
   },
-  "pastedText.page": {
-    "defaultMessage": "第 {page} / {total} 页"
+  "conversationBranch.boundary": {
+    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
   },
-  "workspacePanel.fileMissing": {
-    "defaultMessage": "文件已移动或删除，请确认位置后重新打开链接。"
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "正在生成接续任务所需的摘要，原始消息保留在对话中。"
   },
-  "workspacePanel.fileDenied": {
-    "defaultMessage": "Windows 拒绝访问此文件，请检查权限或选择可读取的副本。"
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "仍在等待模型返回。较长对话可能耗时较久，可停止后重试。"
   },
-  "workspacePanel.fileOutside": {
-    "defaultMessage": "此操作仅限当前工作区；其他工作区的文件可作为只读引用打开。"
+  "navigationPanel.pinned": {
+    "defaultMessage": "置顶"
   },
-  "workspacePanel.fileTooLarge": {
-    "defaultMessage": "文件超过预览大小限制，请打开较小副本或使用原应用。"
+  "sessionActions.branchHint": {
+    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
   },
-  "workspacePanel.fileUnsupported": {
-    "defaultMessage": "此格式暂时无法预览，请使用原应用打开或另存为支持的格式。"
+  "sessionActions.pin": {
+    "defaultMessage": "置顶会话"
   },
-  "pastedText.previewHint": {
-    "defaultMessage": "预览前 {count} 字符 · 单击文本块打开 TXT 副本"
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能保存置顶设置：{error}"
   },
-  "pastedText.open": {
-    "defaultMessage": "以 TXT 打开粘贴文本"
-  },
-  "pastedText.openFailed": {
-    "defaultMessage": "未能打开文本副本，请重试。"
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置顶"
   }
 }

@@ -8,6 +8,45 @@
 
 English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation retaining configuration and sharing the source directory, without copying active execution or replaying file operations. Pinning is a local UI preference. Existing session services own archive and restore; archiving retains messages. Permanent deletion still requires confirmation and preserves workspace files. Existing data needs no migration.
 
+## 2026-11-05 已批准：压缩反馈
+
+Harness 继续唯一持有压缩内容、事务、取消与结果。宿主只在同一 Agent 已成功手动压缩且原生 surface 未变化时跳过重复摘要，保留原生 maintenance 准入与取消检查；缓存仅存内存，重启或新增上下文后重新按原规则处理。界面消费结构化压缩生命周期显示耗时和完成／失败／取消回执，不从文案推断结果、不显示虚构百分比，不承诺首次摘要速度或摘要绝对无损。
+
+繁體：Harness 持有壓縮內容、交易、取消與結果；僅略過同一 Agent 在上下文未變時的重複手動摘要，沿用原生准入與取消檢查。快取僅存於記憶體，介面依結構化生命週期顯示耗時與結果，不顯示虛構百分比或承諾摘要絕對無損。
+
+English: Harness owns compaction content, transactions, cancellation, and results. The host only skips redundant manual summaries on an unchanged surface of the same Agent, preserving native admission and cancellation checks. The cache is in memory only. UI feedback consumes structured lifecycle events for elapsed time and outcomes, without invented percentages or promises of lossless summaries.
+
+## 2026-11-04：文件页外部打开
+
+“文件”标签按需打开并可关闭，状态仅存在桌面会话内存中。路径栏分体按钮只作用于当前文件／目录：主按钮沿用默认打开方式，下拉菜单由主进程检测已安装编辑器并显示一次性选择，不改变系统文件关联。脚本仍走既有代码编辑器路径，不交给可能执行脚本的文件关联。`open-target` 沿用原会话／单文件授权，主进程在菜单返回后再次校验 realpath、对象类型及窗口生命周期；前端不能指定任意程序路径。没有新增聊天持久化或权限扩展，旧数据无需迁移。
+
+繁體：檔案頁按目前物件提供外部開啟；主程序持有程式探索與啟動，選單結束後重新驗證原授權和生命週期。不修改系統關聯或聊天資料，腳本仍以編輯器開啟。
+
+English: File-view controls open the current target. The main process discovers applications and revalidates the existing path grant and window lifetime after menu selection. One-shot choices do not change OS associations or chat storage; scripts retain the editor-only opening path.
+
+Windows 文件菜单通过 Shell 的 `SHAssocEnumHandlers(ASSOC_FILTER_RECOMMENDED)` 按文件类型读取推荐应用，并用 `AssocQueryString` 读取默认应用名称；应用图标来自系统关联。主进程持有查询和调用，选择后通过 `IAssocHandler.Invoke` 打开，其他应用入口使用系统 `SHOpenWithDialog`，不解析或拼接注册表命令，不修改默认应用。目录及脚本保留已安装编辑器列表；macOS/Linux 保留原有编辑器发现路径，不宣称已接入其系统关联列表。查询失败时保留默认打开和系统选择入口并显示原因。
+
+繁體：Windows 依檔案類型讀取系統推薦應用程式、預設名稱和圖示，以 Shell handler 開啟，其他應用程式使用系統選擇器；不修改系統預設。目錄和腳本保留編輯器路徑，macOS/Linux 保留原有行為。
+
+English: Windows discovers recommended handlers, default app names, and icons by file type using Shell APIs. The main process invokes the selected handler or the native Open With dialog without parsing registry commands or changing defaults. Directories and scripts retain editor discovery; macOS/Linux retain their existing behavior.
+
+## 2026-11-04：右侧本地文件浏览
+
+主进程 `workspacePanelMain.ts` 持有原生文件选择器返回的窗口级、内存内只读授权；单文件选择不授权同目录其他文件，目录选择沿用 realpath 工作区路径检查。渲染层只消费返回的 selection，复用现有文本、媒体与文档预览。不修改会话工作区、Agent 工具权限或聊天持久化；窗口退出、渲染进程重建及完整导航使授权失效。旧聊天数据无需迁移。
+
+繁體：主程序持有原生選擇器的視窗級唯讀授權，單檔選擇不授權同目錄其他檔案。目錄沿用 realpath 邊界；不改變對話工作區或 Agent 權限，視窗生命週期結束時失效。
+
+English: The main process owns window-local, in-memory read-only picker grants. A file grant excludes siblings; directory grants reuse realpath containment checks. Rendering reuses existing previews without changing session workspaces, Agent permissions, or chat persistence. Window disposal, renderer loss, and full navigation revoke grants; no data migration is needed.
+
+## 2026-11-04：输入框文件与对话引用
+
+桌面 `@` 菜单复用工作区面板的目录／搜索服务和 ACP 会话列表，只消费文件类型、路径、会话 ID、标题与更新时间；不按文件扩展名猜目录、不复制整份会话内容。会话选中后使用锁定 Harness 的规范 `dsh-session:` mention，沿用文本草稿和消息通道，不新增持久化引用表或公共 RPC。
+
+官方 `dsh-session-reference` 是引用解析、只读投影、预算、来源标记和快照持久化的唯一 owner。配置每条消息最多 3 个来源、每来源预览最多 24 KiB。只投影直接用户／助手文本与压缩检查点，排除工具、推理及其他注入上下文；旧对话里的指令和权限声明不能成为当前授权。快照保存后不随源对话变化而更新；前端的标签、移除和数量提示仅为交互，原生校验仍是最终门槛。旧消息和旧记录不迁移；未拥有原生历史的来源由原生 resolver 明确拒绝。
+
+繁體：桌面只列出候選並傳遞原生 mention；Harness 持有有界、唯讀、不受信任的對話快照。沿用文字草稿與訊息持久化，不新增引用資料表；來源更新不改寫已捕獲快照。
+
+English: Desktop lists candidates and sends native mentions. Harness owns bounded, read-only, untrusted session snapshots. Existing text drafts and message persistence are reused; no reference table or public RPC is added. Later source changes do not rewrite captured snapshots.
 ## 2026-11-04 已批准：桌面单文件只读引用与大文本展示
 
 桌面主进程 `workspacePanelFiles` 统一解析用户点击的单文件引用，工作区外引用由文本/源码扩展到 PDF、Word、Excel、PPT、图片与视频。引用不授权所在目录的枚举、写入、终端工作区或 Agent 工具权限；普通 `read/list/save` 仍受当前会话根目录约束。文档预览每次读取重新核对规范路径和文件版本；媒体主进程注册表只发放绑定指定文件的不可猜测能力 URL，读取时重新核对路径、类型及大小，窗口关闭/重载撤销。界面消费只读引用标记，刷新、右键和预览沿用同一检查，不通过切换会话根目录绕过限制。
@@ -194,11 +233,11 @@ English: An explicit “Allow computer control for this session” choice covers
 
 ## 2026-10-27 已批准：新任务草稿跨重启保存
 
-2026-10-28 补充：用户在新任务页显式选择的权限预设随同一草稿保存，切换对话或重载页面后恢复；创建会话成功后随草稿清空。该选择仅用于新会话创建，不修改全局默认权限或其他已有会话，实际权限仍由 Harness 会话配置裁决。
+2026-11-02 更新：设置页、新任务及已有对话共用本机配置 gooseMode。用户显式选择后，Compat 将预设应用到已打开和后续加载的可执行根会话。Harness 负责实际执行权限，逐工具授权仍按原范围保存。
 
-繁體：新任務頁明確選擇的權限預設隨同一草稿保存，切換對話或重新載入後恢復；會話建立成功後清空。不修改全域預設或其他會話權限，實際權限仍由 Harness 會話設定裁決。
+繁體：設定、新任務及既有對話共用本機 gooseMode。明確選擇後套用到目前及後續載入的可執行根會話。Harness 裁決實際權限，個別工具授權維持原範圍。
 
-English: An explicitly selected permission preset is saved with the same new-task draft across navigation and reloads, then cleared after session creation succeeds. It does not change global defaults or other sessions; Harness session configuration remains authoritative for effective permissions.
+English: Settings, new tasks and existing chats share this device's gooseMode preference. An explicit choice applies to open and subsequently loaded executable root sessions. Harness enforces the effective preset and tool grants retain their scope.
 
 用户批准将新任务文字、目录及附件保存到本地并在重启后恢复。Electron `drafts/DraftStore` 持有按窗口槽位和聊天模式隔离的草稿文件及附件副本；renderer 仅缓存已恢复内容、提交字段更新并显示保存错误，不以草稿恢复启动任务。普通/CodePro 会话创建成功回执触发草稿清空，失败保留；已发送历史引用的附件副本继续存在。正常退出等待已接收的草稿写入。该缓存不更改 Harness 的任务、会话、权限或完成权威。最近目录文件继续由 `utils/recentDirs` 写入，原生菜单订阅保存通知刷新。
 
@@ -813,3 +852,28 @@ English: Native code owns input-conflict facts, supplied through optional versio
 原生 DSH Schedule 继续独占定时器、任务表、同一串行管理/投递队列、会话绑定和投递历史。CodeBuddy 对锁定 0.2.1-alpha.2 的内存加载扩展新增 `paused` 状态和 CAS 暂停/恢复操作；不引入 MichengAI 调度器、不删除重建任务、不复制任务状态。按钮与 `schedule_pause` / `schedule_resume` 共用此入口，`schedule_status` 只读本根聊天的任务；不额外增加批准弹窗，不授予文件、网络或子 Agent 权限。暂停仅阻止尚未进入原生投递的次数，已经投递到 Inbox 或开始运行的任务不取消。恢复保留原周期/时区并跳过已错过的次数；已过期的一次性任务结束且不补发。暂停任务保留 ID、历史及会话绑定，可编辑但不自动恢复；归档会话时暂停任务同样纳入原生停止处理。
 
 现有 active/inactive 数据无需迁移。暂停状态使用同一任务表；不支持把含 paused 行的数据交给未扩展的旧版本（旧版严格解码会拒绝，不会暗中执行）。回滚前先恢复/结束或明确删除所有暂停任务，并保留原数据备份。升级 DSH 时版本与源码哈希门禁要求重审本扩展；上游提供等价暂停接口后删除本扩展，不能静默混用。兼容层只传输实际回执，前端只展示提交后的状态。测试通过不等同真实桌面验收。
+
+## 2026-11-03 聊天发起安装
+
+前台主聊天可提出 MCP 或技能安装。桌面逐次审批具体命令、地址或技能目标。扩展设置服务在真实连接测试成功后原子保存新扩展及当前聊天的选择，下一轮重新加载。技能管理服务校验下载预览、目标冲突及写入结果。模型消费工具回执。配置写入、握手、工具发现和具体工具执行各自有独立证据。
+
+给定 GitHub 仓库时，宿主从该仓库读取根目录的 `server.json`。仓库身份、单一兼容的 Python stdio 包、固定位置参数和本地可执行文件共同确定可供审批的候选。清单缺失或候选不明确时，聊天仍可使用发布方文档给出的命令或 HTTP 端点。
+
+繁體：前景主聊天提出安裝，桌面逐次核准。GitHub 清單與本機 CLI 提供候選，擴充設定服務測試連線後儲存。技能管理服務預覽、套用並讀回結果。
+
+English: The foreground root chat proposes installation and the desktop confirms each target. A publisher manifest and matching local CLI can supply a candidate. Extension settings test the connection before saving. The skill manager owns preview, installation and readback.
+## 2026-11-03 已批准：本轮电脑操作的窗口身份
+
+模型在首次发现窗口前以 `window_title` 声明用户指定的准确标题；未指定时传空字符串。DesktopCoordinator 按本轮 token 保存该声明，重连、切换对话和新的窗口列表不能改写它。原生电脑工具消费租约元数据，并在输入前核对唯一可见窗口的标题、PID 与窗口句柄。目标不可识别仅阻止对应桌面操作，普通任务与原有权限审批仍由 Harness 管理。
+
+繁體：每輪在探索前聲明指定標題，原生工具在輸入前核對唯一可見視窗的身分。English: The host binds the requested window title before discovery for each turn. Native input requires a unique visible match and the observed window identity.
+
+## 2026-11-04 已批准：全局主对话与宠物消息
+
+- `runtime/main-conversation.mjs` 与 Compat 是唯一主对话身份的 owner：通过不可由 ACP JSON 注入的内部标识创建，`globalConversation` 随现有会话原子持久化；并发获取合并，重启按记录恢复。官方 Harness 继续拥有执行与历史。
+- 宠物仅转交输入；Electron 主进程选定主窗口并等待入队回执。主窗口输入栏仍是消息持久队列的唯一 writer，沿用忙碌排队、停止暂停、重启确认和送达状态语义。宠物拿到入队确认后才清除草稿；入队不代表模型已经完成。
+- 主对话专属 `workspace_memory` 从已登记工作区按需只读召回。ProjectMemory 继续拥有候选／批准／禁用／过期判断，工具不得重新解释原文作为批准；返回来源，普通会话不注册此能力。文件系统与其他工具权限独立，不把记忆可读等同于跨项目可写。
+- UI 消费 `globalConversation` 排除项目分组；角色工作区的列表来源为既有 `agentWorkspaces` 绑定，不另存第二份角色绑定。
+- 宠物审批由现有前端 ACP pending request 注册表继续持有 resolver；宠物只显示该请求允许的操作，携带一次请求令牌交回原窗口。Electron 校验来源及任务归属，注册表拒绝过期令牌，不新增权限持久化或第二套审批策略。问题填答和工作区确认不转换成工具授权。
+- 对话展示标题由 Compat 在首轮结束后更新既有 `title` 字段，上层驱动适配调用 Harness 公开辅助标题推理接口，使用已登记模型路由但不开放工具；首句截断不再作为新对话标题来源。主对话及手动 `userSetName` 名称保持不变。智能体名称作为既有项目别名初始值，和对话标题独立；不迁移历史标题或改变执行历史所有权。
+- 主对话清空由既有 `ConversationEditing` 在会话锁下执行官方空历史分叉并更新投影，保留产品会话身份与独立记忆；非主对话或活动执行不允许调用。原生日志按既有审计规则保留。Electron 转交 ID 沿用为队列及提交 ID，接收端按 ID 合并重复通知，禁止按消息文本去重。

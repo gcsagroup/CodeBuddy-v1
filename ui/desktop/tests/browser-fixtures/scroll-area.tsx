@@ -488,9 +488,40 @@ function ToastFixture() {
   );
 }
 
+function BoundedDetailsFixture() {
+  const [lines, setLines] = useState(80);
+  const content = Array.from({ length: lines }, (_, i) => `Reasoning line ${i}: preserve the complete content.`).join('\n\n');
+  const grouped = new URLSearchParams(window.location.search).has('grouped');
+  const messages: Message[] = [{ id: 'bounded-user', role: 'user', created: 1,
+    metadata: { userVisible: true, agentVisible: true }, content: [{ type: 'text', text: 'Inspect files' }] },
+    ...Array.from({ length: 20 }, (_, i): Message[] => [
+      { id: `request-${i}`, role: 'assistant', created: i * 2 + 2,
+        metadata: { userVisible: true, agentVisible: true },
+        content: [ ...(i < 2 ? [{ type: 'thinking' as const, thinking: `Phase ${i}\n\n${content}`, signature: '' }] : []),
+          { type: 'toolRequest', id: `read-${i}`, toolCall: { name: 'developer__read', arguments: { path: `file-${i}.md` } } }] },
+      { id: `receipt-${i}`, role: 'user', created: i * 2 + 3,
+        metadata: { userVisible: false, agentVisible: true }, content: [{ type: 'toolResponse', id: `read-${i}`,
+          toolResult: { status: 'success', value: { content: [{ type: 'text', text: 'File received.' }] } } }] },
+    ]).flat()];
+  return <IntlTestWrapper><MemoryRouter>
+    <main className="codepro-chat-history" style={{ width: 'min(800px, 100%)', padding: 24 }}>
+      <button onClick={() => setLines(value => value + 5)}>Append reasoning</button>
+      {grouped ? <ProgressiveMessageList messages={messages} chat={{ sessionId: 'bounded-process' }}
+        isUserMessage={item => item.role === 'user'} readOnly /> :
+        <ThinkingContent content={content} isExpanded storageKey="bounded-thought" />}
+      <p>Answer remains below the bounded details.</p>
+    </main>
+  </MemoryRouter></IntlTestWrapper>;
+}
+
 const query = new URLSearchParams(window.location.search);
+if (query.has('bounded-details')) {
+  Object.assign(window, { electron: { getSetting: async () => 'concise', logInfo: () => {} } });
+}
 createRoot(document.getElementById('root')!).render(
-  query.has('history') ? (
+  query.has('bounded-details') ? (
+    <BoundedDetailsFixture />
+  ) : query.has('history') ? (
     <HistoryFixture />
   ) : query.has('auto-fold') ? (
     <AutoFoldFixture />

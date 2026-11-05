@@ -25,11 +25,12 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { Pencil } from 'lucide-react';
+import { ChevronRight, Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, {
   codeProTerminalPresentation,
   hasMissingFinalReply,
+  isRepeatedToolThinking,
 } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
@@ -418,6 +419,37 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         presentationPending={!props.renderMessage && presentation.pending}
       />
     </div>
+  );
+}
+
+function ProcessDetails({
+  hasThinking,
+  children,
+}: {
+  hasThinking: boolean;
+  children: (showThinking: boolean) => React.ReactNode;
+}) {
+  const intl = useIntl();
+  const [showThinking, setShowThinking] = useState(false);
+  return (
+    <>
+      {hasThinking && (
+        <button
+          type="button"
+          aria-pressed={showThinking}
+          aria-expanded={showThinking}
+          className="mb-1 inline-flex items-center gap-1 self-start text-left text-xs text-text-secondary hover:text-text-primary"
+          onClick={() => setShowThinking((shown) => !shown)}
+        >
+          {intl.formatMessage(i18n.thinkingDetails)}
+          <ChevronRight
+            aria-hidden="true"
+            className={`h-3 w-3 shrink-0 transition-transform ${showThinking ? 'rotate-90' : ''}`}
+          />
+        </button>
+      )}
+      {children(showThinking)}
+    </>
   );
 }
 
@@ -1185,6 +1217,19 @@ function ProgressiveMessageListContent({
           const onlyMedia =
             groupRequests.length > 0 && groupRequests.every((request) => mediaJobs.has(request.id));
           const mediaOnlyView = onlyMedia && groupMedia.length > 0;
+          const thinkingCount = suppressProviderThinking
+            ? 0
+            : group.reduce((count, item) => {
+                if (isRepeatedToolThinking(parts.get(item)?.message ?? item, sourceMessages))
+                  return count;
+                return (
+                  count +
+                  item.content.filter(
+                    (content, offset) =>
+                      content.type === 'thinking' && item.content[offset - 1]?.type !== 'thinking'
+                  ).length
+                );
+              }, 0);
           // A hidden poll can leave an empty transport shell, but cannot hide
           // original thinking, ordinary tools, lifecycle events or approvals.
           if (
@@ -1226,6 +1271,24 @@ function ProgressiveMessageListContent({
           // A late reasoning block changes content, never the group's identity.
           const groupIdentity = message.id ?? requests[0]?.id ?? index;
           const identity = `${groupIdentity}:${part?.start ?? 0}`;
+          const hasVisibleTool = groupRequests.some((request) => {
+            const job = mediaJobs.get(request.id);
+            return !job || job.anchorId === request.id || approvals.has(request.id);
+          });
+          // A single thought already owns a disclosure. Keep that original
+          // renderer in place without adding two more thought-only headers.
+          if (thinkingCount === 1 && !hasVisibleTool && !group.some(lifecycleNotification)) {
+            return (
+              <div
+                key={`tools-${identity}`}
+                className="my-0.5 w-full max-w-[52rem]"
+                data-testid="message-container"
+                data-process-group=""
+              >
+                {group.map((item) => renderToolMessage(item, true, pendingIds))}
+              </div>
+            );
+          }
           const attentionStates = group
             .flatMap(getToolRequests)
             .flatMap((request): ('failed' | 'unknown')[] => {
@@ -1325,8 +1388,7 @@ function ProgressiveMessageListContent({
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable={false}
-                contentClassName="codepro-process-details bg-transparent py-0.5"
+                scrollable
                 label={label}
                 icon={
                   thinkingNow ? (
@@ -1371,7 +1433,13 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  {group.map((item) => renderToolMessage(item, true, pendingIds))}
+                  <ProcessDetails hasThinking={thinkingCount > 1}>
+                    {(showThinking) =>
+                      group.map((item) =>
+                        renderToolMessage(item, showThinking || thinkingCount === 1, pendingIds)
+                      )
+                    }
+                  </ProcessDetails>
                 </div>
               </ToolCallExpandable>
               {awaitingApproval && (

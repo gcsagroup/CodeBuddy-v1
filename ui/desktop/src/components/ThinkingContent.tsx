@@ -93,6 +93,11 @@ const ThinkingContent = memo(function ThinkingContent({
   }, [expanded]);
   const viewport = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  useLayoutEffect(() => {
+    if (expanded && following.current && viewport.current) {
+      viewport.current.scrollTop = viewport.current.scrollHeight;
+    }
+  }, [content, expanded]);
   const handleOpenChange = (open: boolean) => {
     setManualToggle(open);
     if (storageKey && typeof window !== 'undefined') {
@@ -146,7 +151,7 @@ const ThinkingContent = memo(function ThinkingContent({
             }
           }}
           onScroll={updateReadingPosition}
-          className="codepro-operation-details codepro-thinking-details mt-2 w-full min-w-0 border-l-2 border-border-primary pl-4 pr-2 text-sm leading-relaxed text-text-secondary"
+          className="codepro-operation-details codepro-thinking-details mt-2 w-full min-w-0 max-h-72 overflow-y-auto overscroll-x-contain overscroll-y-auto border-l-2 border-border-primary pl-4 pr-2 text-sm leading-relaxed text-text-secondary [scrollbar-width:thin]"
         >
           {/* Source chunks already stream; per-word animation nodes make long thoughts costly. */}
           <MarkdownContent

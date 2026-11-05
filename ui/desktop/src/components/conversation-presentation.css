@@ -161,9 +161,10 @@
   margin-top: 4px;
 }
 
-/* Reasoning and operation rows grow with the chat page. */
+/* One transparent, bounded scroller owns both reasoning and operation rows. */
 .codepro-chat-history .codepro-process-details {
   --conversation-line-height: 1.45;
+  max-height: min(18rem, 40vh);
 }
 
 .codepro-chat-history .codepro-process-details .codepro-tool-group {
@@ -187,6 +188,10 @@
   ) {
   font-size: var(--conversation-secondary-size);
   line-height: 1.45;
+}
+
+.codepro-chat-history .codepro-process-details .codepro-thinking-details {
+  max-height: min(14rem, 32vh);
 }
 
 .codepro-chat-history .codepro-process-details .assistant {

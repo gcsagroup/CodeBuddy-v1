@@ -19,7 +19,6 @@ describe('ThinkingContent', () => {
     ).join('\n\n');
     const view = render(<ThinkingContent content={content} isExpanded isStreaming />);
     const viewport = view.container.querySelector('.codepro-thinking-details')!;
-    expect(viewport.className).not.toMatch(/max-h-|overflow-y-auto|overflow-y-scroll/);
     const first = viewport.querySelector('p');
     expect(viewport.querySelectorAll('p')).toHaveLength(90);
     expect(viewport.querySelectorAll('strong')).toHaveLength(90);
@@ -35,7 +34,7 @@ describe('ThinkingContent', () => {
     expect(viewport.querySelectorAll('.codepro-incoming-word')).toHaveLength(0);
   });
 
-  it('leaves scrolling to the chat page when thought content updates', () => {
+  it('follows updates at the bottom but keeps the reading position when scrolled up', () => {
     const view = render(<ThinkingContent content="First" isExpanded isStreaming />);
     const viewport = screen
       .getByText('First')
@@ -45,7 +44,7 @@ describe('ThinkingContent', () => {
       clientHeight: { value: 200 },
     });
     view.rerender(<ThinkingContent content="Second" isExpanded isStreaming />);
-    expect(viewport.scrollTop).toBe(0);
+    expect(viewport.scrollTop).toBe(900);
     viewport.scrollTop = 100;
     fireEvent.scroll(viewport);
     view.rerender(<ThinkingContent content="Third" isExpanded isStreaming />);
@@ -54,7 +53,7 @@ describe('ThinkingContent', () => {
     viewport.scrollTop = 700;
     fireEvent.scroll(viewport);
     view.rerender(<ThinkingContent content="Fourth" isExpanded isStreaming />);
-    expect(viewport.scrollTop).toBe(700);
+    expect(viewport.scrollTop).toBe(900);
   });
 
   it('folds a quiet live thought without waiting for a complete tool call, but protects a reader', () => {

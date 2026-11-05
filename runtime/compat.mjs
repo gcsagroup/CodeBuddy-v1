@@ -2932,7 +2932,7 @@ export class Compat {
           for (const update of projectWorkStatus(event))
             connection.notify("_goose/unstable/session/update", { sessionId: s.id, update });
           for (const update of projectContext(event)) {
-            if (event.source !== 'streaming_estimate') {
+            if (event.source !== 'streaming_estimate' && event.type !== 'model_diagnostic') {
               await writer?.appendUsage(update);
               usageUpdates.push(update);
             }

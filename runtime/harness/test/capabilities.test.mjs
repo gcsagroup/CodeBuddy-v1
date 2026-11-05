@@ -658,8 +658,10 @@ test('generic subagent inherits the actual parent model and effort despite obsol
   assert.ok(!toolNames.includes('subagent'), 'optional schemas remain deferred for a newly spawned child');
   assert.ok(toolNames.every(name => !name.startsWith('subagent_')));
   const started = events.find(event => event.type === 'subagent_start');
-  const parameters = childRequests.at(-1).tools.find(tool => tool.function.name === 'subagent').function.parameters.properties;
-  for (const field of ['provider', 'model', 'reasoning_effort']) assert.equal(Object.hasOwn(parameters, field), false);
+  assert.ok(childRequests.every(request => !request.tools.some(tool => tool.function.name === 'subagent')),
+    'A child at the native depth limit cannot discover another delegation schema');
+  const discovery = events.find(event => event.type === 'tool_result' && event.name === 'search_mcp_tools' && event.sessionId === started?.childSessionId);
+  assert.ok(discovery, 'The child actually attempted tool discovery');
   assert.ok(started?.childSessionId);
   assert.ok(events.some(event => event.type === 'subagent_end' && event.childSessionId === started.childSessionId));
   assert.ok(events.some(event => event.type === 'tool_result' && event.name === 'subagent' && event.structuredContent?.subagentId === started.childSessionId));

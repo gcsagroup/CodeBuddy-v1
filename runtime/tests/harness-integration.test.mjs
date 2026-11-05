@@ -1,3 +1,4 @@
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -80,6 +81,7 @@ async function fixtureServer(root) {
     let raw = '';
     for await (const chunk of req) raw += chunk;
     const request = JSON.parse(raw);
+    if (answerTitleRequest(request, res)) return;
     requests.push(request);
     if (!request.stream) {
       res.writeHead(200, { 'content-type': 'application/json' });

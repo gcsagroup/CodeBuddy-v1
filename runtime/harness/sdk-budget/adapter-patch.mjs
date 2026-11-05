@@ -20,6 +20,7 @@ export const adapterPatch = {
       return source.slice(source.indexOf(start), source.indexOf(end));
     };
     replace('import { homedir } from "node:os";', `import { homedir } from "node:os";
+import { countVllmInput, requestBudgetChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
 import { randomUUID as requestFitId } from "node:crypto";
 import { normalizeContext as normalizeRequestFitContext } from "@earendil-works/pi-ai/utils/transcript";
 import { estimateContextTokens as estimateRequestFitTokens } from "@earendil-works/pi-ai/utils/estimate";
@@ -31,6 +32,7 @@ import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThi
       '\tmaxTokens: z.number().step(1).min(1),\n\trequestMaxTokens: z.number().step(1).min(1),\n\tinput: z.array(z.union(MODALITIES)),');
     replace('\t\tif (entry.maxTokens !== void 0) configuredMaxTokens.set(entry.id, entry.maxTokens);',
       '\t\tconst requestMaxTokens = entry.requestMaxTokens ?? entry.maxTokens;\n\t\tif (requestMaxTokens !== void 0) configuredMaxTokens.set(entry.id, requestMaxTokens);');
+    replace('apiKeyEnv: z.string().role("credential-ref"),', 'vllmCount: z.boolean(),\n\tapiKeyEnv: z.string().role("credential-ref"),');
     // Schemas otherwise alias the caller's mutable declarations after fitting.
     replace('\t\tparameters: tool.parameters\n', '\t\tparameters: structuredClone(tool.parameters)\n');
 
@@ -49,25 +51,41 @@ import { clampMaxTokensToContext as clampRequestFitTokens, adjustMaxTokensForThi
 ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t').replace('const context = attachments', 'const projected = attachments').replace('signal: watchdog.signal', 'signal: options.signal')}
 \t\tif (options.signal?.aborted) throw new LlmError("pi-ai request aborted by caller", "ABORTED");
 \t\tconst context = normalizeRequestFitContext(projected);
-\t\tconst estimate = Object.freeze(estimateRequestFitTokens(context));
+\t\tlet estimate = Object.freeze(estimateRequestFitTokens(context));
+\t\tlet counted;
+\t\tif (profile.vllmCount && model.api === "openai-completions") {
+\t\t\tconst apiKey = await this.config.resolveApiKey(options.provider, profile);
+\t\t\tconst { countPayload } = await import("@earendil-works/pi-ai/api/openai-completions");
+\t\t\tconst payload = countPayload(model, context, { ...profileOptions(profile, reasoning, apiKey), maxTokens: options.maxTokens, sessionId: options.sessionId });
+\t\t\tconst headers = new Headers({ "content-type": "application/json", ...(apiKey ? { authorization: "Bearer " + apiKey } : {}), ...model.headers, ...profile.headers });
+\t\t\tcounted = await countVllmInput(model.baseUrl, payload, headers, options.signal);
+\t\t\tif (counted) estimate = Object.freeze({ tokens: counted.count });
+\t\t}
+\t\tconst contextWindow = Math.min(model.contextWindow, counted?.limit ?? model.contextWindow);
+\t\tconst available = contextWindow - estimate.tokens - 4096;
 \t\t// The pinned Responses provider enforces OpenAI's minimum max_output_tokens of 16.
-\t\tconst minimumMaxTokens = model.api === "openai-responses" && model.compat?.supportsMaxOutputTokens !== false ? 16 : 1;
+\t\tlet minimumMaxTokens = model.api === "openai-responses" && model.compat?.supportsMaxOutputTokens !== false ? 16 : 1;
 \t\tlet desiredMaxTokens = options.maxTokens ?? model.maxTokens;
 \t\tlet effectiveMaxTokens = clampRequestFitTokens(model, context, desiredMaxTokens);
 \t\tif (model.api === "anthropic-messages" && reasoning !== "off" && reasoning !== void 0 && model.compat?.forceAdaptiveThinking !== true) {
 \t\t\tdesiredMaxTokens = adjustRequestFitThinking(desiredMaxTokens, model.maxTokens, reasoning, profile.thinkingBudgets).maxTokens;
 \t\t\teffectiveMaxTokens = clampRequestFitTokens(model, context, adjustRequestFitThinking(effectiveMaxTokens, model.maxTokens, reasoning, profile.thinkingBudgets).maxTokens);
 \t\t}
+\t\tif (counted) {
+\t\t\teffectiveMaxTokens = Math.min(desiredMaxTokens, Math.max(1, available));
+\t\t\tminimumMaxTokens = Math.max(1, Math.min(desiredMaxTokens, 1024));
+\t\t}
 \t\tconst fit = Object.freeze({
 \t\t\tversion: 1, requestId: requestFitId(), provider: options.provider, model: options.model,
-\t\t\tsource: "pi-ai-estimate-context-tokens", estimate,
-\t\t\tcontextWindow: model.contextWindow, safetyTokens: 4096,
+\t\t\tsource: counted ? "vllm-tokenizer" : "pi-ai-estimate-context-tokens", estimate,
+\t\t\tcontextWindow, safetyTokens: 4096,
 \t\t\tmodelMaxTokens: model.maxTokens, explicitMaxTokens: options.maxTokens !== void 0,
 \t\t\toutputCapApplied: model.api !== "openai-responses" || model.compat?.supportsMaxOutputTokens !== false,
 \t\t\t...options.purpose === void 0 ? {} : { purpose: options.purpose },
 \t\t\tdesiredMaxTokens, effectiveMaxTokens, minimumMaxTokens,
-\t\t\tavailable: model.contextWindow - estimate.tokens - 4096
+\t\t\tavailable
 \t\t});
+\t\trequestBudgetChannel.publish({ purpose: options.purpose, model: options.model, source: fit.source, input: estimate.tokens, output: effectiveMaxTokens, window: contextWindow });
 \t\tlet started = false;
 \t\treturn Object.freeze({ fit, stream: () => {
 \t\t\tif (started) throw new LlmError("pi-ai prepared request already consumed", "REQUEST_ALREADY_CONSUMED");
@@ -91,11 +109,18 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t}
 \t\tif (options.signal?.aborted) throw new LlmError("pi-ai request aborted by caller", "ABORTED");
 \t\tif (prepared.fit.desiredMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError(\`pi-ai request maxTokens must be at least \${prepared.fit.minimumMaxTokens} for this protocol\`, "INVALID_OUTPUT_BUDGET", { requestId: prepared.fit.requestId });
-\t\tif (prepared.fit.available < prepared.fit.minimumMaxTokens) throw new LlmError("pi-ai request cannot reserve the protocol's minimum output budget after context safety reservation", "LOCAL_OUTPUT_BUDGET_EXHAUSTED", { requestId: prepared.fit.requestId });`);
+\t\tif (prepared.fit.available < prepared.fit.minimumMaxTokens || prepared.fit.effectiveMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError("pi-ai request cannot reserve the protocol's minimum output budget after context safety reservation", "LOCAL_OUTPUT_BUDGET_EXHAUSTED", { requestId: prepared.fit.requestId });`);
+    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE, ...(requestFit ? { requestId: requestFit.requestId } : {})\n');
     // Reasoning still resolves against the captured model/profile when streaming.
     replace('\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst apiKey', '\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst reasoning = resolveReasoningLevel(model, options.reasoningEffort ?? profile.reasoning);\n\t\t\tconst apiKey');
     replace('\t\t\t\tconst iterator = toStreamChunks', '\t\t\t\tconst reportedOutput = { tokens: void 0 };\n\t\t\t\tconst iterator = toStreamChunks');
     replace('\t\t\t\t\theaders: requestHeaders(profile.headers)\n', `\t\t\t\t\theaders: requestHeaders(profile.headers),
+\t\t\t\t\t...(fit.source === "vllm-tokenizer" ? { onPayload: payload => {
+\t\t\t\t\t\t// Preserve the exact counted template. Pi's generic final clamp may
+\t\t\t\t\t\t// still carry the previous route's usage anchor across a downshift.
+\t\t\t\t\t\tconst key = "max_tokens" in payload ? "max_tokens" : "max_completion_tokens";
+\t\t\t\t\t\treturn { ...payload, [key]: fit.effectiveMaxTokens };
+\t\t\t\t\t} } : {}),
 \t\t\t\t\tonProviderStreamEvent: async (event, requestModel) => {
 \t\t\t\t\t\tobserveReportedOutput(requestModel.api, event, reportedOutput);
 \t\t\t\t\t\tawait options.onProviderStreamEvent?.(event, requestModel);

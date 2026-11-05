@@ -77,7 +77,7 @@ export const llmPatch = {
 \t\trememberRequestFitFailure(chunk, recovery, options) {
 \t\t\tconst failure = chunk.type === "finish" && chunk.reason.kind === "error" ? chunk.reason.failure : void 0;
 \t\t\tconst mainFailure = options.purpose === void 0 && (failure?.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "OUTPUT_TRUNCATED" || failure?.code === "OUTPUT_LIMIT_REACHED");
-\t\t\tconst summaryPreflight = options.purpose === "compaction" && failure?.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED";
+\t\t\tconst summaryPreflight = options.purpose === "compaction" && (failure?.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "CONTEXT_WINDOW_EXCEEDED");
 \t\t\tif ((!mainFailure && !summaryPreflight) || recovery === void 0 || failure.requestId !== recovery.fit.requestId) return;
 \t\t\t// Failures are consumed synchronously by native request-error recovery.
 \t\t\t// Bound diagnostics from callers that do not install that consumer.

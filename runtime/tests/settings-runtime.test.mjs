@@ -88,7 +88,7 @@ async function fixture({ codepro = false } = {}) {
   const created = [];
   const driver = {
     createSession: async (options) => {
-      const { mcpImageFallback, mcpRequestMetadata, restoreSubagentProvider, ...serializableOptions } = options.options;
+      const { mcpImageFallback, mcpRequestMetadata, restoreSubagentProvider, mainAgentRole, ...serializableOptions } = options.options;
       assert.equal(typeof mcpImageFallback, "function");
       created.push(
         structuredClone({
@@ -140,20 +140,22 @@ test("session prompt set replaces the base and append keeps separate keyed instr
       key: "same-key",
       text,
     });
+  const initial = (await f.compat.sessionOptions(f.compat.session(f.session.id))).systemPrompt;
+  const hostInstructions = initial.slice("GLOBAL_BASE_INSTRUCTION".length);
   await update("set", "SESSION_BASE_INSTRUCTION");
   await update("append", "EXTRA_INSTRUCTION");
   const current = () => f.compat.sessionOptions(f.compat.session(f.session.id));
   assert.equal(
     (await current()).systemPrompt,
-    "SESSION_BASE_INSTRUCTION\n\nEXTRA_INSTRUCTION",
+    "SESSION_BASE_INSTRUCTION\n\nEXTRA_INSTRUCTION" + hostInstructions,
   );
   await update("set", "");
   assert.equal(
     (await current()).systemPrompt,
-    "GLOBAL_BASE_INSTRUCTION\n\nEXTRA_INSTRUCTION",
+    "GLOBAL_BASE_INSTRUCTION\n\nEXTRA_INSTRUCTION" + hostInstructions,
   );
   await update("append", "");
-  assert.equal((await current()).systemPrompt, "GLOBAL_BASE_INSTRUCTION");
+  assert.equal((await current()).systemPrompt, "GLOBAL_BASE_INSTRUCTION" + hostInstructions);
 });
 
 test('native activation and extension preparation overlap before model admission', async () => {

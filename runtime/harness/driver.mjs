@@ -52,7 +52,7 @@ export const HARNESS_REFERENCE_COMMIT = 'd743267388641bc76f17c45ce8b4c231aed1d32
 function nativeProviderRoute(provider, model) {
   // Newly discovered capability metadata cannot invalidate existing children
   // whose connection identity was recorded before that metadata was available.
-  const { outputTokenCapacity: _capacity, outputTokenCapacitySource: _source, requestMaxTokens: _budget, ...connection } = provider;
+  const { outputTokenCapacity: _capacity, outputTokenCapacitySource: _source, requestMaxTokens: _budget, countBackend: _counter, ...connection } = provider;
   return 'codebuddy-' + createHash('sha256').update(JSON.stringify({ ...connection, model })).digest('hex').slice(0, 20);
 }
 
@@ -818,7 +818,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     outputSources.set(route, provider.outputTokenCapacitySource ?? (provider.outputTokenCapacity === undefined ? 'fallback' : 'service'));
     const digest = route.slice('codebuddy-'.length);
     if (!providers.has(route) || providers.get(route).defaultMaxTokens !== provider.outputTokenCapacity ||
-        providers.get(route).models[0].requestMaxTokens !== provider.requestMaxTokens) {
+        providers.get(route).models[0].requestMaxTokens !== provider.requestMaxTokens || providers.get(route).vllmCount !== (provider.countBackend === 'vllm')) {
       const keyRef = `CODEBUDDY_MODEL_${digest}`;
       // Always explicit: never let pi-ai fall through to ambient API credentials.
       credentials.set(keyRef, provider.apiKey || 'codebuddy-no-key');
@@ -826,6 +826,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         api: protocol,
         baseURL: provider.baseUrl,
         apiKeyEnv: keyRef,
+        vllmCount: provider.countBackend === 'vllm',
         // Omission uses the official provider policy and the official retry plugin.
         ...(provider.retryPolicy ? { retryPolicy: provider.retryPolicy } : {}),
         // A discovered output capability is not a fixed request budget. Keep

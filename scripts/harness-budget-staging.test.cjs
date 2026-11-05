@@ -12,7 +12,7 @@ test('distribution keeps the serialized driver entry and every SDK budget seam, 
   await copyHarnessSources(source, target);
   const required = [
     'index.mjs', 'driver.mjs', 'model-catalog.mjs', 'sdk-budget-contract.mjs',
-    'subagent-return-contract.mjs', 'sdk-budget/adapter-patch.mjs',
+    'subagent-return-contract.mjs', 'sdk-budget/adapter-patch.mjs', 'sdk-budget/vllm-count.mjs',
     'sdk-budget/llm-patch.mjs', 'sdk-budget/compaction-patch.mjs', 'sdk-budget/retry-patch.mjs',
   ];
   for (const file of required)

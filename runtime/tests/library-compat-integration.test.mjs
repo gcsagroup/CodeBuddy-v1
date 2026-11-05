@@ -1,3 +1,4 @@
+import { answerTitleRequest } from './fixtures/title-request.mjs';
 import assert from "node:assert/strict";
 import http from "node:http";
 import {
@@ -125,6 +126,7 @@ async function fixture(
     let raw = "";
     for await (const chunk of request) raw += chunk;
     const input = JSON.parse(raw);
+    if (answerTitleRequest(input, response)) return;
     modelRequests.push(input);
     if (input.stream) await onModelRequest?.(input);
     if (!input.stream) {

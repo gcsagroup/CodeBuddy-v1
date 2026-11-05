@@ -35,6 +35,21 @@ const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch 
     throw new Error(`Review the pinned SDK request-fit contract for ${patch.name}.`);
   return { ...patch, url, source, replacement: patch.transform(source), applied: false };
 });
+// Reuse the very same serializer and reasoning options for measurement and inference.
+const completionUrl = import.meta.resolve('@earendil-works/pi-ai/api/openai-completions');
+const completionSource = readFileSync(new URL(completionUrl), 'utf8');
+if (createHash('sha256').update(completionSource).digest('hex') !== '5a79cc5aa41dee180692695e65771720d1ea556e9a978649dc2040278be51753')
+  throw new Error('Review the pinned chat tokenizer projection.');
+const completionProjection = completionSource
+  .replace('export const streamSimple = (model, context, options) => {', 'const simpleOptions = (model, context, options) => {')
+  .replace('return stream(model, context, {\n        ...base,', 'return {\n        ...base,')
+  .replace('thinkingBudgets: options?.thinkingBudgets,\n    });\n};', `thinkingBudgets: options?.thinkingBudgets,
+    };
+};
+export const streamSimple = (model, context, options) => stream(model, context, simpleOptions(model, context, options));
+export const countPayload = (model, context, options) => buildParams(model,
+    resolveTranscript(context, getCompat(model).supportsMidConvoSystemMessages), simpleOptions(model, context, options));`);
+patches.unshift({ name: 'pi-ai chat serializer', url: completionUrl, source: completionSource, replacement: completionProjection, applied: false });
 const hook = registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);
@@ -48,7 +63,7 @@ const hook = registerHooks({
 });
 try {
   for (const patch of patches) {
-    await import(patch.name);
+    await import(patch.url);
     if (!patch.applied) throw new Error(`Load the SDK request-fit contract before ${patch.name}.`);
   }
 } finally {

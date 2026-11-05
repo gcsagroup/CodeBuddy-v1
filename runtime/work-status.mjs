@@ -2,6 +2,8 @@
 // alone cannot establish whether the user's network or the service is at fault.
 function requestFailureMessage(failure, observation) {
   const status = observation?.status;
+  if (['CONTEXT_WINDOW_EXCEEDED', 'LOCAL_OUTPUT_BUDGET_EXHAUSTED', 'COMPACTION_OUTPUT_BUDGET_EXHAUSTED'].includes(failure?.code))
+    return '当前模型的上下文放不下这次请求及所需回复。可缩短本轮输入、减少启用的工具，或切换到更大窗口的模型。';
   if (status === 400 || status === 422) return `模型服务拒绝了请求参数（HTTP ${status}）。请在模型连接设置中检查 API 基础路径、工具调用支持和思考强度`;
   if (status === 404) return '模型或 API 路径不存在，或当前账号无权访问（HTTP 404）。请检查模型名称和 API 基础路径';
   if (status === 401) return '模型服务未通过身份验证（HTTP 401）';
@@ -25,7 +27,6 @@ function requestFailureMessage(failure, observation) {
     QUOTA: '模型服务报告额度不足',
     TIMEOUT: '模型请求超时，原因尚未确认',
     TRANSPORT: '模型连接发生错误，原因尚未确认',
-    CONTEXT_WINDOW_EXCEEDED: '模型服务报告上下文超出限制',
     INVALID_REQUEST: '模型服务拒绝了请求。请检查模型、API 基础路径、工具调用支持和思考强度',
     OUTPUT_LIMIT_REACHED: '模型这一步达到输出长度限制，任务尚未完成',
     OUTPUT_TRUNCATED: '模型响应提前截断，任务尚未完成',

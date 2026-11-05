@@ -25,13 +25,16 @@ function reply(res, content, { finish = 'stop', output = 20, tool, usage = { pro
   res.end('data: [DONE]\n\n');
 }
 
-async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, useDefaultBudget = false, protocol = 'openai-completions', retryPolicy, tools, outputTokenCapacity, requestMaxTokens } = {}) {
+async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, useDefaultBudget = false, protocol = 'openai-completions', retryPolicy, tools, outputTokenCapacity, requestMaxTokens, count } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'harness-request-fit-'));
   const requests = [];
   const f = { requests, root };
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
     const body = JSON.parse(raw);
+    if (req.url === '/tokenize' && count) return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
+      count: count(body), max_model_len: contextWindow,
+    }));
     const lastContent = (body.messages ?? body.input)?.at(-1)?.content;
     const lastText = typeof lastContent === 'string' ? lastContent : (lastContent ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n');
     // This fixture identifies the SDK's auxiliary directive only to choose a
@@ -41,7 +44,7 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, use
     await handler(request, res, requests);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const provider = { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(outputTokenCapacity ? { outputTokenCapacity } : {}), ...(requestMaxTokens === undefined ? {} : { requestMaxTokens }), ...(retryPolicy ? { retryPolicy } : {}) };
+  const provider = { id: 'fixture', ...(count ? { countBackend: 'vllm' } : {}), baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture-only', contextWindow, protocol, ...(outputTokenCapacity ? { outputTokenCapacity } : {}), ...(requestMaxTokens === undefined ? {} : { requestMaxTokens }), ...(retryPolicy ? { retryPolicy } : {}) };
   f.provider = provider;
   const options = { ...useDefaultBudget ? {} : { maxTokens }, autoCompactThreshold: 0.99, ...(tools ? { tools } : {}) };
   const open = async () => {
@@ -553,13 +556,17 @@ test('local budget exhaustion compacts retained history before dispatching the r
   await warm(f);
   assert.equal((await f.driver.prompt(f.sessionId, 'A current request requiring the retained fixture facts. '.repeat(450))).stopReason, 'end_turn');
   assert.equal(modelCalls, 2, 'the exhausted original attempt must never reach HTTP');
-  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  const summaryCount = f.requests.filter(request => request.summary).length;
+  assert.ok(summaryCount >= 1 && summaryCount <= 8, 'balanced segments must converge within the bounded compaction attempt');
   assert.ok(fits.some(item => item.purpose === undefined && item.fit.available < item.fit.minimumMaxTokens));
-  assert.ok(fits.filter(item => item.purpose === 'compaction').every(item => item.fit.effectiveMaxTokens === item.fit.desiredMaxTokens));
+  assert.ok(f.requests.filter(request => request.summary).every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 4096),
+    'failed local fit probes may shrink the range, but every dispatched summary keeps its full output reservation');
   assert.ok(f.requests.every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) > 1));
   const history = await f.driver.history(f.sessionId);
   assert.equal(failures(history).at(-1).code, 'LOCAL_OUTPUT_BUDGET_EXHAUSTED');
-  assert.equal(summaries(history).length, 1);
+  assert.equal(summaries(history).length, summaryCount);
+  assert.equal(history.events.filter(event => event.type === 'plugin:codebuddy/output-recovery').length, 1,
+    'multiple improving summaries consume exactly one generation recovery allowance');
 });
 
 test('a second short length result stops even under an always retry policy', { timeout: 15000 }, async t => {
@@ -812,4 +819,48 @@ test('a dispatched full-cap summary length stops with no second summary HTTP or 
   assert.equal(f.requests.filter(request => request.summary).length, 1);
   assert.equal(modelCalls, 2);
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
+});
+
+test('deployed tokenizer prices the dispatched messages and tools, reducing output before HTTP', async t => {
+  const measured = [];
+  const f = await fixture(t, (_req, res) => reply(res, FINAL), { contextWindow: 65536, maxTokens: 8192,
+    count: body => { measured.push(body); return 58666; } });
+  const fits = await observeFits(t);
+  assert.equal((await f.driver.prompt(f.sessionId, 'Reply with the verification.')).stopReason, 'end_turn');
+  assert.equal(f.requests.length, 1);
+  const wire = f.requests[0].body;
+  assert.deepEqual(measured.at(-1).messages, wire.messages);
+  assert.deepEqual(measured.at(-1).tools, wire.tools);
+  assert.deepEqual(measured.at(-1).chat_template_kwargs, wire.chat_template_kwargs);
+  assert.equal(wire.max_completion_tokens ?? wire.max_tokens, 65536 - 58666 - 4096);
+  assert.equal(fits.at(-1).fit.source, 'vllm-tokenizer');
+});
+
+test('provider overflow of the first summary halves the span; unrelated 400 does not shrink', async t => {
+  for (const overflow of [true, false]) {
+    let summaryCalls = 0, mainCalls = 0;
+    const bad = (res, message) => res.writeHead(400, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ error: { type: 'BadRequestError', code: 400, message } }));
+    const rejection = "This model's maximum context length is 65536 tokens. However, you requested 4096 output tokens and your prompt contains at least 61441 input tokens, for a total of at least 65537 tokens.";
+    const f = await fixture(t, (req, res) => {
+      if (req.summary) {
+        if (++summaryCalls === 1) return bad(res, overflow ? rejection : 'unsupported tool schema');
+        return reply(res, 'Earlier facts were recorded.');
+      }
+      if (++mainCalls === 3) return bad(res, rejection);
+      return reply(res, mainCalls < 3 ? WARM_HISTORY : FINAL);
+    });
+    await warm(f);
+    await warm(f);
+    const attempt = f.driver.prompt(f.sessionId, 'Continue from the latest request.');
+    if (overflow) {
+      assert.equal((await attempt).stopReason, 'end_turn');
+      const summaries = f.requests.filter(r => r.summary);
+      assert.ok(summaries.length >= 2);
+      assert.ok(summaries[1].body.messages.length < summaries[0].body.messages.length);
+    } else {
+      await assert.rejects(attempt);
+      assert.equal(summaryCalls, 1);
+    }
+  }
 });

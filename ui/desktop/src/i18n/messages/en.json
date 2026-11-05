@@ -7233,13 +7233,13 @@
     "defaultMessage": "Copy text"
   },
   "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "Failed to duplicate session: {error}"
+    "defaultMessage": "Failed to branch conversation: {error}"
   },
   "sessionActionsHeader.duplicateSession": {
-    "defaultMessage": "Duplicate session"
+    "defaultMessage": "Branch conversation"
   },
   "sessionActionsHeader.duplicated": {
-    "defaultMessage": "Session duplicated"
+    "defaultMessage": "Conversation branch created"
   },
   "sessionActionsHeader.exportLog": {
     "defaultMessage": "Export logs"
@@ -7383,7 +7383,7 @@
     "defaultMessage": "Delete session"
   },
   "sessions.action.duplicate": {
-    "defaultMessage": "Duplicate session"
+    "defaultMessage": "Branch conversation"
   },
   "sessions.action.editName": {
     "defaultMessage": "Edit session name"
@@ -7530,10 +7530,10 @@
     "defaultMessage": "Session deleted successfully"
   },
   "sessions.toast.duplicateFailed": {
-    "defaultMessage": "Failed to duplicate session: {error}"
+    "defaultMessage": "Failed to branch conversation: {error}"
   },
   "sessions.toast.duplicated": {
-    "defaultMessage": "Session \"{name}\" duplicated successfully"
+    "defaultMessage": "Branch created from \"{name}\""
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "Failed to export session: {error}"
@@ -9772,5 +9772,26 @@
   },
   "sessions.history.restore": {
     "defaultMessage": "Restore"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
   }
 }

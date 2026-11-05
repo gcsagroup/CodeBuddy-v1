@@ -2,7 +2,7 @@ import type { SessionType } from '../types/session';
 import { defineMessages } from '../i18n';
 
 export function canForkSession(sessionType: SessionType | undefined): boolean {
-  return sessionType !== undefined && sessionType !== 'code_pro';
+  return sessionType !== undefined;
 }
 
 export const sessionCapabilityMessages = defineMessages({

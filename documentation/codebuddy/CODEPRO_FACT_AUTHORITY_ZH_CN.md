@@ -1,3 +1,13 @@
+## 2026-11-05 已批准：独立对话分支、置顶与归档
+
+会话分支继续使用 Harness 原生 fork。兼容层 `conversation-editing.mjs` 校验来源状态与 UI／原生请求映射，按下一条用户消息的精确 ID 截取前缀，兼容旧时间边界。任务型会话可创建 `user` 类型的独立分支，继承所选历史、模型、工具与角色配置；来源不改写。分支共享工作目录，不复制任务运行、子智能体或后台进程，不撤销或重放历史文件操作。运行中、归档或只读来源仍受既有准入规则约束，旧数据无需迁移。
+
+置顶仅为桌面本机 `localStorage` 偏好，不成为运行时任务状态或跨设备同步事实。归档与恢复复用既有会话服务；归档保留消息并隐藏侧栏入口，恢复后重新显示。归档会话不显示在置顶列表，恢复后可沿用原偏好。永久删除仍走现有确认流程，不删除工作目录中的文件。
+
+繁體：Harness 持有原生分支歷史；相容層以精確使用者訊息邊界建立獨立對話，沿用設定、共用目錄但不複製執行狀態，也不重放檔案操作。置頂僅為本機偏好；歸檔與還原由既有會話服務持有，歸檔保留訊息。永久刪除仍須確認，工作目錄檔案不變。舊資料無需遷移。
+
+English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation retaining configuration and sharing the source directory, without copying active execution or replaying file operations. Pinning is a local UI preference. Existing session services own archive and restore; archiving retains messages. Permanent deletion still requires confirmation and preserves workspace files. Existing data needs no migration.
+
 ## 2026-11-04 已批准：桌面单文件只读引用与大文本展示
 
 桌面主进程 `workspacePanelFiles` 统一解析用户点击的单文件引用，工作区外引用由文本/源码扩展到 PDF、Word、Excel、PPT、图片与视频。引用不授权所在目录的枚举、写入、终端工作区或 Agent 工具权限；普通 `read/list/save` 仍受当前会话根目录约束。文档预览每次读取重新核对规范路径和文件版本；媒体主进程注册表只发放绑定指定文件的不可猜测能力 URL，读取时重新核对路径、类型及大小，窗口关闭/重载撤销。界面消费只读引用标记，刷新、右键和预览沿用同一检查，不通过切换会话根目录绕过限制。

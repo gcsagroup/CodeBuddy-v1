@@ -7233,13 +7233,13 @@
     "defaultMessage": "複製文字"
   },
   "sessionActionsHeader.duplicateFailed": {
-    "defaultMessage": "複製工作階段失敗：{error}"
+    "defaultMessage": "建立對話分支失敗：{error}"
   },
   "sessionActionsHeader.duplicateSession": {
-    "defaultMessage": "複製工作階段"
+    "defaultMessage": "建立對話分支"
   },
   "sessionActionsHeader.duplicated": {
-    "defaultMessage": "工作階段已複製"
+    "defaultMessage": "已建立對話分支"
   },
   "sessionActionsHeader.exportLog": {
     "defaultMessage": "匯出日誌"
@@ -7383,7 +7383,7 @@
     "defaultMessage": "刪除工作階段"
   },
   "sessions.action.duplicate": {
-    "defaultMessage": "複製工作階段"
+    "defaultMessage": "建立對話分支"
   },
   "sessions.action.editName": {
     "defaultMessage": "編輯工作階段名稱"
@@ -7530,10 +7530,10 @@
     "defaultMessage": "已成功刪除工作階段"
   },
   "sessions.toast.duplicateFailed": {
-    "defaultMessage": "無法複製工作階段：{error}"
+    "defaultMessage": "建立對話分支失敗：{error}"
   },
   "sessions.toast.duplicated": {
-    "defaultMessage": "已成功複製工作階段「{name}」"
+    "defaultMessage": "已從「{name}」建立分支"
   },
   "sessions.toast.exportFailed": {
     "defaultMessage": "匯出對話失敗：{error}"
@@ -9772,5 +9772,26 @@
   },
   "sessions.history.restore": {
     "defaultMessage": "復原"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "從此輪建立對話分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置頂"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置頂會話"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能儲存置頂設定：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置頂"
   }
 }

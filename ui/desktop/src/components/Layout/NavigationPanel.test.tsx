@@ -1,6 +1,7 @@
 import { fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readSessionPins } from '../../utils/sessionPins';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { NAV_ITEMS, SETTINGS_NAV_ITEM } from '../../hooks/useNavigationItems';
 import { PROJECT_ALIAS_STORAGE_KEY } from '../../utils/projectAliases';
@@ -256,4 +257,21 @@ describe('project group label', () => {
     expect(screen.getByText('Code-Agent')).toBeVisible();
     expect(window.localStorage.getItem(PROJECT_ALIAS_STORAGE_KEY)).not.toContain('旗舰项目');
   });
+});
+
+
+it('opens the same menu using the left-click ellipsis, persists pinning, and preserves title navigation', async () => {
+  localStorage.clear();
+  const session: SessionListItem = { id: 'pin-fixture', name: 'Pin fixture', workingDir: 'C:/fixture', createdAt: '2026-11-05', updatedAt: '2026-11-05', messageCount: 1 };
+  const onClick = vi.fn();
+  render(<SessionRow session={session} active status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'Pin session' }));
+  expect(readSessionPins()).toContain(session.id);
+  expect(onClick).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText(session.name));
+  expect(onClick).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'Unpin session' }));
+  expect(readSessionPins()).not.toContain(session.id);
 });

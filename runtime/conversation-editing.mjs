@@ -5,6 +5,15 @@ const metaId = update => update.messageId ?? update._meta?.goose?.messageId;
 const digest = session => createHash('sha256').update(JSON.stringify([session.nativeSessionId ?? session.id, session.updates ?? [], session.usageUpdates ?? [], session.agentSelection, session.agentInputs, session.agentProfile])).digest('hex');
 const countMessages = updates => new Set(updates.filter(u => ['user_message_chunk', 'agent_message_chunk', 'agent_thought_chunk', 'tool_call', 'tool_call_update'].includes(u.sessionUpdate)).map(metaId).filter(Boolean)).size;
 
+function prefixBeforeMessage(session, id) {
+  if (typeof id !== 'string' || !id) throw invalid('Conversation boundary must be a user message id');
+  const updates = session.updates ?? [];
+  const cut = updates.findIndex(u => u.sessionUpdate === 'user_message_chunk' && metaId(u) === id);
+  if (cut < 0) throw invalid('Conversation boundary message was not found');
+  const kept = updates.slice(0, cut), ids = new Set(kept.map(metaId).filter(Boolean));
+  return { updates: kept, usageUpdates: (session.usageUpdates ?? []).filter(u => ids.has(metaId(u))), requestId: id };
+}
+
 function prefixAt(session, cutoff) {
   if (!Number.isSafeInteger(cutoff) || cutoff < 0) throw invalid('Conversation boundary must be an integer Unix timestamp');
   const updates = session.updates ?? [];
@@ -34,11 +43,12 @@ export class ConversationEditing {
       if (source.archivedAt) throw invalid('Unarchive this session before editing or copying it');
       if (this.isActive(source.id)) throw invalid('Stop the active prompt before editing or copying this session');
       const isTruncate = name === 'session/conversation/truncate';
-      if (!isTruncate && source.type === 'code_pro') throw invalid('CodePro sessions use new tasks instead of conversation forks');
       if (isTruncate && source.type === 'code_pro' && !this.beforeTruncate) throw invalid('CodePro run cancellation must be connected before editing');
       if (params.cwd !== undefined && params.cwd !== source.cwd) throw invalid('A conversation fork must keep its source workspace');
       const cutoff = isTruncate ? params.truncateFrom : params._meta?.conversationBefore;
-      const prefix = cutoff === undefined && !isTruncate ? { updates: source.updates ?? [], usageUpdates: source.usageUpdates ?? [] } : prefixAt(source, cutoff);
+      const boundaryId = !isTruncate ? params._meta?.conversationBeforeMessageId : undefined;
+      if (boundaryId !== undefined && cutoff !== undefined) throw invalid('Choose one conversation boundary');
+      const prefix = boundaryId !== undefined ? prefixBeforeMessage(source, boundaryId) : cutoff === undefined && !isTruncate ? { updates: source.updates ?? [], usageUpdates: source.usageUpdates ?? [] } : prefixAt(source, cutoff);
       const nativeSourceId = this.driver.nativeSessionId(source.id);
       const snapshot = digest(source);
       const sourceHistory = await this.driver.history(source.id);
@@ -72,7 +82,7 @@ export class ConversationEditing {
           result = {};
         } else {
           const id = randomUUID();
-          const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: `${source.title} (fork)`, createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }) } };
+          const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: `${source.title} (fork)`, createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }), ...(boundaryId === undefined ? {} : { conversationBeforeMessageId: boundaryId }) } };
           for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'workspaceOrigin', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
           // The native prefix still refers to its original input identities.
           // Copy configuration snapshots, never resolve old turns from today's template.

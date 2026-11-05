@@ -27,6 +27,7 @@ import {
 import ToolCallConfirmation from './ToolCallConfirmation';
 import ElicitationRequest from './ElicitationRequest';
 import MessageCopyLink from './MessageCopyLink';
+import { ConversationBranchButton } from './ConversationBranchButton';
 import MessageUsageStats from './MessageUsageStats';
 import { cn } from '../utils';
 import { identifyConsecutiveToolCalls, shouldHideTimestamp } from '../utils/toolCallChaining';
@@ -810,6 +811,7 @@ export default function GooseMessage({
                     alwaysVisible
                   />
                 )}
+                <ConversationBranchButton sessionId={sessionId} message={message} messages={messages} />
                 {displayedUsage && (
                   <MessageUsageStats usage={displayedUsage} compact={compactTools} />
                 )}

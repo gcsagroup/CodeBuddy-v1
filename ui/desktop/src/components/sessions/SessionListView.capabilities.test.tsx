@@ -12,7 +12,7 @@ vi.mock('../../acp/sessions', () => ({
 
 describe('history copy capability', () => {
   afterEach(() => vi.unstubAllGlobals());
-  it('disables CodePro copying while preserving ordinary session copying', async () => {
+  it('branches both task and ordinary conversations', async () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -41,15 +41,11 @@ describe('history copy capability', () => {
     });
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'More actions for Project task' }));
-    const unavailable = await screen.findByTitle(
-      'Copying is unavailable for this session. Start a new task to work independently.'
-    );
-    expect(unavailable).toHaveAttribute('aria-disabled', 'true');
-    await user.click(unavailable);
-    expect(acpForkSession).not.toHaveBeenCalled();
+    await user.click(await screen.findByTitle('Branch conversation'));
+    expect(acpForkSession).toHaveBeenCalledWith('codepro');
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'More actions for Ordinary chat' }));
-    await user.click(screen.getByTitle('Duplicate session'));
+    await user.click(screen.getByTitle('Branch conversation'));
     expect(acpForkSession).toHaveBeenCalledWith('ordinary');
   });
 });

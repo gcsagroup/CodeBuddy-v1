@@ -16,6 +16,8 @@ import { groupNavigationSessions } from '../utils/projectSessions';
 import { createNavigationHandler, withWorkspaceMode } from '../utils/navigationUtils';
 import { isCodeProUnifiedModeEnabled } from '../codepro/unifiedMode';
 
+import { useSessionPins } from '../utils/sessionPins';
+
 const MAX_RECENT_SESSIONS = 25;
 
 export function prependUnique(
@@ -74,11 +76,17 @@ export function useNavigationSessions() {
   );
 
   const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
+  const pinnedIds = useSessionPins();
+  const [pinnedItems, setPinnedItems] = useState<SessionListItem[]>([]);
+  const pinnedSessions = pinnedIds.flatMap((id) => {
+    const item = recentSessions.find((s) => s.id === id) ?? pinnedItems.find((s) => s.id === id);
+    return item && !item.archivedAt && sessionTypeMatchesWorkspace(item.sessionType, sessionWorkspaceMode) ? [item] : [];
+  });
   const defaultRoot = window.appConfig?.get('CODEBUDDY_WORKSPACE_ROOT');
   const { tasks: recentTaskSessions, projects: recentSessionsByProject } = useMemo(
     () =>
-      groupNavigationSessions(recentSessions, typeof defaultRoot === 'string' ? defaultRoot : ''),
-    [recentSessions, defaultRoot]
+      groupNavigationSessions(recentSessions.filter((s) => !pinnedIds.includes(s.id)), typeof defaultRoot === 'string' ? defaultRoot : ''),
+    [recentSessions, defaultRoot, pinnedIds]
   );
   const lastSessionIdRef = useRef<string | null>(null);
 
@@ -93,6 +101,25 @@ export function useNavigationSessions() {
       lastSessionIdRef.current = currentSessionId;
     }
   }, [currentSessionId]);
+
+  useEffect(() => {
+    let disposed = false;
+    let version = 0;
+    const refresh = async () => {
+      const current = ++version;
+      const items = await Promise.allSettled(pinnedIds.map((id) => acpGetSessionListItem(id)));
+      if (!disposed && current === version) setPinnedItems(items.flatMap((item) => item.status === 'fulfilled' ? [item.value] : []));
+    };
+    void refresh();
+    const changed = (event: Event) => {
+      const id = (event as CustomEvent<{ sessionId: string }>).detail.sessionId;
+      setPinnedItems((items) => items.filter((item) => item.id !== id));
+      void refresh();
+    };
+    const events = [AppEvents.SESSION_ARCHIVED, AppEvents.SESSION_UNARCHIVED, AppEvents.SESSION_DELETED, AppEvents.SESSION_RENAMED];
+    events.forEach((event) => window.addEventListener(event, changed));
+    return () => { disposed = true; events.forEach((event) => window.removeEventListener(event, changed)); };
+  }, [pinnedIds]);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -268,6 +295,7 @@ export function useNavigationSessions() {
   );
 
   return {
+    pinnedSessions,
     recentSessions,
     recentTaskSessions,
     recentSessionsByProject,

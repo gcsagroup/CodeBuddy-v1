@@ -171,7 +171,9 @@ test('CodePro editing requires idle owner cancellation and preserves source hist
   const params = { sessionId: id, truncateFrom: 20 };
   await assert.rejects(editing.request('session/conversation/truncate', params), /active/);
   active = false;
-  await assert.rejects(editing.request('session/fork', { sessionId: id }), /CodePro/);
+  const branch = await editing.request('session/fork', { sessionId: id });
+  assert.equal(f.store.read().sessions.find(s => s.id === branch.sessionId).type, 'user');
+  assert.equal(cancelled, 0);
   await assert.rejects(new ConversationEditing(f.store, f.driver).request('session/conversation/truncate', params), /cancellation/);
   await assert.rejects(new ConversationEditing(f.store, f.driver, { beforeTruncate() { throw new Error('owner rejected'); } }).request('session/conversation/truncate', params), /owner rejected/);
   assert.equal(f.store.read().sessions.find(s => s.id === id).nativeSessionId, undefined);
@@ -244,4 +246,34 @@ test('edited and restarted product sessions read and list resources from their c
   assert.equal(f.driver.nativeSessionId(id), nativeId);
   assert.equal((await f.driver.readResource(id, 'current', listed.resources[0].uri, { onPermission })).contents[0].text, '<p>MAPPED_EDIT_RESOURCE</p>');
   assert.equal(f.resourceCalls.filter(c => c.method === 'resources/read').length, 2);
+});
+
+
+test('task branches use exact request ids, share files but isolate execution and survive restart', async t => {
+  const f = await fixture(t), id = await f.create('code_pro');
+  await f.turn(id, 'USER_BRANCH_KEEP', 10);
+  const later = await f.turn(id, 'USER_BRANCH_EXCLUDE', 10);
+  await f.store.update(state => Object.assign(state.sessions.find(s => s.id === id), {
+    agentProfile: { id: 'role', name: 'Role', revision: 2 },
+    agentSelection: { kind: 'profile', profileId: 'role' }, agentInputs: { topic: 'keep' },
+    runId: 'original-run', childSessions: ['old-child'], jobs: ['old-job'],
+    workspaceOrigin: 'selected', mode: 'auto',
+  }));
+  const original = structuredClone(f.store.read().sessions.find(s => s.id === id));
+  const editing = new ConversationEditing(f.store, f.driver);
+  await assert.rejects(editing.request('session/fork', { sessionId: id, _meta: { conversationBeforeMessageId: 'missing' } }), /not found/);
+  const { sessionId: branchId } = await editing.request('session/fork', { sessionId: id, _meta: { conversationBeforeMessageId: later.requestId } });
+  const branch = f.store.read().sessions.find(s => s.id === branchId);
+  assert.equal(branch.type, 'user'); assert.equal(branch.cwd, original.cwd);
+  assert.equal(branch.providerId, original.providerId); assert.equal(branch.modelId, original.modelId);
+  assert.deepEqual(branch.extensions, original.extensions); assert.deepEqual(branch.agentProfile, original.agentProfile);
+  assert.equal(branch.updates.length, 2); assert.equal(branch.runId, undefined);
+  assert.equal(branch.jobs, undefined); assert.equal(branch.childSessions, undefined);
+  assert.deepEqual(f.store.read().sessions.find(s => s.id === id), original);
+  await f.restart(); await f.setup(branchId);
+  await f.turn(branchId, 'USER_BRANCH_CONTINUE', 30);
+  const input = JSON.stringify(f.requests.at(-1).messages);
+  assert.match(input, /USER_BRANCH_KEEP/); assert.match(input, /USER_BRANCH_CONTINUE/);
+  assert.doesNotMatch(input, /USER_BRANCH_EXCLUDE/);
+  assert.deepEqual(f.store.read().sessions.find(s => s.id === id), original);
 });

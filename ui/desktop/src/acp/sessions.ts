@@ -463,7 +463,8 @@ export async function acpTruncateSessionConversation(
 
 export async function acpForkSession(
   sessionId: string,
-  conversationBefore?: number
+  conversationBefore?: number,
+  conversationBeforeMessageId?: string
 ): Promise<string> {
   const client = await getAcpClient();
   const sessionInfo = await client.goose.sessionInfo_unstable({ sessionId });
@@ -474,6 +475,9 @@ export async function acpForkSession(
   const request: ForkSessionRequest = { sessionId, cwd };
   if (conversationBefore !== undefined) {
     request._meta = { conversationBefore };
+  }
+  if (conversationBeforeMessageId !== undefined) {
+    request._meta = { ...request._meta, conversationBeforeMessageId };
   }
   const response = await client.unstable_forkSession(request);
   return String(response.sessionId);

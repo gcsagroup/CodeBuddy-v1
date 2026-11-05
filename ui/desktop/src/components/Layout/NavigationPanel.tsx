@@ -3,7 +3,7 @@ import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Archive, Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
+import { Archive, MoreHorizontal, Pin, Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
@@ -30,6 +30,7 @@ import { defineMessages, useIntl } from '../../i18n';
 import { WorkspaceSwitcher, type WorkspaceMode } from '../codepro/WorkspaceSwitcher';
 import { withWorkspaceMode } from '../../utils/navigationUtils';
 import { isCodeProUnifiedModeEnabled } from '../../codepro/unifiedMode';
+import { useSessionPins } from '../../utils/sessionPins';
 import { SessionActionsContextMenu } from '../SessionActionsHeader';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
@@ -40,6 +41,8 @@ interface SessionStatus {
 }
 
 const i18n = defineMessages({
+  pinned: { id: 'navigationPanel.pinned', defaultMessage: 'Pinned' },
+  actions: { id: 'sessionActionsHeader.actionsLabel', defaultMessage: 'Session actions' },
   chats: {
     id: 'navigationPanel.chats',
     defaultMessage: 'Tasks',
@@ -107,6 +110,7 @@ interface SessionRowProps {
   status: SessionStatus | undefined;
   onClick: () => void;
   onRenamed: () => void;
+  onForked?: (id: string) => void;
 }
 
 export const SessionRow: React.FC<SessionRowProps> = ({
@@ -117,10 +121,12 @@ export const SessionRow: React.FC<SessionRowProps> = ({
   status,
   onClick,
   onRenamed,
+  onForked,
 }) => {
   const intl = useIntl();
   const [isArchiving, setIsArchiving] = useState(false);
   const archiving = useRef(false);
+  const pinned = useSessionPins().includes(session.id);
   // Older versions embedded the role avatar in the generated title itself.
   const role = session.agentProfile;
   const displayName = role && session.name === role.avatar + ' ' + role.name ? role.name : session.name;
@@ -154,7 +160,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
   };
 
   return (
-    <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed}>
+    <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed} onSessionForked={onForked}>
       <div
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('button')) return;
@@ -180,6 +186,17 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         <span className="min-w-0 flex-1 truncate text-text-primary" title={displayName}>
           {displayName || intl.formatMessage(i18n.untitledSession)}
         </span>
+        {pinned && <Pin className="size-3 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
+        <button
+          type="button"
+          data-session-menu-trigger
+          aria-haspopup="menu"
+          aria-label={intl.formatMessage(i18n.actions)}
+          title={intl.formatMessage(i18n.actions)}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary opacity-0 group-hover/session-row:opacity-100 group-focus-within/session-row:opacity-100 hover:bg-background-secondary focus-visible:opacity-100"
+        >
+          <MoreHorizontal className="size-3.5" />
+        </button>
         <button
           type="button"
           aria-label={archiveLabel}
@@ -437,6 +454,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 
   const {
+    pinnedSessions = [],
     recentTaskSessions,
     recentSessionsByProject,
     activeSessionId,
@@ -520,6 +538,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         handleSessionClick(session.id);
       }}
       onRenamed={fetchSessions}
+      onForked={handleSessionClick}
     />
   );
 
@@ -555,6 +574,11 @@ export const Navigation: React.FC<NavigationProps> = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {pinnedSessions.length > 0 && (
+          <NavigationChatsSection title={intl.formatMessage(i18n.pinned)}>
+            {pinnedSessions.map((session) => renderSession(session, false))}
+          </NavigationChatsSection>
+        )}
         <NavigationChatsSection>
           {recentTaskSessions.length === 0 ? (
             <div className="px-3 py-2 text-xs text-text-secondary">

@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setSessionPinned } from '../utils/sessionPins';
 import { AppEvents } from '../constants/events';
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), navigate: vi.fn(), get: vi.fn(), location: { pathname: '/codepro', search: '' } }));
@@ -19,7 +20,7 @@ vi.mock('../acp/sessions', () => ({
 import { useNavigationSessions } from './useNavigationSessions';
 
 describe('new session sidebar refresh', () => {
-  beforeEach(() => { vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
+  beforeEach(() => { localStorage.clear(); vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });
   afterEach(() => { vi.useRealTimers(); });
 
   it('restores an unarchived task to the sidebar without creating or opening another chat', async () => {
@@ -141,4 +142,24 @@ describe('new session sidebar refresh', () => {
     });
     expect(mocks.list).toHaveBeenCalledTimes(1);
   });
+});
+
+
+it('keeps old pinned sessions beyond the recent list, excludes archived pins and restores them on unarchive', async () => {
+  localStorage.clear();
+  mocks.list.mockResolvedValue([]);
+  const old = { id: 'old-pin', name: 'Old chat', workingDir: '', messageCount: 2 };
+  mocks.get.mockResolvedValue(old);
+  setSessionPinned(old.id, true);
+  const hook = renderHook(() => useNavigationSessions());
+  await act(async () => {});
+  expect(hook.result.current.pinnedSessions).toEqual([old]);
+  mocks.get.mockResolvedValue({ ...old, archivedAt: '2026-11-05' });
+  await act(async () => { window.dispatchEvent(new CustomEvent(AppEvents.SESSION_ARCHIVED, { detail: { sessionId: old.id } })); });
+  expect(hook.result.current.pinnedSessions).toEqual([]);
+  mocks.get.mockResolvedValue(old);
+  await act(async () => { window.dispatchEvent(new CustomEvent(AppEvents.SESSION_UNARCHIVED, { detail: { sessionId: old.id } })); });
+  expect(hook.result.current.pinnedSessions).toEqual([old]);
+  hook.unmount();
+  localStorage.clear();
 });

@@ -579,6 +579,8 @@ function ProgressiveMessageListContent({
   const renderSystemNotification = useCallback(
     (notification: SystemNotificationContent, isActiveActivity: boolean, messageIndex?: number) => {
       switch (notification.notificationType) {
+        case 'progressMessage':
+          return <SystemNotificationInline notification={notification} />;
         case 'creditsExhausted':
           return <CreditsExhaustedNotification notification={notification} />;
         case 'codeProActivity':

@@ -184,6 +184,19 @@ const sourceUserMessage: Message = {
   metadata: { userVisible: true, agentVisible: true },
 };
 
+it('keeps the committed compaction receipt visible in the conversation', async () => {
+  const receipt: Message = {
+    id: 'compact-receipt', role: 'assistant', created: 2,
+    content: [{ type: 'systemNotification', notificationType: 'progressMessage', msg: '', data: {
+      schema_version: 1, event: 'compaction_lifecycle', operation_id: 'compact-one',
+      status: 'completed', trigger: 'auto', started_at: '2026-11-05T00:00:00Z',
+    } }], metadata: { userVisible: true, agentVisible: false },
+  };
+  render(<ProgressiveMessageList messages={[sourceUserMessage, receipt]} chat={{sessionId:'receipt-test'}}
+    sessionType="code_pro" isUserMessage={m => m.role === 'user'} />, { wrapper: IntlTestWrapper });
+  expect(await screen.findByText('Context automatically compacted')).toBeVisible();
+});
+
 it('keeps native lifecycle captions at the same disclosure level as ordinary work records', async () => {
   const adapter = createAcpSessionNotificationAdapter([sourceUserMessage]);
   for (const phase of ['start', 'end'] as const)

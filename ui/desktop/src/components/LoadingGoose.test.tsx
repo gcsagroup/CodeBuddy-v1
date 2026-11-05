@@ -23,6 +23,19 @@ function renderLoadingIndicator(chatState: ChatState, assistantName?: 'Code' | '
 }
 
 describe('LoadingGoose', () => {
+  it('shows elapsed compaction and a long-wait explanation without a fabricated percentage', () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(<IntlProvider locale="en"><LoadingGoose chatState={ChatState.Compacting}
+        compactionLifecycle={{schemaVersion:1,event:'compaction_lifecycle',operationId:'test',status:'started',trigger:'manual',startedAt:new Date().toISOString()}} /></IntlProvider>);
+      expect(screen.getByText('Generating a continuation summary. Original messages remain in this conversation.')).toBeVisible();
+      act(() => vi.advanceTimersByTime(31000));
+      expect(screen.getByText(/Still waiting for the model/)).toBeVisible();
+      expect(screen.getByRole('status')).toHaveTextContent('31s');
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      view.unmount();
+    } finally {vi.useRealTimers();}
+  });
   it('updates visual elapsed time without repeating it in the live announcement', () => {
     vi.useFakeTimers();
     try {

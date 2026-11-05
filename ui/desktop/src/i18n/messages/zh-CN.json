@@ -1799,12 +1799,6 @@
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 {count} 项操作"
   },
-  "conversationBranch.action": {
-    "defaultMessage": "从此轮创建对话分支"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
-  },
   "conversationFiles.changes": {
     "defaultMessage": "逐次修改记录（增删行数按每次操作计算，不是工作区净差异）"
   },
@@ -5381,9 +5375,6 @@
   "navigationPanel.noChats": {
     "defaultMessage": "没有最近的任务"
   },
-  "navigationPanel.pinned": {
-    "defaultMessage": "置顶"
-  },
   "navigationPanel.projectName": {
     "defaultMessage": "项目名称"
   },
@@ -7279,18 +7270,6 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "连接到 WARP 时，命令注入检测效果最佳（访问分类服务需要 WARP）。"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "置顶会话"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "未能保存置顶设置：{error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "取消置顶"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "会话操作"
@@ -9901,5 +9880,44 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切换器"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "上下文压缩已取消，原上下文已保留。"
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "上下文已自动压缩"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "上下文已压缩"
+  },
+  "compaction.failed": {
+    "defaultMessage": "上下文压缩失败，原上下文已保留。"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "从此轮创建对话分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "消息已变化，请重新加载对话后再创建分支。"
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "正在生成接续任务所需的摘要，原始消息保留在对话中。"
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "仍在等待模型返回。较长对话可能耗时较久，可停止后重试。"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置顶"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "创建独立对话，文件夹仍共用；不会复制运行中的任务。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置顶会话"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能保存置顶设置：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置顶"
   }
 }

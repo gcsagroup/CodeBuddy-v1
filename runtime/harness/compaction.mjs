@@ -88,6 +88,23 @@ export function installCompactionRequestCompatibility(ctx, currentEffort = () =>
 // Keep selection, balancing, transaction, retry and overflow policy upstream.
 export default class CompactionEngine extends BasicCompactionEngine {
   pressureAttempts = new WeakMap();
+  manualSurfaces = new WeakMap();
+
+  async compactNow(agent, signal, sourceCommandId) {
+    signal.throwIfAborted();
+    const surface = () => JSON.stringify(agent.session.surface.nodes);
+    // Repeating /compact without new conversation evidence needlessly summarizes
+    // the same checkpoint again. Keep native admission and cancellation checks.
+    if (this.manualSurfaces.get(agent) === surface()) {
+      return agent.runMaintenance(async (agentSignal) => {
+        AbortSignal.any([agentSignal, signal]).throwIfAborted();
+        return null;
+      });
+    }
+    const result = await super.compactNow(agent, signal, sourceCommandId);
+    if (result) this.manualSurfaces.set(agent, surface());
+    return result;
+  }
 
   regionDependencies() {
     return { ...super.regionDependencies(), includeFileReferences };

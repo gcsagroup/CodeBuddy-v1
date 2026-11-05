@@ -1799,12 +1799,6 @@
   "conversation.turnRecord": {
     "defaultMessage": "本轮记录 · {count} 项操作"
   },
-  "conversationBranch.action": {
-    "defaultMessage": "從此輪建立對話分支"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
-  },
   "conversationFiles.changes": {
     "defaultMessage": "會話修改紀錄（增刪按每次操作累計，不是工作區淨差異）"
   },
@@ -5381,9 +5375,6 @@
   "navigationPanel.noChats": {
     "defaultMessage": "沒有最近的任務"
   },
-  "navigationPanel.pinned": {
-    "defaultMessage": "置頂"
-  },
   "navigationPanel.projectName": {
     "defaultMessage": "專案名稱"
   },
@@ -7279,18 +7270,6 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "連線至 WARP 時，指令注入偵測的效果最佳（為了連接分類服務所必需）。"
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "置頂會話"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "未能儲存置頂設定：{error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "取消置頂"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "工作階段動作"
@@ -9901,5 +9880,44 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "工作区切換器"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "上下文壓縮已取消，原上下文已保留。"
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "上下文已自動壓縮"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "上下文已壓縮"
+  },
+  "compaction.failed": {
+    "defaultMessage": "上下文壓縮失敗，原上下文已保留。"
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "從此輪建立對話分支"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "訊息已變更，請重新載入對話後再建立分支。"
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "正在產生接續任務所需的摘要，原始訊息保留在對話中。"
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "仍在等待模型回應。較長對話可能耗時較久，可停止後重試。"
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "置頂"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "建立獨立對話，資料夾仍共用；不會複製執行中的任務。"
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "置頂會話"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "未能儲存置頂設定：{error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "取消置頂"
   }
 }

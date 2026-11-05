@@ -855,6 +855,13 @@ test('manual compaction uses official summarization and preserves transcript evi
   assert.ok(afterUsage.used < beforeUsage.used, JSON.stringify({ beforeUsage, afterUsage }));
   assert.deepEqual(events.filter(e => e.type === 'harness_event').map(e => e.event.type), ['compaction/start', 'compaction/summary', 'compaction/end']);
   assert.equal(events.findLast(e => e.type === 'context_usage').used, afterUsage.used);
+  const summaryRequests = requests.length;
+  assert.equal(await driver.compact(created.sessionId), null, 'unchanged manual compaction is a no-op');
+  assert.equal(requests.length, summaryRequests, 'no second model round trip for unchanged context');
+  assert.deepEqual((await driver.history(created.sessionId)).events, afterHistory.events, 'no rewrite or loss of the checkpoint');
+  await driver.prompt(created.sessionId, 'fixture_large NEW_EVIDENCE');
+  assert.ok(await driver.compact(created.sessionId), 'new evidence must still be summarized');
+
 });
 
 test('configured pressure threshold automatically compacts long conversation context', async () => {

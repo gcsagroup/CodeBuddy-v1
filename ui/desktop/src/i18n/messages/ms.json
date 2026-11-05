@@ -1799,12 +1799,6 @@
   "conversation.turnRecord": {
     "defaultMessage": "Work history · {count} operations"
   },
-  "conversationBranch.action": {
-    "defaultMessage": "Branch after this turn"
-  },
-  "conversationBranch.boundary": {
-    "defaultMessage": "This message has changed. Reload the conversation before branching."
-  },
   "conversationFiles.changes": {
     "defaultMessage": "Changes per operation (not a net workspace diff)"
   },
@@ -5381,9 +5375,6 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
-  "navigationPanel.pinned": {
-    "defaultMessage": "Pinned"
-  },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
   },
@@ -7279,18 +7270,6 @@
   },
   "securityToggle.warpNotice": {
     "defaultMessage": "Pengesanan suntikan arahan berfungsi paling baik apabila disambungkan ke WARP (diperlukan untuk mencapai perkhidmatan pengelasan)."
-  },
-  "sessionActions.branchHint": {
-    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
-  },
-  "sessionActions.pin": {
-    "defaultMessage": "Pin session"
-  },
-  "sessionActions.pinFailed": {
-    "defaultMessage": "Could not save pin preference: {error}"
-  },
-  "sessionActions.unpin": {
-    "defaultMessage": "Unpin session"
   },
   "sessionActionsHeader.actionsLabel": {
     "defaultMessage": "Tindakan sesi"
@@ -9901,5 +9880,44 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "compaction.cancelled": {
+    "defaultMessage": "Context compaction cancelled. The previous context is preserved."
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "Context automatically compacted"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "Context compacted"
+  },
+  "compaction.failed": {
+    "defaultMessage": "Context compaction failed. The previous context is preserved."
+  },
+  "conversationBranch.action": {
+    "defaultMessage": "Branch after this turn"
+  },
+  "conversationBranch.boundary": {
+    "defaultMessage": "This message has changed. Reload the conversation before branching."
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "Generating a continuation summary. Original messages remain in this conversation."
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
+  },
+  "navigationPanel.pinned": {
+    "defaultMessage": "Pinned"
+  },
+  "sessionActions.branchHint": {
+    "defaultMessage": "Continue in an independent conversation. Files remain shared; running tasks are not copied."
+  },
+  "sessionActions.pin": {
+    "defaultMessage": "Pin session"
+  },
+  "sessionActions.pinFailed": {
+    "defaultMessage": "Could not save pin preference: {error}"
+  },
+  "sessionActions.unpin": {
+    "defaultMessage": "Unpin session"
   }
 }

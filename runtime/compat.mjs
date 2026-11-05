@@ -3125,7 +3125,7 @@ export class Compat {
       };
       if (manualCompact) {
         const compacted = await this.driver.compact(s.id, callbacks);
-        if (!compacted) await notify({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "当前上下文没有可压缩的历史。" } });
+        if (!compacted) await notify({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "当前上下文暂无需要压缩的新内容。" } });
         result = { stopReason: "end_turn" };
       } else {
         trace('native_prompt_dispatched');

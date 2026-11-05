@@ -1556,6 +1556,18 @@
   "commonQueries.units": {
     "defaultMessage": "Temperature unit"
   },
+  "compaction.cancelled": {
+    "defaultMessage": "Context compaction cancelled. The previous context is preserved."
+  },
+  "compaction.completedAuto": {
+    "defaultMessage": "Context automatically compacted"
+  },
+  "compaction.completedManual": {
+    "defaultMessage": "Context compacted"
+  },
+  "compaction.failed": {
+    "defaultMessage": "Context compaction failed. The previous context is preserved."
+  },
   "composerCommands.active": {
     "defaultMessage": "Active"
   },
@@ -4177,6 +4189,12 @@
   },
   "loadingGoose.compactingElapsed": {
     "defaultMessage": "Organizing conversation context {seconds}s"
+  },
+  "loadingGoose.compactionHint": {
+    "defaultMessage": "Generating a continuation summary. Original messages remain in this conversation."
+  },
+  "loadingGoose.compactionWait": {
+    "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
   },
   "loadingGoose.elapsed": {
     "defaultMessage": "{message} {seconds}s elapsed"

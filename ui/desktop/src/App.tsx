@@ -1,4 +1,7 @@
+import { getMainConversation, deliverMainConversationMessage } from './pets/mainConversation';
 import { useEffect, useState, useRef } from 'react';
+import { WindowMenuBar } from './components/Layout/WindowMenuBar';
+import './styles/desktop-shell.css';
 import { IpcRendererEvent } from 'electron';
 import {
   HashRouter,
@@ -43,11 +46,11 @@ import { MediaLibrary } from './components/media-library/MediaLibrary';
 import SchedulesView from './components/schedule/NativeSchedulesView';
 import ProviderSettings from './components/settings/providers/ProviderSettingsPage';
 import { AppLayout } from './components/Layout/AppLayout';
-import { WindowsTitleBar } from './components/Layout/WindowsTitleBar';
 import { ChatProvider, DEFAULT_CHAT_TITLE } from './contexts/ChatContext';
 import LauncherView from './components/LauncherView';
 
 import 'react-toastify/dist/ReactToastify.css';
+import './components/extension-toast.css';
 import { useConfig } from './components/ConfigContext';
 import { ModelAndProviderProvider } from './components/ModelAndProviderContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -471,20 +474,34 @@ export function AppInner() {
     };
     window.electron.on('pet-create-session', createPetSession);
     const sendPetMessage = (_event: IpcRendererEvent, message: unknown) => {
-      try {
-        navigate('/codepro/pair', {
-          state: { initialMessage: parsePetMessage(message), noAutoSubmit: false },
-        });
-      } catch {
-        /* Invalid cross-window input must not create an empty conversation. */
-      }
+      const deliveryId = (message as { deliveryId?: string } | null)?.deliveryId;
+      void (async () => {
+        const input = parsePetMessage(message);
+        const sessionId = await getMainConversation();
+        navigate(`/codepro/pair?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
+        await deliverMainConversationMessage(sessionId, { ...input, ...(deliveryId ? { messageId: deliveryId } : {}) });
+        window.electron.petSignal('pet-message-result', { deliveryId });
+      })().catch(error => {
+        window.electron.petSignal('pet-message-result', { deliveryId, error: error instanceof Error ? error.message : '无法发送到主对话' });
+        toast.error(error instanceof Error ? error.message : '无法发送到主对话');
+      });
     };
-    window.electron.on('pet-send-message', sendPetMessage);
+    const unsubscribePetMessages = window.electron.on('pet-send-message', sendPetMessage);
+    const unsubscribePetPermissions = window.electron.on('pet-resolve-permission', (_event, payload) => {
+      const value = payload as { sessionId: string; permission: { requestId: string; token: string; action: import('./types/permissions').Permission }; deliveryId: string };
+      void import('./acp/permissionRequests').then(({ resolvePetPermission }) => {
+        const { requestId, token, action } = value.permission;
+        const accepted = resolvePetPermission(value.sessionId, requestId, token, action);
+        window.electron.petSignal('pet-message-result', { deliveryId: value.deliveryId, ...(accepted ? {} : { error: '审批请求已失效或已处理，请查看最新通知' }) });
+      }).catch(() => window.electron.petSignal('pet-message-result', { deliveryId: value.deliveryId, error: '无法处理审批，请重试' }));
+    });
     return () => {
       window.electron.off('pet-open-session', openPetSession);
       window.electron.off('pet-pause-session', pausePetSession);
       window.electron.off('pet-create-session', createPetSession);
-      window.electron.off('pet-send-message', sendPetMessage);
+      if (unsubscribePetMessages) unsubscribePetMessages();
+      else window.electron.off('pet-send-message', sendPetMessage);
+      unsubscribePetPermissions?.();
     };
   }, [location.pathname, navigate]);
 
@@ -826,14 +843,8 @@ export function AppInner() {
       <PageViewTracker />
       <ToastContainer
         aria-label={intl.formatMessage(i18n.toastNotifications)}
-        toastClassName={() =>
-          `relative min-h-16 mb-4 p-2 rounded-lg
-               flex justify-between overflow-hidden cursor-pointer
-               text-text-inverse bg-background-inverse
-              `
-        }
-        style={{ width: '450px' }}
-        className="mt-6"
+        className="codebuddy-toasts"
+        hideProgressBar
         position="top-right"
         autoClose={3000}
         closeOnClick
@@ -841,13 +852,9 @@ export function AppInner() {
       />
       <ExtensionInstallModal addExtension={addExtension} setView={setView} />
       <RecipeParamsModalContainer />
-      <div className="relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
-        {window.appConfig?.get('WINDOW_TITLEBAR_OVERLAY') === true ? (
-          <WindowsTitleBar />
-        ) : (
-          <div className="titlebar-drag-region" />
-        )}
-        <div className="relative min-h-0 w-full flex-1">
+      <div data-platform={window.electron?.platform} className="desktop-shell relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
+        {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <WindowMenuBar />}
+        <div className="relative w-full flex-1 min-h-0">
           <CodeProRouteGuard unifiedMode={codeProUnifiedMode}>
             <Routes location={settingsBackgroundLocation ?? location}>
               <Route path="launcher" element={<LauncherView />} />

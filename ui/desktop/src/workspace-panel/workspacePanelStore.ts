@@ -1,7 +1,13 @@
-import type { PanelDocument, PanelFileInfo, PanelScope } from './workspacePanelTypes';
+import type {
+  PanelDocument,
+  PanelFileInfo,
+  PanelScope,
+  PanelLocalSelection,
+} from './workspacePanelTypes';
 import type { LongTermGoal } from '../acp/goals';
 import type { DocumentView } from './dshDocumentRenderer';
 export type WorkbenchTab =
+  | { id: string; kind: 'local-files'; title: string; selection: PanelLocalSelection }
   | { id: string; kind: 'reference'; title: string; path: string; content: string; line?: number }
   | { id: string; kind: 'goal'; title: string; goal: LongTermGoal; draft: string }
   | {
@@ -35,6 +41,7 @@ export interface WorkbenchState {
   tabs: WorkbenchTab[];
   active: string;
   mediaHidden?: boolean;
+  filesOpen?: boolean;
 }
 const sessions = new Map<string, WorkbenchState>();
 export const scopeKey = (scope: PanelScope) => JSON.stringify([scope.sessionId, scope.root]);

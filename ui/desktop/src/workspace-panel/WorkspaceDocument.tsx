@@ -1,5 +1,6 @@
+import { WorkspaceOpenMenu } from './WorkspaceOpenMenu';
 import { useEffect, useState } from 'react';
-import { ExternalLink, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useIntl } from '../i18n';
 import { panelMessages as m } from './workspacePanelMessages';
 import type { PanelDocumentPreview, PanelScope } from './workspacePanelTypes';
@@ -22,6 +23,7 @@ export function WorkspaceDocument({
   view,
   onViewChange,
   reference,
+  showToolbar = true,
 }: {
   scope: PanelScope;
   path: string;
@@ -29,6 +31,7 @@ export function WorkspaceDocument({
   view?: DocumentView;
   onViewChange?: (view: DocumentView) => void;
   reference?: boolean;
+  showToolbar?: boolean;
 }) {
   const intl = useIntl();
   const [attempt, setAttempt] = useState(0);
@@ -85,32 +88,23 @@ export function WorkspaceDocument({
   );
   return (
     <section className="codebuddy-document flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="wb-toolbar">
-        <span className="min-w-0 flex-1 truncate" title={path}>
-          {title}
-        </span>
-        <button
-          className="wb-icon"
-          title={intl.formatMessage(m.reload)}
-          aria-label={intl.formatMessage(m.reload)}
-          disabled={loading}
-          onClick={() => setAttempt(attempt + 1)}
-        >
-          <RefreshCw size={15} />
-        </button>
-        <button
-          className="wb-icon"
-          title={intl.formatMessage(m.openDocument)}
-          aria-label={intl.formatMessage(m.openDocument)}
-          onClick={() => {
-            void window.electron
-              .workspacePanel({ scope, action: 'open-external', path, reference })
-              .catch(() => setFailed(true));
-          }}
-        >
-          <ExternalLink size={15} />
-        </button>
-      </div>
+      {showToolbar && (
+        <div className="wb-toolbar">
+          <span className="min-w-0 flex-1 truncate" title={path}>
+            {title}
+          </span>
+          <button
+            className="wb-icon"
+            title={intl.formatMessage(m.reload)}
+            aria-label={intl.formatMessage(m.reload)}
+            disabled={loading}
+            onClick={() => setAttempt(attempt + 1)}
+          >
+            <RefreshCw size={15} />
+          </button>
+          <WorkspaceOpenMenu scope={scope} path={path} reference={reference} />
+        </div>
+      )}
       {failed ? (
         <p className="p-4 text-sm text-text-secondary" role="alert">
           {intl.formatMessage(m.documentPreviewFailed)}

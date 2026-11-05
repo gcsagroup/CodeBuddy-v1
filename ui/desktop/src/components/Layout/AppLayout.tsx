@@ -8,7 +8,6 @@ import {
   type WorkspaceWebTarget,
 } from '../../workspace-panel/workspaceFilePanel';
 import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { IpcRendererEvent } from 'electron';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PanelLeft } from 'lucide-react';
@@ -125,12 +124,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const location = useLocation();
   const navigate = useNavigate();
   const safeIsMacOS = (window?.electron?.platform || 'darwin') === 'darwin';
-  const hasWindowTitleBar = window.appConfig?.get('WINDOW_TITLEBAR_OVERLAY') === true;
-  // Navigation owns its state and focus even when its button lives in the window header.
-  const [navigationSlot, setNavigationSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (hasWindowTitleBar) setNavigationSlot(document.getElementById('window-navigation-slot'));
-  }, [hasWindowTitleBar]);
   const chatContext = useChatContext();
   const isOnPairRoute = location.pathname === '/pair' || location.pathname === '/codepro/pair';
   const workspaceMode: WorkspaceMode = location.pathname.startsWith('/codepro')
@@ -290,38 +283,17 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
     }
   };
 
-  const navigationToggle = (
-    <Button
-      ref={navigationToggleRef}
-      onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
-      className={cn(
-        'no-drag text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
-        !hasWindowTitleBar && 'absolute top-2',
-        !hasWindowTitleBar &&
-          (isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3')
-      )}
-      variant="ghost"
-      size={hasWindowTitleBar ? 'sm' : 'xs'}
-      title={navToggleTitle}
-      aria-label={navToggleTitle}
-      aria-expanded={isNavExpanded}
-    >
-      <PanelLeft className="size-[18px]" />
-    </Button>
-  );
 
   return (
     <div
       className="flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"
       style={
         {
-          '--navigation-toolbar-inset': hasWindowTitleBar
-            ? '16px'
-            : isNavExpanded
-              ? '24px'
-              : needsTrafficLightInset
-                ? '144px'
-                : '64px',
+          '--navigation-toolbar-inset': isNavExpanded
+            ? '24px'
+            : needsTrafficLightInset
+              ? '144px'
+              : '64px',
         } as React.CSSProperties
       }
     >
@@ -340,96 +312,115 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
           />
         </NavigationSidebar>
 
-        {hasWindowTitleBar ? (
-          navigationSlot && createPortal(navigationToggle, navigationSlot)
-        ) : (
-          <div className="relative w-0 shrink-0" style={{ zIndex: Z_INDEX.HEADER }}>
-            {navigationToggle}
-          </div>
-        )}
+        <div className="relative w-0 shrink-0" style={{ zIndex: Z_INDEX.HEADER }}>
+          <Button
+            ref={navigationToggleRef}
+            onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
+            className={cn(
+              'no-drag absolute top-2 text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
+              isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3'
+            )}
+            variant="ghost"
+            size="xs"
+            title={navToggleTitle}
+            aria-label={navToggleTitle}
+            aria-expanded={isNavExpanded}
+          >
+            <PanelLeft className="size-[18px]" />
+          </Button>
+        </div>
 
         {/* Main content — no border / no card; just flows on the canvas. */}
         <WorkspaceSubagentProvider expanded={showCodeProTaskPanel && isCodeProTaskPanelExpanded}>
-          <div ref={workAreaRef} className="relative flex-1 min-w-0 overflow-hidden min-h-0">
-            <div
-              style={{
-                width: chatHidden
-                  ? 0
-                  : availableWidth -
-                    (getCodeProChatInset(
-                      showCodeProTaskPanel || showNativeSchedule,
-                      isCodeProTaskPanelExpanded || showNativeSchedule,
-                      panelWidth,
-                      codeProTaskPanelLayout
-                    ) ?? 0),
-              }}
-              className="h-full min-w-0 overflow-hidden min-h-0"
-              aria-hidden={chatHidden}
-              inert={chatHidden}
-            >
-              {/* Chat headers already reserve the toggle's horizontal space. Other pages
-                  need a separate row so their own headings never sit underneath it. */}
+          <div
+            ref={workAreaRef}
+            className="shell-work-area relative flex flex-col flex-1 min-w-0 overflow-hidden min-h-0"
+            data-navigation-overlay={!isNavExpanded && chatHidden}
+          >
+            {/* Full-width panes need a separate row for the navigation toggle. */}
+            <div className="shell-work-canvas relative flex-1 min-h-0">
               <div
-                className={cn('h-full', !isNavExpanded && !isOnPairRoute && 'pt-10')}
-                style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}
+                style={{
+                  width: chatHidden
+                    ? 0
+                    : availableWidth -
+                      (getCodeProChatInset(
+                        showCodeProTaskPanel || showNativeSchedule,
+                        isCodeProTaskPanelExpanded || showNativeSchedule,
+                        panelWidth,
+                        codeProTaskPanelLayout
+                      ) ?? 0),
+                }}
+                className="h-full min-w-0 overflow-hidden min-h-0"
+                aria-hidden={chatHidden}
+                inert={chatHidden}
               >
-                <Outlet />
-                {/* Always render ChatSessionsContainer to keep SSE connections alive.
+                {/* Chat headers already reserve the toggle's horizontal space. Other pages
+                  need a separate row so their own headings never sit underneath it. */}
+                <div
+                  className={cn('h-full', !isNavExpanded && !isOnPairRoute && 'pt-10')}
+                  style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}
+                >
+                  <Outlet />
+                  {/* Always render ChatSessionsContainer to keep SSE connections alive.
               When navigating away from /pair, hide it with CSS */}
-                <div className={isOnPairRoute ? 'contents' : 'hidden'}>
-                  <ChatSessionsContainer
-                    setChat={setChat}
-                    activeSessions={activeSessions}
-                    isChatVisible={isOnPairRoute}
-                  />
+                  <div className={isOnPairRoute ? 'contents' : 'hidden'}>
+                    <ChatSessionsContainer
+                      setChat={setChat}
+                      activeSessions={activeSessions}
+                      isChatVisible={isOnPairRoute}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            {showNativeSchedule && nativeScheduleId && (
-              <motion.aside
-                initial={{ opacity: 0, x: 12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  ...WORKSPACE_PANEL_TRANSITION,
-                  duration: reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
-                }}
-                className="absolute bottom-0 right-0 top-0 z-20 min-h-0 overflow-hidden border-l border-border-primary bg-background-primary"
-                style={{ width: codeProTaskPanelLayout === 'drawer' ? availableWidth : panelWidth }}
-              >
-                {codeProTaskPanelLayout === 'inline' && (
-                  <PanelResizeHandle
-                    width={panelWidth}
-                    resizing={isPanelResizing}
-                    onWidthChange={(requested, commit = true) => {
-                      setIsPanelResizing(!commit);
-                      setCodeProTaskPanelWidth(getCodeProPanelWidth(availableWidth, requested));
-                    }}
-                    onResetWidth={resetPanelWidth}
+              {showNativeSchedule && nativeScheduleId && (
+                <motion.aside
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    ...WORKSPACE_PANEL_TRANSITION,
+                    duration: reducedMotion ? 0 : WORKSPACE_PANEL_TRANSITION.duration,
+                  }}
+                  className="absolute bottom-0 right-0 top-0 z-20 min-h-0 overflow-hidden border-l border-border-primary bg-background-primary"
+                  style={{
+                    width: codeProTaskPanelLayout === 'drawer' ? availableWidth : panelWidth,
+                  }}
+                >
+                  {codeProTaskPanelLayout === 'inline' && (
+                    <PanelResizeHandle
+                      width={panelWidth}
+                      resizing={isPanelResizing}
+                      onWidthChange={(requested, commit = true) => {
+                        setIsPanelResizing(!commit);
+                        setCodeProTaskPanelWidth(getCodeProPanelWidth(availableWidth, requested));
+                      }}
+                      onResetWidth={resetPanelWidth}
+                    />
+                  )}
+                  <NativeScheduleDetails
+                    key={nativeScheduleId}
+                    id={nativeScheduleId}
+                    onClose={closeNativeSchedule}
                   />
-                )}
-                <NativeScheduleDetails
-                  key={nativeScheduleId}
-                  id={nativeScheduleId}
-                  onClose={closeNativeSchedule}
+                </motion.aside>
+              )}
+              {showCodeProTaskPanel && (
+                <CodeProTaskPanel
+                  expanded={isCodeProTaskPanelExpanded}
+                  layout={codeProTaskPanelLayout}
+                  onExpandedChange={(expanded) => {
+                    setIsCodeProTaskPanelExpanded(expanded);
+                    setIsChatCollapsed(false);
+                  }}
+                  width={panelWidth}
+                  resizing={isPanelResizing}
+                  onWidthChange={resizePanel}
+                  chatCollapsed={chatHidden}
+                  onChatCollapsedChange={changeChatCollapsed}
+                  onResetWidth={resetPanelWidth}
                 />
-              </motion.aside>
-            )}
-            {showCodeProTaskPanel && (
-              <CodeProTaskPanel
-                expanded={isCodeProTaskPanelExpanded}
-                layout={codeProTaskPanelLayout}
-                onExpandedChange={(expanded) => {
-                  setIsCodeProTaskPanelExpanded(expanded);
-                  setIsChatCollapsed(false);
-                }}
-                width={panelWidth}
-                resizing={isPanelResizing}
-                onWidthChange={resizePanel}
-                chatCollapsed={chatHidden}
-                onChatCollapsedChange={changeChatCollapsed}
-                onResetWidth={resetPanelWidth}
-              />
-            )}
+              )}
+            </div>
           </div>
         </WorkspaceSubagentProvider>
       </div>

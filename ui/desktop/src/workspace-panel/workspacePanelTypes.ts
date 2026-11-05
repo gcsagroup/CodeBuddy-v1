@@ -3,6 +3,12 @@ export interface PanelScope {
   sessionId: string;
   root: string;
 }
+export interface PanelLocalSelection {
+  scope: PanelScope;
+  kind: 'file' | 'directory';
+  path: string;
+  name: string;
+}
 export interface PanelEntry {
   name: string;
   path: string;
@@ -76,6 +82,8 @@ export interface WebLinkMenuRequest {
 export type PanelRequest = { scope: PanelScope; reference?: boolean; line?: number } & (
   | ({ action: 'browser-control' } & BrowserControlInput)
   | { action: 'list'; path: string }
+  | { action: 'open-directory'; path: string }
+  | { action: 'open-target'; path: string; choose: boolean }
   | { action: 'search'; query: string }
   | { action: 'read'; path: string }
   | { action: 'read-reference'; path: string }

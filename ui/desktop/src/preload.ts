@@ -5,6 +5,7 @@ import type { GitHubCliStatus, GitHubCliChallenge, GitHubCliPoll } from './githu
 import type {
   PanelRequest,
   PanelReply,
+  PanelLocalSelection,
   WebLinkMenuRequest,
   PanelTabMenuRequest,
 } from './workspace-panel/workspacePanelTypes';
@@ -120,9 +121,10 @@ type ElectronAPI = {
   desktopControl: (state: DesktopControlState | null) => void;
   onDesktopControlCancel: (callback: (state: DesktopControlState) => void) => () => void;
   onDesktopFeedbackError: (callback: (message: string) => void) => () => void;
-  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => void;
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read' | 'pet-message-result', payload: unknown) => void;
   workspacePanel: (request: PanelRequest) => Promise<PanelReply>;
   openPastedText: (text: string) => Promise<{ opened: boolean }>;
+  workspaceOpenLocal: (kind: 'file' | 'directory') => Promise<PanelLocalSelection | null>;
   workspaceTabMenu: (request: PanelTabMenuRequest) => Promise<PanelReply>;
   webLinkMenu: (request: WebLinkMenuRequest) => Promise<{ action: 'preview' | null }>;
   platform: string;
@@ -185,14 +187,14 @@ type ElectronAPI = {
   isAnyWindowFocused: () => Promise<boolean>;
   getIsFullScreen: () => Promise<boolean>;
   getWindowMenu: () => Promise<Array<{ index: number; label: string; enabled: boolean }>>;
-  openWindowMenu: (request: { index: number; x: number; y: number }) => Promise<void>;
-  setWindowTitleBarTheme: (theme: 'light' | 'dark') => void;
+  openWindowMenu: (index: number, x: number, y: number) => Promise<void>;
+  setTitlebarTheme: (theme: 'light' | 'dark') => Promise<void>;
   onMouseBackButtonClicked: (callback: () => void) => void;
   offMouseBackButtonClicked: (callback: () => void) => void;
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
-  ) => void;
+  ) => (() => void) | void;
   off: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
@@ -283,6 +285,7 @@ const electronAPI: ElectronAPI = {
 
   selectFileOrDirectory: (defaultPath?: string) =>
     ipcRenderer.invoke('select-file-or-directory', defaultPath),
+  workspaceOpenLocal: (kind: 'file' | 'directory') => ipcRenderer.invoke('workspace-open-local', kind),
   selectRootCleanupTarget: (rootPath: string) =>
     ipcRenderer.invoke('select-root-cleanup-target', rootPath),
   selectImportSessionFile: () => ipcRenderer.invoke('select-import-session-file'),
@@ -342,9 +345,9 @@ const electronAPI: ElectronAPI = {
   openNotificationsSettings: () => ipcRenderer.invoke('open-notifications-settings'),
   isAnyWindowFocused: () => ipcRenderer.invoke('is-any-window-focused'),
   getIsFullScreen: () => ipcRenderer.invoke('get-is-fullscreen'),
-  getWindowMenu: () => ipcRenderer.invoke('window-menu-items'),
-  openWindowMenu: (request) => ipcRenderer.invoke('window-menu-open', request),
-  setWindowTitleBarTheme: (theme) => ipcRenderer.send('window-titlebar-theme', theme),
+  getWindowMenu: () => ipcRenderer.invoke('window-menu-list'),
+  openWindowMenu: (index, x, y) => ipcRenderer.invoke('window-menu-open', index, x, y),
+  setTitlebarTheme: (theme) => ipcRenderer.invoke('window-titlebar-theme', theme),
   onMouseBackButtonClicked: (callback: () => void) => {
     // Wrapper that ignores the event parameter.
     const wrappedCallback = (_event: Electron.IpcRendererEvent) => callback();
@@ -359,6 +362,9 @@ const electronAPI: ElectronAPI = {
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
   ) => {
     ipcRenderer.on(channel, callback);
+    // Close over the original proxy: callbacks crossing contextBridge again
+    // are not a reliable identity for removing an existing listener.
+    return () => ipcRenderer.off(channel, callback);
   },
   off: (
     channel: string,
@@ -369,8 +375,8 @@ const electronAPI: ElectronAPI = {
   emit: (channel: string, ...args: unknown[]) => {
     ipcRenderer.emit(channel, ...args);
   },
-  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read', payload: unknown) => {
-    if (channel === 'pet-hit-test' || channel === 'pet-task' || channel === 'pet-read')
+  petSignal: (channel: 'pet-hit-test' | 'pet-task' | 'pet-read' | 'pet-message-result', payload: unknown) => {
+    if (channel === 'pet-hit-test' || channel === 'pet-task' || channel === 'pet-read' || channel === 'pet-message-result')
       ipcRenderer.send(channel, payload);
   },
   broadcastThemeChange: (themeData: {

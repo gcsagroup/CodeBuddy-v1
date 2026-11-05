@@ -24,10 +24,25 @@ export const panelMessages = defineMessages({
     defaultMessage:
       'This format cannot be previewed. Use Open in application or save a supported copy.',
   },
+  newTab: { id: 'workspacePanel.newTab', defaultMessage: 'New tab' },
+  openLocal: { id: 'workspacePanel.openLocal', defaultMessage: 'Open file or folder' },
+  openFolder: { id: 'workspacePanel.openFolder', defaultMessage: 'Open folder' },
+  showCurrentFolder: {
+    id: 'workspacePanel.showCurrentFolder',
+    defaultMessage: 'Open current folder in file manager',
+  },
+  backToFolder: { id: 'workspacePanel.backToFolder', defaultMessage: 'Back to folder' },
+  emptyFolder: { id: 'workspacePanel.emptyFolder', defaultMessage: 'This folder is empty.' },
+  localFilesHint: {
+    id: 'workspacePanel.localFilesHint',
+    defaultMessage: 'Browse local files without changing this conversation’s workspace.',
+  },
+  toolsTitle: { id: 'workspacePanel.toolsTitle', defaultMessage: 'Workspace tools' },
   readOnlyReference: {
     id: 'workspacePanel.readOnlyReference',
     defaultMessage: 'Read-only reference; the workspace and file permissions are unchanged.',
   },
+  filesTab: { id: 'workspacePanel.filesTab', defaultMessage: 'Files' },
   openFile: { id: 'workspacePanel.openFile', defaultMessage: 'Open file' },
   playVideo: { id: 'workspacePanel.playVideo', defaultMessage: 'Play video' },
   openImageTab: { id: 'workspacePanel.openImageTab', defaultMessage: 'Open image in new tab' },

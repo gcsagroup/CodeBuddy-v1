@@ -51,7 +51,7 @@ it('preserves read-only reference routing on render, retry and explicit applicat
   expect(await screen.findByText('interactive-excel')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Open in default application' }));
   expect(invoke).toHaveBeenCalledWith(
-    expect.objectContaining({ action: 'open-external', reference: true })
+    expect.objectContaining({ action: 'open-target', reference: true, path: 'C:/old-workspace/report.xlsx' })
   );
   expect(
     invoke.mock.calls.filter(([r]) => r.action === 'document-preview').every(([r]) => r.reference)

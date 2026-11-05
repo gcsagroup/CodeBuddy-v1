@@ -3,6 +3,59 @@
   --wb-muted: var(--color-text-secondary, #7a8493);
   font-size: 13px;
 }
+.wb-local-files {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.wb-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--wb-muted);
+  font-size: 12px;
+}
+.wb-location {
+  min-height: 38px;
+}
+.wb-open-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  background: var(--color-background-primary);
+  color: #b48940;
+}
+.wb-open-button:hover {
+  background: var(--color-background-secondary);
+}
+.wb-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--color-border-primary);
+}
+.wb-start-mark {
+  flex-shrink: 0;
+  color: var(--wb-muted);
+  opacity: 0.25;
+  margin-bottom: 22px;
+}
+.wb-open-menu { min-width: 208px; }
+.wb-open-menu [role='menuitem'] {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
 .workspace-panel * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--wb-muted) 25%, transparent) transparent;
@@ -100,6 +153,7 @@
   background: var(--color-background-tertiary, #e3e7ed);
 }
 .wb-toolbar {
+  flex-wrap: wrap;
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -158,19 +212,9 @@
   );
 }
 .wb-explorer.wb-explorer-wide {
-  width: 50%;
-  max-width: 320px;
-}
-.wb-tree-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 10px 8px;
-  padding-left: 8px;
-  background: var(--color-background-primary);
-  border: 1px solid var(--color-border-primary);
-  border-radius: 7px;
-  color: var(--wb-muted);
+  width: 100%;
+  max-width: none;
+  border-right: 0;
 }
 .wb-tree-entry {
   display: flex;
@@ -459,3 +503,11 @@
     padding: 10px;
   }
 }
+
+.wb-target-open { position: relative; flex-shrink: 0; }
+.wb-target-open .wb-open-button { gap: 0; padding: 0; }
+.wb-target-open .wb-open-button button { display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 6px; border-radius: 5px; }
+.wb-target-open .wb-open-button button + button { border-left: 1px solid var(--color-border-primary); padding: 0 3px; }
+.wb-target-open button:hover { background: var(--color-background-secondary); }
+.wb-open-error { position: absolute; right: 0; top: 32px; width: 260px; max-width: 75vw; padding: 10px; border: 1px solid var(--color-border-primary); border-radius: 8px; background: var(--color-background-primary); color: var(--color-text-primary); z-index: 20; overflow-wrap: anywhere; box-shadow: 0 4px 16px #0001; }
+.wb-open-error > button { float: right; padding: 0 4px; }

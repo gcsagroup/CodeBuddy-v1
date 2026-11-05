@@ -20,8 +20,13 @@ const hooks = vi.hoisted(() => ({
   chooseApp: vi.fn(),
   launch: vi.fn(),
   codeOpen: vi.fn(),
+  targetChoice: vi.fn(),
+  targetLaunch: vi.fn(),
+  associationOpen: vi.fn(),
+  systemChoose: vi.fn(),
 }));
-vi.mock('./workspaceCodeEditor', () => ({ openCodeFile: hooks.codeOpen }));
+vi.mock('./workspaceWindowsAssociations', () => ({ openWindowsAssociation: hooks.associationOpen, chooseWindowsApplication: hooks.systemChoose }));
+vi.mock('./workspaceCodeEditor', () => ({ openCodeFile: hooks.codeOpen, chooseTargetApplication: hooks.targetChoice, launchCodeEditor: hooks.targetLaunch }));
 beforeEach(() => {
   vi.clearAllMocks();
   hooks.codeOpen.mockImplementation(async (...args) => {
@@ -47,6 +52,115 @@ vi.mock('electron', () => ({
   WebContentsView: vi.fn(),
 }));
 import { registerWorkspacePanel } from './workspacePanelMain';
+
+it('opens native file/folder selections without changing session roots or granting sibling access', async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-local-picker-'));
+  try {
+    const root = path.join(base, 'folder');
+    await fs.mkdir(root);
+    const file = path.join(root, '中文.txt');
+    await fs.writeFile(file, '本地文件验收');
+    await fs.writeFile(path.join(root, 'other.txt'), 'sibling');
+    await fs.writeFile(path.join(base, 'outside.txt'), 'outside');
+    const wc = Object.assign(new EventEmitter(), {
+      id: 98761,
+      mainFrame: {},
+      session: { protocol: { handle: vi.fn() } },
+    });
+    const win = Object.assign(new EventEmitter(), { webContents: wc });
+    hooks.from.mockReturnValue(win);
+    registerWorkspacePanel();
+    const pick = hooks.ipc.mock.calls.find(([name]) => name === 'workspace-open-local')![1];
+    const ipc = hooks.ipc.mock.calls.find(([name]) => name === 'workspace-panel')![1];
+    const event = { sender: wc, senderFrame: wc.mainFrame };
+    await expect(pick({ ...event, senderFrame: {} }, 'file')).rejects.toThrow('main frame');
+    hooks.chooseApp.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+    expect(await pick(event, 'file')).toBeNull();
+    hooks.chooseApp.mockResolvedValueOnce({ canceled: false, filePaths: [file] });
+    const selected = await pick(event, 'file');
+    expect(hooks.chooseApp).toHaveBeenLastCalledWith(win, { properties: ['openFile'] });
+    expect(
+      (await ipc(event, { scope: selected.scope, action: 'read', path: selected.path })).document
+        .content
+    ).toBe('本地文件验收');
+    await expect(
+      ipc(event, { scope: selected.scope, action: 'read', path: 'other.txt' })
+    ).rejects.toThrow('Only the selected');
+    await expect(ipc(event, { scope: selected.scope, action: 'list', path: '' })).rejects.toThrow(
+      'Only the selected'
+    );
+    await expect(
+      ipc(event, {
+        scope: selected.scope,
+        action: 'save',
+        path: selected.path,
+        content: 'overwrite',
+        version: '',
+      })
+    ).rejects.toThrow('read-only');
+    await expect(
+      ipc(event, {
+        scope: { ...selected.scope, sessionId: 'desktop-files:forged' },
+        action: 'read',
+        path: selected.path,
+      })
+    ).rejects.toThrow('picker');
+    const original = { sessionId: 'unchanged-conversation', root };
+    await ipc(event, { scope: original, action: 'list', path: '' });
+    hooks.chooseApp.mockResolvedValueOnce({ canceled: false, filePaths: [root] });
+    const folder = await pick(event, 'directory');
+    expect(hooks.chooseApp).toHaveBeenLastCalledWith(win, { properties: ['openDirectory'] });
+    expect(
+      (await ipc(event, { scope: folder.scope, action: 'list', path: '' })).entries
+    ).toHaveLength(2);
+    await expect(
+      ipc(event, { scope: folder.scope, action: 'read', path: '../outside.txt' })
+    ).rejects.toThrow('outside');
+    await expect(ipc(event, { scope: folder.scope, action: 'terminal-create' })).rejects.toThrow(
+      'read-only'
+    );
+    await expect(
+      ipc(event, { scope: folder.scope, action: 'read-reference', path: '../outside.txt' })
+    ).rejects.toThrow('read-only');
+    expect(
+      (await ipc(event, { scope: original, action: 'read', path: 'other.txt' })).document.content
+    ).toBe('sibling');
+    await ipc(event, { scope: folder.scope, action: 'open-target', path: '', choose: false });
+    expect(hooks.open).toHaveBeenLastCalledWith(root);
+    await ipc(event, { scope: selected.scope, action: 'open-target', path: selected.path, choose: false });
+    expect(hooks.open).toHaveBeenLastCalledWith(file);
+    hooks.targetChoice.mockResolvedValueOnce(null);
+    const beforeOpen = hooks.open.mock.calls.length;
+    await ipc(event, { scope: folder.scope, action: 'open-target', path: '', choose: true });
+    expect(hooks.open).toHaveBeenCalledTimes(beforeOpen);
+    const appChoice = { path: 'C:/Apps/Code.exe', label: 'Code', kind: 'vscode' };
+    hooks.targetChoice.mockResolvedValueOnce(appChoice);
+    await ipc(event, { scope: folder.scope, action: 'open-target', path: '', choose: true });
+    expect(hooks.targetLaunch).toHaveBeenLastCalledWith(appChoice, root, undefined);
+    await expect(ipc(event, { scope: folder.scope, action: 'open-target', path: '../outside.txt', choose: false })).rejects.toThrow('outside');
+    await expect(ipc(event, { scope: selected.scope, action: 'open-target', path: 'other.txt', choose: false })).rejects.toThrow('Only the selected');
+    await fs.writeFile(path.join(root, 'run.exe'), 'not an executable');
+    await expect(ipc(event, { scope: folder.scope, action: 'open-target', path: 'run.exe', choose: false })).rejects.toThrow('only be previewed');
+    await fs.writeFile(path.join(root, 'script.py'), 'print(1)');
+    await ipc(event, { scope: folder.scope, action: 'open-target', path: 'script.py', choose: false });
+    expect(hooks.codeOpen).toHaveBeenCalled();
+    expect(hooks.open).not.toHaveBeenCalledWith(path.join(root, 'script.py'));
+    for (const name of ['.gitignore', '.editorconfig']) {
+      await fs.writeFile(path.join(root, name), 'fixture');
+      hooks.targetChoice.mockResolvedValueOnce({ associationId: 'installed-handler' });
+      await ipc(event, { scope: folder.scope, action: 'open-target', path: name, choose: true });
+      expect(hooks.associationOpen).toHaveBeenLastCalledWith(path.join(root, name), 'installed-handler');
+    }
+    const launches = hooks.associationOpen.mock.calls.length;
+    hooks.targetChoice.mockImplementationOnce(async () => { win.emit('closed'); return {associationId:'installed-handler'}; });
+    await expect(ipc(event, { scope: folder.scope, action: 'open-target', path: '.gitignore', choose: true })).rejects.toThrow('changed');
+    expect(hooks.associationOpen).toHaveBeenCalledTimes(launches);
+    expect(await fs.readFile(file, 'utf8')).toBe('本地文件验收');
+    win.emit('closed');
+  } finally {
+    await fs.rm(base, { recursive: true, force: true });
+  }
+});
 
 it('previews external source directly and limits file-menu actions to the referenced file', async () => {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), 'cb-reference-'));

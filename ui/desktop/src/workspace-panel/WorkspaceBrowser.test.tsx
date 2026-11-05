@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { WorkspaceBrowser } from './WorkspaceBrowser';
@@ -79,4 +79,38 @@ it('uses stop while loading and displays navigation failures', async () => {
     command: 'stop',
   });
   view.unmount();
+});
+it('keeps a loaded native page visible beside popovers and restores it after a covering layer closes', async () => {
+  invoke.mockImplementation(async (r: PanelRequest) =>
+    r.action === 'browser-state' ? { browser: { url: 'https://example.com', title: 'Loaded' } } : {}
+  );
+  const page = new DOMRect(600, 100, 400, 500);
+  const view = render(<WorkspaceBrowser scope={scope} id="loaded" />, { wrapper: IntlTestWrapper });
+  const host = view.container.querySelector('.wb-statusbar')!.previousElementSibling!;
+  vi.spyOn(host, 'getBoundingClientRect').mockReturnValue(page);
+  const bounds = () => {
+    const calls = invoke.mock.calls.filter(([request]) => request.action === 'browser-bounds');
+    return calls[calls.length - 1]?.[0].bounds;
+  };
+  const expected = { x: 600, y: 100, width: 400, height: 500 };
+  await waitFor(() => expect(bounds()).toEqual(expected));
+  const popup = document.createElement('div');
+  let box = new DOMRect(20, 400, 200, 90);
+  vi.spyOn(popup, 'getBoundingClientRect').mockImplementation(() => box);
+  popup.setAttribute('role', 'dialog');
+  try {
+    await act(async () => { document.body.append(popup); });
+    expect(bounds()).toEqual(expected);
+    box = new DOMRect(590, 400, 50, 90);
+    popup.setAttribute('data-state', 'open');
+    await waitFor(() => expect(bounds()).toBeNull());
+    popup.style.visibility = 'hidden';
+    await waitFor(() => expect(bounds()).toEqual(expected));
+    popup.removeAttribute('role');
+    popup.setAttribute('data-slot', 'dialog-overlay');
+    popup.style.visibility = 'visible';
+    await waitFor(() => expect(bounds()).toBeNull());
+    popup.remove();
+    await waitFor(() => expect(bounds()).toEqual(expected));
+  } finally { popup.remove(); view.unmount(); }
 });

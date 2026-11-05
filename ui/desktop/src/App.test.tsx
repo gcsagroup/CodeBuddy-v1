@@ -1,3 +1,4 @@
+vi.mock('./components/Layout/WindowMenuBar', () => ({ WindowMenuBar: () => null }));
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
@@ -12,6 +13,12 @@ import { FeaturesProvider } from './contexts/FeaturesContext';
 import { reconnectAcpAfterSystemResume } from './acp/acpConnection';
 import { acpReadDefaults } from './acp/providers';
 import { createSession } from './sessions';
+
+const mainConversation = vi.hoisted(() => ({
+  getMainConversation: vi.fn(async () => 'global-main'),
+  deliverMainConversationMessage: vi.fn(async () => {}),
+}));
+vi.mock('./pets/mainConversation', () => mainConversation);
 
 vi.stubGlobal(
   'ResizeObserver',
@@ -192,6 +199,7 @@ vi.mock('react-router-dom', () => ({
 
 // Mock electron API
 const mockElectron = {
+  petSignal: vi.fn(),
   getConfig: vi.fn().mockReturnValue({
     GOOSE_ALLOWLIST_WARNING: false,
     GOOSE_WORKING_DIR: '/test/dir',
@@ -675,7 +683,7 @@ describe('App Component - Brand New State', () => {
     });
   });
 
-  it('starts pet messages as fresh chats without inheriting a project or a previous draft', async () => {
+  it('routes repeated pet messages to the persistent main conversation without inheriting a project', async () => {
     mockLocationState = { workingDir: 'D:/previous', draftOnly: true };
     render(<AppInner />, { wrapper: AppInnerTestWrapper });
     await waitFor(() => expect(mockElectron.reactReady).toHaveBeenCalled());
@@ -683,19 +691,16 @@ describe('App Component - Brand New State', () => {
       ([channel]) => channel === 'pet-send-message'
     )?.[1];
     mockNavigate.mockClear();
-    handler({}, ' 新任务🙂 ');
-    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
-      state: { initialMessage: { msg: '新任务🙂', images: [] }, noAutoSubmit: false },
-    });
+    handler({}, { msg: ' 新任务🙂 ', images: [], deliveryId: 'pet-transfer' });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=global-main', { state: null }));
+    expect(mainConversation.deliverMainConversationMessage).toHaveBeenCalledWith('global-main', { msg: '新任务🙂', images: [], messageId: 'pet-transfer' });
     mockNavigate.mockClear();
     handler({}, '  ');
     handler({}, 'x'.repeat(8001));
     expect(mockNavigate).not.toHaveBeenCalled();
     const image = { data: 'eA==', mimeType: 'image/png' };
     handler({}, { msg: '', images: [image] });
-    expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair', {
-      state: { initialMessage: { msg: '', images: [image] }, noAutoSubmit: false },
-    });
+    await waitFor(() => expect(mainConversation.deliverMainConversationMessage).toHaveBeenCalledWith('global-main', { msg: '', images: [image] }));
   });
 
   it('should reconnect ACP when the main process emits system-resume', async () => {

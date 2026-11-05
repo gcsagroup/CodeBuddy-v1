@@ -1357,3 +1357,33 @@ it('replaces the new page with the chosen function and reopens one empty page fr
   expect(screen.queryByRole('tab', { name: 'New tab' })).toBeNull();
   expect(screen.getAllByRole('tab', { name: 'Files' })).toHaveLength(1);
 });
+
+
+it('restores filename search, ignores stale replies and opens the matched file from Ctrl+P', async () => {
+  const { scope } = panel();
+  let resolveOld!: (value: { entries: Array<{ name: string; path: string; kind: 'file' }> }) => void;
+  const fallback = invoke.getMockImplementation()!;
+  invoke.mockImplementation((request: PanelRequest) => {
+    if (request.action !== 'search') return fallback(request);
+    if (request.query === 'old') return new Promise(resolve => { resolveOld = resolve; });
+    return Promise.resolve({ entries: [{ name: 'note.txt', path: 'nested/note.txt', kind: 'file' }], truncated: true });
+  });
+  fireEvent.keyDown(window, { key: 'p', ctrlKey: true });
+  const input = await screen.findByRole('textbox', { name: 'Search filenames' });
+  await waitFor(() => expect(input).toHaveFocus());
+  fireEvent.change(input, { target: { value: 'old' } });
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith({ scope, action: 'search', query: 'old' }));
+  fireEvent.change(input, { target: { value: 'note' } });
+  const result = await screen.findByRole('button', { name: 'nested/note.txt' });
+  await act(async () => resolveOld({ entries: [{ name: 'obsolete.txt', path: 'obsolete.txt', kind: 'file' }] }));
+  expect(screen.queryByRole('button', { name: 'obsolete.txt' })).toBeNull();
+  fireEvent.click(result);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'read', path: 'nested/note.txt' })));
+  expect(await screen.findByText('original')).toBeVisible();
+  fireEvent.keyDown(window, { key: 'p', ctrlKey: true });
+  const reopened = await screen.findByRole('textbox', { name: 'Search filenames' });
+  await waitFor(() => expect(reopened).toHaveFocus());
+  fireEvent.keyDown(reopened, { key: 'Escape' });
+  expect(reopened).toHaveValue('');
+  expect(await screen.findByRole('button', { name: 'note.txt' })).toBeVisible();
+});

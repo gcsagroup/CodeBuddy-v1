@@ -216,6 +216,17 @@
   max-width: none;
   border-right: 0;
 }
+.wb-tree-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 8px;
+  padding-left: 8px;
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 7px;
+  color: var(--wb-muted);
+}
 .wb-tree-entry {
   display: flex;
   width: calc(100% - 12px);

@@ -49,7 +49,16 @@ test('file controls belong to the file view and open the current target at every
     await expect(page.getByRole('tab').nth(0)).toHaveAccessibleName('Changes');
     await expect(page.getByRole('tab').nth(1)).toHaveAccessibleName('Subagents');
     await expect(page.getByRole('tab').nth(2)).toHaveAccessibleName('Files');
-    await expect(page.getByRole('textbox')).toHaveCount(0);
+    await page.keyboard.press('Control+p');
+    const search = page.getByRole('textbox', { name: 'Search filenames' });
+    await expect(search).toBeFocused();
+    await search.fill('missing-file');
+    await expect(page.getByRole('button', { name: '中文测试文件.txt', exact: true })).toHaveCount(0);
+    await search.fill('中文');
+    await expect(page.getByRole('button', { name: '中文测试文件.txt', exact: true })).toBeVisible();
+    await page.screenshot({ path: `../../.local/restoration-review/file-search-${width}.png` });
+    await search.press('Escape');
+    await expect(search).toHaveValue('');
     await page.getByRole('button', { name: 'Refresh', exact: true }).click();
     if (width === 600)
       await page.screenshot({

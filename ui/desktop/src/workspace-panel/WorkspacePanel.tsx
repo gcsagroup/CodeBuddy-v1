@@ -21,6 +21,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Search,
   TerminalSquare,
   Bot,
   X,
@@ -318,6 +319,11 @@ export function WorkspacePanelContent({
   const [conversationRevision, setConversationRevision] = useState(0);
   const [wrap, setWrap] = useState(false);
   const tabStrip = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<PanelEntry[]>([]);
+  const [truncated, setTruncated] = useState(false);
+  const search = useRef<HTMLInputElement>(null);
+  const [focusSearch, requestSearchFocus] = useState(0);
   const [refresh, setRefresh] = useState(0);
   const alive = useRef(true),
     latest = useRef(state);
@@ -508,6 +514,37 @@ export function WorkspacePanelContent({
     window.addEventListener('beforeunload', check);
     return () => window.removeEventListener('beforeunload', check);
   }, []);
+
+  useEffect(() => {
+    if (!query.trim() || !available) {
+      setResults([]);
+      setTruncated(false);
+      return;
+    }
+    setResults([]);
+    setTruncated(false);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void window.electron
+        .workspacePanel({ scope, action: 'search', query })
+        .then((r) => {
+          if (!cancelled) {
+            setResults(r.entries ?? []);
+            setTruncated(!!r.truncated);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) fail(e);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, scope, available, fail, refresh]);
+  useEffect(() => {
+    if (focusSearch > 0 && state.active === 'files' && expanded) search.current?.focus();
+  }, [focusSearch, state.active, expanded]);
 
   const activate = useCallback(
     (id: string) => {
@@ -914,6 +951,7 @@ export function WorkspacePanelContent({
         e.preventDefault();
         onExpandedChange(true);
         activate('files');
+        requestSearchFocus((value) => value + 1);
       }
       // Option changes KeyboardEvent.key on macOS (for example B becomes ∫).
       if (e.altKey && (e.code === 'KeyB' || e.key.toLowerCase() === 'b')) {
@@ -1376,12 +1414,72 @@ export function WorkspacePanelContent({
                 </button>
                 <WorkspaceOpenMenu scope={scope} path="" />
               </div>
-              <div className="min-h-0 flex-1 overflow-auto">
-                <FileTree
-                  {...{ scope, refresh, onError: fail }}
-                  activePath={selected?.kind === 'file' ? selected.document.path : undefined}
-                  onOpen={(e) => void openFile(e)}
+              <div className="wb-tree-search">
+                <Search size={14} className="shrink-0" />
+                <input
+                  ref={search}
+                  aria-label={intl.formatMessage(m.search)}
+                  placeholder={intl.formatMessage(m.search)}
+                  className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      setQuery('');
+                    }
+                  }}
                 />
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                {query.trim() ? (
+                  <>
+                    <ul>
+                      {results.map((e) => (
+                        <li key={e.path}>
+                          <button
+                            disabled={e.kind !== 'file'}
+                            className="w-full truncate px-2 py-1 text-left text-xs hover:bg-background-secondary"
+                            title={e.path}
+                            onClick={(event) =>
+                              event.ctrlKey || event.metaKey
+                                ? openWorkspaceFile({
+                                    sessionId: scope.sessionId,
+                                    filePath: e.path,
+                                    action: 'open-external',
+                                  })
+                                : void openFile(e)
+                            }
+                            onContextMenu={
+                              e.kind === 'file'
+                                ? (event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    openWorkspaceFile({
+                                      sessionId: scope.sessionId,
+                                      filePath: e.path,
+                                      action: 'file-menu',
+                                    });
+                                  }
+                                : undefined
+                            }
+                          >
+                            {e.path}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {truncated && (
+                      <p className="p-2 text-xs">{intl.formatMessage(m.searchLimit)}</p>
+                    )}
+                  </>
+                ) : (
+                  <FileTree
+                    {...{ scope, refresh, onError: fail }}
+                    activePath={selected?.kind === 'file' ? selected.document.path : undefined}
+                    onOpen={(e) => void openFile(e)}
+                  />
+                )}
               </div>
             </section>
           )}

@@ -18,6 +18,9 @@ Object.assign(window, {
         document.documentElement.dataset.openReceipt = JSON.stringify(request);
         return {};
       }
+      if (request.action === 'search') {
+        return { entries: request.query.includes('中文') ? [{ name: '中文测试文件.txt', path: '中文测试文件.txt', kind: 'file' }] : [] };
+      }
       return request.action === 'list'
         ? { entries: [{ name: '中文测试文件.txt', path: '中文测试文件.txt', kind: 'file' }] }
         : {

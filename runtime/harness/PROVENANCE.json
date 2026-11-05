@@ -24,6 +24,13 @@
     "testCommand": "node --test test/driver.test.mjs"
   },
   "compatibilityPatches": {
+    "toolErrorDiagnostics": {
+      "adapter": "tool-error-contract.mjs",
+      "version": "0.2.1-alpha.2",
+      "sourceSha256": { "@deepseek-ai/dsh-tools/lib/index.js": "c427f5bf2162a5afb13bf3cc99b4df38e93f46980836d8e1d414a612181567cc" },
+      "scope": "In-memory native tool error serialization only. Bounded safe transport cause codes in optional error.info and readable error text; no cause messages, addresses, stacks or credentials. Preserve native approval, cancellation, outcome and retry ownership.",
+      "exitCondition": "Remove when an upgraded native serializer retains equivalent safe causes; source hash drift requires review."
+    },
     "requestFitRecovery": {
       "adapter": "sdk-budget-contract.mjs",
       "version": "0.2.1-alpha.2",

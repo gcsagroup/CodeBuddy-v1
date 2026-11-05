@@ -1,5 +1,7 @@
 # CodeBuddy Harness 运行时
 
+`tool-error-contract.mjs` 对锁定的原生工具错误序列化做内存适配，只补充有界、去重的传输错误码（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不复制底层异常地址、堆栈或凭据，不改变重试与终态。远端 MCP 未提供的原因仍未知。依据：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。
+
 审批不可用与用户拒绝分开报告：原生 `approval:never` 且宿主仍要求审批时，返回 `APPROVAL_UNAVAILABLE`；子 Agent 应交回父 Agent 审批或执行，不扩大授权、不自动重放。
 
 两种导出使用系统桌面作为保存对话框默认目录，仅确认后写入。

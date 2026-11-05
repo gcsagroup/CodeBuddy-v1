@@ -90,9 +90,55 @@ test('chat installation uses one-shot consent, verified settings, and conflict-c
   assert.equal(results.find(r => r.status === 'fulfilled').value.connectionVerified, true);
   assert.deepEqual(store.readSession(session.id).extensions, ['developer', 'sample']);
   assert.equal((await settings.extensions())[0].enabled, true);
+  const resumedSession = store.readSession(session.id);
+  const [resumed] = chatInstallTools({ session: resumedSession, settings, library, foreground: () => ({ ask() {} }),
+    confirm: () => assert.fail('Recovery must not run an installation') });
+  const before = probes;
+  const recovered = await resumed.execute(server, context);
+  assert.equal(recovered.alreadyInstalled, true);
+  assert.equal(recovered.selectedInChat, true);
+  assert.equal(recovered.connectionStatus, 'not_retested');
+  assert.equal(probes, before);
+  await assert.rejects(resumed.execute({ ...server, url: 'http://localhost:5678/mcp' }, context), /different configuration/);
+  await settings.request('config/extensions/set-enabled', { configKey: 'sample', enabled: false });
+  await assert.rejects(resumed.execute(server, context), /disabled extension/);
   const installed = await skill.execute(download, context);
   assert.equal(installed.enabled, true);
   assert.equal(installed.availableForModel, true);
   assert.match(await readFile(path.join(installed.path, 'SKILL.md'), 'utf8'), /Fixture body/);
-  await assert.rejects(skill.execute(download, context), /already exists/);
+  assert.equal((await skill.execute(download, context)).alreadyInstalled, true);
+  await assert.rejects(skill.execute({ ...download, url: 'https://different.example/SKILL.md' }, context), /already exists/);
+});
+
+test('MCP cancellation before save leaves nothing installed; a lost receipt after save can be recovered after restart', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'cb-install-stop-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const store = await openStore(root);
+  const session = { id: 'chat', cwd: root, extensions: [] };
+  await store.update(state => state.sessions.push(session));
+  const server = { name: 'receipt', command: 'receipt-server', args: ['serve'] };
+  let stop = new AbortController(), approvals = 0, probes = 0, phase = 'testing';
+  const settings = new RuntimeSettings(store, {
+    testExtension: async () => { probes++; if (phase === 'testing') stop.abort(); return { tools: ['ticket'] }; },
+    changed: async () => stop.abort(),
+  });
+  const toolsFor = (settings, chat) => chatInstallTools({ session: chat, settings,
+    foreground: () => ({ ask() {} }), confirm: async () => { approvals++; } })[0];
+  const install = toolsFor(settings, session);
+  const run = tool => tool.execute(server, { sessionId: session.id, signal: stop.signal });
+  await assert.rejects(run(install), { name: 'AbortError' });
+  assert.equal(store.read(['extensions']).extensions.length, 0);
+  phase = 'saving';
+  stop = new AbortController();
+  await assert.rejects(run(install), { name: 'AbortError' });
+  await store.flush();
+  const restored = await openStore(root);
+  stop = new AbortController();
+  const receipt = await run(toolsFor(new RuntimeSettings(restored), restored.readSession(session.id)));
+  assert.equal(receipt.alreadyInstalled, true);
+  assert.equal(receipt.selectedInChat, true);
+  assert.equal(receipt.connectionStatus, 'not_retested');
+  assert.equal(restored.read(['extensions']).extensions.length, 1);
+  assert.equal(approvals, 2);
+  assert.equal(probes, 2);
 });

@@ -1,7 +1,8 @@
 import { delimiter, isAbsolute, join } from 'node:path';
 import { access, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { extensionConfigKey } from './session-extensions.mjs';
+import { isDeepStrictEqual } from 'node:util';
+import { extensionConfigKey, extensionName } from './session-extensions.mjs';
 
 const nameField = { type: 'string', pattern: '^[a-z0-9][a-z0-9_-]{0,63}$' };
 export const isChatInstallProposal = name => name === 'install_mcp_extension' || name === 'install_skill';
@@ -93,8 +94,19 @@ export function chatInstallTools({ session, settings, library, foreground, confi
       if (input.url ? input.command !== undefined || input.args !== undefined : !input.command || !Array.isArray(input.args))
         throw Error('Provide an HTTP MCP URL or a command with its argument array.');
       const extension = { type: 'mcp', server: { ...input, ...(input.url ? { type: 'http', headers: [] } : { env: [] }) } };
-      if ((await settings.extensionSnapshot()).configured.some(entry => entry.configKey === extensionConfigKey(input.name)))
-        throw Error('An extension with this name already exists. Review it in extension settings.');
+      const key = extensionConfigKey(input.name);
+      const snapshot = await settings.extensionSnapshot();
+      if (snapshot.configured.some(entry => entry.configKey === key)) {
+        const saved = snapshot.entries.find(entry => entry.configKey === key);
+        if (!saved) throw Error('A disabled extension already exists under this name. Review it in extension settings.');
+        if (!isDeepStrictEqual(saved.extension, extension))
+          throw Error('An extension with a different configuration already exists under this name. Review it in extension settings.');
+        const selected = !session.extensions || session.extensions.some(item => extensionConfigKey(extensionName(item)) === key);
+        return { installed: true, alreadyInstalled: true, enabled: true, selectedInChat: selected,
+          connectionStatus: 'not_retested', guidance: selected
+            ? 'Use the configured MCP tool for the requested task and report its actual result.'
+            : 'Add this enabled extension to the current chat in the toolbox before using its tools.' };
+      }
       const confirmation = input.command
         ? '允许 CodeBuddy 运行下方程序，测试 MCP 连接吗？连接成功后会在本机保存并启用此扩展。即使处于完全访问模式，每次安装也需要确认。'
         : '允许 CodeBuddy 连接下方 MCP 地址吗？连接成功后会在本机保存并启用此扩展。即使处于完全访问模式，每次安装也需要确认。';
@@ -104,6 +116,7 @@ export function chatInstallTools({ session, settings, library, foreground, confi
       if (!tested.success) throw Error('MCP connection test failed: ' + tested.error);
       admit(context);
       await settings.saveExtension({ extension, enabled: true }, false, { installingSessionId: session.id, signal: context.signal });
+      admit(context);
       return { installed: true, connectionVerified: true, tools: tested.tools, availableFrom: 'next turn' };
     },
   }, {
@@ -117,18 +130,24 @@ export function chatInstallTools({ session, settings, library, foreground, confi
       admit(context);
       const rootKind = input.scope === 'global' ? 'global' : 'project_agents';
       const root = (await library.roots(session.cwd)).find(candidate => candidate.rootKind === rootKind);
+      const destination = { rootKind, rootId: root.rootId, name: input.name };
       const owner = {};
       const release = () => library.disconnect(owner);
       context.signal.addEventListener('abort', release, { once: true });
       try {
         admit(context);
-        const preview = await library.previewDownload({ projectDir: session.cwd, url: input.url,
-          destination: { rootKind, rootId: root.rootId, name: input.name } }, owner);
-        if (preview.hasConflict) throw Error('A skill already exists at the selected destination.');
-        await confirm('install_skill', { ...input, target: preview.target, files: preview.files }, '将从指定来源安装技能到以下目录。', context);
+        const prepared = await library.prepareChatDownload({ projectDir: session.cwd, url: input.url, destination }, owner);
+        let skill = prepared.skill;
+        const alreadyInstalled = Boolean(skill);
+        if (!skill) {
+          admit(context);
+          const { preview } = prepared;
+          await confirm('install_skill', { ...input, target: preview.target, files: preview.files }, '将从指定来源安装技能到以下目录。', context);
+          admit(context);
+          ({ skill } = await library.apply(preview.previewToken, owner, context.signal));
+        }
         admit(context);
-        const { skill } = await library.apply(preview.previewToken, owner);
-        const receipt = { installed: true, name: skill.name, path: skill.displayPath, version: skill.version, enabled: skill.enabled };
+        const receipt = { installed: true, alreadyInstalled, name: skill.name, path: skill.displayPath, version: skill.version, enabled: skill.enabled };
         try {
           const catalog = await library.catalog(session.cwd);
           const entry = catalog.candidates.find(candidate => candidate.name === skill.name &&

@@ -458,6 +458,56 @@ test("GitHub metadata rejects links, submodules, path escapes, truncation, overs
     );
 });
 
+test("a cancelled skill publication cannot appear later when the library queue advances", async t => {
+  const { library, connection, call, destination } = await libraryFixture(t, { downloader: githubFixture().downloader });
+  const preview = await call("download-preview", { destination, url: githubUrl });
+  const gate = Promise.withResolvers();
+  const queued = library.serial(() => gate.promise);
+  const stop = new AbortController();
+  const publishing = library.apply(preview.previewToken, connection, stop.signal);
+  stop.abort();
+  gate.resolve();
+  await queued;
+  await assert.rejects(publishing, { name: "AbortError" });
+  await assert.rejects(stat(preview.target), { code: "ENOENT" });
+});
+
+test("chat recovers a published skill after a lost receipt without downloading or approving twice", async t => {
+  const remote = githubFixture();
+  const stop = new AbortController();
+  const { library, destination } = await libraryFixture(t, {
+    downloader: remote.downloader, driver: { refreshSkills: async () => stop.abort() },
+  });
+  const { chatInstallTools } = await import("../chat-install.mjs");
+  let approvals = 0;
+  const [, install] = chatInstallTools({ session: { id: "chat" }, library,
+    foreground: () => ({ ask() {} }), confirm: async () => { approvals++; } });
+  const input = { name: destination.name, url: githubUrl, scope: "global" };
+  await assert.rejects(install.execute(input, { sessionId: "chat", signal: stop.signal }), { name: "AbortError" });
+  const calls = remote.calls.length;
+  const context = { sessionId: "chat", signal: new AbortController().signal };
+  const recovered = await install.execute(input, context);
+  assert.equal(recovered.alreadyInstalled, true);
+  assert.equal(recovered.availableForModel, true);
+  await assert.rejects(install.execute({ ...input, url: githubUrl + "-different" }, context), reason("destination_conflict"));
+  assert.equal(remote.calls.length, calls);
+  const reopened = new LibraryService(library.store, { downloader: remote.downloader });
+  t.after(() => reopened.close());
+  const [, cold] = chatInstallTools({ session: { id: "chat" }, library: reopened,
+    foreground: () => ({ ask() {} }), confirm: () => assert.fail("must not republish") });
+  assert.equal((await cold.execute(input, context)).alreadyInstalled, true);
+  assert.ok(remote.calls.length > calls);
+  await writeFile(path.join(recovered.path, "LICENSE"), "user edits");
+  const recordPath = path.join(recovered.path, ".codebuddy-source.json");
+  const record = JSON.parse(await readFile(recordPath, "utf8"));
+  record.files.find(file => file.path === "LICENSE").sha256 = createHash("sha256").update("user edits").digest("hex");
+  await writeFile(recordPath, JSON.stringify(record, null, 2) + "\n");
+  await assert.rejects(install.execute(input, context), reason("destination_conflict"));
+  await assert.rejects(cold.execute(input, context), reason("destination_conflict"));
+  assert.equal(await readFile(path.join(recovered.path, "LICENSE"), "utf8"), "user edits");
+  assert.equal(approvals, 1);
+});
+
 test("original preview/apply RPC installs a reviewed snapshot, license and references without executing scripts", async (t) => {
   const remote = githubFixture();
   const context = await libraryFixture(t, { downloader: remote.downloader });

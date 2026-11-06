@@ -13,6 +13,16 @@ export const llmPatch = {
     replace('import { createRequire } from "node:module";', 'import { createRequire } from "node:module";\nimport { isDeepStrictEqual as requestFitToolsEqual } from "node:util";');
     replace('\t\tdirectory = /* @__PURE__ */ new Map();', '\t\tdirectory = /* @__PURE__ */ new Map();\n\t\trequestFitFailures = /* @__PURE__ */ new Map();');
     replace('\t\t\t\t\t\tdispatch: (options) => adapterCall.stream(options)', '\t\t\t\t\t\tdispatch: (options) => adapterCall.stream(options),\n\t\t\t\t\t\tprepareRequest: adapterCall.prepareRequest === void 0 ? void 0 : (options) => adapterCall.prepareRequest(options)');
+    replace('\t\t\t\tstream: (options) => {', `\t\t\t\t// Read-only fitting uses the same registration, projection and adapter as dispatch.
+\t\t\t\t...adapterCall.prepareRequest === void 0 ? {} : { measure: async (options) => {
+\t\t\t\t\toptions.signal?.throwIfAborted();
+\t\t\t\t\tif (!callConfigEquals(options, resolvedConfig)) throw new LlmError("prepared measurement config changed", "INVALID_PREPARED_CALL");
+\t\t\t\t\tconst projected = this.projectRequestOptions(options, modelInfo, registration.adapter);
+\t\t\t\t\tconst request = await adapterCall.prepareRequest(projected);
+\t\t\t\t\toptions.signal?.throwIfAborted();
+\t\t\t\t\treturn request.fit;
+\t\t\t\t} },
+\t\t\t\tstream: (options) => {`);
 
     // Reuse the existing file, modality, tool-history and replay projections for
     // both dispatch and recovery measurement; there is no second estimator.
@@ -77,8 +87,8 @@ export const llmPatch = {
 \t\trememberRequestFitFailure(chunk, recovery, options) {
 \t\t\tconst failure = chunk.type === "finish" && chunk.reason.kind === "error" ? chunk.reason.failure : void 0;
 \t\t\tconst mainFailure = options.purpose === void 0 && (failure?.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "OUTPUT_TRUNCATED" || failure?.code === "OUTPUT_LIMIT_REACHED");
-\t\t\tconst summaryPreflight = options.purpose === "compaction" && failure?.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED";
-\t\t\tif ((!mainFailure && !summaryPreflight) || recovery === void 0 || failure.requestId !== recovery.fit.requestId) return;
+\t\t\tconst summaryOverflow = options.purpose === "compaction" && (failure?.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED" || failure?.code === "CONTEXT_WINDOW_EXCEEDED");
+\t\t\tif ((!mainFailure && !summaryOverflow) || recovery === void 0 || failure.requestId !== recovery.fit.requestId) return;
 \t\t\t// Failures are consumed synchronously by native request-error recovery.
 \t\t\t// Bound diagnostics from callers that do not install that consumer.
 \t\t\tif (this.requestFitFailures.size >= 256) this.requestFitFailures.delete(this.requestFitFailures.keys().next().value);

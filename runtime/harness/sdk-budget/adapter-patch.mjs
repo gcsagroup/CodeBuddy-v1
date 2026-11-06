@@ -123,6 +123,9 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 function mapStopReason(message, contextWindow, requestFit, reportedOutputTokens) {`);
     replace('\tconst piAiOverflow = isContextOverflow(message, contextWindow);', `\tconst hasReportedOutput = reportedOutputTokens !== void 0 && message.usage.output === reportedOutputTokens;
 \tconst piAiOverflow = (message.stopReason !== "length" || hasReportedOutput) && isContextOverflow(message, contextWindow);`);
+    // Keep the auxiliary failure tied to the exact prepared route/snapshot.
+    // Main-request overflow continues through the unchanged native handler.
+    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE,\n\t\t\t...requestFit?.purpose === "compaction" ? { requestId: requestFit.requestId } : {}\n');
     replace('\t\tcase "length": return { kind: "max-tokens" };', `\t\tcase "length":
 \t\t\tif (requestFit !== void 0 && requestFit.outputCapApplied !== false && hasReportedOutput && isRecoverableLength(message, requestFit.desiredMaxTokens)) return {
 \t\t\t\tkind: "error",

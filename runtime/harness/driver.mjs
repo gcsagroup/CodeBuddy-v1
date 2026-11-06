@@ -940,6 +940,9 @@ Keep progress updates brief, meaningful, and outcome-based.
         ? previousBinding : { scope, identity: Object.freeze({}) });
     }
     const subagentModels = {};
+    const compactionModel = settings.compactionModel;
+    const summaryRoute = compactionModel && !compactionModel.error
+      ? await configureProvider(compactionModel.provider, compactionModel.model) : null;
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
@@ -1055,9 +1058,12 @@ Keep progress updates brief, meaningful, and outcome-based.
           // reuse, so its cap must fit both thinking and the complete checkpoint.
           headroomTokens: 1024, maxTokens: 4096, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
           auto: settings.autoCompact !== false,
+          summarizationProvider: summaryRoute?.provider ?? '',
+          summarizationModel: summaryRoute?.model ?? '',
         });
         await compactFiber;
         if (compactFiber.state !== 2) throw new Error('Harness compaction did not activate');
+        scoped.get('compaction').modelError = compactionModel?.error;
         // Both transports are independent. Harness still owns remote preset
         // leases and session-scoped stdio processes; admit the loop after both.
         const [lease, statuses] = await Promise.all([

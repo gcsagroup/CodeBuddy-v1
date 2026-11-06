@@ -35,6 +35,7 @@ import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
 import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
+import { COMPACTION_MODEL_KEY, validateCompactionModel, resolveCompactionModel } from './compaction-model.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -745,7 +746,8 @@ export class Compat {
       const route = this.routing.get(sessionId);
       if (
         this.session(sessionId).providerId === id ||
-        route?.main?.provider?.id === id
+        route?.main?.provider?.id === id ||
+        route?.compaction?.provider?.id === id
       )
         throw invalid(
           "Stop active sessions before editing or removing their model provider",
@@ -897,6 +899,8 @@ export class Compat {
       ...(preferences.autoCompactThreshold != null
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
+      compactionModel: await resolveCompactionModel(state.config, state.providers,
+        choice => this.settings.request('model-capabilities/resolve', choice)),
       mcpServers,
       mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
       mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
@@ -1328,6 +1332,7 @@ export class Compat {
       if (capability.imageInput === "supported")
         provider.inputModalities = ["text", "image"];
       const options = await measure('optionsMs', () => this.sessionOptions(s, { extensions, tools }));
+      this.routing.set(s.id, { ...this.routing.get(s.id), compaction: options.compactionModel });
       const current = unpublished ? s : this.assertSessionAvailable(s.id);
       if (
         (current.nativeSessionId ?? current.id) !==
@@ -2538,6 +2543,14 @@ export class Compat {
       }
       case "config/upsert": {
         requireString(p.key, "key");
+        if (p.key === COMPACTION_MODEL_KEY) {
+          await this.store.update(state => {
+            state.config[p.key] = { value: validateCompactionModel(p.value, state.providers, p.isSecret) };
+          });
+          this.configurationRevision += 1;
+          this.initialized.clear();
+          return {};
+        }
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
         if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
@@ -2551,6 +2564,7 @@ export class Compat {
       }
       case "config/remove":
         await this.store.update((s) => delete s.config[p.key]);
+        if (p.key === COMPACTION_MODEL_KEY) this.configurationRevision += 1;
         if (p.key !== COMMON_QUERY_KEY) this.initialized.clear();
         return {};
       case "config/extensions/list":

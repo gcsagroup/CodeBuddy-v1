@@ -36,7 +36,7 @@ async function fixture(t, handler, { contextWindow = 65536, maxTokens = 256, use
     const lastText = typeof lastContent === 'string' ? lastContent : (lastContent ?? []).filter(block => block.type === 'text').map(block => block.text).join('\n');
     // This fixture identifies the SDK's auxiliary directive only to choose a
     // mock response. It must still recognize a summary whose cap was clamped.
-    const request = { body, summary: lastText.startsWith('You are now acting as a compaction engine for this AI coding assistant.') };
+    const request = { body, url: req.url, summary: lastText.startsWith('You are now acting as a compaction engine for this AI coding assistant.') };
     requests.push(request);
     await handler(request, res, requests);
   });
@@ -471,6 +471,86 @@ async function warm(f) {
   assert.equal(result.stopReason, 'end_turn');
 }
 
+for (const manual of [true, false]) test(`an independent summary route leaves the main model unchanged (${manual ? 'manual' : 'pressure'})`, { timeout: 20000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, request.summary ? 'Retain the completed fixture facts.' : WARM_HISTORY));
+  await warm(f);
+  const count = f.requests.length;
+  await f.driver.configureSession(f.sessionId, { autoCompactThreshold: manual ? 0.99 : 0.1,
+    compactionModel: { provider: { ...f.provider, id: 'summary-only', baseUrl: f.provider.baseUrl.replace(/\/v1$/, '/summary/v1') }, model: 'summary-model' } });
+  if (manual) await f.driver.compact(f.sessionId);
+  else await f.driver.prompt(f.sessionId, 'Continue the recorded fixture.');
+  const requests = f.requests.slice(count);
+  assert.ok(requests.some(request => request.summary));
+  assert.ok(requests.filter(request => request.summary).every(request => request.body.model === 'summary-model' && request.url.startsWith('/summary/v1/')));
+  assert.ok(requests.filter(request => !request.summary).every(request => request.body.model === 'fixture' && request.url.startsWith('/v1/')));
+  await f.driver.configureSession(f.sessionId, { compactionModel: null, autoCompactThreshold: 0.99 });
+  await f.driver.prompt(f.sessionId, 'Record more fixture facts.');
+  await f.driver.compact(f.sessionId);
+  assert.equal(f.requests.at(-1).summary, true);
+  assert.equal(f.requests.at(-1).body.model, 'fixture', 'clearing the independent choice restores native following');
+});
+
+test('an unavailable independent summary model fails only compression and never silently falls back', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res) => reply(res, WARM_HISTORY));
+  await f.driver.configureSession(f.sessionId, { compactionModel: { error: 'Selected compaction model unavailable' } });
+  assert.equal((await f.driver.prompt(f.sessionId, 'Ordinary chat still works.')).stopReason, 'end_turn');
+  const count = f.requests.length;
+  await assert.rejects(f.driver.compact(f.sessionId), /Selected compaction model unavailable/);
+  assert.equal(f.requests.length, count, 'an unavailable dedicated model must not send the history to a different provider');
+});
+
+for (const manual of [true, false]) test(`switching to a smaller model compacts multiple fitting regions before ${manual ? 'manual completion' : 'the native request retry'}`, { timeout: 30000 }, async t => {
+  let warming = true;
+  const f = await fixture(t, (request, res) => {
+    if (request.summary) return reply(res, 'Keep the recorded fixture facts and completed receipts.');
+    reply(res, warming ? WARM_HISTORY.slice(0, Math.floor(WARM_HISTORY.length * 0.6)) : FINAL);
+  }, { contextWindow: 131072 });
+  for (let index = 0; index < 8; index++) await warm(f);
+  warming = false;
+  const before = await f.driver.history(f.sessionId);
+  const oldHeader = before.events.findLast(event => event.type === 'request/header');
+  const oldRequests = f.requests.length;
+  const provider = { ...f.provider, id: 'small-connection', baseUrl: f.provider.baseUrl.replace(/\/v1$/, '/selected/v1'), contextWindow: 16384 };
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider, model: 'small-fixture', options: { maxTokens: 256, autoCompactThreshold: 0.99 } });
+  const fits = await observeFits(t);
+  if (manual) await f.driver.compact(f.sessionId);
+  else assert.equal((await f.driver.prompt(f.sessionId, 'Use the recorded facts and return the fixture result.')).stopReason, 'end_turn');
+  const requests = f.requests.slice(oldRequests);
+  assert.ok(requests.filter(request => request.summary).length > 1, 'a partial summary must not end recovery while the full request still cannot fit');
+  assert.ok(requests.every(request => request.body.model === 'small-fixture'), 'manual compression must never call the previous model');
+  assert.ok(requests.every(request => request.url.startsWith('/selected/v1/')), 'the selected connection owns all auxiliary requests');
+  assert.equal(requests.filter(request => !request.summary).length, manual ? 0 : 1, 'compression never probes the provider with an overflowing main request');
+  assert.ok(fits.some(item => item.purpose === 'compaction' && item.fit.effectiveMaxTokens < item.fit.desiredMaxTokens), 'oversized summary candidates are rejected locally before selecting a smaller region');
+  assert.ok(requests.filter(request => request.summary).every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 4096), 'only complete summary budgets reach HTTP');
+  const history = await f.driver.history(f.sessionId);
+  assert.ok(summaries(history).length > 1);
+  if (manual) assert.deepEqual(history.events.findLast(event => event.type === 'request/header'), oldHeader, 'manual maintenance must not fabricate a main request header or consume its selection');
+  const surface = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
+  const current = history.events.findLast(event => event.type === 'user/message' && event.data.source?.kind === 'user');
+  assert.ok(surface.surface.nodes.includes(current.seq), 'the latest human input stays verbatim');
+  await f.driver.prompt(f.sessionId, 'Return the next short fixture result.');
+  assert.equal(f.requests.at(-1).body.model, 'small-fixture');
+  assert.equal(f.requests.at(-1).summary, false);
+});
+
+test('manual compression cannot report success by dropping a protected input that exceeds the selected window', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (_request, res) => reply(res, 'Recorded fixture result.'), { contextWindow: 131072 });
+  const instruction = 'Retain this exact human instruction. '.repeat(3000);
+  await f.driver.prompt(f.sessionId, instruction);
+  const before = await f.driver.history(f.sessionId);
+  const original = before.events.findLast(event => event.type === 'user/message' && event.data.source?.kind === 'user');
+  const count = f.requests.length;
+  await f.driver.createSession({ sessionId: f.sessionId, cwd: f.root, provider: { ...f.provider, contextWindow: 16384 }, model: 'small-fixture', options: { maxTokens: 256 } });
+  await assert.rejects(f.driver.compact(f.sessionId), /manual compaction/);
+  assert.ok(f.requests.slice(count).every(request => request.summary && request.body.model === 'small-fixture'));
+  assert.ok(f.requests.length - count <= 8);
+  const history = await f.driver.history(f.sessionId);
+  const surface = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
+  assert.deepEqual(surface.deriveMessages().find(message => message.id === original.data.id), original.data);
+  assert.ok(summaries(history).every(event => !event.data.shadowedSeqs.includes(original.seq)));
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, history.events.filter(event => event.type === 'compaction/end').length);
+});
+
 async function observeFits(t) {
   const { PiAiAdapter } = await import('@deepseek-ai/dsh-llm-pi-ai');
   const fits = [], prepare = PiAiAdapter.prototype.prepareRequestWithSnapshot;
@@ -553,13 +633,15 @@ test('local budget exhaustion compacts retained history before dispatching the r
   await warm(f);
   assert.equal((await f.driver.prompt(f.sessionId, 'A current request requiring the retained fixture facts. '.repeat(450))).stopReason, 'end_turn');
   assert.equal(modelCalls, 2, 'the exhausted original attempt must never reach HTTP');
-  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  t.diagnostic(JSON.stringify({ fixture: 'local-budget-fit', fits: fits.map(item => ({ purpose: item.purpose, estimate: item.fit.estimate.tokens, available: item.fit.available })) }));
+  const summaryRequests = f.requests.filter(request => request.summary);
+  assert.ok(summaryRequests.length >= 1 && summaryRequests.length <= 8);
   assert.ok(fits.some(item => item.purpose === undefined && item.fit.available < item.fit.minimumMaxTokens));
-  assert.ok(fits.filter(item => item.purpose === 'compaction').every(item => item.fit.effectiveMaxTokens === item.fit.desiredMaxTokens));
+  assert.ok(summaryRequests.every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) === 4096), 'locally rejected candidates never dispatch a clamped summary');
   assert.ok(f.requests.every(request => (request.body.max_completion_tokens ?? request.body.max_tokens) > 1));
   const history = await f.driver.history(f.sessionId);
   assert.equal(failures(history).at(-1).code, 'LOCAL_OUTPUT_BUDGET_EXHAUSTED');
-  assert.equal(summaries(history).length, 1);
+  assert.equal(summaries(history).length, summaryRequests.length, 'each successful summary remains a native committed transaction');
 });
 
 test('a second short length result stops even under an always retry policy', { timeout: 15000 }, async t => {
@@ -603,6 +685,91 @@ test('provider-confirmed context overflow keeps its separate native recovery cla
   const history = await f.driver.history(f.sessionId);
   assert.equal(failures(history).at(-1).code, 'CONTEXT_WINDOW_EXCEEDED');
   assert.equal(summaries(history).length, 1);
+});
+
+test('a provider-rejected summary shrinks its balanced range despite a positive local fit', { timeout: 20000 }, async t => {
+  const fits = await observeFits(t);
+  let rejected;
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (!rejected) {
+      rejected = request;
+      return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: {
+        code: 'context_length_exceeded', message: 'maximum context length exceeded',
+      } }));
+    }
+    reply(res, 'Retain all completed fixture facts from the selected prefix.');
+  });
+  for (let index = 0; index < 3; index++) await warm(f);
+  const before = await f.driver.history(f.sessionId);
+  const original = new Session(before.meta.id, before.events, before.meta, 'snapshot', before.inheritedEventCount);
+  const current = before.events.findLast(event => event.type === 'user/message' && event.data.source?.kind === 'user');
+  await f.driver.compact(f.sessionId);
+  const requests = f.requests.filter(request => request.summary);
+  assert.equal(requests.length, 2, 'the server rejection permits one smaller auxiliary request, never the main request');
+  assert.ok(requests[1].body.messages.length < rejected.body.messages.length);
+  assert.ok(fits.filter(item => item.purpose === 'compaction').every(item => item.fit.effectiveMaxTokens === item.fit.desiredMaxTokens));
+  const history = await f.driver.history(f.sessionId);
+  const summary = summaries(history).at(-1);
+  const surface = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
+  assert.ok(summary.data.shadowedSeqs.length < original.surface.nodes.length - 1);
+  for (const seq of original.surface.nodes.filter(seq => !summary.data.shadowedSeqs.includes(seq)))
+    assert.ok(surface.surface.nodes.includes(seq), 'the rejected larger region must not be shadowed by its smaller replacement');
+  assert.ok(surface.surface.nodes.includes(current.seq));
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, 1);
+  assert.equal(history.events.filter(event => event.type === 'compaction/end').length, 1);
+  await f.reopen();
+  assert.deepEqual(summaries(await f.driver.history(f.sessionId)), summaries(history));
+});
+
+test('unfittable summary input terminates shrinking without committing or losing history', { timeout: 20000 }, async t => {
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: {
+      code: 'context_length_exceeded', message: 'maximum context length exceeded',
+    } }));
+  });
+  for (let index = 0; index < 3; index++) await warm(f);
+  const before = await f.driver.history(f.sessionId);
+  const original = new Session(before.meta.id, before.events, before.meta, 'snapshot', before.inheritedEventCount);
+  await assert.rejects(f.driver.compact(f.sessionId), /maximum context length exceeded/);
+  const history = await f.driver.history(f.sessionId);
+  const surface = new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount);
+  assert.deepEqual(surface.deriveMessages(), original.deriveMessages());
+  assert.equal(summaries(history).length, 0);
+  const attempts = f.requests.filter(request => request.summary);
+  assert.ok(attempts.length > 1 && attempts.length <= Math.ceil(Math.log2(original.surface.nodes.length)) + 1);
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, history.events.filter(event => event.type === 'compaction/end').length);
+});
+
+for (const status of [400, 429]) test(`an unrelated summary rejection (${status}) does not start range shrinking`, { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify({ error: {
+      code: status === 400 ? 'invalid_request_error' : 'rate_limit_exceeded', message: 'ISOLATED_SUMMARY_REJECTION',
+    } }));
+  });
+  await warm(f);
+  await assert.rejects(f.driver.compact(f.sessionId), /ISOLATED_SUMMARY_REJECTION/);
+  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
+});
+
+test('cancelling a provider-rejected summary never dispatches its smaller continuation', { timeout: 15000 }, async t => {
+  const abort = new AbortController();
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    abort.abort();
+    res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: {
+      code: 'context_length_exceeded', message: 'maximum context length exceeded',
+    } }));
+  });
+  await warm(f);
+  await assert.rejects(f.driver.compact(f.sessionId, { signal: abort.signal }), { name: 'AbortError' });
+  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(summaries(history).length, 0);
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, history.events.filter(event => event.type === 'compaction/end').length);
 });
 
 test('a summary that makes no useful reduction does not authorize retry', { timeout: 15000 }, async t => {

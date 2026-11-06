@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bot, Plus, ArrowLeft, Check, Loader2, Trash2, ImagePlus } from 'lucide-react';
 import { setNextChatAgent } from '../../utils/nextChatAgent';
+import { rememberRecentAgent } from '../../utils/recentAgents';
 import { getWorkspaceModeFromPath, withWorkspaceMode, type ViewOptions } from '../../utils/navigationUtils';
 import { agentRequest as request, type AgentProfile as Profile, type AgentPreset, type AgentSelection } from './agentApi';
 
@@ -107,6 +108,7 @@ export function CustomAgents() {
       await request('select', { sessionId, id: profile.id, expectedRevision: target.selection.revision });
       window.dispatchEvent(new Event(AppEvents.AGENT_PROFILES_CHANGED));
     } else setNextChatAgent(profile.id);
+    rememberRecentAgent(profile.id);
     if (current === scope.current) navigate(returnPath);
   }
   async function saveDraft(apply: boolean) {

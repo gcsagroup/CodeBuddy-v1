@@ -161,9 +161,9 @@ for (const configured of [false, true]) {
   });
 }
 
-test('Windows preview shares workspace-local temp files with the native esbuild child', { skip: process.platform !== 'win32' }, async (t) => {
+for (const directory of ['.local', '.local/启动 对抗 空格']) test(`Windows preview shares workspace-local temp files with the native esbuild child (${directory})`, { skip: process.platform !== 'win32' }, async (t) => {
   // The real native executable has the same workspace restrictions as the app.
-  const fixtureParent = path.resolve(__dirname, '../.local');
+  const fixtureParent = path.resolve(__dirname, '..', directory);
   fs.mkdirSync(fixtureParent, { recursive: true });
   const { root, options } = fixture(t, fixtureParent);
   const esbuildPath = require.resolve('esbuild', { paths: [path.join(__dirname, '../ui/desktop')] });
@@ -193,6 +193,19 @@ test('Windows preview shares workspace-local temp files with the native esbuild 
   assert.equal(inherited.TEMP, os.tmpdir(), 'launching must not change its parent environment');
   const receipt = JSON.parse(fs.readFileSync(path.join(options.dataDirectory, 'logs/preview/launch.json'), 'utf8'));
   assert.equal(receipt.temporaryDirectory, observed.temp);
+});
+
+test('Windows preview refuses an unusable temp directory before starting backend or desktop', { skip: process.platform !== 'win32' }, async t => {
+  const { root, options } = fixture(t);
+  const env = previewEnvironment(root, 12345, 'fixture-secret', options.env, options.dataDirectory);
+  fs.mkdirSync(path.dirname(env.TEMP), { recursive: true });
+  fs.writeFileSync(env.TEMP, 'owned fixture: this is a file, not a directory');
+  const backendMarker = path.join(root, 'backend-started.txt');
+  fs.writeFileSync(options.serverPath, `require('node:fs').writeFileSync(${JSON.stringify(backendMarker)}, 'unexpected');` + fs.readFileSync(options.serverPath, 'utf8'));
+  await assert.rejects(startPreview(options), error => ['EEXIST', 'ENOTDIR'].includes(error.code));
+  assert.equal(fs.existsSync(backendMarker), false);
+  assert.equal(fs.existsSync(path.join(root, 'desktop-observed.json')), false);
+  assert.equal(fs.readFileSync(env.TEMP, 'utf8'), 'owned fixture: this is a file, not a directory');
 });
 
 test('failed bridge startup never launches desktop and records a failed receipt', async (t) => {

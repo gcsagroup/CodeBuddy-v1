@@ -264,17 +264,30 @@ export default function UserMessage({
         ) : (
           // Normal message display
           <div className="message flex justify-end w-full">
-            <div className="flex-col max-w-[85%] w-fit">
-              <div className="flex flex-col group">
+            <div className="flex min-w-0 max-w-[85%] w-fit flex-col items-end">
+              <div className="group flex min-w-0 max-w-full flex-col items-end">
+                {imagePaths.length > 0 && (
+                  <div
+                    data-testid="user-message-attachments"
+                    className="mb-3 max-w-full overflow-x-auto overflow-y-hidden scrollbar-thin"
+                  >
+                    <div className="flex w-max flex-nowrap gap-3">
+                      {imagePaths.map((imagePath, index) => (
+                        <ImagePreview key={index} src={imagePath} variant="attachment" />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {textContent.trim() && (
                   <div
+                    data-testid="user-message-bubble"
                     className={
                       isLargeText(textContent)
-                        ? 'flex min-w-0 text-text-primary'
-                        : 'flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4'
+                        ? 'flex min-w-0 max-w-full w-fit text-text-primary'
+                        : 'flex min-w-0 max-w-full w-fit bg-text-primary text-background-primary rounded-xl py-2.5 px-4'
                     }
                   >
-                    <div>
+                    <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
                       {isLargeText(textContent) ? (
                         <PastedTextPreview text={textContent} />
                       ) : (
@@ -284,14 +297,6 @@ export default function UserMessage({
                         />
                       )}
                     </div>
-                  </div>
-                )}
-
-                {imagePaths.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {imagePaths.map((imagePath, index) => (
-                      <ImagePreview key={index} src={imagePath} />
-                    ))}
                   </div>
                 )}
 

@@ -78,6 +78,14 @@
   font-size: var(--conversation-secondary-size);
 }
 
+/* A settled turn's duration introduces the answer at the body text size. */
+.codepro-chat-history [data-turn-process-summary] > [data-slot='collapsible'] > div:first-child {
+  --conversation-secondary-size: var(--conversation-text-size);
+  border-bottom: 1px solid var(--color-border-primary);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+
 .codepro-chat-history
   :is(
     .rounded,
@@ -165,6 +173,85 @@
 .codepro-chat-history .codepro-process-details {
   --conversation-line-height: 1.45;
   max-height: min(18rem, 40vh);
+  padding-block: 0;
+  overflow-anchor: none;
+}
+
+/* Clip the disclosure animation without creating a second scroll ancestor
+   between a thought's sticky heading and its actual reading viewport. */
+.codepro-disclosure-content.codepro-process-disclosure[data-state='open'] {
+  overflow: clip;
+}
+
+/* Edge overlays leave the native scrollbar clear and the sticky title above
+   them. They share the conversation canvas in either theme. */
+.codepro-process-disclosure:has(> .codepro-process-details) {
+  position: relative;
+}
+
+.codepro-process-disclosure:has(> .codepro-process-details)::before,
+.codepro-process-disclosure:has(> .codepro-process-details)::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0 12px;
+  height: 24px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.codepro-process-disclosure:has(> .codepro-process-details)::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--color-background-primary), transparent);
+}
+
+.codepro-process-disclosure:has(> .codepro-process-details)::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--color-background-primary), transparent);
+}
+
+.codepro-process-disclosure[data-state='open']:has(> [data-scrolled='true'])::before,
+.codepro-process-disclosure[data-state='open']:has(> [data-more-below='true'])::after {
+  opacity: 1;
+}
+
+.codepro-thinking-record[data-state='open'] > .codepro-thinking-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-radius: 0;
+  background: var(--color-background-primary);
+}
+
+.codepro-thinking-preview {
+  flex: 1;
+  opacity: 0.75;
+}
+
+.codepro-thinking-details {
+  --conversation-line-height: 1.4;
+  /* Code copy controls stay beneath the sticky heading, even on hover. */
+  position: relative;
+  z-index: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.codepro-thinking-details .prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.codepro-thinking-details .prose :is(th, td) {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Reveal the full body immediately so reading restoration can scroll to its
+   saved offset without competing with an interpolated height. */
+.codepro-thinking-disclosure[data-state='open'] {
+  animation: codepro-operation-in 160ms ease-out;
 }
 
 .codepro-chat-history .codepro-process-details .codepro-tool-group {
@@ -190,15 +277,11 @@
   line-height: 1.45;
 }
 
-.codepro-chat-history .codepro-process-details .codepro-thinking-details {
-  max-height: min(14rem, 32vh);
-}
-
 .codepro-chat-history .codepro-process-details .assistant {
   margin-block: 0;
 }
 
-.codepro-chat-history .codepro-process-details .codepro-thinking-details .prose > :is(p, ul, ol) {
+.codepro-chat-history .codepro-thinking-details .prose > :is(p, ul, ol) {
   margin-block: 0.25rem;
 }
 

@@ -27,7 +27,9 @@ function compactGroups() {
 }
 
 function openTurnHistory() {
-  const toggle = document.querySelector('[data-turn-process-summary] > [data-slot="collapsible"] > div > button');
+  const toggle = document.querySelector(
+    '[data-turn-process-summary] > [data-slot="collapsible"] > div > button'
+  );
   if (!toggle) throw new Error('Missing turn history disclosure');
   if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
   return toggle;
@@ -293,7 +295,9 @@ describe('work / answer presentation boundary', () => {
       const missingReply = screen.queryByText(/The model response ended without a final reply/);
       expect(missingReply !== null).toBe(notice);
       if (missingReply) expect(missingReply).toBeVisible();
-      expect(screen.queryByText(/Private reasoning with/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Private reasoning with/, { selector: '.codepro-assistant-prose *' })
+      ).not.toBeInTheDocument();
       expect(screen.queryByText('FAIL')).not.toBeInTheDocument();
       expect(screen.queryByText('PASS')).not.toBeInTheDocument();
       expect(JSON.stringify(trace)).toBe(original);
@@ -417,9 +421,7 @@ describe('work / answer presentation boundary', () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByText('Completed 0 operations')).not.toBeInTheDocument();
       fireEvent.click(history);
-      expect(
-        screen.queryByText('Consider the greeting without any tools.')
-      ).not.toBeInTheDocument();
+      expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
       expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
@@ -1054,18 +1056,30 @@ describe('CodePro ordinary tool message presentation', () => {
   );
 
   it('preserves all thoughts in the combined process while hiding successful internal discovery', () => {
-    const thought = (index: number, text: string): Message => ({ ...message(index), content: [{ type: 'thinking', thinking: text, signature: '' }] });
+    const thought = (index: number, text: string): Message => ({
+      ...message(index),
+      content: [{ type: 'thinking', thinking: text, signature: '' }],
+    });
     const discovery = toolTransportMessage(3, 'discovery', 'request');
     const request = discovery.content[0];
     if (request.type !== 'toolRequest') throw Error('Expected tool request');
-    request.toolCall = { status: 'success', value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } } };
-    const records = [thought(1, 'First thought.'), thought(2, 'Continued thought.'), discovery, toolTransportMessage(4, 'discovery', 'response'), thought(5, 'After discovery.')];
+    request.toolCall = {
+      status: 'success',
+      value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } },
+    };
+    const records = [
+      thought(1, 'First thought.'),
+      thought(2, 'Continued thought.'),
+      discovery,
+      toolTransportMessage(4, 'discovery', 'response'),
+      thought(5, 'After discovery.'),
+    ];
     const original = structuredClone(records);
     render(renderTrace(records, ['discovery']), { wrapper: IntlTestWrapper });
     expect(compactGroups()).toHaveLength(1);
     openProcess();
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     for (const toggle of screen.getAllByRole('button', { name: /^Thinking(?: \(updating\))?$/ })) {
       if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
     }
@@ -1374,12 +1388,17 @@ describe('CodePro ordinary tool message presentation', () => {
 
   it('includes unsuccessful receipts beside successful work in a mixed group', () => {
     const failed = toolTransportMessage(7, 'failed-call', 'response');
-    failed.content = [{ type: 'toolResponse', id: 'failed-call',
-      toolResult: { status: 'success', value: { content: [], isError: true } } }];
-    render(renderTrace([
-      ...changeTrace,
-      toolTransportMessage(6, 'failed-call', 'request'), failed,
-    ]), { wrapper: IntlTestWrapper });
+    failed.content = [
+      {
+        type: 'toolResponse',
+        id: 'failed-call',
+        toolResult: { status: 'success', value: { content: [], isError: true } },
+      },
+    ];
+    render(
+      renderTrace([...changeTrace, toolTransportMessage(6, 'failed-call', 'request'), failed]),
+      { wrapper: IntlTestWrapper }
+    );
     const toggle = screen.getByRole('button', {
       name: 'Read file README.md',
     });

@@ -206,9 +206,38 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
       return true;
     }, [clearDisclosureAnchor]);
 
+    const scrollToPosition = React.useCallback(
+      ({ top, behavior = 'smooth' }: { top: number; behavior?: ScrollBehavior }) => {
+        if (viewportRef.current) {
+          stopFollowingMotion();
+          clearDisclosureAnchor();
+          userScrolledUpRef.current = true;
+          setIsFollowing(false);
+          onScrollChange?.(false);
+          trackNavigation();
+          viewportRef.current.scrollTo({
+            top,
+            behavior,
+          });
+        }
+      },
+      [clearDisclosureAnchor, onScrollChange, stopFollowingMotion, trackNavigation]
+    );
+
     const holdLayoutAnchor = React.useCallback(
-      (element: Element) => {
+      (element: Element, position?: { top: number; behavior: ScrollBehavior }) => {
         const viewport = viewportRef.current;
+        if (position && viewport?.contains(element)) {
+          scrollToPosition({
+            top:
+              viewport.scrollTop +
+              element.getBoundingClientRect().top -
+              viewport.getBoundingClientRect().top -
+              position.top,
+            behavior: position.behavior,
+          });
+          return () => {};
+        }
         if (
           !autoScroll ||
           !viewport ||
@@ -247,7 +276,7 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
           }
         };
       },
-      [autoScroll, followBottom, restoreDisclosureAnchor, stopFollowingMotion]
+      [autoScroll, followBottom, restoreDisclosureAnchor, stopFollowingMotion, scrollToPosition]
     );
 
     const BOTTOM_SCROLL_THRESHOLD = 200;
@@ -284,24 +313,6 @@ const ScrollArea = React.forwardRef<ScrollAreaHandle, ScrollAreaProps>(
         reportBottom();
       }
     }, [onScrollChange, clearDisclosureAnchor, stopFollowingMotion, reportBottom]);
-
-    const scrollToPosition = React.useCallback(
-      ({ top, behavior = 'smooth' }: { top: number; behavior?: ScrollBehavior }) => {
-        if (viewportRef.current) {
-          stopFollowingMotion();
-          clearDisclosureAnchor();
-          userScrolledUpRef.current = true;
-          setIsFollowing(false);
-          onScrollChange?.(false);
-          trackNavigation();
-          viewportRef.current.scrollTo({
-            top,
-            behavior,
-          });
-        }
-      },
-      [clearDisclosureAnchor, onScrollChange, stopFollowingMotion, trackNavigation]
-    );
 
     // Expose the scroll methods to parent components
     React.useImperativeHandle(

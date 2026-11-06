@@ -25,7 +25,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { ChevronRight, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
 import GooseMessage, {
   codeProTerminalPresentation,
@@ -147,10 +147,6 @@ const i18n = defineMessages({
   stopped: { id: 'gooseMessage.turnStopped', defaultMessage: 'Stopped' },
   thinking: { id: 'thinkingContent.thinking', defaultMessage: 'Thinking' },
   thinkingLive: { id: 'thinkingContent.thinkingLive', defaultMessage: 'Thinking (updating)' },
-  thinkingDetails: {
-    id: 'progressiveMessageList.thinkingDetails',
-    defaultMessage: 'Reasoning details',
-  },
   turnProcessDuration: {
     id: 'progressiveMessageList.turnProcessDuration',
     defaultMessage: 'This turn: {minutes} min {seconds} sec',
@@ -397,37 +393,6 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
         sharedMediaJobs={mediaJobs}
         presentationPending={!props.renderMessage && presentation.pending}
       />
-    </>
-  );
-}
-
-function ProcessDetails({
-  hasThinking,
-  children,
-}: {
-  hasThinking: boolean;
-  children: (showThinking: boolean) => React.ReactNode;
-}) {
-  const intl = useIntl();
-  const [showThinking, setShowThinking] = useState(false);
-  return (
-    <>
-      {hasThinking && (
-        <button
-          type="button"
-          aria-pressed={showThinking}
-          aria-expanded={showThinking}
-          className="mb-1 inline-flex items-center gap-1 self-start text-left text-xs text-text-secondary hover:text-text-primary"
-          onClick={() => setShowThinking((shown) => !shown)}
-        >
-          {intl.formatMessage(i18n.thinkingDetails)}
-          <ChevronRight
-            aria-hidden="true"
-            className={`h-3 w-3 shrink-0 transition-transform ${showThinking ? 'rotate-90' : ''}`}
-          />
-        </button>
-      )}
-      {children(showThinking)}
     </>
   );
 }
@@ -1406,13 +1371,7 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  <ProcessDetails hasThinking={thinkingCount > 1}>
-                    {(showThinking) =>
-                      group.map((item) =>
-                        renderToolMessage(item, showThinking || thinkingCount === 1, pendingIds)
-                      )
-                    }
-                  </ProcessDetails>
+                  {group.map((item) => renderToolMessage(item, true, pendingIds))}
                 </div>
               </ToolCallExpandable>
               {awaitingApproval && (

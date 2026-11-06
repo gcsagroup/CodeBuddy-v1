@@ -598,8 +598,7 @@ describe('media task presentation', () => {
       openProcesses(view.container);
       expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
       openProcesses(view.container);
-      expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
-      fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
       const thinking = [...view.container.querySelectorAll('.codepro-thinking-record')];
       expect(thinking).toHaveLength(2);
       for (const record of thinking) {
@@ -693,7 +692,7 @@ describe('media task presentation', () => {
   });
 
   it.each([1, 2, 3])(
-    'uses the original single-thought entry and preserves the existing %s-thought disclosure hierarchy',
+    'keeps %s original thought disclosures without an additional reasoning-details gate',
     (count) => {
       const trace = Array.from({ length: count }, (_, index) =>
         message('thought-' + index, 'assistant', [
@@ -706,16 +705,15 @@ describe('media task presentation', () => {
         expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
         expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
         expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
-        expect(screen.queryByText('Reasoning part 0')).toBeNull();
+        expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
         fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
         expect(screen.getByText('Reasoning part 0')).toBeVisible();
         fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
-        expect(screen.queryByText('Reasoning part 0')).toBeNull();
+        expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
       } else {
         expect(view.container.querySelector('.codepro-group-heading')).not.toBeNull();
         openProcesses(view.container);
-        expect(screen.getAllByRole('button', { name: 'Reasoning details' })).toHaveLength(1);
-        fireEvent.click(screen.getByRole('button', { name: 'Reasoning details' }));
+        expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
         expect(view.container.querySelectorAll('.codepro-thinking-record')).toHaveLength(count);
         expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(count + 1);
       }

@@ -67,6 +67,41 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('keeps interleaved thoughts directly available without another reasoning-details disclosure', () => {
+    const records = [
+      user,
+      assistant('first-thought', [thought('Inspect the inputs.\n\nFirst complete thought.')]),
+      assistant('first-action', [request('first')]),
+      receipt('first'),
+      assistant('second-thought', [thought('Verify the output.\n\nSecond complete thought.')]),
+      assistant('second-action', [request('second')]),
+      receipt('second'),
+    ];
+    const original = JSON.stringify(records);
+    const view = render(show(records), { wrapper: IntlTestWrapper });
+    const group = view.container.querySelector<HTMLElement>('[data-process-group]')!;
+    fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
+    expect(within(group).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    const thoughts = within(group).getAllByRole('button', { name: 'Thinking' });
+    expect(thoughts).toHaveLength(2);
+    expect(thoughts[0]).toHaveTextContent('Inspect the inputs.');
+    expect(thoughts[1]).toHaveTextContent('Verify the output.');
+    expect(
+      Array.from(group.querySelectorAll('.codepro-thinking-record, [data-tool-call-id]')).map(
+        (element) =>
+          element.getAttribute('data-tool-call-id') ??
+          element.querySelector('.codepro-thinking-preview')?.textContent
+      )
+    ).toEqual(['Inspect the inputs.', 'first', 'Verify the output.', 'second']);
+    fireEvent.click(thoughts[0]);
+    expect(screen.getByText('First complete thought.')).toBeVisible();
+    expect(screen.queryByText('Second complete thought.')).toBeNull();
+    fireEvent.click(thoughts[1]);
+    expect(screen.getByText('First complete thought.')).toBeVisible();
+    expect(screen.getByText('Second complete thought.')).toBeVisible();
+    expect(JSON.stringify(records)).toBe(original);
+  });
+
   it('does not include unbound historical receipts in the latest completed turn footer', () => {
     const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);
     answer.metadata.usage = { inputTokens: 59, outputTokens: 16, totalTokens: 93389 };
@@ -242,7 +277,11 @@ describe('processes between public replies', () => {
         terminal,
       ])
     );
-    const summary = await screen.findByRole('button', { name: 'Time spent 2 min 0 sec' }, { timeout: 5000 });
+    const summary = await screen.findByRole(
+      'button',
+      { name: 'Time spent 2 min 0 sec' },
+      { timeout: 5000 }
+    );
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     for (const group of groups) expect(group).not.toBeVisible();
     expect(screen.queryByText('A public stage update.')).not.toBeInTheDocument();
@@ -339,10 +378,12 @@ describe('processes between public replies', () => {
       fireEvent.click(toggle);
       expect(group.querySelector('[data-tool-call-id="first"]')).not.toBeNull();
       expect(group.querySelectorAll('[data-tool-call-id="first"]')).toHaveLength(1);
-      expect(screen.queryByText('Detailed model reasoning.')).not.toBeInTheDocument();
+      expect(within(group).getByRole('button', { name: 'Thinking' })).toHaveTextContent(
+        'Detailed model reasoning.'
+      );
       expect(group.querySelectorAll('.codepro-thinking-record')).toHaveLength(1);
       expect(within(group).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-      expect(screen.queryByText('Detailed model reasoning.')).not.toBeInTheDocument();
+      expect(group.querySelector('.codepro-thinking-details')).toBeNull();
       fireEvent.click(within(group).getByRole('button', { name: 'Thinking' }));
       const detail = screen.getByText('Detailed model reasoning.');
       expect(detail).toBeVisible();
@@ -410,7 +451,7 @@ describe('processes between public replies', () => {
         row.getAttribute('data-tool-call-id')
       )
     ).toEqual(['first', 'second']);
-    expect(screen.queryByText('Compare the changes before replying.')).not.toBeInTheDocument();
+    expect(group.querySelector('.codepro-thinking-details')).toBeNull();
   });
 
   it('observes committed text from the public range rather than a folded reasoning range', () => {
@@ -483,7 +524,7 @@ describe('processes between public replies', () => {
     const groups = view.container.querySelectorAll<HTMLElement>('[data-process-group]');
     expect(groups).toHaveLength(1);
     fireEvent.click(within(groups[0]).getByRole('button', { expanded: false }));
-    expect(screen.queryByText('Check the remaining source.')).not.toBeInTheDocument();
+    expect(groups[0].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[0]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[0]).getByText('Check the remaining source.')).toBeVisible();
@@ -519,7 +560,7 @@ describe('processes between public replies', () => {
         item.getAttribute('data-tool-call-id')
       )
     ).toEqual(['first', 'second']);
-    expect(within(groups[1]).queryByText('Check another source.')).not.toBeInTheDocument();
+    expect(groups[1].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[1]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[1]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[1]).getByText('Check another source.')).toBeVisible();
@@ -557,7 +598,7 @@ describe('processes between public replies', () => {
     expect(groups).toHaveLength(1);
     const toggle = within(groups[0]).getByRole('button', { expanded: false });
     fireEvent.click(toggle);
-    expect(screen.queryByText('Compare both files.')).not.toBeInTheDocument();
+    expect(groups[0].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     fireEvent.click(within(groups[0]).getByRole('button', { name: 'Thinking' }));
     expect(within(groups[0]).getByText('Compare both files.')).toBeVisible();

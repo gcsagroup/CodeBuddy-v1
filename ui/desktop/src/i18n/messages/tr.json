@@ -5843,9 +5843,6 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
-  "progressiveMessageList.thinkingDetails": {
-    "defaultMessage": "Akıl yürütme ayrıntıları"
-  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },

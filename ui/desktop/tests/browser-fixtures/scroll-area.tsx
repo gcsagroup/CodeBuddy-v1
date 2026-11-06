@@ -123,6 +123,73 @@ function AutoFoldFixture() {
   );
 }
 
+function ProcessIconFixture() {
+  const assistant = (id: string, content: Message['content']): Message => ({
+    id,
+    role: 'assistant',
+    created: 2,
+    content,
+    metadata: { userVisible: true, agentVisible: true },
+  });
+  const call = (id: string): Message['content'][number] => ({
+    type: 'toolRequest',
+    id,
+    toolCall: { name: 'pwsh', arguments: { command: `Write-Output ${id}` } },
+  });
+  const result = (id: string, failed = false): Message => ({
+    id: `result-${id}`,
+    role: 'user',
+    created: 3,
+    metadata: { userVisible: false, agentVisible: true },
+    content: [
+      {
+        type: 'toolResponse',
+        id,
+        toolResult: failed
+          ? { status: 'error', error: 'The first fixture attempt failed.' }
+          : {
+              status: 'success',
+              value: { content: [{ type: 'text', text: 'Completed fixture output.' }] },
+            },
+      },
+    ],
+  });
+  const messages: Message[] = [
+    {
+      id: 'icon-user',
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Inspect the fixture.' }],
+      metadata: { userVisible: true, agentVisible: true },
+    },
+    assistant('past-work', [call('past-failed'), call('past-success')]),
+    result('past-failed', true),
+    result('past-success'),
+    assistant('public-reply', [
+      { type: 'thinking', thinking: 'Check the completed results.', signature: '' },
+      { type: 'text', text: 'The previous work has finished.' },
+    ]),
+    assistant('live-work', [call('current-call')]),
+  ];
+  return (
+    <IntlTestWrapper>
+      <MemoryRouter>
+        <main className="codepro-conversation" style={{ padding: 24, width: 760 }}>
+          <div className="codepro-chat-history">
+            <ProgressiveMessageList
+              messages={messages}
+              chat={{ sessionId: 'process-icons' }}
+              isUserMessage={(message) => message.role === 'user'}
+              isStreamingMessage
+              activeToolCallIds={['current-call']}
+            />
+          </div>
+        </main>
+      </MemoryRouter>
+    </IntlTestWrapper>
+  );
+}
+
 function ThoughtReadingFixture() {
   const grouped = new URLSearchParams(window.location.search).has('grouped');
   const edgeList = new URLSearchParams(window.location.search).has('edge-list');
@@ -571,7 +638,13 @@ function ToastFixture() {
 }
 
 const query = new URLSearchParams(window.location.search);
-if (query.has('thinking-reading') || query.has('presentation')) {
+if (query.has('process-icons')) {
+  window.electron = {
+    getSetting: async () => 'concise',
+    logInfo: () => {},
+  } as unknown as Window['electron'];
+}
+if (query.has('thinking-reading') || query.has('presentation') || query.has('process-icons')) {
   const theme = query.has('dark') ? 'dark' : 'light';
   applyThemeTokens(theme);
   document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -581,6 +654,8 @@ if (query.has('thinking-reading') || query.has('presentation')) {
 createRoot(document.getElementById('root')!).render(
   query.has('history') ? (
     <HistoryFixture />
+  ) : query.has('process-icons') ? (
+    <ProcessIconFixture />
   ) : query.has('thinking-reading') ? (
     <ThoughtReadingFixture />
   ) : query.has('auto-fold') ? (

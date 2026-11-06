@@ -1268,8 +1268,14 @@ function ProgressiveMessageListContent({
                   isToolCallInProgress(request, !!isStreamingMessage, activeToolCallIds))
             );
           const latestPart = group[group.length - 1];
+          // Disclosure can close at a public reply even when a finished tool
+          // failed. Its historical thought must not borrow later live activity.
+          const processClosed =
+            processSettled ||
+            settled ||
+            (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
           const thinkingNow =
-            !activeRequest && !settled && isStreamingMessage && isThinkingMessage(latestPart);
+            !processClosed && !activeRequest && isStreamingMessage && isThinkingMessage(latestPart);
           const headlineRequest = activeRequest ?? groupRequests[groupRequests.length - 1];
           const headlineCall = headlineRequest ? presentedToolCall(headlineRequest) : undefined;
           const headlineStatus = headlineRequest
@@ -1298,12 +1304,6 @@ function ProgressiveMessageListContent({
                 )
               : lifecycleNotification(latestPart)?.msg ||
                 intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking);
-          // A closed history may contain unsuccessful receipts. Use the same
-          // display boundary as folding without treating those receipts as success.
-          const processClosed =
-            processSettled ||
-            settled ||
-            (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
           const label =
             onlyMedia && !groupMedia.length
               ? intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking)

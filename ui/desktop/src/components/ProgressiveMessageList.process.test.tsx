@@ -67,6 +67,38 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('keeps completed process icons still while the next process is working', () => {
+    vi.useFakeTimers();
+    try {
+      const records = [
+        user,
+        assistant('completed-work', [
+          thought('Inspect the file.'),
+          request('failed'),
+          request('first'),
+        ]),
+        receipt('failed', true),
+        receipt('first'),
+        assistant('public-boundary', [
+          thought('The inspection is complete.'),
+          { type: 'text', text: 'First result is ready.' },
+        ]),
+        assistant('current-work', [request('second')]),
+      ];
+      const view = render(show(records, true), { wrapper: IntlTestWrapper });
+      const groups = view.container.querySelectorAll('[data-process-group]');
+      expect(groups).toHaveLength(2);
+      const completedIcon = groups[0].querySelector('.codepro-record-icon')!;
+      const liveIcon = groups[1].querySelector('.codepro-record-icon')!;
+      const before = { completed: completedIcon.innerHTML, live: liveIcon.innerHTML };
+      act(() => vi.advanceTimersByTime(600));
+      expect(completedIcon.innerHTML).toBe(before.completed);
+      expect(liveIcon.innerHTML).not.toBe(before.live);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps interleaved thoughts directly available without another reasoning-details disclosure', () => {
     const records = [
       user,

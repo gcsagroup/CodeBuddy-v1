@@ -240,6 +240,36 @@ async function settle() {
   await page.waitForTimeout(400);
 }
 
+test('completed history with a failed receipt keeps its icon still while current work animates', async () => {
+  const errors: string[] = [];
+  const onError = (error: Error) => errors.push(error.message);
+  page.on('pageerror', onError);
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?process-icons`
+  );
+  const groups = page.locator('[data-process-group]');
+  await expect(groups).toHaveCount(2);
+  const past = groups.nth(0).locator('.codepro-record-icon').first();
+  const current = groups.nth(1).locator('.codepro-record-icon').first();
+  const before = await past.innerHTML();
+  const liveBefore = await current.innerHTML();
+  await expect.poll(() => current.innerHTML()).not.toBe(liveBefore);
+  expect(await past.innerHTML()).toBe(before);
+  await groups.nth(0).getByRole('button').first().click();
+  await expect(groups.nth(0).locator('[data-tool-call-id="past-failed"]')).toHaveAttribute(
+    'data-tool-phase',
+    'error'
+  );
+  await expect(groups.nth(0).locator('[data-tool-call-id="past-success"]')).toHaveAttribute(
+    'data-tool-phase',
+    'success'
+  );
+  expect(await past.innerHTML()).toBe(before);
+  expect(errors).toEqual([]);
+  page.off('pageerror', onError);
+  await page.screenshot({ path: resolve(historyCacheRoot, 'completed-history-static-icon.png') });
+});
+
 for (const grouped of [false, true]) {
   for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     test(`thoughts resume the same passage in ${grouped ? 'process' : 'chat'} scrolling (${reducedMotion})`, async () => {

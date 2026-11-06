@@ -980,3 +980,222 @@ test('a dispatched full-cap summary length stops with no second summary HTTP or 
   assert.equal(modelCalls, 2);
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
 });
+
+test('adversarial: manual maintenance cannot replace its live compaction configuration', { timeout: 15000 }, async t => {
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const f = await fixture(t, async (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    entered.resolve();
+    await release.promise;
+    reply(res, 'Retain the completed fixture facts.');
+  });
+  await warm(f);
+  const compacting = f.driver.compact(f.sessionId);
+  compacting.catch(() => {});
+  try {
+    await entered.promise;
+    await assert.rejects(f.driver.compact(f.sessionId), /idle|active/);
+    const changed = f.driver.configureSession(f.sessionId, { compactionModel: {
+      provider: { ...f.provider, id: 'unexpected-summary-route' }, model: 'unexpected-model',
+    } });
+    changed.catch(() => {});
+    await assert.rejects(changed, /idle|active|maintenance/);
+    release.resolve();
+    await compacting;
+    assert.equal(f.requests.filter(request => request.summary).length, 1);
+    assert.equal(summaries(await f.driver.history(f.sessionId)).length, 1);
+    await f.driver.configureSession(f.sessionId, { compactionModel: null });
+  } finally {
+    release.resolve();
+    await compacting.catch(() => {});
+  }
+});
+
+for (const cancelled of [false, true]) test(`adversarial: manual compaction ${cancelled ? 'cancels while waiting for' : 'waits for'} an already preparing model configuration`, { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, request.summary ? 'Retain the completed fixture facts.' : WARM_HISTORY));
+  await warm(f);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const { PiAiAdapter } = await import('@deepseek-ai/dsh-llm-pi-ai');
+  const resolveModel = PiAiAdapter.prototype.resolveModel;
+  t.mock.method(PiAiAdapter.prototype, 'resolveModel', async function(provider, model, signal) {
+    if (model === 'preparing-summary') { entered.resolve(); await release.promise; }
+    return resolveModel.call(this, provider, model, signal);
+  });
+  const configuring = f.driver.configureSession(f.sessionId, { compactionModel: {
+    provider: { ...f.provider, id: 'preparing-connection' }, model: 'preparing-summary',
+  } });
+  configuring.catch(() => {});
+  const abort = new AbortController();
+  let compacting;
+  try {
+    await entered.promise;
+    compacting = f.driver.compact(f.sessionId, { signal: abort.signal });
+    compacting.catch(() => {});
+    await new Promise(resolve => setImmediate(resolve));
+    if (cancelled) {
+      abort.abort();
+      await assert.rejects(compacting, { name: 'AbortError' });
+      assert.equal(f.requests.filter(request => request.summary).length, 0);
+    }
+    release.resolve();
+    await configuring;
+    if (!cancelled) await compacting;
+    const requests = f.requests.filter(request => request.summary);
+    assert.equal(requests.length, cancelled ? 0 : 1);
+    if (!cancelled) {
+      assert.equal(requests[0].body.model, 'preparing-summary', 'maintenance cannot capture a capability scope being replaced');
+      assert.equal(summaries(await f.driver.history(f.sessionId)).at(-1).data.model, 'preparing-summary');
+    } else {
+      assert.equal((await f.driver.prompt(f.sessionId, 'Continue the fixture after cancellation.')).stopReason, 'end_turn');
+      assert.equal(f.requests.at(-1).body.model, 'fixture');
+    }
+  } finally {
+    release.resolve();
+    await Promise.allSettled([configuring, compacting]);
+  }
+});
+
+test('adversarial: simultaneous manual submissions admit exactly one maintenance operation', { timeout: 15000 }, async t => {
+  const f = await fixture(t, (request, res) => reply(res, request.summary ? 'Retain the fixture facts.' : WARM_HISTORY));
+  await warm(f);
+  const results = await Promise.allSettled([f.driver.compact(f.sessionId), f.driver.compact(f.sessionId)]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.match(results.find(result => result.status === 'rejected').reason.message, /idle|active/);
+  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(summaries(history).length, 1);
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, 1);
+});
+
+for (const outage of ['503', 'disconnect']) test(`adversarial: a dedicated summarizer outage (${outage}) never falls back or replaces history`, { timeout: 15000 }, async t => {
+  let healthy = false;
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (healthy) return reply(res, 'Retain the completed fixture facts.');
+    if (outage === 'disconnect') return res.destroy();
+    res.writeHead(503, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { message: 'SUMMARY_SERVICE_UNAVAILABLE' } }));
+  }, { retryPolicy: { mode: 'normal', maxRetries: 1, backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 } } });
+  await warm(f);
+  await f.driver.configureSession(f.sessionId, { compactionModel: {
+    provider: { ...f.provider, id: 'dedicated-summary', baseUrl: f.provider.baseUrl.replace('/v1', '/dedicated/v1') }, model: 'dedicated-model',
+  } });
+  const before = await f.driver.history(f.sessionId);
+  const original = new Session(before.meta.id, before.events, before.meta, 'snapshot', before.inheritedEventCount).deriveMessages();
+  const count = f.requests.length;
+  await assert.rejects(f.driver.compact(f.sessionId, { signal: AbortSignal.timeout(5000) }));
+  const attempts = f.requests.slice(count);
+  assert.ok(attempts.length >= 1 && attempts.length <= 2, 'transport retries must stay within the configured allowance');
+  assert.ok(attempts.every(request => request.summary && request.url.startsWith('/dedicated/v1/') && request.body.model === 'dedicated-model'));
+  const failed = await f.driver.history(f.sessionId);
+  assert.equal(summaries(failed).length, 0);
+  assert.deepEqual(new Session(failed.meta.id, failed.events, failed.meta, 'snapshot', failed.inheritedEventCount).deriveMessages(), original);
+  await f.reopen();
+  assert.equal(f.requests.length, count + attempts.length, 'cold restore must not replay failed HTTP');
+  healthy = true;
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue the original fixture.')).stopReason, 'end_turn');
+  assert.equal(f.requests.at(-1).body.model, 'fixture');
+  await f.driver.configureSession(f.sessionId, { compactionModel: {
+    provider: { ...f.provider, id: 'dedicated-summary' }, model: 'dedicated-model',
+  } });
+  await f.driver.compact(f.sessionId);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).at(-1).data.model, 'dedicated-model');
+});
+
+for (const output of ['empty', 'tool-only', 'larger-than-history']) test(`adversarial: an unusable ${output} summary cannot commit or execute tools`, { timeout: 15000 }, async t => {
+  let effects = 0;
+  const f = await fixture(t, (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    if (output === 'tool-only') return reply(res, '', { tool: { id: 'forbidden-summary-action', name: 'fixture_effect' } });
+    reply(res, output === 'empty' ? '' : WARM_HISTORY.repeat(4));
+  }, { tools: [{ name: 'fixture_effect', description: 'Count an isolated effect', parameters: { type: 'object' },
+    async execute() { effects++; return {}; } }] });
+  await warm(f);
+  const before = await f.driver.history(f.sessionId);
+  const original = new Session(before.meta.id, before.events, before.meta, 'snapshot', before.inheritedEventCount).deriveMessages();
+  await assert.rejects(f.driver.compact(f.sessionId));
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(summaries(history).length, 0);
+  assert.deepEqual(new Session(history.meta.id, history.events, history.meta, 'snapshot', history.inheritedEventCount).deriveMessages(), original);
+  assert.equal(effects, 0);
+  assert.equal(f.requests.filter(request => request.summary).length, 1);
+  assert.equal(history.events.filter(event => event.type === 'compaction/start').length, history.events.filter(event => event.type === 'compaction/end').length);
+});
+
+test('adversarial: concurrent summary failures stay isolated across sessions', { timeout: 20000 }, async t => {
+  const barrier = Promise.withResolvers(), counts = new Map();
+  let arrivals = 0;
+  const f = await fixture(t, async (request, res) => {
+    if (!request.summary) return reply(res, WARM_HISTORY);
+    const model = request.body.model, count = (counts.get(model) ?? 0) + 1;
+    counts.set(model, count);
+    if (count === 1) {
+      if (++arrivals === 2) barrier.resolve();
+      await barrier.promise;
+      return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: model === 'summary-a'
+        ? { code: 'context_length_exceeded', message: 'maximum context length exceeded' }
+        : { code: 'invalid_request_error', message: 'SESSION_B_PARAMETER_ERROR' } }));
+    }
+    reply(res, 'Retain the selected fixture prefix.');
+  });
+  const secondId = await f.createSibling();
+  for (let index = 0; index < 3; index++) {
+    await warm(f);
+    await f.driver.prompt(secondId, 'Record the separate session B facts.');
+  }
+  for (const [id, model] of [[f.sessionId, 'summary-a'], [secondId, 'summary-b']])
+    await f.driver.configureSession(id, { compactionModel: { provider: f.provider, model } });
+  const before = await f.driver.history(secondId);
+  const results = await Promise.allSettled([f.driver.compact(f.sessionId), f.driver.compact(secondId)]);
+  assert.equal(results[0].status, 'fulfilled');
+  assert.equal(results[1].status, 'rejected');
+  assert.match(results[1].reason.message, /SESSION_B_PARAMETER_ERROR/);
+  assert.equal(counts.get('summary-a'), 2);
+  assert.equal(counts.get('summary-b'), 1);
+  assert.equal(summaries(await f.driver.history(f.sessionId)).length, 1);
+  const after = await f.driver.history(secondId);
+  assert.equal(summaries(after).length, 0);
+  assert.deepEqual(new Session(after.meta.id, after.events, after.meta, 'snapshot', after.inheritedEventCount).deriveMessages(),
+    new Session(before.meta.id, before.events, before.meta, 'snapshot', before.inheritedEventCount).deriveMessages());
+});
+
+test('adversarial: cancellation after a committed region preserves receipts through cold recovery', { timeout: 30000 }, async t => {
+  let effects = 0, mainCalls = 0, summaryCalls = 0, warming = true;
+  const abort = new AbortController();
+  const f = await fixture(t, (request, res) => {
+    if (request.summary) {
+      if (++summaryCalls === 2) { abort.abort(); return res.destroy(); }
+      return reply(res, 'Retain the completed fixture receipts.');
+    }
+    if (!warming) return reply(res, FINAL);
+    if (++mainCalls % 2) return reply(res, '', { tool: { id: `receipt-${mainCalls}`, name: 'fixture_effect' } });
+    reply(res, WARM_HISTORY.slice(0, Math.floor(WARM_HISTORY.length * 0.6)));
+  }, { contextWindow: 131072, tools: [{ name: 'fixture_effect', description: 'Count an isolated effect', parameters: { type: 'object' },
+    async execute() { effects++; return { receipt: effects }; } }] });
+  for (let index = 0; index < 8; index++)
+    assert.equal((await f.driver.prompt(f.sessionId, 'Perform one isolated fixture effect and retain its receipt.', { onPermission: () => true })).stopReason, 'end_turn');
+  warming = false;
+  assert.equal(effects, 8);
+  f.provider.contextWindow = 16384;
+  await f.configure();
+  const count = f.requests.length;
+  await assert.rejects(f.driver.compact(f.sessionId, { signal: abort.signal }), { name: 'AbortError' });
+  const partial = await f.driver.history(f.sessionId);
+  const committed = summaries(partial);
+  assert.equal(committed.length, 1);
+  assert.equal(summaryCalls, 2);
+  assert.equal(effects, 8);
+  await f.reopen();
+  assert.equal(f.requests.length, count + 2, 'restoring partial progress must not send HTTP');
+  assert.deepEqual(summaries(await f.driver.history(f.sessionId)), committed);
+  await f.driver.compact(f.sessionId);
+  const recovered = await f.driver.history(f.sessionId);
+  assert.deepEqual(summaries(recovered)[0], committed[0], 'the earlier committed transaction must remain intact');
+  const surface = new Session(recovered.meta.id, recovered.events, recovered.meta, 'snapshot', recovered.inheritedEventCount);
+  const human = recovered.events.findLast(event => event.type === 'user/message' && event.data.source?.kind === 'user');
+  assert.ok(surface.surface.nodes.includes(human.seq));
+  assert.equal(recovered.events.filter(event => event.type === 'tool/result').length, 8);
+  assert.equal(effects, 8, 'compression, cancellation and restore must not re-execute completed effects');
+  assert.equal(recovered.events.filter(event => event.type === 'compaction/start').length, recovered.events.filter(event => event.type === 'compaction/end').length);
+  assert.equal((await f.driver.prompt(f.sessionId, 'Continue using the retained receipts.')).stopReason, 'end_turn');
+  assert.equal(effects, 8);
+});

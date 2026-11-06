@@ -8,10 +8,10 @@ const { createHash } = require('node:crypto');
 const test = require('node:test');
 const { previewEnvironment, startPreview } = require('./start-harness-preview.cjs');
 
-function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-harness-launcher-'));
+function fixture(t, parent = os.tmpdir()) {
+  const root = fs.mkdtempSync(path.join(parent, 'codebuddy-harness-launcher-'));
   t.after(() => {
-    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(path.resolve(root)), path.resolve(parent));
     assert.ok(path.basename(root).startsWith('codebuddy-harness-launcher-'));
     fs.rmSync(root, { recursive: true, force: true });
   });
@@ -111,6 +111,7 @@ test('preview uses the product data root, supports isolation and rejects legacy 
   assert.equal(isolated.CODEBUDDY_HOME, isolatedHome);
   assert.equal(isolated.CODEBUDDY_USER_DATA_DIR, path.join(isolatedHome, 'state', 'electron-app'));
   assert.equal(isolated.CODEBUDDY_WORKSPACE_ROOT, path.join(isolatedHome, 'workspaces'));
+  if (process.platform === 'win32') assert.notEqual(isolated.TEMP, env.TEMP);
   const configEnv = { APPDATA: isolatedConfig, XDG_CONFIG_HOME: isolatedConfig };
   const defaults = previewEnvironment(root, 12345, 'fixture-secret', configEnv);
   assert.equal(defaults.CODEBUDDY_HOME, path.join(os.homedir(), '.CodeBuddy'));
@@ -159,6 +160,40 @@ for (const configured of [false, true]) {
     assert.equal(receiptText.includes('?token='), false);
   });
 }
+
+test('Windows preview shares workspace-local temp files with the native esbuild child', { skip: process.platform !== 'win32' }, async (t) => {
+  // The real native executable has the same workspace restrictions as the app.
+  const fixtureParent = path.resolve(__dirname, '../.local');
+  fs.mkdirSync(fixtureParent, { recursive: true });
+  const { root, options } = fixture(t, fixtureParent);
+  const esbuildPath = require.resolve('esbuild', { paths: [path.join(__dirname, '../ui/desktop')] });
+  const inherited = { ...options.env, TEMP: os.tmpdir(), TMP: os.tmpdir(), Temp: os.tmpdir() };
+  const probe = path.join(root, 'large-transform.cjs');
+  fs.writeFileSync(probe, `
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const esbuild = require(${JSON.stringify(esbuildPath)});
+    esbuild.transform('/*' + 'x'.repeat(2 * 1024 * 1024) + '*/\\nexport const probe = 1;', { loader: 'js' })
+      .then(result => fs.writeFileSync(path.join(process.cwd(), 'transform-observed.json'), JSON.stringify({
+        temp: os.tmpdir(), code: result.code, exists: fs.statSync(os.tmpdir()).isDirectory(),
+      })))
+      .catch(error => { console.error(error); process.exitCode = 1; })
+      .finally(() => esbuild.stop());
+  `);
+  const code = await startPreview({ ...options, env: inherited,
+    commands: { prepare: [], desktop: { args: [probe], cwd: root } },
+  });
+  assert.equal(code, 0, code === 0 ? undefined : fs.readFileSync(path.join(options.dataDirectory, 'logs/preview/electron.log'), 'utf8'));
+  const observed = JSON.parse(fs.readFileSync(path.join(root, 'transform-observed.json'), 'utf8'));
+  const relative = path.relative(path.join(root, '.local', 'preview-temp'), observed.temp);
+  assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+  assert.equal(observed.exists, true);
+  assert.match(observed.code, /export const probe = 1/);
+  assert.equal(inherited.TEMP, os.tmpdir(), 'launching must not change its parent environment');
+  const receipt = JSON.parse(fs.readFileSync(path.join(options.dataDirectory, 'logs/preview/launch.json'), 'utf8'));
+  assert.equal(receipt.temporaryDirectory, observed.temp);
+});
 
 test('failed bridge startup never launches desktop and records a failed receipt', async (t) => {
   const { root, options } = fixture(t);

@@ -109,6 +109,8 @@ Pop-Location
 
 以后依赖未变化时直接运行 `.\start-preview.ps1`。窗口未出现时，先检查数据根下的 `logs/preview/launch.json`、`prepare.log`、`runtime.log` 和 `electron.log`；进程启动成功不等于真实模型对话或工具已经验收。
 
+Windows 预览的子进程共用本 worktree 的 `.local/preview-temp/<profile 标识>`，避免工作区外临时目录的访问限制阻断 esbuild 大文件转换；不同数据目录分别使用独立子目录，位置同时记录在 `launch.json` 的 `temporaryDirectory`。启动器只设置本次子进程的临时目录，不修改系统环境变量或全局目录权限。
+
 预览入口会在启动后端和桌面前，复用运行时规则检查独立工具的文件类型、路径、大小和 SHA256。Windows 在 SDK 准备前检查；Mac 在现有原生工具准备完成后检查。工具缺失或不匹配时，终端和 `launch.json` 会记录具体文件、校验失败原因、预期大小及哈希，并停止启动。
 
 Git 不同步 `runtime/tools/bin`，所以拉取新源码后，旧 EXE 可能仍留在本机。遇到该提示时，先备份旧工具，再按上文独立 MCP 工具准备说明，从与当前源码匹配的已核验载荷恢复文件，或离线构建并核对来源和产物登记；完成后重新启动。不要只修改大小或哈希来绕过检查。启动检查不自动下载、安装或替换工具，也不代替真实工具调用验收。

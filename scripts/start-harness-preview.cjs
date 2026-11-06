@@ -52,6 +52,16 @@ function previewEnvironment(repoRoot, port, secret, inherited = process.env, dat
     GOOSE_WORKING_DIR: workspaceRoot,
     GOOSE_TELEMETRY_OFF: '1',
   };
+  if (process.platform === 'win32') {
+    // Large esbuild transforms share files with its native child. Restricted
+    // launch environments can deny child deletion outside the source workspace.
+    const profileKey = crypto.createHash('sha256').update(previewHome).digest('hex').slice(0, 16);
+    const temporaryDirectory = path.join(repoRoot, '.local', 'preview-temp', profileKey);
+    for (const key of Object.keys(env)) {
+      if (['TEMP', 'TMP', 'TMPDIR'].includes(key.toUpperCase())) delete env[key];
+    }
+    Object.assign(env, { TEMP: temporaryDirectory, TMP: temporaryDirectory, TMPDIR: temporaryDirectory });
+  }
   // Legacy aliases must not reintroduce an existing profile during startup.
   delete env.GOOSE_PATH_ROOT;
   delete env.GOOSE_DEFAULT_PROVIDER;
@@ -204,6 +214,7 @@ async function startPreview(options = {}) {
   const logRoot = path.join(env.CODEBUDDY_HOME, 'logs', 'preview');
   fs.mkdirSync(logRoot, { recursive: true });
   fs.mkdirSync(env.CODEBUDDY_USER_DATA_DIR, { recursive: true });
+  if (process.platform === 'win32') fs.mkdirSync(env.TEMP, { recursive: true });
   fs.mkdirSync(path.join(env.CODEBUDDY_HOME, 'profiles', 'local', 'state', 'electron'), { recursive: true });
   const receiptPath = path.join(logRoot, 'launch.json');
   const receipt = {
@@ -211,6 +222,7 @@ async function startPreview(options = {}) {
     launcherPid: process.pid, runtimePid: null, desktopPid: null,
     backendUrl: env.CODEBUDDY_EXTERNAL_BACKEND_URL,
     dataDirectory: env.CODEBUDDY_HOME,
+    ...(process.platform === 'win32' ? { temporaryDirectory: env.TEMP } : {}),
     runtimeLog: path.join(logRoot, 'runtime.log'),
     desktopLog: path.join(logRoot, 'electron.log'),
   };

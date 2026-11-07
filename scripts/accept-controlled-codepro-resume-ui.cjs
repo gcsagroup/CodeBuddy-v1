@@ -290,7 +290,6 @@ function lastGoal(body) {
       env: {
         ...process.env,
         CODEBUDDY_PREVIEW_DEVTOOLS_PORT: "9393",
-        CODEPRO_UNIFIED_MODE: "true",
         CODEBUDDY_WORKSPACE_ROOT: path.join(profile, "workspaces"),
       },
     });

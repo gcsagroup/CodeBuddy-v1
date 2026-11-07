@@ -1,6 +1,8 @@
 # Toolbox and installation model defaults
 
-Starting with 1.43.7, fresh installations include only **CodeBuddy LAN**, selected by default. The Ollama Cloud distribution preset and shared-key import have been removed. Packaging explicitly excludes the legacy `runtime/distribution-credentials.json`, even if it remains in a local build checkout. Existing user-configured connections and credentials are preserved. Users can still add providers and enter their own credentials in Settings.
+Fresh installations include **CodeBuddy LAN (Gemma-4)**, selected by default, and **CodeBuddy LAN · Qwen**. The Ollama Cloud distribution preset and shared-key import have been removed. Packaging explicitly excludes the legacy `runtime/distribution-credentials.json`, even if it remains in a local build checkout. Existing user-configured connections and credentials are preserved. Users can still add providers and enter their own credentials in Settings.
+
+On 2026-11-06, `Qwen3.8-27B-FP4` and `Qwen3.8-27B-CyberSecurity` at `http://192.168.9.120:8001` were added. Both are available alongside Gemma-4 in the model picker on first launch without entering credentials. The default main and image-recognition model remain Gemma-4. Both Qwen models passed basic requests against the real service and actual conversations in the isolated desktop; this does not establish image or tool-calling support.
 
 All tools are grouped into built-in capabilities, skills, and external MCP services. Computer control executes actions; the Desktop operation guide (computer-use) is a skill loaded by the model and does not enable those tools. Local Git manages workspace repositories, while GitHub connects remote repositories, issues, pull requests, and CI.
 

@@ -268,6 +268,34 @@
   opacity: 0.45;
   cursor: default;
 }
+.pet-add-menu {
+  display: flex;
+  flex-direction: column;
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border: 1px solid #dce4df;
+  border-radius: 10px;
+  padding: 4px;
+  margin: 6px 0;
+  background: #f6f8f7;
+}
+.pet-add-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-align: left;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #25302d;
+  font: inherit;
+}
+.pet-add-menu button:hover, .pet-add-menu button:focus-visible {
+  background: #e7eeea;
+}
 .pet-composer [role='alert'] {
   margin: 4px 0 8px;
   color: #a43e32;

@@ -235,6 +235,7 @@ interface ChatInputProps {
   canSubmitQueuedMessageWhileLoading?: boolean;
   commandHistory?: string[];
   initialValue?: string;
+  draftDelivery?: { id: string; text: string };
   newTaskDraftKey?: NewTaskDraftKey;
   droppedFiles?: DroppedFile[];
   onFilesProcessed?: () => void;
@@ -296,6 +297,7 @@ export default function ChatInput({
   commandHistory = [],
   initialValue = '',
   newTaskDraftKey,
+  draftDelivery,
   droppedFiles = [],
   onFilesProcessed,
   setView,
@@ -341,6 +343,7 @@ export default function ChatInput({
   }, []);
   const compactText = useCompactTextInput(displayValue);
   const previousInitialValue = useRef(initialValue);
+  const consumedDraftDelivery = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (newTaskDraftKey) updateNewTaskDraft(newTaskDraftKey, { text: draftText });
   }, [draftText, newTaskDraftKey]);
@@ -477,21 +480,7 @@ export default function ChatInput({
     setSendNowInFlightMessageIds(new Set());
   }, [sessionId]);
 
-  useEffect(() => {
-    if (!sessionId) return;
-    return receiveMainConversationMessages(sessionId, input => {
-      if (queueStorageFailedRef.current || !queueStorageRef.current) throw new Error('无法保存主对话消息，请重试');
-      if (input.messageId && queuedMessagesRef.current.some(item => item.id === input.messageId)) return;
-      const next = [...queuedMessagesRef.current, {
-        id: input.messageId ?? globalThis.crypto.randomUUID(), content: input.msg, images: input.images,
-        timestamp: Date.now(), desktopGeneration: getDesktopOwnership().generation ?? '',
-      }];
-      if (!persistQueue(next)) throw new Error('无法保存主对话消息，请检查消息队列');
-      if (queuedMessagesRef.current.length === 0) queuePausedRef.current = false;
-      queuedMessagesRef.current = next;
-      setQueuedMessagesState(next);
-    });
-  }, [sessionId, persistQueue]);
+
 
   useLayoutEffect(() => {
     if (
@@ -857,6 +846,48 @@ export default function ChatInput({
     setIsInGlobalHistory(false);
     setHasUserTyped(false);
   }, [initialValue, newTaskDraftKey, restoreDraft]);
+
+  useEffect(() => {
+    if (!draftDelivery || consumedDraftDelivery.current === draftDelivery.id) return;
+    consumedDraftDelivery.current = draftDelivery.id;
+    inputRevisionRef.current += 1;
+    setDisplayValue(previous => [previous, draftDelivery.text].filter(Boolean).join('\n'));
+    textAreaRef.current?.focus();
+  }, [draftDelivery, textAreaRef]);
+
+  useEffect(() => {
+    if (!sessionId || sessionLoaded === false || chatState === ChatState.LoadingConversation) return;
+    return receiveMainConversationMessages(sessionId, input => {
+      if (input.composerAction) {
+        if (attachmentCountRef.current + input.images.length > MAX_IMAGES_PER_MESSAGE)
+          throw new Error('主对话附件过多，请先处理现有附件');
+        // Reserve before publishing state: several cross-window deliveries can arrive in one render.
+        attachmentCountRef.current += input.images.length;
+        inputRevisionRef.current += 1;
+        // Opening a picker is draft delivery, never a queued or submitted turn.
+        if (input.msg) setDisplayValue(previous => [previous, input.msg].filter(Boolean).join('\n'));
+        setPastedImages(previous => [...previous, ...input.images.map(image => ({
+          id: globalThis.crypto.randomUUID(), dataUrl: `data:${image.mimeType};base64,${image.data}`, isLoading: false,
+          sourceSessionId: sessionId,
+        }))]);
+        if (input.composerAction === 'goal' || input.composerAction === 'plan') setComposerMode(input.composerAction);
+        else if (input.composerAction === 'agent') setAgentOpenRequest(value => value + 1);
+        else setMentionPopover({ isOpen: true, isSlashCommand: true, addOnly: true, query: '', mentionStart: 0, selectedIndex: 0 });
+        textAreaRef.current?.focus();
+        return;
+      }
+      if (queueStorageFailedRef.current || !queueStorageRef.current) throw new Error('无法保存主对话消息，请重试');
+      if (input.messageId && queuedMessagesRef.current.some(item => item.id === input.messageId)) return;
+      const next = [...queuedMessagesRef.current, {
+        id: input.messageId ?? globalThis.crypto.randomUUID(), content: input.msg, images: input.images,
+        timestamp: Date.now(), desktopGeneration: getDesktopOwnership().generation ?? '',
+      }];
+      if (!persistQueue(next)) throw new Error('无法保存主对话消息，请检查消息队列');
+      if (queuedMessagesRef.current.length === 0) queuePausedRef.current = false;
+      queuedMessagesRef.current = next;
+      setQueuedMessagesState(next);
+    });
+  }, [sessionId, sessionLoaded, chatState, persistQueue]);
 
   // Handle recipe prompt updates
   useEffect(() => {

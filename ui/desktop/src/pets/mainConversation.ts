@@ -3,8 +3,9 @@ import type { UserInput } from '../types/message';
 import { AppEvents } from '../constants/events';
 import { QueuedMessageStorage } from '../utils/queuedMessageStorage';
 
-type Consumer = (input: UserInput) => void;
-type Delivery = { timeout: ReturnType<typeof setTimeout>; input: UserInput; resolve: () => void; reject: (error: unknown) => void };
+export type MainConversationInput = UserInput & { composerAction?: import('./petMessage').PetComposerAction };
+type Consumer = (input: MainConversationInput) => void;
+type Delivery = { timeout: ReturnType<typeof setTimeout>; input: MainConversationInput; resolve: () => void; reject: (error: unknown) => void };
 const waiting = new Map<string, Delivery[]>();
 const consumers = new Map<string, Consumer>();
 const deliveriesById = new Map<string, Promise<void>>();
@@ -34,7 +35,7 @@ function flush(sessionId: string) {
   }
 }
 // The composer remains the sole writer of its persisted queue.
-export function deliverMainConversationMessage(sessionId: string, input: UserInput): Promise<void> {
+export function deliverMainConversationMessage(sessionId: string, input: MainConversationInput): Promise<void> {
   const key = input.messageId ? `${sessionId}:${input.messageId}` : undefined;
   if (key && deliveriesById.has(key)) return deliveriesById.get(key)!;
   const deliveryResult = new Promise<void>((resolve, reject) => {

@@ -57,24 +57,22 @@ function absoluteDirectory(value) {
 // acquisition, consumption and prompt entry. These are not native directory
 // handles, and must not be advertised as an OS sandbox or rename lock.
 async function directorySnapshot(directory) {
-  const canonical = await realpath(directory);
-  const chain = [];
-  let current = directory;
-  while (true) {
-    const stats = await lstat(current, { bigint: true });
-    if (stats.isSymbolicLink() || !stats.isDirectory()) {
-      throw invalid("Workspace ancestry contains a link or a non-directory");
-    }
-    chain.push({
-      path: current,
-      dev: String(stats.dev),
-      ino: String(stats.ino),
-      birthtime: String(stats.birthtimeNs),
-    });
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
+  const ancestors = [];
+  for (let current = directory; ; current = path.dirname(current)) {
+    ancestors.push(current);
+    if (path.dirname(current) === current) break;
   }
+  // Every ancestor is still checked on each entry. Independent filesystem reads
+  // need not serialize their latency, especially for deep Windows project paths.
+  const [canonical, chain] = await Promise.all([
+    realpath(directory),
+    Promise.all(ancestors.map(async current => {
+      const stats = await lstat(current, { bigint: true });
+      if (stats.isSymbolicLink() || !stats.isDirectory())
+        throw invalid("Workspace ancestry contains a link or a non-directory");
+      return { path: current, dev: String(stats.dev), ino: String(stats.ino), birthtime: String(stats.birthtimeNs) };
+    })),
+  ]);
   return { canonical, identity: workspaceIdentity(canonical), chain };
 }
 

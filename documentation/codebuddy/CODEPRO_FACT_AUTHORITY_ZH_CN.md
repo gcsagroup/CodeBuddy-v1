@@ -1,3 +1,57 @@
+## 2026-11-07 已批准：单媒体产物直接交付
+
+独立媒体请求解析器额外持有可选 `single_media_only` 语义范围：明确只需一个产物且没有后续任务才为真。宿主仅在当前请求 hash/ID 匹配、没有待接纳插话、可信媒体工具返回 completed 且确切一份已保存输出时调用原生 `concludeTurn()`。Harness 继续持有成功结果持久化、工具组及结束语义；媒体工具持有产物事实。旧记录缺失或字段无效继续普通执行，无迁移；失败、取消、后台等待、旧任务及维护调用不直接结束。UI 沿用媒体卡，无伪造助手正文。
+
+繁體：解析器判定單產物且無後續工作；宿主校驗當前請求與真實完成回執，使用 Harness 原生結束接口。舊資料缺失時繼續一般流程，不遷移。
+
+English: The isolated interpreter owns optional single-artifact-only scope. The host validates current admission identity and one saved completed output before invoking native concludeTurn. Harness retains result/group/turn lifecycle ownership. Missing legacy scope continues normally without migration.
+
+## 2026-11-06 已批准：当前请求的媒体工作流选择
+
+`runtime/harness/media-workflow-selection.mjs` 唯一持有已保存媒体工作流的语义选择。它通过原生会话日志读取当前已接纳请求及同轮插话，用当前 Provider 的独立短请求解析实时目录，不读取主模型的历史选择或工具参数中的名称。主 Agent 继续负责创作提示、模式与参考素材提案；`comfyui-tool` 只消费结构化选择，校验文件身份、依赖、模式和参考数量。旧 `workflow_name` 参数兼容接收但不覆盖解析结果；旧回执、status/cancel 与内部直接调用仍兼容。
+
+选择绑定原生请求身份及目录哈希，无跨轮缓存；解析后目录变化、插话待接纳、已接纳请求变化、结果不完整或不兼容均在 GPU 提交前拒绝。可选 `workflow_selection` 回执仅记录来源，不代表生成完成、授权扩大或新的任务状态。选择器不授权创建替代图。无旧数据迁移，无新框架；每次新生成增加一次短模型调用。主模型和下游不各自重新裁决同一工作流选择。
+
+`media-artifact-context.mjs` 从同一原生会话的真实媒体工具回执投影最近产物及输入图片关系，供主模型在压缩后继续识别素材版本。它不选择素材、不替换工具参数、不持有新的完成状态，也不迁移旧事件。繁體：最近產物與來源關係只由原生回執投影，素材語義仍由主模型理解。English: Recent artifacts and image lineage are projected from native receipts only; reference semantics remain owned by the main model, with no parameter rewriting or new completion state.
+
+省略 `request_id` 的生成调用在当前已接纳请求内，按请求身份、实际工作流与创作参数派生自动幂等 ID；显示名称和旧工作流提示不参与。新请求、不同参数／seed 或明确不同的 ID 仍可生成独立结果，不从自由文本推断数量上限。繁體：相同請求與參數復用真實回執，新請求及明確變體維持獨立。English: Automatic IDs deduplicate identical proposals within one admitted request; new requests, changed parameters/seeds and explicit IDs remain distinct. No textual generation-count policy is inferred.
+
+繁體：獨立解析器唯一持有當前已接納請求的已儲存工作流選擇，主 Agent 提供創作／素材提案，工具校驗並執行。請求或目錄變更使選擇失效；舊資料無需遷移，可選來源回執不是完成或授權事實。
+
+English: The isolated interpreter solely owns saved media workflow selection from native admitted requests and the live catalog. The main Agent proposes creative content and references; execution validates and consumes the structured choice. Request/catalog changes invalidate selection before GPU submission. Existing receipts need no migration; optional provenance is not completion or authorization.
+
+## 2026-11-06 已批准：首次回复与可选连接就绪分离
+
+`mcp-bridge` 继续持有传输、就绪 Promise、诊断、动态注册及销毁，增加 connecting 状态；原生 scope 与 preset registry 继续持有选择投影和租约。`Compat` 的初始化事实为配置已应用，不再等价于全部扩展已连接；配置 revision、下一轮同步及每次调用的权限检查保持不变。工具发现只消费当前作用域的就绪事实，按结构化服务选择进行可取消等待，不授予执行权限。UI 只展示同一状态，并对卡片逐批挂载，不另建后端目录或权限缓存。迁移边界与日志解释见 `docs/toolbox-runtime.zh-CN.md`。
+
+繁體：bridge 持有連線就緒事實，scope／registry 持有選擇與租約；設定已套用不等於全部連線完成。發現可取消地等待指定服務，不授予權限，下一輪同步及每次呼叫檢查不變。
+
+English: The bridge owns connection readiness; native scopes/registry own selection and leases. Applied configuration does not imply all connections are ready. Discovery awaits selected services with cancellation but grants no execution authority; next-turn synchronization and per-call checks remain unchanged.
+
+## 2026-11-06 已批准：工具箱与同一会话下一轮同步
+
+本批补充：远端连接由原生 preset registry 按单服务完整配置租用，会话 scope 只投影所选工具、资源和说明；不再缓存整组连接。工具箱顶部及卡片读取同一后端会话状态，重试仅失效失败项。初始化结束重新核对全局配置及会话选择。显式 follow 不执行旧临时定义，保留原加密名单供切回 custom；全局删除和停用策略始终优先。迁移与适用边界见 `docs/toolbox-runtime.zh-CN.md`。
+
+繁體：原生 registry 持有單服務連線租約，會話 scope 只投影選定能力。介面使用同一狀態，重試僅失效失敗項，初始化完成重查設定與選擇。follow 保留但不執行舊名單，切回 custom 可恢復，仍遵守全域停用／刪除。
+
+English: Native registry leases own individual server connections; session scopes project selected capabilities. UI consumes one state snapshot and retry retires only failed entries. Initialization rechecks settings and selection before readiness. Follow retains but does not execute legacy definitions; switching back restores the custom list subject to global disable/removal policy.
+
+普通新对话默认跟随当前全局启用配置；明确的工具名单、配方及角色范围保持自定义限制。旧会话没有选择来源证据时不扩大范围，工具箱提供显式“跟随工具箱”切换。`RuntimeSettings` 持有配置与删除标记，`session-extensions` 解析当前选择；全局删除的名称不得由历史定义或内联服务器副本恢复，显式重新添加才解除该标记。`Compat` 延用配置 revision、初始化失效与下一轮准入检查，正在执行的作用域不因新增而重建；工具调用继续检查当前启用策略与授权身份。技能沿用原生目录、内容版本及 Provider 失效机制，不建立第二份技能注册表。从对话进入的工具箱与技能编辑器以会话 cwd 为项目目录；使用技能返回原会话并追加草稿，不自动发送、不覆盖已有草稿。
+
+`session/extensions/state` 是只读投影，不启动连接；`mode` 保存 follow/custom 选择，下轮应用；`retry` 只在可写、未归档会话空闲时显式重新准备。UI 将配置同步与实际 MCP 连接结果分开，历史成功次数不等于当前 ready。MCP 启动失败保留有界、脱敏诊断；相同连接配置的首次失败冷却 30 秒，配置变更和显式重试清除对应冷却，已建立连接的重连与调用不重放规则不变。凭据不进入新增状态接口。没有替换独立 Rust 工具或新增 Agent 循环。
+
+繁體：一般新對話跟隨工具箱，既有明確限制不擴大；設定及刪除標記由 RuntimeSettings 持有，下輪准入套用目前設定。歷史擴充定義不得復活已刪除項目。介面分開顯示設定同步、連線及使用歷史；啟動診斷有界並遮蔽密鑰，相同失敗短暫冷卻，明確重試可解除。對話工具箱及技能編輯器使用該會話 cwd；使用技能會返回原對話並追加草稿，不自動傳送。
+
+English: Ordinary new conversations follow enabled toolbox configuration. Explicit and ambiguous legacy selections retain their scope until changed by the user. RuntimeSettings owns configuration and retirement markers; session resolution cannot resurrect removed globals from historical definitions. Existing admission revision checks apply changes before the next idle turn. UI separates applied configuration, live connections and historical usage. Bounded startup diagnostics redact credentials; identical startup failures have a 30-second cooldown cleared by configuration changes or explicit retry. The conversation toolbox and skill editor use the owning session cwd. Using a skill returns to that conversation and appends a draft without sending it. Native execution, approvals, skills and independent Rust tools retain their owners.
+
+## 2026-11-06 已批准：分组内置顶与发送时应用思考强度
+
+简体：工作区先于任务显示；会话置顶仍使用原本机偏好，在所属分组内排序，不再单列。项目置顶使用独立的本机路径偏好，不改变会话归属或运行状态。文件夹归档先查齐当前项目会话并确认，再逐个调用既有归档服务；部分失败保留尚未归档的记录供重试，不修改项目文件。聊天思考强度先保留为按连接／模型区分的桌面内存草稿，只有显式发送时才通过既有 Provider 配置服务保存，随后提交任务；运行中重复发送被原请求门禁拒绝，自动续跑不消费草稿。模型列表刷新继续由现有 inventory refresh 服务负责，不改变当前选择；失败保留旧列表。无需迁移旧会话。
+
+繁體：工作區先於任務，對話在原分組內置頂；專案置頂為本機路徑偏好。資料夾封存先確認完整清單，失敗可重試，不修改檔案。聊天思考強度為依連線／模型區分的記憶體草稿，明確傳送時才透過既有設定服務儲存；自動續跑不套用。重新整理模型沿用 inventory 服務，失敗保留清單，不改選擇。
+
+English: Workspaces precede Tasks; pinned conversations stay in their owning group. Project pins are local path preferences. Folder archive confirms the complete matching list, uses the existing archive service, and retains failed items for retry without modifying files. Composer thinking changes remain connection/model-scoped in-memory drafts until explicit submission saves them through the existing Provider settings service; automatic continuation does not consume them. Model refresh uses the existing inventory service and preserves selection and cached lists on failure. Existing conversations need no migration.
+
 ## 2026-11-05 已批准：独立对话分支、置顶与压缩反馈
 
 会话分支继续使用 Harness 原生 fork。兼容层 `conversation-editing.mjs` 校验原会话状态与 UI／原生请求映射，可按下一条用户消息的精确 ID 截取前缀；旧时间边界仍兼容。任务型会话也可创建 `user` 类型的独立分支，继承所选历史、模型、工具与角色配置，原任务不变。分支共用工作目录，不复制任务运行、子智能体或后台进程；历史中的文件操作不会撤销或重放。运行中、归档或只读来源仍须先满足既有准入条件。旧会话无需迁移。
@@ -871,3 +925,27 @@ English: The foreground root chat proposes installation and the desktop confirms
 - 宠物审批由现有前端 ACP pending request 注册表继续持有 resolver；宠物只显示该请求允许的操作，携带一次请求令牌交回原窗口。Electron 校验来源及任务归属，注册表拒绝过期令牌，不新增权限持久化或第二套审批策略。问题填答和工作区确认不转换成工具授权。
 - 对话展示标题由 Compat 在首轮结束后更新既有 `title` 字段，上层驱动适配调用 Harness 公开辅助标题推理接口，使用已登记模型路由但不开放工具；首句截断不再作为新对话标题来源。主对话及手动 `userSetName` 名称保持不变。智能体名称作为既有项目别名初始值，和对话标题独立；不迁移历史标题或改变执行历史所有权。
 - 主对话清空由既有 `ConversationEditing` 在会话锁下执行官方空历史分叉并更新投影，保留产品会话身份与独立记忆；非主对话或活动执行不允许调用。原生日志按既有审计规则保留。Electron 转交 ID 沿用为队列及提交 ID，接收端按 ID 合并重复通知，禁止按消息文本去重。
+
+
+### 2026-11-06 宠物菜单的草稿转交
+
+宠物“＋”菜单通过既有带回执的主窗口通道转交草稿及 `composerAction`。Electron 校验宠物来源、载荷和动作；主输入栏保留已有草稿，追加新内容并打开技能／工具、智能体或目标／计划编辑模式。该回执只代表草稿接收，不入执行队列、不自动发送，不授予工具权限。普通宠物发送仍沿用既有持久队列。菜单目录缓存只用于展示，按项目、会话与语言隔离，实际选择仍走原有工具加载和审批。
+
+繁體：寵物「＋」沿用具回執的主視窗通道交付草稿；Electron 驗證來源與動作，主輸入欄追加內容並開啟選擇或編輯模式。草稿回執不代表入列或執行，不會自動傳送或授予權限。普通傳送仍使用既有持久佇列；目錄快取僅供顯示，依專案、對話及語言隔離。
+
+English: The pet add menu delivers drafts and a validated composer action over the existing acknowledged main-window channel. The main composer preserves existing content and opens the requested picker or editor. Draft acknowledgement never queues, submits, or authorizes execution. Ordinary pet sends retain the existing persistent queue. Menu snapshots are presentation-only and scoped by project, session, and locale; tool loading and approval remain authoritative.
+
+### 2026-11-06 对话读取与原会话继续
+
+简体：Store 在复制前筛选运行记录和元数据，返回的仍是独立快照；CodeProRuns 继续拥有最新运行的选择，Compat 的加载回包附带同次读取的会话信息，旧服务回包缺省时前端仍补查。普通回复的重试在同一个 Harness 会话提交继续指令，不复制原任务或附件、不截断历史、不分叉。`message-presentation.continuation` 仅控制该输入不显示为额外气泡，随原有会话投影保存和重放，不改变模型历史、权限、工具结果或执行所有权。右侧面板每次应用启动默认关闭并保留宽度；底部任务卡默认折叠。
+
+繁體：Store 在複製前篩選執行記錄與中繼資料，仍回傳獨立快照；CodeProRuns 擁有最新執行的選擇，Compat 載入回包附帶對話資訊，舊服務缺省時前端補查。一般回覆的重試在原 Harness 對話提交繼續指令，不複製原任務或附件、不截斷歷史、不分叉。`message-presentation.continuation` 僅隱藏額外輸入氣泡，沿用投影保存與重播，不改變模型歷史、權限或工具結果。右側面板啟動時關閉並保留寬度；底部任務卡預設摺疊。
+
+English: Store selects run rows and metadata before cloning and still returns detached snapshots. CodeProRuns owns latest-run selection. Compat includes session metadata in load responses; clients retain the extra lookup for older servers. Ordinary response retry submits a continuation in the same Harness session without copying the task or attachments, truncating history, or forking. The optional `message-presentation.continuation` flag hides only the extra input bubble and survives existing projection persistence and replay; it changes neither model history, permissions, tool receipts, nor execution ownership. The workspace panel starts closed while retaining its width; the bottom task card starts collapsed.
+## 2026-11-07：扩展通知与预览源码身份
+
+连接事实仍由 mcp-bridge / 原生 scope 持有；UI 的逐扩展通知去重只消费结果，不裁决连接、重试或权限。runtime/source-status 持有开发源码指纹诊断，server 通过只读 ACP runtime/status 暴露，桌面仅提示重启，不自动中断任务。启动器复用 profile-lock 的 SQLite 租约保护启动记录，不引入第二份扩展或会话状态。独立 Python 环境修复仍经现有 Settings writer 保存单项配置，离线写入需持有原 profile 锁。
+
+繁體：連線事實仍歸 bridge／原生 scope；通知只去重。原始碼指紋僅供預覽診斷，不決定任務或權限。啟動與離線設定寫入沿用 profile 鎖與 Settings writer。
+
+English: Connection facts remain owned by the bridge/native scope. Notification deduplication is presentation-only. Source fingerprints are preview diagnostics, not task or permission decisions. Launch and offline settings updates reuse profile leases and the existing Settings writer.

@@ -1,10 +1,14 @@
 # CodeBuddy Harness 執行環境
 
+審批不可用與使用者拒絕分開回報：原生 `approval:never` 且宿主仍要求審批時，回傳 `APPROVAL_UNAVAILABLE`；子 Agent 應交回父 Agent 審批或執行，不擴大授權、不自動重放。`tool-error-contract.mjs` 對鎖定的原生工具錯誤序列化做記憶體適配，只補充有界、去重的傳輸錯誤碼（如 `ECONNREFUSED`、`CERT_HAS_EXPIRED`），不複製底層異常位址、堆疊或憑據，不改變重試與終態。遠端 MCP 未提供的原因仍未知。依據：[Node.js error.cause](https://nodejs.org/api/errors.html#errorcause)。
+
+串流訊息以首個片段的觀察時間為建立時間，工具結果使用原生事件時間；匯出與重新載入保留該時間，不偽造舊對話缺失的時間。桌面計畫欄只消費現有宿主綁定的原生 todo 投影，摺疊摘要顯示完成／進行中／待處理數量，更新保持展開；成功計畫工具和規劃活動不再重複鋪入聊天，失敗與審批仍可見。兩種匯出使用系統桌面作為儲存對話框預設目錄，僅確認後寫入。
+
 鎖版預算相容修復由 `sdk-budget-contract.mjs` 校驗並於原生模組載入時套用，不改寫 `node_modules`。最終請求的同一投影用於估價與派發；輸出空間不足於 HTTP 前回報 `LOCAL_OUTPUT_BUDGET_EXHAUSTED`，異常短 length 回報 `OUTPUT_TRUNCATED`。本機預算／異常截斷恢復每個原生 turn 最多嘗試一次，且必須實際縮減並改善 fit 才重試；一般壓力壓縮仍依上游策略執行，網路 `always` 不能補充恢復次數。Completions 的合法 cap 1/128、一般 stop、原始 usage 與 Session v4 保持原語意。`index.mjs` 依序完成合同載入後才載入原 `driver.mjs` 實作；中繼資料與 schedule 入口亦先建立合同。版本或 SHA 改變會明確拒絕啟動，升級須複審並優先採等價上游合同，見 PROVENANCE.json。壓力顯示仍由原生 tokenMeter 負責，與 adapter 最終預算估計不同。
 
 已由模型目錄識別的 vLLM Chat Completions 在相同部署的聊天分詞端點核算訊息、工具和模板參數，再為輸出保留空間。不支援的模板或計數失敗時採用本機估算。服務端明確回報摘要超限時縮小至完整的工具呼叫邊界；在同一次恢復中，只有服務端計數持續下降才繼續分段。
 
-遠端 MCP 透過官方 `agent-preset-registry` 的長期作用域和租約跨會話重用；設定一致時僅首次連線，設定變化隔離新修訂，既有會話保留原連線。最多保留 8 組可重用設定，仍被租用的舊修訂由 Harness 繼續保留。stdio 維持會話/工作目錄隔離。工具清單變化會同步繼承工具限制，執行仍逐會話審批；詳見設計與真實視窗驗收（歷史文件，見 Git 歷史：`docs/reconstruction/2026-10-14-mcp-reuse.zh-TW.md`）。
+遠端 MCP 透過官方 `agent-preset-registry` 的單服務租約跨會話重用，最多保留 64 個完整設定；修改一項不重啟無關連線，仍被租用的舊修訂由 Harness 保留。會話透過原生 scope 投影工具、資源與說明，stdio 保持會話及目錄隔離。清單變化同步至各投影，執行仍逐會話審批。狀態、重試與舊選擇恢復見 [工具箱同步](../../docs/toolbox-runtime.zh-TW.md)。
 
 長目標由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目標 CAS、自動續輪、輪數上限及暫停。`prompt` 在原生目標 active + armed 時保持開啟，等待官方續輪結束；一般無目標對話正常結束。回傳的 `goal` 是官方 GoalView。Stop 取消本次執行並 disarm；重新啟動保持 disarmed，不自行重播工作。明確暫停目標的恢復使用結構化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立權限及事件承載再呼叫官方 resume。`getGoal` 唯讀；`controlGoal` 支援 pause，以及已有承載執行中的 resume；閒置時直接 resume 會被拒絕。
 

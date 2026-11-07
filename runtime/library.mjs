@@ -440,7 +440,7 @@ export class LibraryService {
     const names = (await readdir(this.recipeRoot)).filter((name) =>
       /^[0-9a-f-]{36}\.yaml$/u.test(name),
     );
-    const state = this.store.read();
+    const state = this.store.read(['recipeSlashCommands', 'schedules']);
     const slashes = state.recipeSlashCommands ?? {};
     return Promise.all(
       names.map(async (name) => {
@@ -637,8 +637,8 @@ export class LibraryService {
     };
   }
 
-  async sourcePath(projectDir, source) {
-    const root = (await this.roots(projectDir)).find(
+  async sourcePath(projectDir, source, observedRoots) {
+    const root = (observedRoots ?? await this.roots(projectDir)).find(
       (item) =>
         item.rootId === source?.rootId && item.rootKind === source?.rootKind,
     );
@@ -648,7 +648,7 @@ export class LibraryService {
     return { root, target };
   }
 
-  async managedSkill(projectDir, source) {
+  async managedSkill(projectDir, source, observedRoots) {
     if (source?.rootKind === "plugin") {
       const catalog = await this.catalog(projectDir);
       const item = catalog.candidates
@@ -684,7 +684,7 @@ export class LibraryService {
       if (!skill) throw invalid("source_not_found");
       return skill;
     }
-    const { root, target } = await this.sourcePath(projectDir, source);
+    const { root, target } = await this.sourcePath(projectDir, source, observedRoots);
     let files;
     if ((await stat(target)).isFile()) {
       const buffer = Buffer.from(await readDocument(target, "SKILL.md"));
@@ -748,11 +748,13 @@ export class LibraryService {
           ? path.dirname(candidate.path)
           : candidate.path;
       try {
+        // Reuse roots validated for this listing only. Individual reads and
+        // mutations still resolve their own fresh roots and validate the target.
         const managed = await this.managedSkill(projectDir, {
           rootKind: root.rootKind,
           rootId: root.rootId,
           relativePath: path.relative(root.displayPath, itemPath),
-        });
+        }, roots);
         skills.push({
           ...managed,
           availability: candidate.shadowedBy ? "shadowed" : "available",

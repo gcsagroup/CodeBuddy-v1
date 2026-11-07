@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEventHandler } from 'react';
+import { useEffect, useRef, useState, type MouseEventHandler, type ReactNode } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { Maximize, Minus, Plus } from 'lucide-react';
@@ -31,12 +31,14 @@ export function ImageLightbox({
   open,
   onOpenChange,
   onContextMenu,
+  actions,
 }: {
   src: string;
   title: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onContextMenu?: MouseEventHandler;
+  actions?: ReactNode;
 }) {
   const intl = useIntl();
   const [zoom, setZoom] = useState<number | null>(null);
@@ -131,6 +133,7 @@ export function ImageLightbox({
           >
             <Maximize size={16} />
           </button>
+          {actions}
         </div>
       </DialogContent>
     </Dialog>

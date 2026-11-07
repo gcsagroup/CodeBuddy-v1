@@ -168,6 +168,18 @@ describe('large pasted drafts', () => {
     vi.mocked(getSessionExtensions).mockResolvedValue([]);
   });
   afterEach(() => vi.unstubAllGlobals());
+  it('appends a toolbox skill draft once without submitting or replacing existing text', () => {
+    const handleSubmit = vi.fn();
+    const props = { sessionId: 'skill-draft', handleSubmit, onStop: vi.fn(), setView: vi.fn(), chatState: ChatState.Idle };
+    const view = render(<ChatInput {...props} />, { wrapper: IntlTestWrapper });
+    fireEvent.change(screen.getByTestId('chat-input'), { target: { value: 'existing draft' } });
+    view.rerender(<ChatInput {...props} draftDelivery={{ id: 'route-1', text: 'Use sync-skill:' }} />);
+    expect(screen.getByTestId('chat-input')).toHaveValue('existing draft\nUse sync-skill:');
+    view.rerender(<ChatInput {...props} draftDelivery={{ id: 'route-1', text: 'Use sync-skill:' }} />);
+    expect(screen.getByTestId('chat-input')).toHaveValue('existing draft\nUse sync-skill:');
+    expect(handleSubmit).not.toHaveBeenCalled();
+    expect(localStorage.getItem('queued-messages-skill-draft')).toBeNull();
+  });
   it('adds every selected file as a separate attachment without replacing typed text', async () => {
     const submit = vi.fn((_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
     const view = setup(submit);
@@ -261,6 +273,33 @@ describe('workspace images added to the composer', () => {
     vi.mocked(getSessionExtensions).mockResolvedValue([]);
   });
   afterEach(() => vi.unstubAllGlobals());
+  it('waits for the loaded main composer before acknowledging a pet draft', async () => {
+    const submit = vi.fn(), received = vi.fn();
+    const delivery = deliverMainConversationMessage('cold-main', { msg: 'cold draft', images: [], composerAction: 'add' }).then(received);
+    const props = { sessionId: 'cold-main', handleSubmit: submit, setView: vi.fn(), initialValue: '' };
+    const view = render(<ChatInput {...props} sessionLoaded={false} chatState={ChatState.LoadingConversation} />, { wrapper: IntlTestWrapper });
+    await act(async () => {});
+    expect(received).not.toHaveBeenCalled();
+    view.rerender(<ChatInput {...props} sessionLoaded chatState={ChatState.Idle} />);
+    await act(async () => { await delivery; });
+    expect(screen.getByTestId('chat-input')).toHaveValue('cold draft');
+    expect(received).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('accepts an early pet picker draft after initialization without queueing or sending', async () => {
+    const submit = vi.fn();
+    const delivery = deliverMainConversationMessage('queue-test', { msg: 'pet draft', images: [], composerAction: 'add' });
+    const view = setup(submit, undefined, false, false, { initialValue: 'existing draft' });
+    await act(async () => { await delivery; });
+    expect(screen.getByTestId('chat-input')).toHaveValue('existing draft\npet draft');
+    await act(async () => { await deliverMainConversationMessage('queue-test', { msg: '', images: [], composerAction: 'plan' }); });
+
+    view.changeState(ChatState.Idle);
+    expect(submit).not.toHaveBeenCalled();
+    expect(new QueuedMessageStorage(localStorage, 'queue-test').read()).toEqual([]);
+  });
+
   it('persists pet main conversation messages while busy and drains them in order once idle', async () => {
     const submit = vi.fn(async (_input: UserInput, lifecycle?: MessageSubmissionLifecycle) => lifecycle?.onAccepted());
     const view = setup(submit);

@@ -350,13 +350,16 @@ export class CodeProRuns {
     this.publish(row, 0);
     return snapshot(row);
   }
-  get(params) { protocol(params); return { snapshot: snapshot(rowIn(this.store.read(['codeproRuns']), params)) }; }
-  latest(sessionId, state = this.store.read(['codeproRuns'])) {
+  get(params) { protocol(params); return { snapshot: snapshot(rowIn(this.store.read(['codeproRuns'], { runSessionId: params.sessionId, runId: params.runId }), params)) }; }
+  latestId(sessionId, state = this.store.read(['codeproRuns'], { runSessionId: sessionId, runFields: ['sessionId', 'runId'] })) {
+    return (state.codeproRuns ?? []).findLast(run => run.sessionId === sessionId)?.runId;
+  }
+  latest(sessionId, state = this.store.read(['codeproRuns'], { runSessionId: sessionId })) {
     const row = (state.codeproRuns ?? []).findLast((run) => run.sessionId === sessionId);
     return row ? snapshot(row) : null;
   }
   context(params) {
-    const row = rowIn(this.store.read(['codeproRuns']), key(params)); const view = project(row);
+    const row = rowIn(this.store.read(['codeproRuns'], { runSessionId: params.sessionId, runId: params.runId }), key(params)); const view = project(row);
     return { ...snapshot(row), sourceMessageId: view.sourceMessageId, activeAttempt: view.activeAttempt, completionPolicy: view.policy, completionKind: view.completionKind, executionOwner: view.executionOwner, nativeGoal: view.nativeGoal, nativeWorkers: view.nativeWorkers, terminalError: view.terminalError, tasks: view.tasks, receipts: view.receipts, lastReason: view.lastReason,
       recoveryInstruction: view.executionOwner === 'harness' ? 'Continue from the official Harness session and goal state. Do not replay completed or unresolved external effects. Inspect uncertain effects before deciding further actions. This compatibility view is not a scheduler or a project verification verdict.' : 'Continue from persisted Harness conversation and these host facts. Do not replay completed or unresolved external effects. Inspect uncertain effects and request a user resolution. End of a model turn does not complete this run.' };
   }

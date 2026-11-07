@@ -53,6 +53,7 @@ import {
 } from '../workspace-panel/workspaceFilePanel';
 import { panelMessages } from '../workspace-panel/workspacePanelMessages';
 import { defineMessages, useIntl } from '../i18n';
+import { GeneratedMediaFiles, GeneratedMediaReference } from './GeneratedMedia';
 
 const i18n = defineMessages({
   copyCode: {
@@ -477,32 +478,26 @@ const MarkdownContent = memo(function MarkdownContent({
             }
           />
         );
-        return link;
+        return sessionId && props.href ? (
+          <GeneratedMediaReference sessionId={sessionId} href={props.href} fallback={link} />
+        ) : (
+          link
+        );
       },
       img: ({ src, alt }) =>
         sessionId && typeof src === 'string' && workspaceLinkPath(src) ? (
-          <button
-            type="button"
-            className="underline"
-            onClick={(event) =>
-              openWorkspaceFile({
-                sessionId,
-                filePath: workspaceLinkPath(src)!,
-                ...(event.ctrlKey || event.metaKey ? { action: 'open-external' as const } : {}),
-              })
+          <GeneratedMediaReference
+            sessionId={sessionId}
+            href={workspaceLinkPath(src)!}
+            fallback={
+              <GeneratedMediaFiles
+                sessionId={sessionId}
+                paths={[workspaceLinkPath(src)!]}
+                taskLabel={alt || previewLabel}
+                inline
+              />
             }
-            onContextMenu={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              openWorkspaceFile({
-                sessionId,
-                filePath: workspaceLinkPath(src)!,
-                action: 'file-menu',
-              });
-            }}
-          >
-            {alt || previewLabel}
-          </button>
+          />
         ) : (
           <img src={src} alt={alt} />
         ),

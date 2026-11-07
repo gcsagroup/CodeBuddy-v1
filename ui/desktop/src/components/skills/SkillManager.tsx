@@ -356,6 +356,7 @@ function operationFor(
 export type SkillManagerRequest = { type: 'create' } | { type: 'detail'; skill: ManagedSkill };
 
 interface SkillManagerProps {
+  projectDir?: string;
   dialogOnly?: boolean;
   request?: SkillManagerRequest;
   onRequestClose?: () => void;
@@ -363,6 +364,7 @@ interface SkillManagerProps {
 }
 
 export default function SkillManager({
+  projectDir: requestedProjectDir,
   dialogOnly = false,
   request,
   onRequestClose,
@@ -372,7 +374,7 @@ export default function SkillManager({
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const projectDir = getInitialWorkingDir();
+  const projectDir = requestedProjectDir ?? getInitialWorkingDir();
   const confirmations = useSyncExternalStore(
     subscribeSkillManagementConfirmations,
     getSkillManagementConfirmationsSnapshot
@@ -465,7 +467,8 @@ export default function SkillManager({
 
   function openSkillConversation(skill: ManagedSkill) {
     const prefix = location.pathname.startsWith('/codepro') ? '/codepro' : '';
-    navigate(`${prefix}/pair`, {
+    const sessionId = searchParams.get('sessionId');
+    navigate(`${prefix}/pair${sessionId ? `?resumeSessionId=${encodeURIComponent(sessionId)}` : ''}`, {
       state: {
         initialMessage: {
           msg: intl.formatMessage(composerMessages.useSkill, { name: skill.name }),

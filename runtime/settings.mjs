@@ -61,11 +61,13 @@ export class RuntimeSettings {
   }
   async extensionSnapshot() {
     const revision = this.extensionRevision;
-    const registry = this.store.read(["extensions"]).extensions;
+    const state = this.store.read(["extensions", "retiredExtensions"]);
+    const registry = state.extensions;
     const assertCurrent = () => {
       if (revision !== this.extensionRevision) throw extensionSnapshotChanged('Extension settings changed; retry the operation');
     };
-    const configured = registry.map(entry => ({ configKey: entry.configKey, enabled: entry.enabled, name: extensionName(entry.extension) }));
+    const configured = [...registry.map(entry => ({ configKey: entry.configKey, enabled: entry.enabled, name: extensionName(entry.extension) })),
+      ...(state.retiredExtensions ?? []).map(configKey => ({ configKey, enabled: false }))];
     const entries = await Promise.all(registry.filter(entry => entry.enabled).map(async entry => ({
       extension: await this.decodeExtension(entry),
       enabled: entry.enabled, configKey: entry.configKey,
@@ -111,6 +113,8 @@ export class RuntimeSettings {
         try { definition = old.protected ? JSON.parse(await revealSecret(old.protected)) : old.extension; } catch {}
         if (isDeepStrictEqual(definition, extension)) return false;
       }
+      state.retiredExtensions = (state.retiredExtensions ?? []).filter(name => name !== key);
+      if (replacing && p.configKey !== key && !state.retiredExtensions.includes(p.configKey)) state.retiredExtensions.push(p.configKey);
       const entry = { configKey: key, enabled,
         ...(protectedValue ? { protected: protectedValue } : { extension }) };
       if (index < 0) state.extensions.push(entry); else state.extensions[index] = entry;
@@ -136,7 +140,11 @@ export class RuntimeSettings {
           const entry = state.extensions.find(e => e.configKey === p.configKey);
           if (!entry) throw invalid('Unknown extension');
           if (name.endsWith('set-enabled') && entry.enabled === p.enabled) return false;
-          if (name.endsWith('remove')) state.extensions = state.extensions.filter(e => e !== entry);
+          if (name.endsWith('remove')) {
+            state.extensions = state.extensions.filter(e => e !== entry);
+            state.retiredExtensions ??= [];
+            if (!state.retiredExtensions.includes(p.configKey)) state.retiredExtensions.push(p.configKey);
+          }
           else entry.enabled = p.enabled;
           return true;
         });

@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry';
-import { compositionStatus } from './mcp-composition.mjs';
+import { createScope } from '@deepseek-ai/dsh-scope';
+import { connectionStatus } from './mcp-connection.mjs';
+import { projectMcpConnection, waitForMcpServers } from './mcp-bridge.mjs';
 import { extensionConfigKey } from '../session-extensions.mjs';
 
 function canonical(value) {
@@ -44,7 +46,7 @@ export async function createMcpPresets(ctx) {
     await entry.retirement;
   };
   const trim = async () => {
-    while (definitions.size > 8) {
+    while (definitions.size > 64) {
       // Do not retire a declaration while another caller is acquiring its
       // official lease. This counter tracks pending acquisitions, not users.
       const oldest = [...definitions].find(([, entry]) => entry.acquiring === 0);
@@ -52,22 +54,17 @@ export async function createMcpPresets(ctx) {
       await retire(...oldest);
     }
   };
-  return {
-    async invalidate(configKeys) {
-      const keys = new Set(configKeys.map(extensionConfigKey));
-      await Promise.all([...definitions].filter(([, entry]) => entry.servers.some(server => keys.has(extensionConfigKey(server.serverName)))).map(([key, entry]) => retire(key, entry)));
-    },
-    async acquire(servers) {
-      if (!servers.length) return;
-      const key = createHash('sha256').update(JSON.stringify(canonical(servers))).digest('hex');
+  async function acquireConnection(server) {
+      const { backgroundStart: _backgroundStart, ...identity } = server;
+      const key = createHash('sha256').update(JSON.stringify(canonical(identity))).digest('hex');
       let entry = definitions.get(key);
       const reused = Boolean(entry);
       if (!entry) {
-        entry = { servers: structuredClone(servers), acquiring: 0, ready: (async () => {
+        entry = { server: structuredClone(server), acquiring: 0, ready: (async () => {
           const id = `codebuddy-mcp-${randomUUID()}`;
           const unregister = await registry.register({ id, plugins: [{
-            id: 'connections', name: new URL('./mcp-composition.mjs', import.meta.url).href,
-            config: { servers: structuredClone(servers) },
+            id: 'connection', name: new URL('./mcp-connection.mjs', import.meta.url).href,
+            config: { ...structuredClone(server), backgroundStart: true },
           }] });
           return { id, unregister };
         })() };
@@ -79,10 +76,10 @@ export async function createMcpPresets(ctx) {
       let lease;
       try {
         lease = await registry.acquireScope((await entry.ready).id);
-        const statuses = compositionStatus(lease.key);
-        // A failed initial connection is retried by a later acquisition. Live
-        // leases retain healthy peers in this retired revision until release.
-        if (statuses.some(status => status.status !== 'ready')) await retire(key, entry);
+        if (!server.backgroundStart) await waitForMcpServers(lease.key, [server.serverName]);
+        const statuses = [connectionStatus(lease.key)];
+        // Retire only this failed connection; healthy peers retain their leases.
+        if (statuses.some(status => status.status === 'error')) await retire(key, entry);
         return { ...lease, statuses, reused };
       } catch (error) {
         await lease?.[Symbol.asyncDispose]();
@@ -93,6 +90,36 @@ export async function createMcpPresets(ctx) {
         // Retired revisions still leased by sessions are collected by Harness.
         await trim();
       }
+  }
+  return {
+    async invalidate(configKeys) {
+      const keys = new Set(configKeys.map(extensionConfigKey));
+      await Promise.all([...definitions].filter(([, entry]) => keys.has(extensionConfigKey(entry.server.serverName))).map(([key, entry]) => retire(key, entry)));
+    },
+    async acquire(servers) {
+      if (!servers.length) return;
+      const results = await Promise.allSettled(servers.map(acquireConnection));
+      const leases = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure) {
+        await Promise.all(leases.map(lease => lease[Symbol.asyncDispose]()));
+        throw failure.reason;
+      }
+      const key = {}, scope = createScope(ctx, key);
+      let disposing;
+      const dispose = () => disposing ??= (async () => {
+        try { await scope.dispose(); }
+        finally { await Promise.all(leases.map(lease => lease[Symbol.asyncDispose]())); }
+      })();
+      try {
+        const view = scope.ctx.plugin({
+          name: 'codebuddy-mcp-selection', inject: ['tools'],
+          apply(inner) { for (const [index, server] of servers.entries()) projectMcpConnection(inner, leases[index].key, server.serverName); },
+        });
+        await view;
+        if (view.state !== 2) throw Error('MCP selection did not activate');
+        return { key, statuses: leases.flatMap(lease => lease.statuses), reused: leases.every(lease => lease.reused), [Symbol.asyncDispose]: dispose };
+      } catch (error) { await dispose(); throw error; }
     },
   };
 }

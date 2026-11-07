@@ -34,6 +34,6 @@ const server = http.createServer(async (req, res) => {
   const configured = await saveProvider(store, { engine: 'openai_compatible', displayName: 'Desktop acceptance fixture', apiUrl: endpoint, requiresAuth: false, models: ['desktop-codepro-fixture'], supportsStreaming: true, headers: {} });
   await store.update(s => { s.defaults = { providerId: configured.providerId, modelId: 'desktop-codepro-fixture' }; });
   fs.writeFileSync(path.join(root, '.preview-evidence', 'first-version-fixture.json'), JSON.stringify({ profile, endpoint, devtoolsPort: 9389 }, null, 2));
-  try { process.exitCode = await startPreview({ dataDirectory: profile, env: { ...process.env, CODEBUDDY_PREVIEW_DEVTOOLS_PORT: '9389', CODEPRO_UNIFIED_MODE: 'true', CODEBUDDY_WORKSPACE_ROOT: path.join(profile, 'workspaces') } }); }
+  try { process.exitCode = await startPreview({ dataDirectory: profile, env: { ...process.env, CODEBUDDY_PREVIEW_DEVTOOLS_PORT: '9389', CODEBUDDY_WORKSPACE_ROOT: path.join(profile, 'workspaces') } }); }
   finally { server.closeAllConnections(); server.close(); }
 })().catch(e => { console.error(e); server.closeAllConnections(); server.close(); process.exitCode = 1; });

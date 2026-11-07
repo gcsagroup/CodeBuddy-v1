@@ -219,11 +219,18 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     directory: path.resolve(dataDir),
     // Settings requests must not clone every conversation and tool receipt.
     // Both forms return detached snapshots of the last committed state.
-    read: (keys, { sessionFields } = {}) => {
+    read: (keys, { sessionFields, runFields, runSessionId, runId } = {}) => {
       let selected = keys === undefined ? state
         : Object.fromEntries(keys.map(key => [key, state[key]]));
       if (sessionFields) selected = { ...selected, sessions: selected.sessions.map(session =>
         Object.fromEntries(sessionFields.map(key => [key, session[key]]))) };
+      if (keys?.includes('codeproRuns') && (runFields || runSessionId !== undefined || runId !== undefined)) {
+        let runs = selected.codeproRuns ?? [];
+        if (runSessionId !== undefined) runs = runs.filter(run => run.sessionId === runSessionId);
+        if (runId !== undefined) runs = runs.filter(run => run.runId === runId);
+        selected = { ...selected, codeproRuns: runFields ? runs.map(run =>
+          Object.fromEntries(runFields.map(key => [key, run[key]]))) : runs };
+      }
       return snapshot(selected, keys);
     },
     readSession: (id, { fields } = {}) => {

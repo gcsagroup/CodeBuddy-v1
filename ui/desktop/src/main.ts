@@ -48,7 +48,7 @@ import { checkBackendStatus } from './backendStatus';
 import { getBackendCertificateSha256Fingerprint } from './backendCertificateTrust';
 import { resolveStartupDirectory } from './startupDirectory';
 import { FileOpenQueue } from './fileOpenQueue';
-import { isCodeProUnifiedModeEnabled, resolveCodeProEntryPath } from './codepro/unifiedMode';
+import { resolveCodeProEntryPath } from './codepro/unifiedMode';
 import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLeaseRegistry';
 import { acpWebSocketUrlFromHttpBase, normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
@@ -120,7 +120,6 @@ if (harnessPackaged) {
   }
   process.env.CODEBUDDY_MIGRATE_LEGACY = 'false';
   process.env.CODEBUDDY_DISABLE_PROTOCOL_REGISTRATION = 'true';
-  process.env.CODEPRO_UNIFIED_MODE ??= 'true';
 }
 let packagedHarnessService: Awaited<ReturnType<typeof startHarnessService>> | undefined;
 let previewInitialRoute =
@@ -1109,7 +1108,6 @@ let appConfig = {
   // If GOOSE_ALLOWLIST_WARNING env var is not set, defaults to false (strict blocking mode)
   GOOSE_ALLOWLIST_WARNING: process.env.GOOSE_ALLOWLIST_WARNING === 'true',
   GOOSE_DISABLE_NOSTR_SHARING: process.env.GOOSE_DISABLE_NOSTR_SHARING === 'true',
-  CODEPRO_UNIFIED_MODE: isCodeProUnifiedModeEnabled(process.env.CODEPRO_UNIFIED_MODE),
 };
 
 const windowMap = new Map<number, BrowserWindow>();
@@ -1629,7 +1627,7 @@ const createChat = async (
       appPath = '/pair';
     }
   }
-  appPath = resolveCodeProEntryPath(appPath, appConfig.CODEPRO_UNIFIED_MODE);
+  appPath = resolveCodeProEntryPath(appPath);
 
   // Goose's react app uses HashRouter, so the path + search params follow a #/
   url.hash = `${appPath}?${searchParams.toString()}`;
@@ -2729,7 +2727,11 @@ ipcMain.handle('show-message-box', async (_event, options) => {
 });
 
 ipcMain.handle('show-save-dialog', async (_event, options) => {
-  return dialog.showSaveDialog(options);
+  const { defaultDirectory, ...dialogOptions } = options;
+  if (defaultDirectory === 'desktop') {
+    dialogOptions.defaultPath = path.join(app.getPath('desktop'), path.basename(dialogOptions.defaultPath || ''));
+  }
+  return dialog.showSaveDialog(dialogOptions);
 });
 
 ipcMain.handle('get-allowed-extensions', async () => {

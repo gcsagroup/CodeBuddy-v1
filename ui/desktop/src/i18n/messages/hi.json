@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "कार्य योजना"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} पूर्ण · {active} जारी · {pending} लंबित"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

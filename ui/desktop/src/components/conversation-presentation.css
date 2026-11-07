@@ -222,3 +222,15 @@
   font-size: var(--text-xs, 0.75rem);
   line-height: 1.4;
 }
+
+/* Composer plans fill the composer width; history retains its compact typography. */
+.codepro-conversation .codepro-plan[data-plan-card] {
+  max-width: 100%;
+  font-size: var(--text-sm, 0.875rem);
+  line-height: 1.5;
+}
+
+.codepro-conversation .codepro-plan[data-plan-card] :is(.prose, .prose :where(p, li)) {
+  font-size: var(--text-sm, 0.875rem);
+  line-height: 1.5;
+}

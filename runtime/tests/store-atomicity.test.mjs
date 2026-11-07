@@ -1,11 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, open, readFile, rename, readdir } from 'node:fs/promises';
+import { mkdtemp, open, readFile, rename, readdir, rm } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { performance } from 'node:perf_hooks';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openStore } from '../store.mjs';
+
+test('run projections exclude unrelated event payloads and remain detached', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-run-projection-'));
+  t.after(async () => {
+    assert.equal(path.dirname(root), path.resolve(tmpdir()));
+    assert.ok(path.basename(root).startsWith('codebuddy-run-projection-'));
+    await rm(root, { recursive: true, force: true });
+  });
+  const store = await openStore(root);
+  await store.update(s => { s.codeproRuns = [
+    { sessionId: 'a', runId: 'old', events: [{ text: 'saved' }] },
+    { sessionId: 'b', runId: 'other', events: [{ text: 'other' }] },
+    { sessionId: 'a', runId: 'new', events: [{ text: 'latest' }] },
+  ]; }, ['codeproRuns']);
+  assert.deepEqual(store.read(['codeproRuns'], { runFields: ['sessionId', 'runId'] }).codeproRuns,
+    [{ sessionId: 'a', runId: 'old' }, { sessionId: 'b', runId: 'other' }, { sessionId: 'a', runId: 'new' }]);
+  const selected = store.read(['codeproRuns'], { runSessionId: 'a', runId: 'new' }).codeproRuns;
+  assert.equal(selected.length, 1);
+  selected[0].events[0].text = 'mutated';
+  assert.equal(store.read(['codeproRuns'], { runSessionId: 'a', runId: 'new' }).codeproRuns[0].events[0].text, 'latest');
+  assert.deepEqual(store.read(['codeproRuns'], { runSessionId: 'b', runId: 'new' }).codeproRuns, []);
+});
 
 test('a disk flush failure cannot replace the last valid snapshot or publish a configuration change', async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-store-flush-'));

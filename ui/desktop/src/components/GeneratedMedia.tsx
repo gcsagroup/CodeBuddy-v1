@@ -1,10 +1,43 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, createContext, useContext, type ReactNode } from 'react';
 import type { ToolResponseMessageContent } from '../types/message';
 import { WorkspaceFileReferences } from './WorkspaceFileReferences';
 import { generatedMediaReceipt } from '../utils/mediaToolReceipt';
 import { useWorkspaceFileReferences } from './useWorkspaceFileReferences';
 import { WorkspaceMedia } from '../workspace-panel/WorkspaceMedia';
 import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
+import { useMediaJobs, resolveMediaOutput } from '../workspace-panel/WorkspaceGeneration';
+
+const DeliveredMediaContext = createContext<ReadonlySet<string>>(new Set());
+export function DeliveredMediaScope({ paths, children }: { paths: string[]; children: ReactNode }) {
+  const key = JSON.stringify(paths.map((path) => path.replace(/\\/g, '/')));
+  const value = useMemo(() => new Set<string>(JSON.parse(key)), [key]);
+  return <DeliveredMediaContext.Provider value={value}>{children}</DeliveredMediaContext.Provider>;
+}
+
+export function GeneratedMediaReference({
+  sessionId,
+  href,
+  fallback,
+}: {
+  sessionId: string;
+  href: string;
+  fallback: ReactNode;
+}) {
+  const { jobs } = useMediaJobs(sessionId);
+  const artifact = resolveMediaOutput(jobs, href);
+  const delivered = useContext(DeliveredMediaContext);
+  if (delivered.has((artifact?.path ?? href).replace(/\\/g, '/'))) return null;
+  return artifact ? (
+    <GeneratedMediaFiles
+      sessionId={sessionId}
+      paths={[artifact.path]}
+      taskLabel={artifact.title}
+      inline
+    />
+  ) : (
+    fallback
+  );
+}
 
 export function generatedMediaPaths(
   toolName: string,
@@ -35,7 +68,7 @@ export function GeneratedMedia({
   response?: ToolResponseMessageContent;
 }) {
   const paths = useMemo(() => generatedMediaPaths(toolName, response), [toolName, response]);
-  return <GeneratedMediaFiles sessionId={sessionId} paths={paths} />;
+  return <GeneratedMediaFiles sessionId={sessionId} paths={paths} inline />;
 }
 
 export function GeneratedMediaFiles({
@@ -68,15 +101,12 @@ const MediaTaskOutputs = memo(
   }) {
     const files = useWorkspaceFileReferences({ sessionId, content: '', paths });
     return files.length ? (
-      <div className="ml-6 my-2 grid max-w-xl gap-3">
+      <span className="media-output-grid">
         {files.map((file) => {
           const filename = file.path.replace(/\\/g, '/').split('/').pop()!;
           const title = taskLabel ? `${taskLabel} / ${filename}` : filename;
           return (
-            <div
-              key={file.path}
-              className="min-w-0 [&_img]:!max-h-[28rem] [&_video]:!max-h-[28rem]"
-            >
+            <span key={file.path} className="media-output">
               {file.media && (
                 <WorkspaceMedia
                   media={file.media}
@@ -92,11 +122,33 @@ const MediaTaskOutputs = memo(
               >
                 {title}
               </button>
-            </div>
+            </span>
           );
         })}
-      </div>
-    ) : null;
+      </span>
+    ) : (
+      paths.map((path) => (
+        <button
+          key={path}
+          type="button"
+          className="underline text-sm"
+          onClick={(event) =>
+            openWorkspaceFile({
+              sessionId,
+              filePath: path,
+              ...(event.ctrlKey || event.metaKey ? { action: 'open-external' as const } : {}),
+            })
+          }
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openWorkspaceFile({ sessionId, filePath: path, action: 'file-menu' });
+          }}
+        >
+          {taskLabel ?? path.replace(/\\/g, '/').split('/').pop()}
+        </button>
+      ))
+    );
   },
   (previous, next) =>
     previous.sessionId === next.sessionId &&

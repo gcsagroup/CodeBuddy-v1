@@ -11,12 +11,16 @@ import {
   FileText,
   MessageCircle,
   Paperclip,
+  Plus,
+  Bot,
+  Target,
+  ListChecks,
   Pause,
   X,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../utils/conversionUtils';
 import type { ImageData } from '../types/message';
-import { parsePetMessage } from './petMessage';
+import { parsePetMessage, type PetComposerAction } from './petMessage';
 import './desktopPet.css';
 
 const t = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
@@ -135,6 +139,7 @@ export default function DesktopPet() {
   const [gazing, setGazing] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [composing, setComposing] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(false);
@@ -277,13 +282,14 @@ export default function DesktopPet() {
     try {
       await window.electron.desktopPet({ action: 'compose', composing: false });
       setComposing(false);
+      setAddOpen(false);
     } catch {
       setSendError(true);
     }
   };
-  const sendMessage = async () => {
+  const sendMessage = async (composerAction?: PetComposerAction) => {
     if (
-      (!message.trim() && !attachments.length) ||
+      (!composerAction && !message.trim() && !attachments.length) ||
       sendingRef.current ||
       readingRef.current ||
       attachments.some((a) => a.error)
@@ -297,15 +303,17 @@ export default function DesktopPet() {
       const payload = parsePetMessage({
         msg: [message.trim(), ...paths].filter(Boolean).join('\n'),
         images: attachments.flatMap((a) => (a.image ? [a.image] : [])),
-      });
+      }, !!composerAction);
       await window.electron.desktopPet({
-        action: 'send-message',
+        action: composerAction ? 'open-composer' : 'send-message',
+        ...(composerAction ? { composerAction } : {}),
         message: payload.msg,
         ...(payload.images.length ? { images: payload.images } : {}),
       });
       setMessage('');
       setAttachments([]);
       setComposing(false);
+      setAddOpen(false);
     } catch {
       // Keep the draft intact when delivery to the main window fails.
       setSendError(true);
@@ -377,6 +385,11 @@ export default function DesktopPet() {
           {composing ? (
             <form
               className="pet-composer"
+              onKeyDownCapture={(event) => {
+                if (event.key === 'Escape' && addOpen) {
+                  event.preventDefault(); event.stopPropagation(); setAddOpen(false); input.current?.focus();
+                }
+              }}
               onSubmit={(event) => {
                 event.preventDefault();
                 void sendMessage();
@@ -478,16 +491,26 @@ export default function DesktopPet() {
                   )}
                 </p>
               )}
+              {addOpen && (
+                <div role="group" aria-label={t('Add', '添加', '新增')} className="pet-add-menu">
+                  <button type="button" disabled={sending || readingFiles} onClick={() => { setAddOpen(false); fileInput.current?.click(); }}><Paperclip size={14} />{t('File', '文件', '檔案')}</button>
+                  <button type="button" disabled={sending || readingFiles} onClick={() => void sendMessage('agent')}><Bot size={14} />{t('Custom agent', '自定义智能体', '自訂智能體')}</button>
+                  <button type="button" disabled={sending || readingFiles} onClick={() => void sendMessage('goal')}><Target size={14} />{t('Goal', '目标', '目標')}</button>
+                  <button type="button" disabled={sending || readingFiles} onClick={() => void sendMessage('plan')}><ListChecks size={14} />{t('Plan', '计划', '計畫')}</button>
+                  <button type="button" disabled={sending || readingFiles} onClick={() => void sendMessage('add')}><Plus size={14} />{t('Skills and tools in main conversation', '在主对话选择技能和工具', '在主對話選擇技能和工具')}</button>
+                </div>
+              )}
               <div className="pet-composer-footer">
                 <button
                   className="pet-attach-button"
                   type="button"
                   disabled={sending || readingFiles}
-                  title={t('Add files or images', '添加文件或图片', '加入檔案或圖片')}
-                  aria-label={t('Add attachment', '添加附件', '加入附件')}
-                  onClick={() => fileInput.current?.click()}
+                  title={t('Add attachments or features', '添加附件或功能', '加入附件或功能')}
+                  aria-label={t('Add attachments or features', '添加附件或功能', '加入附件或功能')}
+                  aria-expanded={addOpen}
+                  onClick={() => setAddOpen(value => !value)}
                 >
-                  <Paperclip size={16} />
+                  <Plus size={18} aria-hidden="true" />
                 </button>
                 <span>
                   {readingFiles

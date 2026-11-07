@@ -11,6 +11,21 @@ vi.mock('./capabilityUsage', () => ({ listCapabilityUsage: vi.fn() }));
 describe('loadToolbox', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('publishes extensions before a slow skill scan and skips unused menu statistics', async () => {
+    let finish!: (value: Awaited<ReturnType<typeof listManagedSkills>>) => void;
+    vi.mocked(listManagedSkills).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    vi.mocked(getConfiguredExtensions).mockResolvedValue({
+      extensions: [{ type: 'builtin', name: 'developer', description: '', enabled: true }], warnings: [],
+    });
+    const onPartial = vi.fn();
+    const loading = loadToolbox('/project', undefined, { includeUsage: false, onPartial });
+    await vi.waitFor(() => expect(onPartial).toHaveBeenCalled());
+    expect(onPartial.mock.calls[0][0].model.capabilities[0].id).toBe('builtin:developer');
+    expect(listCapabilityUsage).not.toHaveBeenCalled();
+    finish({ skills: [], destinationRoots: [] });
+    await loading;
+  });
+
   it('returns successful sources when one source fails', async () => {
     vi.mocked(listManagedSkills).mockResolvedValue({ skills: [], destinationRoots: [] });
     vi.mocked(getConfiguredExtensions).mockResolvedValue({

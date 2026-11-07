@@ -208,3 +208,22 @@ it('shows question detail, preserves waiting on click, and pauses a running task
   fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
   expect(request).toHaveBeenCalledWith({ action: 'pause-task', sessionId: 'w' });
 });
+
+
+it('opens local add actions immediately and hands a draft to main without submitting', async () => {
+  await act(async () => { render(<DesktopPet />); });
+  const sprite = screen.getByRole('img');
+  fireEvent.pointerDown(sprite, { button: 0, screenX: 100, screenY: 100 });
+  fireEvent.pointerUp(sprite, { button: 0, screenX: 100, screenY: 100 });
+  await act(async () => { vi.advanceTimersByTime(300); });
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'keep my draft' } });
+  const before = request.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Add attachments or features' }));
+  expect(screen.getByRole('button', { name: /^File$/ })).toBeVisible();
+  expect(request.mock.calls).toHaveLength(before);
+  expect(screen.getByRole('button', { name: /^Goal$/ })).toBeVisible();
+  request.mockRejectedValueOnce(new Error('offline'));
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Skills and tools in main conversation' })); });
+  expect(screen.getByRole('textbox')).toHaveValue('keep my draft');
+  expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'open-composer', composerAction: 'add', message: 'keep my draft' }));
+});

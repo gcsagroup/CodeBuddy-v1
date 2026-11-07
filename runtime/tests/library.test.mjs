@@ -70,6 +70,16 @@ async function fixture(t, options = {}) {
   return { root, store, library, connection, confirmations, refreshed, call };
 }
 
+test('command recipe discovery never reads conversation bodies', async t => {
+  const f = await fixture(t);
+  const read = f.store.read.bind(f.store);
+  t.mock.method(f.store, 'read', (keys, options) => {
+    assert.ok(Array.isArray(keys) && !keys.includes('sessions'), 'Menu discovery must not clone chat history');
+    return read(keys, options);
+  });
+  assert.deepEqual(await f.library.listRecipes(), []);
+});
+
 async function createSkill(context, name = "demo-skill", projectDir) {
   const listed = schemas.zSkillManagementListResponse_unstable.parse(
     await context.call("skills/manage/list", { projectDir }),
@@ -94,6 +104,38 @@ async function createSkill(context, name = "demo-skill", projectDir) {
     }),
   ).skill;
 }
+
+test('listing project skills scans the catalog once and still reads fresh documents', async t => {
+  const context = await fixture(t);
+  const project = path.join(context.root, 'project');
+  for (let i = 0; i < 12; i++) {
+    const folder = path.join(project, '.agents', 'skills', `skill-${i}`);
+    await mkdir(folder, { recursive: true });
+    await writeFile(path.join(folder, 'SKILL.md'), raw(`skill-${i}`));
+  }
+  const original = context.library.catalog.bind(context.library);
+  let scans = 0;
+  context.library.catalog = (...args) => { scans++; return original(...args); };
+  const managed = context.library.managedSkill.bind(context.library);
+  // Reproduce the previous per-item root lookup on the same isolated files.
+  context.library.managedSkill = (cwd, source) => managed(cwd, source);
+  const baselineStart = performance.now();
+  const baseline = await context.call('skills/manage/list', { projectDir: project });
+  const baselineMs = performance.now() - baselineStart;
+  assert.equal(scans, 13);
+  context.library.managedSkill = managed;
+  scans = 0;
+  const start = performance.now();
+  const first = await context.call('skills/manage/list', { projectDir: project });
+  t.diagnostic(`12 skills: prior ${baselineMs.toFixed(1)}ms / 13 scans; current ${(performance.now() - start).toFixed(1)}ms / ${scans} scan`);
+  assert.deepEqual(first, baseline);
+  assert.equal(first.skills.length, 12);
+  assert.equal(scans, 1);
+  await writeFile(path.join(project, '.agents', 'skills', 'skill-0', 'SKILL.md'), raw('skill-0', 'Updated body'));
+  const second = await context.call('skills/manage/list', { projectDir: project });
+  assert.equal(scans, 2);
+  assert.match(second.skills.find(skill => skill.name === 'skill-0').rawDocument, /Updated body/);
+});
 
 test("built-in skill sources project Harness definitions as read-only entries", async t => {
   let requestedCwd;

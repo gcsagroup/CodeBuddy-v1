@@ -49,11 +49,11 @@ function CurrentLocation() {
   );
 }
 
-function renderManager(path = '/skills') {
+function renderManager(path = '/skills', projectDir?: string) {
   return render(
     <IntlProvider locale="zh-CN" messages={zhMessages}>
       <MemoryRouter initialEntries={[path]}>
-        <SkillManager />
+        <SkillManager projectDir={projectDir} />
         <CurrentLocation />
       </MemoryRouter>
     </IntlProvider>
@@ -257,6 +257,17 @@ describe('SkillManager user workflows', () => {
         workingDir: 'D:\\project',
       })
     );
+  });
+
+  it('uses the conversation workspace and returns a draft to that same conversation', async () => {
+    renderManager('/codepro/toolbox?skill=demo&sessionId=existing', 'D:\\conversation');
+    const detail = await screen.findByRole('dialog', { name: 'demo' });
+    expect(listManagedSkills).toHaveBeenCalledWith('D:\\conversation');
+    expect(listSkillRecoveries).toHaveBeenCalledWith('D:\\conversation');
+    await userEvent.click(within(detail).getByRole('button', { name: '使用技能' }));
+    expect(screen.getByTestId('current-location')).toHaveTextContent('/codepro/pair?resumeSessionId=existing');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('"draftOnly":true');
+    expect(screen.getByTestId('current-location')).toHaveTextContent('"noAutoSubmit":true');
   });
 
   it('renders the selected skill as a dialog-only toolbox controller', async () => {

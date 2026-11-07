@@ -76,6 +76,14 @@ export async function acpListProviderDetails(): Promise<ProviderDetails[]> {
   }));
 }
 
+export async function acpRefreshProviderModels(providerId: string): Promise<void> {
+  const client = await getAcpClient();
+  const result = await client.goose.providersInventoryRefresh_unstable({
+    providerIds: [providerId],
+  });
+  if (!result.started.includes(providerId)) throw new Error('Model refresh did not complete');
+}
+
 export async function acpListProviderModels(providerId: string) {
   const client = await getAcpClient();
   const [{ models: liveModelIds }, { entries }] = await Promise.all([
@@ -327,6 +335,25 @@ export async function acpSaveThinkingEffort(
     return;
   }
   await savePreferences([{ key: 'gooseThinkingEffort', value, isMutable: true }]);
+}
+
+// Composer changes are drafts. Persist through the existing settings owner only
+// when a user submits a prompt, never while another turn is running.
+const thinkingDrafts = new Map<string, ThinkingEffort>();
+const thinkingDraftKey = (provider: string, model: string) => JSON.stringify([provider, model]);
+export function readThinkingDraft(provider: string, model: string) {
+  return thinkingDrafts.get(thinkingDraftKey(provider, model));
+}
+export function stageThinkingEffort(provider: string, model: string, effort: ThinkingEffort) {
+  thinkingDrafts.set(thinkingDraftKey(provider, model), effort);
+}
+export async function applyThinkingDraft(provider: string, model: string) {
+  const key = thinkingDraftKey(provider, model);
+  const effort = thinkingDrafts.get(key);
+  if (effort === undefined) return;
+  await acpSaveThinkingEffort(effort, provider, model);
+  // A later edit made during the request belongs to the next prompt.
+  if (thinkingDrafts.get(key) === effort) thinkingDrafts.delete(key);
 }
 
 export type AppliedSessionProviderModel = {

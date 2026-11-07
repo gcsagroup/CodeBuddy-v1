@@ -1,7 +1,7 @@
 import type { UserInput } from '../types/message';
 
 // Bound the pet's cross-window payload before forwarding it to the normal chat entry.
-export function parsePetMessage(value: unknown): UserInput {
+export function parsePetMessage(value: unknown, allowEmptyDraft = false): UserInput {
   const input = typeof value === 'string' ? { msg: value, images: [] } : value;
   if (!input || typeof input !== 'object') throw new Error('Invalid pet message');
   const { msg, images } = input as UserInput;
@@ -20,6 +20,12 @@ export function parsePetMessage(value: unknown): UserInput {
     bytes += image.data.length;
     if (bytes > 20 * 1024 * 1024) throw new Error('Pet images too large');
   }
-  if (!msg.trim() && !images.length) throw new Error('Invalid pet message');
+  if (!allowEmptyDraft && !msg.trim() && !images.length) throw new Error('Invalid pet message');
   return { msg: msg.trim(), images };
+}
+
+export type PetComposerAction = 'add' | 'agent' | 'goal' | 'plan';
+export function parsePetComposerAction(value: unknown): PetComposerAction {
+  if (value !== 'add' && value !== 'agent' && value !== 'goal' && value !== 'plan') throw new Error('Invalid pet composer action');
+  return value;
 }

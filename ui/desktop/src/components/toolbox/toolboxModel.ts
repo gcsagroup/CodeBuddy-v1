@@ -140,7 +140,7 @@ export function buildToolboxModel(sources: ToolboxSources): ToolboxModel {
         source: 'extension',
         name: extension.name,
         description: extension.description ?? '',
-        status: !extension.enabled ? 'disabled' : usage.successCount > 0 ? 'ready' : 'configured',
+        status: extension.enabled ? 'configured' : 'disabled',
         actions: [extension.enabled ? 'disable' : 'enable', 'configure'],
         reference: { key: 'configKey', value: capabilityId },
         usage,

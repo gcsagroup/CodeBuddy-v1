@@ -33,7 +33,14 @@ const client = {
         },
       ],
     }),
-    providersList_unstable: async () => ({ entries: [] }),
+    providersList_unstable: async () => {
+      const bridge = window as unknown as { fixtureModelInventory?: () => Promise<unknown> };
+      return bridge.fixtureModelInventory ? bridge.fixtureModelInventory() : { entries: [] };
+    },
+    providersInventoryRefresh_unstable: async (request: { providerIds: string[] }) => {
+      const bridge = window as unknown as { fixtureRefreshModels: (request: { providerIds: string[] }) => Promise<unknown> };
+      return bridge.fixtureRefreshModels(request);
+    },
     preferencesRead_unstable: async () => ({ revision: 0, values: [] }),
     dictationConfig_unstable: async () => ({ providers: {} }),
     sessionExtensionsList_unstable: async () => ({ extensions: [] }),

@@ -18,7 +18,8 @@ description: 使用 CodeBuddy 的 ComfyUI 工具選擇已儲存工作流程，�
 ## 選擇與調參
 
 - 先 `operation=inspect`。影片指定 `mode`：`text_to_video` 為文字生成；`image_to_video` 使用 `image_path` 首幀；`reference_to_video` 使用 1–2 張 `reference_images` 保持角色／物件身分。圖片須為工作區內 PNG，順序對應 `<Picture 1>`、`<Picture 2>`。這是目前工具範圍，不是模型的完整能力。
-- 選擇 `compatible=true`、`dependencies_available=true` 的 `workflow_id`。依目標、參考形式和已儲存設定選擇；避免每輪重查。提交前宿主重新讀取服務端工作流程，不包含瀏覽器尚未儲存的編輯。
+- 獨立解析器依宿主已接納的當前請求及即時目錄選擇工作流，不讀取長會話的舊選擇。主 Agent 提供創作提示、模式及參考素材，生成時省略 `workflow_name`；舊名稱僅相容接收，不能覆寫解析結果。提交前重新讀取已儲存檔案，不含瀏覽器未儲存編輯。
+- 模式不是檔案身分。指定、切換或否定由解析器理解，工具只校驗結果、模式及參考數量；缺失、歧義、解析失敗或請求／目錄變更均不提交、不自動替換。依錯誤修正不相容參數，不重生成已完成任務。選擇器不授予建立替代圖的許可。
 - `duration_seconds` 就是秒數，介面可能誤譯為「期間」。遵守使用者指定時長，保留秒轉幀公式與 fps；幀對齊會使實際時長略有差異，以輸出 MP4 為準。長片段的成本與品質須實測，不因訓練範圍就自行縮短。
 - 提示詞、寬高及 seed 使用專用參數。未要求調整的設定保留；固定 seed 有助比較，省略時宿主隨機生成。尺寸遵守工具公開範圍。
 - `inspect.workflows[].tunable_parameters` 提供 `parameter`、`current`、`constraints`、`bindings`。透過 `workflow_parameters:[{"parameter":"檢查回傳的精確 ID","value":新值}]` 修改必要控件，不猜節點 ID。
@@ -42,3 +43,9 @@ description: 使用 CodeBuddy 的 ComfyUI 工具選擇已儲存工作流程，�
 即時 schema、inspect 與回執優先。連線、權限、校驗、狀態及下載由宿主管理；工具失敗不以 shell、curl 或其他 MCP 繞行。不承諾關閉應用仍下載，不編造佇列位置／剩餘時間，未確認取消不聲稱已停止。
 
 [官方事件文件](https://docs.comfy.org/development/comfyui-server/comms_messages) · [官方 MiniMax H3 範例](https://github.com/Comfy-Org/docs/blob/main/tutorials/video/minimax/minimax-h3-native.mdx)
+
+## 簡短交付
+
+獨立解析器明確判定只需一個媒體產物且無後續任務時，宿主核驗目前請求與已儲存的完成回執後，由 Harness 直接結束本輪，媒體卡即為交付，無需追加模型總結。缺失該範圍或複雜任務仍沿正常流程繼續。
+
+使用者只要求生成時，確認目前請求的產物已完成並儲存後，用一句簡短說明結束。聊天會直接展示可播放、放大的媒體卡，不再羅列歷史素材、參數清單、創作建議或追問下一步。不要在發出工具呼叫的同時預寫成功回覆；等待真實回執。自己先前的建議、執行階段快照和壓縮摘要不是新任務。使用者明確要求的多個產物、後續編輯或分析仍須完成，不能因其中一份產物完成而提前結束。未實際檢查的視覺或聲音效果不作驗收承諾。

@@ -195,16 +195,6 @@ export interface SessionListFilter {
 
 export type SessionWorkspaceMode = 'code' | 'codepro' | 'unified';
 
-export function resolveSessionWorkspaceMode(
-  pathname: string,
-  unifiedMode: boolean
-): SessionWorkspaceMode {
-  if (unifiedMode) {
-    return 'unified';
-  }
-  return pathname.startsWith('/codepro') ? 'codepro' : 'code';
-}
-
 export function sessionListTypes(workspaceMode: SessionWorkspaceMode) {
   if (workspaceMode === 'unified') {
     return ['user', 'scheduled', 'code_pro'] as const;
@@ -344,12 +334,17 @@ async function loadAcpSession(
     throw error;
   }
   // Loading can populate missing provider/model metadata.
-  const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
+  const loadedInfo = response._meta?.sessionInfo;
+  const sessionInfo = loadedInfo && typeof loadedInfo === 'object' &&
+    !Array.isArray(loadedInfo) && 'sessionId' in loadedInfo && loadedInfo.sessionId === sessionId &&
+    'cwd' in loadedInfo && typeof loadedInfo.cwd === 'string'
+    ? loadedInfo as unknown as SessionInfo
+    : (await client.goose.sessionInfo_unstable({ sessionId })).session;
 
   traceSessionLoad(sessionId, 'final_metadata');
 
   return {
-    sessionInfo: sessionInfoResponse.session,
+    sessionInfo,
     response,
     meta: parseLoadMeta(response),
   };
@@ -362,6 +357,7 @@ export interface AcpNewSessionResult {
 }
 
 export interface AcpRecipeOptions {
+  extensionSelection?: 'follow' | 'custom';
   workspaceOrigin?: 'default' | 'selected';
   initialPermissionPreset?: Session['goose_mode'];
   recipeId?: string;
@@ -384,7 +380,7 @@ export async function acpNewSession(
   if (agentId) meta.customAgentId = agentId;
   if (recipe?.initialPermissionPreset)
     meta.initialPermissionPreset = recipe.initialPermissionPreset;
-  if (gooseExtensions.length > 0) {
+  if (gooseExtensions.length > 0 || recipe?.extensionSelection === 'custom') {
     meta.enabledExtensions = gooseExtensions;
   }
   if (recipe?.recipeId) {

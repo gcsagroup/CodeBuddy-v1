@@ -3,8 +3,8 @@ import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Archive, MoreHorizontal, Pin, Clock3, ChevronRight, Folder, Pencil } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Archive, MoreHorizontal, Pin, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
@@ -28,10 +28,14 @@ import {
   saveProjectAlias,
 } from '../../utils/projectAliases';
 import { defineMessages, useIntl } from '../../i18n';
-import { WorkspaceSwitcher, type WorkspaceMode } from '../codepro/WorkspaceSwitcher';
+import type { WorkspaceMode } from '../../utils/navigationUtils';
 import { withWorkspaceMode } from '../../utils/navigationUtils';
-import { isCodeProUnifiedModeEnabled } from '../../codepro/unifiedMode';
-import { useSessionPins } from '../../utils/sessionPins';
+import { setSessionPinned, useSessionPins } from '../../utils/sessionPins';
+import { setProjectPinned, useProjectPins } from '../../utils/projectPins';
+import { projectPathIdentity } from '../../utils/projectSessions';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { acpListSessions } from '../../acp/sessions';
 import { SessionActionsContextMenu } from '../SessionActionsHeader';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
@@ -187,16 +191,18 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         <span className="min-w-0 flex-1 truncate text-text-primary" title={displayName}>
           {displayName || intl.formatMessage(i18n.untitledSession)}
         </span>
-        {pinned && <Pin className="size-3 shrink-0 text-text-secondary" aria-label={intl.formatMessage(i18n.pinned)} />}
         <button
           type="button"
-          data-session-menu-trigger
-          aria-haspopup="menu"
-          aria-label={intl.formatMessage(i18n.actions)}
-          title={intl.formatMessage(i18n.actions)}
+          aria-label={intl.formatMessage({ id: pinned ? 'sessionActions.unpin' : 'sessionActions.pin', defaultMessage: pinned ? 'Unpin session' : 'Pin session' })}
+          aria-pressed={pinned}
+          onClick={(event) => {
+            event.stopPropagation();
+            try { setSessionPinned(session.id, !pinned); }
+            catch (error) { toast.error(errorMessage(error)); }
+          }}
           className="flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary opacity-0 group-hover/session-row:opacity-100 group-focus-within/session-row:opacity-100 hover:bg-background-secondary focus-visible:opacity-100"
         >
-          <MoreHorizontal className="size-3.5" />
+          <Pin className={cn('size-3.5', pinned && 'fill-current')} />
         </button>
         <button
           type="button"
@@ -219,6 +225,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
 };
 
 interface ProjectSessionGroupProps {
+  onNewChat?: (path: string) => void;
   avatars?: Record<string, string>;
   group: ProjectGroup;
   renderSession: (session: SessionListItem) => React.ReactNode;
@@ -228,6 +235,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   group,
   avatars = {},
   renderSession,
+  onNewChat,
 }) => {
   const agent = group.sessions.find(session => session.agentProfile)?.agentProfile;
   const intl = useIntl();
@@ -236,6 +244,56 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   const [draftName, setDraftName] = useState(displayName);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const projectPins = useProjectPins();
+  const pinned = projectPins.includes(projectPathIdentity(group.path));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [archiveIds, setArchiveIds] = useState<string[] | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const archiveInFlight = useRef(false);
+  const openProjectFolder = async () => {
+    try {
+      if (!(await window.electron.openDirectoryInExplorer(group.path))) {
+        throw new Error(group.path);
+      }
+    } catch (error) {
+      toast.error(intl.formatMessage({
+        id: 'sessionActionsHeader.openFolderFailed',
+        defaultMessage: 'Unable to open the session folder: {error}',
+      }, { error: errorMessage(error) }));
+    }
+  };
+  const prepareArchive = async () => {
+    if (archiveInFlight.current) return;
+    archiveInFlight.current = true;
+    setArchiveBusy(true);
+    try {
+      const ids = new Set<string>();
+      let cursor: string | null = null;
+      do {
+        const page = await acpListSessions(cursor, undefined, 'unified');
+        page.sessions.filter(s => !s.globalConversation && !s.archivedAt && projectPathIdentity(s.workingDir) === projectPathIdentity(group.path)).forEach(s => ids.add(s.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      setArchiveIds([...ids]);
+    } catch (error) { toast.error(errorMessage(error)); }
+    finally { archiveInFlight.current = false; setArchiveBusy(false); }
+  };
+  const confirmArchive = async () => {
+    if (!archiveIds || archiveInFlight.current) return;
+    archiveInFlight.current = true;
+    setArchiveBusy(true);
+    const remaining = [...archiveIds];
+    try {
+      for (const id of archiveIds) {
+        await acpArchiveSession(id);
+        remaining.shift();
+      }
+      setArchiveIds(null);
+    } catch (error) {
+      setArchiveIds(remaining);
+      toast.error(errorMessage(error));
+    } finally { archiveInFlight.current = false; setArchiveBusy(false); }
+  };
 
   useEffect(() => {
     const persistedName = getProjectAlias(group.path, group.label);
@@ -265,6 +323,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} className="mb-1.5">
       <div
+        onContextMenu={event => { event.preventDefault(); setMenuOpen(true); }}
         className={cn(
           projectGroupLabelClassName,
           'group/project-row relative flex w-full items-center gap-1.5'
@@ -305,18 +364,40 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           <span className="pointer-events-none min-w-0 flex-1 truncate">{displayName}</span>
         )}
         {!isEditing && (
+          <>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label={intl.formatMessage({ id: 'navigationPanel.projectActions', defaultMessage: 'Project actions' })}
+                className="relative flex size-6 shrink-0 items-center justify-center rounded opacity-0 group-hover/project-row:opacity-100 group-focus-within/project-row:opacity-100 focus-visible:opacity-100">
+                <MoreHorizontal className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => void openProjectFolder()}>
+                <FolderOpen className="size-4" />
+                {intl.formatMessage({ id: 'sessionActionsHeader.openFolder', defaultMessage: 'Open folder' })}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => {
+                try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
+              }}><Pin className="size-4" />{intl.formatMessage({ id: pinned ? 'navigationPanel.unpinProject' : 'navigationPanel.pinProject', defaultMessage: pinned ? 'Unpin project' : 'Pin project' })}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
+                <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={archiveBusy} onSelect={() => void prepareArchive()}>
+                <Archive className="size-4" />{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             type="button"
-            aria-label={intl.formatMessage(i18n.renameProject)}
-            title={intl.formatMessage(i18n.renameProject)}
-            onClick={() => {
-              setDraftName(displayName);
-              setIsEditing(true);
-            }}
+            aria-label={intl.formatMessage({ id: 'navigationPanel.newProjectChat', defaultMessage: 'New conversation in project' })}
+            title={intl.formatMessage({ id: 'navigationPanel.newProjectChat', defaultMessage: 'New conversation in project' })}
+            onClick={() => onNewChat?.(group.path)}
             className="relative flex size-5 flex-shrink-0 items-center justify-center rounded text-text-secondary opacity-0 transition-[color,opacity] group-hover/project-row:opacity-60 hover:text-text-primary hover:!opacity-100 focus-visible:text-text-primary focus-visible:!opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
           >
-            <Pencil className="size-3" />
+            <MessageCirclePlus className="size-3.5" aria-hidden="true" />
           </button>
+          </>
         )}
       </div>
       <CollapsibleContent className="codepro-disclosure-content">
@@ -324,6 +405,15 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
           {group.sessions.map((session) => renderSession(session))}
         </div>
       </CollapsibleContent>
+      <Dialog open={archiveIds !== null} onOpenChange={open => { if (!open && !archiveBusy) setArchiveIds(null); }}>
+        <DialogContent><DialogHeader>
+          <DialogTitle>{intl.formatMessage({ id: 'navigationPanel.archiveProjectChats', defaultMessage: 'Archive conversations in project' })}</DialogTitle>
+          <DialogDescription>{intl.formatMessage({ id: 'navigationPanel.archiveProjectConfirm', defaultMessage: 'Archive {count} conversations in {name}? Project files stay unchanged. Conversations can be restored from History.' }, { count: archiveIds?.length ?? 0, name: displayName })}</DialogDescription>
+        </DialogHeader><DialogFooter>
+          <button disabled={archiveBusy} onClick={() => setArchiveIds(null)}>{intl.formatMessage({ id: 'common.cancel', defaultMessage: 'Cancel' })}</button>
+          <button disabled={archiveBusy || !archiveIds?.length} onClick={() => void confirmArchive()}>{intl.formatMessage({ id: 'sessions.action.archive', defaultMessage: 'Archive session' })}</button>
+        </DialogFooter></DialogContent>
+      </Dialog>
     </Collapsible>
   );
 };
@@ -331,7 +421,6 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
 interface NavigationProps {
   className?: string;
   workspaceMode: WorkspaceMode;
-  onWorkspaceModeChange: (mode: WorkspaceMode) => void;
   needsTrafficLightInset?: boolean;
 }
 
@@ -363,17 +452,11 @@ export function NavigationChatsSection({
 }
 
 interface NavigationHeaderSlotProps {
-  workspaceMode: WorkspaceMode;
-  onWorkspaceModeChange: (mode: WorkspaceMode) => void;
-  unifiedMode: boolean;
   onNewChat: () => void;
   needsTrafficLightInset?: boolean;
 }
 
 export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
-  workspaceMode,
-  onWorkspaceModeChange,
-  unifiedMode,
   onNewChat,
   needsTrafficLightInset = false,
 }) => {
@@ -399,13 +482,6 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
           CodeBuddy
         </button>
       </div>
-      {!unifiedMode && (
-        <WorkspaceSwitcher
-          mode={workspaceMode}
-          onChange={onWorkspaceModeChange}
-          unifiedMode={unifiedMode}
-        />
-      )}
     </div>
   );
 };
@@ -413,7 +489,6 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
 export const Navigation: React.FC<NavigationProps> = ({
   className,
   workspaceMode,
-  onWorkspaceModeChange,
   needsTrafficLightInset,
 }) => {
   const [agentAvatars, setAgentAvatars] = useState<Record<string, string>>({});
@@ -443,9 +518,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   const reducedMotion = useReducedMotion();
   const { isNavExpanded } = useNavigationContext();
   const location = useLocation();
-  const codeProUnifiedMode = isCodeProUnifiedModeEnabled(
-    window.appConfig?.get?.('CODEPRO_UNIFIED_MODE')
-  );
 
   const visibleItems = useMemo<NavItem[]>(() => NAV_ITEMS, []);
 
@@ -455,7 +527,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 
   const {
-    pinnedSessions = [],
     recentTaskSessions,
     recentSessionsByProject,
     activeSessionId,
@@ -463,6 +534,15 @@ export const Navigation: React.FC<NavigationProps> = ({
     handleNavClick,
     handleSessionClick,
   } = useNavigationSessions();
+  const navigate = useNavigate();
+  const pinnedProjects = useProjectPins();
+  const sortedProjects = [...recentSessionsByProject].sort((a, b) => {
+    const rank = (path: string) => {
+      const index = pinnedProjects.indexOf(projectPathIdentity(path));
+      return index < 0 ? Infinity : index;
+    };
+    return rank(a.path) - rank(b.path) || 0;
+  });
 
   const [sessionStatuses, setSessionStatuses] = useState<Map<string, SessionStatus>>(new Map());
   const [petUnread, setPetUnread] = useState<Set<string> | null>(null);
@@ -553,9 +633,6 @@ export const Navigation: React.FC<NavigationProps> = ({
       className={cn('shell-navigation bg-background-primary outline-none flex flex-col h-full', className)}
     >
       <NavigationHeaderSlot
-        workspaceMode={workspaceMode}
-        onWorkspaceModeChange={onWorkspaceModeChange}
-        unifiedMode={codeProUnifiedMode}
         onNewChat={() => handleNavClick('/')}
         needsTrafficLightInset={needsTrafficLightInset}
       />
@@ -573,9 +650,11 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       <MainConversationRow onOpen={handleSessionClick} />
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {pinnedSessions.length > 0 && (
-          <NavigationChatsSection title={intl.formatMessage(i18n.pinned)}>
-            {pinnedSessions.map((session) => renderSession(session, false))}
+        {recentSessionsByProject.length > 0 && (
+          <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}>
+            {sortedProjects.map((group: ProjectGroup) => (
+              <ProjectSessionGroup key={group.path} group={group} avatars={agentAvatars} renderSession={renderSession} onNewChat={path => navigate(withWorkspaceMode('/pair', workspaceMode), { state: { draftOnly: true, workingDir: path } })} />
+            ))}
           </NavigationChatsSection>
         )}
         <NavigationChatsSection>
@@ -587,13 +666,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             recentTaskSessions.map((session) => renderSession(session, false))
           )}
         </NavigationChatsSection>
-        {recentSessionsByProject.length > 0 && (
-          <NavigationChatsSection title={intl.formatMessage(i18n.workspaces)}>
-            {recentSessionsByProject.map((group: ProjectGroup) => (
-              <ProjectSessionGroup key={group.path} group={group} avatars={agentAvatars} renderSession={renderSession} />
-            ))}
-          </NavigationChatsSection>
-        )}
+
       </div>
 
       <div className="px-2 py-2">

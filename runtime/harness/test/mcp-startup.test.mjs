@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, writeFile, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, access, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -49,4 +49,28 @@ for await(const line of createInterface({input:process.stdin})) {
   assert.equal(overlapping,true,'stdio must connect while the remote server is still initializing');
   await driver.createSession({cwd:root,provider,model:'fixture',options});
   assert.equal(initializations,1,'the second session leases the original Harness remote scope');
+});
+
+test('failed subprocess diagnostics reach status; cooldown avoids repeated spawn and explicit retry clears it', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'harness-mcp-failure-'));
+  const script = path.join(root, 'fail.mjs'), marker = path.join(root, 'attempts');
+  await writeFile(script, `import {appendFileSync} from 'node:fs';
+appendFileSync(process.argv[2], 'attempt\\n');
+console.error("ImportError: cannot import ModelWrapValidatorHandler from pydantic; token=" + process.env.FIXTURE_SECRET);
+process.exit(1);`);
+  const driver = await createHarnessDriver({ dataDir: path.join(root, 'data'), cwd: root });
+  t.after(() => driver.close());
+  const provider = { id: 'fixture', protocol: 'openai-completions', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
+  const options = { mcpServers: [{ serverName: 'broken', transport: 'stdio', command: process.execPath, args: [script, marker], env: { FIXTURE_SECRET: 'fixture-only-secret' } }] };
+  const first = await driver.createSession({ cwd: root, provider, model: 'fixture', options });
+  const status = driver.extensionStatus(first.sessionId)[0];
+  assert.equal(status.status, 'error');
+  assert.match(status.error, /ModelWrapValidatorHandler/);
+  assert.ok(!status.error.includes('fixture-only-secret'));
+  const attempts = (await readFile(marker, 'utf8')).trim().split('\n').length;
+  await driver.createSession({ cwd: root, provider, model: 'fixture', options });
+  assert.equal((await readFile(marker, 'utf8')).trim().split('\n').length, attempts);
+  await driver.invalidateMcpServers(['broken']);
+  await driver.createSession({ cwd: root, provider, model: 'fixture', options });
+  assert.ok((await readFile(marker, 'utf8')).trim().split('\n').length > attempts);
 });

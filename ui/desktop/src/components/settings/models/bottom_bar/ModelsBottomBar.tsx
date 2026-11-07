@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
-import { Bot, Check, ChevronDown, ChevronRight, LoaderCircle, Settings } from 'lucide-react';
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  LoaderCircle,
+  RefreshCw,
+  Settings,
+} from 'lucide-react';
 import { DropdownChevron } from '../../../ui/DropdownChevron';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelAndProvider } from '../../../ModelAndProviderContext';
 import { ModelThinkingMenu } from '../../../ThinkingEffortPicker';
-import { acpListProviderDetails } from '../../../../acp/providers';
+import { acpListProviderDetails, acpRefreshProviderModels } from '../../../../acp/providers';
 import {
   providerActivationDisabledReason,
   type ProviderDetails,
@@ -23,6 +31,14 @@ const i18n = defineMessages({
   empty: { id: 'modelsBottomBar.empty', defaultMessage: 'No configured models' },
   failed: { id: 'modelsBottomBar.loadFailed', defaultMessage: 'Could not load models.' },
   retry: { id: 'modelsBottomBar.retry', defaultMessage: 'Retry' },
+  refresh: { id: 'modelsBottomBar.refresh', defaultMessage: 'Refresh models' },
+  refreshing: { id: 'modelsBottomBar.refreshing', defaultMessage: 'Refreshing models…' },
+  refreshed: { id: 'modelsBottomBar.refreshed', defaultMessage: 'Model list updated.' },
+  refreshFailed: {
+    id: 'modelsBottomBar.refreshFailed',
+    defaultMessage:
+      'Some connections could not refresh. Their previous lists are still shown. Try again.',
+  },
   manage: { id: 'modelsBottomBar.manage', defaultMessage: 'Manage model connections' },
   switching: { id: 'modelsBottomBar.switching', defaultMessage: 'Switching model…' },
   switchFailed: {
@@ -83,6 +99,10 @@ export default function ModelsBottomBar({
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<'success' | 'failed' | null>(null);
+  const refreshInFlight = useRef(false);
+  const loadVersion = useRef(0);
   const [switchError, setSwitchError] = useState<{
     message: string;
     selection: Selection;
@@ -105,11 +125,13 @@ export default function ModelsBottomBar({
   useEffect(() => {
     if (!open) return;
     let active = true;
+    const version = ++loadVersion.current;
     setLoading(true);
     setLoadError(false);
+    setRefreshResult(null);
     void acpListProviderDetails()
       .then((all) => {
-        if (!active) return;
+        if (!active || version !== loadVersion.current) return;
         const configured = all.filter(
           (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
         );
@@ -123,8 +145,36 @@ export default function ModelsBottomBar({
       });
     return () => {
       active = false;
+      ++loadVersion.current;
     };
   }, [open, retry]);
+  const refreshModels = async () => {
+    if (refreshInFlight.current || loading || switching || !providers.length) return;
+    refreshInFlight.current = true;
+    const version = ++loadVersion.current;
+    setRefreshing(true);
+    setRefreshResult(null);
+    try {
+      const results = await Promise.allSettled(
+        providers.map((provider) => acpRefreshProviderModels(provider.name))
+      );
+      const all = await acpListProviderDetails();
+      if (!mounted.current || version !== loadVersion.current) return;
+      setProviders(
+        all.filter(
+          (provider) => provider.is_configured && !providerActivationDisabledReason(provider)
+        )
+      );
+      setRefreshResult(
+        results.some((result) => result.status === 'rejected') ? 'failed' : 'success'
+      );
+    } catch {
+      if (mounted.current && version === loadVersion.current) setRefreshResult('failed');
+    } finally {
+      refreshInFlight.current = false;
+      if (mounted.current) setRefreshing(false);
+    }
+  };
   useEffect(() => {
     setOpen(false);
     setSwitchError(null);
@@ -215,6 +265,7 @@ export default function ModelsBottomBar({
           <Popover.Anchor asChild>
             <div className="min-w-0 max-w-full">
               <ModelThinkingMenu
+                deferUntilSubmit
                 key={identity({ provider: currentProvider, model: currentModel })}
                 provider={currentProvider}
                 model={currentModel}
@@ -260,10 +311,7 @@ export default function ModelsBottomBar({
                     ? getModelDisplayName(currentModel)
                     : intl.formatMessage(i18n.select)}
               </span>
-              <DropdownChevron
-                open={open}
-                className="size-3 shrink-0"
-              />
+              <DropdownChevron open={open} className="size-3 shrink-0" />
             </button>
           </Popover.Trigger>
         )}
@@ -278,20 +326,50 @@ export default function ModelsBottomBar({
             className="composer-menu-surface z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(17.6rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-border-primary p-[5px] text-text-primary shadow-md"
           >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <input
-                type="search"
-                value={modelQuery}
-                aria-label={intl.formatMessage(i18n.search)}
-                placeholder={intl.formatMessage(i18n.search)}
-                onChange={(event) => {
-                  setModelQuery(event.target.value);
-                }}
-                className="m-0.5 shrink-0 rounded-md border border-border-secondary bg-transparent px-2.5 py-1.5 text-[11px] leading-4 outline-none focus:border-border-primary"
-              />
+              <div className="flex shrink-0 items-center gap-1">
+                <input
+                  type="search"
+                  value={modelQuery}
+                  aria-label={intl.formatMessage(i18n.search)}
+                  placeholder={intl.formatMessage(i18n.search)}
+                  onChange={(event) => {
+                    setModelQuery(event.target.value);
+                  }}
+                  className="m-0.5 min-w-0 flex-1 rounded-md border border-border-secondary bg-transparent px-2.5 py-1.5 text-[11px] leading-4 outline-none focus:border-border-primary"
+                />
+                <button
+                  type="button"
+                  aria-label={intl.formatMessage(i18n.refresh)}
+                  title={intl.formatMessage(i18n.refresh)}
+                  aria-busy={refreshing}
+                  disabled={loading || refreshing || !!switching || !providers.length}
+                  onClick={() => void refreshModels()}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-background-secondary disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+              {(refreshing || refreshResult) && (
+                <p
+                  role={refreshResult === 'failed' ? 'alert' : 'status'}
+                  className="px-2.5 py-1 text-[11px] leading-4 text-text-secondary"
+                >
+                  {intl.formatMessage(
+                    refreshing
+                      ? i18n.refreshing
+                      : refreshResult === 'failed'
+                        ? i18n.refreshFailed
+                        : i18n.refreshed
+                  )}
+                </p>
+              )}
               <div
                 role="group"
                 aria-label={intl.formatMessage(i18n.choose)}
-                aria-busy={loading || !!switching}
+                aria-busy={loading || refreshing || !!switching}
                 className="min-h-0 max-h-[min(20.8rem,44vh)] overflow-y-auto overscroll-contain"
               >
                 {loading ? (

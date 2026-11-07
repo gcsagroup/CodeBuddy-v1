@@ -2,6 +2,8 @@ import { chromium, expect, test, type Browser } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import { resolve, dirname, basename } from 'node:path';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { createServer as createHttpServer } from 'node:http';
+import { fixtureModel, fixtureProvider } from '../browser-fixtures/composer-model-context';
 
 let server: ViteDevServer;
 let browser: Browser;
@@ -40,6 +42,49 @@ test.afterAll(async () => {
     basename(cacheDirectory).startsWith('codebuddy-composer-vite-')
   )
     await rm(cacheDirectory, { recursive: true, force: true });
+});
+
+test('model refresh discovers new remote models and preserves the last list on service failure', async () => {
+  const { discover, inventory } = await import('../../../../runtime/providers.mjs');
+  let fail = false;
+  const endpoint = createHttpServer((_request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    response.statusCode = fail ? 503 : 200;
+    response.end(JSON.stringify(fail ? { error: 'fixture unavailable' } : { data: [{ id: fixtureModel }, { id: 'new-remote-model' }] }));
+  });
+  await new Promise<void>(done => endpoint.listen(0, '127.0.0.1', done));
+  const provider = { id: fixtureProvider, displayName: 'Fixture connection', engine: 'openai_compatible',
+    apiUrl: `http://127.0.0.1:${(endpoint.address() as { port: number }).port}`, requiresAuth: false,
+    models: [fixtureModel] };
+  const page = await browser.newPage({ viewport: { width: 1100, height: 850 } });
+  try {
+    await page.exposeFunction('fixtureModelInventory', () => ({ entries: [inventory(provider)] }));
+    await page.exposeFunction('fixtureRefreshModels', async ({ providerIds }: { providerIds: string[] }) => {
+      expect(providerIds).toEqual([fixtureProvider]);
+      provider.models = await discover(provider, provider);
+      return { started: providerIds, skipped: [] };
+    });
+    await page.goto(server.resolvedUrls!.local[0] + 'tests/browser-fixtures/composer.html');
+    await page.getByRole('button', { name: /思考强度/ }).click();
+    await page.getByRole('button', { name: fixtureModel, exact: true }).click();
+    const picker = page.locator('[data-model-picker-list]');
+    await expect(picker.getByRole('button', { name: 'new-remote-model', exact: true })).toHaveCount(0);
+    await picker.getByRole('button', { name: '刷新模型', exact: true }).click();
+    await expect(picker.getByRole('status')).toHaveText('模型列表已更新。');
+    await expect(picker.getByRole('button', { name: 'new-remote-model', exact: true })).toBeVisible();
+    await expect(picker.getByRole('button', { name: fixtureModel, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(provider.models).toContain('new-remote-model');
+    fail = true;
+    await picker.getByRole('button', { name: '刷新模型', exact: true }).click();
+    await expect(picker.getByRole('alert')).toContainText('部分连接刷新失败');
+    await expect(picker.getByRole('button', { name: 'new-remote-model', exact: true })).toBeVisible();
+    await expect(picker.getByRole('button', { name: '刷新模型', exact: true })).toBeEnabled();
+    await page.screenshot({ path: test.info().outputPath('model-refresh.png'), fullPage: true });
+  } finally {
+    await page.close();
+    endpoint.closeAllConnections();
+    await new Promise<void>(done => endpoint.close(() => done()));
+  }
 });
 
 test('large pasted text stays responsive before sending and after rendering the sent message', async () => {
@@ -186,9 +231,20 @@ for (const kind of ['add', 'commands']) test(`${kind} menu keeps first height an
     const before = (await menu.boundingBox())!;
     const beforeFile = (await file.boundingBox())!;
     const description = await file.locator('.text-right').boundingBox();
+    if (kind === 'add') {
+      expect(await page.evaluate(() => typeof (window as unknown as { releaseCommandInventory?: () => void }).releaseCommandInventory)).toBe('undefined');
+      const list = menu.getByRole('listbox');
+      expect(await list.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+      await list.hover();
+      await page.mouse.wheel(0, 300);
+    }
     await expect.poll(() => page.evaluate(() => typeof (window as unknown as { releaseCommandInventory?: () => void }).releaseCommandInventory)).toBe('function');
     await page.evaluate(() => (window as unknown as { releaseCommandInventory: () => void }).releaseCommandInventory());
-    await expect(menu.getByRole('option', { name: /late-skill-39/ })).toHaveCount(1);
+    await expect(menu.getByRole('option', { name: /late-skill-0\b/ })).toHaveCount(1);
+    if (kind === 'add') {
+      expect(await menu.getByRole('option').count()).toBeLessThanOrEqual(20);
+      await expect(menu.getByRole('option', { name: /late-skill-39/ })).toHaveCount(0);
+    } else await expect(menu.getByRole('option', { name: /late-skill-39/ })).toHaveCount(1);
     const after = (await menu.boundingBox())!;
     expect(after.height).toBeCloseTo(before.height, 0);
     expect(after.y).toBeCloseTo(before.y, 0);
@@ -201,6 +257,11 @@ for (const kind of ['add', 'commands']) test(`${kind} menu keeps first height an
     await list.hover();
     await page.mouse.wheel(0, 3000);
     await expect.poll(() => list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    if (kind === 'add') {
+      await expect.poll(() => menu.getByRole('option').count()).toBeGreaterThan(20);
+      await page.mouse.wheel(0, 3000);
+      await expect(menu.getByRole('option', { name: /late-skill-39/ })).toHaveCount(1);
+    }
   } finally { await page.close(); }
 });
 

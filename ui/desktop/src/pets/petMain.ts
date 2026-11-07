@@ -13,7 +13,7 @@ import {
 } from './petPolicy';
 import type { PetAsset, PetPreferences, PetRequest, PetSnapshot, PetTask } from './petTypes';
 import log from '../utils/logger';
-import { parsePetMessage } from './petMessage';
+import { parsePetMessage, parsePetComposerAction } from './petMessage';
 import { selectNativeText } from '../utils/nativeLocalization';
 
 const auxiliaryWindows = new Set<number>();
@@ -335,6 +335,7 @@ export async function registerDesktopPet(options: {
           'compose',
           'context-menu',
           'send-message',
+          'open-composer',
           'resolve-permission',
         ].includes(request.action)
       )
@@ -387,9 +388,11 @@ export async function registerDesktopPet(options: {
           }
           restoreOverlayOrder();
           break;
+        case 'open-composer':
         case 'send-message': {
           if (!fromPet) throw new Error('Invalid pet message');
-          const message = parsePetMessage({ msg: request.message, images: request.images ?? [] });
+          const composerAction = request.action === 'open-composer' ? parsePetComposerAction(request.composerAction) : undefined;
+          const message = parsePetMessage({ msg: request.message, images: request.images ?? [] }, !!composerAction);
           if (!applicationWindows().length) await options.openChat({});
           const windows = applicationWindows();
           const destination = windows.find(window => window.id === messageWindowId) ?? windows[0];
@@ -411,7 +414,7 @@ export async function registerDesktopPet(options: {
               reject(new Error('主对话接收超时，请先检查主对话的消息队列，避免重复发送'));
             }, 30000);
             ipcMain.on('pet-message-result', finish);
-            destination.webContents.send('pet-send-message', { ...message, deliveryId });
+            destination.webContents.send('pet-send-message', { ...message, deliveryId, ...(composerAction ? { composerAction } : {}) });
           });
           composing = false;
           petWindow!.setSkipTaskbar(true);

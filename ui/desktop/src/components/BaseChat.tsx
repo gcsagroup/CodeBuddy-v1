@@ -10,6 +10,7 @@ import LoadingGoose, {
   isCheckingExecutionResults,
 } from './LoadingGoose';
 import ProgressiveMessageList from './ProgressiveMessageList';
+import ConversationLoading from './ConversationLoading';
 import { ConversationTimeline } from './ConversationTimeline';
 import ElicitationDock, { partitionElicitationMessages } from './ElicitationDock';
 import { elicitationContent } from '../acp/adapter/elicitations';
@@ -657,6 +658,13 @@ export default function BaseChat({
       ? resolvedInitialMessage.msg
       : recipePrompt;
 
+  const routeDraft = location.state as { draftOnly?: boolean; initialMessage?: UserInput } | null;
+  const draftDelivery = routeDraft?.draftOnly &&
+    new URLSearchParams(location.search).get('resumeSessionId') === sessionId &&
+    typeof routeDraft.initialMessage?.msg === 'string'
+    ? { id: location.key, text: routeDraft.initialMessage.msg }
+    : undefined;
+
   if (sessionLoadError) {
     return (
       <div className="h-full flex flex-col min-h-0">
@@ -839,14 +847,9 @@ export default function BaseChat({
           {!showHistoryLoading && <ConversationTimeline
             key={sessionId} messages={presentedHistory} scrollRef={scrollRef} onNavigate={navigateToTurn}
           />}
-          {showHistoryLoading && (
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 z-20 bg-background-primary pointer-events-none"
-            />
-          )}
+          {showHistoryLoading && <ConversationLoading />}
 
-          {!atLatest && (
+          {!atLatest && !showHistoryLoading && (
             <button
               type="button"
               aria-label={intl.formatMessage(i18n.latest)}
@@ -896,11 +899,6 @@ export default function BaseChat({
         </div>
 
         <div className={conversationLayout ? 'mx-auto w-full max-w-[55rem] px-2' : undefined}>
-          {showHistoryLoading && (
-            <div data-testid="conversation-loading" className="mx-4">
-              <LoadingGoose chatState={ChatState.LoadingConversation} />
-            </div>
-          )}
           {acpRecovering && (
             <div role="status" className="mx-4 mb-2 text-sm text-text-secondary">
               {intl.formatMessage(i18n.reconnecting)}
@@ -1018,6 +1016,7 @@ export default function BaseChat({
                 }
                 commandHistory={commandHistory}
                 initialValue={initialPrompt}
+                draftDelivery={draftDelivery}
                 setView={setView}
                 totalTokens={
                   tokenState.contextUsageKnown === false

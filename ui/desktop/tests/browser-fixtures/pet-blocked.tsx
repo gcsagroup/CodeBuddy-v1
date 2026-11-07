@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DesktopPet from '../../src/pets/DesktopPet';
-import type { PetSnapshot, PetTaskState } from '../../src/pets/petTypes';
+import type { PetSnapshot, PetTaskState, PetRequest } from '../../src/pets/petTypes';
 import spriteUrl from '../../src/pets/assets/red-panda/sprites.png';
 
 const callbacks = new Map<string, (event: unknown, value: unknown) => void>();
@@ -28,9 +28,11 @@ const snapshot: PetSnapshot = {
   errors: [],
   creationDirectory: '',
 };
+const petRequests: PetRequest[] = [];
 Object.assign(window, {
+  petRequests,
   electron: {
-    desktopPet: async () => snapshot,
+    desktopPet: async (request: PetRequest) => { petRequests.push(request); return snapshot; },
     petSignal: () => {},
     on: (event: string, listener: (event: unknown, value: unknown) => void) =>
       callbacks.set(event, listener),

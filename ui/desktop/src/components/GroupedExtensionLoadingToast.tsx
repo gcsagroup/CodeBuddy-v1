@@ -165,7 +165,7 @@ export function GroupedExtensionLoadingToast({
                       </div>
                       {ext.status === 'error' && ext.error && (
                         <div className="ml-7 flex flex-col gap-2">
-                          <div className="notification-error-message">
+                          <div className="notification-error-message max-h-40 overflow-auto whitespace-pre-wrap break-all">
                             {formatExtensionErrorMessage(
                               ext.error,
                               intl.formatMessage(i18n.failedToAddExtension)

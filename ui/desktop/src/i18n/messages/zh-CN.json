@@ -1,4 +1,36 @@
 {
+  "runtime.sourceChanged": { "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。" },
+  "toolbox.sync.connecting": { "defaultMessage": "后台连接中…" },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "刷新模型"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "正在刷新模型…"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "模型列表已更新。"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "部分连接刷新失败，已保留这些连接的上次列表，请重试。"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "项目操作"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "置顶项目"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "取消项目置顶"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "在项目中新建对话"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "归档项目中的对话"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "归档「{name}」中的 {count} 个对话？不会改动项目文件，可在历史记录中恢复对话。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "立即压缩"
   },
@@ -1503,7 +1535,10 @@
     "defaultMessage": "执行结果"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "任务列表"
+    "defaultMessage": "任务"
+  },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} 已完成 · {active} 进行中 · {pending} 待处理"
   },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "此任务的较早计划"
@@ -2820,7 +2855,7 @@
     "defaultMessage": "移除扩展"
   },
   "extensionModal.sessionScope": {
-    "defaultMessage": "这里的配置作为新对话的默认设置。已有对话请在输入框旁的扩展菜单中启用或重新加载该扩展。“测试连接”只检查服务，不会将它加载到对话中。"
+    "defaultMessage": "跟随工具箱的对话将在下一轮任务开始前应用变更；自定义范围的对话保留其选择。测试连接只检查服务，不会将它加载到对话中。"
   },
   "extensionModal.testConnection": {
     "defaultMessage": "测试连接"
@@ -4471,6 +4506,9 @@
   },
   "mentionPopover.addGroup": {
     "defaultMessage": "添加"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "加载更多"
   },
   "mentionPopover.agents": {
     "defaultMessage": "智能体"
@@ -9204,7 +9242,7 @@
     "defaultMessage": "连接 GitHub，管理远端仓库、议题、拉取请求与 CI。"
   },
   "toolbox.globalDefault": {
-    "defaultMessage": "此开关控制新任务的默认可用状态。"
+    "defaultMessage": "跟随工具箱的对话会在下一轮加载已启用工具；停用工具后不能再调用。"
   },
   "toolbox.implementation": {
     "defaultMessage": "实现方式"
@@ -9919,5 +9957,32 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "取消置顶"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "跟随工具箱"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "自定义范围"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "由智能体限定"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "已保存；下一轮任务开始前应用更新，当前任务继续执行。"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "当前对话已同步最新配置。"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "新对话跟随工具箱中已启用的能力；已有自定义对话保留其选择范围。"
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "连接失败"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "已连接"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "重试连接"
   }
 }

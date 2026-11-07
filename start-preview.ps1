@@ -1,4 +1,4 @@
-param([switch]$OrdinaryChat, [switch]$SkipOptionalToolCheck)
+param([switch]$SkipOptionalToolCheck)
 $ErrorActionPreference = 'Stop'
 $localEnvironment = Join-Path $PSScriptRoot 'environment\activate.ps1'
 if (Test-Path -LiteralPath $localEnvironment -PathType Leaf) {
@@ -16,7 +16,6 @@ foreach ($candidate in ($candidates | Select-Object -Unique)) {
   if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
   $version = & $candidate --version
   if ($LASTEXITCODE -eq 0 -and $version -match '^v(\d+)\.' -and [int]$Matches[1] -ge 24) {
-    if ($OrdinaryChat) { $env:CODEPRO_UNIFIED_MODE = 'false' }
     $previewArguments = @()
     if ($SkipOptionalToolCheck) { $previewArguments += '--skip-optional-tool-check' }
     & $candidate (Join-Path $PSScriptRoot 'scripts\start-harness-preview.cjs') @previewArguments

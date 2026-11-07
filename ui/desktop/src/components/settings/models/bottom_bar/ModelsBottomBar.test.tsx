@@ -3,7 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../../../../i18n/test-utils';
-import { acpReadModelDisplaySettings, acpListProviderDetails } from '../../../../acp/providers';
+import {
+  acpReadModelDisplaySettings,
+  acpListProviderDetails,
+  acpRefreshProviderModels,
+} from '../../../../acp/providers';
 import type { ProviderDetails } from '../../../../types/providers';
 import ModelsBottomBar from './ModelsBottomBar';
 
@@ -17,8 +21,11 @@ vi.mock('../../../ModelAndProviderContext', () => ({
 }));
 vi.mock('../../../../acp/providers', () => ({
   acpListProviderDetails: vi.fn(),
+  acpRefreshProviderModels: vi.fn(),
   acpReadModelDisplaySettings: vi.fn(),
   acpSaveThinkingEffort: vi.fn(),
+  readThinkingDraft: vi.fn(),
+  stageThinkingEffort: vi.fn(),
 }));
 vi.mock('../../../../hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('../predefinedModelsUtils', () => ({ getModelDisplayName: (name: string) => name }));
@@ -72,6 +79,61 @@ async function openModels(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'model-A' }));
   return trigger;
 }
+it('refreshes remote inventory once, shows new models and preserves selection', async () => {
+  const user = userEvent.setup();
+  setup();
+  await openModels(user);
+  let complete!: () => void;
+  vi.mocked(acpRefreshProviderModels).mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      })
+  );
+  const refresh = screen.getByRole('button', { name: 'Refresh models' });
+  await user.click(refresh);
+  expect(refresh).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('Refreshing models');
+  await user.click(refresh);
+  expect(acpRefreshProviderModels).toHaveBeenCalledTimes(1);
+  expect(acpRefreshProviderModels).toHaveBeenCalledWith('p');
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    provider('p', ['model-A', 'new-remote-model']),
+  ]);
+  await act(async () => complete());
+  expect(await screen.findByRole('button', { name: 'new-remote-model' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'model-A' })).toHaveAttribute('aria-pressed', 'true');
+  expect(mocks.change).not.toHaveBeenCalled();
+  expect(refresh).toBeEnabled();
+});
+
+it('keeps a failed connection list while updating successful connections and allows retry', async () => {
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    provider('p', ['model-A']),
+    provider('offline', ['old-model']),
+  ]);
+  const user = userEvent.setup();
+  setup();
+  await openModels(user);
+  vi.mocked(acpRefreshProviderModels).mockImplementation(async (id) => {
+    if (id === 'offline') throw new Error('PRIVATE_ENDPOINT');
+  });
+  vi.mocked(acpListProviderDetails).mockResolvedValue([
+    provider('p', ['model-A', 'new-model']),
+    provider('offline', ['old-model']),
+  ]);
+  await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('previous lists');
+  expect(screen.getByRole('alert')).not.toHaveTextContent('PRIVATE_ENDPOINT');
+  expect(screen.getByRole('button', { name: 'new-model' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'offline (1)' }));
+  expect(screen.getByRole('button', { name: 'old-model' })).toBeVisible();
+  vi.mocked(acpRefreshProviderModels).mockResolvedValue();
+  await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  expect(screen.getByRole('status')).toHaveTextContent('Model list updated');
+});
+
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.configModel = 'model-A';
@@ -80,6 +142,7 @@ beforeEach(() => {
     provider('disabled', ['unavailable'], false),
   ]);
   mocks.change.mockResolvedValue(true);
+  vi.mocked(acpRefreshProviderModels).mockResolvedValue();
   vi.mocked(acpReadModelDisplaySettings).mockResolvedValue({
     thinking: { options: ['off', 'medium'], value: 'medium', toggle: true },
     contextWindow: 32768,

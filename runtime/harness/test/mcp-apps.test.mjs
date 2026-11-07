@@ -190,7 +190,7 @@ test('startup preparation leases native remote MCP without creating a model requ
   await assert.rejects(driver.warmMcpServers([{ transport: 'stdio', command: 'unused' }]), /remote MCP/);
 });
 
-test('failed shared startup is not cached and later new sessions recover without losing other capabilities', async t => {
+test('failed shared startup cools down and explicit retry recovers without losing other capabilities', async t => {
   const { driver, session, calls, controls, mcp } = await fixture(t);
   controls.rejectInitialize = true;
   const first = await session();
@@ -198,6 +198,10 @@ test('failed shared startup is not cached and later new sessions recover without
   assert.ok((await driver.listTools(first)).some(tool => tool.name === 'read'));
   const attempts = calls.filter(call => call.method === 'initialize').length;
   controls.rejectInitialize = false;
+  const cooling = await session();
+  assert.equal((await driver.extensionStatus(cooling))[0].status, 'error');
+  assert.equal(calls.filter(call => call.method === 'initialize').length, attempts);
+  await driver.invalidateMcpServers([mcp.serverName]);
   const next = await session();
   assert.equal((await driver.extensionStatus(next))[0].status, 'ready');
   assert.ok(calls.filter(call => call.method === 'initialize').length > attempts);

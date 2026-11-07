@@ -332,7 +332,10 @@ describe('App Component - Brand New State', () => {
     render(<PairRouteWrapper activeSessions={[]} setActiveSessions={vi.fn()} />, {
       wrapper: AppInnerTestWrapper,
     });
-    expect(await screen.findByTestId('chat-input')).toHaveValue('/comfyui ');
+    expect(await screen.findByTestId('codepro-hub-launch-intent')).toHaveAttribute(
+      'data-launch-intent',
+      JSON.stringify({ initialMessage: mockLocationState.initialMessage, draftOnly: true, noAutoSubmit: true })
+    );
     expect(createSession).not.toHaveBeenCalled();
     expect(mockElectron.directoryChooser).not.toHaveBeenCalled();
     expect(mockSetSearchParams).not.toHaveBeenCalled();
@@ -694,6 +697,9 @@ describe('App Component - Brand New State', () => {
     handler({}, { msg: ' 新任务🙂 ', images: [], deliveryId: 'pet-transfer' });
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=global-main', { state: null }));
     expect(mainConversation.deliverMainConversationMessage).toHaveBeenCalledWith('global-main', { msg: '新任务🙂', images: [], messageId: 'pet-transfer' });
+    handler({}, { msg: '', images: [], deliveryId: 'pet-picker', composerAction: 'agent' });
+    await waitFor(() => expect(mainConversation.deliverMainConversationMessage).toHaveBeenCalledWith('global-main', { msg: '', images: [], messageId: 'pet-picker', composerAction: 'agent' }));
+
     mockNavigate.mockClear();
     handler({}, '  ');
     handler({}, 'x'.repeat(8001));

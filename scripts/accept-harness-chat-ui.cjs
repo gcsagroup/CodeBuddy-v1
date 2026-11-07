@@ -135,7 +135,6 @@ const alive = (pid) => {
       env: {
         ...process.env,
         CODEBUDDY_PREVIEW_DEVTOOLS_PORT: String(port),
-        CODEPRO_UNIFIED_MODE: "true",
         CODEBUDDY_WORKSPACE_ROOT: path.join(profile, "workspaces"),
       },
     });

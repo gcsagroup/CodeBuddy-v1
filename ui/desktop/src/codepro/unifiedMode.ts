@@ -1,7 +1,3 @@
-export function isCodeProUnifiedModeEnabled(value: unknown): boolean {
-  return value !== false && value !== 'false' && value !== 0 && value !== '0';
-}
-
 const legacyCodeProEntryPaths: Readonly<Record<string, string>> = {
   '/': '/codepro',
   '/pair': '/codepro/pair',
@@ -9,6 +5,9 @@ const legacyCodeProEntryPaths: Readonly<Record<string, string>> = {
   '/extensions': '/codepro/extensions',
   '/apps': '/codepro/apps',
   '/sessions': '/codepro/sessions',
+  '/custom-agents': '/codepro/custom-agents',
+  '/media-library': '/codepro/media-library',
+  '/toolbox': '/codepro/toolbox',
   '/schedules': '/codepro/schedules',
   '/recipes': '/codepro/recipes',
   '/skills': '/codepro/skills',
@@ -16,9 +15,6 @@ const legacyCodeProEntryPaths: Readonly<Record<string, string>> = {
   '/configure-providers': '/codepro/configure-providers',
 };
 
-export function resolveCodeProEntryPath(path: string, unifiedMode: boolean): string {
-  if (!unifiedMode) {
-    return path;
-  }
+export function resolveCodeProEntryPath(path: string): string {
   return legacyCodeProEntryPaths[path] ?? path;
 }

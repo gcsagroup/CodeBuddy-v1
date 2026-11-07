@@ -8,13 +8,11 @@ import type { Session } from '../types/session';
 import {
   acpGetSessionListItem,
   acpListRecentSessions,
-  resolveSessionWorkspaceMode,
   sessionTypeMatchesWorkspace,
   type SessionListItem,
 } from '../acp/sessions';
 import { groupNavigationSessions } from '../utils/projectSessions';
 import { createNavigationHandler, withWorkspaceMode } from '../utils/navigationUtils';
-import { isCodeProUnifiedModeEnabled } from '../codepro/unifiedMode';
 
 import { useSessionPins } from '../utils/sessionPins';
 
@@ -71,10 +69,7 @@ export function useNavigationSessions() {
   const [searchParams] = useSearchParams();
   const chatContext = useChatContext();
   const workspaceMode = location.pathname.startsWith('/codepro') ? 'codepro' : 'code';
-  const sessionWorkspaceMode = resolveSessionWorkspaceMode(
-    location.pathname,
-    isCodeProUnifiedModeEnabled(window.appConfig?.get?.('CODEPRO_UNIFIED_MODE'))
-  );
+  const sessionWorkspaceMode = 'unified';
 
   const [recentSessions, setRecentSessions] = useState<SessionListItem[]>([]);
   const pinnedIds = useSessionPins();
@@ -86,8 +81,8 @@ export function useNavigationSessions() {
   const defaultRoot = window.appConfig?.get('CODEBUDDY_WORKSPACE_ROOT');
   const { tasks: recentTaskSessions, projects: recentSessionsByProject } = useMemo(
     () =>
-      groupNavigationSessions(recentSessions.filter((s) => !pinnedIds.includes(s.id)), typeof defaultRoot === 'string' ? defaultRoot : ''),
-    [recentSessions, defaultRoot, pinnedIds]
+      groupNavigationSessions([...recentSessions, ...pinnedSessions.filter(s => !recentSessions.some(item => item.id === s.id))], typeof defaultRoot === 'string' ? defaultRoot : '', pinnedIds),
+    [recentSessions, defaultRoot, pinnedIds, pinnedItems]
   );
   const lastSessionIdRef = useRef<string | null>(null);
 

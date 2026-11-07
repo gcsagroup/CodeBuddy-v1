@@ -14,7 +14,7 @@ import { ItemIcon } from './ItemIcon';
 import { getInitialWorkingDir } from '../utils/workingDir';
 import { defineMessages, useIntl } from '../i18n';
 import { listAgentMentionItems, listSlashCommandItems } from '../acp/autocomplete';
-import { loadToolbox } from '../acp/toolbox';
+import { loadToolbox, type ToolboxLoadResult } from '../acp/toolbox';
 import { localizeToolboxItem } from './toolbox/toolboxLocalization';
 import type { ToolboxItem } from '../types/toolbox';
 import { acpListSessions } from '../acp/sessions';
@@ -41,6 +41,7 @@ const i18n = defineMessages({
   },
   keys: { id: 'mentionPopover.keys', defaultMessage: '↑ ↓ Select · Enter Insert · Esc Close' },
   addGroup: { id: 'mentionPopover.addGroup', defaultMessage: 'Add' },
+  loadMore: { id: 'mentionPopover.loadMore', defaultMessage: 'Load more' },
   commandGroup: { id: 'mentionPopover.commandGroup', defaultMessage: 'Commands' },
   skillGroup: { id: 'mentionPopover.skillGroup', defaultMessage: 'Skills' },
   recipeGroup: { id: 'mentionPopover.recipeGroup', defaultMessage: 'Saved tasks' },
@@ -234,6 +235,17 @@ const MentionPopover = forwardRef<
     const [items, setItems] = useState<DisplayItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [inventoryError, setInventoryError] = useState(false);
+    const [inventoryRequested, setInventoryRequested] = useState(false);
+    // Presentation cache only: selecting a tool still validates/loads it through
+    // the normal chat flow. Scope changes never reuse another project's menu.
+    const inventoryCache = useRef<{ key: string; commands: DisplayItem[]; inventory: DisplayItem[] } | null>(null);
+    const [visibleLimit, setVisibleLimit] = useState(20);
+    const lastScrolledIndex = useRef<number | null>(null);
+    useEffect(() => {
+      setInventoryRequested(false);
+      setVisibleLimit(20);
+      lastScrolledIndex.current = null;
+    }, [isOpen, workingDir, sessionId, addOnly]);
     const popoverRef = useRef<HTMLDivElement>(null);
     const [initialHeight, setInitialHeight] = useState<number | null>(null);
     const [position, setPosition] = useState<{ x: number; y: number; width: number } | null>(null);
@@ -369,9 +381,9 @@ const MentionPopover = forwardRef<
     const availableItems = useMemo(
       () =>
         addOnly
-          ? items.filter((item) => item.itemType !== 'Builtin' || item.commandGroup === 'add')
+          ? (items.length ? items : composerCommandItems(intl)).filter((item) => item.itemType !== 'Builtin' || item.commandGroup === 'add')
           : items,
-      [items, addOnly]
+      [items, addOnly, intl]
     );
     const displayItems = useMemo((): DisplayItemWithMatch[] => {
       if (!query.trim()) {
@@ -473,10 +485,10 @@ const MentionPopover = forwardRef<
         setInitialHeight(null);
         return;
       }
-      if (!isSlashCommand || initialHeight !== null || !displayItems.length) return;
+      if (addOnly || !isSlashCommand || initialHeight !== null || !displayItems.length) return;
       const height = popoverRef.current?.getBoundingClientRect().height;
       if (height) setInitialHeight(height);
-    }, [isOpen, isSlashCommand, initialHeight, displayItems.length, position]);
+    }, [isOpen, isSlashCommand, addOnly, initialHeight, displayItems.length, position]);
 
     // Expose methods to parent component
     useImperativeHandle(
@@ -500,17 +512,24 @@ const MentionPopover = forwardRef<
       let cancelled = false;
 
       const loadData = async () => {
-        setItems(isSlashCommand ? composerCommandItems(intl) : []);
+        const key = JSON.stringify([currentWorkingDir, sessionId, intl.locale]);
+        const cached = inventoryCache.current?.key === key ? inventoryCache.current : null;
+        setItems([...composerCommandItems(intl), ...(cached?.commands ?? []), ...(cached?.inventory ?? [])]);
         setInventoryError(false);
+        if (addOnly && !inventoryRequested && !query.trim()) {
+          setIsLoading(false);
+          return;
+        }
         if (!isSlashCommand && !currentWorkingDir.trim()) {
           setIsLoading(false);
           return;
         }
-        setIsLoading(!isSlashCommand);
+        setIsLoading(true);
         try {
           if (isSlashCommand) {
-            let commandItems: DisplayItem[] = [],
-              inventoryItems: DisplayItem[] = [];
+            let commandItems: DisplayItem[] = cached?.commands ?? [],
+              inventoryItems: DisplayItem[] = cached?.inventory ?? [];
+            let failedSource = false;
             const publish = () => {
               if (cancelled) return;
               const builtinItems = composerCommandItems(intl);
@@ -530,17 +549,10 @@ const MentionPopover = forwardRef<
               ]);
             };
             const failed = () => {
+              failedSource = true;
               if (!cancelled) setInventoryError(true);
             };
-            await Promise.allSettled([
-              listSlashCommandItems(currentWorkingDir, sessionId ?? undefined)
-                .then((result) => {
-                  commandItems = result;
-                  publish();
-                })
-                .catch(failed),
-              loadToolbox(currentWorkingDir, sessionId ?? undefined)
-                .then((result) => {
+            const acceptInventory = (result: ToolboxLoadResult) => {
                   if (Object.keys(result.errors).length) failed();
                   inventoryItems = [
                     ...result.model.methods,
@@ -561,9 +573,24 @@ const MentionPopover = forwardRef<
                     };
                   });
                   publish();
-                })
+            };
+            await Promise.allSettled([
+              listSlashCommandItems(currentWorkingDir, sessionId ?? undefined)
+                .then((result) => { commandItems = result; publish(); })
+                .catch(failed),
+              loadToolbox(currentWorkingDir, sessionId ?? undefined, {
+                includeUsage: false,
+                onPartial: cached ? undefined : acceptInventory,
+              }).then(acceptInventory)
                 .catch(failed),
             ]);
+            if (!cancelled && !failedSource) inventoryCache.current = {
+              key,
+              commands: commandItems.filter(item =>
+                !composerCommandItems(intl).some(builtin => builtin.relativePath === item.relativePath) &&
+                !inventoryItems.some(entry => entry.itemType === 'Skill' && item.itemType === 'Skill' && entry.relativePath === item.relativePath)),
+              inventory: inventoryItems,
+            };
           }
         } catch (error) {
           if (!cancelled) {
@@ -586,7 +613,7 @@ const MentionPopover = forwardRef<
       return () => {
         cancelled = true;
       };
-    }, [isOpen, isSlashCommand, currentWorkingDir, sessionId, intl]);
+    }, [isOpen, isSlashCommand, currentWorkingDir, sessionId, intl, addOnly, inventoryRequested, Boolean(query.trim())]);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -604,19 +631,36 @@ const MentionPopover = forwardRef<
       };
     }, [isOpen, onClose]);
 
+    // Render keyboard-selected results too, even beyond the current scroll batch.
+    const renderedLimit = addOnly ? Math.max(visibleLimit, selectedIndex + 1) : displayItems.length;
+    const requestMore = () => {
+      if (!addOnly) return;
+      setInventoryRequested(true);
+      if (inventoryRequested) setVisibleLimit((limit) => Math.max(limit, Math.min(displayItems.length, limit + 20)));
+    };
+    const hasMore = addOnly && (!inventoryRequested || isLoading || renderedLimit < displayItems.length);
+    useEffect(() => {
+      if (isOpen && addOnly && selectedIndex > 0 && selectedIndex >= displayItems.length - 1)
+        setInventoryRequested(true);
+    }, [isOpen, addOnly, selectedIndex, displayItems.length]);
+
     // Scroll selected item into view
     useEffect(() => {
+      // Appending remote results must not pull the user's scroll position back
+      // to the previously selected local command.
+      if (addOnly && lastScrolledIndex.current === selectedIndex) return;
       if (listRef.current && selectedIndex >= 0 && selectedIndex < displayItems.length) {
         const selectedElement =
           listRef.current.querySelectorAll<HTMLElement>('[role="option"]')[selectedIndex];
         if (selectedElement) {
+          lastScrolledIndex.current = selectedIndex;
           selectedElement.scrollIntoView({
             block: 'nearest',
             behavior: 'smooth',
           });
         }
       }
-    }, [selectedIndex, displayItems.length]);
+    }, [selectedIndex, displayItems.length, addOnly, isOpen]);
 
     const handleItemClick = (index: number) => {
       if (index >= 0 && index < displayItems.length) {
@@ -643,7 +687,7 @@ const MentionPopover = forwardRef<
         className={`composer-menu-surface fixed z-50 border border-border-primary shadow-lg ${compactMenu ? 'overflow-hidden rounded-xl' : 'rounded-2xl'}`}
         style={{
           width: menuWidth,
-          height: compactMenu && initialHeight !== null ? initialHeight : undefined,
+          height: addOnly ? 176 : compactMenu && initialHeight !== null ? initialHeight : undefined,
           maxHeight: Math.max(80, Math.min(compactMenu ? 392 : 560, position.y - 24)),
           left: Math.max(16, Math.min(position.x, window.innerWidth - menuWidth - 16)),
           top: position.y - 10, // Position above the chat input
@@ -654,7 +698,7 @@ const MentionPopover = forwardRef<
           className={`${compactMenu ? 'p-2' : 'p-3'} flex flex-col min-h-0`}
           style={{
             maxHeight: 'inherit',
-            height: compactMenu && initialHeight !== null ? '100%' : undefined,
+            height: addOnly || (compactMenu && initialHeight !== null) ? '100%' : undefined,
           }}
         >
           {!isSlashCommand && !currentWorkingDir.trim() && (
@@ -689,10 +733,18 @@ const MentionPopover = forwardRef<
               <div
                 role="listbox"
                 ref={listRef}
+                onScroll={(event) => {
+                  const list = event.currentTarget;
+                  if (list.scrollTop > 0 && list.scrollHeight - list.clientHeight - list.scrollTop < 48) requestMore();
+                }}
+                onWheel={(event) => {
+                  const list = event.currentTarget;
+                  if (event.deltaY > 0 && list.scrollHeight - list.clientHeight - list.scrollTop < 48) requestMore();
+                }}
                 className={`${compactMenu ? 'space-y-0.5 overflow-x-hidden' : 'space-y-1'} min-h-0 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-borderStandard scrollbar-track-transparent`}
-                style={{ maxHeight: isSlashCommand ? '520px' : '280px', scrollbarGutter: 'stable' }}
+                style={{ maxHeight: isSlashCommand ? '520px' : '280px', scrollbarGutter: 'stable', ...(addOnly ? { overflowY: 'scroll' } : {}) }}
               >
-                {displayItems.map((item, index) => (
+                {displayItems.slice(0, renderedLimit).map((item, index) => (
                   <div
                     key={`${item.itemType}-${item.relativePath}-${item.extra}-${item.insertText ?? ''}`}
                   >
@@ -775,6 +827,15 @@ const MentionPopover = forwardRef<
                     </div>
                   </div>
                 ))}
+
+                {hasMore && (
+                  <div className="px-2 py-2">
+                    {isLoading ? <div role="status" className="text-xs text-text-secondary">{intl.formatMessage(i18n.loadingCommands)}</div> :
+                      <button type="button" onClick={requestMore} className="w-full rounded py-1 text-left text-xs text-text-secondary hover:text-text-primary focus-visible:outline">
+                        {intl.formatMessage(i18n.loadMore)}
+                      </button>}
+                  </div>
+                )}
 
                 {!isLoading && displayItems.length === 0 && (
                   <div className="p-4 text-center text-text-secondary text-sm">

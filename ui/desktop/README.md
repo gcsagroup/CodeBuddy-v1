@@ -6,6 +6,12 @@
 
 English: CodeBuddy Desktop uses Electron, React and TypeScript. The main process starts the bundled runtime and connects the interface through ACP. See the [repository guide](../../documentation/codebuddy/GITHUB_OVERVIEW_EN.md) for source launch, dependencies and Windows packaging.
 
+简体中文：Windows 双击 `start-preview.cmd` 启动新版任务界面，它调用 `start-preview.ps1`；重复的聊天启动入口、旧时钟首页、Code / CodePro 切换及 `-OrdinaryChat` 回退参数已移除。旧页面链接自动跳转，历史会话数据保留。
+
+繁體中文：Windows 按兩下 `start-preview.cmd` 啟動新版任務介面，它呼叫 `start-preview.ps1`；重複的聊天啟動入口、舊時鐘首頁、Code / CodePro 切換及 `-OrdinaryChat` 回退參數已移除。舊頁面連結自動跳轉，歷史對話資料保留。
+
+English: On Windows, double-click `start-preview.cmd` to open the unified task interface; it invokes `start-preview.ps1`. The duplicate chat launcher, old clock home, Code / CodePro switcher, and `-OrdinaryChat` rollback option have been removed. Legacy page links redirect automatically; existing conversation data is retained.
+
 Component checks, from `ui/desktop`:
 
 ```powershell

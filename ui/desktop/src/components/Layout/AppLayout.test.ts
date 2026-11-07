@@ -30,7 +30,7 @@ describe('readCodeProTaskPanelPreferences', () => {
       readCodeProTaskPanelPreferences({
         getItem: (key: string) => (key.endsWith('.expanded') ? 'true' : '340'),
       })
-    ).toEqual({ expanded: true, width: 340 });
+    ).toEqual({ expanded: false, width: 340 });
   });
 
   it('falls back safely for malformed or unavailable storage', () => {
@@ -38,14 +38,16 @@ describe('readCodeProTaskPanelPreferences', () => {
       readCodeProTaskPanelPreferences({
         getItem: () => 'not-a-preference',
       })
-    ).toEqual({ expanded: true, width: null });
+    ).toEqual({ expanded: false, width: null });
     expect(
       readCodeProTaskPanelPreferences({
         getItem: () => {
           throw new Error('storage denied');
         },
       })
-    ).toEqual({ expanded: true, width: null });
+    ).toEqual({ expanded: false, width: null });
+    expect(readCodeProTaskPanelPreferences()).toEqual({ expanded: false, width: null });
+    expect(readCodeProTaskPanelPreferences({ getItem: () => null })).toEqual({ expanded: false, width: null });
   });
 });
 

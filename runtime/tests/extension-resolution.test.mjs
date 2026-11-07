@@ -94,7 +94,7 @@ test('tool policy and approval each resolve credentials once while rechecking li
   } }), false, 'a stale captured session must not allow a removed server after the answer');
 });
 
-test('configured selections do not decrypt unused historical definitions, but removed globals require the fallback', async t => {
+test('configured and retired selections never decrypt unused historical definitions', async t => {
   const { store, settings } = await fixture(t);
   const remote = extension('remote');
   await settings.saveExtension({ extension: remote, enabled: true });
@@ -104,7 +104,7 @@ test('configured selections do not decrypt unused historical definitions, but re
   await settings.request('config/extensions/set-enabled', { configKey: 'remote', enabled: false });
   assert.deepEqual((await resolveSessionExtensions(session, settings)).selected.map(e => e.configKey), ['developer']);
   await settings.request('config/extensions/remove', { configKey: 'remote' });
-  await assert.rejects(resolveSessionExtensions(session, settings), /Unknown credential format/);
+  assert.deepEqual((await resolveSessionExtensions(session, settings)).selected.map(e => e.configKey), ['developer']);
 });
 
 test("one operation decrypts each required definition once and never decrypts disabled extensions for native tool filtering", async (t) => {

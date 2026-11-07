@@ -226,6 +226,23 @@ function pendingToolPermissionMessage(): Message & { id: string } {
 }
 
 describe('acpChatSessionController.loadSession', () => {
+  it('publishes a shared history restore only once for simultaneous consumers', async () => {
+    let complete!: (result: ReturnType<typeof mockLoadResult>) => void;
+    vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(undefined);
+    vi.mocked(acpLoadSession).mockReturnValueOnce(new Promise(resolve => { complete = resolve; }));
+    vi.mocked(sessionInfoToSession).mockReturnValue(loadedSession());
+    const firstReady = vi.fn(), secondReady = vi.fn();
+    const first = acpChatSessionController.loadSession(SESSION_ID, { onSessionLoaded: firstReady });
+    const second = acpChatSessionController.loadSession(SESSION_ID, { onSessionLoaded: secondReady });
+    complete(mockLoadResult());
+    await Promise.all([first, second]);
+    expect(acpLoadSession).toHaveBeenCalledTimes(1);
+    expect(acpChatSessionActions.finishSessionLoad).toHaveBeenCalledTimes(1);
+    expect(restoreAcpPermissionRequestsForSession).toHaveBeenCalledTimes(1);
+    expect(firstReady).toHaveBeenCalledTimes(1);
+    expect(secondReady).toHaveBeenCalledTimes(1);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(acpChatSessionStore.getSnapshot).mockReturnValue(undefined);
@@ -1025,10 +1042,9 @@ describe('acpChatSessionController.updateMessage', () => {
       response,
       expect.objectContaining({
         role: 'user',
-        content: [
-          { type: 'text', text: 'Fix the project' },
-          { type: 'image', data: 'source-image', mimeType: 'image/png' },
-        ],
+        content: [{ type: 'text', text: expect.stringContaining('从当前对话已有的进度继续') }],
+        metadata: expect.objectContaining({ userVisible: false,
+          presentation: { afterMessageId: response.id, continuation: true } }),
       }),
     ]);
     const retriedMessage = vi.mocked(acpPromptSession).mock.calls[0]?.[1];

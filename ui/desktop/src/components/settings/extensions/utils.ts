@@ -124,7 +124,8 @@ export function extensionToFormData(extension: FixedExtensionEntry): ExtensionFo
         ? (extension.uri ?? undefined)
         : undefined,
     enabled: extension.enabled,
-    timeout: 'timeout' in extension ? (extension.timeout ?? undefined) : undefined,
+    timeout: ('timeout' in extension ? extension.timeout : undefined) ??
+      (['stdio', 'sse', 'streamable_http'].includes(extension.type) ? DEFAULT_EXTENSION_TIMEOUT : undefined),
     envVars,
     headers,
     installation_notes: (extension as Record<string, unknown>)['installation_notes'] as

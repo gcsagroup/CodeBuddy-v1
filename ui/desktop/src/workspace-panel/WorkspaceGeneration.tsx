@@ -28,8 +28,8 @@ export interface MediaJob {
     total?: number;
     updatedAt?: number;
   };
-  images?: { path: string }[];
-  videos?: { path: string }[];
+  images?: { path: string; preview_url?: string }[];
+  videos?: { path: string; preview_url?: string }[];
 }
 export interface MediaFailureInfo {
   stage:
@@ -79,6 +79,20 @@ export function MediaJobsProvider({
 export function useMediaJobs(sessionId: string) {
   const snapshot = useContext(MediaJobsContext);
   return snapshot.sessionId === sessionId ? snapshot : emptyMediaJobs;
+}
+
+// Resolve only acknowledged output aliases in this session. An arbitrary URL,
+// a matching filename or an assistant's claimed path cannot grant file access.
+export function resolveMediaOutput(jobs: MediaJob[], href: string) {
+  const normalized = href.replace(/\\/g, '/');
+  for (const job of jobs) {
+    if (job.status !== 'completed') continue;
+    for (const output of job.videos ?? job.images ?? []) {
+      if (output.path.replace(/\\/g, '/') === normalized || output.preview_url === href)
+        return { path: output.path, title: job.display_name };
+    }
+  }
+  return undefined;
 }
 // Chat and preview observe the same runtime job store through one request at a time.
 function useMediaJobsObserver(sessionId: string) {
@@ -220,9 +234,10 @@ function MediaJobPreview({
     <article className="rounded-xl border border-border-primary p-4" data-job-id={job.job_id}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <strong>
-          {job.kind === 'video'
-            ? mediaText('Video', '视频', '影片')
-            : mediaText('Image', '图片', '圖片')}
+          {job.display_name ??
+            (job.kind === 'video'
+              ? mediaText('Video', '视频', '影片')
+              : mediaText('Image', '图片', '圖片'))}
         </strong>
         <span role="status">
           {job.status === 'completed' ? '✓ ' : ''}
@@ -241,7 +256,7 @@ function MediaJobPreview({
         media ? (
           <WorkspaceMedia
             media={media}
-            title={file ?? job.job_id}
+            title={job.display_name ?? file ?? job.job_id}
             target={file ? { sessionId: scope.sessionId, filePath: file } : undefined}
           />
         ) : (

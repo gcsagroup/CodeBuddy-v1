@@ -175,7 +175,7 @@ describe('buildToolboxModel', () => {
     expect(model.external[1]).toMatchObject({
       id: 'external:kb',
       name: 'knowledge-base',
-      status: 'ready',
+      status: 'configured',
       reference: { key: 'configKey', value: 'kb' },
       usage: {
         lastUsedAt: '2026-09-01T01:02:03Z',

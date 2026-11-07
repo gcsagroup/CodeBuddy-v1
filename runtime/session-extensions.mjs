@@ -39,6 +39,7 @@ const selectionIdentity = (session) =>
     session.id,
     session.type,
     session.extensions,
+    session.extensionSelection,
     session.extensionDefinitions,
     session.protectedMcpServers,
     session.mcpServers,
@@ -60,9 +61,10 @@ export async function resolveSessionExtensions(session, settings) {
           entries: entries.filter((entry) => entry.enabled),
           assertCurrent() {},
         })),
-    sessionMcpServers(session),
+    session.extensionSelection === 'follow' ? [] : sessionMcpServers(session),
   ]);
-  const names = session.extensions?.map(extensionName);
+  const storedNames = session.extensions?.map(extensionName);
+  const names = session.extensionSelection === "follow" ? undefined : storedNames;
   // Global definitions (including disabled entries) own the effective policy.
   // Only decrypt the historical fallback if an unconfigured selection needs it.
   const needsDefinitions = names?.some(name => !configuredExtension(snapshot.configured, name));
@@ -90,7 +92,7 @@ export async function resolveSessionExtensions(session, settings) {
     const name = extensionName(extension);
     if (
       !configuredExtension(snapshot.configured, name) &&
-      names?.includes(name)
+      storedNames?.includes(name)
     )
       selected.push({ configKey: name, enabled: true, extension });
   }

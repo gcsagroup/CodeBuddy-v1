@@ -75,6 +75,7 @@ interface MessageBoxResponse {
 
 interface SaveDialogOptions {
   title?: string;
+  defaultDirectory?: 'desktop';
   defaultPath?: string;
   buttonLabel?: string;
   filters?: Array<{ name: string; extensions: string[] }>;

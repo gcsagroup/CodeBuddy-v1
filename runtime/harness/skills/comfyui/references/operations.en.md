@@ -14,7 +14,7 @@ Image generation derives its mode from reference_images. Video generation requir
 
 ## Calls and tuning
 
-[requests.json](requests.json) has one example per mode. Select only the relevant one. Inspect, substitute a compatible entry's id for `$workflow_id`, and inspected workspace paths for `$image_1`/`$image_2`. Rewrite the sample prompt for the actual user. Never submit placeholders or execute the whole set. Omit request_id for a host-generated UUID; retain the returned job_id and use the same tool for status/cancel.
+[requests.json](requests.json) has one example per mode. Select only the relevant one. The current-request interpreter selects the workflow; omit `workflow_name`. Substitute inspected workspace paths for `$image_1`/`$image_2`. Rewrite the sample prompt for the actual user. Never submit placeholders or execute the whole set. Omit request_id for a host-generated UUID; retain the returned job_id and use the same tool for status/cancel.
 
 - Explain preserved and edited features. No mask argument is available, so do not guarantee pixel-exact local editing. Requested transparency does not establish alpha.
 - Omit both dimensions to preserve defaults; supply both to override, avoiding the omitted side defaulting to 1024. Image sides: 256–2048. Video sides: 256–1344, total pixels ≤1344×768. All sides must be multiples of 32. Binding also requires a unique ResolutionSelector and a supported ratio.

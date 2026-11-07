@@ -1,4 +1,36 @@
 {
+  "runtime.sourceChanged": { "defaultMessage": "The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes." },
+  "toolbox.sync.connecting": { "defaultMessage": "Connecting in background…" },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Refresh models"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Refreshing models…"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Model list updated."
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Project actions"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Pin project"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Unpin project"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "New conversation in project"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Archive conversations in project"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Archive {count} conversations in {name}? Project files stay unchanged. Conversations can be restored from History."
+  },
   "alertBox.compactNow": {
     "defaultMessage": "Compact now"
   },
@@ -1503,7 +1535,10 @@
     "defaultMessage": "Execution result"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "Work plan"
+    "defaultMessage": "Tasks"
+  },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} done · {active} in progress · {pending} pending"
   },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
@@ -2838,7 +2873,7 @@
     "defaultMessage": "Remove extension"
   },
   "extensionModal.sessionScope": {
-    "defaultMessage": "These settings are defaults for new chats. In an existing chat, open the extensions menu beside the message box to enable or reload this extension. Testing the connection does not load it into a chat."
+    "defaultMessage": "Conversations following the toolbox apply changes before their next turn. Custom conversations keep their selection. Testing the connection checks the service without loading it into a conversation."
   },
   "extensionModal.testConnection": {
     "defaultMessage": "Test connection"
@@ -4495,6 +4530,9 @@
   },
   "mentionPopover.addGroup": {
     "defaultMessage": "Add"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Load more"
   },
   "mentionPopover.agents": {
     "defaultMessage": "Agents"
@@ -9243,7 +9281,7 @@
     "defaultMessage": "Connect to GitHub to manage remote repositories, issues, pull requests and CI."
   },
   "toolbox.globalDefault": {
-    "defaultMessage": "This switch controls the default availability for new tasks."
+    "defaultMessage": "Following conversations load enabled tools before the next turn. Disabled tools cannot be called."
   },
   "toolbox.implementation": {
     "defaultMessage": "Implementation"
@@ -9919,5 +9957,32 @@
   },
   "workspaceSwitcher.workspaceSwitcher": {
     "defaultMessage": "Workspace switcher"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Follow toolbox"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Custom selection"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Agent-defined selection"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Saved · changes apply before the next turn. The current task continues."
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Current conversation is synchronized."
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "New conversations follow enabled toolbox capabilities. Existing custom conversations keep their selection."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Connection failed"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Connected"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Retry connections"
   }
 }

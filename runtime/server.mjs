@@ -1,13 +1,18 @@
 import http from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { WebSocketServer } from "ws";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import path from "node:path";
 import { openStore } from "./store.mjs";
 import { Compat } from "./compat.mjs";
 import { createConversationDriver } from "./conversation-driver.mjs";
 import { createMcpAppProxy } from "./mcp-app-proxy.mjs";
 import { acquireProfileLock } from "./profile-lock.mjs";
+import { createSourceStatus } from './source-status.mjs';
+
+const previewSource = process.env.CODEBUDDY_HARNESS_PREVIEW === '1'
+  ? createSourceStatus(path.dirname(fileURLToPath(import.meta.url))).catch(() => undefined)
+  : Promise.resolve(undefined);
 
 const equal = (a, b) => {
   if (typeof a !== "string") return false;
@@ -93,6 +98,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
         ].map((name) => [
           name,
           async (...args) => {
+              if (name === 'extensionStatus' && !loaded) return [];
             if (
               ["close", "releaseNativeSessionCapabilities", "invalidateMcpServers"].includes(name) &&
               !loaded
@@ -114,6 +120,12 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
       );
     }
     compat = new Compat(store, createConversationDriver(driver, store));
+    const sourceStatus = await previewSource;
+    const runtimeIdentity = sourceStatus ? await sourceStatus() : undefined;
+    compat.runtimeStatus = async () => ({
+      ...(sourceStatus ? await sourceStatus() : {}),
+      activeTurns: compat.active.size,
+    });
     await compat.initialize();
     appProxy = await createMcpAppProxy({ secret });
     let stopping = false;
@@ -156,6 +168,7 @@ export async function createCompatServer({ dataDir, secret, driver, defaultModel
             engine: "deepseek-harness",
             preview: true,
             modelConfigured: Boolean(d.providerId && d.modelId),
+            runtime: runtimeIdentity,
           }),
         );
       }

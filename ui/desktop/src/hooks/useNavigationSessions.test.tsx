@@ -14,10 +14,25 @@ vi.mock('../sessions', () => ({ getSessionDisplayName: () => 'Test session' }));
 vi.mock('../acp/sessions', () => ({
   acpListRecentSessions: mocks.list,
   acpGetSessionListItem: mocks.get,
-  resolveSessionWorkspaceMode: () => 'codepro',
   sessionTypeMatchesWorkspace: () => true,
 }));
 import { useNavigationSessions } from './useNavigationSessions';
+
+it('reorders the owning project immediately after its existing conversation is pinned', async () => {
+  localStorage.clear();
+  const items = [
+    { id: 'new', name: 'New', workingDir: 'D:/project', updatedAt: '2026-11-06' },
+    { id: 'old', name: 'Old', workingDir: 'D:/project', updatedAt: '2026-11-01' },
+  ];
+  mocks.list.mockResolvedValue(items);
+  mocks.get.mockImplementation(async id => items.find(item => item.id === id));
+  const hook = renderHook(() => useNavigationSessions());
+  await act(async () => { await hook.result.current.fetchSessions(); });
+  expect(mocks.list).toHaveBeenCalledWith(25, 'unified');
+  await act(async () => { setSessionPinned('old', true); });
+  expect(hook.result.current.recentSessionsByProject[0].sessions.map(s => s.id)).toEqual(['old', 'new']);
+  hook.unmount(); localStorage.clear();
+});
 
 describe('new session sidebar refresh', () => {
   beforeEach(() => { localStorage.clear(); vi.useFakeTimers(); mocks.get.mockReset().mockResolvedValue({ id: "existing", workingDir: "D:/fixture", name: "Existing", messageCount: 1 }); mocks.list.mockReset(); mocks.navigate.mockClear(); mocks.location = { pathname: '/codepro', search: '' }; });

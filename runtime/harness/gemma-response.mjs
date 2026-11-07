@@ -3,6 +3,16 @@
 const emptyThought = '<|channel>thought\n<channel|>';
 const close = '<channel|>';
 
+// Gemma's tool-response boundary belongs to the host. Without the documented
+// inference stop, a server can generate fictitious receipts and dependent calls
+// after a valid tool call. Do not stop at tool_call: parallel calls remain valid.
+export function gemmaToolResponseStop(payload, model) {
+  if (model.api !== 'openai-completions' ||
+      !/^gemma-?4(?:[-:]|$)/i.test(model.id?.split('/').at(-1) ?? '') || !payload.tools?.length) return payload;
+  const stop = payload.stop === undefined ? [] : Array.isArray(payload.stop) ? payload.stop : [payload.stop];
+  return { ...payload, stop: [...new Set([...stop, '<|tool_response>'])] };
+}
+
 function visibleBlock(text) {
   if (text.startsWith(emptyThought)) text = text.slice(emptyThought.length);
   return text.endsWith(close) ? text.slice(0, -close.length) : text;
@@ -41,7 +51,7 @@ function repeatedParagraph(state, text) {
   return false;
 }
 
-export async function* normalizeGemmaResponse(stream) {
+async function* cleanGemmaResponse(stream) {
   const blocks = new Map();
   let toolProposed = false;
   for await (const chunk of stream) {
@@ -69,5 +79,81 @@ export async function* normalizeGemmaResponse(stream) {
       if (chunk.type === 'block-end') blocks.delete(chunk.index);
       yield chunk;
     }
+  }
+}
+
+// Some Gemma parsers split the end of a raw thought envelope across native
+// reasoning and content fields (e.g. reasoning="<|c", content="ught\n<channel|>...").
+// Only reconcile a matching native opener/closer, never classify prose by words.
+async function* cleanThoughtBoundary(stream) {
+  const opening = '<|channel>thought\n';
+  let reasoningIndex, head = '', tail = '', closed = false, open = false;
+  const texts = new Map();
+  for await (const chunk of stream) {
+    if (chunk.type === 'reasoning-delta') {
+      if (reasoningIndex !== chunk.index) { reasoningIndex = chunk.index; head = ''; tail = ''; closed = false; }
+      head = (head + chunk.text).slice(0, opening.length);
+      closed ||= (tail + chunk.text).includes(close);
+      tail = (tail + chunk.text).slice(-close.length);
+      open = !closed && head.length > 0 && (opening.startsWith(head) || head.startsWith(opening));
+    }
+    if (chunk.type === 'text-delta') {
+      let state = texts.get(chunk.index);
+      if (!state) { state = { pending: '', checking: open, dropped: 0 }; texts.set(chunk.index, state); open = false; }
+      if (state.checking) {
+        state.pending += chunk.text;
+        const end = state.pending.indexOf(close);
+        // Backticked protocol examples are literal text, not a boundary.
+        if (end >= 0 && !state.pending.slice(0, end).includes('`')) {
+          state.dropped = end + close.length;
+          state.pending = state.pending.slice(state.dropped);
+        } else if (end < 0 && state.pending.length <= 1024 && !state.pending.includes('`')) continue;
+        state.checking = false;
+        if (state.pending) yield { ...chunk, text: state.pending };
+        state.pending = '';
+        continue;
+      }
+    } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
+      const state = texts.get(chunk.index);
+      if (state?.pending) yield { type: 'text-delta', index: chunk.index, text: state.pending };
+      texts.delete(chunk.index);
+      yield { ...chunk, block: { ...chunk.block, text: chunk.block.text.slice(state?.dropped ?? 0) } };
+      continue;
+    }
+    yield chunk;
+  }
+}
+
+// A misconfigured/degenerate Gemma server can leak its wire-format tool call
+// into OpenAI content. Do not promote that text into an invocation. Reject the
+// whole malformed response so the provider's existing SERVER retry policy owns
+// recovery. A leading raw call is invalid even if the server appends invented
+// results/reasoning after it. Quoted examples and introductory prose stay text.
+export async function* normalizeGemmaResponse(stream) {
+  const pending = new Map();
+  const ordinary = new Set();
+  const prefixes = ['call:', '<|tool_call>call:'];
+  for await (const chunk of cleanGemmaResponse(cleanThoughtBoundary(stream))) {
+    if (chunk.type === 'text-delta' && !ordinary.has(chunk.index)) {
+      const text = (pending.get(chunk.index) ?? '') + chunk.text;
+      if (prefixes.some(prefix => prefix.startsWith(text) || text.startsWith(prefix))) {
+        pending.set(chunk.index, text);
+        continue;
+      }
+      pending.delete(chunk.index);
+      ordinary.add(chunk.index);
+      yield { ...chunk, text };
+    } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
+      if (/^(?:<\|tool_call>)?call:[A-Za-z_][\w.-]*\{[\s\S]*?\}<tool_call\|>/.test(chunk.block.text.trim())) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma provider returned an unparsed tool-call envelope as text instead of a structured tool call.',
+        } } };
+        return;
+      }
+      if (pending.has(chunk.index)) yield { type: 'text-delta', index: chunk.index, text: pending.get(chunk.index) };
+      pending.delete(chunk.index);
+      ordinary.delete(chunk.index);
+      yield chunk;
+    } else yield chunk;
   }
 }

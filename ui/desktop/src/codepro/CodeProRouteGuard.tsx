@@ -4,12 +4,11 @@ import { resolveCodeProEntryPath } from './unifiedMode';
 
 interface CodeProRouteGuardProps {
   children: ReactNode;
-  unifiedMode: boolean;
 }
 
-export function CodeProRouteGuard({ children, unifiedMode }: CodeProRouteGuardProps) {
+export function CodeProRouteGuard({ children }: CodeProRouteGuardProps) {
   const location = useLocation();
-  const pathname = resolveCodeProEntryPath(location.pathname, unifiedMode);
+  const pathname = resolveCodeProEntryPath(location.pathname);
 
   if (pathname !== location.pathname) {
     return (

@@ -13,14 +13,14 @@ function LocationProbe() {
   );
 }
 
-function renderGuard(path: string, unifiedMode: boolean) {
+function renderGuard(path: string) {
   return render(
     <MemoryRouter
       initialEntries={[
         { pathname: path, search: '?resumeSessionId=session-1', state: { source: 'legacy' } },
       ]}
     >
-      <CodeProRouteGuard unifiedMode={unifiedMode}>
+      <CodeProRouteGuard>
         <LocationProbe />
       </CodeProRouteGuard>
     </MemoryRouter>
@@ -29,7 +29,7 @@ function renderGuard(path: string, unifiedMode: boolean) {
 
 describe('CodeProRouteGuard', () => {
   it('replaces a legacy route while preserving search parameters and state', async () => {
-    renderGuard('/pair', true);
+    renderGuard('/pair');
 
     expect(
       await screen.findByText('/codepro/pair?resumeSessionId=session-1|legacy')
@@ -37,16 +37,15 @@ describe('CodeProRouteGuard', () => {
   });
 
   it('does not redirect a canonical CodePro route', () => {
-    renderGuard('/codepro/settings', true);
+    renderGuard('/codepro/settings');
 
     expect(
       screen.getByText('/codepro/settings?resumeSessionId=session-1|legacy')
     ).toBeInTheDocument();
   });
 
-  it('keeps the legacy route when rollback is explicit', () => {
-    renderGuard('/pair', false);
-
-    expect(screen.getByText('/pair?resumeSessionId=session-1|legacy')).toBeInTheDocument();
+  it('redirects the old home to the unified home', async () => {
+    renderGuard('/');
+    expect(await screen.findByText('/codepro?resumeSessionId=session-1|legacy')).toBeInTheDocument();
   });
 });

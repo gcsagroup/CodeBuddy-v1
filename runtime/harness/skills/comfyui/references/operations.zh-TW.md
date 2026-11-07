@@ -14,7 +14,7 @@
 
 ## 呼叫與調參
 
-[requests.json](requests.json) 每模式一例，只取當前需要的一項。先 inspect，以兼容項目的 id 替換 `$workflow_id`；以看過的圖片路徑替換 `$image_1`／`$image_2`，依使用者需求重寫 prompt。不要提交占位符或整批範例。省略 request_id 由宿主分配 UUID，後續在原工具使用真實 job_id。
+[requests.json](requests.json) 每模式一例，只取當前需要的一項。工作流由當前請求解析器選擇，生成時省略 `workflow_name`；以看過的圖片路徑替換 `$image_1`／`$image_2`，依使用者需求重寫 prompt。不要提交占位符或整批範例。省略 request_id 由宿主分配 UUID，後續在原工具使用真實 job_id。
 
 - 編輯要說明保留／改變範圍；介面沒有 mask，不保證像素級局部編輯。透明請求不等於實際 alpha。
 - 尺寸保留就兩項都省略，覆寫就同時給 width、height，避免遺漏值默認 1024。圖片每邊 256–2048；影片 256–1344，總像素 ≤1344×768；均須為 32 的倍數。還需唯一 ResolutionSelector 與支援比例。

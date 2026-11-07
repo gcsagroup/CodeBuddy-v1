@@ -109,13 +109,13 @@ test('published skill request examples pass real tool binding, upload and single
       const options = { cwd: root, dataDir: root, sessionId: example.inspect.mode, baseUrl: 'http://fixture', fetchImpl };
       const tool = example.tool === 'generate_video' ? comfyuiVideoTool(options) : comfyuiTool(options);
       const replace = (value, workflow) => JSON.parse(JSON.stringify(value)
-        .replaceAll('$workflow_id', workflow ?? '')
+        .replaceAll('$workflow_name', workflow ?? '')
         .replaceAll('$image_1', 'reference-1.png').replaceAll('$image_2', 'reference-2.png'));
       const inventory = await tool.execute(replace(example.inspect));
       assert.equal(calls.length, 0, 'inspection must not upload or submit');
       const selected = inventory.workflows.find(entry => entry.compatible && entry.dependencies_available);
       assert.ok(selected, 'the scenario must select a live-compatible saved workflow');
-      const input = replace(example.generate, selected.id);
+      const input = replace(example.generate, selected.label);
       const receipt = await tool.execute(input);
       assert.equal(receipt.status, 'queued', receipt.error ?? undefined);
       assert.equal(receipt.workflow.id, selected.id);

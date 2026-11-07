@@ -21,6 +21,7 @@ export const adapterPatch = {
     };
     replace('import { homedir } from "node:os";', `import { homedir } from "node:os";
 import { countVllmInput, requestBudgetChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
+import { gemmaToolResponseStop } from ${JSON.stringify(new URL('../gemma-response.mjs', import.meta.url).href)};
 import { randomUUID as requestFitId } from "node:crypto";
 import { normalizeContext as normalizeRequestFitContext } from "@earendil-works/pi-ai/utils/transcript";
 import { estimateContextTokens as estimateRequestFitTokens } from "@earendil-works/pi-ai/utils/estimate";
@@ -115,12 +116,14 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
     replace('\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst apiKey', '\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst reasoning = resolveReasoningLevel(model, options.reasoningEffort ?? profile.reasoning);\n\t\t\tconst apiKey');
     replace('\t\t\t\tconst iterator = toStreamChunks', '\t\t\t\tconst reportedOutput = { tokens: void 0 };\n\t\t\t\tconst iterator = toStreamChunks');
     replace('\t\t\t\t\theaders: requestHeaders(profile.headers)\n', `\t\t\t\t\theaders: requestHeaders(profile.headers),
-\t\t\t\t\t...(fit.source === "vllm-tokenizer" ? { onPayload: payload => {
+\t\t\t\t\tonPayload: payload => {
+\t\t\t\t\t\tpayload = gemmaToolResponseStop(payload, model);
+\t\t\t\t\t\tif (fit.source !== "vllm-tokenizer") return payload;
 \t\t\t\t\t\t// Preserve the exact counted template. Pi's generic final clamp may
 \t\t\t\t\t\t// still carry the previous route's usage anchor across a downshift.
 \t\t\t\t\t\tconst key = "max_tokens" in payload ? "max_tokens" : "max_completion_tokens";
 \t\t\t\t\t\treturn { ...payload, [key]: fit.effectiveMaxTokens };
-\t\t\t\t\t} } : {}),
+\t\t\t\t\t},
 \t\t\t\t\tonProviderStreamEvent: async (event, requestModel) => {
 \t\t\t\t\t\tobserveReportedOutput(requestModel.api, event, reportedOutput);
 \t\t\t\t\t\tawait options.onProviderStreamEvent?.(event, requestModel);

@@ -61,7 +61,7 @@ const i18n = defineMessages({
   },
   sessionScope: {
     id: 'extensionModal.sessionScope',
-    defaultMessage: 'These settings are defaults for new chats. In an existing chat, open the extensions menu beside the message box to enable or reload this extension. Testing the connection does not load it into a chat.',
+    defaultMessage: 'Conversations following the toolbox apply changes before their next turn. Custom conversations keep their selection. Testing the connection checks the service without loading it into a conversation.',
   },
   testConnection: {
     id: 'extensionModal.testConnection',

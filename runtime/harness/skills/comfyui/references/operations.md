@@ -16,7 +16,7 @@
 
 ## 可执行的参数形状
 
-[requests.json](requests.json) 含五种模式各一例。每次只取用户需要的例子：先 inspect，将 `$workflow_id` 换为兼容条目的 `id`；把 `$image_1`／`$image_2` 换为已检查的工作区图片路径。例子的 prompt 是示范，必须依用户素材重写；不要把占位符提交。省略 request_id 由宿主分配 UUID，接下来保存真实 job_id，status/cancel 使用同一工具。
+[requests.json](requests.json) 含五种模式各一例。每次只取用户需要的例子：工作流由当前请求解析器选择，生成时不填 `workflow_name`；把 `$image_1`／`$image_2` 换为已检查的工作区图片路径。例子的 prompt 是示范，必须依用户素材重写；不要把占位符提交。省略 request_id 由宿主分配 UUID，接下来保存真实 job_id，status/cancel 使用同一工具。
 
 图像身份、编辑区域、必须保留和允许变化的内容写清楚；没有 mask 参数，不保证像素级局部编辑。透明背景请求需检查最终 alpha，不把纯色背景或画出来的棋盘格当透明。
 

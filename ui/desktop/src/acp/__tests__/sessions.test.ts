@@ -20,6 +20,17 @@ vi.mock('../acpConnection', () => ({
   getAcpClient: vi.fn(),
 }));
 
+it('uses metadata from the completed replay without a redundant round trip', async () => {
+  const loaded = sessionInfo({ title: 'Restored title' });
+  const client = {
+    goose: { sessionInfo_unstable: vi.fn().mockResolvedValue({ session: sessionInfo() }) },
+    loadSession: vi.fn().mockResolvedValue({ _meta: { sessionInfo: loaded } }),
+  };
+  vi.mocked(getAcpClient).mockResolvedValue(client as unknown as Awaited<ReturnType<typeof getAcpClient>>);
+  expect((await acpLoadSession('session-1')).sessionInfo).toEqual(loaded);
+  expect(client.goose.sessionInfo_unstable).toHaveBeenCalledTimes(1);
+});
+
 function sessionInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
   return {
     sessionId: 'session-1',

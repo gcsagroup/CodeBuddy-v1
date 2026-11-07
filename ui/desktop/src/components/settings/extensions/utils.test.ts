@@ -101,7 +101,7 @@ describe('Extension Utils', () => {
         cmd: undefined,
         endpoint: 'http://api.example.com',
         enabled: true,
-        timeout: undefined,
+        timeout: 300,
         envVars: [{ key: 'API_KEY', value: '••••••••', isEdited: false }],
         headers: [
           { key: 'Authorization', value: 'Bearer token', isEdited: false },

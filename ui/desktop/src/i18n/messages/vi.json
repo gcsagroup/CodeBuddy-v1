@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "Kế hoạch làm việc"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} hoàn tất · {active} đang thực hiện · {pending} đang chờ"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePetMessage } from './petMessage';
+import { parsePetMessage, parsePetComposerAction } from './petMessage';
 
 describe('pet message transport', () => {
   const image = { mimeType: 'image/png', data: 'eA==' };
@@ -19,4 +19,12 @@ describe('pet message transport', () => {
     ])
       expect(() => parsePetMessage(input)).toThrow();
   });
+});
+
+it('allows an empty picker draft but not an empty submission, and validates picker actions', () => {
+  expect(parsePetMessage({ msg: '', images: [] }, true)).toEqual({ msg: '', images: [] });
+  expect(() => parsePetMessage({ msg: '', images: [] })).toThrow();
+  expect(parsePetComposerAction('add')).toBe('add');
+  expect(parsePetComposerAction('agent')).toBe('agent');
+  expect(() => parsePetComposerAction('send')).toThrow();
 });

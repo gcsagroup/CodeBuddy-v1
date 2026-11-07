@@ -99,7 +99,8 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
 
 export function groupNavigationSessions(
   sessions: SessionListItem[],
-  defaultWorkspaceRoot: string
+  defaultWorkspaceRoot: string,
+  pinnedIds: readonly string[] = []
 ): { tasks: SessionListItem[]; projects: ProjectGroup[] } {
   const root = projectPathIdentity(defaultWorkspaceRoot);
   const separator = root.includes('\\') || /^[a-z]:/u.test(root) ? '\\' : '/';
@@ -123,7 +124,12 @@ export function groupNavigationSessions(
     (a, b) =>
       new Date(getSessionActivityTime(b)).getTime() - new Date(getSessionActivityTime(a)).getTime()
   );
-  return { tasks, projects: groupSessionsByProject(projects) };
+  const pinOrder = new Map(pinnedIds.map((id, index) => [id, index]));
+  const sortPins = (items: SessionListItem[]) => items.sort((a, b) =>
+    (pinOrder.get(a.id) ?? Infinity) - (pinOrder.get(b.id) ?? Infinity) || 0);
+  return { tasks: sortPins(tasks), projects: groupSessionsByProject(projects).map(group => ({
+    ...group, sessions: sortPins(group.sessions),
+  })) };
 }
 
 function getDisambiguatedProjectLabel(workingDir: string): string {

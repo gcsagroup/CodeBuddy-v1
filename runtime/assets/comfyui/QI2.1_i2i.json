@@ -1,8 +1,8 @@
 {
   "13": {
     "inputs": {
-      "aspect_ratio": "1:1 (Square)",
-      "megapixels": 1,
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 2,
       "multiple": 32
     },
     "class_type": "ResolutionSelector",
@@ -28,38 +28,16 @@
   },
   "470": {
     "inputs": {
-      "image": "portrait_model_denim.png"
+      "image": "0ba1c55d-7ce8-4ebf-ba4a-d37542d250af-0.png"
     },
     "class_type": "LoadImage",
     "_meta": {
       "title": "加载图像"
     }
   },
-  "472": {
-    "inputs": {
-      "compare_view": {
-        "__value__": [
-          "",
-          ""
-        ]
-      },
-      "image_a": [
-        "470",
-        0
-      ],
-      "image_b": [
-        "461",
-        0
-      ]
-    },
-    "class_type": "ImageCompare",
-    "_meta": {
-      "title": "图像对比"
-    }
-  },
   "475": {
     "inputs": {
-      "image": "clothing_light_blue_denim_shirt.png"
+      "image": "0446702a-f3c1-4b23-9a0c-571418ef0c12-0.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -131,11 +109,11 @@
   },
   "459:458": {
     "inputs": {
-      "seed": 1070478148268574,
-      "steps": 25,
+      "seed": 550561263496549,
+      "steps": 15,
       "cfg": 1,
-      "sampler_name": "euler",
-      "scheduler": "simple",
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "sgm_uniform",
       "denoise": 1,
       "model": [
         "459:469",
@@ -161,7 +139,7 @@
   },
   "459:468": {
     "inputs": {
-      "switch": false,
+      "switch": true,
       "on_false": [
         "459:474",
         2
@@ -192,7 +170,7 @@
   },
   "459:474": {
     "inputs": {
-      "prompt": "Keep the character and pose in <image1> unchanged, put this light blue denim shirt from <image2> on the character, preserve the original facial features, hair, body shape and pose, the denim shirt fits naturally on body, realistic denim fabric texture, natural clothing folds, keep the original background and original lighting, high fashion editorial photography, sharp details",
+      "prompt": "生成 <image1> 角色与 <image2> 角色在打架战斗的场面。\n\n保留参考角色的发型、发色、眼睛颜色、服装设计、配饰及整体配色。将<image1> Q版身体比例重新设计为自然、修长的成年角色比例，换上白色过膝袜，头身比约为九头身。采用干净的浅色背景与细腻的二次元插画风格。\n\n<image2> 角色保持比例，改为站立战斗姿势。",
       "negative_prompt": "",
       "resolution": 0,
       "clip": [

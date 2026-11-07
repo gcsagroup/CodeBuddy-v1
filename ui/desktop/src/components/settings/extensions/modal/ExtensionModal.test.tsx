@@ -23,6 +23,25 @@ const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
   render(ui, { wrapper: IntlTestWrapper, ...options });
 
 describe('ExtensionModal', () => {
+  it.each(['stdio', 'streamable_http'] as const)('can test an existing %s extension with an omitted timeout', async type => {
+    const user = userEvent.setup();
+    const onTest = vi.fn().mockResolvedValue({ success: true, latencyMs: 10, tools: ['probe'], resourceCount: 0, supportsResources: false });
+    const extension = type === 'stdio'
+      ? { type, name: 'legacy', enabled: true, description: '', cmd: 'python', args: [] }
+      : { type, name: 'legacy', enabled: true, description: '', uri: 'http://localhost:1234/mcp', headers: {} };
+    renderWithIntl(<ExtensionModal title="Edit" initialData={extensionToFormData(extension)} onClose={vi.fn()} onSubmit={vi.fn()} onTest={onTest} submitLabel="Save" modalType="edit" />);
+    expect(screen.getByDisplayValue('300')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    await waitFor(() => expect(onTest).toHaveBeenCalledWith(expect.objectContaining({ timeout: 300 })));
+    expect(await screen.findByRole('status')).toHaveTextContent('1 tools');
+  });
+
+  it('keeps an explicitly invalid timeout invalid instead of replacing it with the default', () => {
+    renderWithIntl(<ExtensionModal title="Edit" initialData={extensionToFormData({ type: 'stdio', name: 'invalid', enabled: true, description: '', cmd: 'python', args: [], timeout: 0 })} onClose={vi.fn()} onSubmit={vi.fn()} onTest={vi.fn()} submitLabel="Save" modalType="edit" />);
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
+  });
+
   beforeEach(() => {
     mockedReadConfig.mockReset();
     mockedReadConfig.mockResolvedValue({ maskedValue: '••••••••' });
@@ -55,7 +74,7 @@ describe('ExtensionModal', () => {
           modalType="edit"
         />
       );
-      expect(screen.getByText(/These settings are defaults for new chats/)).toBeVisible();
+      expect(screen.getByText(/Conversations following the toolbox apply changes/)).toBeVisible();
       const user = userEvent.setup();
       const description = screen.getByDisplayValue('old description');
       await user.clear(description);

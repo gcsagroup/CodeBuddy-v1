@@ -1,11 +1,14 @@
 import { fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readSessionPins } from '../../utils/sessionPins';
+import { readProjectPins } from '../../utils/projectPins';
+import { groupNavigationSessions } from '../../utils/projectSessions';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { NAV_ITEMS, SETTINGS_NAV_ITEM } from '../../hooks/useNavigationItems';
 import { PROJECT_ALIAS_STORAGE_KEY } from '../../utils/projectAliases';
-import { acpArchiveSession, type SessionListItem } from '../../acp/sessions';
+import { acpListSessions, acpArchiveSession, type SessionListItem } from '../../acp/sessions';
 import {
   NavigationHeaderSlot,
   ProjectSessionGroup,
@@ -16,6 +19,7 @@ import {
 vi.mock('../../acp/sessions', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../acp/sessions')>()),
   acpArchiveSession: vi.fn().mockResolvedValue(undefined),
+  acpListSessions: vi.fn(),
 }));
 
 function render(ui: ReactElement) {
@@ -109,13 +113,10 @@ describe('chat row archive button', () => {
 });
 
 describe('NavigationHeaderSlot', () => {
-  it('opens a new chat from the brand while unified mode hides the workspace switcher', () => {
+  it('opens a new chat from the brand without the retired workspace switcher', () => {
     const onNewChat = vi.fn();
     render(
       <NavigationHeaderSlot
-        workspaceMode="codepro"
-        onWorkspaceModeChange={vi.fn()}
-        unifiedMode
         onNewChat={onNewChat}
       />
     );
@@ -125,19 +126,6 @@ describe('NavigationHeaderSlot', () => {
     expect(screen.queryByRole('group', { name: 'Workspace switcher' })).not.toBeInTheDocument();
   });
 
-  it('keeps the brand action available alongside the workspace switcher', () => {
-    render(
-      <NavigationHeaderSlot
-        workspaceMode="codepro"
-        onWorkspaceModeChange={vi.fn()}
-        unifiedMode={false}
-        onNewChat={vi.fn()}
-      />
-    );
-
-    expect(screen.getByRole('button', { name: 'CodeBuddy' })).toBeVisible();
-    expect(screen.getByRole('group', { name: 'Workspace switcher' })).toBeInTheDocument();
-  });
 });
 
 describe('task-oriented navigation', () => {
@@ -210,7 +198,7 @@ describe('project group label', () => {
     expect(screen.queryByText('项目分析测试')).not.toBeInTheDocument();
   });
 
-  it('renames the project display label without changing its path', () => {
+  it('renames the project display label without changing its path', async () => {
     const group = {
       path: 'D:\\Code-Agent',
       label: 'Code-Agent',
@@ -218,7 +206,8 @@ describe('project group label', () => {
     } as never;
     render(<ProjectSessionGroup group={group} renderSession={() => <div>项目分析测试</div>} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
     const input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '旗舰项目' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -231,7 +220,7 @@ describe('project group label', () => {
     expect(window.localStorage.getItem(PROJECT_ALIAS_STORAGE_KEY)).toContain('旗舰项目');
   });
 
-  it('restores the folder label when the custom name is cleared', () => {
+  it('restores the folder label when the custom name is cleared', async () => {
     const group = {
       path: 'D:\\Code-Agent',
       label: 'Code-Agent',
@@ -241,7 +230,8 @@ describe('project group label', () => {
       <ProjectSessionGroup group={group} renderSession={() => <div>项目分析测试</div>} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
     let input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '旗舰项目' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -249,7 +239,8 @@ describe('project group label', () => {
 
     render(<ProjectSessionGroup group={group} renderSession={() => <div>项目分析测试</div>} />);
     expect(screen.getByText('旗舰项目')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Rename project' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename project' }));
     input = screen.getByRole('textbox', { name: 'Project name' });
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -260,18 +251,66 @@ describe('project group label', () => {
 });
 
 
-it('opens the same menu using the left-click ellipsis, persists pinning, and preserves title navigation', async () => {
+it('pins directly with only pin and archive hover actions and preserves title navigation', async () => {
   localStorage.clear();
   const session: SessionListItem = { id: 'pin-fixture', name: 'Pin fixture', workingDir: 'C:/fixture', createdAt: '2026-11-05', updatedAt: '2026-11-05', messageCount: 1 };
   const onClick = vi.fn();
   render(<SessionRow session={session} active status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: 'Pin session' }));
+  expect(screen.queryByRole('button', { name: 'Session actions' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Pin session' }));
   expect(readSessionPins()).toContain(session.id);
   expect(onClick).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText(session.name));
   expect(onClick).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: 'Unpin session' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Unpin session' }));
   expect(readSessionPins()).not.toContain(session.id);
+});
+
+it('keeps pins in their workspace or task group and preserves recency below them', () => {
+  const item = (id: string, day: number, workingDir: string): SessionListItem => ({
+    id, name: id, workingDir, createdAt: '2026-11-01', updatedAt: `2026-11-0${day}`, messageCount: 1,
+  });
+  const result = groupNavigationSessions([
+    item('old-project', 1, 'D:/project'), item('new-project', 6, 'D:/project'),
+    item('old-task', 1, ''), item('new-task', 6, ''), item('middle-task', 5, ''),
+  ], '', ['old-project', 'old-task']);
+  expect(result.tasks.map(s => s.id)).toEqual(['old-task', 'new-task', 'middle-task']);
+  expect(result.projects[0].sessions.map(s => s.id)).toEqual(['old-project', 'new-project']);
+});
+
+it('opens folder actions, pins locally, and creates a chat in the same directory', async () => {
+  localStorage.clear();
+  const onNewChat = vi.fn();
+  const group = { path: 'D:/Project', label: 'Project', sessions: [], lastActivityAt: '' };
+  const openFolder = vi.fn().mockResolvedValue(true);
+  window.electron.openDirectoryInExplorer = openFolder;
+  render(<ProjectSessionGroup group={group} onNewChat={onNewChat} renderSession={() => null} />);
+  await userEvent.click(screen.getByRole('button', { name: 'New conversation in project' }));
+  expect(onNewChat).toHaveBeenCalledExactlyOnceWith('D:/Project');
+  await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Open folder' }));
+  expect(openFolder).toHaveBeenCalledExactlyOnceWith('D:/Project');
+  expect(screen.getByRole('button', { name: 'Project' })).toHaveAttribute('aria-expanded', 'true');
+  await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Pin project' }));
+  expect(readProjectPins()).toEqual(['d:\\project']);
+  expect(screen.getByRole('button', { name: 'Project' })).toHaveAttribute('aria-expanded', 'true');
+});
+
+it('collects all project pages before confirming archive and never archives another project', async () => {
+  vi.mocked(acpListSessions).mockResolvedValueOnce({ sessions: [
+    { id: 'p1', workingDir: 'D:/Project' }, { id: 'other', workingDir: 'D:/Other' },
+  ] as SessionListItem[], nextCursor: 'next' }).mockResolvedValueOnce({ sessions: [
+    { id: 'p2', workingDir: 'd:\\project' }, { id: 'archived', workingDir: 'D:/Project', archivedAt: '2026-11-06' },
+  ] as SessionListItem[], nextCursor: null });
+  vi.mocked(acpArchiveSession).mockReset().mockResolvedValue(undefined);
+  render(<ProjectSessionGroup group={{ path: 'D:/Project', label: 'Project', sessions: [], lastActivityAt: '' }} renderSession={() => null} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Project actions' }));
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Archive conversations in project' }));
+  await screen.findByText(/Archive 2 conversations/);
+  expect(acpArchiveSession).not.toHaveBeenCalled();
+  expect(acpListSessions).toHaveBeenLastCalledWith('next', undefined, 'unified');
+  await userEvent.click(screen.getByRole('button', { name: 'Archive session' }));
+  await waitFor(() => expect(acpArchiveSession).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(acpArchiveSession).mock.calls.map(args => args[0])).toEqual(['p1', 'p2']);
 });

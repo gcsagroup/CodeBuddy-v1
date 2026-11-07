@@ -110,42 +110,57 @@ describe('SessionActionsContextMenu', () => {
     expect(item).toHaveAttribute('title', expect.stringContaining('Files remain shared'));
   });
 
-  for (const outcome of ['saved', 'cancelled', 'read-error', 'write-error'])
-    it(`exports native logs: ${outcome}`, async () => {
-      const save = vi
-        .fn()
-        .mockResolvedValue({
+  for (const kind of ['session', 'logs'] as const)
+    for (const outcome of ['saved', 'cancelled', 'read-error', 'write-error'])
+      it(`exports ${kind} to the chosen desktop destination: ${outcome}`, async () => {
+        const exporter = kind === 'logs' ? acpExportSessionLog : acpExportSession;
+        const save = vi.fn().mockResolvedValue({
           canceled: outcome === 'cancelled',
           filePath: '/chosen/session.jsonl',
         });
-      const write = vi.fn().mockResolvedValue(outcome !== 'write-error');
-      Object.assign(window.electron, { showSaveDialog: save, writeFile: write });
-      const journal =
-        '{"type":"session","id":"native"}\n{"type":"tool/result","data":{"text":"中文"}}\n';
-      if (outcome === 'read-error')
-        vi.mocked(acpExportSessionLog).mockRejectedValue(new Error('No native log'));
-      else vi.mocked(acpExportSessionLog).mockResolvedValue(journal);
-      testingRender(
-        <SessionActionsContextMenu session={{ id: 'product', name: 'Export chat' }}>
-          <div>Export chat</div>
-        </SessionActionsContextMenu>,
-        { wrapper: IntlTestWrapper }
-      );
-      fireEvent.contextMenu(screen.getByText('Export chat'));
-      fireEvent.click(await screen.findByRole('menuitem', { name: 'Export logs' }));
-      await waitFor(() => expect(save).toHaveBeenCalledOnce());
-      if (outcome === 'cancelled') {
-        expect(acpExportSessionLog).not.toHaveBeenCalled();
-        expect(write).not.toHaveBeenCalled();
-        expect(toast.error).not.toHaveBeenCalled();
-      } else if (outcome === 'saved') {
-        await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Session log saved'));
-        expect(acpExportSessionLog).toHaveBeenCalledWith('product');
-        expect(write).toHaveBeenCalledWith('/chosen/session.jsonl', journal);
-      } else {
-        await waitFor(() => expect(toast.error).toHaveBeenCalled());
-        expect(toast.success).not.toHaveBeenCalled();
-        if (outcome === 'read-error') expect(write).not.toHaveBeenCalled();
-      }
-    });
+        const write = vi.fn().mockResolvedValue(outcome !== 'write-error');
+        Object.assign(window.electron, { showSaveDialog: save, writeFile: write });
+        const journal =
+          '{"type":"session","id":"native"}\n{"type":"tool/result","data":{"text":"中文"}}\n';
+        if (outcome === 'read-error')
+          vi.mocked(exporter).mockRejectedValue(new Error('No native log'));
+        else vi.mocked(exporter).mockResolvedValue(journal);
+        testingRender(
+          <SessionActionsContextMenu session={{ id: 'product', name: 'Export chat' }}>
+            <div>Export chat</div>
+          </SessionActionsContextMenu>,
+          { wrapper: IntlTestWrapper }
+        );
+        fireEvent.contextMenu(screen.getByText('Export chat'));
+        fireEvent.click(
+          await screen.findByRole('menuitem', {
+            name: kind === 'logs' ? 'Export logs' : 'Export session',
+          })
+        );
+        await waitFor(() =>
+          expect(save).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({
+              defaultDirectory: 'desktop',
+              defaultPath: kind === 'logs' ? 'session-product.jsonl' : 'session-product.json',
+            })
+          )
+        );
+        if (outcome === 'cancelled') {
+          expect(exporter).not.toHaveBeenCalled();
+          expect(write).not.toHaveBeenCalled();
+          expect(toast.error).not.toHaveBeenCalled();
+        } else if (outcome === 'saved') {
+          await waitFor(() =>
+            expect(toast.success).toHaveBeenCalledWith(
+              kind === 'logs' ? 'Session log saved' : 'Session exported successfully'
+            )
+          );
+          expect(exporter).toHaveBeenCalledWith('product');
+          expect(write).toHaveBeenCalledWith('/chosen/session.jsonl', journal);
+        } else {
+          await waitFor(() => expect(toast.error).toHaveBeenCalled());
+          expect(toast.success).not.toHaveBeenCalled();
+          if (outcome === 'read-error') expect(write).not.toHaveBeenCalled();
+        }
+      });
 });

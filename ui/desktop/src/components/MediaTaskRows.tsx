@@ -11,6 +11,7 @@ import {
   type MediaJobPresentation,
 } from './mediaJobPresentation';
 import { GeneratedMediaFiles, mediaOutputPaths } from './GeneratedMedia';
+import './media-cards.css';
 
 const text = (en: string, cn: string, tw: string) => selectNativeText(currentLocale, en, cn, tw);
 const statusText = (status: string) => {
@@ -107,17 +108,18 @@ export function MediaTaskRows({
   jobs,
   sessionId,
   readOnly = false,
+  detailsOnly = false,
 }: {
   jobs: MediaJobPresentation[];
   sessionId: string;
   readOnly?: boolean;
+  detailsOnly?: boolean;
 }) {
   const snapshot = useMediaJobs(readOnly ? '' : sessionId);
   return (
     <>
       {jobs.map((job) => {
         const observation = mediaJobObservation(job, snapshot);
-        const name = taskName(job, observation);
         const title = taskTitle(job, observation);
         const summary = failureSummary(observation);
         const info = observation.issue ?? mediaFailureInfo(observation.receipt?.failure_info);
@@ -165,7 +167,6 @@ export function MediaTaskRows({
                 label={label}
                 icon={icon}
               >
-                <GeneratedMediaFiles sessionId={sessionId} paths={paths} taskLabel={name} inline />
                 {(summary || error || observation.status === 'failed') && (
                   <div data-media-failure-summary="" className="py-1 text-sm text-text-secondary">
                     {summary && <p>{summary}</p>}
@@ -198,6 +199,64 @@ export function MediaTaskRows({
                   {icon}
                 </span>
                 {label}
+              </div>
+            )}
+            {!detailsOnly && (
+              <MediaTaskCards jobs={[job]} sessionId={sessionId} readOnly={readOnly} />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// The receipt, not the assistant's Markdown, publishes the artifact. Keep this
+// surface outside process disclosures so it survives folding and old history.
+export function MediaTaskCards({
+  jobs,
+  sessionId,
+  readOnly = false,
+}: {
+  jobs: MediaJobPresentation[];
+  sessionId: string;
+  readOnly?: boolean;
+}) {
+  const snapshot = useMediaJobs(readOnly ? '' : sessionId);
+  return (
+    <>
+      {jobs.map((job) => {
+        const observation = mediaJobObservation(job, snapshot);
+        const paths = mediaOutputPaths(observation.receipt);
+        const name = taskName(job, observation);
+        const live = (observation.receipt?.live ?? observation.receipt?.progress) as
+          | { step?: number; total?: number }
+          | undefined;
+        const percent =
+          observation.active &&
+          typeof live?.step === 'number' &&
+          typeof live.total === 'number' &&
+          live.total > 0
+            ? Math.min(100, Math.max(0, Math.round((live.step / live.total) * 100)))
+            : undefined;
+        if (!paths.length && !observation.active) return null;
+        return (
+          <div key={job.key} className="media-result" data-media-card-id={job.jobId}>
+            {paths.length ? (
+              <GeneratedMediaFiles sessionId={sessionId} paths={paths} taskLabel={name} inline />
+            ) : (
+              <div
+                className={`media-generating ${job.kind === 'video' ? 'media-generating-video' : ''}`}
+                aria-label={name}
+              >
+                <div className="media-generating-dots" />
+                <div className="media-generating-caption">
+                  <span>{name}</span>
+                  <span role="status">
+                    {statusText(observation.status)}
+                    {percent !== undefined ? ` · ${percent}%` : ''}
+                  </span>
+                </div>
               </div>
             )}
           </div>

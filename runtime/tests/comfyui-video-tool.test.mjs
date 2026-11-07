@@ -24,7 +24,7 @@ function metadataFixture(frames = 124, fps = 24) {
 async function fixture(t, frames = 124) {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'codebuddy-video-')));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const cwd = path.join(root, 'workspace'); await mkdir(cwd);
+  const cwd = path.join(root, 'workspace with spaces (video)'); await mkdir(cwd);
   const calls = []; let state = 'queued';
   const bytes = metadataFixture(frames);
   const fetchImpl = async (url, options) => {
@@ -102,16 +102,21 @@ test('receipt survives recreation, downloads MP4 only on completion, and cannot 
   assert.equal(library.items[0].available, true);
   assert.equal(library.libraryBytes, f.bytes.length);
   assert.equal(result.videos[0].preview_url, 'http://comfy.test/view?filename=clip.mp4&subfolder=&type=output');
-  assert.equal(result.videos[0].markdown, `[Play generated video](${result.videos[0].preview_url})`);
+  assert.equal(result.videos[0].markdown, `[Play generated video](<${result.videos[0].path.replaceAll('\\', '/')}>)`);
   assert.equal(path.dirname(result.videos[0].path), path.join(f.cwd, 'generated-videos', id));
   assert.ok(f.calls.every(c => c.url.startsWith('http://comfy.test/')));
   const receiptPath = path.join(f.root, 'video-jobs', Buffer.from('video-test').toString('hex'), `${id}.json`);
   const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  receipt.videos[0].markdown = `[Play generated video](${receipt.videos[0].preview_url})`;
+  await writeFile(receiptPath, JSON.stringify(receipt));
+  const remoteLinkReceipt = await comfyuiVideoTool({ ...f.options, fetchImpl: async () => { throw new Error('offline'); } }).execute({ operation: 'status', job_id: id });
+  assert.equal(remoteLinkReceipt.videos[0].markdown, result.videos[0].markdown, 'legacy remote links must also resolve to the existing local artifact');
   delete receipt.videos[0].preview_url;
   receipt.videos[0].markdown = '![Generated video](old.mp4)';
   await writeFile(receiptPath, JSON.stringify(receipt));
   const offline = await comfyuiVideoTool({ ...f.options, fetchImpl: async () => { throw new Error('offline'); } }).execute({ operation: 'status', job_id: id });
   assert.equal(offline.status, 'completed');
+  assert.equal(offline.videos[0].markdown, result.videos[0].markdown, 'offline playback must not depend on remote metadata repair');
   f.state('unavailable');
   assert.equal((await f.tool.execute({ operation: 'status', job_id: id })).status, 'completed');
   f.state('completed');
@@ -146,9 +151,16 @@ test('official Harness discovers and executes the video tool with the existing p
   try {
     const { sessionId } = await driver.createSession({ cwd: f.cwd, provider: { id: 'fixture', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'fixture' }, model: 'fixture', options: { tools: [f.tool], toolFilter: { allow: [] } } });
     assert.equal((await driver.callTool(sessionId, 'search_mcp_tools', { names: ['generate_video'] }, { onPermission: () => true })).isError, false);
-    const result = await driver.callTool(sessionId, 'generate_video', input, { onPermission: () => true });
-    assert.equal(result.isError, false, JSON.stringify(result));
-    assert.match(JSON.stringify(result), /queued/);
+    // Old conversations can propose a remembered ID; the native schema must
+    // stop that call before any GPU submission. A named call also needs an
+    // admitted user request; a direct maintenance call cannot invent one.
+    const stale = await driver.callTool(sessionId, 'generate_video', {...input, workflow_id:'saved:minimax_text.json'}, { onPermission: () => true });
+    assert.equal(stale.isError, true);
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 0);
+    const result = await driver.callTool(sessionId, 'generate_video', {...input, workflow_name:'minimax_text'}, { onPermission: () => true });
+    assert.equal(result.isError, true, JSON.stringify(result));
+    assert.match(JSON.stringify(result), /admitted current request/);
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 0);
   } finally { await driver.close(); }
 });
 
@@ -174,6 +186,47 @@ test('live catalog is session-scoped and publishes completion once without resub
   assert.ok((await readFile(completed[0].videos[0].path)).equals(f.bytes));
   assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 1);
   assert.equal(f.calls.filter(call => call.url.includes('/view?')).length, 1);
+});
+
+test('current-request selection overrides a stale legal name and persists its source receipt', async t => {
+  const f = await fixture(t); let calls = 0, checks = 0;
+  const receipt = { source: 'current_request', request_hash: 'request-2', workflow_id: 'saved:minimax_text.json' };
+  const result = await f.tool.execute({ ...input, workflow_name: 'a stale name from history' }, { selectWorkflow: async request => {
+    calls++; assert.ok(request.workflows.some(w => w.id === receipt.workflow_id));
+    return { workflow_name: 'minimax_text', receipt, assertCurrent: async () => { checks++; } };
+  } });
+  assert.equal(result.status, 'queued'); assert.equal(result.workflow.id, receipt.workflow_id);
+  assert.deepEqual(result.workflow_selection, receipt); assert.equal(calls, 1); assert.equal(checks, 2);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+});
+
+test('selection failure or steering before final submission never enters the GPU queue', async t => {
+  for (const phase of ['selection', 'before-submit']) {
+    const f = await fixture(t); let checks = 0;
+    const pending = f.tool.execute(input, { selectWorkflow: async () => {
+      if (phase === 'selection') throw Error('Selection unavailable');
+      return { workflow_name: 'minimax_text', receipt: {}, assertCurrent: async () => { if (++checks === 2) throw Error('Request changed'); } };
+    } });
+    if (phase === 'selection') await assert.rejects(pending, /Selection unavailable/);
+    else { const result = await pending; assert.equal(result.status, 'failed'); assert.match(result.error, /Request changed/); }
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 0);
+  }
+});
+
+test('saved-file changes while the routing model runs invalidate selection before GPU submission', async t => {
+  const f = await fixture(t); let changed = false;
+  const tool = comfyuiVideoTool({ ...f.options, fetchImpl: async (url, options) => {
+    const response = await f.options.fetchImpl(url, options);
+    if (changed && url.includes('/userdata/')) {
+      const graph = await response.json(); graph[Object.keys(graph)[0]]._meta = { title: 'changed during routing' };
+      return Response.json(graph);
+    }
+    return response;
+  } });
+  await assert.rejects(tool.execute(input, { selectWorkflow: async () => {
+    changed = true; return { workflow_name: 'minimax_text', receipt: {}, assertCurrent: async () => {} };
+  } }), /catalog changed/);
+  assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 0);
 });
 
 test('background publication survives a download longer than 15 seconds without restarting it', async t => {

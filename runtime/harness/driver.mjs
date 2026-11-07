@@ -1,4 +1,5 @@
 import { bindAgentPolicy } from './agent-policy.mjs';
+import { mcpDiagnostic } from './mcp-diagnostics.mjs';
 import { agentAllowsTool } from '../agent-profiles.mjs';
 import { DEFAULT_AGENT_SKILLS } from '../agent-presets.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -43,6 +44,8 @@ import { installSubagentNoticeAdmission } from './subagent-notice-admission.mjs'
 import { installMainAgentRole } from './main-agent-role.mjs';
 import { validateSubagentLimits } from '../subagent-limits.mjs';
 import { createToolInputPreview } from './tool-input-preview.mjs';
+import { selectMediaWorkflow, canDeliverMediaDirectly } from './media-workflow-selection.mjs';
+import { installMediaArtifactContext } from './media-artifact-context.mjs';
 
 import { abortable } from './abortable.mjs';
 
@@ -354,7 +357,8 @@ Keep progress updates brief, meaningful, and outcome-based.
   });
   function emit(run, event) {
     if (!run) return;
-    run.events = run.events.then(() => run.onEvent?.(event));
+    const observed = { ...event, time: event.time ?? Date.now() };
+    run.events = run.events.then(() => run.onEvent?.(observed));
     run.events.catch(error => { run.error = error; run.reject(error); });
   }
   ctx.on('user-questions/request', async (request, next) => {
@@ -489,6 +493,8 @@ Keep progress updates brief, meaningful, and outcome-based.
     extensionStates.delete(agent.id);
   });
   async function permissionCall(exec, active) {
+    if (MCP_RESOURCE_TOOL_NAMES.includes(exec.name) && typeof exec.arguments?.server === 'string')
+      await mcpPlugin.waitForMcpServers(exec.agent, [exec.arguments.server], exec.signal);
     const definition = ctx.tools.get(exec.name, exec.agent);
     const rootAgent = ctx.agents.get(active.sessionId);
     const currentMcpBinding = () => mcpPlugin.getMcpSessionApproval(ctx, exec.agent, exec.name) ??
@@ -565,6 +571,16 @@ Keep progress updates brief, meaningful, and outcome-based.
       if (directCalls.has(exec.callId) && gate.kind === 'ask') {
         const accepted = await active.onPermission?.(call);
         gate = { kind: accepted === true ? 'allow' : 'deny', reason: 'Direct tool approval was declined.' };
+      }
+      // Native approval:never rejects without asking a user. Preserve that
+      // boundary, but do not attribute a policy decision to a human answer.
+      if (gate.kind === 'ask' && ctx.get('approval')?.effectivePolicy(exec.agent.session) === 'never') {
+        return { kind: 'deny',
+          reason: call.delegated
+            ? 'This child agent cannot request approval and this action has no applicable grant. Return the blocked action to the parent agent for approval or execution; do not retry equivalent tools to bypass approval. The user has not rejected this action.'
+            : 'This action requires approval, but approval requests are disabled for this session. The user has not rejected this action.',
+          info: { code: 'APPROVAL_UNAVAILABLE', delegated: call.delegated },
+        };
       }
       return gate.kind === 'allow' ? next() : gate;
     } catch (error) {
@@ -692,7 +708,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       try { args = JSON.parse(args); } catch { /* Preserve invalid native input for error display. */ }
       const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, event.data.name);
       emit(run, { type: 'tool_call', id: event.data.callId, name: event.data.name,
-        internalControl: isInternalControl(agent, event.data.name), arguments: args, sessionId: session.id,
+        internalControl: isInternalControl(agent, event.data.name), arguments: args, sessionId: session.id, time: event.time,
         ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
     }
     // Native turn/start is synchronous and precedes inbox claim. Cancelling at
@@ -714,7 +730,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       const receiptKey = `${session.id}\0${msg.toolCallId}`;
       const receipt = toolReceipts.get(receiptKey);
       toolReceipts.delete(receiptKey);
-      emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, ...receipt });
+      emit(run, { type: 'tool_result', id: msg.toolCallId, result: msg.content, isError: msg.isError, messageId: msg.id, sessionId: session.id, time: event.time, ...receipt });
     }
     if (event.type === 'assistant/message') emit(run, {
       type: 'assistant_committed', messageId: event.data.message.id, seq: event.seq, sessionId: session.id,
@@ -934,7 +950,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     if (settings.temperature !== undefined && (!Number.isFinite(settings.temperature) || settings.temperature < 0 || settings.temperature > 2)) throw new TypeError('temperature must be between 0 and 2');
     if (settings.autoCompactThreshold !== undefined && (!Number.isFinite(settings.autoCompactThreshold) || settings.autoCompactThreshold <= 0 || settings.autoCompactThreshold >= 1)) throw new TypeError('autoCompactThreshold must be between 0 and 1');
     if (settings.systemPrompt !== undefined && typeof settings.systemPrompt !== 'string') throw new TypeError('systemPrompt must be text');
-    const mcpServers = settings.mcpServers ?? [];
+    const mcpServers = (settings.mcpServers ?? []).map(server => ({ ...server, backgroundStart: settings.backgroundMcp === true }));
     const names = new Set();
     for (const server of mcpServers) {
       if (!/^[A-Za-z0-9_-]{1,32}$/.test(server.serverName) || names.has(server.serverName)) throw new TypeError('MCP server names must be unique valid identifiers');
@@ -972,7 +988,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     let localConnections = stdioConnections.get(agent);
     if (!localConnections) { localConnections = new Map(); stdioConnections.set(agent, localConnections); }
     for (const [name, entry] of localConnections) {
-      if (entry.fiber.state === 2 && mcpPlugin.mcpConnectionStatus(capabilities.key, name) === 'ready' && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
+      if (entry.fiber.state === 2 && ['ready', 'connecting'].includes(mcpPlugin.mcpConnectionStatus(capabilities.key, name)) && isDeepStrictEqual(entry.config, stdioConfigs.get(name))) continue;
       localConnections.delete(name);
       await entry.fiber.dispose();
     }
@@ -1008,6 +1024,7 @@ Keep progress updates brief, meaningful, and outcome-based.
           name: 'codebuddy:conversation-locale', order: 103, interpolate: false,
           text: `Default conversation language: ${JSON.stringify(settings.conversationLocale)}. Use it for user-facing replies, progress and delegation messages, unless the human explicitly requests another language. Tell subagents the requested language when delegating. Keep original code, identifiers and tool output unchanged.`,
         });
+        if (settings.tools?.some(tool => tool.currentRequestWorkflow === true)) await installMediaArtifactContext(scoped, ctx, agent);
         for (const tool of settings.tools ?? []) {
           if (tool.rootOnly && agent.session.header.origin === 'subagent') continue;
           if (registrationFilter && ((registrationFilter.allow && !registrationFilter.allow.includes(tool.name)) || registrationFilter.deny.includes(tool.name))) continue;
@@ -1022,8 +1039,16 @@ Keep progress updates brief, meaningful, and outcome-based.
               if (issues.length) throw new TypeError(`Invalid tool arguments: ${issues.join('; ')}`);
               const active = directCalls.get(exec.callId) ?? runFor(exec.agent);
               await active?.events;
-              const context = { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId };
+              const context = { sessionId: exec.agent.id, signal: exec.signal, callId: exec.callId,
+                ...(tool.currentRequestWorkflow === true ? { selectWorkflow: request => selectMediaWorkflow(ctx, exec.agent, { ...request, signal: exec.signal }) } : {}) };
               const value = await tool.execute(args, settings.projectToolContext ? settings.projectToolContext(context) : context);
+              if (tool.currentRequestWorkflow === true && ['generate_image', 'generate_video'].includes(tool.name) &&
+                  ['generate', 'status'].includes(args.operation ?? 'generate') &&
+                  !directCalls.has(exec.callId) && runFor(exec.agent) && !active?.cancelRequested &&
+                  await canDeliverMediaDirectly(ctx, exec.agent, value)) {
+                exec.signal.throwIfAborted();
+                exec.concludeTurn();
+              }
               if (Array.isArray(value?.content) && value.content.some(block => block.type === 'image' && !block.attachment)) {
                 // Display keeps original bytes; native persistence and model
                 // projection use durable references or a backup observation.
@@ -1074,11 +1099,12 @@ Keep progress updates brief, meaningful, and outcome-based.
         await compactFiber;
         if (compactFiber.state !== 2) throw new Error('Harness compaction did not activate');
         // Both transports are independent. Harness still owns remote preset
-        // leases and session-scoped stdio processes; admit the loop after both.
+        // leases and session-scoped stdio processes. Background mode admits the
+        // loop after scopes exist; the bridge publishes actual readiness later.
         const [lease, statuses] = await Promise.all([
           mcpPresets.acquire(remoteServers).then(value => (shared = value)),
           Promise.all(mcpServers.filter(server => !server.configurationError && server.transport !== 'streamable-http').map(async server => {
-          if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: 'ready' };
+          if (localConnections.has(server.serverName)) return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
           const started = performance.now();
           const config = stdioConfigs.get(server.serverName);
           const connection = capabilityCtx.plugin(mcpPlugin, config);
@@ -1086,10 +1112,10 @@ Keep progress updates brief, meaningful, and outcome-based.
             await connection;
             if (connection.state !== 2) throw new Error('Connection did not activate');
             localConnections.set(server.serverName, { config: structuredClone(config), fiber: connection });
-            return { serverName: server.serverName, status: 'ready' };
-          } catch {
+            return { serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(capabilities.key, server.serverName) };
+          } catch (error) {
             await connection.dispose();
-            return { serverName: server.serverName, status: 'error', error: 'MCP connection or tool discovery failed. Reconfigure or retry this extension.' };
+            return { serverName: server.serverName, status: 'error', error: mcpDiagnostic(error, server) };
           } finally {
             console.info('[Harness MCP preparation]', JSON.stringify({
               sessionId, serverName: server.serverName,
@@ -1119,7 +1145,7 @@ Keep progress updates brief, meaningful, and outcome-based.
         if (settings.mainAgentRole && agent.session.header.origin !== 'subagent') {
           const observation = await ctx.sessionQuery.observeSession(agent.id, { projectionMode: 'none' });
           try {
-            const resourceServers = connections.filter(connection => connection.status === 'ready').map(connection => connection.serverName);
+            const resourceServers = connections.filter(connection => connection.status !== 'error').map(connection => connection.serverName);
             const role = installMainAgentRole(scoped, agent, capabilities.key, settings.mainAgentRole, observation.events, resourceServers);
             mainAgentRoles.set(agent, role);
             scoped.effect(() => () => { if (mainAgentRoles.get(agent) === role) mainAgentRoles.delete(agent); });
@@ -1227,6 +1253,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     invalidateMcpServers(configKeys) {
       const keys = new Set(configKeys.map(extensionConfigKey));
+      mcpPlugin.clearMcpStartupFailures(name => keys.has(extensionConfigKey(name)));
       const scopes = new Set([ctx.root]);
       for (const id of sessionSettings.keys()) {
         const agent = ctx.agents.get(id);
@@ -1241,8 +1268,12 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async warmMcpServers(servers) {
       if (servers.some(server => server.transport !== 'streamable-http')) throw new TypeError('Startup preparation accepts remote MCP connections only');
-      const lease = await mcpPresets.acquire(servers);
-      try { return lease?.statuses ?? []; }
+      const lease = await mcpPresets.acquire(servers.map(server => ({ ...server, backgroundStart: true })));
+      try {
+        if (!lease) return [];
+        await mcpPlugin.waitForMcpServers(lease.key, servers.map(server => server.serverName));
+        return servers.map(server => ({ serverName: server.serverName, status: mcpPlugin.mcpConnectionStatus(lease.key, server.serverName) }));
+      }
       finally { await lease?.[Symbol.asyncDispose](); }
     },
     async createSession({ sessionId = randomUUID(), cwd: workingDirectory = cwd, provider, model, options }) {
@@ -1396,7 +1427,7 @@ Keep progress updates brief, meaningful, and outcome-based.
       const agent = ctx.agents.get(sessionId);
       return (extensionStates.get(sessionId) ?? []).map(state => {
         const status = agent && [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionStatus(key, state.serverName)).find(Boolean);
-        return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
+        return status ? { serverName: state.serverName, status, ...(status === 'error' ? { error: [...scopeChainOf(agent), ctx.root].map(key => mcpPlugin.mcpConnectionError(key, state.serverName)).find(Boolean) ?? 'MCP connection is unavailable or reconnecting.' } : {}) } : structuredClone(state);
       });
     },
     async steer(sessionId, content, { signal = new AbortController().signal, requestId = randomUUID() } = {}) {

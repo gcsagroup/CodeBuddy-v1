@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "Arbeitsplan"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} erledigt · {active} in Arbeit · {pending} ausstehend"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

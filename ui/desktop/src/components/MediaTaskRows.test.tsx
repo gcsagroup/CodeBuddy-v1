@@ -182,7 +182,7 @@ describe('media task presentation', () => {
     expect(screen.getByRole('button', { name: 'Generate 动作图 Unsuccessful' })).toBeVisible();
   });
 
-  it('shows one business name and a collapsible image for twenty polls without execution records', () => {
+  it('keeps one image visible outside collapsed process details across twenty polls', () => {
     const path = 'generated-images/' + jobA + '/1.png';
     const trace = [request('submit'), named('submit')];
     for (let i = 1; i <= 20; i++)
@@ -198,13 +198,15 @@ describe('media task presentation', () => {
       );
     const original = JSON.stringify(trace);
     const view = render(history(trace), { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('img', { name: '小熊猫招手动作图 / 1.png' })).toBeVisible();
+    expect(view.container.querySelectorAll('[data-media-card-id]')).toHaveLength(1);
     openProcesses(view.container);
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent('Generate 小熊猫招手动作图 Completed');
     const task = within(
       view.container.querySelector('[data-media-job-id]') as HTMLElement
     ).getByRole('button', { name: 'Generate 小熊猫招手动作图 Completed', expanded: false });
-    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByRole('img')).toHaveLength(1);
     fireEvent.click(task);
     expect(screen.getByRole('img', { name: '小熊猫招手动作图 / 1.png' })).toBeVisible();
     expect(view.container).not.toHaveTextContent('Related files');
@@ -213,7 +215,7 @@ describe('media task presentation', () => {
     expect(screen.queryByRole('button', { name: /Execution records/ })).toBeNull();
     expect(collectMediaJobs(trace).get('submit')?.calls).toHaveLength(21);
     fireEvent.click(task);
-    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByRole('img', { name: '小熊猫招手动作图 / 1.png' })).toBeVisible();
     expect(JSON.stringify(trace)).toBe(original);
   });
 
@@ -693,23 +695,20 @@ describe('media task presentation', () => {
     expect(later.querySelector('[data-media-job-id]')).toBeNull();
   });
 
-  it.each([1, 2, 3])(
-    'shows all %s thoughts directly after expanding their process',
-    (count) => {
-      const trace = Array.from({ length: count }, (_, index) =>
-        message('thought-' + index, 'assistant', [
-          { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
-        ])
-      );
-      const view = render(history(trace), { wrapper: IntlTestWrapper });
-      openProcesses(view.container);
-      expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-      expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(count);
-      for (let index = 0; index < count; index++) {
-        expect(screen.getByText('Reasoning part ' + index)).toBeVisible();
-      }
+  it.each([1, 2, 3])('shows all %s thoughts directly after expanding their process', (count) => {
+    const trace = Array.from({ length: count }, (_, index) =>
+      message('thought-' + index, 'assistant', [
+        { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
+      ])
+    );
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    openProcesses(view.container);
+    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(count);
+    for (let index = 0; index < count; index++) {
+      expect(screen.getByText('Reasoning part ' + index)).toBeVisible();
     }
-  );
+  });
 
   it('treats adjacent streaming thinking fragments as one original disclosure', () => {
     const view = render(

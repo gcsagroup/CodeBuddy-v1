@@ -14,8 +14,10 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
-import { getSessionExtensions } from '../../acp/session-extensions';
+import { ProgressiveToolboxGrid } from './ProgressiveToolboxGrid';
 import { SessionToolAccess } from './SessionToolAccess';
+import { ToolboxSessionScope } from './ToolboxSessionScope';
+import { readToolboxSession, type ToolboxSessionState } from '../../acp/toolboxSession';
 import { loadToolbox, type ToolboxLoadResult } from '../../acp/toolbox';
 import { testConfigExtension } from '../../acp/extensions';
 import { getInitialWorkingDir } from '../../utils/workingDir';
@@ -123,7 +125,7 @@ const i18n = defineMessages({
   enabledUnverified: { id: 'toolbox.enabledUnverified', defaultMessage: 'Enabled · not verified' },
   globalDefault: {
     id: 'toolbox.globalDefault',
-    defaultMessage: 'This switch controls the default availability for new tasks.',
+    defaultMessage: 'Following conversations load enabled tools before the next turn. Disabled tools cannot be called.',
   },
   computerSafety: {
     id: 'toolbox.computerSafety',
@@ -404,26 +406,38 @@ export default function ToolboxView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const sessionId = searchParams.get('sessionId');
-  const [sessionExtensions, setSessionExtensions] = useState<string[]>();
+  const [sessionState, setSessionState] = useState<ToolboxSessionState>();
+  const [sessionError, setSessionError] = useState('');
+  const [sessionProjectDir, setSessionProjectDir] = useState<string>();
   const sessionReadVersion = useRef(0);
   const refreshSession = useCallback(async () => {
     const version = ++sessionReadVersion.current;
-    if (!sessionId) { setSessionExtensions(undefined); return; }
+    if (!sessionId) { setSessionState(undefined); return; }
     try {
-      const entries = await getSessionExtensions(sessionId);
-      if (version === sessionReadVersion.current) setSessionExtensions(entries.map(entry => entry.name));
-    } catch {
-      if (version === sessionReadVersion.current) setSessionExtensions(undefined);
+      const state = await readToolboxSession(sessionId);
+      if (version === sessionReadVersion.current) {
+        setSessionState(state);
+        setSessionError('');
+        setSessionProjectDir(state.cwd);
+      }
+    } catch (error) {
+      if (version === sessionReadVersion.current) { setSessionState(undefined); setSessionError(String(error)); }
     }
   }, [sessionId]);
+  useEffect(() => setSessionProjectDir(undefined), [sessionId]);
   useEffect(() => {
     const requestVersion = sessionReadVersion;
-    setSessionExtensions(undefined);
+    setSessionState(undefined);
     void refreshSession();
     return () => { requestVersion.current++; };
   }, [refreshSession, extensionsList]);
+  useEffect(() => {
+    if (!sessionId) return;
+    const timer = window.setInterval(() => { if (!document.hidden) void refreshSession(); }, 3000);
+    return () => window.clearInterval(timer);
+  }, [sessionId, refreshSession]);
   const projectDir =
-    typeof location.state?.toolboxProjectDir === 'string'
+    sessionId ? sessionProjectDir ?? '' : typeof location.state?.toolboxProjectDir === 'string'
       ? location.state.toolboxProjectDir
       : getInitialWorkingDir();
   const requestedItem = searchParams.get('item');
@@ -450,8 +464,13 @@ export default function ToolboxView() {
 
   const refresh = useCallback(async () => {
     const version = ++refreshVersion.current;
+    if (sessionId && !projectDir) return;
     try {
-      const next = await loadToolbox(projectDir);
+      const next = await loadToolbox(projectDir, undefined, {
+        onPartial: partial => {
+          if (version === refreshVersion.current) { setResult(partial); setLoading(false); }
+        },
+      });
       if (version === refreshVersion.current) {
         setResult(next);
         if (!next.errors.methods) {
@@ -475,7 +494,7 @@ export default function ToolboxView() {
     } finally {
       if (version === refreshVersion.current) setLoading(false);
     }
-  }, [projectDir]);
+  }, [projectDir, sessionId]);
 
   useEffect(() => {
     void refresh();
@@ -598,8 +617,7 @@ export default function ToolboxView() {
   };
 
   const renderGrid = (entries: ToolboxItem[]) => (
-    <div className="grid gap-3 lg:grid-cols-2">
-      {entries.map((item) => (
+    <ProgressiveToolboxGrid key={`${projectDir}:${selectedSection}:${query}`} entries={entries} renderItem={(item) => (
         <ItemCard
           key={item.id}
           item={item}
@@ -612,11 +630,10 @@ export default function ToolboxView() {
                 extension={member.extensionSource!}
                 enabled={member.status !== 'disabled'}
                 label={item.repositoryMembers ? member.name : undefined}
-                selected={sessionExtensions === undefined ? undefined : sessionExtensions.includes(member.extensionSource!.name)}
+                state={sessionState}
                 refresh={refreshSession} />) : undefined}
         />
-      ))}
-    </div>
+      )} />
   );
 
   const renderCardGrid = (entries: ToolboxItem[]) => {
@@ -656,7 +673,7 @@ export default function ToolboxView() {
 
   return (
     <MainPanelLayout>
-      <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-12 lg:px-10">
+      <div data-toolbox-scroll className="min-w-0 flex-1 overflow-y-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-12 lg:px-10">
         <div className="mx-auto max-w-6xl">
           {sessionId && (
             <section aria-label={intl.formatMessage({ id: 'toolbox.session.context', defaultMessage: 'Tools for this conversation' })}
@@ -695,7 +712,7 @@ export default function ToolboxView() {
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
               {(selectedSection === 'all' || selectedSection === 'methods') && (
-                <Button onClick={() => setSkillRequest({ type: 'create' })}>
+                <Button disabled={Boolean(sessionId && !sessionProjectDir)} onClick={() => setSkillRequest({ type: 'create' })}>
                   {intl.formatMessage(i18n.addSkill)}
                 </Button>
               )}
@@ -714,6 +731,7 @@ export default function ToolboxView() {
             </div>
           </div>
 
+          <ToolboxSessionScope sessionId={sessionId} state={sessionState} readError={sessionError} onChange={refreshSession} />
           {(Object.values(result.errors).length > 0 || result.warnings.length > 0) && (
             <div className="mb-4 space-y-1 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
               {[...new Set([...Object.values(result.errors), ...result.warnings])].map(
@@ -766,9 +784,8 @@ export default function ToolboxView() {
             selectedSection === 'all' ? (
               <div className="space-y-7">
                 {(['capabilities', 'methods', 'external'] as const).map((section) => {
-                  const entries = items.filter((item) =>
-                    model[section].some((member) => member.id === item.id)
-                  );
+                  const ids = new Set(model[section].map(member => member.id));
+                  const entries = items.filter(item => ids.has(item.id));
                   return (
                     entries.length > 0 && (
                       <section key={section} aria-label={intl.formatMessage(i18n[section])}>
@@ -825,12 +842,13 @@ export default function ToolboxView() {
             </p>
           )}
 
-          <SkillManager
+          {(!sessionId || sessionProjectDir) && <SkillManager
             dialogOnly
+            projectDir={projectDir}
             request={skillRequest}
             onRequestClose={() => setSkillRequest(undefined)}
             onChanged={() => void refresh()}
-          />
+          />}
           <ExtensionsSection
             allowedTypes={['stdio', 'streamable_http', 'sse']}
             hideList

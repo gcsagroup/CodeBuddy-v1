@@ -100,7 +100,8 @@ export function getGooseMessageMeta(update: { _meta?: unknown }): GooseMessageMe
       typeof goose.presentation.afterMessageId === 'string' &&
       goose.presentation.afterMessageId.length > 0 &&
       goose.presentation.afterMessageId.length <= 2048
-        ? { afterMessageId: goose.presentation.afterMessageId }
+        ? { afterMessageId: goose.presentation.afterMessageId,
+            ...(goose.presentation.continuation === true ? { continuation: true as const } : {}) }
         : undefined,
     transcriptReplayStarted: goose.transcriptReplayStarted === true ? true : undefined,
   };

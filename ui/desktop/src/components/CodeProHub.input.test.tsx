@@ -4,8 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import { startCodeProSession } from '../codepro/startCodeProSession';
 import { CodeProHub } from './codepro/CodeProHub';
-import Hub from './Hub';
-import { createSession } from '../sessions';
 import { clearNewTaskDraft, updateNewTaskDraft } from '../utils/newTaskDraft';
 
 vi.mock('../acp/preferences', () => ({
@@ -161,7 +159,7 @@ describe('CodeProHub real composer setup', () => {
     expect(screen.getByTestId('chat-input')).toHaveValue('');
   });
 
-  it('retains a failed submission across navigation and isolates ordinary drafts', async () => {
+  it('retains a failed submission across navigation', async () => {
     vi.mocked(window.electron.inspectCodeProWorkspace).mockRejectedValueOnce(
       new Error('fixture failure')
     );
@@ -170,9 +168,6 @@ describe('CodeProHub real composer setup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByRole('alert');
     view.unmount();
-    const ordinary = render(<Hub setView={vi.fn()} />, { wrapper: IntlTestWrapper });
-    expect(screen.getByTestId('chat-input')).toHaveValue('');
-    ordinary.unmount();
     render(<CodeProHub />, { wrapper: IntlTestWrapper });
     expect(screen.getByTestId('chat-input')).toHaveValue('retry my task');
   });
@@ -200,21 +195,6 @@ describe('CodeProHub real composer setup', () => {
     expect(startCodeProSession).toHaveBeenCalledWith(
       expect.objectContaining({ initialMessage: { msg: '/comfyui 生成一个视频', images: [] } })
     );
-  });
-
-  it('ordinary new-chat drafts preserve the selected folder and wait for the user to send', async () => {
-    const user = userEvent.setup();
-    vi.mocked(createSession).mockResolvedValue({ id: 'ordinary-skill' } as Awaited<
-      ReturnType<typeof createSession>
-    >);
-    render(<Hub setView={vi.fn()} initialValue="/comfyui " initialWorkingDir={'D:\\project'} />, {
-      wrapper: IntlTestWrapper,
-    });
-    expect(screen.getByTestId('chat-input')).toHaveValue('/comfyui ');
-    expect(createSession).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(createSession).toHaveBeenCalledOnce());
-    expect(createSession).toHaveBeenCalledWith('D:\\project', expect.any(Object));
   });
 
   it('preserves the draft while inspecting a fresh workspace without queue or stop controls, then starts once', async () => {

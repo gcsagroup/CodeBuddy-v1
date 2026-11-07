@@ -43,8 +43,8 @@ for (const [type, required] of Object.entries({
   KSampler: { steps: ['INT', { min: 1, max: 10000 }], seed: ['INT'] },
 })) tuningInfo[type] = { ...tuningInfo[type], input: { required } };
 
-test('all three supplied API video graph shapes expose and tune connected step branches, Turbo and LoRA without rewiring', async () => {
-  for (const [mode, count] of [['text_to_video', 0], ['image_to_video', 1], ['reference_to_video', 2]]) {
+test('FL2VA video graphs expose and tune connected step branches, Turbo and LoRA without rewiring', async () => {
+  for (const [mode, count] of [['text_to_video', 0], ['image_to_video', 1]]) {
     const spec = workflowCandidates('video', mode, count)[0], source = structuredClone(spec.graph);
     const catalog = await savedWorkflowCatalog(reader({ 'clip.json': source }), tuningInfo, 'video', mode, count);
     const visible = catalog.public.workflows[0], controls = visible.tunable_parameters;
@@ -66,6 +66,19 @@ test('all three supplied API video graph shapes expose and tune connected step b
     assert.deepEqual(source, spec.graph);
     assert.ok(controls.every(c => !['unet_name', 'clip_name', 'filename_prefix', 'expression', 'fps', 'prompt', 'image'].includes(c.input)));
   }
+});
+
+test('reference video uses Ref2VA without offering the incompatible FL2VA Turbo branch', async () => {
+  const spec = workflowCandidates('video', 'reference_to_video', 2)[0];
+  const catalog = await savedWorkflowCatalog(reader({ 'reference.json': spec.graph }), tuningInfo, 'video', 'reference_to_video', 2);
+  const controls = catalog.public.workflows[0].tunable_parameters;
+  assert.ok(controls.some(c => c.bindings.some(b => b.input === 'steps')));
+  assert.ok(!controls.some(c => c.bindings.some(b => b.role === 'branch_switch' || b.type === 'LoraLoaderModelOnly')));
+  const prepared = prepareSavedWorkflow(selectSavedWorkflow(catalog, {}), { prompt: 'Two reference objects', seed: 42 }, ['first.png', 'second.png'], 'job', tuningInfo);
+  assert.match(prepared.graph['127'].inputs.unet_name, /ref2va/);
+  assert.deepEqual(prepared.graph['124'].inputs.model, prepared.graph['126'].inputs.model);
+  assert.equal(prepared.graph['137'].inputs.image, 'first.png');
+  assert.equal(prepared.graph['139'].inputs.image, 'second.png');
 });
 
 test('tuning a promoted UI widget updates serialized layout and its execution graph consistently', async () => {
@@ -179,6 +192,12 @@ test('multiple matching saved workflows require an explicit Agent selection, inc
   const v=await savedWorkflowCatalog(reader({'quality.json':video,'fast.json':video}),info,'video','text_to_video',0);
   assert.equal(v.public.workflows.filter(w=>w.compatible).length,2);
   assert.equal(v.public.creation_allowed,false);
+  assert.equal(selectSavedWorkflow(v,{workflow_name:'quality'}).file,'quality.json');
+  assert.equal(selectSavedWorkflow(v,{workflow_name:'fast.json'}).file,'fast.json');
+  assert.equal(selectSavedWorkflow(v,{workflow_name:'workflows/quality.json',workflow_id:'saved:quality.json'}).file,'quality.json');
+  assert.throws(()=>selectSavedWorkflow(v,{workflow_name:'quality',workflow_id:'saved:fast.json'}),/no generation was submitted/);
+  assert.throws(()=>selectSavedWorkflow(v,{workflow_name:'missing',workflow_id:'saved:fast.json'}),/no replacement was submitted/);
+  assert.throws(()=>selectSavedWorkflow(v,{workflow_name:'text_to_video'}),/unavailable/);
 });
 
 test('missing dependencies or no saved files allow fallback; read failures and unsupported formats do not',async()=>{

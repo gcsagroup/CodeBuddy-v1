@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "Rencana kerja"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} selesai · {active} berlangsung · {pending} tertunda"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

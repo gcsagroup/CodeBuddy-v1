@@ -1,6 +1,7 @@
 import { getMainConversation, deliverMainConversationMessage } from './pets/mainConversation';
 import { useEffect, useState, useRef } from 'react';
 import { WindowMenuBar } from './components/Layout/WindowMenuBar';
+import { RuntimeUpdateNotice } from './components/RuntimeUpdateNotice';
 import './styles/desktop-shell.css';
 import { IpcRendererEvent } from 'electron';
 import {
@@ -26,7 +27,6 @@ import { acpListSessions, acpDeleteSession } from './acp/sessions';
 import { acpChatSessionController } from './acp/chatSessionController';
 
 import { ChatType } from './types/chat';
-import Hub from './components/Hub';
 import { UserInput } from './types/message';
 
 interface PairRouteState {
@@ -39,7 +39,7 @@ interface PairRouteState {
   recipeId?: string;
 }
 import SettingsView, { SettingsViewOptions } from './components/settings/SettingsView';
-import { parsePetMessage } from './pets/petMessage';
+import { parsePetMessage, parsePetComposerAction } from './pets/petMessage';
 import SessionsView from './components/sessions/SessionsView';
 import { CustomAgents } from './components/custom-agents/CustomAgents';
 import { MediaLibrary } from './components/media-library/MediaLibrary';
@@ -67,7 +67,7 @@ import {
   ViewOptions,
   withWorkspaceMode,
 } from './utils/navigationUtils';
-import { isCodeProUnifiedModeEnabled, resolveCodeProEntryPath } from './codepro/unifiedMode';
+import { resolveCodeProEntryPath } from './codepro/unifiedMode';
 
 import { useNavigation } from './hooks/useNavigation';
 import { errorMessage } from './utils/conversionUtils';
@@ -104,11 +104,6 @@ function PageViewTracker() {
 }
 
 // Route Components
-const HubRouteWrapper = (props: { initialValue?: string; initialWorkingDir?: string }) => {
-  const setView = useNavigation();
-  return <Hub setView={setView} {...props} />;
-};
-
 export function resolveSessionInitialMessage(
   session: { recipe?: { prompt?: string | null } | null },
   initialMessage?: UserInput
@@ -276,10 +271,9 @@ export const PairRouteWrapper = ({
 
   if (routeState.draftOnly && !resumeSessionId) {
     return (
-      <HubRouteWrapper
+      <CodeProHub
         key={location.key}
-        initialValue={initialMessage?.msg}
-        initialWorkingDir={launchWorkingDir}
+        launchIntent={{ initialMessage, workingDir: launchWorkingDir, draftOnly: true, noAutoSubmit }}
       />
     );
   }
@@ -429,9 +423,6 @@ const ConfigureProvidersRoute = () => {
 export function AppInner() {
   const intl = useIntl();
   const [fatalError, setFatalError] = useState<string | null>(null);
-  const codeProUnifiedMode = isCodeProUnifiedModeEnabled(
-    window.appConfig?.get?.('CODEPRO_UNIFIED_MODE')
-  );
 
   const nostrImportInFlight = useRef<string | null>(null);
 
@@ -476,10 +467,12 @@ export function AppInner() {
     const sendPetMessage = (_event: IpcRendererEvent, message: unknown) => {
       const deliveryId = (message as { deliveryId?: string } | null)?.deliveryId;
       void (async () => {
-        const input = parsePetMessage(message);
+        const rawAction = (message as { composerAction?: unknown } | null)?.composerAction;
+        const composerAction = rawAction === undefined ? undefined : parsePetComposerAction(rawAction);
+        const input = parsePetMessage(message, !!composerAction);
         const sessionId = await getMainConversation();
         navigate(`/codepro/pair?resumeSessionId=${encodeURIComponent(sessionId)}`, { state: null });
-        await deliverMainConversationMessage(sessionId, { ...input, ...(deliveryId ? { messageId: deliveryId } : {}) });
+        await deliverMainConversationMessage(sessionId, { ...input, ...(deliveryId ? { messageId: deliveryId } : {}), ...(composerAction ? { composerAction } : {}) });
         window.electron.petSignal('pet-message-result', { deliveryId });
       })().catch(error => {
         window.electron.petSignal('pet-message-result', { deliveryId, error: error instanceof Error ? error.message : '无法发送到主对话' });
@@ -732,35 +725,35 @@ export function AppInner() {
       if (newView === 'settings') {
         const backgroundLocation = isSettingsRoute ? settingsBackgroundLocation : location;
         navigate(
-          `${resolveCodeProEntryPath('/settings', codeProUnifiedMode)}${section ? `?section=${encodeURIComponent(section)}` : ''}`,
+          `${resolveCodeProEntryPath('/settings')}${section ? `?section=${encodeURIComponent(section)}` : ''}`,
           {
             ...(backgroundLocation ? { state: { backgroundLocation } } : {}),
             ...(isSettingsRoute ? { replace: true } : {}),
           }
         );
       } else {
-        navigate(resolveCodeProEntryPath(`/${newView}`, codeProUnifiedMode));
+        navigate(resolveCodeProEntryPath(`/${newView}`));
       }
     };
 
     window.electron.on('set-view', handleSetView);
     return () => window.electron.off('set-view', handleSetView);
-  }, [codeProUnifiedMode, navigate, isSettingsRoute, settingsBackgroundLocation, location]);
+  }, [navigate, isSettingsRoute, settingsBackgroundLocation, location]);
 
   useEffect(() => {
     const handleNewChat = (_event: IpcRendererEvent, directory?: unknown) => {
       if (typeof directory === 'string' && directory.trim()) {
-        navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
+        navigate(resolveCodeProEntryPath('/pair'), {
           state: { draftOnly: true, workingDir: directory, noAutoSubmit: true },
         });
         return;
       }
-      navigate(resolveCodeProEntryPath('/', codeProUnifiedMode));
+      navigate(resolveCodeProEntryPath('/'));
     };
 
     window.electron.on('new-chat', handleNewChat);
     return () => window.electron.off('new-chat', handleNewChat);
-  }, [codeProUnifiedMode, navigate]);
+  }, [navigate]);
 
   useEffect(() => {
     const handleFocusInput = (_event: IpcRendererEvent, ..._args: unknown[]) => {
@@ -796,7 +789,7 @@ export function AppInner() {
         typeof options.workingDir === 'string' &&
         options.workingDir.trim()
       ) {
-        navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
+        navigate(resolveCodeProEntryPath('/pair'), {
           state: {
             initialMessage: { msg: initialMessage, images: options.images ?? [] },
             workingDir: options.workingDir,
@@ -809,7 +802,7 @@ export function AppInner() {
 
       if ((initialMessage || options.images?.length) && !isProcessingRef.current) {
         isProcessingRef.current = true;
-        navigate(resolveCodeProEntryPath('/pair', codeProUnifiedMode), {
+        navigate(resolveCodeProEntryPath('/pair'), {
           state: {
             initialMessage: { msg: initialMessage, images: options.images ?? [] },
             noAutoSubmit: options.noAutoSubmit,
@@ -827,7 +820,7 @@ export function AppInner() {
     return () => {
       window.electron.off('set-initial-message', handleSetInitialMessage);
     };
-  }, [codeProUnifiedMode, navigate]);
+  }, [navigate]);
 
   // Register platform event handlers for app lifecycle management
   useEffect(() => {
@@ -854,8 +847,9 @@ export function AppInner() {
       <RecipeParamsModalContainer />
       <div data-platform={window.electron?.platform} className="desktop-shell relative w-screen h-screen overflow-hidden bg-background-secondary flex flex-col">
         {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <WindowMenuBar />}
+        {location.pathname !== '/launcher' && location.pathname !== '/standalone-app' && <RuntimeUpdateNotice />}
         <div className="relative w-full flex-1 min-h-0">
-          <CodeProRouteGuard unifiedMode={codeProUnifiedMode}>
+          <CodeProRouteGuard>
             <Routes location={settingsBackgroundLocation ?? location}>
               <Route path="launcher" element={<LauncherView />} />
               <Route path="configure-providers" element={<ConfigureProvidersRoute />} />
@@ -879,7 +873,7 @@ export function AppInner() {
                   </OnboardingGuard>
                 }
               >
-                <Route index element={<HubRouteWrapper />} />
+                <Route index element={<CodeProHub />} />
                 <Route path="codepro" element={<CodeProHub />} />
                 <Route
                   path="pair"

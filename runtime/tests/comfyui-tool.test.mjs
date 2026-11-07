@@ -39,6 +39,44 @@ async function fixture(t, saveNode = '461') {
 }
 const generate = { operation: 'generate', prompt: 'A watercolor mountain', request_id: id };
 
+test('native request identity deduplicates automatic retries including changed labels, while new requests and variants remain distinct', async t => {
+  for (const kind of ['image', 'video']) await t.test(kind, async t => {
+    const f = await fixture(t);
+    const makeTool = () => kind === 'image' ? comfyuiTool(f.options) : comfyuiVideoTool(f.options);
+    let requestHash = 'admitted-request-1';
+    const context = { selectWorkflow: async ({ workflows }) => {
+      const selected = workflows.find(w => w.compatible);
+      return { workflow_name: selected.label, assertCurrent: async () => {}, receipt: {
+        source: 'current_request', request_hash: requestHash, workflow_id: selected.id,
+      } };
+    } };
+    const input = { operation: 'generate', prompt: 'One orange toy cat with a white scarf',
+      mode: kind === 'image' ? 'text_to_image' : 'text_to_video', width: 512, height: 512 };
+    const [first, retry] = await Promise.all([
+      makeTool().execute({ ...input, display_name: 'Cat' }, context),
+      makeTool().execute({ ...Object.fromEntries(Object.entries(input).reverse()), display_name: 'Cat again', workflow_name: 'obsolete hint' }, context),
+    ]);
+    assert.equal(first.job_id, retry.job_id);
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1);
+    if (kind === 'image') {
+      f.state('completed');
+      assert.equal((await makeTool().execute({ operation: 'status', job_id: first.job_id })).status, 'completed');
+    }
+    const restored = await makeTool().execute({ ...input, display_name: 'Another label' }, context);
+    assert.equal(restored.job_id, first.job_id);
+    if (kind === 'image') assert.equal(restored.status, 'completed');
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 1, 'a completed receipt cannot be submitted again through an automatic retry');
+    const variant = await makeTool().execute({ ...input, seed: 7 }, context);
+    assert.notEqual(variant.job_id, first.job_id);
+    const explicit = await makeTool().execute({ ...input, request_id: id }, context);
+    assert.equal(explicit.job_id, id, 'explicit caller keys keep their existing contract');
+    requestHash = 'admitted-request-2';
+    const newTurn = await makeTool().execute(input, context);
+    assert.notEqual(newTurn.job_id, first.job_id, 'an actual new user request can regenerate the same prompt');
+    assert.equal(f.calls.filter(c => c.url.endsWith('/prompt')).length, 4);
+  });
+});
+
 test('an orphaned preparing record is observed by its original ID without resubmission', async t => {
   const f = await fixture(t);
   await f.tool.execute(generate);
@@ -360,7 +398,8 @@ test('official Harness discovers and calls the image tool without adding it to t
     const found = await driver.callTool(sessionId, 'search_mcp_tools', { names: [f.tool.name] }, { onPermission: () => true });
     assert.equal(found.isError, false);
     const result = await driver.callTool(sessionId, f.tool.name, { ...generate, display_name: 42 }, { onPermission: () => true });
-    assert.equal(result.isError, false, JSON.stringify(result)); assert.match(JSON.stringify(result), /queued/);
+    assert.equal(result.isError, true, JSON.stringify(result)); assert.match(JSON.stringify(result), /admitted current request/);
+    assert.equal(f.calls.filter(call => call.url.endsWith('/prompt')).length, 0);
   } finally { await driver.close(); }
 });
 

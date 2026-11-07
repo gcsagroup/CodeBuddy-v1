@@ -186,7 +186,13 @@ test('HTTP service and Harness preserve the fallback graph, receipt, completion 
   const { sessionId } = await driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'fixture' }, model: 'fixture', options: { tools: [tool], toolFilter: { allow: [] } } });
   await driver.callTool(sessionId, 'search_mcp_tools', { names: [tool.name] }, { onPermission: () => true });
   const reply = await driver.callTool(sessionId, tool.name, input(), { onPermission: () => true });
-  assert.equal(reply.isError, false, JSON.stringify(reply)); assert.match(JSON.stringify(reply), /queued/);
+  assert.equal(reply.isError, true, JSON.stringify(reply)); assert.match(JSON.stringify(reply), /admitted current request/);
+  assert.equal(submitted.length, 0, 'maintenance cannot invent a current media request');
+  const generated = await tool.execute(input(), { selectWorkflow: async request => {
+    assert.equal(request.workflows.at(-1).id, 'fallback:provided-graph');
+    return { fallback: true, receipt: { source: 'current_request' }, assertCurrent: async () => {} };
+  } });
+  assert.equal(generated.status, 'queued');
   assert.equal(submitted[0].prompt['2'].inputs.text, 'A blue cat');
   assert.equal(submitted[0].prompt['1'].class_type, 'CheckpointLoaderSimple');
   failInventory = true;

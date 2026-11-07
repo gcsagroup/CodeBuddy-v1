@@ -1,4 +1,4 @@
-import { getMcpToolMetadata } from './mcp-bridge.mjs';
+import { getMcpToolMetadata, mcpServerStates, pendingMcpServers, waitForMcpServers } from './mcp-bridge.mjs';
 
 // Optional adapter capabilities share Harness's registry and logged assembly.
 // The canonical registry, authorization, execution and inventory stay unchanged.
@@ -111,17 +111,21 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
     for (const tool of available()) if (entryTools.has(tool.name)) select(tool.name);
   });
   // Restricted observers/reviewers must keep their exact tool boundary.
-  if (!available().length) return;
+  if (!available().length && !pendingMcpServers(agent).length) return;
   ctx.tools.register({
     name: 'search_mcp_tools',
     description: 'Find and load tools by keywords or exact names. Includes file edits, shell, skills, memory, goals, jobs, subagents, Git, desktop, browser and web. Empty query lists a page. Loaded tools keep their original permissions and execute through CodeBuddy.',
     parameters: { type: 'object', properties: {
       query: { type: 'string', description: 'Short search keywords; empty lists tools.' },
       names: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Exact tool names to load.' },
+      servers: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Exact pending MCP server names to wait for before searching. Other connections do not block this search.' },
       offset: { type: 'integer', minimum: 0, description: 'Page offset, default 0.' },
     }, additionalProperties: false },
     output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
-    async execute({ query = '', names = [], offset = 0 }) {
+    async execute({ query = '', names = [], servers = [], offset = 0 }, exec) {
+      const pending = pendingMcpServers(agent);
+      const requested = pending.filter(server => servers.includes(server) || names.some(name => name.startsWith(`mcp__${server}__`)));
+      await waitForMcpServers(agent, requested, exec?.signal);
       const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
       const tools = available();
       const scored = tools.map(tool => ({ tool, score: terms.reduce((n, term) => n + (tool.name.toLowerCase().includes(term) ? 3 : 0) + (tool.description?.toLowerCase().includes(term) ? 1 : 0), 0) }));
@@ -129,15 +133,16 @@ export function installToolDiscovery(ctx, agent, modelEndpoint = () => undefined
         : scored.filter(item => !terms.length || item.score > 0).sort((a, b) => b.score - a.score || a.tool.name.localeCompare(b.tool.name)).map(item => item.tool);
       const page = matches.slice(offset, offset + 5);
       for (const tool of page) select(tool.name);
-      return { tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)),
+      return { pendingServers: pendingMcpServers(agent), serverStatuses: mcpServerStates(agent).filter(server => servers.includes(server.serverName) || names.some(name => name.startsWith(`mcp__${server.serverName}__`))), tools: page.map(project), totalMatches: matches.length, ...(offset + page.length < matches.length ? { nextOffset: offset + page.length } : {}), missingNames: names.filter(name => !tools.some(tool => tool.name === name)),
         ...(!matches.length ? { availableNativeTools: tools.filter(tool => optionalNative.has(tool.name)).map(tool => tool.name),
-          guidance: 'No match in this session. Choose an available tool; repeating the same search cannot install or enable one.' } : {}) };
+          guidance: pendingMcpServers(agent).length ? 'Some selected MCP servers are still connecting. Use servers with an exact pending server name to wait, then search. Pending is not missing or disabled.' : 'No match in this session. Choose an available tool; repeating the same search cannot install or enable one.' } : {}) };
     },
   });
   ctx.systemPrompt.section({ name: 'codebuddy:mcp-discovery', order: 99, interpolate: false,
     text: () => {
       const count = available().length;
-      return count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '';
+      const pending = pendingMcpServers(agent);
+      return (pending.length ? `Selected MCP servers connecting in the background: ${JSON.stringify(pending)}. Their tools are not missing or disabled. To use one, call search_mcp_tools with servers containing its exact name; this waits for its actual catalog. ` : '') + (count ? `${count} tools are available through search_mcp_tools. Call tools already present in the current tool schemas directly; search only for missing schemas. Native names: ${available().filter(t => optionalNative.has(t.name)).map(t => t.name).join(', ')}. Search other capabilities by keywords; use English names/keywords for discovery.${available().some(t => t.name.startsWith('mcp__qwen_computer__')) ? ' Desktop GUI work: consult the computer-use skill before acting. Use the desktop MCP for input and fresh screenshots for verification. If focus, permission or visual observation fails, report that blocker; do not substitute shell UI scripts or treat shell exit status as delivery evidence.' : ''}` : '');
     },
   });
   ctx.systemPrompt.section({ name: 'codebuddy:desktop-availability', order: 100, interpolate: false,

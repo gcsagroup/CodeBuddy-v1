@@ -229,7 +229,7 @@ export type MessageMetadata = {
   // Presentation only: a queued request is not yet admitted to the model.
   pendingDelivery?: 'pending' | 'unconfirmed';
   scheduled?: true;
-  presentation?: { afterMessageId: string };
+  presentation?: { afterMessageId: string; continuation?: true };
   inference?: InferenceMetadata | null;
   steer?: boolean;
   usage?: MessageUsage | null;

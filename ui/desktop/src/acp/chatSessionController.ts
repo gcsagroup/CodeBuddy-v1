@@ -36,6 +36,7 @@ import {
 } from './permissionRequests';
 import { acquireWorkspaceLease, releaseWorkspaceLease } from './workspaceLease';
 import { acpCancelPrompt, acpPromptSession, type CodeProTurnRetryMetadata } from './prompt';
+import { applyThinkingDraft, readThinkingDraft } from './providers';
 import { isAcpRecovering } from './acpConnection';
 import {
   acpForkSession,
@@ -298,10 +299,26 @@ async function reconfirmCodeProWorkspace(
   );
 }
 
+// Share the complete restore transaction, not only the transport request: duplicate
+// mounts must not publish readiness or restore permissions twice for one replay.
+const restoringSessions = new Map<string, Promise<boolean>>();
 async function loadSessionFromServer(
   sessionId: string,
   options: AcpLoadSessionOptions = {}
 ): Promise<void> {
+  let pending = restoringSessions.get(sessionId);
+  if (!pending) {
+    pending = restoreSessionFromServer(sessionId);
+    restoringSessions.set(sessionId, pending);
+  }
+  try {
+    if (await pending) options.onSessionLoaded?.();
+  } finally {
+    if (restoringSessions.get(sessionId) === pending) restoringSessions.delete(sessionId);
+  }
+}
+
+async function restoreSessionFromServer(sessionId: string): Promise<boolean> {
   ensureSessionLoadTiming(sessionId);
   traceSessionLoad(sessionId, 'load_start');
   if (!isAcpSessionLoadInFlight(sessionId)) {
@@ -318,13 +335,12 @@ async function loadSessionFromServer(
       );
       acpChatSessionActions.finishSessionLoad(sessionId, sessionInfoToSession(sessionInfo, meta));
       restoreAcpPermissionRequestsForSession(sessionId);
-      options.onSessionLoaded?.();
-      return;
+      return true;
     } catch (error) {
       if (error instanceof CodeProWorkspaceReconfirmationRequiredError) {
         acpChatSessionActions.requireWorkspaceReconfirmation(sessionId, error.request);
         finishSessionLoadTiming(sessionId, 'workspace_reconfirmation');
-        return;
+        return false;
       }
       const retryDelay = SESSION_LOAD_RETRY_DELAYS_MS[attempt];
       if (retryDelay !== undefined && isTransientAcpConnectionError(error)) {
@@ -340,7 +356,7 @@ async function loadSessionFromServer(
       console.error('Failed to load ACP session:', error);
       acpChatSessionActions.failSessionLoad(sessionId, errorMessage(error));
       finishSessionLoadTiming(sessionId, 'failed');
-      return;
+      return false;
     }
   }
 }
@@ -442,6 +458,13 @@ async function submitMessage(
   });
 
   try {
+    const selected = snapshot?.session;
+    if (automaticCheckpointResumeCount === 0 && !turnRetry &&
+      selected?.provider_name && selected.model_config?.model_name &&
+      readThinkingDraft(selected.provider_name, selected.model_config.model_name) !== undefined) {
+      await applyThinkingDraft(selected.provider_name, selected.model_config.model_name);
+      assertNoPendingPromptCancellation(sessionId);
+    }
     const response = checkpointContext
       ? await acpPromptSession(sessionId, userMessage, turnRetry, checkpointContext)
       : await acpPromptSession(sessionId, userMessage, turnRetry);
@@ -756,8 +779,14 @@ async function updateMessage(
       throw new Error('Only a visible user request can be retried');
     }
 
-    const retryMessage = createUserMessage(sourceContent.textContent);
-    retryMessage.content.push(...sourceImages);
+    // Keep the native history and completed tool receipts. Replaying the source
+    // prompt (especially its attachments) starts the work over instead of resuming it.
+    const retryMessage = createUserMessage('请从当前对话已有的进度继续完成任务。保留已经完成的工作和工具结果；有执行结果不确定的操作，先检查状态，不要直接重复执行。');
+    retryMessage.metadata.userVisible = false;
+    retryMessage.metadata.presentation = {
+      afterMessageId: currentMessages[currentMessages.length - 1]?.id ?? message.id!,
+      continuation: true,
+    };
     acpChatSessionActions.setMessages(sessionId, [...currentMessages, retryMessage]);
     await submitMessage(sessionId, retryMessage, options);
     return;

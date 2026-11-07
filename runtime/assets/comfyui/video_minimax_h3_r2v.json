@@ -89,7 +89,7 @@
     "inputs": {
       "scheduler": "simple",
       "steps": [
-        "142",
+        "143",
         0
       ],
       "denoise": 1,
@@ -134,7 +134,7 @@
   "126": {
     "inputs": {
       "model": [
-        "141",
+        "127",
         0
       ],
       "conditioning": [
@@ -149,7 +149,7 @@
   },
   "127": {
     "inputs": {
-      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
@@ -291,46 +291,6 @@
       "title": "加载图像"
     }
   },
-  "141": {
-    "inputs": {
-      "switch": [
-        "146",
-        0
-      ],
-      "on_false": [
-        "127",
-        0
-      ],
-      "on_true": [
-        "145",
-        0
-      ]
-    },
-    "class_type": "ComfySwitchNode",
-    "_meta": {
-      "title": "If/Else Switch (model)"
-    }
-  },
-  "142": {
-    "inputs": {
-      "switch": [
-        "146",
-        0
-      ],
-      "on_false": [
-        "143",
-        0
-      ],
-      "on_true": [
-        "144",
-        0
-      ]
-    },
-    "class_type": "ComfySwitchNode",
-    "_meta": {
-      "title": "If/Else Switch (Steps)"
-    }
-  },
   "143": {
     "inputs": {
       "value": 20
@@ -338,38 +298,6 @@
     "class_type": "PrimitiveInt",
     "_meta": {
       "title": "Int (Full)"
-    }
-  },
-  "144": {
-    "inputs": {
-      "value": 4
-    },
-    "class_type": "PrimitiveInt",
-    "_meta": {
-      "title": "Int (Lightning LoRA)"
-    }
-  },
-  "145": {
-    "inputs": {
-      "lora_name": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
-      "strength_model": 1,
-      "model": [
-        "127",
-        0
-      ]
-    },
-    "class_type": "LoraLoaderModelOnly",
-    "_meta": {
-      "title": "LoRA加载器（仅模型）"
-    }
-  },
-  "146": {
-    "inputs": {
-      "value": false
-    },
-    "class_type": "PrimitiveBoolean",
-    "_meta": {
-      "title": "Boolean (Enable Lightning LoRA)"
     }
   }
 }

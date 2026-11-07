@@ -1,4 +1,36 @@
 {
+  "runtime.sourceChanged": { "defaultMessage": "後端程式碼已更新。請等待目前任務完成後，關閉並重新啟動 CodeBuddy，讓修改生效。" },
+  "toolbox.sync.connecting": { "defaultMessage": "背景連線中…" },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "重新整理模型"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "正在重新整理模型…"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "模型清單已更新。"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "部分連線重新整理失敗，已保留這些連線的上次清單，請重試。"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "專案操作"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "置頂專案"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "取消專案置頂"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "在專案中新建對話"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "封存專案中的對話"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "封存「{name}」中的 {count} 個對話？不會更動專案檔案，可在歷史記錄中還原對話。"
+  },
   "alertBox.compactNow": {
     "defaultMessage": "立即壓縮"
   },
@@ -1503,7 +1535,10 @@
     "defaultMessage": "執行結果"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "工作計畫"
+    "defaultMessage": "任務"
+  },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "{completed} 已完成 · {active} 進行中 · {pending} 待處理"
   },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "此任務的較早計畫"
@@ -2820,7 +2855,7 @@
     "defaultMessage": "移除擴充功能"
   },
   "extensionModal.sessionScope": {
-    "defaultMessage": "這裡的設定作為新對話的預設值。既有對話請在輸入框旁的擴充功能選單中啟用或重新載入該擴充功能。「測試連線」只檢查服務，不會將它載入對話中。"
+    "defaultMessage": "跟隨工具箱的對話將在下一輪任務開始前套用變更；自訂範圍的對話保留其選擇。測試連線只檢查服務，不會將它載入對話中。"
   },
   "extensionModal.testConnection": {
     "defaultMessage": "測試連線"
@@ -4471,6 +4506,9 @@
   },
   "mentionPopover.addGroup": {
     "defaultMessage": "新增"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "載入更多"
   },
   "mentionPopover.agents": {
     "defaultMessage": "智慧體"
@@ -9204,7 +9242,7 @@
     "defaultMessage": "連接 GitHub，管理遠端儲存庫、議題、提取請求與 CI。"
   },
   "toolbox.globalDefault": {
-    "defaultMessage": "此開關控制新任務的預設可用狀態。"
+    "defaultMessage": "跟隨工具箱的對話會在下一輪載入已啟用工具；停用工具後不能再呼叫。"
   },
   "toolbox.implementation": {
     "defaultMessage": "實作方式"
@@ -9919,5 +9957,32 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "取消置頂"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "跟隨工具箱"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "自訂範圍"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "由智慧體限定"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "已儲存；下一輪任務開始前套用更新，目前任務繼續執行。"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "目前對話已同步最新設定。"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "新對話跟隨工具箱中已啟用的能力；既有自訂對話保留其選擇範圍。"
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "連線失敗"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "已連線"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "重試連線"
   }
 }

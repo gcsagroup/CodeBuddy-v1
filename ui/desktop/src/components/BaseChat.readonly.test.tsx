@@ -361,10 +361,11 @@ it('keeps loading feedback through delayed rendering instead of releasing it aft
     fixture.autoRender = false;
     const view = show();
     expect(screen.getByTestId('conversation-loading')).toBeVisible();
-    expect(screen.getByTestId('conversation-loading').closest('.absolute')).toBeNull();
+    expect(screen.getAllByTestId('conversation-loading')).toHaveLength(1);
+    expect(screen.getByTestId('conversation-loading').closest('[aria-hidden="true"]')).toBeNull();
     expect(
       screen.getByTestId('conversation-loading').querySelector('[role="status"]')
-    ).toHaveTextContent('loading conversation...');
+    ).toHaveTextContent('Loading conversation…');
     fixture.loading = false;
     view.rerender(
       <MemoryRouter>
@@ -453,8 +454,9 @@ it('retains normal conversation controls outside imported history', () => {
   expect(screen.getByRole('button', { name: 'Resume task' })).toBeVisible();
 });
 
-it('offers a way back only when the latest output is below the viewport', () => {
+it('offers a way back only when the latest output is below the viewport', async () => {
   const { container } = show();
+  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
   const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
   const end = viewport.querySelector('div[style="height: 1px;"]')!;
   const bounds = vi.spyOn(end, 'getBoundingClientRect');

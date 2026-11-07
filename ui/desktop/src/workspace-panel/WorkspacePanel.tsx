@@ -91,7 +91,6 @@ import './workspacePanel.css';
 import { OPEN_GOAL_EDITOR } from './goalPanel';
 import { getSessionGoal } from '../acp/goals';
 import { WorkspaceGoalEditor, goalEditorMessages } from './WorkspaceGoalEditor';
-const openedMediaJobs = new Set<string>();
 
 export const WORKSPACE_PANEL_GAP = 0;
 export const WORKSPACE_PANEL_TRANSITION = {
@@ -361,18 +360,8 @@ export function WorkspacePanelContent({
     return () => window.removeEventListener(AppEvents.SESSION_CONVERSATION_CHANGED, changed);
   }, [scope.sessionId, update]);
   const { jobs: mediaJobs, disconnected: mediaDisconnected } = useMediaJobs(scope.sessionId);
-  useEffect(() => {
-    const fresh = mediaJobs.filter(
-      (job) =>
-        !openedMediaJobs.has(`${scope.sessionId}:${job.job_id}`) &&
-        ['queued', 'running', 'preparing'].includes(job.status) &&
-        Date.now() - Date.parse(job.created_at) < 300_000
-    );
-    if (!fresh.length) return;
-    for (const job of fresh) openedMediaJobs.add(`${scope.sessionId}:${job.job_id}`);
-    update((current) => ({ ...current, active: 'media', mediaHidden: false }));
-    onExpandedChange(true);
-  }, [mediaJobs, scope.sessionId, update, onExpandedChange]);
+  // Inline cards show progress without taking over the user's current tab.
+  // Generation history stays available in the tab strip; opening a result is explicit.
   const selected = state.tabs.find((t) => t.id === state.active);
   useEffect(() => {
     tabStrip.current

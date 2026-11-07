@@ -108,6 +108,23 @@ test('tool errors, generic HTTP errors and uncertain network outcomes never caus
   assert.equal(f.executions(), 2, 'a lost response must not repeat an already executed operation');
 });
 
+test('editing one server reuses healthy peers across overlapping conversation selections', async t => {
+  const f = await fixture(t), other = await statefulMcp(t);
+  const companion = { ...f.mcp, serverName: 'Companion', url: `${other.baseUrl}/mcp` };
+  const first = await f.session([f.mcp, companion]);
+  const peer = await f.session([companion]);
+  assert.equal(other.initializations(), 1, 'overlapping selections share the same healthy server');
+  await f.driver.invalidateMcpServers(['hex']);
+  await f.driver.configureSession(first, { mcpServers: [{ ...f.mcp, headers: { Authorization: 'Bearer replacement' } }, companion] });
+  assert.equal(f.initializations(), 2);
+  assert.equal(other.initializations(), 1, 'editing Hex must not reconnect Companion');
+  assert.equal((await f.driver.callTool(peer, 'mcp__Companion__health', {}, { onPermission: async () => true })).isError, false);
+  assert.equal((await f.driver.callTool(first, 'mcp__Companion__health', {}, { onPermission: async () => true })).isError, false);
+  assert.ok(!(await f.driver.listTools(peer)).some(tool => tool.name.includes('Hex')));
+  await f.driver.configureSession(first, { mcpServers: [companion] });
+  assert.equal(other.initializations(), 1, 'removing Hex must not reconnect Companion');
+});
+
 test('stateless HTTP 404 does not start a session-recovery loop', async t => {
   const f = await fixture(t, { stateless: true }), id = await f.session();
   f.control.fault = true;

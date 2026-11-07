@@ -104,7 +104,6 @@ server.listen(0, "127.0.0.1", async () => {
       env: {
         ...process.env,
         CODEBUDDY_PREVIEW_DEVTOOLS_PORT: "9387",
-        CODEPRO_UNIFIED_MODE: "false",
       },
     });
   } catch (error) {

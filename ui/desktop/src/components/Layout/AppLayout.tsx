@@ -9,7 +9,7 @@ import {
 } from '../../workspace-panel/workspaceFilePanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { PanelLeft } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { defineMessages, useIntl } from '../../i18n';
@@ -22,7 +22,7 @@ import { Z_INDEX } from './constants';
 import { NavigationSidebar } from './NavigationSidebar';
 import { cn } from '../../utils';
 import { UserInput } from '../../types/message';
-import type { WorkspaceMode } from '../codepro/WorkspaceSwitcher';
+import type { WorkspaceMode } from '../../utils/navigationUtils';
 import {
   WORKSPACE_PANEL_GAP as CODEPRO_TASK_PANEL_GAP,
   WORKSPACE_PANEL_TRANSITION,
@@ -90,17 +90,18 @@ export function readCodeProTaskPanelPreferences(storage?: {
   expanded: boolean;
   width: number | null;
 } {
-  if (!storage) return { expanded: true, width: null };
+  if (!storage) return { expanded: false, width: null };
   try {
-    const expandedValue = storage.getItem(CODEPRO_TASK_PANEL_EXPANDED_KEY);
     const widthValue = Number(storage.getItem(CODEPRO_TASK_PANEL_WIDTH_KEY));
     return {
-      expanded: expandedValue !== 'false',
+      // Opening the app should leave room for the conversation. Expansion is
+      // local to this app lifetime; keep only the user's chosen panel width.
+      expanded: false,
       width:
         Number.isFinite(widthValue) && widthValue >= CODEPRO_PANEL_MIN_WIDTH ? widthValue : null,
     };
   } catch {
-    return { expanded: true, width: null };
+    return { expanded: false, width: null };
   }
 }
 
@@ -122,7 +123,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
   const location = useLocation();
-  const navigate = useNavigate();
   const safeIsMacOS = (window?.electron?.platform || 'darwin') === 'darwin';
   const chatContext = useChatContext();
   const isOnPairRoute = location.pathname === '/pair' || location.pathname === '/codepro/pair';
@@ -210,10 +210,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        CODEPRO_TASK_PANEL_EXPANDED_KEY,
-        String(isCodeProTaskPanelExpanded)
-      );
       if (codeProTaskPanelWidth !== null) {
         window.localStorage.setItem(CODEPRO_TASK_PANEL_WIDTH_KEY, String(codeProTaskPanelWidth));
       }
@@ -306,9 +302,6 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
           <Navigation
             workspaceMode={workspaceMode}
             needsTrafficLightInset={needsTrafficLightInset}
-            onWorkspaceModeChange={(nextMode) =>
-              navigate(nextMode === 'codepro' ? '/codepro' : '/')
-            }
           />
         </NavigationSidebar>
 

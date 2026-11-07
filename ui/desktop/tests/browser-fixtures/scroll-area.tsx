@@ -265,9 +265,6 @@ function SidebarFixture() {
         <NavigationSidebar expanded={expanded} onExpandedChange={setExpanded}>
           <div className="flex h-full min-h-0 flex-col">
             <NavigationHeaderSlot
-              workspaceMode="codepro"
-              onWorkspaceModeChange={() => {}}
-              unifiedMode
               onNewChat={() => {}}
             />
             <NavigationChatsSection>

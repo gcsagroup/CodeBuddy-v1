@@ -5,6 +5,7 @@ import {
   MediaJobsProvider,
   useMediaJobs,
   WorkspaceGeneration,
+  resolveMediaOutput,
   type MediaJob,
 } from './WorkspaceGeneration';
 const { mediaRequest } = vi.hoisted(() => ({ mediaRequest: vi.fn() }));
@@ -12,6 +13,23 @@ vi.mock('../acp/acpConnection', () => ({
   getAcpControlClient: async () => ({ extMethod: mediaRequest }),
 }));
 const scope = { sessionId: 'session-a', root: 'D:/fixture' };
+it('resolves old remote links only through completed receipts in the selected session', () => {
+  const remote = 'http://comfy.test/view?filename=clip.mp4&subfolder=CodeBuddy&type=output';
+  const job: MediaJob = {
+    job_id: 'clip',
+    kind: 'video',
+    created_at: '2026-11-06',
+    status: 'completed',
+    live: {},
+    videos: [{ path: 'D:\\workspace\\clip.mp4', preview_url: remote }],
+  };
+  expect(resolveMediaOutput([job], remote)?.path).toBe('D:\\workspace\\clip.mp4');
+  expect(resolveMediaOutput([job], 'D:/workspace/clip.mp4')?.path).toBe(job.videos![0].path);
+  expect(resolveMediaOutput([], remote)).toBeUndefined();
+  expect(resolveMediaOutput([{ ...job, status: 'running' }], remote)).toBeUndefined();
+  expect(resolveMediaOutput([job], remote.replace('comfy.test', 'untrusted.test'))).toBeUndefined();
+  expect(resolveMediaOutput([job], 'http://comfy.test/other/clip.mp4')).toBeUndefined();
+});
 beforeEach(() => {
   vi.stubGlobal(
     'ResizeObserver',
@@ -211,6 +229,17 @@ it('shows local animation with real progress, ignores legacy frames, and opens c
     />
   );
   await waitFor(() => expect(view.container.querySelector('video')).toHaveAttribute('controls'));
+  const player = view.container.querySelector('video')!;
+  player.pause = vi.fn();
+  player.currentTime = 2;
+  fireEvent.click(screen.getByRole('button', { name: 'Expand video' }));
+  const dialog = screen.getByRole('dialog');
+  expect(player.pause).toHaveBeenCalled();
+  const expanded = dialog.querySelector('video')!;
+  fireEvent.loadedMetadata(expanded);
+  expect(expanded.currentTime).toBe(2);
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.queryByRole('progressbar')).toBeNull();
   expect(screen.queryByTestId('generation-wait')).toBeNull();
   expect(screen.queryByRole('img')).toBeNull();

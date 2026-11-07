@@ -92,21 +92,37 @@ it('shows a closable files tab and external-open controls only after entering fi
   window.electron.workspacePanel = ipc;
   const scope = { sessionId: 'file-toolbar-scope', root: 'C:/fixture' };
   try {
-    render(<WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+    render(
+      <WorkspacePanelContent scope={scope} expanded width={560} onExpandedChange={vi.fn()} />,
+      { wrapper: IntlTestWrapper }
+    );
     expect(screen.queryByRole('tab', { name: 'Files' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open with' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Workspace files.*Browse/ }));
-    expect(await screen.findByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: 'Files' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Open in default application' }));
-    await waitFor(() => expect(ipc).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: '', choose: false })));
+    await waitFor(() =>
+      expect(ipc).toHaveBeenCalledWith(
+        expect.objectContaining({ scope, action: 'open-target', path: '', choose: false })
+      )
+    );
     await waitFor(() => expect(screen.getByRole('button', { name: 'Open with' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Open with' }));
-    await waitFor(() => expect(ipc).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: '', choose: true })));
+    await waitFor(() =>
+      expect(ipc).toHaveBeenCalledWith(
+        expect.objectContaining({ scope, action: 'open-target', path: '', choose: true })
+      )
+    );
     fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
     expect(screen.queryByRole('button', { name: 'Open with' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Close Files' }));
     expect(screen.queryByRole('tab', { name: 'Files' })).toBeNull();
-  } finally { window.electron.workspacePanel = originalPanel; }
+  } finally {
+    window.electron.workspacePanel = originalPanel;
+  }
 });
 vi.mock('./WorkspaceGeneration', async (original) => ({
   ...(await original<typeof import('./WorkspaceGeneration')>()),
@@ -386,7 +402,7 @@ it('closes and reopens generation preview without losing jobs or reopening on pr
   const { scope, rerender } = panel();
   expect(await screen.findByRole('tab', { name: 'Generation' })).toHaveAttribute(
     'aria-selected',
-    'true'
+    'false'
   );
   fireEvent.click(screen.getByRole('button', { name: 'Close Generation' }));
   expect(screen.queryByRole('tab', { name: 'Generation' })).toBeNull();
@@ -404,7 +420,9 @@ it('closes and reopens generation preview without losing jobs or reopening on pr
   fireEvent.click(screen.getByRole('button', { name: 'Close Generation' }));
   mediaState.jobs = [...mediaState.jobs, job('close-c')];
   redraw();
-  expect(screen.getByRole('tab', { name: 'Generation' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.queryByRole('tab', { name: 'Generation' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Generation' }));
+  expect(screen.getAllByRole('progressbar')).toHaveLength(3);
 });
 function panel(id = globalThis.crypto.randomUUID()) {
   const scope = { sessionId: id, root: 'D:\\fixture' };
@@ -491,9 +509,12 @@ it('shows an absolute Windows file path without prefixing the workspace again', 
   const filePath = String.raw`D:\fixture\note.txt`;
   invoke.mockResolvedValue({ document: { path: filePath, content: 'original', version: 'v1' } });
   const { scope } = panel();
-  fireEvent(window, new CustomEvent('codebuddy:open-workspace-file', {
-    detail: { sessionId: scope.sessionId, filePath },
-  }));
+  fireEvent(
+    window,
+    new CustomEvent('codebuddy:open-workspace-file', {
+      detail: { sessionId: scope.sessionId, filePath },
+    })
+  );
   expect(await screen.findByText(filePath, { selector: 'span' })).toBeVisible();
   expect(screen.queryByText(`${scope.root}/${filePath}`)).toBeNull();
 });
@@ -574,7 +595,9 @@ it('opens document previews while preserving an edited file tab', async () => {
   );
   expect(await screen.findByText('interactive-pdf')).toBeVisible();
   fireEvent.click(await screen.findByRole('button', { name: 'Open in default application' }));
-  expect(invoke).toHaveBeenCalledWith(expect.objectContaining({ scope, action: 'open-target', path: 'report.docx', choose: false }));
+  expect(invoke).toHaveBeenCalledWith(
+    expect.objectContaining({ scope, action: 'open-target', path: 'report.docx', choose: false })
+  );
   fireEvent.click(screen.getByRole('tab', { name: /note.txt/ }));
   expect(screen.getByRole('textbox', { name: 'File editor' })).toHaveValue('unsaved user draft');
 });
@@ -1343,12 +1366,25 @@ it('opens a local video in the right panel with playback controls and no editing
 });
 
 it('replaces the new page with the chosen function and reopens one empty page from plus', async () => {
-  render(<WorkspacePanelContent scope={{ sessionId: 'new-tab-flow', root: 'C:/fixture' }} expanded width={560} onExpandedChange={vi.fn()} />, { wrapper: IntlTestWrapper });
+  render(
+    <WorkspacePanelContent
+      scope={{ sessionId: 'new-tab-flow', root: 'C:/fixture' }}
+      expanded
+      width={560}
+      onExpandedChange={vi.fn()}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
   expect(screen.getByRole('tab', { name: 'New tab' })).toHaveAttribute('aria-selected', 'true');
   fireEvent.click(screen.getByRole('button', { name: /Workspace files.*Browse/ }));
   expect(screen.queryByRole('tab', { name: 'New tab' })).toBeNull();
   expect(screen.getByRole('tab', { name: 'Files' })).toHaveAttribute('aria-selected', 'true');
-  expect(screen.getAllByRole('tab').slice(0, 3).map(tab => tab.textContent)).toEqual(['Changes', 'Subagents', 'Files']);
+  expect(
+    screen
+      .getAllByRole('tab')
+      .slice(0, 3)
+      .map((tab) => tab.textContent)
+  ).toEqual(['Changes', 'Subagents', 'Files']);
   fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
   fireEvent.click(screen.getByRole('button', { name: 'New tab' }));
   expect(screen.getAllByRole('tab', { name: 'New tab' })).toHaveLength(1);

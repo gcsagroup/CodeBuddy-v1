@@ -5,31 +5,27 @@
 import type { ExtensionLoadResult } from '../types/extensions';
 import { toastService, ExtensionLoadingStatus } from '../toasts';
 
-export const MAX_ERROR_MESSAGE_LENGTH = 70;
-
 /**
  * Creates recovery hints for the "Ask goose" feature when extension loading fails
  */
 export function createExtensionRecoverHints(errorMsg: string): string {
   return (
     `Explain the following error: ${errorMsg}. ` +
-    'This happened while trying to install an extension. Look out for issues where the ' +
-    "extension attempted to execute something incorrectly, didn't exist, or there was trouble with " +
-    'the network configuration - VPNs like WARP often cause issues.'
+    'This happened while loading an MCP extension. Diagnose the supplied error and distinguish local dependencies, configuration, connection and tool discovery failures. Do not assume a model or network fault.'
   );
 }
 
 /**
- * Formats an error message for display, truncating long messages with a fallback
+ * Preserve bounded, sanitized runtime diagnostics; scrolling belongs to the UI.
  * @param errorMsg - The full error message
- * @param fallback - The fallback message to show if the error is too long
+ * @param fallback - The fallback message to show if the error is empty
  * @returns The formatted error message
  */
 export function formatExtensionErrorMessage(
   errorMsg: string,
   fallback: string = 'Failed to add extension'
 ): string {
-  return errorMsg.length < MAX_ERROR_MESSAGE_LENGTH ? errorMsg : fallback;
+  return errorMsg.trim() || fallback;
 }
 
 /**
@@ -42,6 +38,18 @@ export function showExtensionLoadResults(results: ExtensionLoadResult[] | null |
     return;
   }
 
+  // Results are partial session views: an absent extension has not recovered.
+  // Healthy peers changing or a different chat selection must not re-announce
+  // an unchanged failure. A confirmed recovery re-arms that extension only.
+  const failures = results.filter(result => {
+    const signature = JSON.stringify([result.success, result.error ?? '']);
+    const previous = lastResults.get(result.name);
+    lastResults.delete(result.name);
+    lastResults.set(result.name, signature);
+    return !result.success && previous !== signature;
+  });
+  while (lastResults.size > 256) lastResults.delete(lastResults.keys().next().value!);
+  if (!failures.length) return;
   const extensionStatuses: ExtensionLoadingStatus[] = results.map((r) => {
     const errorMsg = r.error || 'Unknown error';
     return {
@@ -54,3 +62,5 @@ export function showExtensionLoadResults(results: ExtensionLoadResult[] | null |
 
   toastService.extensionLoading(extensionStatuses, results.length, true);
 }
+
+const lastResults = new Map<string, string>();

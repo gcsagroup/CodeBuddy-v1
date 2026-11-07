@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "План работы"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "Завершено: {completed} · В работе: {active} · Ожидают: {pending}"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

@@ -40,6 +40,44 @@ describe('MentionPopover while the workspace is unbound', () => {
     expect(screen.getByRole('option', { name: /^File/ })).toBeVisible();
     expect(screen.queryByRole('option', { name: /Export conversation/ })).not.toBeInTheDocument();
     expect(document.body.querySelector('[data-composer-menu="add"]')).toHaveClass('composer-menu-surface');
+    expect(listSlashCommandItems).not.toHaveBeenCalled();
+    expect(loadToolbox).not.toHaveBeenCalled();
+  });
+
+  it('requests add-menu inventory only on demand and appends bounded batches', async () => {
+    let finish!: (items: Awaited<ReturnType<typeof listSlashCommandItems>>) => void;
+    vi.mocked(listSlashCommandItems).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    render(<MentionPopover isOpen addOnly isSlashCommand onClose={vi.fn()} onSelect={vi.fn()}
+      anchorRef={anchorRef} query="" selectedIndex={0} onSelectedIndexChange={vi.fn()} workingDir="/fixture" />,
+    { wrapper: IntlTestWrapper });
+    expect(screen.getAllByRole('option')).toHaveLength(4);
+    fireEvent.wheel(screen.getByRole('listbox'), { deltaY: 100 });
+    await waitFor(() => expect(listSlashCommandItems).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading commands');
+    fireEvent.wheel(screen.getByRole('listbox'), { deltaY: 100 });
+    expect(listSlashCommandItems).toHaveBeenCalledTimes(1);
+    await act(async () => finish(Array.from({ length: 60 }, (_, i) => ({
+      name: `skill-${String(i).padStart(2, '0')}`, relativePath: `skill-${i}`, itemType: 'Skill' as const, extra: 'test skill',
+    }))));
+    expect(screen.getAllByRole('option').length).toBeLessThanOrEqual(20);
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(screen.getAllByRole('option')).toHaveLength(40);
+    expect(listSlashCommandItems).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses a menu snapshot on reopen but never in another workspace', async () => {
+    vi.mocked(listSlashCommandItems).mockResolvedValueOnce([{ name: 'cached skill', relativePath: 'cached-skill', itemType: 'Skill', extra: 'fixture' }]);
+    const props = { isOpen: true, addOnly: true, isSlashCommand: true, onClose: vi.fn(), onSelect: vi.fn(), anchorRef, query: '', selectedIndex: 0, onSelectedIndexChange: vi.fn(), workingDir: '/fixture' };
+    const view = render(<MentionPopover {...props} />, { wrapper: IntlTestWrapper });
+    fireEvent.wheel(screen.getByRole('listbox'), { deltaY: 100 });
+    await screen.findByRole('option', { name: /cached skill/ });
+    await act(async () => {});
+    view.rerender(<MentionPopover {...props} isOpen={false} />);
+    vi.mocked(listSlashCommandItems).mockReturnValue(new Promise(() => {}));
+    view.rerender(<MentionPopover {...props} />);
+    expect(screen.getByRole('option', { name: /cached skill/ })).toBeVisible();
+    view.rerender(<MentionPopover {...props} workingDir="/other" />);
+    expect(screen.queryByRole('option', { name: /cached skill/ })).toBeNull();
   });
 
   it('shows Toolbox skills, MCP and built-in tools even when slash discovery is pending', async () => {
@@ -107,7 +145,7 @@ describe('MentionPopover while the workspace is unbound', () => {
       expect.any(String),
       expect.objectContaining({ toolboxItem: mcp })
     );
-    expect(loadToolbox).toHaveBeenCalledWith('/fixture', undefined);
+    expect(loadToolbox).toHaveBeenCalledWith('/fixture', undefined, expect.objectContaining({ includeUsage: false, onPartial: expect.any(Function) }));
   });
 
   it('shows local goal and plan commands while remote commands are pending and selects by click', async () => {

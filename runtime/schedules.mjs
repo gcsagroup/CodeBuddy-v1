@@ -133,7 +133,7 @@ export class ScheduleService {
   }
 
   rows() {
-    return this.store.read().schedules ?? [];
+    return this.store.read(['schedules']).schedules ?? [];
   }
   find(id) {
     const row = this.rows().find((entry) => entry.id === id);

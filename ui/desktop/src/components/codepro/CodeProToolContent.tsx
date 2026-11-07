@@ -7,6 +7,10 @@ import { defineMessages, useIntl } from '../../i18n';
 import type { ToolRequestMessageContent, ToolResponseMessageContent } from '../../types/message';
 
 const messages = defineMessages({
+  planSummary: {
+    id: 'codeProToolContent.planSummary',
+    defaultMessage: '{completed} done · {active} in progress · {pending} pending',
+  },
   plan: { id: 'codeProToolContent.plan', defaultMessage: 'Work plan' },
   previousPlan: {
     id: 'codeProToolContent.previousPlan',
@@ -236,26 +240,31 @@ export function CodeProPlan({
   const items = [...(content ?? '').matchAll(/^\s*(?:[-*]\s+)?\[([ xX-])\]\s+(.+)$/gm)];
   return (
     <details
-      open={!compact || undefined}
-      className={`codepro-plan codepro-disclosure group/plan my-1 w-full max-w-[32rem] text-xs ${compact ? 'codepro-disclosure-popover relative' : ''}`}
+      open={compact ? undefined : true}
+      className={`codepro-plan codepro-disclosure group/plan my-1 w-full ${compact ? 'overflow-hidden rounded-2xl border border-border-primary/60 bg-background-secondary/40 text-sm shadow-sm' : 'text-xs'}`}
       data-testid="work-plan"
+      data-plan-card={compact || undefined}
       data-request-id={requestId}
     >
-      <summary className="codepro-secondary-label flex w-fit cursor-pointer list-none items-center gap-1 py-1 text-text-secondary hover:text-text-primary [&::-webkit-details-marker]:hidden">
-        <ListChecks className="h-4 w-4" aria-hidden="true" />
-        <span>{intl.formatMessage(historical ? messages.previousPlan : messages.plan)}</span>
+      <summary className={`flex w-full cursor-pointer list-none items-center gap-2 text-text-secondary hover:bg-background-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-primary [&::-webkit-details-marker]:hidden ${compact ? 'px-4 py-3' : 'codepro-secondary-label rounded-lg px-2 py-1.5'}`}>
+        <ListChecks className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="shrink-0 font-medium text-text-primary">{intl.formatMessage(historical ? messages.previousPlan : messages.plan)}</span>
         {compact && !historical && items.length > 0 && (
-          <span className="text-xs tabular-nums">
-            {items.filter((item) => item[1].toLowerCase() === 'x').length}/{items.length}
+          <span className="min-w-0 text-xs tabular-nums sm:text-sm">
+            {intl.formatMessage(messages.planSummary, {
+              completed: items.filter((item) => item[1].toLowerCase() === 'x').length,
+              active: items.filter((item) => item[1] === '-').length,
+              pending: items.filter((item) => item[1] === ' ').length,
+            })}
           </span>
         )}
         <ChevronRight
-          className={`h-3.5 w-3.5 transition-transform ${compact ? 'group-open/plan:-rotate-90' : 'group-open/plan:rotate-90'}`}
+          className="ml-auto h-3.5 w-3.5 shrink-0 transition-transform group-open/plan:rotate-90 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
       <div
-        className={`codepro-operation-details overflow-y-auto overscroll-contain rounded-xl bg-background-secondary px-3 py-2 ${compact ? 'absolute bottom-full left-0 right-0 z-20 mb-2 max-h-[min(16rem,40vh)]' : 'mt-2 max-h-72'}`}
+        className={`codepro-operation-details overflow-y-auto overscroll-contain ${compact ? 'mx-2 mb-2 max-h-[min(14rem,30vh)] px-2 [scrollbar-width:thin] [scrollbar-color:var(--border-primary)_transparent]' : 'mt-2 max-h-72 rounded-xl bg-background-secondary px-3 py-2'}`}
       >
         {historical && (
           <p className="mb-3 text-xs text-text-secondary">
@@ -263,7 +272,7 @@ export function CodeProPlan({
           </p>
         )}
         {items.length > 0 ? (
-          <ul className="space-y-1">
+          <ul className={compact ? 'space-y-0.5' : 'space-y-1'}>
             {items.map((item, index) => {
               const checked = item[1].toLowerCase() === 'x';
               const inProgress = item[1] === '-';
@@ -271,9 +280,13 @@ export function CodeProPlan({
               return (
                 <li
                   key={index}
-                  className={`flex items-start gap-1 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}
+                  className={`flex ${compact ? 'items-center gap-3 py-1.5 text-sm leading-5 text-text-secondary' : `items-start gap-1 ${checked ? 'text-text-secondary' : 'text-text-primary'}`}`}
                 >
-                  <Icon
+                  {compact && !inProgress ? (
+                    <span className="flex size-4 shrink-0 items-center justify-center" role="img" aria-label={checked ? '✓' : '○'}>
+                      <span className={`size-[7px] rounded-full ${checked ? 'bg-emerald-500' : 'bg-text-secondary/30'}`} />
+                    </span>
+                  ) : <Icon
                     className={`mt-0.5 h-4 w-4 shrink-0 ${inProgress && active ? 'animate-spin motion-reduce:animate-none' : ''}`}
                     aria-label={
                       inProgress
@@ -282,9 +295,9 @@ export function CodeProPlan({
                           ? '✓'
                           : '○'
                     }
-                  />
-                  <div className={`min-w-0 ${checked ? 'line-through decoration-current/40' : ''}`}>
-                    <MarkdownContent content={item[2]} className="[&_p]:mb-0" />
+                  />}
+                  <div className={compact ? 'min-w-0 flex-1 overflow-hidden' : 'min-w-0 break-words'} title={compact ? item[2] : undefined}>
+                    <MarkdownContent content={item[2]} className={compact ? '[&_p]:mb-0 [&_p]:truncate [&_p]:leading-5' : '[&_p]:mb-0'} />
                   </div>
                 </li>
               );

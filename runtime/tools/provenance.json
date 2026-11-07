@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "copiedAt": "2026-11-03T03:44:36.535Z",
+  "copiedAt": "2026-10-23T09:25:28Z",
   "purpose": "Tool-only MCP processes invoked by DeepSeek Harness. No legacy Agent, ACP server, model provider or scheduler is linked into codebuddy-tools.",
-  "artifactIdentityNote": "Both artifacts rebuilt locally from sourceBaselineRevision. codebuddy-tools uses only goose-mcp tool dependencies; qwen-computer-use is built from tools/qwen-computer-use Go sources.",
+  "artifactIdentityNote": "codebuddy-tools is built only from goose-mcp and its tool dependencies. It has no goose Agent/CLI/provider/scheduler dependency. Qwen remains the pinned independent MCP artifact.",
   "licenseNote": "The original goose workspace declares Apache-2.0; qwen-computer-use includes an MIT license. Full first-party license texts are included. Binary transitive third-party notice audit remains a release packaging requirement.",
   "artifacts": [
     {
@@ -10,14 +10,15 @@
       "path": "bin/codebuddy-tools.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "4fea4d18e28b1e64146d3817c583d335bed2afed64a220f04e15a645512c005c",
-      "bytes": 21022720,
+      "sha256": "c04d51c3d42b6fa75c5ef0523d9a69dbba568bc015c3275aa4322f5ff9d740f2",
+      "bytes": 21777920,
       "sourcePath": "target/debug/codebuddy-tools.exe",
-      "sourceModifiedAt": "2026-11-03T03:43:38.580Z",
-      "sourceBaselineRevision": "d702b6676ed41ffe081202cede47e140aac05761",
-      "sourceBaselineIncludesUncommittedChanges": false,
-      "rebuiltForThisRevision": true,
-      "buildProfile": "dev; rustc 1.99.1 (58cf8f9c3 2026-10-13) x86_64-pc-windows-msvc; cargo build --locked -p goose-mcp --features rustls-tls --bin codebuddy-tools --jobs 1",
+      "sourceModifiedAt": "2026-10-20T09:18:35.166039+08:00",
+      "sourceBaselineRevision": "6e5ebfb20531caccdd21de304cf4c94d3e473cc3",
+      "sourceBaselineIncludesUncommittedChanges": true,
+      "rebuiltForThisRevision": false,
+      "buildLog": ".preview-evidence/integration-20261024/rust-build.log",
+      "buildProfile": "dev, offline, jobs=1, rustls-tls",
       "license": "Apache-2.0",
       "licenseFile": "licenses/goose-Apache-2.0.txt",
       "licenseSha256": "276907a476b8790c650f7a7584b5bd194303bdacb269edf130b51c3cf2a7365d",
@@ -35,21 +36,20 @@
           "commonqueries"
         ]
       ],
-      "buildValidatedForThisRevision": true,
-      "toolchainRoot": "D:/Projects/AiLab/.artifacts/toolchain",
-      "validation": "MCP initialize and tools/list passed for commonqueries, computercontroller, autovisualiser; no desktop actions invoked"
+      "sourceManifest": ".preview-evidence/integration-20261024/tool-source-manifest.json",
+      "buildValidatedForThisRevision": true
     },
     {
       "name": "qwen-computer-use",
       "path": "bin/qwen-computer-use.exe",
       "platform": "win32",
       "architecture": "x64",
-      "sha256": "2926100588a03e8eba6403ac956856ec05794ca7eb686278420e88ff86887232",
-      "bytes": 3984384,
+      "sha256": "51d8e2245c0c2daa0459c817b5c1c4155cec1d4b2ee3898d4266d110ee4198d5",
+      "bytes": 4857856,
       "sourcePath": "target/debug/qwen-computer-use.exe",
-      "sourceModifiedAt": "2026-11-03T03:24:41.778Z",
-      "sourceBaselineRevision": "d702b6676ed41ffe081202cede47e140aac05761",
-      "sourceBaselineIncludesUncommittedChanges": false,
+      "sourceModifiedAt": "2026-10-29T09:53:50.3015428Z",
+      "sourceBaselineRevision": "bfbef730a50ac409afb5bb166027164c14ff781c",
+      "sourceBaselineIncludesUncommittedChanges": true,
       "rebuiltForThisRevision": true,
       "license": "MIT",
       "licenseFile": "licenses/qwen-computer-use-MIT.txt",
@@ -60,8 +60,8 @@
           "mcp"
         ]
       ],
-      "buildProfile": "go1.26.5 windows/amd64; GOTOOLCHAIN=local GOPROXY=off; go build -o ../../target/debug/qwen-computer-use.exe .",
-      "buildValidatedForThisRevision": true
+      "buildProfile": "go1.27.3 windows/amd64; go build -o ../../target/debug/qwen-computer-use.exe .",
+      "buildLog": "C:/Users/jiangrui/AppData/Local/Temp/codebuddy-merge-go-build.log"
     }
   ]
 }

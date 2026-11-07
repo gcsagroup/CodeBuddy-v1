@@ -8,6 +8,32 @@ const { createHash } = require('node:crypto');
 const test = require('node:test');
 const { previewEnvironment, startPreview } = require('./start-harness-preview.cjs');
 
+test('duplicate launch preserves the active receipt and refuses to prepare another desktop', async t => {
+  const { options } = fixture(t);
+  let duplicate;
+  options.onReady = receipt => {
+    const receiptPath = path.join(receipt.dataDirectory, 'logs/preview/launch.json');
+    const original = fs.readFileSync(receiptPath, 'utf8');
+    duplicate = assert.rejects(startPreview({ ...options, onReady: undefined }), /已有运行中的后台/)
+      .then(() => assert.equal(fs.readFileSync(receiptPath, 'utf8'), original));
+  };
+  assert.equal(await startPreview(options), 0);
+  await duplicate;
+});
+
+test('an older backend lease protects its receipt even without a launcher lease', async t => {
+  const { options } = fixture(t);
+  const { acquireProfileLock } = await import('../runtime/profile-lock.mjs');
+  const lock = await acquireProfileLock(path.join(options.dataDirectory, 'backend'));
+  const receiptPath = path.join(options.dataDirectory, 'logs/preview/launch.json');
+  fs.mkdirSync(path.dirname(receiptPath), { recursive: true });
+  fs.writeFileSync(receiptPath, 'existing receipt');
+  try {
+    await assert.rejects(startPreview(options), /已有运行中的后台/);
+    assert.equal(fs.readFileSync(receiptPath, 'utf8'), 'existing receipt');
+  } finally { lock.close(); }
+});
+
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-harness-launcher-'));
   t.after(() => {

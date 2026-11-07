@@ -34,6 +34,16 @@ test('blocked pet settles in the real renderer without clearing the task or repl
     await page.clock.runFor(10000);
     await expect(canvas).toHaveClass('pet-breathing');
     await page.screenshot({ path: test.info().outputPath('settled.png') });
+    await canvas.click();
+    await page.clock.runFor(310);
+    await page.getByRole('textbox').fill('browser draft');
+    await page.getByRole('button', { name: 'Add attachments or features' }).click();
+    await expect(page.getByRole('button', { name: 'File', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Goal', exact: true }).click();
+    const requests = await page.evaluate(() => (window as unknown as { petRequests: { action: string; message?: string; composerAction?: string }[] }).petRequests);
+    expect(requests.some(request => request.action === 'send-message')).toBe(false);
+    expect(requests).toContainEqual({ action: 'open-composer', composerAction: 'goal', message: 'browser draft' });
+
   } finally {
     await browser.close();
     await server.close();

@@ -692,14 +692,6 @@ export const test = base.extend<GooseTestFixtures>({
       if (testInfo.title.startsWith('Toolbox capability ')) {
         childEnvironment.GOOSE_MOIM_MESSAGE_TEXT = 'TOOLBOX_TOM_CONTEXT_ACTIVE';
       }
-      if (
-        testInfo.title.startsWith('Toolbox MCP ') ||
-        testInfo.title.startsWith('Toolbox Computer ') ||
-        testInfo.title.startsWith('Toolbox capability ') ||
-        testInfo.title.startsWith('Skills ')
-      ) {
-        childEnvironment.CODEPRO_UNIFIED_MODE = 'false';
-      }
       if (testInfo.title.startsWith('Skills Download ')) {
         childEnvironment.NO_PROXY =
           '127.0.0.1,localhost,::1,github.com,api.github.com,raw.githubusercontent.com';

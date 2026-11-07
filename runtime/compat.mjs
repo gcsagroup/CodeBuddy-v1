@@ -344,9 +344,8 @@ export class Compat {
           stop: (sessionId) => this.request("session/cancel", { sessionId }),
           isSessionBusy: (id) => this.active.has(id) || this.sessionMutations.has(id),
           sessionInfo: async (sessionId) => {
-            const state = this.store.read();
-            const session = state.sessions.find((entry) => entry.id === sessionId);
-            return session ? this.info(session, state) : null;
+            const session = this.store.readSession(sessionId, { fields: sessionInfoFields });
+            return session ? this.info(session) : null;
           },
           getRecipe: (id) => this.library.getRecipe(id),
         })
@@ -769,7 +768,7 @@ export class Compat {
       throw invalid("Configure the current session model first");
     return { provider: await driverProvider(provider, s.modelId), model: s.modelId };
   }
-  info(s, state = this.store.read(['schedules', 'codeproRuns'])) {
+  info(s, state = this.store.read(['schedules', 'codeproRuns'], { runSessionId: s.id, runFields: ['sessionId', 'runId'] })) {
     // Scheduled origin is a UI contract, independent of the native execution
     // mode. Older sessions can recover it from the persisted schedule history.
     const scheduled = s.scheduleId || state.schedules?.some((job) =>
@@ -790,7 +789,7 @@ export class Compat {
         agentProfile: (() => { const profile = sessionAgentSelection(s).profile; return profile ? { id: profile.id, name: profile.name, avatar: profile.avatar, revision: profile.revision } : undefined; })(),
         workspaceOrigin: s.workspaceOrigin,
         projectId: s.projectId,
-        activeRunId: this.runs.latest(s.id, state)?.runId,
+        activeRunId: this.runs.latestId(s.id, state),
         // Explicitly imported histories are retained records, including empty
         // ones. The frozen UI otherwise treats unnamed empty sessions as
         // disposable startup placeholders and automatically deletes them.
@@ -923,6 +922,7 @@ export class Compat {
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
       mcpServers,
+      backgroundMcp: true,
       mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
       mcpImageFallback: async (content, { signal, toolName, sessionId }) => {
         const state = this.store.read(["modelRouting", "providers"]);
@@ -1000,7 +1000,7 @@ export class Compat {
   async extensionResults(s) {
     if (!this.driver.extensionStatus || s.readonlyHistory) return [];
     const statuses = await this.driver.extensionStatus(s.id);
-    return statuses.map((item) => ({
+    return statuses.filter(item => item.status !== 'connecting').map((item) => ({
       name: item.serverName,
       success: item.status === "ready",
       ...(item.status === "ready"
@@ -1403,10 +1403,11 @@ export class Compat {
         options,
       });
       if (!unpublished) this.assertSessionAvailable(s.id);
-      if (configurationRevision !== this.configurationRevision)
-        throw extensionSnapshotChanged("Settings changed while the session was starting; retry with the current settings");
       if (permissionPresets.includes(this.store.read(['preferences']).preferences.gooseMode))
         await this.permissionModes(s);
+      extensions.assertCurrent(unpublished ? s : this.session(s.id));
+      if (configurationRevision !== this.configurationRevision)
+        throw extensionSnapshotChanged("Settings changed while the session was starting; retry with the current settings");
       this.initialized.add(s.id);
       console.info('[Harness session preparation]', JSON.stringify({
         sessionId: s.id,
@@ -1590,6 +1591,7 @@ export class Compat {
             : {}),
           projectId: p._meta?.projectId ?? null,
           initialPermissionPreset: p._meta?.initialPermissionPreset ?? initialPermissionPreset({}, this.store.read(['preferences']).preferences),
+          extensionSelection: p._meta?.enabledExtensions || prepared.enabledExtensions.length ? 'custom' : 'follow',
           ...(await sealSessionExtensions(
             prepared.enabledExtensions.length
               ? [
@@ -1651,8 +1653,9 @@ export class Compat {
           : "";
       // Sidebar refresh needs metadata; only explicit full-text searches need
       // transcript content. Both paths select one consistent committed snapshot.
-      const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], query ? undefined : {
-        sessionFields: sessionInfoFields,
+      const state = this.store.read(['sessions', 'schedules', 'codeproRuns'], {
+        ...(query ? {} : { sessionFields: sessionInfoFields }),
+        runFields: ['sessionId', 'runId'],
       });
       const sessions = state.sessions.filter(
           (s) =>
@@ -1686,7 +1689,8 @@ export class Compat {
         previous = now;
       };
       try {
-        const s = this.session(p.sessionId);
+        const s = this.session(p.sessionId, { fields: [...sessionInfoFields,
+          'nativeSessionId', 'initialPermissionPreset', 'mode', 'recipe', 'userRecipeValues', 'legacyHistory'] });
         checkpoint("readSessionMs");
         if (s.type === "code_pro" && !s.readonlyHistory) {
           if (p._meta?.workspaceLeaseId)
@@ -1713,8 +1717,9 @@ export class Compat {
         const legacy = s.legacyHistory ? updatesFromConversation(
           await loadLegacyConversation(this.store.directory, s.legacyHistory), s.createdAt,
         ) : undefined;
+        let current = this.session(s.id);
         const imageRepairs = new Map();
-        for (const update of [...(s.updates ?? []), ...(initialLiveReplay?.updates ?? [])]) {
+        for (const update of [...(current.updates ?? []), ...(initialLiveReplay?.updates ?? [])]) {
           if (update.sessionUpdate !== "tool_call_update" || !update.content?.some(part => part.type === "content" && part.content?.type === "image" && part.content.attachment)) continue;
           const key = JSON.stringify(update.content);
           if (imageRepairs.has(key)) continue;
@@ -1726,7 +1731,9 @@ export class Compat {
         // Preview reads can yield while a live turn publishes or finalizes.
         // Capture its current high water mark only after I/O, then keep reset
         // and replay synchronous so old history cannot interleave with live data.
-        const current = this.session(s.id);
+        // Without asynchronous image repair, this detached snapshot is already
+        // current. Avoid copying the full transcript twice for every open.
+        if (imageRepairs.size) current = this.session(s.id);
         if (current.cwd !== s.cwd || (current.nativeSessionId ?? current.id) !== (s.nativeSessionId ?? s.id))
           throw invalid("Session changed while image previews were being prepared; retry");
         const liveReplay = this.active.get(s.id)?.replay;
@@ -1846,6 +1853,7 @@ export class Compat {
           _meta: {
             workingDir: s.cwd,
             extensionResults,
+            sessionInfo: this.info(this.session(s.id, { fields: sessionInfoFields })),
             recipe: s.recipe ?? null,
             userRecipeValues: s.userRecipeValues ?? null,
           },
@@ -2079,6 +2087,53 @@ export class Compat {
     const settingsResult = await this.settings.request(name, p);
     if (settingsResult !== undefined) return settingsResult;
     switch (name) {
+      case 'session/extensions/retry': {
+        const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid('This conversation cannot retry extension connections');
+        if (this.active.has(s.id)) throw invalid('Wait for the current turn to finish before retrying connections');
+        const snapshot = await resolveSessionExtensions(s, this.settings);
+        const selected = new Set(snapshot.selected.map(entry => extensionName(entry.extension)));
+        const failed = (await this.driver.extensionStatus?.(s.id) ?? [])
+          .filter(entry => selected.has(entry.serverName) && entry.status === 'error')
+          .map(entry => entry.serverName);
+        snapshot.assertCurrent(this.session(s.id));
+        if (this.active.has(s.id)) throw invalid('Wait for the current turn to finish before retrying connections');
+        await this.driver.invalidateMcpServers?.(failed);
+        this.initialized.delete(s.id);
+        await this.ensureSession(this.session(s.id));
+        return {};
+      }
+      case 'session/extensions/state': {
+        const s = this.session(p.sessionId);
+        const snapshot = await resolveSessionExtensions(s, this.settings);
+        const selected = snapshot.selected.map(entry => extensionName(entry.extension));
+        const statuses = (await this.driver.extensionStatus?.(s.id) ?? [])
+          .filter(entry => selected.includes(entry.serverName));
+        snapshot.assertCurrent(this.session(s.id));
+        return {
+          mode: s.agentProfile ? 'restricted' : s.extensionSelection ?? (s.extensions == null ? 'follow' : 'custom'),
+          cwd: s.cwd,
+          pending: !this.initialized.has(s.id), running: this.active.has(s.id),
+          statuses, selected,
+        };
+      }
+      case 'session/extensions/mode': {
+        const s = this.session(p.sessionId);
+        if (s.agentProfile || s.readonlyHistory || s.archivedAt) throw invalid('This conversation cannot change its extension scope');
+        if (!['follow', 'custom'].includes(p.mode)) throw invalid('Unknown extension selection mode');
+        const snapshot = await resolveSessionExtensions(s, this.settings);
+        const sealed = p.mode === 'custom' && s.extensions == null
+          ? await sealSessionExtensions(snapshot.selected.map(entry => entry.extension), snapshot.mcpServers) : null;
+        snapshot.assertCurrent(this.session(s.id));
+        await this.store.update(state => {
+          const current = state.sessions.find(entry => entry.id === s.id);
+          snapshot.assertCurrent(current);
+          if (sealed) Object.assign(current, sealed);
+          current.extensionSelection = p.mode;
+        });
+        this.initialized.delete(s.id);
+        return {};
+      }
       case 'github/mcp/connect': {
         if (this.githubMcpConnecting) return { success: false, code: 'busy' };
         this.githubMcpConnecting = true;
@@ -2169,10 +2224,12 @@ export class Compat {
       case "session/extensions/add":
       case "session/extensions/remove": {
         const s = this.session(p.sessionId);
+        if (s.readonlyHistory || s.archivedAt) throw invalid('This conversation cannot change its extension scope');
         if (s.agentProfile && !s.agentSelection) throw invalid('This workspace uses its agent’s fixed services');
         if (this.active.has(s.id))
           throw invalid("Stop the current turn before changing extensions");
-        let extensions = (await selectedExtensions(s, this.settings)).map(
+        const snapshot = await resolveSessionExtensions(s, this.settings);
+        let extensions = snapshot.selected.map(
           (e) => e.extension,
         );
         if (name.endsWith("add")) {
@@ -2191,9 +2248,14 @@ export class Compat {
           await sessionMcpServers(s),
         );
         await this.store.update((state) => {
+          const current = state.sessions.find((x) => x.id === s.id);
+          snapshot.assertCurrent(current);
+          if (this.active.has(s.id) || current.readonlyHistory || current.archivedAt)
+            throw invalid('This conversation cannot change extensions while running or unavailable');
           Object.assign(
-            state.sessions.find((x) => x.id === s.id),
+            current,
             sealed,
+            { extensionSelection: 'custom' },
           );
         });
         this.initialized.delete(s.id);
@@ -2417,6 +2479,8 @@ export class Compat {
         );
         return { runId, messageId };
       }
+      case "runtime/status":
+        return this.runtimeStatus ? this.runtimeStatus() : { activeTurns: this.active.size };
       case "diagnostics/get": {
         const s = this.session(p.sessionId);
         return {
@@ -2735,6 +2799,11 @@ export class Compat {
     let afterToolResult = false;
     let lastResponseTextAvailable;
     const created = Math.floor(Date.now() / 1000);
+    const messageTimes = new Map();
+    const createdFor = (id, time) => {
+      if (!messageTimes.has(id)) messageTimes.set(id, Math.floor((time ?? Date.now()) / 1000));
+      return messageTimes.get(id);
+    };
     let writer;
     const notify = async (update, unstable = false) => {
       if (unstable) await writer?.appendUsage(update);
@@ -2747,7 +2816,8 @@ export class Compat {
     // ordering remain owned by Harness and do not consume this metadata.
     const afterMessageId = p._meta?.['codebuddy/message-presentation']?.afterMessageId;
     const presentation = typeof afterMessageId === 'string' && afterMessageId.length > 0 &&
-      afterMessageId.length <= 2048 && afterMessageId !== userId ? { afterMessageId } : undefined;
+      afterMessageId.length <= 2048 && afterMessageId !== userId ? { afterMessageId,
+        ...(p._meta?.['codebuddy/message-presentation']?.continuation === true ? { continuation: true } : {}) } : undefined;
     const users = p.prompt.map((content) => ({
       sessionUpdate: "user_message_chunk",
       content,
@@ -3072,7 +3142,7 @@ export class Compat {
                   : "agent_thought_chunk",
               content: { type: "text", text: event.text },
               messageId,
-              _meta: { goose: { messageId, created } },
+              _meta: { goose: { messageId, created: createdFor(messageId, event.time) } },
             });
           else if (event.type === "tool_call") {
             await notify({
@@ -3085,7 +3155,7 @@ export class Compat {
               _meta: {
                 goose: {
                   messageId,
-                  created,
+                  created: createdFor(messageId, event.time),
                   toolCall: { toolName: event.name, extensionName: "harness" },
                   ...(event.mcpApp ? { mcpApp: event.mcpApp } : {}),
                 },
@@ -3094,7 +3164,7 @@ export class Compat {
           } else if (event.type === "tool_result") {
             await notify(await toolResultUpdate(event, {
               messageId: event.messageId ?? randomUUID(),
-              created,
+              created: Math.floor((event.time ?? Date.now()) / 1000),
             }, this.driver));
             afterToolResult = true;
           } else if (event.type === "usage") {

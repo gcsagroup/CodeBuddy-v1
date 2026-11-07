@@ -12,9 +12,11 @@ import zhCN from '../../i18n/messages/zh-CN.json';
 import zhTW from '../../i18n/messages/zh-TW.json';
 import { buildToolboxModel } from './toolboxModel';
 import { applySkillChange, previewSkillChange } from '../../acp/skillManagement';
-import { getSessionExtensions, addSessionExtension } from '../../acp/session-extensions';
+import { addSessionExtension } from '../../acp/session-extensions';
 import { listTools } from '../../acp/permissions';
+import { readToolboxSession, retryToolboxSession } from '../../acp/toolboxSession';
 
+vi.mock('../../acp/toolboxSession', () => ({ readToolboxSession: vi.fn().mockResolvedValue({ cwd: '/conversation-project', mode: 'follow', pending: false, running: false, selected: [], statuses: [] }), setToolboxSessionMode: vi.fn(), retryToolboxSession: vi.fn() }));
 vi.mock('../../acp/session-extensions', () => ({ getSessionExtensions: vi.fn(), addSessionExtension: vi.fn() }));
 vi.mock('../../acp/permissions', () => ({ listTools: vi.fn() }));
 
@@ -74,17 +76,19 @@ describe('ToolboxView', () => {
     const computer = { type: 'builtin' as const, name: 'qwen_computer', enabled: true };
     const custom = { type: 'stdio' as const, name: 'custom_fixture', enabled: true, cmd: 'node', args: ['fixture.cjs'], envs: {} };
     vi.mocked(loadToolbox).mockResolvedValue({ model: buildToolboxModel({ skills: [], apps: [], extensions: [computer, custom] }), errors: {}, warnings: [] });
-    vi.mocked(getSessionExtensions).mockResolvedValue([computer]);
-    vi.mocked(addSessionExtension).mockImplementation(async () => { vi.mocked(getSessionExtensions).mockResolvedValue([computer, custom]); });
-    vi.mocked(listTools).mockResolvedValue([{ name: 'custom_fixture__alpha' }] as never);
+    const state = { cwd: '/conversation-project', mode: 'custom' as const, pending: false, running: false, selected: [computer.name], statuses: [] };
+    vi.mocked(readToolboxSession).mockResolvedValue(state);
+    vi.mocked(addSessionExtension).mockImplementation(async () => { vi.mocked(readToolboxSession).mockResolvedValue({ ...state, selected: [computer.name, custom.name], statuses: [{serverName: custom.name, status: 'ready'}] }); });
     renderView('/codepro/toolbox?sessionId=existing');
     expect(await screen.findByText('Added to this conversation · connection not checked')).toBeVisible();
+    await waitFor(() => expect(loadToolbox).toHaveBeenCalledWith('/conversation-project', undefined, expect.objectContaining({ onPartial: expect.any(Function) })));
     expect(screen.getByText('Not loaded in this conversation')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Return to conversation' })).toHaveAttribute('href', '/codepro/pair?resumeSessionId=existing');
     await userEvent.click(screen.getByRole('button', { name: 'Add to this conversation' }));
-    expect(await screen.findByText('Loaded · 1 tools available')).toBeVisible();
+    expect(await screen.findByText('Connected', { selector: '[role="status"]' })).toBeVisible();
     expect(addSessionExtension).toHaveBeenCalledWith('existing', expect.objectContaining({ name: 'custom_fixture', type: 'stdio' }));
-    expect(listTools).toHaveBeenCalledWith('existing', 'custom_fixture');
+    expect(retryToolboxSession).toHaveBeenCalledWith('existing');
+    expect(listTools).not.toHaveBeenCalled();
   });
   it.each(['builtin:git', 'external:github_official', 'builtin:repository'])(
     'opens the unified controls from the %s link without changing settings',
@@ -1010,4 +1014,32 @@ describe('ToolboxView', () => {
     await waitFor(() => expect(screen.queryByText('Filesystem')).not.toBeInTheDocument());
     expect(screen.getByText('No matching tools')).toBeVisible();
   });
+});
+
+
+it('searches the full toolbox beyond mounted pages and opens the matching detail', async () => {
+  const external: ToolboxLoadResult['model']['external'] = Array.from({ length: 200 }, (_, i) => ({
+    id: `external:bulk_${i}`, kind: 'external', source: 'extension', name: `bulk_${String(i).padStart(3, '0')}`, description: '', status: 'disabled', actions: ['configure'],
+    reference: { key: 'configKey', value: `bulk_${i}` }, extensionSource: { type: 'stdio', name: `bulk_${i}`, cmd: 'fixture', args: [], enabled: false },
+  }));
+  vi.mocked(loadToolbox).mockResolvedValue({ model: { capabilities: [], methods: [], apps: [], external }, errors: {}, warnings: [] });
+  renderView('/toolbox?section=external');
+  expect(await screen.findByRole('button', { name: 'bulk_000' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'bulk_199' })).not.toBeInTheDocument();
+  await userEvent.type(screen.getByRole('searchbox'), 'bulk_199');
+  await userEvent.click(await screen.findByRole('button', { name: 'bulk_199' }));
+  expect(await screen.findByRole('dialog')).toBeVisible();
+});
+
+
+it('renders an available inventory before slower parallel loading finishes', async () => {
+  const partial: ToolboxLoadResult = { model: { capabilities: [], methods: [], apps: [], external: [{ id: 'early', name: 'Early inventory', description: '', kind: 'external', source: 'extension', status: 'configured', actions: [] }] }, errors: {}, warnings: [] };
+  let finish!: (value: ToolboxLoadResult) => void;
+  vi.mocked(loadToolbox).mockImplementation(async (_cwd, _session, options) => {
+    options?.onPartial?.(partial);
+    return new Promise<ToolboxLoadResult>(resolve => { finish = resolve; });
+  });
+  renderView('/toolbox');
+  expect(await screen.findByRole('button', { name: 'Early inventory' })).toBeVisible();
+  await act(async () => finish(partial));
 });

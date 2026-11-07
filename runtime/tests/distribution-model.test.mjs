@@ -36,7 +36,8 @@ test('preview CLI seeds the same main and vision defaults as the installed deskt
   assert.equal(state.providers[0].apiUrl, defaultModel.baseUrl);
   assert.deepEqual(state.modelRouting.visionRoute, { enabled: true, mode: 'auto', ...state.defaults });
   assert.equal(state.modelCapabilities.overrides[0].imageInput, 'force_supported');
-  assert.equal(state.providers.length, 1);
+  assert.equal(state.providers.length, 2);
+  assert.deepEqual(state.providers[1].models, ['Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
   assert.equal(state.providers[0].secret, null);
 });
 
@@ -46,11 +47,18 @@ async function fixture(t) {
   return dir;
 }
 
-test('fresh installed profile exposes the LAN model to the existing provider pipeline', async t => {
+test('fresh installed profile exposes Gemma and both Qwen models without credentials', async t => {
   const dir = await fixture(t);
   const store = await openStore(dir, { defaultModel });
   const { defaults, providers } = store.read();
-  assert.equal(providers.length, 1);
+  assert.equal(providers.length, 2);
+  const qwen = providers.find(provider => provider.id === 'custom_codebuddy_qwen_lan');
+  assert.equal(qwen.apiUrl, 'http://192.168.9.120:8001');
+  assert.deepEqual(qwen.models, ['Qwen3.8-27B-FP4', 'Qwen3.8-27B-CyberSecurity']);
+  assert.equal(qwen.requiresAuth, false);
+  assert.equal(qwen.secret, null);
+  assert.equal(qwen.headersProtected, null);
+  assert.equal(providerStatus(qwen).isConfigured, true);
   assert.equal(providers[0].secret, null);
   assert.deepEqual(defaults, { providerId: defaultModel.providerId, modelId: defaultModel.modelId });
   assert.equal(providers[0].apiUrl, 'http://192.168.9.101:8001');
@@ -148,6 +156,6 @@ test('desktop server startup persists the preset without calling the model', asy
     assert.equal(status.status, 200);
     const state = JSON.parse(await readFile(path.join(dir, 'state.json'), 'utf8'));
     assert.equal(state.defaults.modelId, defaultModel.modelId);
-    assert.equal(state.providers.length, 1);
+    assert.equal(state.providers.length, 2);
   } finally { await server.close(); }
 });

@@ -274,14 +274,32 @@ export async function savedWorkflowCatalog(read, info, kind, mode, referenceCoun
   }
   const names = Object.keys(info).sort();
   return { entries, public: { workflows, blockers, creation_allowed: !blockers.length && !workflows.some(w => w.compatible && w.dependencies_available),
-    note: 'Live saved ComfyUI workflows. Select a compatible workflow_id. Unsupported saved formats, network errors, queueing and execution failures never authorize replacement. Saved changes are read again on generation; unsaved browser edits are not included.',
+    note: 'Live saved ComfyUI workflows. Select a compatible label as workflow_name; names identify files, not generation modes. Unsupported saved formats, network errors, queueing and execution failures never authorize replacement. Saved changes are read again on generation; unsaved browser edits are not included.',
     node_count: names.length, node_types: names.slice(nodeOffset,nodeOffset+300), next_node_offset: nodeOffset+300<names.length?nodeOffset+300:null, schemas:Object.fromEntries(nodeTypes.map(n=>[n,info[n]??null])) } };
+}
+
+export function workflowSelectionCatalog(catalog) {
+  return catalog.public.workflows.map(({ id, label, source, mode, compatible, dependencies_available, reference_slots }) =>
+    ({ id, label, source, mode, compatible, dependencies_available, reference_slots, sha256: catalog.entries.find(entry => entry.id === id)?.sha256 }));
 }
 
 export function selectSavedWorkflow(catalog, input) {
   const available = catalog.public.workflows.filter(w=>w.compatible && w.dependencies_available);
+  // The model interprets the user's request; this owner resolves an explicit
+  // file identity. Never infer names from prose, mode names or previous jobs.
+  if (input.workflow_name !== undefined) {
+    if (typeof input.workflow_name !== 'string' || !input.workflow_name.trim())
+      throw new Error('workflow_name must be the exact requested workflow name');
+    const name = input.workflow_name.trim();
+    const named = available.filter(w => [w.label, w.source, w.id, w.source.replace(/^workflows\//, '')].includes(name));
+    if (named.length !== 1)
+      throw new Error(`Requested workflow ${JSON.stringify(name)} is unavailable or ambiguous for this mode. Inspect and resolve the name; no replacement was submitted.`);
+    if (input.workflow_id && input.workflow_id !== named[0].id)
+      throw new Error(`workflow_name ${JSON.stringify(name)} resolves to ${named[0].id}, not ${input.workflow_id}. Correct the selection; no generation was submitted.`);
+    return catalog.entries.find(e => e.id === named[0].id);
+  }
   const selected = input.workflow_id ? available.find(w=>w.id===input.workflow_id) : available.length === 1 ? available[0] : null;
-  if (!selected) throw new Error(`Select an available saved workflow_id from operation=inspect. ${available.length} compatible workflows; no automatic replacement was submitted.`);
+  if (!selected) throw new Error(`Select an available workflow_name (label) from operation=inspect. ${available.length} compatible workflows; no automatic replacement was submitted.`);
   return catalog.entries.find(e=>e.id===selected.id);
 }
 export function prepareSavedWorkflow(entry, input, references, jobId, info) {

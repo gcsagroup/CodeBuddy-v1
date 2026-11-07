@@ -27,7 +27,9 @@ function compactGroups() {
 }
 
 function openTurnHistory() {
-  const toggle = document.querySelector('[data-turn-process-summary] > [data-slot="collapsible"] > div > button');
+  const toggle = document.querySelector(
+    '[data-turn-process-summary] > [data-slot="collapsible"] > div > button'
+  );
   if (!toggle) throw new Error('Missing turn history disclosure');
   if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
   return toggle;
@@ -184,16 +186,98 @@ const sourceUserMessage: Message = {
   metadata: { userVisible: true, agentVisible: true },
 };
 
+it('keeps repeated continuations in the original reply with one action footer after replay', async () => {
+  const first = message(2);
+  const continuation = (index: number): Message => ({
+    ...sourceUserMessage,
+    id: `continue-${index}`,
+    content: [{ type: 'text', text: 'Hidden continuation instruction' }],
+    metadata: { userVisible: false, agentVisible: true,
+      presentation: { afterMessageId: `message-${index - 1}`, continuation: true } },
+  });
+  const trace = [sourceUserMessage, first, continuation(3), message(4), continuation(5), message(6)];
+  const onMessageUpdate = vi.fn();
+  const show = (messages: Message[], streaming = false) => <ProgressiveMessageList
+    messages={messages} chat={{ sessionId: 'continuation-test' }} sessionType="code_pro"
+    isStreamingMessage={streaming}
+    isUserMessage={(m) => m.role === 'user'} onMessageUpdate={onMessageUpdate} />;
+  const view = render(show(trace), { wrapper: IntlTestWrapper });
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /Retry/i })).toHaveLength(1));
+  expect(document.querySelectorAll('[data-chat-turn-id]')).toHaveLength(1);
+  for (const index of [2, 4, 6]) expect(screen.getByText(`message ${index}`)).toBeVisible();
+  expect(screen.queryByText('Hidden continuation instruction')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Retry/i }));
+  expect(onMessageUpdate).toHaveBeenCalledWith('source-user', 'Analyze this project', 'retry');
+  view.rerender(show([...trace, continuation(7), message(8)], true));
+  await waitFor(() => expect(screen.queryByRole('button', { name: /Retry/i })).not.toBeInTheDocument());
+  for (const index of [2, 4, 6]) expect(screen.getByText(`message ${index}`)).toBeVisible();
+  view.unmount();
+  render(show(JSON.parse(JSON.stringify(trace))), { wrapper: IntlTestWrapper });
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /Retry/i })).toHaveLength(1));
+  expect(document.querySelectorAll('[data-chat-turn-id]')).toHaveLength(1);
+  for (const index of [2, 4, 6]) expect(screen.getByText(`message ${index}`)).toBeVisible();
+});
+
+it('keeps an explicit follow-up separate from the preceding continued reply', async () => {
+  const continuation: Message = {
+    ...sourceUserMessage,
+    id: 'hidden-continuation',
+    metadata: { userVisible: false, agentVisible: true,
+      presentation: { afterMessageId: 'message-2', continuation: true } },
+  };
+  const followUp: Message = {
+    ...sourceUserMessage,
+    id: 'explicit-follow-up',
+    content: [{ type: 'text', text: '继续' }],
+  };
+  const onMessageUpdate = vi.fn();
+  const { container } = render(
+    <ProgressiveMessageList
+      messages={[sourceUserMessage, message(2), continuation, message(4), followUp, message(6)]}
+      chat={{ sessionId: 'continuation-test' }} sessionType="code_pro"
+      isUserMessage={(m) => m.role === 'user'} onMessageUpdate={onMessageUpdate}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /Retry/i })).toHaveLength(2));
+  expect(container.querySelectorAll('[data-chat-turn-id]')).toHaveLength(2);
+  expect(screen.getByText('继续', { exact: true })).toBeVisible();
+  const latestTurn = container.querySelector('[data-chat-turn-id="explicit-follow-up"]') as HTMLElement;
+  fireEvent.click(within(latestTurn).getByRole('button', { name: /Retry/i }));
+  expect(onMessageUpdate).toHaveBeenCalledWith('explicit-follow-up', '继续', 'retry');
+});
+
 it('keeps the committed compaction receipt visible in the conversation', async () => {
   const receipt: Message = {
-    id: 'compact-receipt', role: 'assistant', created: 2,
-    content: [{ type: 'systemNotification', notificationType: 'progressMessage', msg: '', data: {
-      schema_version: 1, event: 'compaction_lifecycle', operation_id: 'compact-one',
-      status: 'completed', trigger: 'auto', started_at: '2026-11-05T00:00:00Z',
-    } }], metadata: { userVisible: true, agentVisible: false },
+    id: 'compact-receipt',
+    role: 'assistant',
+    created: 2,
+    content: [
+      {
+        type: 'systemNotification',
+        notificationType: 'progressMessage',
+        msg: '',
+        data: {
+          schema_version: 1,
+          event: 'compaction_lifecycle',
+          operation_id: 'compact-one',
+          status: 'completed',
+          trigger: 'auto',
+          started_at: '2026-11-05T00:00:00Z',
+        },
+      },
+    ],
+    metadata: { userVisible: true, agentVisible: false },
   };
-  render(<ProgressiveMessageList messages={[sourceUserMessage, receipt]} chat={{sessionId:'receipt-test'}}
-    sessionType="code_pro" isUserMessage={m => m.role === 'user'} />, { wrapper: IntlTestWrapper });
+  render(
+    <ProgressiveMessageList
+      messages={[sourceUserMessage, receipt]}
+      chat={{ sessionId: 'receipt-test' }}
+      sessionType="code_pro"
+      isUserMessage={(m) => m.role === 'user'}
+    />,
+    { wrapper: IntlTestWrapper }
+  );
   expect(await screen.findByText('Context automatically compacted')).toBeVisible();
 });
 
@@ -857,36 +941,45 @@ describe('CodePro ordinary tool message presentation', () => {
     }
   );
 
-  it('hides successful internal routing cards over ACP but preserves distinct failed events', () => {
-    const props = {
-      sessionType: 'code_pro' as const,
-      chat: { sessionId: 'strategy' },
-      isUserMessage: (item: Message) => item.role === 'user',
-    };
-    const event = activity({
-      event_type: 'strategy_selected',
-      status: 'completed',
-      title: 'Routing bookkeeping',
-    });
-    const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
-    const receive = (data: ActivityEvent) =>
-      applyGooseSessionNotification(state, {
-        sessionId: data.session_id,
-        update: {
-          sessionUpdate: 'status_message',
-          status: { type: 'progress', message: data.title, data },
-        },
+  it.each([
+    ['strategy_selected', 'completed'],
+    ['plan_created', 'completed'],
+    ['plan_updated', 'completed'],
+    ['plan_created', 'running'],
+    ['plan_updated', 'running'],
+  ] as const)(
+    'hides projected %s %s cards over ACP but preserves distinct failed events',
+    (eventType, status) => {
+      const props = {
+        sessionType: 'code_pro' as const,
+        chat: { sessionId: 'strategy' },
+        isUserMessage: (item: Message) => item.role === 'user',
+      };
+      const event = activity({
+        event_type: eventType,
+        status,
+        title: 'Routing bookkeeping',
       });
-    receive(event);
-    const view = render(<ProgressiveMessageList {...props} messages={[...state.messages]} />, {
-      wrapper: IntlTestWrapper,
-    });
-    expect(screen.queryByTestId('message-container')).not.toBeInTheDocument();
-    receive({ ...event, event_id: 'failed-event', status: 'failed' });
-    expect(state.messages).toHaveLength(2);
-    view.rerender(<ProgressiveMessageList {...props} messages={[...state.messages]} />);
-    expect(screen.getByTestId('message-container')).toBeInTheDocument();
-  });
+      const state: AdapterState = { messages: [], localSteerTextByMessageId: new Map() };
+      const receive = (data: ActivityEvent) =>
+        applyGooseSessionNotification(state, {
+          sessionId: data.session_id,
+          update: {
+            sessionUpdate: 'status_message',
+            status: { type: 'progress', message: data.title, data },
+          },
+        });
+      receive(event);
+      const view = render(<ProgressiveMessageList {...props} messages={[...state.messages]} />, {
+        wrapper: IntlTestWrapper,
+      });
+      expect(screen.queryByTestId('message-container')).not.toBeInTheDocument();
+      receive({ ...event, event_id: 'failed-event', status: 'failed' });
+      expect(state.messages).toHaveLength(2);
+      view.rerender(<ProgressiveMessageList {...props} messages={[...state.messages]} />);
+      expect(screen.getByTestId('message-container')).toBeInTheDocument();
+    }
+  );
   it.each([false, true])(
     'separates internal checks from action counts, accepted later: %s',
     (accepted) => {
@@ -1067,12 +1160,24 @@ describe('CodePro ordinary tool message presentation', () => {
   );
 
   it('preserves all thoughts in the combined process while hiding successful internal discovery', () => {
-    const thought = (index: number, text: string): Message => ({ ...message(index), content: [{ type: 'thinking', thinking: text, signature: '' }] });
+    const thought = (index: number, text: string): Message => ({
+      ...message(index),
+      content: [{ type: 'thinking', thinking: text, signature: '' }],
+    });
     const discovery = toolTransportMessage(3, 'discovery', 'request');
     const request = discovery.content[0];
     if (request.type !== 'toolRequest') throw Error('Expected tool request');
-    request.toolCall = { status: 'success', value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } } };
-    const records = [thought(1, 'First thought.'), thought(2, 'Continued thought.'), discovery, toolTransportMessage(4, 'discovery', 'response'), thought(5, 'After discovery.')];
+    request.toolCall = {
+      status: 'success',
+      value: { name: 'search_mcp_tools', arguments: { query: 'web_fetch' } },
+    };
+    const records = [
+      thought(1, 'First thought.'),
+      thought(2, 'Continued thought.'),
+      discovery,
+      toolTransportMessage(4, 'discovery', 'response'),
+      thought(5, 'After discovery.'),
+    ];
     const original = structuredClone(records);
     render(renderTrace(records, ['discovery']), { wrapper: IntlTestWrapper });
     expect(compactGroups()).toHaveLength(1);
@@ -1080,9 +1185,12 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     expect(compactGroups()[0].querySelectorAll('button')).toHaveLength(1);
-    expect(screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')).toBeNull();
-    expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className)
-      .not.toMatch(/max-h-|overflow-y-auto|overflow-y-scroll/);
+    expect(
+      screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')
+    ).toBeNull();
+    expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className).not.toMatch(
+      /max-h-|overflow-y-auto|overflow-y-scroll/
+    );
     for (const text of ['First thought.', 'Continued thought.', 'After discovery.'])
       expect(screen.getByText(text)).toBeVisible();
     expect(records).toEqual(original);
@@ -1260,6 +1368,53 @@ describe('CodePro ordinary tool message presentation', () => {
     expect(plan).not.toHaveAttribute('open');
     expect(plan.querySelector('[aria-label="In progress"]')).not.toBeNull();
     expect(plan.querySelectorAll('.animate-spin')).toHaveLength(1);
+    fireEvent.click(plan.querySelector('summary')!);
+    expect(plan).toHaveAttribute('open');
+    const updated = structuredClone(changeTrace[1]);
+    const response = updated.content[0];
+    if (response.type !== 'toolResponse') throw new Error('Expected plan receipt');
+    const value = response.toolResult.value as {
+      structuredContent: { codepro_plan: { content: string; request_id: string } };
+    };
+    response.id = 'plan-update';
+    value.structuredContent.codepro_plan.request_id = 'plan-update';
+    value.structuredContent.codepro_plan.content = '- [x] Build backend\n- [-] Build frontend';
+    const nextRequest = structuredClone(activePlan);
+    if (nextRequest.content[0].type !== 'toolRequest') throw new Error('Expected plan call');
+    nextRequest.content[0].id = 'plan-update';
+    trace.push(nextRequest, updated);
+    view.rerender(dock([...trace]));
+    expect(screen.getByTestId('work-plan')).toBe(plan);
+    expect(plan).toHaveAttribute('open');
+    expect(plan.querySelector('summary')).toHaveTextContent('1 done · 1 in progress · 0 pending');
+    expect(plan.querySelector('li')?.className).not.toContain('line-through');
+    // Native todo updates increment the projected revision on the same run.
+    const binding = { session_id: 'ordinary-change', run_id: 'run-edu', requirement_revision: 2 };
+    trace.push({
+      ...context,
+      content: [
+        {
+          type: 'systemNotification',
+          notificationType: 'progressMessage',
+          msg: '',
+          data: {
+            type: 'codepro_plan_context',
+            schema_version: 1,
+            event_id: 'native-update',
+            session_id: 'ordinary-change',
+            selected: binding,
+            plan: {
+              binding,
+              request_id: 'native-plan-2',
+              content: '[x] Build backend\n[-] Build frontend',
+            },
+          },
+        },
+      ],
+    });
+    view.rerender(dock([...trace]));
+    expect(screen.getByTestId('work-plan')).toBe(plan);
+    expect(plan).toHaveAttribute('open');
     view.rerender(dock([...trace], false));
     expect(plan.querySelectorAll('.animate-spin')).toHaveLength(0);
     view.rerender(dock([...trace, { ...sourceUserMessage, id: 'next-turn' }]));
@@ -1388,12 +1543,17 @@ describe('CodePro ordinary tool message presentation', () => {
 
   it('includes unsuccessful receipts beside successful work in a mixed group', () => {
     const failed = toolTransportMessage(7, 'failed-call', 'response');
-    failed.content = [{ type: 'toolResponse', id: 'failed-call',
-      toolResult: { status: 'success', value: { content: [], isError: true } } }];
-    render(renderTrace([
-      ...changeTrace,
-      toolTransportMessage(6, 'failed-call', 'request'), failed,
-    ]), { wrapper: IntlTestWrapper });
+    failed.content = [
+      {
+        type: 'toolResponse',
+        id: 'failed-call',
+        toolResult: { status: 'success', value: { content: [], isError: true } },
+      },
+    ];
+    render(
+      renderTrace([...changeTrace, toolTransportMessage(6, 'failed-call', 'request'), failed]),
+      { wrapper: IntlTestWrapper }
+    );
     const toggle = screen.getByRole('button', {
       name: 'Read file README.md',
     });
@@ -1997,15 +2157,28 @@ describe('tool cards across active-turn notification messages', () => {
 });
 
 it('reveals an unmounted historical turn for timeline navigation without dropping later replies', async () => {
-  const history = Array.from({ length: 70 }, (_, index) => ({ ...message(index), role: index % 2 ? 'assistant' as const : 'user' as const }));
+  const history = Array.from({ length: 70 }, (_, index) => ({
+    ...message(index),
+    role: index % 2 ? ('assistant' as const) : ('user' as const),
+  }));
   const ready = vi.fn();
-  const props = { messages: history, chat: { sessionId: 'timeline-history-test' }, isUserMessage: (m: Message) => m.role === 'user', maxVisibleMessages: 4, onNavigationReady: ready };
+  const props = {
+    messages: history,
+    chat: { sessionId: 'timeline-history-test' },
+    isUserMessage: (m: Message) => m.role === 'user',
+    maxVisibleMessages: 4,
+    onNavigationReady: ready,
+  };
   const view = render(<ProgressiveMessageList {...props} />, { wrapper: IntlTestWrapper });
   expect(view.container.querySelector('[data-chat-turn-id="message-0"]')).toBeNull();
-  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 1 }} />);
+  view.rerender(
+    <ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 1 }} />
+  );
   await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
   expect(ready.mock.calls[0][0]).toHaveAttribute('data-chat-turn-id', 'message-0');
   expect(view.container.querySelector('[data-chat-turn-id="message-68"]')).not.toBeNull();
-  view.rerender(<ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 2 }} />);
+  view.rerender(
+    <ProgressiveMessageList {...props} navigationTarget={{ messageId: 'message-0', request: 2 }} />
+  );
   await waitFor(() => expect(ready).toHaveBeenCalledTimes(2));
 });

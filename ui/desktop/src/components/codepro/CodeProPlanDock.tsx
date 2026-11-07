@@ -73,6 +73,7 @@ export function CodeProPlanDock({
   return (
     <div className="mx-4 mb-2" data-testid="plan-dock">
       <CodeProPlan
+        key={`${sessionId}:${current.plan.binding.run_id}`}
         compact
         historical={current.historical}
         requestId={current.plan.request_id}

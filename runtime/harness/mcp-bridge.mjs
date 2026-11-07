@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { isMcpSessionApprovalScope } from '../tool-session-approval.mjs';
 import { agentPolicyFor } from './agent-policy.mjs';
+import { mcpDiagnostic } from './mcp-diagnostics.mjs';
 
 export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.object({
   ...option.dict, toolCallTimeoutMs: Schema.number().min(1).max(2_147_483_647).default(DEFAULT_MCP_TIMEOUT_MS),
@@ -20,11 +21,19 @@ export const Config = Schema.union(UpstreamConfig.list.map(option => Schema.obje
   selectedTools: Schema.union([Schema.const(null), Schema.array(String)]).default(null),
   deniedTools: Schema.array(String).default([]),
   displayName: Schema.string().default(''),
+  backgroundStart: Schema.boolean().default(false),
   sessionApprovalScope: Schema.union(['tool', 'module']).default('tool'),
 })));
 export const name = 'codebuddy-mcp-client', inject = ['tools'];
 const scopes = new WeakMap(), receipts = new Map();
+const resourceViews = new WeakMap();
 const desktopReceipts = new WeakMap();
+// Suppress repeated initial failures across session preparations. Healthy
+// connection recovery remains owned by the existing connection lifecycle.
+const startupFailures = new Map();
+export function clearMcpStartupFailures(matches) {
+  for (const [key, failure] of startupFailures) if (matches(failure.serverName)) startupFailures.delete(key);
+}
 // Preserve native facts before upstream converts an MCP error into plain Error.
 // Each invocation is consumed once; this transport layer makes no policy decision.
 export function takeDesktopControlReceipt(exec) {
@@ -36,6 +45,86 @@ const clone = value => structuredClone(value);
 const MAX_META_BYTES = 16 * 1024 * 1024;
 
 export const mcpConnectionStatus = (scope, serverName) => scopes.get(scope)?.get(serverName)?.status;
+export const mcpConnectionError = (scope, serverName) => scopes.get(scope)?.get(serverName)?.error;
+
+// Only the caller's selected scope chain is visible. A pending transport is not
+// an executable tool and never contributes an approval until its handshake ends.
+function visibleConnections(agent) {
+  const entries = new Map();
+  for (const key of scopeChainOf(agent)) for (const [name, entry] of scopes.get(key) ?? []) {
+    if (!entries.has(name) && agentPolicyFor(agent).every(policy => policy.mcpServers.includes(name))) entries.set(name, entry);
+  }
+  return entries;
+}
+export function mcpServerStates(agent) {
+  return [...visibleConnections(agent)].map(([serverName, entry]) => ({ serverName, status: entry.status, ...(entry.error ? { error: entry.error } : {}) }));
+}
+export function pendingMcpServers(agent) {
+  return [...visibleConnections(agent)].filter(([, entry]) => entry.status === 'connecting').map(([name]) => name);
+}
+export async function waitForMcpServers(agent, names, signal) {
+  signal?.throwIfAborted();
+  const entries = visibleConnections(agent);
+  const waits = names.map(name => entries.get(name)?.ready).filter(Boolean);
+  if (!waits.length) return;
+  let abort;
+  try {
+    await Promise.race([Promise.all(waits), new Promise((_, reject) => {
+      abort = () => reject(signal.reason);
+      signal?.addEventListener('abort', abort, { once: true });
+    })]);
+    signal?.throwIfAborted();
+  } finally { if (abort) signal?.removeEventListener('abort', abort); }
+}
+
+
+// A session borrows the connection's exact definitions and receipt identities.
+// Harness owns both scopes; this view neither opens a transport nor replays calls.
+export function projectMcpConnection(ctx, source, serverName) {
+  const entry = scopes.get(source)?.get(serverName);
+  if (!entry) return;
+  const owner = scopeOf(ctx);
+  let registry = scopes.get(owner);
+  if (!registry) { registry = new Map(); scopes.set(owner, registry); }
+  if (registry.has(serverName)) throw Error(`Duplicate MCP projection: ${serverName}`);
+  registry.set(serverName, entry);
+  const registrations = new Map();
+  let disposed = false, pending = false;
+  const refresh = () => {
+    if (disposed) return;
+    for (const [name, current] of registrations) {
+      if (entry.snapshots.get(name)?.definition === current.definition) continue;
+      current.dispose(); registrations.delete(name);
+    }
+    for (const [name, snapshot] of entry.snapshots) if (!registrations.has(name))
+      registrations.set(name, { definition: snapshot.definition, dispose: ctx.tools.register(snapshot.definition) });
+  };
+  // Source tools/change is synchronous and can precede its completed catalog swap.
+  ctx.on('tools/change', () => {
+    if (pending || disposed) return;
+    pending = true;
+    queueMicrotask(() => { pending = false; refresh(); });
+  }, { global: true });
+  ctx.effect(() => () => {
+    disposed = true; registry.delete(serverName);
+    for (const current of registrations.values()) current.dispose();
+    registrations.clear();
+  });
+  if (entry.resources) ctx.inject(['mcpResources'], inner => {
+    inner.mcpResources.register(serverName, entry.resources);
+    let views = resourceViews.get(owner);
+    if (!views) { views = new Map(); resourceViews.set(owner, views); }
+    // Harness creates resource tools per scope. Validate the view's definition,
+    // but keep consent bound to the source connection's live generation.
+    views.set(serverName, new Map([...entry.resourceDefinitions.keys()].map(name => [name, inner.tools.get(name, owner)])));
+    inner.effect(() => () => views.delete(serverName));
+  });
+  ctx.inject(['systemPrompt'], inner => inner.systemPrompt.section({
+    name: `mcp:${serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
+    text: ({ scope }) => agentPolicyFor(scope).every(policy => policy.mcpServers.includes(serverName)) ? entry.instructions() : '',
+  }));
+  refresh();
+}
 
 function renewApprovalGroup(entry, serverName, displayName) {
   const group = Object.freeze({ kind: 'mcp_module', name: serverName, displayName: displayName?.trim().slice(0, 160) || serverName, identity: Object.freeze({}) });
@@ -129,7 +218,8 @@ export function getMcpResourceSessionApproval(ctx, agent, name, server) {
     const binding = entry.resourceApprovals.get(name);
     // Resolve the nearest provider, never fall through to another connection
     // with the same name. Shared resource tools still bind each server separately.
-    return binding && binding.definition === definition && binding.live() ? binding : undefined;
+    const expected = resourceViews.get(key)?.get(server)?.get(name) ?? binding?.definition;
+    return binding && expected === definition && binding.live() ? binding : undefined;
   }
 }
 /** Consume an exact invocation receipt; policies and canonical failures remain authoritative. */
@@ -140,16 +230,21 @@ export function takeMcpResultMetadata(exec, result) {
 }
 
 export async function apply(ctx, config) {
+  const failureKey = createHash('sha256').update(JSON.stringify(config)).digest('hex');
+  const recent = startupFailures.get(failureKey);
+  if (config.failOnStartupError && recent && Date.now() - recent.at < 30_000) throw Error(recent.error);
+  startupFailures.delete(failureKey);
   const allowedTools = config.allowedTools ?? null, deniedTools = config.deniedTools ?? [];
   const owner = scopeOf(ctx) ?? ctx.root;
   let registry = scopes.get(owner);
   if (!registry) { registry = new Map(); scopes.set(owner, registry); }
   if (registry.has(config.serverName)) throw Error(`MCP server ${config.serverName} is already registered in this scope`);
-  const entry = { config, tools: new Map(), approvals: new Map(), snapshots: new Map(), resourceDefinitions: new Map(), resourceApprovals: new Map(), status: 'error' }; registry.set(config.serverName, entry);
+  const entry = { config, tools: new Map(), approvals: new Map(), snapshots: new Map(), resourceDefinitions: new Map(), resourceApprovals: new Map(), status: 'connecting' }; registry.set(config.serverName, entry);
   const policy = { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10, ...config.reconnect };
   if (![policy.initialDelayMs, policy.maxDelayMs].every(value => Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647) || policy.initialDelayMs > policy.maxDelayMs || !Number.isSafeInteger(policy.maxAttempts) || policy.maxAttempts < 1) throw Error('Invalid MCP reconnect policy');
   const timeout = config.toolCallTimeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
   let disposed = false, generation, stopping, retryTimer, failures = 0, connectedAt, instructions = '', sync = Promise.resolve(), attempt = Promise.resolve();
+  entry.instructions = () => instructions;
   let registrations = [];
   function clearTools() { for (const dispose of registrations) dispose(); registrations = []; entry.tools.clear(); entry.approvals.clear(); entry.snapshots.clear(); }
   const live = current => !disposed && generation === current && current.ready;
@@ -268,16 +363,22 @@ export async function apply(ctx, config) {
     retryTimer = setTimeout(() => {
       retryTimer = undefined;
       attempt = (async () => { if (await closeGeneration(current)) return connect(false); clearTools(); ctx.logger.error('MCP reconnect stopped because transport closure was not confirmed'); })();
+      entry.ready = attempt.catch(() => {});
       attempt.catch(error => ctx.logger.warn(`MCP reconnect failed: ${String(error)}`));
     }, Math.min(policy.maxDelayMs, policy.initialDelayMs * 2 ** (failures - 1)));
     retryTimer.unref();
   }
   async function connect(startup) {
     if (disposed) return;
+    entry.status = 'connecting';
+    entry.error = undefined;
+    const started = performance.now(), phases = {};
     // Session identity belongs to the transport handshake, never saved headers.
     const headers = new Headers(config.headers ?? {});
     headers.delete('mcp-session-id');
-    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
+    const transport = config.transport === 'stdio' ? new StdioClientTransport({ command: config.command, args: config.args ?? [], env: { ...scrubbedParentEnv(), ...config.env }, cwd: config.cwd, stderr: 'pipe' }) : new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
+    let startupStderr = '';
+    transport.stderr?.on('data', chunk => { startupStderr = (startupStderr + chunk.toString()).slice(-8192); });
     const current = { transport, ready: false, closed: false, connecting: true };
     current.client = new McpTaskClient({ name: 'codebuddy-harness-mcp', version: '0.1.0' }, {
       capabilities: { extensions: { 'io.modelcontextprotocol/tasks': {}, 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } },
@@ -293,11 +394,14 @@ export async function apply(ctx, config) {
     };
     try {
       await current.client.connect(transport, { timeout });
+      phases.initializeMs = Math.round(performance.now() - started);
       if (disposed || generation !== current || current.closed) throw Error('MCP connection closed during startup');
       const text = current.client.getInstructions()?.trimEnd() ?? '';
       const contribution = text ? `### MCP server: ${config.serverName}\n\n${text}` : '';
       if (Buffer.byteLength(contribution) > (config.maxInstructionBytes ?? 32768)) throw Error('MCP instructions exceed configured limit');
+      const discoveryStarted = performance.now();
       await synchronize(current);
+      phases.toolsListMs = Math.round(performance.now() - discoveryStarted);
       if (disposed || current.closed) throw Error('MCP connection closed during tool discovery');
       current.ready = true; current.connecting = false; connectedAt = Date.now(); instructions = contribution; entry.status = 'ready';
       entry.resourceApprovals = new Map([...entry.resourceDefinitions].map(([name, definition]) => [name, {
@@ -306,10 +410,26 @@ export async function apply(ctx, config) {
         extensionSource: config.transport === 'streamable-http' ? 'external_http' : 'external_stdio',
       }]));
     } catch (error) {
+      entry.status = 'error';
+      entry.error = mcpDiagnostic(error, config, startupStderr);
+      const closed = await closeGeneration(current);
       current.connecting = false;
-      if (await closeGeneration(current)) disconnected(current);
+      // Scope removal/closure is cancellation, not a server startup failure.
+      // Do not poison an immediate re-add with the failure cooldown.
+      if (disposed) return;
+      if (startup && config.failOnStartupError) {
+        // Initial failure is terminal until an explicit retry/reconfiguration.
+        // Background activation must not turn it into a reconnect loop.
+        current.down = true; current.ready = false; clearTools();
+        const diagnostic = mcpDiagnostic(error, config, startupStderr);
+        startupFailures.set(failureKey, { serverName: config.serverName, at: Date.now(), error: diagnostic });
+        while (startupFailures.size > 64) startupFailures.delete(startupFailures.keys().next().value);
+        throw Error(diagnostic);
+      }
+      if (closed) disconnected(current);
       else { current.down = true; clearTools(); }
-      if (startup && config.failOnStartupError) throw Error(`MCP ${config.serverName}: initial connection or tool discovery failed`, { cause: error });
+    } finally {
+      console.info('[Harness MCP connection]', JSON.stringify({ serverName: config.serverName, transport: config.transport, ...phases, elapsedMs: Math.round(performance.now() - started), status: entry.status }));
     }
   }
   async function dispose() {
@@ -325,7 +445,7 @@ export async function apply(ctx, config) {
   ctx.on('internal/plugin', fiber => fiber === ctx.fiber && fiber.uid === null ? dispose() : undefined, { global: true });
   const resourcesAllowed = MCP_RESOURCE_TOOL_NAMES
     .some(name => (allowedTools === null || allowedTools.includes(name)) && !deniedTools.includes(name));
-  if (resourcesAllowed) ctx.inject(['mcpResources'], inner => { inner.mcpResources.register(config.serverName, { async request(request, exec) {
+  if (resourcesAllowed) entry.resources = { async request(request, exec) {
     const current = generation;
     if (!live(current)) throw Error(`MCP server ${config.serverName} is disconnected`);
     const options = { signal: exec.signal, timeout };
@@ -333,7 +453,8 @@ export async function apply(ctx, config) {
     if (request.method === 'resources/templates/list') return current.client.getServerCapabilities()?.resources === undefined ? { resourceTemplates: [] } : current.client.listResourceTemplates(request.cursor === undefined ? undefined : { cursor: request.cursor }, options);
     if (request.method === 'resources/read') return current.client.readResource({ uri: request.uri }, options);
     throw Error('Unsupported MCP resource operation');
-  } });
+  } };
+  if (entry.resources) ctx.inject(['mcpResources'], inner => { inner.mcpResources.register(config.serverName, entry.resources);
     for (const name of MCP_RESOURCE_TOOL_NAMES) {
       if ((allowedTools !== null && !allowedTools.includes(name)) || deniedTools.includes(name)) continue;
       const definition = inner.tools.get(name, owner);
@@ -343,5 +464,7 @@ export async function apply(ctx, config) {
   ctx.inject(['systemPrompt'], inner => { inner.systemPrompt.section({ name: `mcp:${config.serverName}`, order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'), interpolate: false,
     text: ({ scope }) => agentPolicyFor(scope).every(policy => policy.mcpServers.includes(config.serverName)) ? instructions : '' }); });
   attempt = connect(true);
+  entry.ready = attempt.catch(() => {});
+  if (config.backgroundStart) return;
   try { await attempt; } catch (error) { await dispose(); throw error; }
 }

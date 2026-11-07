@@ -509,6 +509,10 @@ describe('bundled pet registry and saved selection', () => {
         images: [{ mimeType: 'text/html', data: 'eA==' }],
       })
     ).rejects.toThrow();
+    await host.handlers.get('desktop-pet')!(event, { action: 'open-composer', composerAction: 'add', message: '' });
+    expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', { msg: '', images: [], composerAction: 'add', deliveryId: expect.any(String) });
+    await expect(host.handlers.get('desktop-pet')!(event, { action: 'open-composer', composerAction: 'send', message: 'draft' })).rejects.toThrow();
+    await expect(request({ action: 'open-composer', composerAction: 'add', message: 'draft' })).rejects.toThrow();
     await expect(request({ action: 'context-menu' })).rejects.toThrow('Pet menu request denied');
     host.menuChoice = 0;
     await dispatch('context-menu');

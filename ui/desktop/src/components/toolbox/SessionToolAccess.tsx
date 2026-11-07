@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ExtensionConfig } from '../../types/extensions';
 import { addSessionExtension } from '../../acp/session-extensions';
-import { listTools } from '../../acp/permissions';
+import { retryToolboxSession, type ToolboxSessionState } from '../../acp/toolboxSession';
 import { AppEvents } from '../../constants/events';
 import { defineMessages, useIntl } from '../../i18n';
 import { Button } from '../ui/button';
@@ -31,13 +31,18 @@ const messages = defineMessages({
     id: 'toolbox.session.missing',
     defaultMessage: 'Not loaded in this conversation',
   },
+  connecting: { id: 'toolbox.sync.connecting', defaultMessage: 'Connecting in background…' },
   ready: {
-    id: 'toolbox.session.ready',
-    defaultMessage: 'Loaded · {count} tools available',
+    id: 'toolbox.sync.ready',
+    defaultMessage: 'Connected',
   },
-  empty: {
-    id: 'toolbox.session.empty',
-    defaultMessage: 'Added · no tools discovered yet',
+  pending: {
+    id: 'toolbox.sync.pending',
+    defaultMessage: 'Saved · changes apply before the next turn. The current task continues.',
+  },
+  connectionFailed: {
+    id: 'toolbox.sync.failed',
+    defaultMessage: 'Connection failed',
   },
   selected: {
     id: 'toolbox.session.selected',
@@ -58,14 +63,14 @@ const messages = defineMessages({
 export function SessionToolAccess({
   sessionId,
   extension,
-  selected,
+  state,
   refresh,
   enabled = true,
   label,
 }: {
   sessionId: string;
   extension: ExtensionConfig;
-  selected: boolean | undefined;
+  state?: ToolboxSessionState;
   refresh: () => Promise<void>;
   enabled?: boolean;
   label?: string;
@@ -73,27 +78,25 @@ export function SessionToolAccess({
   const intl = useIntl();
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [count, setCount] = useState<number>();
   const [failed, setFailed] = useState(false);
+  const selected = state?.selected.includes(extension.name);
+  const status = state?.statuses.find(entry => entry.serverName === extension.name);
   const configuration = JSON.stringify(extension);
   useEffect(() => {
-    setCount(undefined);
     setFailed(false);
   }, [configuration, enabled]);
   const message = (id: keyof typeof messages, values?: Record<string, string | number>) =>
     intl.formatMessage(messages[id], values);
   const load = async () => {
-    if (busyRef.current || !enabled || selected === undefined) return;
+    if (busyRef.current || !enabled || !state || state.running || state.mode === 'restricted') return;
     busyRef.current = true;
     setBusy(true);
     setFailed(false);
-    setCount(undefined);
     try {
       if (!selected) await addSessionExtension(sessionId, extension);
+      await retryToolboxSession(sessionId);
       await refresh();
       window.dispatchEvent(new Event(AppEvents.SESSION_EXTENSIONS_LOADED));
-      const tools = await listTools(sessionId, extension.name);
-      setCount(tools.length);
     } catch {
       setFailed(true);
     } finally {
@@ -118,16 +121,20 @@ export function SessionToolAccess({
                 ? message('unknown')
                 : !selected
                   ? message('missing')
-                  : count
-                    ? message('ready', { count })
-                    : count === 0
-                      ? message('empty')
-                      : message('selected')}
+                  : state?.pending
+                    ? message('pending')
+                    : status?.status === 'ready'
+                      ? message('ready')
+                      : status?.status === 'connecting'
+                        ? message('connecting')
+                      : status?.status === 'error'
+                        ? message('connectionFailed')
+                        : message('selected')}
       </span>
       <Button
         size="sm"
         variant="outline"
-        disabled={!enabled || busy || selected === undefined}
+        disabled={!enabled || busy || !state || state.running || state.mode === 'restricted'}
         onClick={() => void load()}
       >
         {selected ? message('check') : message('add')}

@@ -61,14 +61,6 @@ function selectedExtensionConfigs(options?: CreateSessionOptions): ExtensionConf
   if (options?.extensionConfigs && options.extensionConfigs.length > 0) {
     return options.extensionConfigs;
   }
-  if (options?.allExtensions) {
-    return options.allExtensions
-      .filter((extension) => extension.enabled)
-      .map((extension) => {
-        const { enabled: _enabled, ...config } = extension;
-        return config as ExtensionConfig;
-      });
-  }
   return [];
 }
 
@@ -84,6 +76,7 @@ async function createAcpSession(
           .map((entry) => entry.extension)
       : [];
   const recipeOptions = {
+    ...(options?.extensionConfigs !== undefined ? { extensionSelection: 'custom' as const } : {}),
     ...(options?.workspaceOrigin ? { workspaceOrigin: options.workspaceOrigin } : {}),
     recipeId: options?.recipeId,
     recipeDeeplink: options?.recipeDeeplink,

@@ -211,6 +211,19 @@ async function startPreview(options = {}) {
   fs.mkdirSync(env.CODEBUDDY_USER_DATA_DIR, { recursive: true });
   fs.mkdirSync(path.join(env.CODEBUDDY_HOME, 'profiles', 'local', 'state', 'electron'), { recursive: true });
   const receiptPath = path.join(logRoot, 'launch.json');
+  const { acquireProfileLock } = await import('../runtime/profile-lock.mjs');
+  // A launcher lease covers preparation as well as the backend lifetime. Probe
+  // the backend lease too, so older launchers cannot have their receipt erased.
+  let launchLease;
+  try {
+    launchLease = await acquireProfileLock(logRoot);
+    const backendLease = await acquireProfileLock(path.join(env.CODEBUDDY_HOME, 'backend'));
+    backendLease.close();
+  } catch (error) {
+    launchLease?.close();
+    if (error.code === 'PROFILE_IN_USE') throw new Error('此配置已有运行中的后台。请等待任务完成并关闭旧窗口，再重新启动以加载修改。原启动记录已保留。');
+    throw error;
+  }
   const receipt = {
     status: 'starting', startedAt: new Date().toISOString(), repoRoot,
     launcherPid: process.pid, runtimePid: null, desktopPid: null,
@@ -226,8 +239,8 @@ async function startPreview(options = {}) {
   const onSignal = () => resolveStop({ interrupted: true });
   process.once('SIGINT', onSignal);
   process.once('SIGTERM', onSignal);
-  saveReceipt();
   try {
+    saveReceipt();
     // Mac's existing preparation builds its local artifacts first. Windows
     // artifacts are supplied separately and must pass before SDK preparation.
     if (process.platform !== 'darwin') {
@@ -269,6 +282,7 @@ async function startPreview(options = {}) {
       interrupted,
     ]);
     if (backendStatus.interrupted) return 0;
+    receipt.runtimeIdentity = backendStatus.runtime;
     if (backendStatus.modelConfigured !== true) {
       env.CODEBUDDY_PREVIEW_INITIAL_ROUTE = '/configure-providers';
     } else {
@@ -304,7 +318,7 @@ async function startPreview(options = {}) {
     process.removeListener('SIGTERM', onSignal);
     if (receipt.status !== 'failed') receipt.status = 'stopped';
     receipt.stoppedAt = new Date().toISOString();
-    saveReceipt();
+    try { saveReceipt(); } finally { launchLease.close(); }
   }
 }
 

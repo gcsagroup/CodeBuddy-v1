@@ -1505,6 +1505,9 @@
   "codeProToolContent.plan": {
     "defaultMessage": "작업 계획"
   },
+  "codeProToolContent.planSummary": {
+    "defaultMessage": "완료 {completed} · 진행 중 {active} · 대기 {pending}"
+  },
   "codeProToolContent.previousPlan": {
     "defaultMessage": "Earlier plan for this task"
   },

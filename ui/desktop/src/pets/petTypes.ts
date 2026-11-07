@@ -68,6 +68,7 @@ export interface PetRequest {
     | 'compose'
     | 'context-menu'
     | 'send-message'
+    | 'open-composer'
     | 'resolve-permission';
   permission?: { requestId: string; token: string; action: import('../types/permissions').Permission };
   preferences?: Partial<Pick<PetPreferences, 'visible' | 'selectedId' | 'size' | 'reducedMotion'>>;
@@ -75,5 +76,6 @@ export interface PetRequest {
   composing?: boolean;
   pointer?: { x: number; y: number };
   message?: string;
+  composerAction?: import('./petMessage').PetComposerAction;
   images?: import('../types/message').ImageData[];
 }

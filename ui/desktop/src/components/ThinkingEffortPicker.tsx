@@ -7,6 +7,8 @@ import { defineMessages, useIntl } from '../i18n';
 import {
   acpReadModelDisplaySettings,
   acpSaveThinkingEffort,
+  readThinkingDraft,
+  stageThinkingEffort,
   type ModelDisplaySettings,
 } from '../acp/providers';
 import type { ModelThinkingSettings, ThinkingEffort } from '../types/providers';
@@ -474,6 +476,7 @@ function ThinkingEffortMenu({
 }
 
 export function ModelThinkingMenu({
+  deferUntilSubmit = false,
   provider,
   model,
   showLabel = false,
@@ -490,6 +493,7 @@ export function ModelThinkingMenu({
   modelMenuOpen = false,
   disabled,
 }: {
+  deferUntilSubmit?: boolean;
   provider: string | null;
   model: string | null;
   showLabel?: boolean;
@@ -536,7 +540,9 @@ export function ModelThinkingMenu({
     };
   }, [provider, model, identity, initialSettings, readSettings]);
   const details = loaded?.identity === identity ? loaded.details : null;
-  const settings = details?.thinking;
+  const draft = deferUntilSubmit && provider && model ? readThinkingDraft(provider, model) : undefined;
+  const settings = details?.thinking && draft && details.thinking.options.includes(draft)
+    ? { ...details.thinking, value: draft } : details?.thinking;
   const unresolved = settings?.options.length === 0 && details?.contextSource === 'fallback';
   if (!provider || !model) return null;
   if (triggerContent && (!settings?.value || settings.options.length < 2 || unresolved))
@@ -587,7 +593,8 @@ export function ModelThinkingMenu({
             onSavingChange?.(true);
             try {
               try {
-                await acpSaveThinkingEffort(value, provider, model);
+                if (deferUntilSubmit) stageThinkingEffort(provider, model, value);
+                else await acpSaveThinkingEffort(value, provider, model);
               } catch (failure) {
                 if (current.current === identity) setError(true);
                 throw failure;

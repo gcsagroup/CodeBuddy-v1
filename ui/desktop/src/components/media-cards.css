@@ -1,0 +1,98 @@
+.media-result {
+  margin: 14px 0 18px;
+  max-width: 520px;
+}
+.media-output-grid {
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+  margin: 10px 0;
+}
+.media-output {
+  display: block;
+  min-width: 0;
+}
+.media-output img,
+.media-output video {
+  display: block;
+  max-height: 480px !important;
+  border-radius: 16px;
+}
+.media-generating {
+  position: relative;
+  width: min(320px, 100%);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--color-background-secondary, #f5f5f5);
+  border: 1px solid var(--color-border-primary, #e7e7e7);
+}
+.media-generating-video {
+  width: min(480px, 100%);
+  aspect-ratio: 16/9;
+}
+.media-generating-dots {
+  position: absolute;
+  inset: 0;
+  opacity: 0.28;
+  background-image: radial-gradient(currentColor 0.7px, transparent 0.9px);
+  background-size: 10px 10px;
+  mask-image: linear-gradient(120deg, transparent 12%, #000 80%);
+  animation: media-breathe 2.4s ease-in-out infinite alternate;
+}
+.media-generating-caption {
+  position: absolute;
+  inset: auto 14px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.media-generating-caption [role='status'] {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--color-background-primary, white);
+  box-shadow: 0 2px 8px #0000000a;
+  font-variant-numeric: tabular-nums;
+}
+.media-view {
+  display: block;
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+.media-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 7px;
+}
+.media-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 8px;
+  padding: 6px;
+  color: var(--color-text-secondary, #737373);
+  font-size: 12px;
+}
+.media-actions button:hover {
+  background: var(--color-background-secondary, #f4f4f4);
+  color: var(--color-text-primary, #171717);
+}
+@keyframes media-breathe {
+  from {
+    opacity: 0.12;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-generating-dots {
+    animation: none;
+  }
+}

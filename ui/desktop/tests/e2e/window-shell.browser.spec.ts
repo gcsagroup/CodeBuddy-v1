@@ -48,8 +48,17 @@ test('menu navigation preserves typing and the composer stays inside resized con
     expect(menuBox.x + menuBox.width).toBeLessThan(size.width - 140);
     await page.keyboard.press('F10');
     await expect(page.getByRole('menuitem', { name: '文件' })).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(page.getByRole('menuitem', { name: '帮助' })).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(page.getByRole('menuitem', { name: '文件' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(input).toBeFocused();
+    await input.press('Home');
+    await page.keyboard.insertText('(');
+    await input.press('End');
+    await page.keyboard.insertText(')');
+    await expect(input).toHaveValue('(中文输入与菜单焦点)');
   }
   await page.close();
 });

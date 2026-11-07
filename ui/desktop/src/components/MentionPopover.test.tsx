@@ -65,7 +65,7 @@ describe('MentionPopover while the workspace is unbound', () => {
     expect(listSlashCommandItems).toHaveBeenCalledTimes(1);
   });
 
-  it('reuses a menu snapshot on reopen but never in another workspace', async () => {
+  it('reuses a menu snapshot on reopen, refreshes it on search, and isolates workspaces', async () => {
     vi.mocked(listSlashCommandItems).mockResolvedValueOnce([{ name: 'cached skill', relativePath: 'cached-skill', itemType: 'Skill', extra: 'fixture' }]);
     const props = { isOpen: true, addOnly: true, isSlashCommand: true, onClose: vi.fn(), onSelect: vi.fn(), anchorRef, query: '', selectedIndex: 0, onSelectedIndexChange: vi.fn(), workingDir: '/fixture' };
     const view = render(<MentionPopover {...props} />, { wrapper: IntlTestWrapper });
@@ -73,10 +73,16 @@ describe('MentionPopover while the workspace is unbound', () => {
     await screen.findByRole('option', { name: /cached skill/ });
     await act(async () => {});
     view.rerender(<MentionPopover {...props} isOpen={false} />);
-    vi.mocked(listSlashCommandItems).mockReturnValue(new Promise(() => {}));
     view.rerender(<MentionPopover {...props} />);
     expect(screen.getByRole('option', { name: /cached skill/ })).toBeVisible();
+    vi.mocked(listSlashCommandItems).mockResolvedValueOnce([
+      { name: 'new skill', relativePath: 'new-skill', itemType: 'Skill', extra: 'fixture' },
+    ]);
+    view.rerender(<MentionPopover {...props} query="skill" />);
+    await screen.findByRole('option', { name: /new skill/i });
+    expect(screen.queryByRole('option', { name: /cached skill/i })).toBeNull();
     view.rerender(<MentionPopover {...props} workingDir="/other" />);
+    expect(screen.queryByRole('option', { name: /new skill/i })).toBeNull();
     expect(screen.queryByRole('option', { name: /cached skill/ })).toBeNull();
   });
 

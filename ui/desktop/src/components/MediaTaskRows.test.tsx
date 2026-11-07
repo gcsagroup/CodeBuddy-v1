@@ -219,6 +219,41 @@ describe('media task presentation', () => {
     expect(JSON.stringify(trace)).toBe(original);
   });
 
+  it('suppresses a delivered image reference only within the turn that delivered it', () => {
+    const path = 'generated-images/' + jobA + '/1.png';
+    const messages = [
+      message('first', 'user', [{ type: 'text', text: 'Generate a panda' }]),
+      request('generate'),
+      named('generate', jobA, 'completed', 'Panda', { images: [{ path }] }),
+      message('answer', 'assistant', [{ type: 'text', text: `Ready. ![First reference](${path})` }]),
+      message('second', 'user', [{ type: 'text', text: 'Show that file again' }]),
+      message('later', 'assistant', [{ type: 'text', text: `Here it is. ![Later reference](${path})` }]),
+    ];
+    const { container } = render(history(messages), { wrapper: IntlTestWrapper });
+    const turns = container.querySelectorAll<HTMLElement>('[data-chat-turn-id]');
+    expect(turns).toHaveLength(2);
+    expect(within(turns[0]).getAllByRole('img')).toHaveLength(1);
+    expect(within(turns[0]).getByRole('img', { name: /Panda/ })).toBeVisible();
+    expect(within(turns[1]).getByRole('img', { name: /Later reference/ })).toBeVisible();
+  });
+
+  it('keeps the delivered video and suppresses its repeated link in the answer', () => {
+    const path = `generated-videos/${jobA}/clip.mp4`;
+    verifiedFiles.mockImplementation(({ paths }: { paths: string[] }) => paths.map(filePath => ({
+      path: filePath, media: { kind: 'video', mimeType: 'video/mp4', url: 'workspace-media://' + filePath },
+    })));
+    const messages = [
+      message('first', 'user', [{ type: 'text', text: 'Make a clip' }]),
+      request('video', 'generate', jobA, 'generate_video'),
+      named('video', jobA, 'completed', 'Clip', { images: undefined, videos: [{ path }] }),
+      message('answer', 'assistant', [{ type: 'text', text: `The clip is ready. [Repeated link](${path})` }]),
+    ];
+    const { container } = render(history(messages), { wrapper: IntlTestWrapper });
+    expect(screen.getByText('The clip is ready.')).toBeVisible();
+    expect(container.querySelectorAll('video')).toHaveLength(1);
+    expect(screen.queryByRole('link', { name: 'Repeated link' })).toBeNull();
+  });
+
   it.each(['completed', 'failed', 'mixed'])(
     'shows distinct business results for %s without treating transport success as generation success',
     (mode) => {

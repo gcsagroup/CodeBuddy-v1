@@ -44,6 +44,12 @@ test('blocked pet settles in the real renderer without clearing the task or repl
     expect(requests.some(request => request.action === 'send-message')).toBe(false);
     expect(requests).toContainEqual({ action: 'open-composer', composerAction: 'goal', message: 'browser draft' });
 
+    await page.getByRole('button', { name: 'New task', exact: true }).click();
+    await expect(page.getByText('帮我开发天气应用', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('pet-temporary-title.png') });
+    await page.getByRole('button', { name: 'Named task', exact: true }).click();
+    await expect(page.getByText('天气应用', { exact: true })).toBeVisible();
+    await expect(page.getByText('帮我开发天气应用', { exact: true })).toHaveCount(0);
   } finally {
     await browser.close();
     await server.close();

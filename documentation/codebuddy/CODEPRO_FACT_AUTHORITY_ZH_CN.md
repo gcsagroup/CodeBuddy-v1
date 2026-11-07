@@ -56,13 +56,13 @@ English: Workspaces precede Tasks; pinned conversations stay in their owning gro
 
 会话分支继续使用 Harness 原生 fork。兼容层 `conversation-editing.mjs` 校验原会话状态与 UI／原生请求映射，可按下一条用户消息的精确 ID 截取前缀；旧时间边界仍兼容。任务型会话也可创建 `user` 类型的独立分支，继承所选历史、模型、工具与角色配置，原任务不变。分支共用工作目录，不复制任务运行、子智能体或后台进程；历史中的文件操作不会撤销或重放。运行中、归档或只读来源仍须先满足既有准入条件。旧会话无需迁移。
 
-置顶仅为桌面本机 `localStorage` 偏好，不成为运行时任务状态或跨设备同步事实。归档会话不显示在置顶列表，恢复后可继续使用原偏好。会话标题仍用于导航，“…”及右键共用操作菜单；回复下方分支按钮按该轮边界调用同一 fork。
+置顶仅为桌面本机 `localStorage` 偏好，不成为运行时任务状态或跨设备同步事实。会话服务负责归档和恢复。归档保留消息并隐藏侧栏入口，恢复后会话按原置顶偏好回到所属分组。永久删除会话需要确认，工作目录中的文件保留。会话标题仍用于导航，“…”及右键共用操作菜单；回复下方分支按钮按该轮边界调用同一 fork。
 
 Harness 继续唯一持有压缩内容、事务、取消与结果。宿主只在同一 Agent 已成功手动压缩且原生 surface 未变化时跳过重复摘要，保留原生 maintenance 准入与取消检查；缓存仅存内存，重启或新增上下文后重新按原规则处理。界面消费结构化压缩生命周期显示耗时和完成／失败／取消回执，不从文案推断结果、不显示虚构百分比，不承诺首次摘要速度或摘要绝对无损。
 
-繁體：原生 Harness fork 持有分支歷史；相容層按精確使用者訊息邊界建立獨立對話，共用資料夾但不複製任務、子智能體或背景程序。模型、工具與角色設定沿用，來源不改寫；舊資料不遷移。置頂僅為本機介面偏好。壓縮結果由原生生命週期提供，僅略過同一 Agent 在上下文未變時的重複手動摘要，不改首輪摘要內容或預算。
+繁體：原生 Harness fork 持有分支歷史；相容層按精確使用者訊息邊界建立獨立對話，共用資料夾但不複製任務、子智能體或背景程序。模型、工具與角色設定沿用，來源不改寫；舊資料不遷移。置頂僅為本機介面偏好。會話服務歸檔時保留訊息並隱藏側欄入口，還原時套用原分組的置頂偏好。永久刪除會話需要確認，工作目錄中的檔案保留。壓縮結果由原生生命週期提供，僅略過同一 Agent 在上下文未變時的重複手動摘要，不改首輪摘要內容或預算。
 
-English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation sharing the source directory and configuration, without copying task runs, subagents, or background processes. Existing source guards remain and old data needs no migration. Pinning is a local UI preference. Compaction receipts consume native lifecycle facts; only redundant manual summaries on an unchanged surface of the same Agent are skipped. Summary content, initial-call budgets, and native admission remain unchanged.
+English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation sharing the source directory and configuration, without copying task runs, subagents, or background processes. Existing source guards remain and old data needs no migration. Pinning is a local UI preference. Archiving retains messages and hides the sidebar entry. Restoring the conversation reapplies its pin within its group. Permanent session deletion requires confirmation and preserves workspace files. Compaction receipts consume native lifecycle facts; only redundant manual summaries on an unchanged surface of the same Agent are skipped. Summary content, initial-call budgets, and native admission remain unchanged.
 
 ## 2026-11-04：文件页外部打开
 

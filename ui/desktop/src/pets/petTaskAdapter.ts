@@ -8,10 +8,18 @@ import { currentWorkStage } from '../components/codepro/currentWorkStage';
 import { petPermissionRequest } from '../acp/permissionRequests';
 
 export function petTaskFromSnapshot(sessionId: string, snapshot: AcpChatSessionSnapshot): PetTask {
+  const firstPrompt = snapshot.messages
+    .find((message) => message.role === 'user')
+    ?.content.filter((content) => content.type === 'text')
+    .map((content) => content.text)
+    .join(' ')
+    .trim()
+    .slice(0, 80);
   const name = snapshot.session?.name;
+  // Runtime replaces its placeholder after the first turn. Identify the chat while it is still running.
   const title =
     !name || (!snapshot.session?.user_set_name && name === 'New Session')
-      ? '新对话'
+      ? firstPrompt || 'CodeBuddy'
       : name;
   const task: PetTask = { sessionId, title, state: 'idle' };
   if (snapshot.chatState === ChatState.WaitingForUserInput || snapshot.workspaceReconfirmation) {

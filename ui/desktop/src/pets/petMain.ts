@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, type IpcMainEvent } from 'electron';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -403,7 +403,7 @@ export async function registerDesktopPet(options: {
           destination.focus();
           const deliveryId = randomUUID();
           await new Promise<void>((resolve, reject) => {
-            const finish = (_event: Electron.IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+            const finish = (_event: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
               if (_event.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
               clearTimeout(timeout);
               ipcMain.removeListener('pet-message-result', finish);
@@ -504,7 +504,7 @@ export async function registerDesktopPet(options: {
           if (!destination || destination.isDestroyed()) throw new Error('审批请求已失效，请查看最新通知');
           const deliveryId = randomUUID();
           await new Promise<void>((resolve, reject) => {
-            const finish = (reply: Electron.IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
+            const finish = (reply: IpcMainEvent, result: { deliveryId?: string; error?: string }) => {
               if (reply.sender !== destination.webContents || result?.deliveryId !== deliveryId) return;
               clearTimeout(timeout); ipcMain.removeListener('pet-message-result', finish);
               if (result.error) reject(new Error(result.error)); else resolve();

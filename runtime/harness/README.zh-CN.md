@@ -8,7 +8,7 @@
 
 已由模型目录识别的 vLLM Chat Completions 在同一部署的聊天分词端点核算消息、工具和模板参数，再为输出预留空间。不支持的模板或计数失败时采用本地估算。服务端明确报告摘要超限时缩小到完整的工具调用分界；在同一次恢复中，只有服务端计数持续下降才继续分段。
 
-远程 MCP 通过官方 `agent-preset-registry` 的单服务器租约跨会话复用，最多保留 64 个完整配置；修改一项不重启无关连接，仍被租用的旧修订由 Harness 继续保留。会话通过原生 scope 投影自己的工具、资源与说明，stdio 保持会话/工作目录隔离。工具列表变化同步到各投影，执行仍逐会话审批。状态、失败重试和历史选择恢复见 [工具箱同步](../../docs/toolbox-runtime.zh-CN.md)。
+远程 MCP 通过官方 `agent-preset-registry` 的单服务器租约跨会话复用，可复用配置超过 64 项时，优先清理最久未使用且当前无人申请租约的配置。正在申请租约的配置可暂时超过阈值。修改单个服务仅更新其配置，现有租约可继续使用旧修订。会话通过原生 scope 投影自己的工具、资源与说明，stdio 保持会话/工作目录隔离。工具列表变化同步到各投影，执行仍逐会话审批。状态、失败重试和历史选择恢复见 [工具箱同步](../../docs/toolbox-runtime.zh-CN.md)。
 
 长目标由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目标 CAS、自动续轮、轮数上限和暂停。`prompt` 在原生目标 active + armed 时保持打开，等待官方续轮结束；普通无目标会话正常结束。返回值的 `goal` 为官方 GoalView。Stop 取消本次执行并 disarm；重启保持 disarmed，不自行重放工作。显式暂停目标的恢复使用结构化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立权限和事件承载再调用官方 resume。`getGoal` 只读；`controlGoal` 支持 pause，以及已承载执行中的 resume；空闲时直接 resume 被拒绝。
 

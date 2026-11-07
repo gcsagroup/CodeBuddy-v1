@@ -11,6 +11,8 @@ async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), 'mcp-background-'));
   let release;
   const gate = new Promise(resolve => { release = resolve; });
+  let releaseOther;
+  const otherGate = new Promise(resolve => { releaseOther = resolve; });
   const calls = [], requests = [], wire = [];
   const server = http.createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
@@ -19,7 +21,7 @@ async function fixture(t) {
     if (req.url.includes('/mcp')) {
       wire.push(body.method);
       if (!('id' in body)) { res.writeHead(202).end(); return; }
-      if (body.method === 'initialize') await gate;
+      if (body.method === 'initialize') await (req.url === '/mcp-other' ? otherGate : gate);
       if (body.method === 'tools/call') calls.push(body.params);
       const result = body.method === 'initialize'
         ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'slow', version: '1' } }
@@ -36,18 +38,21 @@ async function fixture(t) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'data'), cwd: root });
-  t.after(async () => { release(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  t.after(async () => { release(); releaseOther(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   const mcp = { serverName: 'slow', transport: 'streamable-http', url: `http://127.0.0.1:${server.address().port}/mcp` };
   const create = (options = {}) => driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, contextWindow: 65536 }, model: 'fixture', options: { backgroundMcp: true, mcpServers: [mcp], ...options } });
   return { root, driver, mcp, create, release, calls, requests, wire };
 }
 
 test('first reply bypasses a gated MCP; targeted discovery waits, cancellation and permissions remain authoritative', { timeout: 20000 }, async t => {
-  const f = await fixture(t), { sessionId: id } = await f.create();
-  assert.equal(f.driver.extensionStatus(id)[0].status, 'connecting');
+  const f = await fixture(t);
+  const other = { ...f.mcp, serverName: 'other', url: f.mcp.url + '-other' };
+  const { sessionId: id } = await f.create({ mcpServers: [f.mcp, other] });
+  const statusOf = name => f.driver.extensionStatus(id).find(server => server.serverName === name)?.status;
+  assert.equal(statusOf('slow'), 'connecting');
   await f.driver.prompt(id, 'Reply without external tools');
   assert.equal(f.requests.length, 1, 'model is dispatched before MCP initialize is released');
-  assert.equal(f.driver.extensionStatus(id)[0].status, 'connecting');
+  assert.equal(statusOf('slow'), 'connecting');
   const catalog = await f.driver.callTool(id, 'search_mcp_tools', {}, { onPermission: async () => true });
   assert.ok(JSON.stringify(catalog).includes('slow'));
   const abort = new AbortController();
@@ -60,7 +65,8 @@ test('first reply bypasses a gated MCP; targeted discovery waits, cancellation a
   await delay(50); assert.equal(settled, false);
   f.release();
   assert.ok(JSON.stringify(await selected).includes('mcp__slow__probe'));
-  assert.equal(f.driver.extensionStatus(id)[0].status, 'ready');
+  assert.equal(statusOf('slow'), 'ready');
+  assert.equal(statusOf('other'), 'connecting', 'targeted discovery did not wait for the other server');
   await f.driver.callTool(id, 'mcp__slow__probe', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: async () => false }).catch(() => {});
   assert.equal(f.calls.length, 0, 'discovery never grants execution');
   await f.driver.callTool(id, 'mcp__slow__probe', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: async () => true });

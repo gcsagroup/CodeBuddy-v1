@@ -29,6 +29,7 @@ test.beforeAll(async () => {
           : undefined,
   });
   page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
+  page.on('pageerror', error => console.error('Browser error:', error.message));
 });
 
 test.afterAll(async () => {
@@ -900,14 +901,15 @@ test('technical text keeps a three-line preview and animates to the full origina
   expect((await body.boundingBox())!.height).toBe(before);
 });
 
-test('compact work plan remains visible above its trigger and fades during closing', async () => {
+test('compact work plan opens below its trigger and hides on collapse', async () => {
   await openActivityFixture();
   const heading = page.locator('[data-testid="work-plan"] summary');
   await heading.click();
   await settle();
   const plan = page.getByText('First step', { exact: true });
   await expect(plan).toBeVisible();
-  expect((await plan.boundingBox())!.y).toBeLessThan((await heading.boundingBox())!.y);
+  const headerBox = (await heading.boundingBox())!;
+  expect((await plan.boundingBox())!.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
   await heading.click();
   await settle();
   await expect(plan).toBeHidden();
@@ -1101,4 +1103,45 @@ test('file-card disclosures preserve counts and motion while opening saved diffs
     path: test.info().outputPath('file-card-workspace-saved-diff.png'),
     fullPage: true,
   });
+});
+
+
+test('standalone reasoning grows in page flow and retains manual collapse', async () => {
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?bounded-details`);
+  const viewport = page.locator('.codepro-thinking-details');
+  const height = () => viewport.evaluate(element => element.clientHeight);
+  await expect.poll(height).toBeGreaterThan(288);
+  const before = await height();
+  await page.getByRole('button', { name: 'Append reasoning' }).click();
+  await expect(viewport.getByText('Reasoning line 84:', { exact: false })).toBeVisible();
+  await expect.poll(height).toBeGreaterThan(before);
+  expect(await viewport.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+  const toggle = page.getByRole('button', { name: 'Thinking', exact: true });
+  await toggle.click();
+  await page.getByRole('button', { name: 'Append reasoning' }).click();
+  await expect(viewport).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Thinking', exact: true })).toHaveAttribute('data-state', 'closed');
+});
+
+test('expanded execution records stay bounded and reasoning remains independently folded', async () => {
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?bounded-details&grouped`);
+  const group = page.locator('[data-process-group]').first();
+  await group.getByRole('button', { expanded: false }).first().click();
+  const details = group.locator('.codepro-process-details');
+  await expect(details).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('Reasoning line 0:', { exact: false })).toHaveCount(0);
+  const metrics = await details.evaluate(element => ({ height: element.clientHeight, total: element.scrollHeight }));
+  expect(metrics.height).toBeLessThanOrEqual(288);
+  expect(metrics.total).toBeGreaterThan(metrics.height);
+  await expect(group.getByRole('button', { name: 'Reasoning details' })).toHaveCount(0);
+  const thought = group.getByRole('button', { name: 'Thinking', exact: true }).first();
+  await thought.click();
+  const thinking = group.locator('.codepro-thinking-details').first();
+  await expect(thinking).toBeVisible();
+  expect(await thinking.evaluate(element => element.clientHeight)).toBeGreaterThan(metrics.height);
+  expect(await thinking.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: '../../.local/restoration-review/thinking-and-records.png' });
+  await thought.click();
+  await expect(thinking).toHaveCount(0);
 });

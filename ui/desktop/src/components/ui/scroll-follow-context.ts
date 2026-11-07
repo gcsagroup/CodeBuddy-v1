@@ -7,6 +7,7 @@ export const ScrollFollowingContext = createContext(true);
 
 // Temporary layout anchoring, owned by the existing chat viewport. It does not
 // change the user's follow/read choice or any execution state.
-export const ScrollLayoutAnchorContext = createContext<((element: Element) => () => void) | null>(
-  null
-);
+// An explicit offset resumes reading through that same scroll owner.
+export const ScrollLayoutAnchorContext = createContext<
+  ((element: Element, position?: { top: number; behavior: 'auto' | 'smooth' }) => () => void) | null
+>(null);

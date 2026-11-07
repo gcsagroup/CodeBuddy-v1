@@ -5915,9 +5915,6 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
-  "progressiveMessageList.thinkingDetails": {
-    "defaultMessage": "思考の詳細"
-  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },

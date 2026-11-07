@@ -5915,9 +5915,6 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
-  "progressiveMessageList.thinkingDetails": {
-    "defaultMessage": "Chi tiết suy luận"
-  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },

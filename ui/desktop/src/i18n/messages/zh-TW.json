@@ -5950,9 +5950,6 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "任務檢查記錄 {count}"
   },
-  "progressiveMessageList.thinkingDetails": {
-    "defaultMessage": "思考詳情"
-  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },

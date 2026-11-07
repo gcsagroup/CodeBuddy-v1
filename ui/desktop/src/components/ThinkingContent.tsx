@@ -1,6 +1,15 @@
-import { memo, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Atom } from 'lucide-react';
 import MarkdownContent from './MarkdownContent';
-import AnimatedIcons from './AnimatedIcons';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import Expand from './ui/Expand';
 import { defineMessages, useIntl } from '../i18n';
@@ -26,12 +35,55 @@ interface ThinkingContentProps {
 
 const preferenceKey = (storageKey: string) => `codepro-thinking:${storageKey}`;
 
+function thinkingPreview(content: string, streaming: boolean): string {
+  const firstLine = content.trimStart().split(/\r?\n/, 1)[0];
+  let line = firstLine;
+  if (streaming) {
+    const paragraphs = /\r?\n(?:[\t ]*\r?\n)+/g;
+    let start = 0;
+    // Follow DSH's paragraph-first-line preview, keeping the previous line
+    // until a new one is complete. The first partial line is the fallback.
+    while (true) {
+      const boundary = paragraphs.exec(content);
+      const end = boundary ? boundary.index + boundary[0].indexOf('\n') : content.length;
+      const newline = content.indexOf('\n', start);
+      if (newline !== -1 && newline <= end) {
+        const candidate = content.slice(start, newline).trim();
+        if (candidate) line = candidate;
+      }
+      if (!boundary) break;
+      start = boundary.index + boundary[0].length;
+    }
+  }
+  let preview = '';
+  for (const character of line.replace(/\*\*/g, '').trim()) {
+    // Keep very long single-line thoughts out of the collapsed DOM.
+    if (preview.length + character.length > 240) return `${preview}…`;
+    preview += character;
+  }
+  return preview;
+}
+
 function storedPreference(storageKey?: string): boolean | null {
   if (!storageKey || typeof window === 'undefined') return null;
-  const stored = window.localStorage.getItem(preferenceKey(storageKey));
-  if (stored === 'open') return true;
-  if (stored === 'closed') return false;
+  try {
+    const stored = window.localStorage.getItem(preferenceKey(storageKey));
+    if (stored === 'open') return true;
+    if (stored === 'closed') return false;
+  } catch {
+    /* Storage is optional. */
+  }
   return null;
+}
+
+function storedReadingOffset(storageKey?: string): number {
+  if (!storageKey || typeof window === 'undefined') return 0;
+  try {
+    const offset = Number(window.sessionStorage.getItem(`${preferenceKey(storageKey)}:position`));
+    return Number.isFinite(offset) && offset > 0 ? offset : 0;
+  } catch {
+    return 0;
+  }
 }
 
 const ThinkingContent = memo(function ThinkingContent({
@@ -41,6 +93,8 @@ const ThinkingContent = memo(function ThinkingContent({
   storageKey,
 }: ThinkingContentProps) {
   const intl = useIntl();
+  const label = intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking);
+  const preview = useMemo(() => thinkingPreview(content, isStreaming), [content, isStreaming]);
   const [manualToggle, setManualToggle] = useState<boolean | null>(() =>
     storedPreference(storageKey)
   );
@@ -68,16 +122,77 @@ const ThinkingContent = memo(function ThinkingContent({
   const header = useRef<HTMLButtonElement>(null);
   const holdLayoutAnchor = useContext(ScrollLayoutAnchorContext);
   const releaseAnchor = useRef<(() => void) | null>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const readingOffset = useRef(storedReadingOffset(storageKey));
+  const resumeReading = useRef(false);
+  const readingViewport = useCallback(
+    () =>
+      header.current?.closest<HTMLElement>(
+        '.codepro-process-details, [data-radix-scroll-area-viewport]'
+      ),
+    []
+  );
+  const processAnchor = useRef<{ viewport: HTMLElement; offset: number } | null>(null);
+  const captureProcessAnchor = useCallback(() => {
+    const viewport = header.current?.closest<HTMLElement>('.codepro-process-details');
+    processAnchor.current =
+      header.current && viewport
+        ? {
+            viewport,
+            offset:
+              header.current.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+          }
+        : null;
+  }, []);
   useLayoutEffect(() => {
     if (expanded === targetExpanded) return;
     // Reserve the scroll range before removing body height, not after the
     // browser has already clamped scrollTop during the close animation.
     if (expanded && !targetExpanded && manualToggle === null && header.current) {
+      captureProcessAnchor();
       releaseAnchor.current?.();
       releaseAnchor.current = holdLayoutAnchor?.(header.current) ?? null;
     }
     setExpanded(targetExpanded);
-  }, [expanded, targetExpanded, manualToggle, holdLayoutAnchor]);
+  }, [expanded, targetExpanded, manualToggle, holdLayoutAnchor, captureProcessAnchor]);
+  useLayoutEffect(() => {
+    if (
+      expanded &&
+      expanded === targetExpanded &&
+      resumeReading.current &&
+      body.current &&
+      header.current
+    ) {
+      resumeReading.current = false;
+      processAnchor.current = null;
+      const viewport = readingViewport();
+      if (!viewport) return;
+      const offset = Math.min(readingOffset.current, Math.max(0, body.current.scrollHeight - 1));
+      const top = header.current.getBoundingClientRect().height - offset;
+      const behavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth';
+      if (viewport.matches('[data-radix-scroll-area-viewport]') && holdLayoutAnchor) {
+        holdLayoutAnchor(body.current, { top, behavior });
+      } else {
+        viewport.scrollTo({
+          top:
+            viewport.scrollTop +
+            body.current.getBoundingClientRect().top -
+            viewport.getBoundingClientRect().top -
+            top,
+          behavior,
+        });
+      }
+      return;
+    }
+    const anchor = processAnchor.current;
+    if (!anchor || !header.current || expanded !== targetExpanded) return;
+    const offset =
+      header.current.getBoundingClientRect().top - anchor.viewport.getBoundingClientRect().top;
+    anchor.viewport.scrollTop += offset - anchor.offset;
+    processAnchor.current = null;
+  }, [expanded, targetExpanded, holdLayoutAnchor, readingViewport]);
   useEffect(() => {
     if (expanded || !releaseAnchor.current) return;
     const release = () => {
@@ -91,62 +206,103 @@ const ThinkingContent = memo(function ThinkingContent({
       release();
     };
   }, [expanded]);
-  const viewport = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
   const handleOpenChange = (open: boolean) => {
+    captureProcessAnchor();
+    if (!open && body.current && header.current) {
+      const viewport = readingViewport();
+      if (viewport) {
+        readingOffset.current = Math.max(
+          0,
+          viewport.getBoundingClientRect().top +
+            header.current.getBoundingClientRect().height -
+            body.current.getBoundingClientRect().top
+        );
+        if (storageKey) {
+          try {
+            window.sessionStorage.setItem(
+              `${preferenceKey(storageKey)}:position`,
+              String(readingOffset.current)
+            );
+          } catch {
+            /* Storage is optional. */
+          }
+        }
+      }
+    }
+    resumeReading.current = open && readingOffset.current > 0;
+    if (!open && header.current) {
+      releaseAnchor.current?.();
+      releaseAnchor.current = holdLayoutAnchor?.(header.current) ?? null;
+    }
     setManualToggle(open);
     if (storageKey && typeof window !== 'undefined') {
-      window.localStorage.setItem(preferenceKey(storageKey), open ? 'open' : 'closed');
+      try {
+        window.localStorage.setItem(preferenceKey(storageKey), open ? 'open' : 'closed');
+      } catch {
+        /* Storage is optional. */
+      }
     }
   };
   const updateReadingPosition = () => {
-    const element = viewport.current;
+    const element = body.current;
     if (!element) return;
-    following.current = element.scrollHeight - element.clientHeight - element.scrollTop <= 24;
     const selection = window.getSelection();
     const selecting =
       selection?.isCollapsed === false &&
       !!selection.anchorNode &&
       element.contains(selection.anchorNode);
-    setRetainReading(!following.current || selecting || !chatFollowing);
+    if (selecting || !chatFollowing) setRetainReading(true);
   };
 
   return (
     <Collapsible
       open={expanded}
       onOpenChange={handleOpenChange}
-      className="codepro-thinking-record mb-1 last:mb-0"
+      className="codepro-thinking-record mb-1 min-w-0 max-w-full last:mb-0"
     >
       <CollapsibleTrigger
         ref={header}
-        className="codepro-record-trigger codepro-secondary-label relative flex min-h-7 items-center gap-1.5 py-1 px-0 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+        aria-label={label}
+        className="codepro-thinking-header codepro-record-trigger codepro-secondary-label flex min-h-7 w-full min-w-0 items-center gap-1.5 py-1 px-0 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
       >
         <span
           aria-hidden="true"
-          className={isStreaming ? 'inline-flex h-4 w-4 shrink-0' : 'hidden'}
+          className="codepro-record-icon flex w-[18px] shrink-0 items-center justify-start"
         >
-          {isStreaming && <AnimatedIcons cycleInterval={600} />}
+          <Atom
+            size={16}
+            strokeWidth={1.5}
+            className={isStreaming ? 'motion-safe:animate-spin' : undefined}
+          />
         </span>
-        <span>{intl.formatMessage(isStreaming ? i18n.thinkingLive : i18n.thinking)}</span>
-        <Expand size={3} isExpanded={expanded} />
+        <span className="shrink-0">{label}</span>
+        <span className="inline-flex shrink-0">
+          <Expand size={3} isExpanded={expanded} />
+        </span>
+        {!expanded && preview && (
+          <span aria-hidden="true" className="codepro-thinking-preview min-w-0 truncate text-left">
+            {preview}
+          </span>
+        )}
       </CollapsibleTrigger>
-      <CollapsibleContent className={hasOpened.current ? 'codepro-disclosure-content' : undefined}>
+      <CollapsibleContent
+        className={
+          hasOpened.current ? 'codepro-disclosure-content codepro-thinking-disclosure' : undefined
+        }
+      >
         <div
-          ref={viewport}
+          ref={body}
           onPointerDownCapture={() => {
-            following.current = false;
             setRetainReading(true);
           }}
           onPointerUpCapture={updateReadingPosition}
           onFocusCapture={() => setRetainReading(true)}
           onWheelCapture={(event) => {
             if (event.deltaY < 0) {
-              following.current = false;
               setRetainReading(true);
             }
           }}
-          onScroll={updateReadingPosition}
-          className="codepro-operation-details codepro-thinking-details mt-2 w-full min-w-0 border-l-2 border-border-primary pl-4 pr-2 text-sm leading-relaxed text-text-secondary"
+          className="codepro-operation-details codepro-thinking-details mt-1 w-full min-w-0 pl-6 text-sm text-text-secondary"
         >
           {/* Source chunks already stream; per-word animation nodes make long thoughts costly. */}
           <MarkdownContent

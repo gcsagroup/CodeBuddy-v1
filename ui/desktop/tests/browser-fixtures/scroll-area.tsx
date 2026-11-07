@@ -30,6 +30,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { toastService } from '../../src/toasts';
 import { showExtensionLoadResults } from '../../src/utils/extensionErrorUtils';
 import ProgressiveMessageList from '../../src/components/ProgressiveMessageList';
+import { applyThemeTokens } from '../../src/theme/theme-tokens';
 
 function HistoryFixture() {
   const area = useRef<ScrollAreaHandle>(null);
@@ -116,6 +117,158 @@ function AutoFoldFixture() {
               thoughts
             ))}
           <p>Final verified result</p>
+        </ScrollArea>
+      </main>
+    </IntlTestWrapper>
+  );
+}
+
+function ProcessIconFixture() {
+  const singleThought = new URLSearchParams(window.location.search).has('single-thought');
+  const [thinking, setThinking] = useState(singleThought);
+  const assistant = (id: string, content: Message['content']): Message => ({
+    id,
+    role: 'assistant',
+    created: 2,
+    content,
+    metadata: { userVisible: true, agentVisible: true },
+  });
+  const call = (id: string): Message['content'][number] => ({
+    type: 'toolRequest',
+    id,
+    toolCall: { name: 'pwsh', arguments: { command: `Write-Output ${id}` } },
+  });
+  const result = (id: string, failed = false): Message => ({
+    id: `result-${id}`,
+    role: 'user',
+    created: 3,
+    metadata: { userVisible: false, agentVisible: true },
+    content: [
+      {
+        type: 'toolResponse',
+        id,
+        toolResult: failed
+          ? { status: 'error', error: 'The first fixture attempt failed.' }
+          : {
+              status: 'success',
+              value: { content: [{ type: 'text', text: 'Completed fixture output.' }] },
+            },
+      },
+    ],
+  });
+  const messages: Message[] = [
+    {
+      id: 'icon-user',
+      role: 'user',
+      created: 1,
+      content: [{ type: 'text', text: 'Inspect the fixture.' }],
+      metadata: { userVisible: true, agentVisible: true },
+    },
+    assistant('past-work', [call('past-failed'), call('past-success')]),
+    result('past-failed', true),
+    result('past-success'),
+    assistant('public-reply', [
+      { type: 'thinking', thinking: 'Check the completed results.', signature: '' },
+      { type: 'text', text: 'The previous work has finished.' },
+    ]),
+    assistant('live-work', singleThought
+      ? [{ type: 'thinking', thinking: 'Checking the next step.', signature: '' }]
+      : [call('current-call')]),
+  ];
+  return (
+    <IntlTestWrapper>
+      <MemoryRouter>
+        <main className="codepro-conversation" style={{ padding: 24, width: 760 }}>
+          {singleThought && <button onClick={() => setThinking(false)}>End thinking</button>}
+          <div className="codepro-chat-history">
+            <ProgressiveMessageList
+              messages={messages}
+              chat={{ sessionId: 'process-icons' }}
+              isUserMessage={(message) => message.role === 'user'}
+              isStreamingMessage
+              thinkingActivity={thinking ? { messageId: 'live-work', receivedAt: 2 } : undefined}
+              activeToolCallIds={singleThought ? [] : ['current-call']}
+            />
+          </div>
+        </main>
+      </MemoryRouter>
+    </IntlTestWrapper>
+  );
+}
+
+function ThoughtReadingFixture() {
+  const grouped = new URLSearchParams(window.location.search).has('grouped');
+  const edgeList = new URLSearchParams(window.location.search).has('edge-list');
+  const [extra, setExtra] = useState(false);
+  const content =
+    Array.from(
+      { length: 80 },
+      (_, index) =>
+        `Reading paragraph ${index}. **Keep this passage** while folding, reopening and receiving new output.`
+    ).join('\n\n') +
+    '\n\n' +
+    'LongUnbrokenToken'.repeat(100) +
+    '\n\nhttps://example.com/' +
+    'long-path-'.repeat(100) +
+    '\n\n```text\n' +
+    'const value = 123; '.repeat(80) +
+    '\n```\n\n' +
+    '| Column | Data |\n| --- | --- |\n| Value | ' +
+    'WideTableCell'.repeat(80) +
+    ' |';
+  const thoughts = (
+    <>
+      <div className="goose-message">
+        <div className="flex w-full min-w-0 flex-col">
+          <ThinkingContent
+            content={content + (extra ? '\n\nNew reasoning arrived.' : '')}
+            isExpanded={false}
+            storageKey="reading-first"
+          />
+        </div>
+      </div>
+      <ThinkingContent
+        content="Second thought stays independent."
+        isExpanded={false}
+        storageKey="reading-second"
+      />
+      <div style={{ height: 240 }}>Tool receipts below reasoning</div>
+    </>
+  );
+  const rows = edgeList
+    ? Array.from({ length: 24 }, (_, index) =>
+        index % 3 === 0 ? (
+          <ThinkingContent
+            key={index}
+            content={`Reading record ${index}. Check the completed operations before continuing.`}
+            isExpanded={false}
+          />
+        ) : (
+          <ToolCallExpandable
+            key={index}
+            compact
+            label={`Completed operation ${index}: inspect the local fixture`}
+            icon={<ToolActivityIcon name="shell" status="success" />}
+          >
+            <p>Local operation receipt</p>
+          </ToolCallExpandable>
+        )
+      )
+    : thoughts;
+  return (
+    <IntlTestWrapper>
+      <main className="codepro-conversation" style={{ padding: 24, width: 'min(850px, 100vw)' }}>
+        <button onClick={() => setExtra(true)}>Append reasoning</button>
+        <ScrollArea autoScroll className="codepro-chat-history" style={{ height: 520 }}>
+          <p style={{ height: 160 }}>Earlier conversation</p>
+          {grouped ? (
+            <ToolCallExpandable compact groupHeading label="Thought work" isStartExpanded>
+              {rows}
+            </ToolCallExpandable>
+          ) : (
+            thoughts
+          )}
+          <p style={{ height: 160 }}>Final answer stays outside reasoning</p>
         </ScrollArea>
       </main>
     </IntlTestWrapper>
@@ -416,30 +569,32 @@ function PresentationFixture({ subagent = false }: { subagent?: boolean }) {
             <p>任务要求内容</p>
           </CodeProPlan>
           <ThinkingContent content="思考内容" isExpanded={false} />
-          <ToolCallExpandable
-            compact
-            groupHeading
-            scrollable={false}
-            label="用时 1分钟 10秒"
-            contentClassName="text-text-secondary"
-          >
-            <MarkdownContent content="处理记录" className="codepro-assistant-prose" />
-            <p className="text-text-secondary">操作说明</p>
+          <div data-turn-process-summary="">
             <ToolCallExpandable
               compact
-              icon={<ToolActivityIcon name="developer__read" status="success" />}
-              label="已查看文件 smoke_test_app.py"
+              groupHeading
+              scrollable={false}
+              label="用时 1分钟 10秒"
+              contentClassName="text-text-secondary"
             >
-              <p>文件内容</p>
+              <MarkdownContent content="处理记录" className="codepro-assistant-prose" />
+              <p className="text-text-secondary">操作说明</p>
+              <ToolCallExpandable
+                compact
+                icon={<ToolActivityIcon name="developer__read" status="success" />}
+                label="已查看文件 smoke_test_app.py"
+              >
+                <p>文件内容</p>
+              </ToolCallExpandable>
+              <CodeProActivityTimeline
+                items={activities.map((activity) => ({
+                  kind: 'activity',
+                  key: activity.key,
+                  activity,
+                }))}
+              />
             </ToolCallExpandable>
-            <CodeProActivityTimeline
-              items={activities.map((activity) => ({
-                kind: 'activity',
-                key: activity.key,
-                activity,
-              }))}
-            />
-          </ToolCallExpandable>
+          </div>
           <ToolCallExpandable
             compact
             icon={<ToolActivityIcon name="developer__tree" status="success" />}
@@ -486,9 +641,26 @@ function ToastFixture() {
 }
 
 const query = new URLSearchParams(window.location.search);
+if (query.has('process-icons')) {
+  window.electron = {
+    getSetting: async () => 'concise',
+    logInfo: () => {},
+  } as unknown as Window['electron'];
+}
+if (query.has('thinking-reading') || query.has('presentation') || query.has('process-icons')) {
+  const theme = query.has('dark') ? 'dark' : 'light';
+  applyThemeTokens(theme);
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.classList.toggle('light', theme === 'light');
+  document.documentElement.style.colorScheme = theme;
+}
 createRoot(document.getElementById('root')!).render(
   query.has('history') ? (
     <HistoryFixture />
+  ) : query.has('process-icons') ? (
+    <ProcessIconFixture />
+  ) : query.has('thinking-reading') ? (
+    <ThoughtReadingFixture />
   ) : query.has('auto-fold') ? (
     <AutoFoldFixture />
   ) : query.has('file-card') ? (

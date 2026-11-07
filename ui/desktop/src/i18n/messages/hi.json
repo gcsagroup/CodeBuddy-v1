@@ -5915,9 +5915,6 @@
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
   },
-  "progressiveMessageList.thinkingDetails": {
-    "defaultMessage": "तर्क का विवरण"
-  },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
   },

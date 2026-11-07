@@ -240,12 +240,272 @@ async function settle() {
   await page.waitForTimeout(400);
 }
 
+test('only the active single thought animates its Atom while the turn is streaming', async () => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?process-icons&single-thought`);
+  const groups = page.locator('[data-process-group]');
+  await expect(groups).toHaveCount(2);
+  await groups.first().getByRole('button').first().click();
+  const past = groups.first().locator('svg.lucide-atom');
+  const current = groups.last().locator('svg.lucide-atom');
+  const animating = (icon: Locator) => icon.evaluate(el => el.getAnimations().some(animation => animation.playState === 'running'));
+  await expect(past).toBeVisible();
+  await expect.poll(() => animating(current)).toBe(true);
+  expect(await animating(past)).toBe(false);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(() => animating(current)).toBe(false);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect.poll(() => animating(current)).toBe(true);
+  await page.getByRole('button', { name: 'End thinking' }).click();
+  await expect(current).toBeVisible();
+  await expect.poll(() => animating(current)).toBe(false);
+});
+
+test('completed history with a failed receipt keeps its icon still while current work animates', async () => {
+  const errors: string[] = [];
+  const onError = (error: Error) => errors.push(error.message);
+  page.on('pageerror', onError);
+  await page.goto(
+    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?process-icons`
+  );
+  const groups = page.locator('[data-process-group]');
+  await expect(groups).toHaveCount(2);
+  const past = groups.nth(0).locator('.codepro-record-icon').first();
+  const current = groups.nth(1).locator('.codepro-record-icon').first();
+  const before = await past.innerHTML();
+  const liveBefore = await current.innerHTML();
+  await expect.poll(() => current.innerHTML()).not.toBe(liveBefore);
+  expect(await past.innerHTML()).toBe(before);
+  await groups.nth(0).getByRole('button').first().click();
+  await expect(groups.nth(0).locator('[data-tool-call-id="past-failed"]')).toHaveAttribute(
+    'data-tool-phase',
+    'error'
+  );
+  await expect(groups.nth(0).locator('[data-tool-call-id="past-success"]')).toHaveAttribute(
+    'data-tool-phase',
+    'success'
+  );
+  expect(await past.innerHTML()).toBe(before);
+  expect(errors).toEqual([]);
+  page.off('pageerror', onError);
+  await page.screenshot({ path: resolve(historyCacheRoot, 'completed-history-static-icon.png') });
+});
+
+for (const grouped of [false, true]) {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    test(`thoughts resume the same passage in ${grouped ? 'process' : 'chat'} scrolling (${reducedMotion})`, async () => {
+      await page.close();
+      page = await browser.newPage({ viewport: { width: grouped ? 480 : 1000, height: 760 } });
+      await page.emulateMedia({ reducedMotion });
+      await page.goto(
+        `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?thinking-reading${grouped ? '&grouped' : ''}${reducedMotion === 'reduce' ? '&dark' : ''}`
+      );
+      const mainViewport = page.locator('[data-radix-scroll-area-viewport]');
+      const viewport = grouped ? page.locator('.codepro-process-details') : mainViewport;
+      const header = page.locator('.codepro-thinking-header').first();
+      await header.click();
+      const body = page.locator('.codepro-thinking-details').first();
+      await expect(body).toBeVisible();
+      expect(await body.evaluate((el) => getComputedStyle(el).overflowY)).toBe('visible');
+      expect(await header.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+        'rgba(0, 0, 0, 0)'
+      );
+      expect(await body.evaluate((el) => el.clientHeight)).toBeGreaterThan(1000);
+      expect(await viewport.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(
+        1
+      );
+      expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+      if (grouped)
+        expect(await viewport.evaluate((el) => getComputedStyle(el).scrollbarWidth)).not.toBe(
+          'none'
+        );
+      if (grouped) {
+        const edges = await viewport.evaluate((el) => {
+          const parent = el.parentElement!;
+          const before = getComputedStyle(parent, '::before');
+          const after = getComputedStyle(parent, '::after');
+          return {
+            top:
+              parent.getBoundingClientRect().top +
+              parseFloat(before.top) -
+              el.getBoundingClientRect().top,
+            bottom:
+              parent.getBoundingClientRect().bottom -
+              parseFloat(after.bottom) -
+              el.getBoundingClientRect().bottom,
+          };
+        });
+        expect(edges).toEqual({ top: 0, bottom: 0 });
+        const fade = (edge: 'before' | 'after') =>
+          viewport.evaluate(
+            (el, edge) => getComputedStyle(el.parentElement!, `::${edge}`).opacity,
+            edge
+          );
+        await viewport.evaluate((el) => {
+          el.scrollTop = 0;
+          el.dispatchEvent(new Event('scroll'));
+        });
+        await expect.poll(() => fade('before')).toBe('0');
+        await expect.poll(() => fade('after')).toBe('1');
+        await viewport.evaluate((el) => {
+          el.scrollTop = 100;
+          el.dispatchEvent(new Event('scroll'));
+        });
+        await expect.poll(() => fade('before')).toBe('1');
+        await viewport.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+          el.dispatchEvent(new Event('scroll'));
+        });
+        await expect.poll(() => fade('after')).toBe('0');
+        expect(
+          await viewport.evaluate(
+            (el) => getComputedStyle(el.parentElement!, '::before').pointerEvents
+          )
+        ).toBe('none');
+        await viewport.evaluate((el) => {
+          el.scrollTop = 0;
+          el.dispatchEvent(new Event('scroll'));
+        });
+      }
+      const passage = page.getByText(/^Reading paragraph 40\./);
+      await viewport.hover();
+      await page.mouse.wheel(0, -1);
+      await settle();
+      await viewport.evaluate((el) => {
+        const passage = Array.from(el.querySelectorAll('p')).find((p) =>
+          p.textContent?.startsWith('Reading paragraph 40.')
+        )!;
+        const header = el.querySelector('.codepro-thinking-header')!;
+        el.scrollTop +=
+          passage.getBoundingClientRect().top -
+          el.getBoundingClientRect().top -
+          header.getBoundingClientRect().height -
+          12;
+        el.dispatchEvent(new Event('scroll'));
+      });
+      await settle();
+      const before = (await passage.boundingBox())!.y;
+      const bounds = (await viewport.boundingBox())!;
+      expect(Math.abs((await header.boundingBox())!.y - bounds.y)).toBeLessThanOrEqual(3);
+      await header.click();
+      await settle();
+      const folded = (await header.boundingBox())!;
+      expect(folded.y).toBeGreaterThanOrEqual((await viewport.boundingBox())!.y - 2);
+      await header.click();
+      await settle();
+      await expect
+        .poll(async () => Math.abs((await passage.boundingBox())!.y - before))
+        .toBeLessThanOrEqual(2);
+      await page.getByRole('button', { name: 'Append reasoning', exact: true }).click();
+      await settle();
+      expect(Math.abs((await passage.boundingBox())!.y - before)).toBeLessThanOrEqual(2);
+      await expect(page.locator('.codepro-thinking-header').nth(1)).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+      if (grouped) {
+        await header.click();
+        await settle();
+        const group = page.getByRole('button', { name: 'Thought work', exact: true });
+        await group.click();
+        await settle();
+        await group.click();
+        await settle();
+        await header.click();
+        await settle();
+        await expect
+          .poll(async () => Math.abs((await passage.boundingBox())!.y - before))
+          .toBeLessThanOrEqual(2);
+      }
+      // A code block and its copy control must scroll beneath the opaque header.
+      await viewport.evaluate((el) => {
+        const code = el.querySelector('pre')!;
+        el.scrollTop += code.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
+        el.dispatchEvent(new Event('scroll'));
+      });
+      await settle();
+      const headerBounds = (await header.boundingBox())!;
+      await page.mouse.move(
+        headerBounds.x + headerBounds.width - 12,
+        headerBounds.y + headerBounds.height + 12
+      );
+      expect(
+        await header.evaluate((el) => {
+          const bounds = el.getBoundingClientRect();
+          return [2, bounds.width / 2, bounds.width - 2].every((x) =>
+            [2, bounds.height / 2, bounds.height - 2].every((y) =>
+              el.contains(document.elementFromPoint(bounds.left + x, bounds.top + y))
+            )
+          );
+        })
+      ).toBe(true);
+      expect(await header.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
+      await viewport.evaluate((el) => {
+        const copy = el.querySelector('pre button')!;
+        el.scrollTop += copy.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
+        el.dispatchEvent(new Event('scroll'));
+      });
+      await settle();
+      expect(
+        await header.evaluate((el) => {
+          const bounds = el.getBoundingClientRect();
+          return el.contains(
+            document.elementFromPoint(bounds.right - 12, bounds.top + bounds.height / 2)
+          );
+        })
+      ).toBe(true);
+      await page.screenshot({
+        path: resolve(
+          historyCacheRoot,
+          `thought-reading-${grouped ? 'process' : 'chat'}-${reducedMotion}.png`
+        ),
+      });
+    });
+  }
+}
+
 async function openFixture() {
   await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html`);
   await page.getByText('Earlier conversation', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await settle();
 }
+
+test('process edge fades meet the clipping boundary without a trailing opaque strip', async () => {
+  for (const theme of ['light', 'dark']) {
+    await page.close();
+    page = await browser.newPage({ viewport: { width: 800, height: 760 } });
+    await page.goto(
+      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?thinking-reading&grouped&edge-list${theme === 'dark' ? '&dark' : ''}`
+    );
+    const viewport = page.locator('.codepro-process-details');
+    await viewport.evaluate((el) => {
+      el.scrollTop = 137;
+      el.dispatchEvent(new Event('scroll'));
+    });
+    await expect(viewport).toHaveAttribute('data-scrolled', 'true');
+    await expect(viewport).toHaveAttribute('data-more-below', 'true');
+    expect(
+      await viewport.evaluate((el) => {
+        const parent = el.parentElement!;
+        const before = getComputedStyle(parent, '::before');
+        const after = getComputedStyle(parent, '::after');
+        return {
+          top:
+            parent.getBoundingClientRect().top +
+            parseFloat(before.top) -
+            el.getBoundingClientRect().top,
+          bottom:
+            parent.getBoundingClientRect().bottom -
+            parseFloat(after.bottom) -
+            el.getBoundingClientRect().bottom,
+          fadeHeight: after.height,
+        };
+      })
+    ).toEqual({ top: 0, bottom: 0, fadeHeight: '24px' });
+    await page.screenshot({ path: resolve(historyCacheRoot, `process-edge-fade-${theme}.png`) });
+  }
+});
 
 async function openActivityFixture() {
   await page.goto(
@@ -427,13 +687,19 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   for (const trigger of [duration, thinking, files]) {
     const label = trigger.locator(':scope > span:not([aria-hidden])').first();
     const text = (await label.boundingBox())!;
-    const arrow = (await trigger.locator(':scope > svg').boundingBox())!;
-    expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
+    const arrow = (await trigger
+      .locator('.lucide-chevron-right, .lucide-chevron-up')
+      .boundingBox())!;
+    expect(Math.abs(text.x - left - (trigger === duration ? 0 : 24))).toBeLessThanOrEqual(1);
     expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
     expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
-    await expect(label).toHaveCSS('font-size', '12.5px');
+    await expect(label).toHaveCSS('font-size', trigger === duration ? '13.5px' : '12.5px');
     await expect(trigger).toHaveCSS('border-radius', '10px');
   }
+  await expect(duration.locator('..')).toHaveCSS('border-bottom-width', '1px');
+  expect(
+    await duration.locator('..').evaluate((el) => getComputedStyle(el).borderBottomStyle)
+  ).toBe('solid');
   expect(
     Math.abs(left - (await page.locator('.codepro-chat-history').boundingBox())!.x)
   ).toBeLessThanOrEqual(1);
@@ -522,7 +788,7 @@ test('conversation font family and fractional layout match in main and subagent 
         .slice(0, 2)
         .map((part) => part.trim().replaceAll('"', ''))
     ).toEqual(['Noto Sans SC', 'Noto Sans CJK SC']);
-    expect(family).toContain('system-ui');
+    expect(family).toContain('sans-serif');
     const content = page.locator('.codepro-assistant-prose').first();
     for (const node of await content.locator('p, h2, ul, li').all()) {
       await expect(node).toHaveCSS('font-family', family);

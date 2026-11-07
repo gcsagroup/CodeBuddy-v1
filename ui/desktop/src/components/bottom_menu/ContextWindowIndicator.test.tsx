@@ -31,6 +31,7 @@ it('shows usage on hover and updates provenance after compaction', async () => {
   await userEvent.hover(
     screen.getByRole('button', { name: 'Context usage: 7,927 / 32,768 (24%)' })
   );
+  expect(screen.getByTestId('context-window-indicator').querySelectorAll('circle')).toHaveLength(2);
   expect(await screen.findByRole('dialog')).toHaveTextContent('7.9k / 32.8k');
   expect(screen.getByRole('dialog').querySelectorAll('p')).toHaveLength(2);
   expect(screen.getByRole('button')).toHaveAttribute(
@@ -65,6 +66,7 @@ it('keeps zero visible without inventing unknown capacity or usage', async () =>
     { wrapper: IntlTestWrapper }
   );
   await userEvent.hover(screen.getByRole('button', { name: 'Context usage: 0 / Unknown' }));
+  expect(screen.getByTestId('context-window-indicator').querySelectorAll('circle')).toHaveLength(1);
   expect(await screen.findByRole('dialog')).toHaveTextContent('0k / Unknown');
   expect(screen.getByRole('button')).toHaveAttribute(
     'aria-description',
@@ -72,8 +74,10 @@ it('keeps zero visible without inventing unknown capacity or usage', async () =>
   );
   rerender(<ContextWindowIndicator tokenLimit={262144} alerts={[]} />);
   expect(screen.getByRole('button', { name: 'Context usage: Unknown / 262,144' })).toBeVisible();
+  expect(screen.getByTestId('context-window-indicator').querySelectorAll('circle')).toHaveLength(1);
   rerender(<ContextWindowIndicator totalTokens={0} tokenLimit={262144} alerts={[]} />);
   expect(screen.getByRole('button', { name: 'Context usage: 0 / 262,144 (0%)' })).toBeVisible();
+  expect(screen.getByTestId('context-window-indicator').querySelectorAll('circle')).toHaveLength(1);
 });
 
 it('preserves over-capacity counts and keyboard access to the existing compact action', async () => {

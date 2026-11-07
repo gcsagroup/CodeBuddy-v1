@@ -1,5 +1,5 @@
 import { AppEvents } from '../../constants/events';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { CustomAgents } from './CustomAgents';
 import { getNextChatAgent, setNextChatAgent } from '../../utils/nextChatAgent';
@@ -14,6 +14,7 @@ const preset = { key: 'frontend', description: '实现页面与组件。', tags:
 } };
 beforeEach(() => {
   navigate.mockReset(); request.mockReset();
+  localStorage.removeItem('codebuddy:recent-agents');
   route.pathname = '/codepro/custom-agents'; route.search = ''; route.state = null;
   setNextChatAgent(null);
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [], avatars: ['🤖', '📚'] } : method.endsWith('/catalog') ? catalog : {});
@@ -39,6 +40,24 @@ it('saves persona, avatar and capability lists without binding a model', async (
   expect(await screen.findByRole('heading', { name: '写作搭档' })).toBeVisible();
   expect(changed).toHaveBeenCalledOnce();
 });
+
+it('shows a non-blocking name hint only while the draft matches a built-in template', async () => {
+  request.mockImplementation(async (method: string) => method.endsWith('/list')
+    ? { profiles: [], avatars: ['🦊'] } : { ...catalog, presets: [preset] });
+  render(<CustomAgents />);
+  fireEvent.click(await screen.findByRole('button', { name: '新建智能体' }));
+  const hint = '与内置模板同名，建议换个名称以便区分。保留此名称也不会覆盖模板。';
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: preset.profile.name } });
+  expect(screen.getByText(hint)).toBeInTheDocument();
+  expect(screen.getByLabelText('名称')).toHaveAccessibleDescription(hint);
+  expect(screen.getByLabelText('名称')).toHaveValue(preset.profile.name);
+  expect(screen.getByRole('button', { name: '保存并应用' })).toBeEnabled();
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: '项目开发助手' } });
+  expect(screen.queryByText(hint)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: preset.profile.name } });
+  expect(screen.getByText(hint)).toBeInTheDocument();
+  expect(request.mock.calls.some(([method]) => method.endsWith('/save'))).toBe(false);
+});
 it('selects a role for a new task without creating a workspace or a conversation', async () => {
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : { sessionId: 'new-session' });
   render(<CustomAgents />);
@@ -46,6 +65,7 @@ it('selects a role for a new task without creating a workspace or a conversation
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro'));
   expect(navigate).toHaveBeenCalledWith('/codepro');
   expect(getNextChatAgent()).toBe('saved');
+  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual(['saved']);
   expect(request).not.toHaveBeenCalledWith('_codebuddy/agents/create-workspace', expect.anything());
 });
 it('does not offer a model binding in the property form and preserves drafts on failure', async () => {
@@ -56,9 +76,38 @@ it('does not offer a model binding in the property form and preserves drafts on 
   expect(screen.queryByLabelText('模型')).not.toBeInTheDocument();
   request.mockRejectedValueOnce(new Error('Save unavailable'));
   fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Save unavailable');
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Save unavailable');
+  const form = screen.getByRole('button', { name: '保存并应用' }).closest('form')!;
+  expect(form).toContainElement(alert);
+  expect(within(form).queryByRole('button', { name: '重新加载' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('名称')).toHaveValue('后端助手');
   expect(navigate).not.toHaveBeenCalled();
+  expect(localStorage.getItem('codebuddy:recent-agents')).toBeNull();
+  let rejectRetry!: (reason: Error) => void;
+  request.mockReturnValueOnce(new Promise((_, reject) => { rejectRetry = reject; }));
+  fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
+  expect(screen.getByRole('alert')).toBe(alert);
+  expect(alert).toHaveTextContent('Save unavailable');
+  expect(screen.getByRole('button', { name: '保存并应用' })).toBeDisabled();
+  await act(async () => { rejectRetry(new Error('Save unavailable')); });
+  expect(screen.getByRole('button', { name: '保存并应用' })).toBeEnabled();
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: '我的后端助手' } });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  request.mockRejectedValueOnce(new Error('Save unavailable'));
+  fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Save unavailable');
+  fireEvent.click(screen.getByRole('button', { name: '取消' }));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '重新加载' })).not.toBeInTheDocument();
+});
+
+it('keeps loading failures visible with retry when a requested editor cannot load its catalog', async () => {
+  route.state = { section: 'create' };
+  request.mockRejectedValue(new Error('目录加载失败'));
+  render(<CustomAgents />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('目录加载失败');
+  expect(screen.getByRole('button', { name: '重新加载' })).toBeVisible();
 });
 it('confirms deletion without deleting the existing conversation configuration', async () => {
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] } : method.endsWith('/catalog') ? catalog : Promise.reject(new Error('Model unavailable')));
@@ -107,6 +156,7 @@ it('applies directly to its source chat and returns there without creating a cop
   fireEvent.click(await screen.findByRole('button', { name: '应用到当前对话 前端开发工程师' }));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=source-chat'));
   expect(request).toHaveBeenCalledWith('_codebuddy/agents/select', { sessionId: 'source-chat', id: 'builtin-frontend', expectedRevision: 3 });
+  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual(['builtin-frontend']);
   expect(request.mock.calls.some(([method]) => method.endsWith('/save') || method === 'session/new')).toBe(false);
   expect(getNextChatAgent()).toBeNull();
 });

@@ -1,8 +1,9 @@
 import { AppEvents } from '../../constants/events';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bot, Plus, ArrowLeft, Check, Loader2, Trash2, ImagePlus } from 'lucide-react';
+import { Bot, Plus, ArrowLeft, Check, Loader2, Trash2, ImagePlus, AlertTriangle } from 'lucide-react';
 import { setNextChatAgent } from '../../utils/nextChatAgent';
+import { rememberRecentAgent } from '../../utils/recentAgents';
 import { getWorkspaceModeFromPath, withWorkspaceMode, type ViewOptions } from '../../utils/navigationUtils';
 import { agentRequest as request, type AgentProfile as Profile, type AgentPreset, type AgentSelection } from './agentApi';
 
@@ -16,6 +17,7 @@ interface Catalog {
 const blank = (): Profile => ({ name: '', avatar: 'app-logo', prompt: '', skills: [], tools: [], mcpServers: [], capabilities: 'inherit' });
 const fieldClass = 'w-full rounded-lg border border-border-primary bg-background-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-text-secondary';
 const buttonClass = 'inline-flex items-center justify-center gap-2 rounded-lg border border-border-primary px-4 py-2 text-sm hover:bg-background-secondary disabled:opacity-50';
+const builtinNameHint = '与内置模板同名，建议换个名称以便区分。保留此名称也不会覆盖模板。';
 
 function AgentCard({ profile, description, tags, applyLabel, applyAriaLabel, disabled, onApply, confirmation, children }: {
   profile: Profile; description: string; tags: string[];
@@ -70,6 +72,10 @@ export function CustomAgents() {
   const [deleteId, setDeleteId] = useState<string>();
   const targetReady = !sessionId || target?.sessionId === sessionId;
   const legacy = Boolean(sessionId && target?.sessionId === sessionId && target.selection.legacy);
+  const editing = Boolean(draft && catalog);
+  const draftName = draft?.name.trim().toLowerCase();
+  const matchesBuiltinName = Boolean(draftName && catalog?.presets?.some(preset =>
+    preset.profile.name.trim().toLowerCase() === draftName));
   const load = useCallback(async () => {
     const current = scope.current;
     setError(''); setBusy(true);
@@ -90,8 +96,8 @@ export function CustomAgents() {
   }, [load, invalidate]);
   async function run(action: (current: number) => Promise<void>) {
     const current = scope.current;
-    setBusy(true); setError(''); setNotice('');
-    try { await action(current); } catch (e) { if (current === scope.current) setError(e instanceof Error ? e.message : '操作失败，请重试'); }
+    setBusy(true); setNotice('');
+    try { await action(current); if (current === scope.current) setError(''); } catch (e) { if (current === scope.current) setError(e instanceof Error ? e.message : '操作失败，请重试'); }
     finally { if (current === scope.current) setBusy(false); }
   }
   async function saveProfile(draft: Profile, current: number) {
@@ -107,6 +113,7 @@ export function CustomAgents() {
       await request('select', { sessionId, id: profile.id, expectedRevision: target.selection.revision });
       window.dispatchEvent(new Event(AppEvents.AGENT_PROFILES_CHANGED));
     } else setNextChatAgent(profile.id);
+    rememberRecentAgent(profile.id);
     if (current === scope.current) navigate(returnPath);
   }
   async function saveDraft(apply: boolean) {
@@ -122,32 +129,60 @@ export function CustomAgents() {
       } else { setDraft(undefined); setNotice('智能体已保存，可在聊天中选用。'); }
     });
   }
-  function update<K extends keyof Profile>(key: K, value: Profile[K]) { setDraft(d => d ? { ...d, [key]: value } : d); }
+  function update<K extends keyof Profile>(key: K, value: Profile[K]) {
+    setDraft(d => d ? { ...d, [key]: value } : d);
+    setError('');
+    setNotice('');
+  }
   return <main className="h-full overflow-y-auto bg-background-primary text-text-primary">
     <div className="mx-auto max-w-6xl space-y-6 px-5 py-8 md:px-10">
       <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="flex items-center gap-3 text-2xl font-semibold"><Bot size={27} />自定义智能体</h1><p className="mt-2 max-w-2xl text-sm text-text-secondary">为不同工作配置专属助手，在同一对话中随时选用、切换或恢复默认助手。</p></div>
         <div className="flex flex-wrap gap-2"><button className={buttonClass} onClick={() => navigate(returnPath)}><ArrowLeft size={16} />{sessionId ? '返回对话' : '返回新对话'}</button>{!draft && <button className={buttonClass} disabled={!catalog || busy} onClick={() => { setDraft(blank()); setNotice(''); setError(''); }}><Plus size={16} />新建智能体</button>}</div>
       </header>
-      {error && <div role="alert" className="rounded-xl border border-red-400/40 p-4 text-sm">{error} <button className="ml-3 underline" onClick={() => void load()} disabled={busy}>重新加载</button></div>}
-      {notice && <p role="status" className="flex items-center gap-2 text-sm"><Check size={16} />{notice}</p>}
-      {busy && <p role="status" className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={16} className="animate-spin" />正在处理…</p>}
+      {!editing && error && <div role="alert" className="rounded-xl border border-red-400/40 p-4 text-sm">{error} <button className="ml-3 underline" onClick={() => void load()} disabled={busy}>重新加载</button></div>}
+      {!editing && notice && <p role="status" className="flex items-center gap-2 text-sm"><Check size={16} />{notice}</p>}
+      {!editing && busy && <p role="status" className="flex items-center gap-2 text-sm text-text-secondary"><Loader2 size={16} className="animate-spin" />正在处理…</p>}
       {legacy && <p className="text-sm text-text-secondary">这是旧工作区角色，请返回对话并在智能体菜单中转换后再应用；原有能力限制会保留。</p>}
       {draft && catalog ? <form ref={editorForm} onSubmit={e => { e.preventDefault(); void saveDraft(true); }} className="space-y-6 rounded-2xl border border-border-primary p-5 md:p-7">
         <fieldset disabled={busy} className="space-y-6">
-          <div className="flex items-center justify-between"><h2 className="text-lg font-medium">{draft.id ? '编辑智能体' : '创建智能体'}</h2><button type="button" className={buttonClass} onClick={() => setDraft(undefined)}>取消</button></div>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-medium">{draft.id ? '编辑智能体' : '创建智能体'}</h2><button type="button" className={buttonClass} onClick={() => { setDraft(undefined); setError(''); setNotice(''); }}>取消</button></div>
           <div><p className="mb-2 text-sm font-medium">头像</p><div id="custom-agent-avatars" className="flex flex-wrap gap-2" role="group" aria-label="头像">
             {avatarChoices.map(avatar => <button key={avatar} type="button" aria-label={avatar === 'app-logo' ? '头像 应用 Logo' : avatar.startsWith('data:') ? '头像 自定义图片' : '头像 ' + avatar} aria-pressed={draft.avatar === avatar} onClick={() => update('avatar', avatar)} className={'flex size-14 items-center justify-center rounded-xl border text-2xl ' + (draft.avatar === avatar ? 'border-text-primary bg-background-secondary' : 'border-border-primary')}><AgentAvatar avatar={avatar} /></button>)}
             <button type="button" aria-label="上传头像" className="flex h-14 items-center justify-center gap-2 rounded-xl border border-dashed border-border-primary px-3 text-sm text-text-secondary hover:bg-background-secondary" onClick={() => avatarInput.current?.click()}><ImagePlus size={20} />上传图片</button>
             <input ref={avatarInput} type="file" aria-label="头像图片文件" className="hidden" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void run(async () => { update('avatar', await readAvatar(file)); }); }} />
           </div><div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">{avatars.length > 10 && <button type="button" aria-expanded={showAllAvatars} aria-controls="custom-agent-avatars" className="text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary" onClick={() => setShowAllAvatars(value => !value)}>{showAllAvatars ? '收起头像' : `更多头像（${avatars.length}）`}</button>}<p className="text-xs text-text-secondary">可上传自己的图片：PNG、JPEG、WebP，最大 5 MB；自动居中裁剪为方形。</p></div></div>
-          <label className="block space-y-2 text-sm">名称<input required maxLength={80} className={fieldClass} value={draft.name} onChange={e => update('name', e.target.value)} placeholder="例如：写作搭档" /></label>
+          <div className="space-y-2">
+            <div className="flex h-5 min-w-0 items-center gap-3">
+              <label htmlFor="custom-agent-name" className="shrink-0 text-sm">名称</label>
+              {matchesBuiltinName && <p id="agent-name-template-hint" role="status" className="min-w-0 truncate text-xs leading-5 text-text-secondary" title={builtinNameHint}>{builtinNameHint}</p>}
+            </div>
+            <input id="custom-agent-name" required maxLength={80} className={fieldClass} value={draft.name} onChange={e => update('name', e.target.value)} placeholder="例如：写作搭档" aria-describedby={matchesBuiltinName ? 'agent-name-template-hint' : undefined} />
+          </div>
           <label className="block space-y-2 text-sm">人设提示词<textarea required maxLength={32000} rows={6} className={fieldClass} value={draft.prompt} onChange={e => update('prompt', e.target.value)} placeholder="描述角色身份、沟通风格、擅长的任务，以及需要遵守的规则。" /></label>
           <div className="space-y-3"><p className="text-sm text-text-secondary">已有功能与当前对话保持一致。可按需要添加配套技能；不选也能正常使用，操作权限保持不变。</p>
           {draft.capabilities === 'inherit' && roleSkills.length > 0 && <Choices title="配套技能" choices={roleSkills}
             selected={draft.skills.filter(name => roleSkills.some(skill => skill.name === name))}
             onChange={values => update('skills', [...draft.skills.filter(name => !roleSkills.some(skill => skill.name === name)), ...values])} />}</div>
           {draft.capabilities !== 'inherit' && <details className="rounded-xl border border-border-primary p-4"><summary className="cursor-pointer text-sm">高级设置：保留旧版能力限制</summary><p className="my-3 text-sm text-text-secondary">这个智能体已有单独的能力限制，保存时继续保留。</p><div className="grid gap-4 lg:grid-cols-3"><Choices title="配套技能" choices={catalog.skills} selected={draft.skills} onChange={v => update('skills', v)} /><Choices title="可用工具" choices={catalog.tools} selected={draft.tools} onChange={v => update('tools', v)} /><Choices title="连接服务" choices={catalog.mcpServers} selected={draft.mcpServers} onChange={v => update('mcpServers', v)} /></div></details>}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border-primary pt-5"><p className="text-xs text-text-secondary">仅保存不会改变已有对话；保存并应用会回到来源对话。</p><div className="flex gap-3"><button type="button" className="text-sm text-text-secondary hover:text-text-primary" onClick={() => { if (editorForm.current?.reportValidity()) void saveDraft(false); }}>仅保存</button><button type="submit" disabled={!targetReady || legacy} className={buttonClass}><Check size={16} />保存并应用</button></div></div>
+          <div className="space-y-3 border-t border-border-primary pt-4">
+            <div className="min-h-11">
+              {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-400/30 bg-background-danger/10 px-3 py-2.5 text-sm text-text-danger">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <p className="min-w-0 break-words leading-5">{error}</p>
+              </div>}
+              {notice && <p role="status" className="mt-2 text-sm text-text-secondary">{notice}</p>}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="grid min-w-0 text-xs text-text-secondary">
+                <p className={'col-start-1 row-start-1 ' + (busy ? 'invisible' : '')}>仅保存不会改变已有对话；保存并应用会回到来源对话。</p>
+                {busy && <p role="status" className="col-start-1 row-start-1 flex items-center gap-2"><Loader2 size={14} className="animate-spin" aria-hidden="true" />正在处理…</p>}
+              </div>
+              <div className="grid shrink-0 grid-cols-2 gap-3">
+                <button type="button" className={buttonClass} onClick={() => { if (editorForm.current?.reportValidity()) void saveDraft(false); }}>仅保存</button>
+                <button type="submit" disabled={!targetReady || legacy} className={buttonClass}>保存并应用</button>
+              </div>
+            </div>
+          </div>
         </fieldset>
       </form> : <>
         {!!catalog?.presets?.length && <section aria-labelledby="agent-presets-heading" className="space-y-4">

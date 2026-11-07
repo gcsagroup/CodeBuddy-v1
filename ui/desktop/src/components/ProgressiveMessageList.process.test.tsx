@@ -67,6 +67,73 @@ beforeEach(() => {
 afterEach(() => cancelAcpPermissionRequestsForSession('between-replies'));
 
 describe('processes between public replies', () => {
+  it('keeps completed process icons still while the next process is working', () => {
+    vi.useFakeTimers();
+    try {
+      const records = [
+        user,
+        assistant('completed-work', [
+          thought('Inspect the file.'),
+          request('failed'),
+          request('first'),
+        ]),
+        receipt('failed', true),
+        receipt('first'),
+        assistant('public-boundary', [
+          thought('The inspection is complete.'),
+          { type: 'text', text: 'First result is ready.' },
+        ]),
+        assistant('current-work', [request('second')]),
+      ];
+      const view = render(show(records, true), { wrapper: IntlTestWrapper });
+      const groups = view.container.querySelectorAll('[data-process-group]');
+      expect(groups).toHaveLength(2);
+      const completedIcon = groups[0].querySelector('.codepro-record-icon')!;
+      const liveIcon = groups[1].querySelector('.codepro-record-icon')!;
+      const before = { completed: completedIcon.innerHTML, live: liveIcon.innerHTML };
+      act(() => vi.advanceTimersByTime(600));
+      expect(completedIcon.innerHTML).toBe(before.completed);
+      expect(liveIcon.innerHTML).not.toBe(before.live);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps interleaved thoughts directly available without another reasoning-details disclosure', () => {
+    const records = [
+      user,
+      assistant('first-thought', [thought('Inspect the inputs.\n\nFirst complete thought.')]),
+      assistant('first-action', [request('first')]),
+      receipt('first'),
+      assistant('second-thought', [thought('Verify the output.\n\nSecond complete thought.')]),
+      assistant('second-action', [request('second')]),
+      receipt('second'),
+    ];
+    const original = JSON.stringify(records);
+    const view = render(show(records), { wrapper: IntlTestWrapper });
+    const group = view.container.querySelector<HTMLElement>('[data-process-group]')!;
+    fireEvent.click(group.querySelector('.codepro-group-heading')!.closest('button')!);
+    expect(within(group).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+    const thoughts = within(group).getAllByRole('button', { name: 'Thinking' });
+    expect(thoughts).toHaveLength(2);
+    expect(thoughts[0]).toHaveTextContent('Inspect the inputs.');
+    expect(thoughts[1]).toHaveTextContent('Verify the output.');
+    expect(
+      Array.from(group.querySelectorAll('.codepro-thinking-record, [data-tool-call-id]')).map(
+        (element) =>
+          element.getAttribute('data-tool-call-id') ??
+          element.querySelector('.codepro-thinking-preview')?.textContent
+      )
+    ).toEqual(['Inspect the inputs.', 'first', 'Verify the output.', 'second']);
+    fireEvent.click(thoughts[0]);
+    expect(screen.getByText('First complete thought.')).toBeVisible();
+    expect(screen.queryByText('Second complete thought.')).toBeNull();
+    fireEvent.click(thoughts[1]);
+    expect(screen.getByText('First complete thought.')).toBeVisible();
+    expect(screen.getByText('Second complete thought.')).toBeVisible();
+    expect(JSON.stringify(records)).toBe(original);
+  });
+
   it('does not include unbound historical receipts in the latest completed turn footer', () => {
     const answer = assistant('math-answer', [{ type: 'text', text: '899' }]);
     answer.metadata.usage = { inputTokens: 59, outputTokens: 16, totalTokens: 93389 };
@@ -242,7 +309,11 @@ describe('processes between public replies', () => {
         terminal,
       ])
     );
-    const summary = await screen.findByRole('button', { name: 'Time spent 2 min 0 sec' }, { timeout: 5000 });
+    const summary = await screen.findByRole(
+      'button',
+      { name: 'Time spent 2 min 0 sec' },
+      { timeout: 5000 }
+    );
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     for (const group of groups) expect(group).not.toBeVisible();
     expect(screen.queryByText('A public stage update.')).not.toBeInTheDocument();
@@ -301,7 +372,7 @@ describe('processes between public replies', () => {
   });
 
   it.each(['running', 'approval', 'failed'] as const)(
-    'shows reasoning directly inside an expanded %s process without another disclosure',
+    'keeps reasoning folded inside an expanded %s process until explicitly requested',
     (state) => {
       if (state === 'approval')
         void requestAcpPermission({
@@ -339,10 +410,13 @@ describe('processes between public replies', () => {
       fireEvent.click(toggle);
       expect(group.querySelector('[data-tool-call-id="first"]')).not.toBeNull();
       expect(group.querySelectorAll('[data-tool-call-id="first"]')).toHaveLength(1);
-      expect(screen.getByText('Detailed model reasoning.')).toBeVisible();
-      expect(group.querySelectorAll('.codepro-thinking-details')).toHaveLength(1);
+      expect(within(group).getByRole('button', { name: 'Thinking' })).toHaveTextContent(
+        'Detailed model reasoning.'
+      );
+      expect(group.querySelectorAll('.codepro-thinking-record')).toHaveLength(1);
       expect(within(group).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-      expect(screen.getByText('Detailed model reasoning.')).toBeVisible();
+      expect(group.querySelector('.codepro-thinking-details')).toBeNull();
+      fireEvent.click(within(group).getByRole('button', { name: 'Thinking' }));
       const detail = screen.getByText('Detailed model reasoning.');
       expect(detail).toBeVisible();
       expect(detail.closest('[data-process-group]')).toBe(group);
@@ -409,7 +483,7 @@ describe('processes between public replies', () => {
         row.getAttribute('data-tool-call-id')
       )
     ).toEqual(['first', 'second']);
-    expect(screen.getByText('Compare the changes before replying.')).toBeVisible();
+    expect(group.querySelector('.codepro-thinking-details')).toBeNull();
   });
 
   it('observes committed text from the public range rather than a folded reasoning range', () => {
@@ -482,7 +556,7 @@ describe('processes between public replies', () => {
     const groups = view.container.querySelectorAll<HTMLElement>('[data-process-group]');
     expect(groups).toHaveLength(1);
     fireEvent.click(within(groups[0]).getByRole('button', { expanded: false }));
-    expect(screen.getByText('Check the remaining source.')).toBeVisible();
+    expect(groups[0].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     expect(within(groups[0]).getByText('Check the remaining source.')).toBeVisible();
   });
@@ -517,7 +591,7 @@ describe('processes between public replies', () => {
         item.getAttribute('data-tool-call-id')
       )
     ).toEqual(['first', 'second']);
-    expect(within(groups[1]).getByText('Check another source.')).toBeVisible();
+    expect(groups[1].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[1]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     expect(within(groups[1]).getByText('Check another source.')).toBeVisible();
     expect(view.container.querySelectorAll('.goose-message .codepro-message-actions')).toHaveLength(
@@ -554,7 +628,7 @@ describe('processes between public replies', () => {
     expect(groups).toHaveLength(1);
     const toggle = within(groups[0]).getByRole('button', { expanded: false });
     fireEvent.click(toggle);
-    expect(screen.getByText('Compare both files.')).toBeVisible();
+    expect(groups[0].querySelector('.codepro-thinking-details')).toBeNull();
     expect(within(groups[0]).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
     expect(within(groups[0]).getByText('Compare both files.')).toBeVisible();
     expect(groups[0].querySelectorAll('[data-tool-call-id]')).toHaveLength(2);

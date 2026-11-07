@@ -142,7 +142,7 @@ describe('media task presentation', () => {
     expect(view.container.querySelector('[data-media-job-id]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Image generation unsuccessful' }));
     const group = view.container.querySelector('.codepro-process-details');
-    expect(group).not.toHaveClass('max-h-72', 'overflow-y-auto');
+    expect(group).toHaveClass('max-h-72', 'overflow-y-auto');
     const jobs = view.container.querySelectorAll('[data-media-job-id]');
     expect(jobs).toHaveLength(8);
     const first = jobs[0] as HTMLElement;
@@ -562,6 +562,153 @@ describe('media task presentation', () => {
   });
 
   it.each([false, true])(
+    'keeps contradictory terminal and cancellation evidence unknown, disconnected=%s',
+    (disconnected) => {
+      const traces = [
+        [
+          request('submit'),
+          response('submit', jobA, 'completed'),
+          request('poll', 'status'),
+          response('poll', jobA, 'failed'),
+        ],
+        [
+          request('submit'),
+          response('submit', jobA, 'cancelled'),
+          request('poll', 'cancel'),
+          response('poll', jobA, 'running', { cancellation_confirmed: false }),
+        ],
+        [
+          request('submit'),
+          response('submit'),
+          request('poll', 'cancel'),
+          response('poll', jobA, 'running', { cancellation_confirmed: false }),
+        ],
+      ];
+      for (const trace of traces)
+        expect(
+          mediaJobObservation(collectMediaJobs(trace).get('submit')!, {
+            jobs: [current(jobA, 'cancelled')],
+            disconnected,
+          })
+        ).toMatchObject({ status: 'unavailable', active: false });
+    }
+  );
+
+  it('keeps query tool errors and unconfirmed cancellation separate from generation failure', () => {
+    const failed = message('query-error', 'user', [
+      { type: 'toolResponse', id: 'poll', toolResult: { status: 'error', error: 'Query failed' } },
+    ]);
+    const trace = [
+      request('submit'),
+      named('submit', jobA, 'running'),
+      request('poll', 'status'),
+      failed,
+    ];
+    const view = render(rows(trace), { wrapper: IntlTestWrapper });
+    expect(screen.getByRole('status')).toHaveTextContent('Status unconfirmed');
+    view.rerender(
+      rows([
+        ...trace,
+        request('cancel', 'cancel'),
+        named('cancel', jobA, 'running', '小熊猫招手动作图', { cancellation_confirmed: false }),
+      ])
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Generating');
+    expect(view.container).not.toHaveTextContent('Cancelled');
+    expect(view.container).not.toHaveTextContent('Execution records');
+  });
+
+  it('requires an exact native contract, keeps media kinds separate and leaves external/inspect/unknown calls on the ordinary path', () => {
+    const trace = [
+      request('submit'),
+      response('submit'),
+      request('video', 'generate', jobA, 'generate_video'),
+      response('video', jobA, 'running', { kind: 'video' }),
+      request('bad', 'status'),
+      response('bad', jobB, 'completed'),
+      request('foreign', 'generate', jobA, 'mcp__other__generate_image'),
+      response('foreign'),
+      request('inspect', 'inspect'),
+      response('inspect'),
+      request('unknown', 'status', jobB),
+      request('invalid', 'status', 'invented-job'),
+      response('invalid', 'invented-job', 'completed'),
+    ];
+    const jobs = collectMediaJobs(trace);
+    expect(jobs.get('submit')).not.toBe(jobs.get('video'));
+    for (const id of ['bad', 'foreign', 'inspect', 'unknown', 'invalid'])
+      expect(jobs.has(id)).toBe(false);
+    const view = render(history(trace), { wrapper: IntlTestWrapper });
+    openProcesses(view.container);
+    for (const id of ['bad', 'foreign', 'inspect', 'unknown', 'invalid'])
+      expect(view.container.querySelector(`[data-tool-call-id="${id}"]`)).not.toBeNull();
+  });
+
+  it('uses actual response order and refuses a late contradictory terminal update', () => {
+    const trace = [
+      request('submit'),
+      response('submit'),
+      request('slow', 'status'),
+      request('fast', 'status'),
+      response('fast', jobA, 'completed'),
+      response('slow', jobA, 'queued'),
+    ];
+    const job = collectMediaJobs(trace).get('submit')!;
+    expect(job.latestReceipt?.call.request.id).toBe('slow');
+    expect(
+      mediaJobObservation(job, { jobs: [current(jobA, 'completed')], disconnected: false })
+    ).toMatchObject({ status: 'unavailable', active: false });
+  });
+
+  it('does not promote a read-only history from the current live owner', async () => {
+    extMethod.mockResolvedValue({ sessionId, jobs: [current(jobA, 'failed')] });
+    const view = render(owner(rows([request('submit'), named('submit')], true)), {
+      wrapper: IntlTestWrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Queued');
+    expect(view.container.querySelector('[data-media-active="true"]')).toBeNull();
+  });
+
+  it('keeps native approval actions exactly once outside the folded raw records', async () => {
+    const permission = requestAcpPermission({
+      sessionId,
+      toolCall: { toolCallId: 'poll', title: 'generate_image', status: 'pending' },
+      options: [{ optionId: 'allow_once', name: 'Allow once', kind: 'allow_once' }],
+    });
+    const trace = [
+      request('submit'),
+      named('submit'),
+      request('poll', 'status'),
+      message('permission', 'assistant', [
+        {
+          type: 'actionRequired',
+          data: {
+            actionType: 'toolConfirmation',
+            id: 'poll',
+            toolName: 'generate_image',
+            arguments: { operation: 'status', job_id: jobA },
+            availableActions: ['allow_once', 'deny_once'],
+          },
+        },
+      ]),
+    ];
+    const view = render(history(trace, true), { wrapper: IntlTestWrapper });
+    openProcesses(view.container);
+    expect(await screen.findByTestId('tool-approval-actions')).toBeVisible();
+    openProcesses(view.container);
+    expect(view.container.querySelectorAll('[data-tool-call-id="poll"]')).toHaveLength(1);
+    expect(
+      view.container.querySelector('[data-process-approval] [data-tool-call-id="poll"]')
+    ).not.toBeNull();
+    expect(screen.getAllByTestId('tool-approval-actions')).toHaveLength(1);
+    act(() => cancelAcpPermissionRequestsForSession(sessionId));
+    expect(await permission).toEqual({ outcome: { outcome: 'cancelled' } });
+  });
+
+  it.each([false, true])(
     'preserves original thinking parents, ranges and order with mixed tools; sameMessage=%s',
     (sameMessage) => {
       const thought = (thinking: string) => ({
@@ -601,9 +748,7 @@ describe('media task presentation', () => {
       expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(1);
       openProcesses(view.container);
       expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-      expect(screen.getByText('Before media.')).toBeVisible();
-      expect(screen.getByText('After media.')).toBeVisible();
-      const thinking = [...view.container.querySelectorAll('.codepro-thinking-details')];
+      const thinking = [...view.container.querySelectorAll('.codepro-thinking-record')];
       expect(thinking).toHaveLength(2);
       for (const record of thinking) {
         expect(record.closest('[data-media-job-id]')).toBeNull();
@@ -611,7 +756,7 @@ describe('media task presentation', () => {
       }
       const ordered = [
         ...view.container.querySelectorAll(
-          '.codepro-thinking-details, [data-media-job-id], [data-tool-call-id="command"]'
+          '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
         ),
       ];
       expect(ordered).toEqual([
@@ -688,27 +833,41 @@ describe('media task presentation', () => {
     expect(view.container.querySelectorAll('[data-media-job-id]')).toHaveLength(1);
     expect(view.container.querySelectorAll('[data-process-group]')).toHaveLength(2);
     const later = view.container.querySelectorAll('[data-process-group]')[1] as HTMLElement;
-    expect(later.querySelector('.codepro-group-heading')).not.toBeNull();
+    expect(later.querySelector('.codepro-group-heading')).toBeNull();
     expect(within(later).queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(within(later).getByText('Checking the remote task.')).toBeVisible();
-    expect(later.querySelector('.codepro-thinking-details')).not.toBeNull();
+    expect(within(later).getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+    expect(later.querySelector('.codepro-thinking-record')).not.toBeNull();
     expect(later.querySelector('[data-media-job-id]')).toBeNull();
   });
 
-  it.each([1, 2, 3])('shows all %s thoughts directly after expanding their process', (count) => {
-    const trace = Array.from({ length: count }, (_, index) =>
-      message('thought-' + index, 'assistant', [
-        { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
-      ])
-    );
-    const view = render(history(trace), { wrapper: IntlTestWrapper });
-    openProcesses(view.container);
-    expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(view.container.querySelectorAll('.codepro-thinking-details')).toHaveLength(count);
-    for (let index = 0; index < count; index++) {
-      expect(screen.getByText('Reasoning part ' + index)).toBeVisible();
+  it.each([1, 2, 3])(
+    'keeps %s original thought disclosures without an additional reasoning-details gate',
+    (count) => {
+      const trace = Array.from({ length: count }, (_, index) =>
+        message('thought-' + index, 'assistant', [
+          { type: 'thinking', thinking: 'Reasoning part ' + index, signature: '' },
+        ])
+      );
+      const view = render(history(trace), { wrapper: IntlTestWrapper });
+      openProcesses(view.container);
+      if (count === 1) {
+        expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+        expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
+        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+        expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+        expect(screen.getByText('Reasoning part 0')).toBeVisible();
+        fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
+        expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
+      } else {
+        expect(view.container.querySelector('.codepro-group-heading')).not.toBeNull();
+        openProcesses(view.container);
+        expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
+        expect(view.container.querySelectorAll('.codepro-thinking-record')).toHaveLength(count);
+        expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(count + 1);
+      }
     }
-  });
+  );
 
   it('treats adjacent streaming thinking fragments as one original disclosure', () => {
     const view = render(
@@ -721,7 +880,9 @@ describe('media task presentation', () => {
       { wrapper: IntlTestWrapper }
     );
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    openProcesses(view.container);
+    expect(view.container.querySelector('.codepro-group-heading')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Thinking' }));
     expect(view.container).toHaveTextContent('First fragment.');
     expect(view.container).toHaveTextContent('Second fragment.');
   });
@@ -745,14 +906,14 @@ describe('media task presentation', () => {
     const view = render(history(trace), { wrapper: IntlTestWrapper });
     openProcesses(view.container);
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    expect(screen.getByText('Before the image.')).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'Thinking' })).toHaveLength(1);
     const ordered = [
       ...view.container.querySelectorAll(
-        '.codepro-thinking-details, [data-media-job-id], [data-tool-call-id="command"]'
+        '.codepro-thinking-record, [data-media-job-id], [data-tool-call-id="command"]'
       ),
     ];
     expect(ordered).toHaveLength(3);
-    expect(ordered[0]).toHaveClass('codepro-thinking-details');
+    expect(ordered[0]).toHaveClass('codepro-thinking-record');
     expect(ordered[1]).toHaveAttribute('data-media-job-id', jobA);
     expect(ordered[2]).toHaveAttribute('data-tool-call-id', 'command');
     expect(screen.queryByText('KSampler: actual failure')).toBeNull();

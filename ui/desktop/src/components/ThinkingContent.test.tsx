@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ThinkingContent from './ThinkingContent';
+import { ScrollLayoutAnchorContext } from './ui/scroll-follow-context';
 
 vi.mock('../i18n', () => ({
   defineMessages: <T,>(messages: T) => messages,
@@ -10,7 +11,74 @@ vi.mock('../i18n', () => ({
 }));
 
 describe('ThinkingContent', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('keeps a sticky thought heading in its process viewport when manually folded', () => {
+    const release = vi.fn();
+    const hold = vi.fn(() => release);
+    const view = render(
+      <ScrollLayoutAnchorContext.Provider value={hold}>
+        <div className="codepro-process-details">
+          <ThinkingContent content="A long thought." isExpanded />
+        </div>
+      </ScrollLayoutAnchorContext.Provider>
+    );
+    const viewport = view.container.firstElementChild as HTMLElement;
+    const toggle = screen.getByRole('button', { name: 'Thinking' });
+    viewport.scrollTop = 300;
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 50 } as DOMRect);
+    vi.spyOn(toggle, 'getBoundingClientRect').mockImplementation(
+      () =>
+        ({
+          top: toggle.getAttribute('aria-expanded') === 'true' ? 50 : 50 + 260 - viewport.scrollTop,
+        }) as DOMRect
+    );
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(viewport.scrollTop).toBe(260);
+    expect(toggle.getBoundingClientRect().top).toBe(50);
+    expect(hold).toHaveBeenCalledWith(toggle);
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(viewport.scrollTop).toBe(260);
+  });
+
+  it('shows a plain single-line preview only while folded and keeps the original Markdown body', () => {
+    const content = '\n\n**Inspect the files**\n\nThen verify the saved result.';
+    const view = render(<ThinkingContent content={content} isExpanded={false} />);
+    const toggle = screen.getByRole('button', { name: 'Thinking' });
+    expect(toggle).toHaveTextContent('Inspect the files');
+    expect(toggle).not.toHaveTextContent('**');
+    expect(toggle).not.toHaveTextContent('·');
+    expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
+    fireEvent.click(toggle);
+    expect(view.container.querySelector('.codepro-thinking-preview')).toBeNull();
+    expect(view.container.querySelector('.codepro-thinking-details strong')).toHaveTextContent(
+      'Inspect the files'
+    );
+    expect(screen.getByText('Then verify the saved result.')).toBeVisible();
+  });
+
+  it('previews the first partial line, advances at paragraph first-line boundaries and settles on the opening line', () => {
+    const view = render(
+      <ThinkingContent content="**Starting the review**" isExpanded={false} isStreaming />
+    );
+    const toggle = screen.getByRole('button', { name: 'Thinking (updating)' });
+    expect(toggle).toHaveTextContent('Starting the review');
+    const first = '**Inspecting files**\r\nRead the files.\r\n\r\nChecking the results';
+    view.rerender(<ThinkingContent content={first} isExpanded={false} isStreaming />);
+    expect(toggle).toHaveTextContent('Inspecting files');
+    expect(toggle).not.toHaveTextContent('Checking the results');
+    const next = `${first}\r\nCompare the output.`;
+    view.rerender(<ThinkingContent content={next} isExpanded={false} isStreaming />);
+    expect(toggle).toHaveTextContent('Checking the results');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    view.rerender(<ThinkingContent content={next} isExpanded={false} />);
+    expect(screen.getByRole('button', { name: 'Thinking' })).toHaveTextContent('Inspecting files');
+  });
 
   it('keeps long live thoughts complete and formatted without per-word animation nodes', () => {
     const content = Array.from(
@@ -35,7 +103,7 @@ describe('ThinkingContent', () => {
     expect(viewport.querySelectorAll('.codepro-incoming-word')).toHaveLength(0);
   });
 
-  it('leaves scrolling to the chat page when thought content updates', () => {
+  it('does not scroll the thought body when its content updates', () => {
     const view = render(<ThinkingContent content="First" isExpanded isStreaming />);
     const viewport = screen
       .getByText('First')
@@ -72,13 +140,7 @@ describe('ThinkingContent', () => {
         'open'
       );
       const viewport = view.container.querySelector('.codepro-thinking-details') as HTMLDivElement;
-      Object.defineProperties(viewport, {
-        scrollHeight: { configurable: true, value: 900 },
-        clientHeight: { value: 200 },
-      });
-      viewport.scrollTop = 100;
       fireEvent.pointerDown(viewport);
-      fireEvent.scroll(viewport);
       act(() => vi.advanceTimersByTime(2500));
       expect(screen.getByRole('button', { name: 'Thinking (updating)' })).toHaveAttribute(
         'data-state',
@@ -89,7 +151,6 @@ describe('ThinkingContent', () => {
         'data-state',
         'open'
       );
-      expect(viewport.scrollTop).toBe(100);
     } finally {
       vi.useRealTimers();
     }

@@ -109,6 +109,66 @@ interface BaseChatProps {
   noAutoSubmit?: boolean;
 }
 
+function ConversationViewport({
+  scrollRef,
+  showHistoryLoading,
+  showRunningIndicator,
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof ScrollArea> & {
+  scrollRef: React.RefObject<ScrollAreaHandle | null>;
+  showHistoryLoading: boolean;
+  showRunningIndicator: boolean;
+}) {
+  // Position-only updates must not rebuild BaseChat's message projection and children.
+  const [atLatest, setAtLatest] = useState(true);
+  const intl = useIntl();
+  return (
+    <>
+      <ScrollArea
+        {...props}
+        ref={scrollRef}
+        onBottomChange={setAtLatest}
+        data-more-below={!atLatest}
+      >
+        {children}
+      </ScrollArea>
+      {showHistoryLoading && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-20 bg-background-primary pointer-events-none"
+        />
+      )}
+      {!atLatest && (
+        <button
+          type="button"
+          aria-label={intl.formatMessage(i18n.latest)}
+          title={intl.formatMessage(i18n.latest)}
+          className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          onClick={() => scrollRef.current?.scrollToBottom()}
+        >
+          <ArrowDown
+            className="size-[17px] translate-x-[0.5px]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </button>
+      )}
+      {atLatest && showRunningIndicator && (
+        <div
+          data-testid="chat-running-indicator"
+          aria-hidden="true"
+          className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center gap-1 rounded-full border border-border-primary bg-background-primary text-text-secondary shadow-sm pointer-events-none"
+        >
+          <span className="chat-running-dot" />
+          <span className="chat-running-dot" />
+          <span className="chat-running-dot" />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function BaseChat({
   setChat,
   renderHeader,
@@ -123,7 +183,6 @@ export default function BaseChat({
   const location = useLocation();
   const navigate = useNavigate();
   const scrollRef = useRef<ScrollAreaHandle>(null);
-  const [atLatest, setAtLatest] = useState(true);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
   const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
@@ -727,16 +786,25 @@ export default function BaseChat({
             </div>
           )}
 
-          <ScrollArea
-            ref={scrollRef}
+          <ConversationViewport
+            scrollRef={scrollRef}
             className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-2 pt-1' : contentClassName}`}
             autoScroll
-            onBottomChange={setAtLatest}
+            showHistoryLoading={showHistoryLoading}
+            showRunningIndicator={
+              !showHistoryLoading &&
+              !readonlyHistory &&
+              !acpRecovering &&
+              !cancelling &&
+              (chatState === ChatState.Thinking ||
+                chatState === ChatState.Streaming ||
+                chatState === ChatState.Compacting ||
+                chatState === ChatState.RestartingAgent)
+            }
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
             data-conversation-scroll=""
-            data-more-below={!atLatest}
             paddingX={6}
             paddingY={0}
           >
@@ -815,49 +883,7 @@ export default function BaseChat({
                 <div className={conversationLayout ? 'block h-4' : 'block h-8'} />
               </>
             ) : null}
-          </ScrollArea>
-
-          {showHistoryLoading && (
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 z-20 bg-background-primary pointer-events-none"
-            />
-          )}
-
-          {!atLatest && (
-            <button
-              type="button"
-              aria-label={intl.formatMessage(i18n.latest)}
-              title={intl.formatMessage(i18n.latest)}
-              className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-              onClick={() => scrollRef.current?.scrollToBottom()}
-            >
-              <ArrowDown
-                className="size-[17px] translate-x-[0.5px]"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-            </button>
-          )}
-          {atLatest &&
-            !showHistoryLoading &&
-            !readonlyHistory &&
-            !acpRecovering &&
-            !cancelling &&
-            (chatState === ChatState.Thinking ||
-              chatState === ChatState.Streaming ||
-              chatState === ChatState.Compacting ||
-              chatState === ChatState.RestartingAgent) && (
-              <div
-                data-testid="chat-running-indicator"
-                aria-hidden="true"
-                className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center gap-1 rounded-full border border-border-primary bg-background-primary text-text-secondary shadow-sm pointer-events-none"
-              >
-                <span className="chat-running-dot" />
-                <span className="chat-running-dot" />
-                <span className="chat-running-dot" />
-              </div>
-            )}
+          </ConversationViewport>
 
           {!showHistoryLoading &&
             chatState !== ChatState.Idle &&
@@ -890,10 +916,17 @@ export default function BaseChat({
               !showHistoryLoading &&
               !cancelling &&
               chatState !== ChatState.Idle && (
-                <div className={cn('mx-4', workStatus.source === 'question' &&
-                  elicitationPresentation.requests.some(
-                    (request) => request.data.actionType === 'elicitation' && !request.data.continued
-                  ) && 'sr-only')}>
+                <div
+                  className={cn(
+                    'mx-4',
+                    workStatus.source === 'question' &&
+                      elicitationPresentation.requests.some(
+                        (request) =>
+                          request.data.actionType === 'elicitation' && !request.data.continued
+                      ) &&
+                      'sr-only'
+                  )}
+                >
                   <LoadingGoose
                     key={sessionId}
                     chatState={chatState}

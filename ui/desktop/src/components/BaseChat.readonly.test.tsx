@@ -22,6 +22,7 @@ const fixture = vi.hoisted(() => ({
   pending: undefined as ((sessionId: string, message: Message | undefined) => void) | undefined,
   autoRender: true,
   historyRendered: undefined as (() => void) | undefined,
+  renderHistory: vi.fn(),
   workspace: undefined as { sessionId: string; workingDir: string } | undefined,
   reconfirm: vi.fn(),
 }));
@@ -90,6 +91,7 @@ vi.mock('./ProgressiveMessageList', () => ({
     chat: { sessionId: string };
     onHistoryRendered?: (sessionId: string) => void;
   }) {
+    fixture.renderHistory();
     fixture.historyRendered = () => onHistoryRendered?.(chat.sessionId);
     useLayoutEffect(() => {
       if (fixture.autoRender) onHistoryRendered?.(chat.sessionId);
@@ -121,6 +123,7 @@ beforeEach(() => {
   fixture.pending = undefined;
   fixture.autoRender = true;
   fixture.historyRendered = undefined;
+  fixture.renderHistory.mockClear();
   fixture.workspace = undefined;
   fixture.reconfirm.mockReset();
   vi.mocked(window.electron.on).mockClear();
@@ -459,6 +462,7 @@ it('offers a way back only when the latest output is below the viewport', () => 
   const bounds = vi.spyOn(end, 'getBoundingClientRect');
   const rect = end.getBoundingClientRect();
   viewport.scrollTo = vi.fn(() => bounds.mockReturnValue({ ...rect, bottom: 0 }));
+  const historyRenders = fixture.renderHistory.mock.calls.length;
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
   fireEvent.wheel(viewport, { deltaY: -100 });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
@@ -467,6 +471,7 @@ it('offers a way back only when the latest output is below the viewport', () => 
   fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
   expect(viewport.scrollTo).toHaveBeenCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+  expect(fixture.renderHistory).toHaveBeenCalledTimes(historyRenders);
 });
 
 it('shows running dots at the bottom, preserves the return control, and clears dots when waiting or idle', async () => {

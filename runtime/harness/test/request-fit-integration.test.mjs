@@ -981,6 +981,36 @@ test('a dispatched full-cap summary length stops with no second summary HTTP or 
   assert.equal(summaries(await f.driver.history(f.sessionId)).length, 0);
 });
 
+test('disabling every tool preserves completed receipts through empty-tools negotiation and cold restore', { timeout: 15000 }, async t => {
+  let effects = 0, calls = 0;
+  const f = await fixture(t, (request, res) => {
+    if (++calls === 1) return reply(res, '', { tool: { id: 'completed-before-disable', name: 'fixture_effect' } });
+    if (Object.hasOwn(request.body, 'tools') && request.body.tools.length === 0)
+      return res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: { type: 'Bad Request', code: 400,
+        message: "1 validation error:\n  {'type': 'value_error', 'loc': ('body',), 'msg': 'Value error, `tools` must not be an empty array. Either provide at least one tool or omit the field entirely.', 'input': {'tools': []}}" } }));
+    reply(res, FINAL);
+  }, { tools: [{ name: 'fixture_effect', description: 'Count one isolated fixture effect', parameters: { type: 'object', properties: {} },
+    async execute() { effects++; return { receipt: 'COMPLETED_BEFORE_DISABLE' }; } }] });
+  await f.driver.prompt(f.sessionId, 'Perform one isolated effect and retain the receipt.', { onPermission: () => true });
+  assert.equal(effects, 1);
+  await f.driver.configureSession(f.sessionId, { tools: [], toolFilter: { allow: [] } });
+  const before = f.requests.length;
+  const result = await f.driver.prompt(f.sessionId, 'Use the completed receipt without calling tools.');
+  assert.equal(result.stopReason, 'end_turn');
+  const negotiated = f.requests.slice(before);
+  assert.equal(negotiated.length, 2);
+  assert.deepEqual(negotiated[0].body.tools, []);
+  assert.equal(Object.hasOwn(negotiated[1].body, 'tools'), false);
+  assert.deepEqual(negotiated[0].body.messages, negotiated[1].body.messages);
+  const history = await f.driver.history(f.sessionId);
+  assert.equal(history.events.filter(event => event.type === 'tool/result').length, 1);
+  assert.equal(effects, 1);
+  const callsBeforeRestore = f.requests.length;
+  await f.reopen();
+  assert.equal(f.requests.length, callsBeforeRestore);
+  assert.equal(effects, 1);
+});
+
 test('adversarial: manual maintenance cannot replace its live compaction configuration', { timeout: 15000 }, async t => {
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const f = await fixture(t, async (request, res) => {

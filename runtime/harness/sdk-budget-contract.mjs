@@ -5,6 +5,7 @@ import { llmPatch } from './sdk-budget/llm-patch.mjs';
 import { adapterPatch } from './sdk-budget/adapter-patch.mjs';
 import { compactionPatch } from './sdk-budget/compaction-patch.mjs';
 import { retryPatch } from './sdk-budget/retry-patch.mjs';
+import { piCompletionsPatch } from './sdk-budget/pi-completions-patch.mjs';
 
 // The adapter's estimator and 4096-token reservation belong to this exact Pi
 // release. Do not silently combine the shim with independently upgraded helpers.
@@ -25,11 +26,11 @@ if (piVersion !== '1.2.0') throw new Error('Review the SDK request-fit contract 
 
 // Register every seam before importing any SDK module: their dependencies share
 // native module identities. A loaded or upgraded module must fail explicitly.
-const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch => {
+const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch, piCompletionsPatch].map(patch => {
   const url = import.meta.resolve(patch.name);
   const source = readFileSync(new URL(url), 'utf8');
-  const version = JSON.parse(readFileSync(new URL('../package.json', url), 'utf8')).version;
-  if (version !== '0.2.1-alpha.2')
+  const version = JSON.parse(readFileSync(new URL(patch.packageJson ?? '../package.json', url), 'utf8')).version;
+  if (version !== (patch.version ?? '0.2.1-alpha.2'))
     throw new Error(`Review the pinned SDK version for ${patch.name}.`);
   if (createHash('sha256').update(source).digest('hex') !== patch.hash)
     throw new Error(`Review the pinned SDK request-fit contract for ${patch.name}.`);

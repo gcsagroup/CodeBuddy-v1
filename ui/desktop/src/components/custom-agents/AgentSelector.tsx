@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, Search } from 'lucide-react';
 import { AppEvents } from '../../constants/events';
 import {
+  agentUseTime,
   getRecentAgents,
   rememberRecentAgent,
   RECENT_AGENTS_CHANGED,
@@ -137,9 +138,10 @@ export function AgentSelector({
     if (openRequest > 0) setOpen(true);
   }, [openRequest]);
   const choose = async (id: string | null, action: 'select' | 'convert' = 'select') => {
+    const usedAt = agentUseTime();
     if (!sessionId) {
       setNextChatAgent(id);
-      rememberRecentAgent(id);
+      void rememberRecentAgent(id, usedAt);
       return;
     }
     const current = ++generation.current;
@@ -158,7 +160,7 @@ export function AgentSelector({
         ...(action === 'select' ? { id } : {}),
         expectedRevision: selection.revision,
       });
-      rememberRecentAgent(result.selection.profile?.id);
+      void rememberRecentAgent(result.selection.profile?.id, usedAt);
       if (current !== generation.current) return;
       setSelection(result.selection);
       setUnavailable(result.unavailable ?? []);

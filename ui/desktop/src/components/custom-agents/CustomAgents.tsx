@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bot, Plus, ArrowLeft, Check, Loader2, Trash2, ImagePlus, AlertTriangle } from 'lucide-react';
 import { setNextChatAgent } from '../../utils/nextChatAgent';
-import { rememberRecentAgent } from '../../utils/recentAgents';
+import { agentUseTime, rememberRecentAgent } from '../../utils/recentAgents';
 import { getWorkspaceModeFromPath, withWorkspaceMode, type ViewOptions } from '../../utils/navigationUtils';
 import { agentRequest as request, type AgentProfile as Profile, type AgentPreset, type AgentSelection } from './agentApi';
 
@@ -64,6 +64,7 @@ export function CustomAgents() {
   const roleSkills = catalog?.skills.filter(skill => skill.roleOnly) ?? [];
   const [draft, setDraft] = useState<Profile | undefined>(() => (location.state as ViewOptions | null)?.section === 'create' ? blank() : undefined);
   const [target, setTarget] = useState<{ sessionId: string; selection: AgentSelection } | null>(null);
+  const [savedDraft, setSavedDraft] = useState<Profile>();
   const visibleAvatars = showAllAvatars ? avatars : avatars.slice(0, 10);
   const avatarChoices = draft && !visibleAvatars.includes(draft.avatar) ? [...visibleAvatars, draft.avatar] : visibleAvatars;
   const [busy, setBusy] = useState(false);
@@ -91,7 +92,7 @@ export function CustomAgents() {
     finally { if (current === scope.current) setBusy(false); }
   }, [sessionId]);
   useEffect(() => {
-    invalidate(); setTarget(null); void load();
+    invalidate(); setTarget(null); setSavedDraft(undefined); void load();
     return invalidate;
   }, [load, invalidate]);
   async function run(action: (current: number) => Promise<void>) {
@@ -106,27 +107,41 @@ export function CustomAgents() {
     if (current === scope.current) setProfiles(items => [...items.filter(p => p.id !== profile.id), profile]);
     return profile;
   }
-  async function applyProfile(profile: Profile, current: number) {
+  async function applyProfile(profile: Profile, current: number, usedAt = agentUseTime()) {
     if (!profile.id || current !== scope.current) return;
     if (sessionId) {
       if (target?.sessionId !== sessionId) throw Error('尚未读取目标对话，请重新加载。');
-      await request('select', { sessionId, id: profile.id, expectedRevision: target.selection.revision });
+      try {
+        await request('select', { sessionId, id: profile.id, expectedRevision: target.selection.revision });
+      } catch (cause) {
+        if (current !== scope.current) throw cause;
+        try {
+          const { selection } = await request<{ selection: AgentSelection }>('current', { sessionId });
+          if (current === scope.current) setTarget({ sessionId, selection });
+        } catch {
+          if (current === scope.current) setTarget(null);
+        }
+        throw cause;
+      }
       window.dispatchEvent(new Event(AppEvents.AGENT_PROFILES_CHANGED));
     } else setNextChatAgent(profile.id);
-    rememberRecentAgent(profile.id);
+    void rememberRecentAgent(profile.id, usedAt);
     if (current === scope.current) navigate(returnPath);
   }
   async function saveDraft(apply: boolean) {
     if (!draft) return;
+    const usedAt = agentUseTime();
     await run(async current => {
-      const saved = await saveProfile(draft, current);
+      const saved = draft === savedDraft ? draft : await saveProfile(draft, current);
       if (current !== scope.current) return;
-      // Keep the saved ID if applying fails, so retrying cannot create copies.
       setDraft(saved);
       if (apply) {
-        try { await applyProfile(saved, current); }
-        catch (e) { if (current === scope.current) setNotice('智能体已保存，尚未应用。'); throw e; }
-      } else { setDraft(undefined); setNotice('智能体已保存，可在聊天中选用。'); }
+        try { await applyProfile(saved, current, usedAt); }
+        catch (e) {
+          if (current === scope.current) { setSavedDraft(saved); setNotice('智能体已保存，尚未应用。'); }
+          throw e;
+        }
+      } else { setDraft(undefined); setSavedDraft(undefined); setNotice('智能体已保存，可在聊天中选用。'); }
     });
   }
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
@@ -145,7 +160,7 @@ export function CustomAgents() {
       {legacy && <p className="text-sm text-text-secondary">这是旧工作区角色，请返回对话并在智能体菜单中转换后再应用；原有能力限制会保留。</p>}
       {draft && catalog ? <form ref={editorForm} onSubmit={e => { e.preventDefault(); void saveDraft(true); }} className="space-y-6 rounded-2xl border border-border-primary p-5 md:p-7">
         <fieldset disabled={busy} className="space-y-6">
-          <div className="flex items-center justify-between"><h2 className="text-lg font-medium">{draft.id ? '编辑智能体' : '创建智能体'}</h2><button type="button" className={buttonClass} onClick={() => { setDraft(undefined); setError(''); setNotice(''); }}>取消</button></div>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-medium">{draft.id ? '编辑智能体' : '创建智能体'}</h2><button type="button" className={buttonClass} onClick={() => { setDraft(undefined); setSavedDraft(undefined); setError(''); setNotice(''); }}>取消</button></div>
           <div><p className="mb-2 text-sm font-medium">头像</p><div id="custom-agent-avatars" className="flex flex-wrap gap-2" role="group" aria-label="头像">
             {avatarChoices.map(avatar => <button key={avatar} type="button" aria-label={avatar === 'app-logo' ? '头像 应用 Logo' : avatar.startsWith('data:') ? '头像 自定义图片' : '头像 ' + avatar} aria-pressed={draft.avatar === avatar} onClick={() => update('avatar', avatar)} className={'flex size-14 items-center justify-center rounded-xl border text-2xl ' + (draft.avatar === avatar ? 'border-text-primary bg-background-secondary' : 'border-border-primary')}><AgentAvatar avatar={avatar} /></button>)}
             <button type="button" aria-label="上传头像" className="flex h-14 items-center justify-center gap-2 rounded-xl border border-dashed border-border-primary px-3 text-sm text-text-secondary hover:bg-background-secondary" onClick={() => avatarInput.current?.click()}><ImagePlus size={20} />上传图片</button>
@@ -170,7 +185,10 @@ export function CustomAgents() {
                 <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <p className="min-w-0 break-words leading-5">{error}</p>
               </div>}
-              {notice && <p role="status" className="mt-2 text-sm text-text-secondary">{notice}</p>}
+              {notice && <p role="status" className="mt-2 text-sm text-text-secondary">{notice}
+                {draft === savedDraft && targetReady && sessionId && ` 当前对话角色：${target?.selection.profile?.name ?? '默认助手'}。`}
+              </p>}
+              {!targetReady && !busy && <button type="button" className={buttonClass} onClick={() => void load()}>重新加载对话角色</button>}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="grid min-w-0 text-xs text-text-secondary">
@@ -179,7 +197,7 @@ export function CustomAgents() {
               </div>
               <div className="grid shrink-0 grid-cols-2 gap-3">
                 <button type="button" className={buttonClass} onClick={() => { if (editorForm.current?.reportValidity()) void saveDraft(false); }}>仅保存</button>
-                <button type="submit" disabled={!targetReady || legacy} className={buttonClass}>保存并应用</button>
+                <button type="submit" disabled={!targetReady || legacy} className={buttonClass}>{draft === savedDraft ? '重试应用' : '保存并应用'}</button>
               </div>
             </div>
           </div>

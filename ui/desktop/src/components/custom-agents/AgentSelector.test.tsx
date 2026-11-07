@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { AgentSelector } from './AgentSelector';
 import { getNextChatAgent, setNextChatAgent } from '../../utils/nextChatAgent';
 import { AppEvents } from '../../constants/events';
-import { rememberRecentAgent } from '../../utils/recentAgents';
+import { getRecentAgents, rememberRecentAgent } from '../../utils/recentAgents';
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('../../acp/acpConnection', () => ({ getAcpControlClient: async () => ({ extMethod: request }) }));
@@ -24,7 +24,7 @@ it('keeps all agents available in the scrollable list and searches them', async 
   expect(screen.getByRole('menuitemradio', { name: '推荐助手6' })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: '推荐助手6' } });
   fireEvent.click(screen.getByRole('menuitemradio', { name: '推荐助手6' }));
-  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual(['preset-6']);
+  expect(getRecentAgents()).toEqual(['preset-6']);
   expect(getNextChatAgent()).toBe('preset-6');
   fireEvent.pointerDown(screen.getByLabelText('自定义智能体'), { button: 0, ctrlKey: false });
   await screen.findByRole('menuitemradio', { name: '推荐助手0' });
@@ -61,7 +61,7 @@ it('refreshes a mounted menu when another agent entry point records usage', asyn
     screen.getByRole('menuitemradio', { name: builtin.name }),
     screen.getByRole('menuitemradio', { name: profile.name }),
   ]);
-  act(() => rememberRecentAgent(profile.id));
+  await act(() => rememberRecentAgent(profile.id));
   expect(screen.getAllByRole('menuitemradio')).toEqual([
     screen.getByRole('menuitemradio', { name: '默认助手' }),
     screen.getByRole('menuitemradio', { name: profile.name }),
@@ -90,7 +90,7 @@ it('distinguishes same-name custom agents and templates while preserving their i
   await waitFor(() => expect(screen.getByLabelText('自定义智能体')).toHaveAttribute('aria-description', '内置：CodeBuddy 提供的默认模板'));
   expect(within(screen.getByLabelText('自定义智能体')).queryByText('内置')).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledWith('_codebuddy/agents/select', { sessionId: 'conversation-a', id: builtin.id, expectedRevision: 1 });
-  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual([builtin.id, custom.id]);
+  expect(getRecentAgents()).toEqual([builtin.id, custom.id]);
 });
 
 it('adds and removes origin hints after renames without changing the adopted role revision', async () => {
@@ -261,7 +261,9 @@ it('does not apply a delayed save receipt to another conversation', async () => 
   await waitFor(() => expect(finish).toBeTypeOf('function'));
   view.rerender(<AgentSelector sessionId="conversation-b" busy={false} openRequest={1} />);
   await waitFor(() => expect(request).toHaveBeenCalledWith('_codebuddy/agents/current', { sessionId: 'conversation-b' }));
+  act(() => { rememberRecentAgent('newer-choice'); });
   await act(async () => { finish(); });
+  expect(getRecentAgents()).toEqual(['newer-choice', profile.id]);
   expect(screen.queryByRole('button', { name: '自定义智能体' })).not.toBeInTheDocument();
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });

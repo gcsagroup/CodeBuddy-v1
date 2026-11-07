@@ -1,6 +1,7 @@
 import { AppEvents } from '../../constants/events';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { getRecentAgents } from '../../utils/recentAgents';
 import { CustomAgents } from './CustomAgents';
 import { getNextChatAgent, setNextChatAgent } from '../../utils/nextChatAgent';
 const { request, navigate, route } = vi.hoisted(() => ({ request: vi.fn(), navigate: vi.fn(), route: { pathname: '/codepro/custom-agents', search: '', state: null as unknown } }));
@@ -65,7 +66,7 @@ it('selects a role for a new task without creating a workspace or a conversation
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro'));
   expect(navigate).toHaveBeenCalledWith('/codepro');
   expect(getNextChatAgent()).toBe('saved');
-  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual(['saved']);
+  expect(getRecentAgents()).toEqual(['saved']);
   expect(request).not.toHaveBeenCalledWith('_codebuddy/agents/create-workspace', expect.anything());
 });
 it('does not offer a model binding in the property form and preserves drafts on failure', async () => {
@@ -156,36 +157,60 @@ it('applies directly to its source chat and returns there without creating a cop
   fireEvent.click(await screen.findByRole('button', { name: '应用到当前对话 前端开发工程师' }));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=source-chat'));
   expect(request).toHaveBeenCalledWith('_codebuddy/agents/select', { sessionId: 'source-chat', id: 'builtin-frontend', expectedRevision: 3 });
-  expect(JSON.parse(localStorage.getItem('codebuddy:recent-agents')!)).toEqual(['builtin-frontend']);
+  expect(getRecentAgents()).toEqual(['builtin-frontend']);
   expect(request.mock.calls.some(([method]) => method.endsWith('/save') || method === 'session/new')).toBe(false);
   expect(getNextChatAgent()).toBeNull();
 });
 
 it('retains the saved identity when applying fails, then retries the same profile without duplicating it', async () => {
   route.search = '?sessionId=source-chat';
+  let revision = 3;
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [], avatars: ['📚'] }
     : method.endsWith('/catalog') ? catalog
-      : method.endsWith('/current') ? { selection: { revision: 3, profile: null, legacy: false } }
+      : method.endsWith('/current') ? { selection: { revision, profile: null, legacy: false } }
         : method.endsWith('/save') ? { profile }
           : Promise.reject(Error('Source chat changed')));
   render(<CustomAgents />);
   fireEvent.click(await screen.findByRole('button', { name: '新建智能体' }));
   fireEvent.change(screen.getByLabelText('名称'), { target: { value: '写作搭档' } });
   fireEvent.change(screen.getByLabelText('人设提示词'), { target: { value: '简明、严谨。' } });
+  revision = 4; // The other window has now selected a role.
   fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Source chat changed');
   expect(screen.getByRole('status')).toHaveTextContent('已保存，尚未应用');
   expect(screen.getByLabelText('名称')).toHaveValue('写作搭档');
   expect(navigate).not.toHaveBeenCalled();
-  request.mockResolvedValueOnce({ profile: { ...profile, revision: 2 } }).mockResolvedValueOnce({});
-  fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
+  request.mockResolvedValueOnce({});
+  fireEvent.click(screen.getByRole('button', { name: '重试应用' }));
   await waitFor(() => expect(navigate).toHaveBeenCalledWith('/codepro/pair?resumeSessionId=source-chat'));
   const saves = request.mock.calls.filter(([method]) => method.endsWith('/save'));
-  expect(saves).toHaveLength(2);
-  expect(saves[1][1].profile.id).toBe(profile.id);
+  expect(saves).toHaveLength(1);
+  expect(request).toHaveBeenLastCalledWith('_codebuddy/agents/select', { sessionId: 'source-chat', id: profile.id, expectedRevision: 4 });
 });
 
-it('does not redirect to an old target after leaving the manager while apply is pending', async () => {
+  it('can reload the current role after a failed refresh even if the user edits the saved draft', async () => {
+    route.search = '?sessionId=source-chat';
+    let available = true;
+    request.mockImplementation(async (method: string) => {
+      if (method.endsWith('/list')) return { profiles: [profile], avatars: [] };
+      if (method.endsWith('/catalog')) return catalog;
+      if (method.endsWith('/save')) return { profile };
+      if (method.endsWith('/current') && available) return { selection: { revision: 4, profile: null, legacy: false } };
+      throw Error('Role unavailable');
+    });
+    render(<CustomAgents />);
+    fireEvent.click(await screen.findByRole('button', { name: '编辑' }));
+    available = false;
+    fireEvent.click(screen.getByRole('button', { name: '保存并应用' }));
+    expect(await screen.findByRole('button', { name: '重试应用' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('人设提示词'), { target: { value: '保留新的草稿' } });
+    available = true;
+    fireEvent.click(screen.getByRole('button', { name: '重新加载对话角色' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '保存并应用' })).toBeEnabled());
+    expect(screen.getByLabelText('人设提示词')).toHaveValue('保留新的草稿');
+  });
+
+  it('does not redirect to an old target after leaving the manager while apply is pending', async () => {
   route.search = '?sessionId=source-chat';
   let finish!: () => void;
   request.mockImplementation(async (method: string) => method.endsWith('/list') ? { profiles: [profile], avatars: ['📚'] }

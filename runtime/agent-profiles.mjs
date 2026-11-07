@@ -182,7 +182,8 @@ export async function agentProfileRequest(host, action, input, connection) {
       const previous = state.agentProfiles[index];
       if (previous && input.profile.revision !== previous.revision) throw invalid('Agent was edited elsewhere; refresh before saving');
       const name = profile.name.toLowerCase();
-      if (state.agentProfiles.some(item => item.id !== id && item.name.trim().toLowerCase() === name))
+      if (previous?.name.trim().toLowerCase() !== name &&
+          state.agentProfiles.some(item => item.id !== id && item.name.trim().toLowerCase() === name))
         throw invalid(`已存在名为“${profile.name}”的自定义智能体，请换个名称。`);
       saved = { ...profile, id, revision: (previous?.revision ?? 0) + 1 };
       if (index < 0) state.agentProfiles.push(saved); else state.agentProfiles[index] = saved;

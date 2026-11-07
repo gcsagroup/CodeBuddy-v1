@@ -76,6 +76,26 @@ test('concurrent saves cannot create two custom agents with the same name', asyn
   assert.equal((await f.request('list')).profiles.length, 1);
 });
 
+test('legacy names shared by two profiles allow independent edits but cannot acquire another duplicate', async t => {
+  const f = await fixture(t);
+  const { profile: one } = await f.request('save', { profile });
+  const { profile: two } = await f.request('save', { profile: { ...profile, name: 'Second' } });
+  await f.store.update(state => { state.agentProfiles.find(p => p.id === two.id).name = one.name.toUpperCase(); }, ['agentProfiles']);
+  const { profiles } = await f.request('list');
+  const edited = await Promise.all(profiles.map(p => f.request('save', { profile: { ...p, prompt: 'Edited ' + p.id } })));
+  assert.deepEqual(edited.map(r => r.profile.revision), [2, 2]);
+  const stored = (await f.request('list')).profiles;
+  assert.equal(stored.length, 2);
+  for (const original of profiles) {
+    const updated = stored.find(item => item.id === original.id);
+    assert.equal(updated.name, original.name);
+    assert.equal(updated.prompt, 'Edited ' + original.id);
+  }
+  await assert.rejects(f.request('save', { profile }), /已存在/);
+  const renamed = await f.request('save', { profile: { ...edited[0].profile, name: 'Unique' } });
+  await assert.rejects(f.request('save', { profile: { ...renamed.profile, name: one.name } }), /已存在/);
+});
+
 test('built-in agents apply directly without creating profiles and retain their input snapshot after restart', async t => {
   const f = await fixture(t);
   const { sessionId } = await f.host.request('session/new', { cwd: f.root, mcpServers: [] }, f.connection);

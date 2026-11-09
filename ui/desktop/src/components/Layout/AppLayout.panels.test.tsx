@@ -5,6 +5,7 @@ import { AppLayout } from './AppLayout';
 import { IntlTestWrapper } from '../../i18n/test-utils';
 import { openNativeSchedule } from '../schedule/scheduleEvents';
 import { OPEN_WORKSPACE_FILE } from '../../workspace-panel/workspaceFilePanel';
+import { WINDOW_NAVIGATION_SLOT_ID } from './WindowMenuBar';
 
 const state = vi.hoisted(() => ({
   workspaceMounts: 0,
@@ -107,18 +108,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('keeps one navigation action beside the sidebar rather than duplicating it in the window header', async () => {
-  vi.stubGlobal('appConfig', { get: (key: string) => key === 'WINDOW_TITLEBAR_OVERLAY' });
+it('moves the single Windows navigation action into the window header and keeps its state owner', async () => {
+  vi.spyOn(window.electron, 'platform', 'get').mockReturnValue('win32');
   state.setNav.mockClear();
   render(
     <>
-      <div id="window-navigation-slot" data-testid="titlebar-slot" />
+      <div id={WINDOW_NAVIGATION_SLOT_ID} data-testid="titlebar-slot" />
       <AppLayout activeSessions={[]} />
     </>,
     { wrapper: IntlTestWrapper }
   );
   const toggle = await screen.findByRole('button', { name: 'Collapse navigation' });
-  expect(screen.getByTestId('titlebar-slot')).not.toContainElement(toggle);
+  expect(screen.getByTestId('titlebar-slot')).toContainElement(toggle);
   expect(screen.getAllByRole('button', { name: 'Collapse navigation' })).toHaveLength(1);
   fireEvent.click(toggle);
   expect(state.setNav).toHaveBeenCalledWith(false);

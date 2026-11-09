@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
+export const WINDOW_NAVIGATION_SLOT_ID = 'window-navigation-toggle';
+
 export function WindowMenuBar() {
   const { resolvedTheme } = useTheme();
   const [items, setItems] = useState<Array<{ index: number; label: string; enabled: boolean }>>([]);
@@ -44,62 +46,66 @@ export function WindowMenuBar() {
     return window.electron?.platform === 'darwin' ? <div className="titlebar-drag-region" /> : null;
   return (
     <header className="window-menu-bar">
-      <nav
-        ref={bar}
-        role="menubar"
-        aria-label="Application menu"
-        onKeyDown={(event) => {
-          const buttons = Array.from(
-            bar.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []
-          );
-          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-          if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
-            event.preventDefault();
-            const next =
-              event.key === 'Home'
-                ? 0
-                : event.key === 'End'
-                  ? buttons.length - 1
-                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
-            buttons[next]?.focus();
-          } else if (event.key === 'Escape') {
-            returnFocus.current?.focus();
-          } else if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            buttons[index]?.click();
-          }
-        }}
-      >
-        {items.map((item) => (
-          <button
-            key={item.index}
-            role="menuitem"
-            aria-haspopup="menu"
-            aria-expanded={open === item.index}
-            disabled={!item.enabled}
-            onMouseDown={(event) => {
-              returnFocus.current = document.activeElement as HTMLElement;
-              // Native Edit roles act on the focused editor, not the menu button.
+      <div className="window-menu-controls">
+        <div id={WINDOW_NAVIGATION_SLOT_ID} className="flex items-center" />
+        <nav
+          ref={bar}
+          role="menubar"
+          aria-label="Application menu"
+          onKeyDown={(event) => {
+            const buttons = Array.from(
+              bar.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []
+            );
+            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+            if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
               event.preventDefault();
-            }}
-            onClick={async (event) => {
-              const button = event.currentTarget;
-              const bounds = button.getBoundingClientRect();
-              setOpen(item.index);
-              try {
-                returnFocus.current?.focus();
-                await window.electron.openWindowMenu(item.index, bounds.left, bounds.bottom);
-              } catch (error) {
-                console.error('Unable to open application menu', error);
-              } finally {
-                setOpen(null);
-              }
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+              const next =
+                event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? buttons.length - 1
+                    : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) %
+                      buttons.length;
+              buttons[next]?.focus();
+            } else if (event.key === 'Escape') {
+              returnFocus.current?.focus();
+            } else if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              buttons[index]?.click();
+            }
+          }}
+        >
+          {items.map((item) => (
+            <button
+              key={item.index}
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={open === item.index}
+              disabled={!item.enabled}
+              onMouseDown={(event) => {
+                returnFocus.current = document.activeElement as HTMLElement;
+                // Native Edit roles act on the focused editor, not the menu button.
+                event.preventDefault();
+              }}
+              onClick={async (event) => {
+                const button = event.currentTarget;
+                const bounds = button.getBoundingClientRect();
+                setOpen(item.index);
+                try {
+                  returnFocus.current?.focus();
+                  await window.electron.openWindowMenu(item.index, bounds.left, bounds.bottom);
+                } catch (error) {
+                  console.error('Unable to open application menu', error);
+                } finally {
+                  setOpen(null);
+                }
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </div>
     </header>
   );
 }

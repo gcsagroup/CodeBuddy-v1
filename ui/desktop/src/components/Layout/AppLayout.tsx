@@ -8,6 +8,7 @@ import {
   type WorkspaceWebTarget,
 } from '../../workspace-panel/workspaceFilePanel';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IpcRendererEvent } from 'electron';
 import { Outlet, useLocation } from 'react-router-dom';
 import { PanelLeft } from 'lucide-react';
@@ -20,6 +21,7 @@ import { NavigationProvider, useNavigationContext } from './NavigationContext';
 import { Navigation } from './NavigationPanel';
 import { Z_INDEX } from './constants';
 import { NavigationSidebar } from './NavigationSidebar';
+import { WINDOW_NAVIGATION_SLOT_ID } from './WindowMenuBar';
 import { cn } from '../../utils';
 import { UserInput } from '../../types/message';
 import type { WorkspaceMode } from '../../utils/navigationUtils';
@@ -124,6 +126,12 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const reducedMotion = useReducedMotion();
   const location = useLocation();
   const safeIsMacOS = (window?.electron?.platform || 'darwin') === 'darwin';
+  const [navigationSlot, setNavigationSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (window.electron?.platform === 'win32') {
+      setNavigationSlot(document.getElementById(WINDOW_NAVIGATION_SLOT_ID));
+    }
+  }, []);
   const chatContext = useChatContext();
   const isOnPairRoute = location.pathname === '/pair' || location.pathname === '/codepro/pair';
   const workspaceMode: WorkspaceMode = location.pathname.startsWith('/codepro')
@@ -242,6 +250,26 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
   const navToggleTitle = intl.formatMessage(
     isNavExpanded ? i18n.collapseNavigation : i18n.openNavigation
   );
+  const navigationToggle = (
+    <Button
+      ref={navigationToggleRef}
+      onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
+      className={cn(
+        'no-drag text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
+        !navigationSlot && [
+          'absolute top-2',
+          isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3',
+        ]
+      )}
+      variant="ghost"
+      size="xs"
+      title={navToggleTitle}
+      aria-label={navToggleTitle}
+      aria-expanded={isNavExpanded}
+    >
+      <PanelLeft className="size-[18px]" />
+    </Button>
+  );
   const showCodeProTaskPanel =
     !showNativeSchedule &&
     shouldShowCodeProTaskPanel(workspaceMode, isOnPairRoute || location.pathname === '/codepro');
@@ -285,7 +313,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
       className="flex flex-1 w-full h-full relative animate-fade-in bg-background-primary flex-row"
       style={
         {
-          '--navigation-toolbar-inset': isNavExpanded
+          '--navigation-toolbar-inset': navigationSlot || isNavExpanded
             ? '24px'
             : needsTrafficLightInset
               ? '144px'
@@ -305,30 +333,20 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
           />
         </NavigationSidebar>
 
-        <div className="relative w-0 shrink-0" style={{ zIndex: Z_INDEX.HEADER }}>
-          <Button
-            ref={navigationToggleRef}
-            onClick={() => handleNavigationExpandedChange(!isNavExpanded)}
-            className={cn(
-              'no-drag absolute top-2 text-text-secondary hover:!bg-background-tertiary hover:text-text-primary',
-              isNavExpanded ? '-left-12' : needsTrafficLightInset ? 'left-[96px]' : 'left-3'
-            )}
-            variant="ghost"
-            size="xs"
-            title={navToggleTitle}
-            aria-label={navToggleTitle}
-            aria-expanded={isNavExpanded}
-          >
-            <PanelLeft className="size-[18px]" />
-          </Button>
-        </div>
+        {navigationSlot ? (
+          createPortal(navigationToggle, navigationSlot)
+        ) : (
+          <div className="relative w-0 shrink-0" style={{ zIndex: Z_INDEX.HEADER }}>
+            {navigationToggle}
+          </div>
+        )}
 
         {/* Main content — no border / no card; just flows on the canvas. */}
         <WorkspaceSubagentProvider expanded={showCodeProTaskPanel && isCodeProTaskPanelExpanded}>
           <div
             ref={workAreaRef}
             className="shell-work-area relative flex flex-col flex-1 min-w-0 overflow-hidden min-h-0"
-            data-navigation-overlay={!isNavExpanded && chatHidden}
+            data-navigation-overlay={!navigationSlot && !isNavExpanded && chatHidden}
           >
             {/* Full-width panes need a separate row for the navigation toggle. */}
             <div className="shell-work-canvas relative flex-1 min-h-0">
@@ -351,7 +369,7 @@ const AppLayoutContent: React.FC<AppLayoutContentProps> = ({ activeSessions }) =
                 {/* Chat headers already reserve the toggle's horizontal space. Other pages
                   need a separate row so their own headings never sit underneath it. */}
                 <div
-                  className={cn('h-full', !isNavExpanded && !isOnPairRoute && 'pt-10')}
+                  className={cn('h-full', !navigationSlot && !isNavExpanded && !isOnPairRoute && 'pt-10')}
                   style={{ minWidth: CODEPRO_CHAT_MIN_WIDTH }}
                 >
                   <Outlet />

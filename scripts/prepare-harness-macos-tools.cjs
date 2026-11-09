@@ -9,6 +9,7 @@ const { buildMacComputer } = require('../ui/desktop/scripts/build-macos-computer
 const { targetFor, verifyMachO, sha256 } = require('../ui/desktop/scripts/macos-package.cjs');
 const { macArtifactFiles } = require('../runtime/builtin-artifacts.mjs');
 const { writeMacArtifacts, verifyMacArtifacts } = require('./macos-tool-artifacts.cjs');
+const { signingPlan, inspectSignature } = require('../ui/desktop/scripts/macos-signing.cjs');
 
 function replaceMacExecutable(source, destination) {
   // macOS caches signing information by inode: never overwrite executed code.
@@ -89,6 +90,17 @@ function main() {
   }
   const repo = path.resolve(__dirname, '..');
   const output = buildMacTools(repo, values.arch);
+  // Keychain grants follow the helper's designated requirement across preview builds.
+  if (process.env.CODEBUDDY_MAC_SIGN_IDENTITY?.trim()) {
+    const plan = signingPlan({ CODEBUDDY_MAC_SIGN_IDENTITY: process.env.CODEBUDDY_MAC_SIGN_IDENTITY });
+    const helper = path.join(output, 'bin', macArtifactFiles.credentials);
+    run('codesign', ['--force', '--options', 'runtime', '--timestamp=none', '--sign', plan.identity, helper], repo);
+    run('codesign', ['--verify', '--strict', helper], repo);
+    inspectSignature(helper, plan);
+    const manifest = JSON.parse(fs.readFileSync(path.join(output, 'artifacts.json'), 'utf8'));
+    writeMacArtifacts(output, values.arch, manifest.source);
+    verifyMacArtifacts(output, values.arch, 'staged');
+  }
   const destination = path.join(repo, 'runtime/tools');
   fs.mkdirSync(path.join(destination, 'bin'), { recursive: true });
   for (const file of Object.values(macArtifactFiles)) {

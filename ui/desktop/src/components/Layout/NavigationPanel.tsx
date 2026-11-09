@@ -2,6 +2,7 @@ import { MainConversationRow } from './MainConversationRow';
 import { getAcpControlClient } from '../../acp/acpConnection';
 import { AgentAvatar } from '../custom-agents/AgentAvatar';
 import { useNativeSchedules } from '../../acp/nativeSchedules';
+import { sessionHasPendingPermission, subscribeAcpPermissionRequests } from '../../acp/permissionRequests';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Archive, MoreHorizontal, Pin, Clock3, ChevronRight, Folder, FolderOpen, Pencil, MessageCirclePlus } from 'lucide-react';
@@ -37,6 +38,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { acpListSessions } from '../../acp/sessions';
 import { SessionActionsContextMenu } from '../SessionActionsHeader';
+import { ConversationTitle } from '../ConversationTitle';
 
 type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
 
@@ -46,10 +48,6 @@ interface SessionStatus {
 }
 
 const i18n = defineMessages({
-  pinSession: { id: 'sessionActions.pin', defaultMessage: 'Pin session' },
-  unpinSession: { id: 'sessionActions.unpin', defaultMessage: 'Unpin session' },
-  pinProject: { id: 'navigationPanel.pinProject', defaultMessage: 'Pin project' },
-  unpinProject: { id: 'navigationPanel.unpinProject', defaultMessage: 'Unpin project' },
   pinned: { id: 'navigationPanel.pinned', defaultMessage: 'Pinned' },
   actions: { id: 'sessionActionsHeader.actionsLabel', defaultMessage: 'Session actions' },
   chats: {
@@ -136,6 +134,9 @@ export const SessionRow: React.FC<SessionRowProps> = ({
   const [isArchiving, setIsArchiving] = useState(false);
   const archiving = useRef(false);
   const pinned = useSessionPins().includes(session.id);
+  const pendingPermission = React.useSyncExternalStore(
+    subscribeAcpPermissionRequests, () => sessionHasPendingPermission(session.id)
+  );
   // Older versions embedded the role avatar in the generated title itself.
   const role = session.agentProfile;
   const displayName = role && session.name === role.avatar + ' ' + role.name ? role.name : session.name;
@@ -171,6 +172,12 @@ export const SessionRow: React.FC<SessionRowProps> = ({
   return (
     <SessionActionsContextMenu session={session} onSessionRenamed={onRenamed} onSessionForked={onForked}>
       <div
+        onKeyDown={event => {
+          // Radix's surrounding menu trigger consumes Enter/Space. Let each
+          // nested button receive its native keyboard activation instead.
+          if ((event.key === 'Enter' || event.key === ' ') &&
+              (event.target as HTMLElement).closest('button')) event.stopPropagation();
+        }}
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('button')) return;
           onClick();
@@ -192,12 +199,17 @@ export const SessionRow: React.FC<SessionRowProps> = ({
             className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5 text-text-secondary"
           />
         )}
-        <span className="min-w-0 flex-1 truncate text-text-primary" title={displayName}>
-          {displayName || intl.formatMessage(i18n.untitledSession)}
-        </span>
+        <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-sm text-left text-text-primary focus-visible:outline focus-visible:outline-2"
+          title={displayName}>
+          <ConversationTitle>{displayName || intl.formatMessage(i18n.untitledSession)}</ConversationTitle>
+          {pendingPermission && <span className="shrink-0 text-xs font-medium text-text-secondary">
+            {intl.formatMessage({ id: 'navigationPanel.pendingPermission', defaultMessage: 'Awaiting approval' })}
+          </span>}
+        </button>
         <button
           type="button"
-          aria-label={intl.formatMessage(pinned ? i18n.unpinSession : i18n.pinSession)}
+          aria-label={intl.formatMessage({ id: pinned ? 'sessionActions.unpin' : 'sessionActions.pin', defaultMessage: pinned ? 'Unpin session' : 'Pin session' })}
           aria-pressed={pinned}
           onClick={(event) => {
             event.stopPropagation();
@@ -383,7 +395,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => {
                 try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
-              }}><Pin className="size-4" />{intl.formatMessage(pinned ? i18n.unpinProject : i18n.pinProject)}</DropdownMenuItem>
+              }}><Pin className="size-4" />{intl.formatMessage({ id: pinned ? 'navigationPanel.unpinProject' : 'navigationPanel.pinProject', defaultMessage: pinned ? 'Unpin project' : 'Pin project' })}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
                 <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
               </DropdownMenuItem>
@@ -470,7 +482,9 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
       data-testid="navigation-header-slot"
       className={cn(
         'relative z-30 flex shrink-0 flex-col px-3',
-        needsTrafficLightInset && 'pl-[92px]'
+        // Native window controls keep their own row on macOS. A horizontal
+        // inset cannot fit the full brand at the sidebar's minimum width.
+        needsTrafficLightInset && 'pt-10'
       )}
     >
       <div className="flex h-10 min-w-0 items-center pr-12">
@@ -481,7 +495,7 @@ export const NavigationHeaderSlot: React.FC<NavigationHeaderSlotProps> = ({
             id: 'keyboardShortcuts.newChatLabel',
             defaultMessage: 'New Chat',
           })}
-          className="no-drag min-w-0 truncate rounded-lg px-2 py-1 text-[15px] font-semibold tracking-tight text-text-primary transition-colors hover:text-neutral-950 dark:hover:text-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
+          className="no-drag shrink-0 whitespace-nowrap rounded-lg px-2 py-1 text-[15px] font-semibold tracking-tight text-text-primary transition-colors hover:text-neutral-950 dark:hover:text-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-primary"
         >
           CodeBuddy
         </button>

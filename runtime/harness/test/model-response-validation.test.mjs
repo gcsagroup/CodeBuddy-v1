@@ -2,6 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { markAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { installModelResponseValidation } from '../model-response-validation.mjs';
+import { commandEvidence, groundCommandReport, hasFailedCommand, validateCommandClaims } from '../command-evidence.mjs';
+
+test('execution claims require the corresponding action and process outcome; a diagnostic answer needs no success receipt', async () => {
+  const failure = commandEvidence({ name: 'pwsh', callId: 'red', arguments: { command: 'python -m unittest' } },
+    { value: { kind: 'foreground', exitCode: 1, stdout: { text: 'exit code: 0' } } });
+  const write = commandEvidence({ name: 'write', callId: 'edit' }, { value: { path: 'booking.py' } });
+  const interrupted = { ...failure, id: 'stopped', exit: 0, interrupted: true };
+  assert.equal(hasFailedCommand([failure]), true);
+  assert.equal(commandEvidence({ name: 'pwsh' }, { value: { kind: 'promoted' } }), undefined);
+  assert.equal(commandEvidence({ name: 'write' }, { isError: true }), undefined);
+  assert.equal(validateCommandClaims({ changes: ['unknown'], successes: ['red'] }, [failure]), false);
+  assert.equal(validateCommandClaims({ changes: ['edit'], successes: ['stopped'] }, [write, interrupted]), false);
+  assert.equal(validateCommandClaims({ changes: [], successes: [] }, [failure]), true);
+  const honest = [{ type: 'text-delta', index: 0, text: 'The test still fails.' },
+    { type: 'finish', reason: { kind: 'stop' } }];
+  const streamed = [];
+  for await (const chunk of groundCommandReport(honest, [failure], async () => true)) streamed.push(chunk);
+  assert.deepEqual(streamed, honest);
+});
 
 function fixture() {
   let handler;

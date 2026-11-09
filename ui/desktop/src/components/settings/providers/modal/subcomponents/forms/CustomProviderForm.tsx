@@ -457,7 +457,7 @@ function compactPresetForInitialData(initialData: UpdateCustomProviderRequest) {
 }
 
 interface CustomProviderFormProps {
-  onSubmit: (data: UpdateCustomProviderRequest) => void | Promise<void>;
+  onSubmit: (data: UpdateCustomProviderRequest, selectedModel?: string) => void | Promise<void>;
   onCancel: () => void;
   onDelete?: () => Promise<void>;
   initialData: UpdateCustomProviderRequest | null;
@@ -811,7 +811,9 @@ export default function CustomProviderForm({
     submitInFlightRef.current = true;
     setIsSubmitting(true);
     try {
-      await onSubmit({ ...buildRequest(orderedModelList), headers: headersObject });
+      const request = { ...buildRequest(orderedModelList), headers: headersObject };
+      if (selectedModel) await onSubmit(request, selectedModel);
+      else await onSubmit(request);
     } catch (error) {
       const data = acpErrorData(error);
       const status = typeof data?.httpStatus === 'number' && Number.isInteger(data.httpStatus) && data.httpStatus >= 400 && data.httpStatus <= 599 ? data.httpStatus : undefined;

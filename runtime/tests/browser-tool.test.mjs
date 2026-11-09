@@ -60,7 +60,7 @@ test('admitted host and stdio tools survive inherited masks, role changes and co
   let driver, current = { id: 'inherited-role', revision: 1, name: 'Inherited role', prompt: 'Use the current task.', capabilities: 'inherit', skills: [], tools: [], mcpServers: [] };
   t.after(async () => {
     await driver?.close();
-    assert.equal(path.dirname(root), await realpath(os.tmpdir()));
+    assert.equal(await realpath(path.dirname(root)), await realpath(os.tmpdir()));
     await rm(root, { recursive: true, force: true });
   });
   const provider = { id: 'offline', protocol: 'openai-completions', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };

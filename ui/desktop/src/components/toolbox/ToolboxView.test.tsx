@@ -81,6 +81,8 @@ describe('ToolboxView', () => {
     vi.mocked(addSessionExtension).mockImplementation(async () => { vi.mocked(readToolboxSession).mockResolvedValue({ ...state, selected: [computer.name, custom.name], statuses: [{serverName: custom.name, status: 'ready'}] }); });
     renderView('/codepro/toolbox?sessionId=existing');
     expect(await screen.findByText('Added to this conversation · connection not checked')).toBeVisible();
+    expect(screen.queryByRole('combobox', { name: 'Follow toolbox' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry connections' })).not.toBeInTheDocument();
     await waitFor(() => expect(loadToolbox).toHaveBeenCalledWith('/conversation-project', undefined, expect.objectContaining({ onPartial: expect.any(Function) })));
     expect(screen.getByText('Not loaded in this conversation')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Return to conversation' })).toHaveAttribute('href', '/codepro/pair?resumeSessionId=existing');
@@ -636,6 +638,8 @@ describe('ToolboxView', () => {
 
     renderView('/toolbox?section=capabilities');
 
+    await screen.findByRole('button', { name: 'Computer Use' });
+    await userEvent.type(screen.getByRole('searchbox'), '电脑控制');
     const card = await screen.findByRole('button', { name: 'Computer Use' });
     expect(screen.getByRole('switch', { name: 'Disable Computer Use' })).toBeChecked();
     expect(

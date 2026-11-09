@@ -1,0 +1,23 @@
+.conversation-label { display: flex; min-width: 0; align-items: center; gap: 4px; }
+.conversation-title-number { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.conversation-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.conversation-title-text { display: block; width: max-content; }
+.conversation-title[data-overflow='true'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+button:hover .conversation-title[data-overflow='true'] .conversation-title-text,
+button:focus-visible .conversation-title[data-overflow='true'] .conversation-title-text {
+  animation: conversation-title-reveal var(--title-duration) linear 600ms infinite alternate;
+}
+@keyframes conversation-title-reveal {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--title-travel)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-title-text { animation: none !important; }
+}

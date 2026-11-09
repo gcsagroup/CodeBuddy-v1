@@ -9,6 +9,30 @@ import { normalizeGemmaResponse, gemmaToolResponseStop } from '../harness/gemma-
 
 const leakedCall = 'call:fixture_effect{prompt:<|"|>将围巾改为蓝色<|"|>}<tool_call|>';
 
+test('installed malformed thought openers never reach visible answers', async () => {
+  for (const [reasoning, text] of [['<|cught\n<|c', 'ught\n'], ['', '<|thought\nThinking Process:\nRead the file.']]) {
+    for (let split = 0; split <= text.length; split++) {
+      const frames = await Array.fromAsync(normalizeGemmaResponse([
+        ...[...reasoning].map(text => ({ type: 'reasoning-delta', index: 0, text })),
+        ...(reasoning ? [{ type: 'block-end', index: 0, block: { type: 'reasoning', text: reasoning } }] : []),
+        ...[text.slice(0, split), text.slice(split)].map(text => ({ type: 'text-delta', index: 1, text })),
+        { type: 'block-end', index: 1, block: { type: 'text', text } },
+        { type: 'finish', reason: { kind: 'stop' } },
+      ]));
+      assert.equal(frames.at(-1).reason?.failure?.code, 'SERVER');
+      assert.equal(frames.filter(c => c.type === 'text-delta').length, 0);
+      assert.ok(!frames.filter(c => c.type === 'reasoning-delta').some(c => c.text.includes('<|')));
+    }
+  }
+  for (const text of ['`<|thought` is malformed.', 'Example: <|thought', '<limit']) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      ...[...text].map(text => ({ type: 'text-delta', index: 0, text })),
+      { type: 'block-end', index: 0, block: { type: 'text', text } },
+    ]));
+    assert.equal(frames.filter(c => c.type === 'text-delta').map(c => c.text).join(''), text);
+  }
+});
+
 test('Gemma tool-response stop preserves caller stops and leaves other models, protocols and plain answers alone', () => {
   const payload = { tools: [{ type: 'function' }], stop: ['existing'] };
   const model = { api: 'openai-completions', id: 'vendor/gemma-4-26B-A4B-it' };
@@ -93,11 +117,25 @@ test('native provider retry recovers leaked calls without executing text, and ow
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const c of req) raw += c;
     const request = JSON.parse(raw); requests++;
+    if (scenario === 'malformed' && requests === 2) {
+      assert.equal(request.stream, false);
+      assert.equal(request.stream_options, undefined);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ id: 'recovered', model: request.model, choices: [{ index: 0,
+        finish_reason: 'tool_calls', message: { role: 'assistant', content: null, tool_calls: [
+          { id: 'valid-call', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } },
+        ] } }] }));
+      return;
+    }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({
       id: 'fixture', model: request.model, choices: [{ index: 0, delta, finish_reason }],
     }) + '\n\n');
-    if (scenario !== 'recover' || requests === 1) {
+    if (scenario === 'malformed' && requests === 1) {
+      emit({ tool_calls: [{ index: 0, id: 'must-not-run', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } }] });
+      emit({ tool_calls: [{ index: 1, id: '', type: 'function', function: { name: '', arguments: '{}' } }] });
+      emit({}, 'tool_calls');
+    } else if (!['recover', 'malformed'].includes(scenario) || requests === 1) {
       for (const content of leakedCall) emit({ content });
       emit({}, 'stop');
     } else if (requests === 2) {
@@ -132,6 +170,14 @@ test('native provider retry recovers leaked calls without executing text, and ow
     onEvent(e) { if (e.type === 'harness_event' && e.event.type === 'llm/retry') controller.abort(); },
   })).stopReason, 'cancelled');
   assert.equal(requests, 1); assert.equal(executions, 1);
+  scenario = 'malformed'; requests = 0;
+  const office = await session();
+  const result = await driver.prompt(office.sessionId, 'Use the fixture tool.', { onPermission: async () => true });
+  assert.equal(result.stopReason, 'end_turn');
+  const history = (await driver.history(office.sessionId)).events;
+  assert.deepEqual(history.filter(e => e.type === 'tool/call').map(e => e.data.callId), ['valid-call']);
+  assert.ok(history.filter(e => e.type === 'approval/asked').every(e => e.data.callId === 'valid-call'));
+  assert.equal(executions, 2);
 });
 
 test('Gemma text cleanup agrees across streaming and completed blocks for all envelope split positions', async () => {
@@ -154,6 +200,19 @@ test('split native Gemma thought boundaries do not leak into short media deliver
   for (const [reasoning, raw, visible] of [
     ['<|c', 'ught\n<channel|>已生成。', '已生成。'],
     ['<|c', 'ught\n<channel|>', ''],
+    ['<|channel>thought\nSave `installed-count', '.txt`.<channel|>', ''],
+    ['<|channel>thought\nWrite `résumé', '.md`.\n<channel|>已保存 `résumé.md`。', '已保存 `résumé.md`。'],
+    ['<|channel>thought\nUse ``file`name', '.json``.<channel|>OK', 'OK'],
+    ['<|channel>thought\nWrite the file', 'nt`.\n<channel|>', ''],
+    ['<|channel>thought\nTell the user they need to provide ', 'csv`.<channel|>未找到 `dispatch.csv`。请补充 **`dispatch.csv`**。', '未找到 `dispatch.csv`。请补充 **`dispatch.csv`**。'],
+    ['<|channel>thought\nState what needs to be provided: the `disp', 'file.<channel|>没有找到 `dispatch.csv`。请补充 **`dispatch.csv`**。', '没有找到 `dispatch.csv`。请补充 **`dispatch.csv`**。'],
+    ['<|channel>thought\nMissing `disp', 'file.<channel|>请补充**`dispatch.csv`**，字面量是 `<channel|>`。', '请补充**`dispatch.csv`**，字面量是 `<channel|>`。'],
+    ['<|channel>thought\nInspect.', 'prefix`.<channel|>` and `file.csv`', 'prefix`.<channel|>` and `file.csv`'],
+    ['<|channel>thought\nUse `', '`file`name``.<channel|>done', 'done'],
+    ['<|channel>thought\nLiteral `<channel|>` then write `fi', 'le`.<channel|>done', 'done'],
+    ['<|channel>thought\nDone.<cha', 'nnel|>report.txt', 'report.txt'],
+    ['<|channel>thought\nUse ', 'plain .txt and `name.txt`', 'plain .txt and `name.txt`'],
+    ['<|channel>thought\nInspect.', 'Show ``sample `<channel|>` here``.', 'Show ``sample `<channel|>` here``.'],
     ['<|channel>thought\nThe file is saved. Say 已', '生成。".<channel|>已生成。', '已生成。'],
     ['<|channel>thought\nInspect the example.', '`<channel|>` is a protocol token.', '`<channel|>` is a protocol token.'],
     ['Ordinary reasoning.', 'Example <channel|> inside text.', 'Example <channel|> inside text.'],
@@ -173,12 +232,158 @@ test('split native Gemma thought boundaries do not leak into short media deliver
   }
 });
 
+test('a quoted boundary at the native split remains hidden across a long answer', async () => {
+  const reasoning = '<|channel>thought\nMissing `disp';
+  const answer = '说明。'.repeat(600) + '请补充 `dispatch.csv`。';
+  const prefix = 'file.<channel|>';
+  const output = await Array.fromAsync(normalizeGemmaResponse([
+    { type: 'reasoning-delta', index: 0, text: reasoning },
+    { type: 'block-end', index: 0, block: { type: 'reasoning', text: reasoning } },
+    ...[prefix, answer.slice(0, 1200), answer.slice(1200)].map(text => ({ type: 'text-delta', index: 1, text })),
+    { type: 'block-end', index: 1, block: { type: 'text', text: prefix + answer } },
+  ]));
+  assert.equal(output.filter(c => c.type === 'text-delta').map(c => c.text).join(''), answer);
+  assert.equal(output.at(-1).block.text, answer);
+});
+
 test('runaway reasoning is bounded without changing intentionally repeated final prose', async () => {
   const text = 'This is the same sufficiently long paragraph.\n\n'.repeat(30);
   const answer = { type: 'text-delta', index: 0, text };
   assert.deepEqual(await Array.fromAsync(normalizeGemmaResponse([answer])), [answer]);
   const output = await Array.fromAsync(normalizeGemmaResponse([{ ...answer, type: 'reasoning-delta' }]));
-  assert.equal(output.at(-1).reason.failure.code, 'REPETITIVE_MODEL_OUTPUT');
+  assert.equal(output.at(-1).reason.failure.code, 'SERVER');
+});
+
+test('short-line degeneration is rejected independently of stream chunk boundaries', async () => {
+  const text = "Actually, let's go.\n".repeat(90);
+  for (const size of [1, 7, 31, text.length]) {
+    const deltas = Array.from({ length: Math.ceil(text.length / size) }, (_, i) => ({
+      type: 'reasoning-delta', index: 0, text: text.slice(i * size, (i + 1) * size),
+    }));
+    const output = await Array.fromAsync(normalizeGemmaResponse(deltas));
+    assert.equal(output.at(-1).reason?.failure?.code, 'SERVER');
+    const answer = deltas.map(c => ({ ...c, type: 'text-delta' }));
+    assert.equal((await Array.fromAsync(normalizeGemmaResponse(answer))).map(c => c.text).join(''), text);
+  }
+});
+
+test('installed Gemma single-line repetition is bounded while repeated final text and file arguments remain intact', async () => {
+  const text = ' l,'.repeat(500);
+  for (const size of [1, 7, 63, text.length]) {
+    const deltas = Array.from({ length: Math.ceil(text.length / size) }, (_, i) => ({
+      type: 'text-delta', index: 1, text: text.slice(i * size, (i + 1) * size),
+    }));
+    const output = await Array.fromAsync(normalizeGemmaResponse([
+      { type: 'block-start', index: 0, blockType: 'tool-call' },
+      ...deltas,
+    ]));
+    assert.equal(output.at(-1).reason?.failure?.code, 'SERVER');
+    assert.equal(output.filter(c => c.type === 'text-delta').length, 0);
+    assert.equal((await Array.fromAsync(normalizeGemmaResponse(deltas))).map(c => c.text).join(''), text);
+  }
+  const argumentsDelta = { type: 'tool-call-delta', index: 0, id: 'real-file', name: 'write', arguments: JSON.stringify({ content: text }) };
+  assert.deepEqual(await Array.fromAsync(normalizeGemmaResponse([argumentsDelta])), [argumentsDelta]);
+});
+
+test('pending native tool calls cannot publish fabricated receipts or unparsed thought boundaries', async () => {
+  const text = '<tool>\n<path>v2/summary.csv</path>\n<content>old values</content>\n</tool>\nRechecking.<channel|><tool>invented receipt</tool>';
+  const completedOnly = await Array.fromAsync(normalizeGemmaResponse([
+    { type: 'block-start', index: 0, blockType: 'tool-call' },
+    { type: 'block-end', index: 1, block: { type: 'text', text } },
+  ]));
+  assert.equal(completedOnly.at(-1).reason.failure.code, 'SERVER');
+  assert.equal(completedOnly.some(c => c.type === 'block-end'), false);
+  for (let i = 0; i <= text.length; i++) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      { type: 'block-start', index: 0, blockType: 'tool-call' },
+      { type: 'tool-call-delta', index: 0, id: 'incomplete', name: 'read', arguments: '{' },
+      ...[text.slice(0, i), text.slice(i)].map(text => ({ type: 'text-delta', index: 1, text })),
+    ]));
+    assert.equal(frames.at(-1).reason?.failure?.code, 'SERVER');
+    assert.equal(frames.filter(c => c.type === 'text-delta').length, 0);
+  }
+  for (const text of ['A legitimate explanation.', 'Literal `<channel|>` in documentation.', '```xml\n<channel|>\n```']) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      { type: 'block-start', index: 0, blockType: 'tool-call' },
+      ...[...text].map(text => ({ type: 'text-delta', index: 1, text })),
+      { type: 'block-end', index: 1, block: { type: 'text', text } },
+    ]));
+    assert.equal(frames.filter(c => c.type === 'text-delta').map(c => c.text).join(''), text);
+    assert.equal(frames.at(-1).block.text, text);
+  }
+});
+
+test('a second unquoted thought boundary is rejected even when the server lost the native tool call', async () => {
+  const raw = 'ile.<channel|><tool>\n<path>v2/summary.csv</path>\n</tool>\nRechecking.<channel|><tool>invented receipt</tool>';
+  for (let i = 0; i <= raw.length; i++) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      { type: 'reasoning-delta', index: 0, text: '<|channel>thought\nI need to read the new f' },
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: '<|channel>thought\nI need to read the new f' } },
+      ...[raw.slice(0, i), raw.slice(i)].map(text => ({ type: 'text-delta', index: 1, text })),
+    ]));
+    assert.equal(frames.at(-1).reason?.failure?.code, 'SERVER');
+    assert.ok(!frames.filter(c => c.type === 'text-delta').map(c => c.text).join('').includes('<channel|>'));
+  }
+});
+
+for (const [caseName, text] of [
+  ['installed malformed thought opener', '<|thought\nThinking Process:\nRead the file.'],
+  ['unparsed boundary', '<tool>invented file receipt</tool><channel|><tool>' + 'untrusted trailing output '.repeat(500)],
+  ['installed single-line repetition', ' l,'.repeat(3000)],
+]) test(`rejecting ${caseName} closes its HTTP stream and recovers exactly once without a reminder`, { timeout: 30000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'cb-gemma-stream-recovery-'));
+  let requests = 0, executions = 0, sent = 0, closedEarly = false;
+  const server = createServer(async (req, res) => {
+    for await (const _ of req) { /* consume this isolated fixture request */ }
+    requests++;
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const emit = (delta, finish_reason = null) => res.write('data: ' + JSON.stringify({
+      id: 'fixture', model: 'gemma-4-fixture', choices: [{ index: 0, delta, finish_reason }],
+    }) + '\n\n');
+    if (requests === 1) {
+      emit({ tool_calls: [{ index: 0, id: 'discarded', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } }] });
+      const timer = setInterval(() => {
+        emit({ content: text.slice(sent, sent + 8) }); sent += 8;
+        if (sent >= text.length) { clearInterval(timer); emit({}, 'tool_calls'); res.end('data: [DONE]\n\n'); }
+      }, 5);
+      res.on('close', () => { closedEarly = sent < text.length; clearInterval(timer); });
+    } else if (requests === 2) {
+      emit({ tool_calls: [{ index: 0, id: 'valid', type: 'function', function: { name: 'fixture_effect', arguments: '{}' } }] });
+      emit({}, 'tool_calls'); res.end('data: [DONE]\n\n');
+    } else { emit({ content: 'Verified.' }); emit({}, 'stop'); res.end('data: [DONE]\n\n'); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const driver = await createHarnessDriver({ dataDir: join(root, 'state'), cwd: root });
+  t.after(async () => { await driver.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(root, { recursive: true, force: true }); });
+  const s = await driver.createSession({ cwd: root, model: 'gemma-4-fixture', provider: {
+    id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, apiKey: 'fixture',
+    retryPolicy: { mode: 'normal', maxRetries: 2, backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 } },
+  }, options: { mcpServers: [], tools: [{ name: 'fixture_effect', execute: () => { executions++; return {}; } }] } });
+  const visible = [];
+  const result = await driver.prompt(s.sessionId, 'Use the fixture tool.', { onPermission: () => true,
+    onEvent: e => { if (e.type === 'text_delta') visible.push(e.text); } });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.equal(closedEarly, true);
+  assert.equal(requests, 3);
+  assert.equal(executions, 1);
+  assert.equal(visible.join(''), 'Verified.');
+  const events = (await driver.history(s.sessionId)).events;
+  assert.deepEqual(events.filter(e => e.type === 'tool/call').map(e => e.data.callId), ['valid']);
+  assert.equal(events.filter(e => e.type === 'turn/start').length, 1);
+});
+
+test('native thought markers stay out of every displayed reasoning frame', async () => {
+  for (const [raw, expected] of [['<|c', ''], ['<|channel>thought', ''],
+    ['<|channel>thought\nWrite report.txt<channel|>', '\nWrite report.txt'],
+    ['Example `<|channel>thought` in .txt', 'Example `<|channel>thought` in .txt'],
+    ['<limit and report.txt', '<limit and report.txt']]) {
+    const frames = await Array.fromAsync(normalizeGemmaResponse([
+      ...[...raw].map(text => ({ type: 'reasoning-delta', index: 0, text })),
+      { type: 'block-end', index: 0, block: { type: 'reasoning', text: raw } },
+    ]));
+    assert.equal(frames.filter(f => f.type === 'reasoning-delta').map(f => f.text).join(''), expected);
+    assert.equal(frames.at(-1).block.text, expected);
+  }
 });
 
 test('a managed task inside a checkout uses its own instructions and skill roots; a degenerate tool response cannot execute', { timeout: 30000 }, async t => {
@@ -215,10 +420,12 @@ test('a managed task inside a checkout uses its own instructions and skill roots
     mcpServers: [], tools: [{ name: 'fixture_effect', execute: () => { executions++; return {}; } }],
   } });
   const visible = [];
-  await assert.rejects(driver.prompt(session.sessionId, 'Connect the tool.', { onPermission: async () => true,
-    onEvent: event => { if (event.type === 'text_delta') visible.push(event.text); } }), { code: 'REPETITIVE_MODEL_OUTPUT' });
+  assert.equal((await driver.prompt(session.sessionId, 'Connect the tool.', { onPermission: async () => true,
+    onEvent: event => { if (event.type === 'text_delta') visible.push(event.text); } })).stopReason, 'end_turn');
   assert.equal(executions, 0);
-  assert.ok(visible.join('').split('Actually').length <= 16);
+  assert.equal(visible.join(''), 'Ready to continue.');
+  assert.equal(requests.length, 2);
+  assert.equal((await driver.history(session.sessionId)).events.filter(e => e.type === 'llm/retry').length, 1);
   assert.match(JSON.stringify(requests[0].messages), /TASK_LOCAL_ONLY/);
   assert.doesNotMatch(JSON.stringify(requests[0].messages), /HOST_CHECKOUT_ONLY/);
   const catalog = await driver.skillCatalog(cwd);

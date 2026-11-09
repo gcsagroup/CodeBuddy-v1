@@ -57,11 +57,13 @@ describe('CustomProviderForm local connection setup', () => {
     expect(discoverModels).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ models: ['gemini-3.6-flash', 'ollama-dev'] })
+      expect.objectContaining({ models: ['gemini-3.6-flash', 'ollama-dev'] }),
+      'gemini-3.6-flash'
     );
     expect(onSubmit).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ models: ['ollama-dev', 'gemini-3.6-flash'] })
+      expect.objectContaining({ models: ['ollama-dev', 'gemini-3.6-flash'] }),
+      'ollama-dev'
     );
   });
 
@@ -178,7 +180,8 @@ describe('CustomProviderForm local connection setup', () => {
     await user.click(screen.getByRole('button', { name: 'Verify and add' }));
 
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ models: ['beta-model', 'alpha-model'] })
+      expect.objectContaining({ models: ['beta-model', 'alpha-model'] }),
+      'beta-model'
     );
   });
 
@@ -244,7 +247,7 @@ describe('CustomProviderForm local connection setup', () => {
     expect(screen.getByRole('button', { name: 'Verify and save' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Verify and save' }));
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ engine: 'ollama_compatible' }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ engine: 'ollama_compatible' }), 'qwen3:8b');
   });
 
   it.each([

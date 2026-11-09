@@ -60,7 +60,8 @@ describe('provider form validation feedback', () => {
     await user.click(screen.getByRole('button', { name: 'Verify and add' }));
     expect(discoverModels).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ display_name: 'My connection', models: ['beta', 'alpha'] })
+      expect.objectContaining({ display_name: 'My connection', models: ['beta', 'alpha'] }),
+      'beta'
     );
   });
 

@@ -1,3 +1,11 @@
+## 2026-11-09 已批准：Windows 工作区标签权限修复
+
+`runtime/harness/windows-sandbox.mjs` 在官方 `LocalSandboxProvider` 返回 `SetNamedSecurityInfoW / 5` 时，调用 `WorkspaceLabelAccess.cs` 核对目录句柄、当前账户所有权及现有写入权限。仅对符合条件的工作区根目录，给当前账户添加不继承的 `WRITE_OWNER`，随后由官方 Provider 再次建立受限执行。父目录、子目录、其他所有者目录、重解析点、卷根与显式拒绝均不扩大权限。原生句柄与账户级互斥负责对象身份和并发检查。模型和前端不决定该修复的授权范围。
+
+繁體：已獲使用者授權，僅為目前帳戶擁有且可寫的工作區根目錄補上不繼承的 `WRITE_OWNER`；官方 Provider 繼續持有受限執行。目錄身分、所有權及有效權限由原生句柄核對。
+
+English: The user authorized a non-inheritable `WRITE_OWNER` grant only on a writable workspace root owned by the current account. Native handles verify identity, ownership and effective access. The official sandbox provider retains restricted execution ownership and retries after the scoped repair.
+
 ## 2026-11-07 已批准：单媒体产物直接交付
 
 独立媒体请求解析器额外持有可选 `single_media_only` 语义范围：明确只需一个产物且没有后续任务才为真。宿主仅在当前请求 hash/ID 匹配、没有待接纳插话、可信媒体工具返回 completed 且确切一份已保存输出时调用原生 `concludeTurn()`。Harness 继续持有成功结果持久化、工具组及结束语义；媒体工具持有产物事实。旧记录缺失或字段无效继续普通执行，无迁移；失败、取消、后台等待、旧任务及维护调用不直接结束。UI 沿用媒体卡，无伪造助手正文。
@@ -56,13 +64,13 @@ English: Workspaces precede Tasks; pinned conversations stay in their owning gro
 
 会话分支继续使用 Harness 原生 fork。兼容层 `conversation-editing.mjs` 校验原会话状态与 UI／原生请求映射，可按下一条用户消息的精确 ID 截取前缀；旧时间边界仍兼容。任务型会话也可创建 `user` 类型的独立分支，继承所选历史、模型、工具与角色配置，原任务不变。分支共用工作目录，不复制任务运行、子智能体或后台进程；历史中的文件操作不会撤销或重放。运行中、归档或只读来源仍须先满足既有准入条件。旧会话无需迁移。
 
-置顶仅为桌面本机 `localStorage` 偏好，不成为运行时任务状态或跨设备同步事实。会话服务负责归档和恢复。归档保留消息并隐藏侧栏入口，恢复后会话按原置顶偏好回到所属分组。永久删除会话需要确认，工作目录中的文件保留。会话标题仍用于导航，“…”及右键共用操作菜单；回复下方分支按钮按该轮边界调用同一 fork。
+置顶仅为桌面本机 `localStorage` 偏好，不成为运行时任务状态或跨设备同步事实。归档会话不显示在置顶列表，恢复后可继续使用原偏好。会话标题仍用于导航，“…”及右键共用操作菜单；回复下方分支按钮按该轮边界调用同一 fork。
 
 Harness 继续唯一持有压缩内容、事务、取消与结果。宿主只在同一 Agent 已成功手动压缩且原生 surface 未变化时跳过重复摘要，保留原生 maintenance 准入与取消检查；缓存仅存内存，重启或新增上下文后重新按原规则处理。界面消费结构化压缩生命周期显示耗时和完成／失败／取消回执，不从文案推断结果、不显示虚构百分比，不承诺首次摘要速度或摘要绝对无损。
 
-繁體：原生 Harness fork 持有分支歷史；相容層按精確使用者訊息邊界建立獨立對話，共用資料夾但不複製任務、子智能體或背景程序。模型、工具與角色設定沿用，來源不改寫；舊資料不遷移。置頂僅為本機介面偏好。會話服務歸檔時保留訊息並隱藏側欄入口，還原時套用原分組的置頂偏好。永久刪除會話需要確認，工作目錄中的檔案保留。壓縮結果由原生生命週期提供，僅略過同一 Agent 在上下文未變時的重複手動摘要，不改首輪摘要內容或預算。
+繁體：原生 Harness fork 持有分支歷史；相容層按精確使用者訊息邊界建立獨立對話，共用資料夾但不複製任務、子智能體或背景程序。模型、工具與角色設定沿用，來源不改寫；舊資料不遷移。置頂僅為本機介面偏好。壓縮結果由原生生命週期提供，僅略過同一 Agent 在上下文未變時的重複手動摘要，不改首輪摘要內容或預算。
 
-English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation sharing the source directory and configuration, without copying task runs, subagents, or background processes. Existing source guards remain and old data needs no migration. Pinning is a local UI preference. Archiving retains messages and hides the sidebar entry. Restoring the conversation reapplies its pin within its group. Permanent session deletion requires confirmation and preserves workspace files. Compaction receipts consume native lifecycle facts; only redundant manual summaries on an unchanged surface of the same Agent are skipped. Summary content, initial-call budgets, and native admission remain unchanged.
+English: Harness owns native fork history. The compatibility layer validates an exact user-message boundary and creates an independent conversation sharing the source directory and configuration, without copying task runs, subagents, or background processes. Existing source guards remain and old data needs no migration. Pinning is a local UI preference. Compaction receipts consume native lifecycle facts; only redundant manual summaries on an unchanged surface of the same Agent are skipped. Summary content, initial-call budgets, and native admission remain unchanged.
 
 ## 2026-11-04：文件页外部打开
 
@@ -546,16 +554,6 @@ English: runtime settings owns configuration and the MCP server owns task state/
 锁定版本的已知压缩缺陷适配：`runtime/harness/compaction.mjs` 继承官方引擎，在普通压力路径略过已选中的单个 `compact-checkpoint`，避免无新增事实时反复摘要。2026-10-28 真实宠物历史回归另确认：原生选区可吞掉最新人工输入，摘要遗漏限制后回到旧任务。锁版 `sdk-budget/compaction-patch.mjs` 在共享选区函数内保留最新 `source.kind=user` 原事件，不把后续 runtime-context／skill-catalog 当成人工输入；遵守原有 tail 预算，只在其两侧选择工具配对完整的连续区间，优先非单检查点区间中的估价较大者。只有旧检查点可选时保留超限恢复与手动压缩能力，普通压力路径仍略过它。压力、超限／本地预算恢复和手动压缩共用人工输入保留边界；长 turn 后续工具历史仍可压缩，不复制、重排或补造人工消息。选区估价不替代 adapter 的真实 fit 门槛，后半区摘要可能损失前缀缓存；摘要事务、取消与 Session 格式仍归官方引擎。升级官方依赖时复查并在等价上游修复后撤除相应补丁。早期回归与实际证据见夜间跟踪（历史文件，见 Git 历史：`docs/reconstruction/overnight-acceptance.zh-CN.md`）。
 
 2026-10-28 用户批准锁定 SDK 的请求预算与恢复合同修复：`runtime/harness/sdk-budget-contract.mjs` 在内存中对精确版本及 SHA 校验后的原生模块实施兼容变换。Pi adapter 持有同一请求的最终规范化投影、拟发送预算（fit）与派发；LLM 服务只以既有 `requestId` 关联一次性的进程内 fit 和原请求重测闭包。`tokenMeter` 的服务用量锚及压力估计保持原职责，不强行与最终投影估价写成同一数字，也不重写历史 usage。`LOCAL_OUTPUT_BUDGET_EXHAUSTED` 在 HTTP 前拒绝没有输出空间的请求；`OUTPUT_TRUNCATED` 表示原始 length 的实际输出小于本请求 clamp 前所需上限，不冒称服务端上下文溢出。`compaction-basic` 消费该 fit，沿原安全选区与摘要事务每轮最多尝试恢复一次，只有真实 surface 替换且同路由预算改善后才返回原生 retry；取消、无进展、摘要失败或第二次截断保留明确失败。通用网络重试不接管这两个错误。没有新宿主循环、持久事件、Session v4 版本或工具重放；升级及撤除边界见 `runtime/harness/PROVENANCE.json`。
-
-2026-11-06 用户批准模型切换后的压缩修复：手动维护在原生 maintenance 内捕获 `modelSelection.pending`，缺省才沿用历史 request header，不写伪造请求、不消耗下一次普通请求的模型选择。摘要沿用原生选区、检查点事务和完整输出预算。LLM 已准备调用提供绑定同一 adapter 注册与投影的只读 fit 计量，不派发模型请求、不消耗流。手动压缩与既有 local-budget/output-truncation 恢复在同一次操作内最多提交八个原生区间，每段后按同一路由真实 fit 判断；没有 surface 替换、无严格进展、预算策略改变、取消或已能放入窗口时停止。继续阶段不单独反复摘要同一个旧检查点。仍放不下则保留未压缩历史并明确失败，不丢弃最新人工输入或拆开工具配对，不增加普通生成重试次数。普通压力循环及 provider-overflow 原有策略不变；没有新增宿主循环、持久字段或 Session 迁移。
-
-同日真实失败日志确认另一边界：adapter fit 是最终请求投影的估算，不等于服务端 tokenizer 的实际计数。摘要通过本地预检后仍可能收到结构化 `CONTEXT_WINDOW_EXCEEDED`。该辅助错误由 adapter 附加已准备请求身份，经 LLM 既有、会话与用途限定的一次性关联交还原生摘要事务；事务继续按工具配对边界严格缩小区间，并同步重建摘要输入、估价及被替换事件集合。不可再分、取消或其他错误即结束该区间，不提交失败摘要，不按错误文案猜预算，不转由宿主循环重试。普通生成的服务端超窗恢复及 429／参数错误处理保持原职责。
-
-同日用户批准接入原生独立摘要模型：设置页“模型与运行 → 上下文容量”通过既有 config ACP 保存可选 `config.compactionModel`，值为 `{providerId, modelId}` 或 `null`，只存模型引用、不存凭据；缺省和 `null` 跟随当前对话。配置 owner 校验可用连接与模型，并使后续准备失效；Compat 沿既有提供商解析路径交给 driver，driver 复用 adapter 注册并只设置 DSH 的 `summarizationProvider` / `summarizationModel`。主对话、阈值、选区、预算和提交语义不变。进行中的请求保留已捕获配置；提供商修改保护包含正在使用的摘要连接。失效的独立选择只阻断摘要，不阻断不需要压缩的普通请求，也不静默回退到其他模型。
-
-繁體（2026-11-06）：原生維護先捕獲 pending 模型，缺省才用歷史 request header；不消耗下一輪模型選擇。手動與預算恢復最多提交八個原生區間，每段以同一路由 fit 檢查嚴格進展；取消、策略改變、停滯或已能放入視窗即停止，繼續階段不反覆摘要單一檢查點。服務端確認的摘要超窗沿既有一次性 requestId 關聯縮小工具配對完整的選區，失敗不提交。獨立摘要模型只在 `config.compactionModel` 保存參照，以原生 summarization 設定接入；進行中的工作保留原快照及提供者修改保護，無效選擇只阻斷摘要且不靜默回退。原生交易、最新人工輸入、主對話及 Session 格式不變。
-
-English (2026-11-06): Native maintenance captures the pending model before falling back to the historical request header, without consuming the next request's selection. Manual and budget recovery commit at most eight native regions, checking strict same-route fit progress after each. Cancellation, policy changes, no progress or sufficient space stop recovery; continuations do not repeatedly summarize a lone checkpoint. Provider-confirmed summary overflow uses the existing one-shot requestId association to shrink tool-balanced regions; failed summaries do not commit. `config.compactionModel` stores references only and feeds native summarization settings. Active work retains its captured configuration and provider mutation protection; an invalid selection blocks only summarization and never silently falls back. Native transactions, the latest human input, the conversation model and Session format remain unchanged.
 
 繁體：最終請求 fit 歸 adapter，暫存關聯歸 LLM 服務，單輪有界壓縮恢復仍歸原生引擎；歷史用量與 Session 格式不變。English: The adapter owns final request fit; the LLM service carries a transient association; native compaction owns the single recovery attempt. Historical usage and Session format are unchanged.
 

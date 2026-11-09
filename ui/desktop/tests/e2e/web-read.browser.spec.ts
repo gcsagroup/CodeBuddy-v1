@@ -39,7 +39,6 @@ for (const [label, expected] of [['本会话允许网页读取', 'session'], ['�
       await expect(page.getByText('正在查找可用工具',{exact:true})).toBeVisible();
       await expect(page.getByText(/允许本会话跨网站匿名读取公开网页/)).toBeVisible();
       await page.getByRole('button',{name:'正在查找可用工具',exact:true}).click();
-      await page.getByRole('button',{name:'思考详情',exact:true}).click();
       const thoughts = page.getByRole('button',{name:'深度思考',exact:true});
       await expect(thoughts).toHaveCount(3);
       for (let index = 0; index < 3; index += 1) await thoughts.nth(index).click();

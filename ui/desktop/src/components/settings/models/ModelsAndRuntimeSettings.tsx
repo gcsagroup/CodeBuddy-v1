@@ -11,7 +11,6 @@ import { CodeProModelModal } from '../../codepro/CodeProModelModal';
 import ProviderGrid from '../providers/ProviderGrid';
 import ModelImageCapabilitySettings from './ModelImageCapabilitySettings';
 import ModelContextSettings from './ModelContextSettings';
-import CompactionModelSettings from './CompactionModelSettings';
 import ImageGenerationSettings from './ImageGenerationSettings';
 import SettingsMenu from '../SettingsMenu';
 import ExternalBackendSection from '../app/ExternalBackendSection';
@@ -92,14 +91,14 @@ export default function ModelsAndRuntimeSettings({
   const intl = useIntl();
   const [visionSettingsOpen, setVisionSettingsOpen] = useState(false);
   const [subagentDirty, setSubagentDirty] = useState(false);
-  const [compactionDirty, setCompactionDirty] = useState(false);
   const [subagentEditing, setSubagentEditing] = useState(false);
-  const handleDirtyChange = useCallback((dirty: boolean) => {
-    setSubagentDirty(dirty);
-  }, []);
-  useEffect(() => {
-    onDirtyChange?.(subagentDirty || compactionDirty);
-  }, [onDirtyChange, subagentDirty, compactionDirty]);
+  const handleDirtyChange = useCallback(
+    (dirty: boolean) => {
+      setSubagentDirty(dirty);
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange]
+  );
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [connectionsFailed, setConnectionsFailed] = useState(false);
@@ -233,23 +232,10 @@ export default function ModelsAndRuntimeSettings({
           {
             id: 'context',
             keepAlive: true,
-            dirty: compactionDirty,
             title: intl.formatMessage(i18n.context),
             description: intl.formatMessage(i18n.contextDescription),
             icon: <SlidersHorizontal className="h-5 w-5" />,
-            content: (
-              <div className="space-y-4">
-                <CompactionModelSettings
-                  providers={providers}
-                  onDirtyChange={setCompactionDirty}
-                  catalogState={
-                    connectionsLoaded ? 'ready' : connectionsFailed ? 'failed' : 'loading'
-                  }
-                  onRetry={() => void loadCustomConnections()}
-                />
-                <ModelContextSettings providers={customProviders} />
-              </div>
-            ),
+            content: <ModelContextSettings providers={customProviders} />,
           },
         ]}
       />

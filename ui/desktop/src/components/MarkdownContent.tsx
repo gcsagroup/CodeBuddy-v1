@@ -14,6 +14,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkMath from 'remark-math';
 import { remarkStreamReveal } from './remarkStreamReveal';
 import { remarkWindowsFileLinks } from './remarkWindowsFileLinks';
+import { AnswerFiles, remarkDeliveredFileLinks } from './remarkDeliveredFileLinks';
 import { remarkCodeFileLinks } from './remarkCodeFileLinks';
 import { rehypeIncomingText } from './rehypeIncomingText';
 import { StreamingMarkdownBlocks } from './streamingMarkdown';
@@ -335,6 +336,7 @@ const MarkdownContent = memo(function MarkdownContent({
   sessionId,
 }: MarkdownContentProps) {
   const intl = useIntl();
+  const files = useContext(AnswerFiles);
   const splitIncoming = animateIncoming;
   const previewLabel = intl.formatMessage(panelMessages.previewMedia);
   const [pendingLink, setPendingLink] = useState<{ protocol: string; href: string } | null>(null);
@@ -523,6 +525,7 @@ const MarkdownContent = memo(function MarkdownContent({
         key={key}
         urlTransform={urlTransform}
         remarkPlugins={[
+          [remarkDeliveredFileLinks, files],
           remarkWindowsFileLinks,
           remarkCodeFileLinks,
           [remarkGfm, { singleTilde: false }],
@@ -633,11 +636,13 @@ const StreamingBlock = memo(function StreamingBlock({
   components: Components;
   urlTransform: (url: string) => string;
 }) {
+  const files = useContext(AnswerFiles);
   return (
     <ReactMarkdown
       components={components}
       urlTransform={urlTransform}
       remarkPlugins={[
+        [remarkDeliveredFileLinks, files],
         remarkWindowsFileLinks,
         remarkCodeFileLinks,
         [remarkGfm, { singleTilde: false }],

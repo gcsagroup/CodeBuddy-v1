@@ -155,6 +155,21 @@
   "baseChat.latest": {
     "defaultMessage": "Back to latest"
   },
+  "baseChat.mainCode": {
+    "defaultMessage": "Write and debug code"
+  },
+  "baseChat.mainData": {
+    "defaultMessage": "Organize documents and data"
+  },
+  "baseChat.mainIntroduction": {
+    "defaultMessage": "I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done."
+  },
+  "baseChat.mainTasks": {
+    "defaultMessage": "Plan, execute and check"
+  },
+  "baseChat.mainWelcome": {
+    "defaultMessage": "I'm CodeBuddy. Let's work together."
+  },
   "baseChat.readonlyHistory": {
     "defaultMessage": "Imported history is read-only. Start a new task to continue working."
   },
@@ -4200,7 +4215,7 @@
     "defaultMessage": "CodeBuddy is working on it…"
   },
   "loadingGoose.loadingConversation": {
-    "defaultMessage": "Loading conversation…"
+    "defaultMessage": "loading conversation..."
   },
   "loadingGoose.restartingAgent": {
     "defaultMessage": "restarting session..."
@@ -5420,8 +5435,8 @@
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "Pin project"
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "Awaiting approval"
   },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
@@ -5437,9 +5452,6 @@
   },
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "Clear the name to restore the folder name"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "Unpin project"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
@@ -5968,6 +5980,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Reasoning details"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"

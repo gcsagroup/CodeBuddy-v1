@@ -91,6 +91,9 @@ async function stageHarness(repoRoot, destination, options = {}) {
   await copyRuntimeSources(runtime, path.join(destination, 'runtime'));
   const harness = path.join(runtime, 'harness');
   const harnessEntries = await copyHarnessSources(harness, path.join(destination, 'runtime/harness'));
+  if (process.platform === 'win32') {
+    await fs.copyFile(path.join(harness, 'WorkspaceLabelAccess.cs'), path.join(destination, 'runtime/harness/WorkspaceLabelAccess.cs'));
+  }
   const requireDesktop = createRequire(path.join(repoRoot, 'ui/desktop/package.json'));
   const { init, parse } = requireDesktop('es-module-lexer');
   const typescript = requireDesktop('typescript');

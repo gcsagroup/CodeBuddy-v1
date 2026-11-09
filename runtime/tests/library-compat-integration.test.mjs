@@ -1243,7 +1243,17 @@ test('pausing an admitted recurring reminder preserves its running turn and deli
   await client.request(method('native-schedules/update'), { id: original.id, sessionId, expected, title: 'Due recurring fixture' });
   await started.promise;
   try {
-    const [running] = (await client.request(method('native-schedules/catalog'), {})).records;
+    // Model admission and the durable recurring-rule advance are independent.
+    // Observe the delivered occurrence before snapshotting the rule for CAS.
+    let running;
+    const deliveryDeadline = Date.now() + 7000;
+    do {
+      [running] = (await client.request(method('native-schedules/catalog'), {})).records;
+      if (running.lastDelivery && running.scheduledAt !== original.scheduledAt) break;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    } while (Date.now() < deliveryDeadline);
+    assert.ok(running.lastDelivery);
+    assert.notEqual(running.scheduledAt, original.scheduledAt);
     const { sessionId: _runningSession, status: runningStatus, lastDelivery: _runningDelivery, ...runningRule } = running;
     // The button uses the control RPC while the ordinary transcript turn is busy.
     const result = await client.request(method('native-schedules/set-paused'), {

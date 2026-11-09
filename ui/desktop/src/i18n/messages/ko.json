@@ -3794,6 +3794,15 @@
   "headersSection.value": {
     "defaultMessage": "값"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "좋은 오후예요"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "좋은 저녁이에요"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "좋은 아침이에요"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "다운로드"
   },
@@ -5905,6 +5914,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "추론 세부 정보"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
@@ -9269,6 +9281,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9277,6 +9292,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9863,6 +9881,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "상태 알 수 없음 · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
+  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9887,6 +9908,9 @@
   "loadingGoose.compactionWait": {
     "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
   },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "승인 대기"
+  },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
   },
@@ -9901,74 +9925,5 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
-  },
-  "common.cancel": {
-    "defaultMessage": "취소"
-  },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "더 불러오기"
-  },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "모델 새로 고침"
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "일부 연결을 새로 고치지 못했습니다. 이전 목록을 계속 표시합니다. 다시 시도하세요."
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "모델 목록이 업데이트되었습니다."
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "모델 새로 고침 중…"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "프로젝트의 대화 보관"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "{name}의 대화 {count}개를 보관할까요? 프로젝트 파일은 변경되지 않습니다. 대화는 기록에서 복원할 수 있습니다."
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "프로젝트에서 새 대화"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "프로젝트 고정"
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "프로젝트 작업"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "프로젝트 고정 해제"
-  },
-  "runtime.sourceChanged": {
-    "defaultMessage": "런타임이 업데이트되었습니다. 진행 중인 작업을 마친 다음 CodeBuddy를 종료하고 다시 시작하여 변경 사항을 적용하세요."
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "현재 대화가 동기화되었습니다."
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "백그라운드에서 연결 중…"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "사용자 지정 선택"
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "새 대화는 도구 상자에서 활성화된 기능을 따릅니다. 기존 사용자 지정 대화는 선택을 유지합니다."
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "연결 실패"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "도구 상자 따르기"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "저장됨 · 변경 사항은 다음 턴 전에 적용됩니다. 현재 작업은 계속됩니다."
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "연결됨"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "에이전트가 지정한 선택"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "연결 다시 시도"
   }
 }

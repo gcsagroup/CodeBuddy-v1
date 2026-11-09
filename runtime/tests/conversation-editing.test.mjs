@@ -164,6 +164,25 @@ test('forking before the first prompt leaves no queued old input; plain full for
   assert.equal(f.store.read().sessions.find(s => s.id === id).updates.length, 2);
 });
 
+test('nested and concurrent forks receive distinct numbered titles without rewriting the source or archived branches', async t => {
+  const f = await fixture(t), id = await f.create();
+  await f.turn(id, 'USER_BRANCH_SOURCE', 10);
+  const editing = new ConversationEditing(f.store, f.driver);
+  const first = await editing.request('session/fork', { sessionId: id });
+  await f.setup(first.sessionId);
+  assert.equal(f.store.readSession(first.sessionId).title, 'Fixture session (1)');
+  const branches = await Promise.all([
+    editing.request('session/fork', { sessionId: first.sessionId }),
+    editing.request('session/fork', { sessionId: id }),
+  ]);
+  assert.deepEqual(branches.map(b => f.store.readSession(b.sessionId).title).sort(), ['Fixture session (2)', 'Fixture session (3)']);
+  await f.store.updateSession(first.sessionId, s => { s.archivedAt = new Date().toISOString(); });
+  const next = await editing.request('session/fork', { sessionId: id });
+  assert.equal(f.store.readSession(next.sessionId).title, 'Fixture session (4)');
+  assert.equal(f.store.readSession(id).title, 'Fixture session');
+  assert.equal(f.store.readSession(first.sessionId).title, 'Fixture session (1)');
+});
+
 test('editing ignores UI-only failed submissions but preserves the exact admitted model prefix', async t => {
   const f = await fixture(t), id = await f.create();
   await f.store.update(state => {
@@ -212,7 +231,7 @@ test('CodePro editing requires idle owner cancellation and preserves source hist
   await assert.rejects(new ConversationEditing(f.store, f.driver).request('session/conversation/truncate', params), /cancellation/);
   await assert.rejects(new ConversationEditing(f.store, f.driver, { beforeTruncate() { throw new Error('owner rejected'); } }).request('session/conversation/truncate', params), /owner rejected/);
   assert.equal(f.store.read().sessions.find(s => s.id === id).nativeSessionId, undefined);
-  const failStore = { read: () => f.store.read(), update() { throw new Error('fixture state commit failed'); } };
+  const failStore = { readSession: (...args) => f.store.readSession(...args), updateSession() { throw new Error('fixture state commit failed'); } };
   await assert.rejects(new ConversationEditing(failStore, f.driver, { beforeTruncate: async () => {} }).request('session/conversation/truncate', params), /state commit failed/);
   assert.equal(f.store.read().sessions.find(s => s.id === id).nativeSessionId, undefined);
   assert.equal(f.store.read().sessions.find(s => s.id === id).updates.length, 4);

@@ -123,9 +123,4 @@ test('compaction inherits only the matching current route and dispatches once wi
   assert.strictEqual(ctx.llm.stream(original), original, 'pending provider-default reset must not inherit old reasoning');
   effort = 'high';
   assert.equal(ctx.llm.stream(original).reasoningEffort, 'high', 'current host request override also applies over a pending provider default');
-  pending = { provider: 'new-provider', model: 'new-model', reasoningEffort: 'medium' };
-  effort = undefined;
-  const switched = { ...original, provider: pending.provider, model: pending.model };
-  assert.equal(ctx.llm.stream(switched).reasoningEffort, 'medium', 'manual compression follows the selected model control rather than its previous header');
-  assert.strictEqual(ctx.llm.stream(original), original, 'an in-flight old route cannot inherit a pending model control');
 });

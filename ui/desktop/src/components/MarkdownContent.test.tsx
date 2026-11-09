@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, type RenderOptions } from '@testing-library/react';
 import { screen, waitFor } from '@testing-library/dom';
 import MarkdownContent from './MarkdownContent';
+import { AnswerFiles } from './remarkDeliveredFileLinks';
 import { IntlTestWrapper } from '../i18n/test-utils';
 
 const renderWithIntl = (ui: React.ReactElement, options?: RenderOptions) =>
@@ -14,6 +15,33 @@ vi.mock('./icons', () => ({
 }));
 
 describe('MarkdownContent', () => {
+  it('opens a mislabelled Windows report as a workspace file and keeps web links and quoted examples intact', () => {
+    const received = vi.fn();
+    const old = String.raw`[v1/report.md]<https://D:\repo\.local\v1\report.md>`;
+    window.addEventListener('codebuddy:open-workspace-file', received);
+    try {
+      const view = renderWithIntl(<MarkdownContent sessionId="qa" content={[
+        old, String.raw`[月结报告]<https://D:\工作 区\.local\报告.md>`, '[site](https://d.example/report.md)', '`' + old + '`',
+      ].join('\n\n')} />);
+      fireEvent.click(screen.getByRole('link', { name: 'v1/report.md' }));
+      fireEvent.click(screen.getByRole('link', { name: '月结报告' }));
+      expect(received.mock.calls.map(([e]) => e.detail.filePath)).toEqual(['D:/repo/.local/v1/report.md','D:/工作 区/.local/报告.md']);
+      expect(screen.getByRole('link', { name: 'site' })).toHaveAttribute('href','https://d.example/report.md');
+      expect(view.container.querySelector('code')?.textContent).toBe(old);
+    } finally { window.removeEventListener('codebuddy:open-workspace-file', received); }
+  });
+  it('repairs historical file delivery from a matching turn receipt and preserves quoted examples', () => {
+    const path = '/work/验收 笔记.txt';
+    const file = { path, key: path, changes: [], added: 1, removed: 0, hasUnavailableDiff: false };
+    const old = '[验收 笔记.txt](<absolute file path>' + path + ')';
+    const { container } = renderWithIntl(
+      <AnswerFiles.Provider value={[file]}>
+        <MarkdownContent sessionId="office" content={old + '\n\n`' + old + '`'} />
+      </AnswerFiles.Provider>
+    );
+    expect(decodeURIComponent(screen.getByRole('link', { name: '验收 笔记.txt' }).getAttribute('href')!)).toBe(path);
+    expect(container.querySelector('code')?.textContent).toBe(old);
+  });
   it('wraps long fenced code lines without a horizontal scroll container', () => {
     const text = 'long_identifier_'.repeat(30);
     const { container } = renderWithIntl(<MarkdownContent content={'```markdown\n' + text + '\n```'} />);

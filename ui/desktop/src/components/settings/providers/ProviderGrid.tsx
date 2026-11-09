@@ -14,6 +14,7 @@ import {
   acpDeleteCustomProvider,
   acpUpdateCustomProviderFromRequest,
   acpDiscoverCustomProviderModels,
+  acpSaveDefaults,
 } from '../../../acp/providers';
 import { Plus, Search } from 'lucide-react';
 import { Input } from '../../ui/input';
@@ -189,10 +190,12 @@ function ProviderCards({
   );
 
   const handleUpdateCustomProvider = useCallback(
-    async (data: UpdateCustomProviderRequest) => {
+    async (data: UpdateCustomProviderRequest, selectedModel?: string) => {
       if (!editingProvider) return;
 
       await acpUpdateCustomProviderFromRequest(editingProvider.id, data);
+      if (selectedModel) await acpSaveDefaults(editingProvider.id, selectedModel);
+      await refreshCurrentModelAndProvider();
       if (refreshProviders) {
         try { await refreshProviders(); }
         catch { toast.warning(intl.formatMessage(i18n.savedRefreshFailed)); }
@@ -200,7 +203,7 @@ function ProviderCards({
       setShowCustomProviderModal(false);
       setEditingProvider(null);
     },
-    [editingProvider, refreshProviders, intl]
+    [editingProvider, refreshProviders, refreshCurrentModelAndProvider, intl]
   );
 
   const handleDeleteCustomProvider = useCallback(async () => {

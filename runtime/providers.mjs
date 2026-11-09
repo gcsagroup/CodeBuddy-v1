@@ -339,7 +339,7 @@ async function requestJson(
   }
 }
 
-export async function discover(input, stored, { timeoutMs, authPending } = {}) {
+export async function discover(input, stored, { timeoutMs, authPending, refreshMetadata = false } = {}) {
   const provider = { ...stored, ...input };
   const endpoint = endpoints(provider);
   const auth = await (authPending ?? credentials(
@@ -376,7 +376,14 @@ export async function discover(input, stored, { timeoutMs, authPending } = {}) {
   const created = Object.fromEntries(models.filter(model => Number.isSafeInteger(model?.created) && model.created > 0)
     .map(model => [model.id, model.created]));
   const outputSources = Object.fromEntries(Object.keys(outputs).map(id => [id, 'service']));
-  modelListings.set(listingKey(provider), { contexts, inputs, outputs, outputSources, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+  const key = listingKey(provider);
+  const previous = cachedModels(provider);
+  const modelSignature = JSON.stringify({ ids, contexts, inputs, outputs, nonChatModels, templateBackends });
+  // Reopening a model picker must not discard an in-flight or completed
+  // capability probe for the same inventory. Explicit refresh still renews it.
+  if (refreshMetadata || !previous || previous.modelSignature !== modelSignature) {
+    modelListings.set(key, { modelSignature, contexts, inputs, outputs, outputSources, nonChatModels, templateBackends, created, expires: Date.now() + metadataTtlMs });
+  }
   return orderedModels(provider, ids, created);
 }
 
@@ -545,6 +552,7 @@ async function validateSelection(provider, stored, legacyThinking) {
 }
 
 export async function saveProvider(store, input, update = false) {
+  const previousDefaults = store.read().defaults;
   const current = update
     ? store
         .read()
@@ -588,6 +596,11 @@ export async function saveProvider(store, input, update = false) {
       // model preference from the latest committed provider, not its old snapshot.
       if (state.providers[index].outputBudgets) provider.outputBudgets = state.providers[index].outputBudgets;
       state.providers[index] = provider;
+    }
+    if (current && state.defaults?.providerId === provider.id &&
+      state.defaults.modelId === previousDefaults?.modelId &&
+      (provider.models[0] !== current.models[0] || !provider.models.includes(state.defaults.modelId))) {
+      state.defaults = { providerId: provider.id, modelId: provider.models[0] };
     }
   });
   return {

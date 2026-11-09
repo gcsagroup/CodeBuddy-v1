@@ -1,10 +1,11 @@
 {
-  "runtime.sourceChanged": {
-    "defaultMessage": "後端程式碼已更新。請等待目前任務完成後，關閉並重新啟動 CodeBuddy，讓修改生效。"
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "背景連線中…"
-  },
+  "baseChat.mainWelcome": { "defaultMessage": "我是 CodeBuddy，一起把事情做好。" },
+  "baseChat.mainIntroduction": { "defaultMessage": "我可以幫你理解程式碼、處理文件與資料，逐步完成複雜任務並檢查結果。告訴我你想完成什麼，我們一起開始。" },
+  "baseChat.mainCode": { "defaultMessage": "撰寫程式與除錯" },
+  "baseChat.mainData": { "defaultMessage": "整理文件與資料" },
+  "baseChat.mainTasks": { "defaultMessage": "規劃、執行與驗證" },
+  "runtime.sourceChanged": { "defaultMessage": "後端程式碼已更新。請等待目前任務完成後，關閉並重新啟動 CodeBuddy，讓修改生效。" },
+  "toolbox.sync.connecting": { "defaultMessage": "背景連線中…" },
   "modelsBottomBar.refresh": {
     "defaultMessage": "重新整理模型"
   },
@@ -1539,7 +1540,7 @@
     "defaultMessage": "執行結果"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "工作計畫"
+    "defaultMessage": "任務"
   },
   "codeProToolContent.planSummary": {
     "defaultMessage": "{completed} 已完成 · {active} 進行中 · {pending} 待處理"
@@ -3830,6 +3831,15 @@
   "headersSection.value": {
     "defaultMessage": "值"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "午安"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "晚安"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "早安"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下載"
   },
@@ -5944,6 +5954,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "任務檢查記錄 {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "思考詳情"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
@@ -9308,6 +9321,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "請先啟用此工具"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "已新增 · 尚未發現可用工具"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "載入未完成。如任務正在執行，請先停止，再重試。"
   },
@@ -9316,6 +9332,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "目前對話未載入"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "已載入 · {count} 個工具可用"
   },
   "toolbox.session.return": {
     "defaultMessage": "返回對話"
@@ -9902,6 +9921,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "狀態未知 · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "工作区切換器"
+  },
   "compaction.cancelled": {
     "defaultMessage": "上下文壓縮已取消，原上下文已保留。"
   },
@@ -9925,6 +9947,9 @@
   },
   "loadingGoose.compactionWait": {
     "defaultMessage": "仍在等待模型回應。較長對話可能耗時較久，可停止後重試。"
+  },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "待授權"
   },
   "navigationPanel.pinned": {
     "defaultMessage": "置頂"
@@ -9967,8 +9992,5 @@
   },
   "toolbox.sync.retry": {
     "defaultMessage": "重試連線"
-  },
-  "common.cancel": {
-    "defaultMessage": "取消"
   }
 }

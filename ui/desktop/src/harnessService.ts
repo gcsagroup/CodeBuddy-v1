@@ -26,6 +26,8 @@ export async function startHarnessService(options: {
   fs.mkdirSync(logs, { recursive: true });
   const secret = randomBytes(32).toString('hex');
   const output = createRotatingLog(path.join(logs, 'runtime.log'));
+  const startupAt = Date.now();
+  output.write(`[Harness service starting] ${new Date(startupAt).toISOString()}\n`);
   const child = spawn(node, [path.join(root, 'runtime', 'desktop-entry.mjs')], {
     windowsHide: true,
     cwd: options.workspace,
@@ -40,12 +42,13 @@ export async function startHarnessService(options: {
     child.stderr?.resume();
   });
   let stopping = false;
+  let readyToServe = false;
   let exited = false;
   let exitCode: number | null = null;
   const exit = new Promise<void>(resolve => child.once('exit', (code) => {
     exitCode = code;
     exited = true; output.end(resolve);
-    if (!stopping) options.onUnexpectedExit();
+    if (readyToServe && !stopping) options.onUnexpectedExit();
   }));
   let closePromise: Promise<void> | undefined;
   const close = () => closePromise ??= (async () => {
@@ -60,19 +63,36 @@ export async function startHarnessService(options: {
   })();
   try {
     const ready = await new Promise<{ url: string; pid: number }>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('CodeBuddy startup timed out; see logs/harness/runtime.log')), 30000);
-      const onExit = () => { clearTimeout(timer); reject(new Error('Packaged CodeBuddy exited before readiness')); };
-      child.once('exit', onExit);
-      child.once('error', error => { clearTimeout(timer); reject(error); });
-      child.on('message', message => {
+      const milestones = ['loading-runtime', 'opening-profile', 'binding-listener'];
+      let next = 0;
+      let phase = 'starting-process';
+      const timeout = () => fail(new Error(`CodeBuddy startup timed out during ${phase}; see logs/harness/runtime.log`));
+      let timer = setTimeout(timeout, 30000);
+      const cleanup = () => {
+        clearTimeout(timer);
+        child.off('exit', onExit).off('message', receive).off('error', fail);
+      };
+      const fail = (error: Error) => { cleanup(); reject(error); };
+      const onExit = () => fail(new Error('Packaged CodeBuddy exited before readiness'));
+      const receive = (message: unknown) => {
         if (!message || typeof message !== 'object' || Array.isArray(message)) return;
-        const data = message as { type?: string; engine?: string; url?: string; pid?: number };
+        const data = message as { type?: string; phase?: string; engine?: string; url?: string; pid?: number };
+        if (data.type === 'starting' && data.pid === child.pid && next < milestones.length && data.phase === milestones[next]) {
+          phase = milestones[next++];
+          output.write(`[Harness service starting] ${phase} +${Date.now() - startupAt} ms\n`);
+          clearTimeout(timer);
+          timer = setTimeout(timeout, 30000);
+          return;
+        }
         if (data.type !== 'ready' || data.engine !== 'deepseek-harness' || typeof data.url !== 'string' || typeof data.pid !== 'number') return;
         const url = new URL(data.url);
         if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port) return;
-        clearTimeout(timer); child.removeListener('exit', onExit);
+        cleanup();
+        readyToServe = true;
+        output.write(`[Harness service ready] +${Date.now() - startupAt} ms\n`);
         resolve({ url: url.origin, pid: data.pid });
-      });
+      };
+      child.once('exit', onExit).once('error', fail).on('message', receive);
     });
     fs.writeFileSync(path.join(logs, 'launch.json'), JSON.stringify({
       engine: 'deepseek-harness', startedAt: new Date().toISOString(), ...ready,

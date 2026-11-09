@@ -29,7 +29,7 @@ async function fixture(t, inputModalities = ['text', 'image']) {
     requests.push(request);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const emit = (delta, finish_reason = null) => res.write(`data: ${JSON.stringify({ id: 'image-check', object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
-    const user = request.messages.findLastIndex(message => message.role === 'user');
+    const user = request.messages.findLastIndex(message => message.role === 'user' && message.content === '检查已生成的图片，再简短交付。');
     if (request.model === 'observer') {
       emit({ role: 'assistant', content: 'The generated image is a blue square. VISUAL_BLUE_SQUARE' }); emit({}, 'stop');
     } else if (!request.messages.slice(user + 1).some(message => message.role === 'tool') && !JSON.stringify(request.messages).includes('image_url')) {
@@ -58,7 +58,8 @@ async function fixture(t, inputModalities = ['text', 'image']) {
   const options = { tools: [tool] };
   const { sessionId } = await driver.createSession({ cwd, provider, model: 'main', options });
   await driver.callTool(sessionId, 'search_mcp_tools', { names: ['generate_image'] }, { onPermission: () => true });
-  await driver.callTool(sessionId, 'generate_image', { operation: 'generate', prompt: 'A blue square', request_id: jobId }, { onPermission: () => true });
+  // Seed the saved image that this observation and replay fixture inspects.
+  await tool.execute({ operation: 'generate', prompt: 'A blue square', request_id: jobId });
   t.after(async () => {
     await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
     assert.equal(path.dirname(root), tmpdir()); assert.ok(path.basename(root).startsWith('codebuddy-generated-check-'));

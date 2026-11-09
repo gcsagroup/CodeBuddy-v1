@@ -36,6 +36,7 @@ import { hostToolExtensionName } from '../tool-policy.mjs';
 import { forkWorkingDirectory } from './working-directory.mjs';
 import { observeModelTransport } from './transport-observation.mjs';
 import { installModelResponseValidation } from './model-response-validation.mjs';
+import { commandEvidence, hasFailedCommand } from './command-evidence.mjs';
 import { installOutputRecovery, isOutputLimitFailure, OUTPUT_RECOVERY_LIMIT } from './output-recovery.mjs';
 import { createMcpPresets, restrictSessionTools } from './mcp-presets.mjs';
 import { installToolDiscovery } from './tool-discovery.mjs';
@@ -433,7 +434,16 @@ Keep progress updates brief, meaningful, and outcome-based.
     emit(run, event);
     console.warn('[Harness model transport]', JSON.stringify(event));
   }), 'CodeBuddy model transport observation');
-  ctx.effect(() => installModelResponseValidation(ctx), 'CodeBuddy model response validation');
+  ctx.effect(() => installModelResponseValidation(ctx, agent => runs.get(agent.id)), 'CodeBuddy model response validation');
+  ctx.systemPrompt.context({ name: 'codebuddy:command-outcomes', order: 131, required: true, interpolate: false,
+    text: ({ agent }) => {
+      const run = runs.get(agent?.id);
+      if (!hasFailedCommand(run?.commandFacts)) return '';
+      return (run.commandReportRejected ? 'The previous draft claimed results without supporting receipts and was withheld. ' : '') +
+        'A nonzero exit is not a passing check. If requested work remains, perform the edits and rerun the relevant verification with tools now. If the request is diagnostic or work is blocked, report the observed result. Thinking, illustrative code and predicted test output cannot stand in for execution. Recent command and file receipts (data):\n' +
+        JSON.stringify(run.commandFacts.slice(-8).map(({ output, ...fact }) => fact));
+    },
+  });
   const outputRecovery = installOutputRecovery(ctx, {
     budgetSource: route => outputSources.get(route) ?? 'fallback',
     publish: event => emit(runFor(ctx.agents.get(event.sessionId)), event),
@@ -608,6 +618,11 @@ Keep progress updates brief, meaningful, and outcome-based.
     }
   });
   ctx.on('tools/result', (exec, result) => {
+    const run = runs.get(exec.agent.id);
+    if (run && !directCalls.has(exec.callId) && nativeDefinitions.has(ctx.tools.get(exec.name, exec.agent))) {
+      const fact = commandEvidence(exec, result);
+      if (fact) (run.commandFacts ??= []).push(fact);
+    }
     const stoppedApproval = approvalCalls.get(`${exec.agent.id}\0${exec.callId}`)?.desktopOutcome === 'stopped';
     if (stoppedApproval) desktopOutcomes.set(exec, 'stopped');
     approvalCalls.delete(`${exec.agent.id}\0${exec.callId}`);
@@ -703,6 +718,10 @@ Keep progress updates brief, meaningful, and outcome-based.
     }
     const run = runFor(agent);
     if (!run) return;
+    if (session.id === run.sessionId && event.type === 'turn/start') {
+      run.commandFacts = [];
+      run.commandReportRejected = false;
+    }
     if (event.type === 'tool/call') {
       let args = event.data.arguments;
       try { args = JSON.parse(args); } catch { /* Preserve invalid native input for error display. */ }
@@ -870,9 +889,17 @@ Keep progress updates brief, meaningful, and outcome-based.
     return { provider: route, model };
   }
   async function resolveAgent(sessionId) {
-    const found = await ctx.sessionController.resolveAgent(sessionId);
-    if ('error' in found) throw found.error;
-    return found.agent;
+    const active = ctx.agents.get(sessionId);
+    if (active) return active;
+    // A cold read opens the same exclusive native handle as create/permissions.
+    // Join their admission queue; parallel UI metadata reads must not race it.
+    const work = creation.then(async () => {
+      const found = await ctx.sessionController.resolveAgent(sessionId);
+      if ('error' in found) throw found.error;
+      return found.agent;
+    });
+    creation = work.catch(() => {});
+    return work;
   }
   function cancelChildren(sessionId) {
     const parent = ctx.agents.get(sessionId);
@@ -924,8 +951,7 @@ Keep progress updates brief, meaningful, and outcome-based.
   }
   async function applySessionOptions(sessionId, options, createdAgent) {
     const agent = createdAgent ?? await resolveAgent(sessionId);
-    // DSH exposes idle during maintenance; its live summarizer must stay bound.
-    if (agent.status !== 'idle' || runs.has(sessionId) || maintenanceRuns.has(sessionId)) throw new Error('Session settings can only change while idle');
+    if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
     const capabilities = capabilitiesFor(agent);
     const capabilityCtx = capabilities.ctx;
     const previous = sessionSettings.get(sessionId) ?? {};
@@ -971,9 +997,6 @@ Keep progress updates brief, meaningful, and outcome-based.
         ? previousBinding : { scope, identity: Object.freeze({}) });
     }
     const subagentModels = {};
-    const compactionModel = settings.compactionModel;
-    const summaryRoute = compactionModel && !compactionModel.error
-      ? await configureProvider(compactionModel.provider, compactionModel.model) : null;
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
@@ -1099,12 +1122,9 @@ Keep progress updates brief, meaningful, and outcome-based.
           // reuse, so its cap must fit both thinking and the complete checkpoint.
           headroomTokens: 1024, maxTokens: 4096, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
           auto: settings.autoCompact !== false,
-          summarizationProvider: summaryRoute?.provider ?? '',
-          summarizationModel: summaryRoute?.model ?? '',
         });
         await compactFiber;
         if (compactFiber.state !== 2) throw new Error('Harness compaction did not activate');
-        scoped.get('compaction').modelError = compactionModel?.error;
         // Both transports are independent. Harness still owns remote preset
         // leases and session-scoped stdio processes. Background mode admits the
         // loop after scopes exist; the bridge publishes actual readiness later.
@@ -1447,8 +1467,9 @@ Keep progress updates brief, meaningful, and outcome-based.
       run.steers.add(admission);
       try { return await admission; } finally { run.steers.delete(admission); }
     },
-    async listTools(sessionId) {
+    async listTools(sessionId, extensionName) {
       const agent = sessionId ? await resolveAgent(sessionId) : undefined;
+      if (agent && extensionName) await mcpPlugin.waitForMcpServers(agent, [extensionName]);
       return ctx.tools.schemas(agent).map(tool => {
         const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, tool.name);
         return metadata ? { ...tool, ...(metadata._meta ? { _meta: metadata._meta } : {}), ...(metadata.outputSchema ? { outputSchema: metadata.outputSchema } : {}), ...(metadata.mcpApp ? { mcpApp: metadata.mcpApp } : {}) } : tool;
@@ -1465,9 +1486,14 @@ Keep progress updates brief, meaningful, and outcome-based.
       directCalls.set(callId, run);
       try {
         return await agent.runMaintenance(async maintenanceSignal => {
+          const callSignal = AbortSignal.any([signal, maintenanceSignal]);
+          if (name.startsWith('mcp__')) {
+            const pending = mcpPlugin.pendingMcpServers(agent).filter(server => name.startsWith(`mcp__${server}__`));
+            await mcpPlugin.waitForMcpServers(agent, pending, callSignal);
+          }
           const metadata = mcpPlugin.getMcpToolMetadata(ctx, agent, name);
           emit(run, { type: 'tool_call', id: callId, name, internalControl: isInternalControl(agent, name), arguments: args, sessionId, ...(metadata?.mcpApp ? { mcpApp: metadata.mcpApp } : {}) });
-          const result = await ctx.tools.execute({ callId, name, arguments: args, agent, signal: AbortSignal.any([signal, maintenanceSignal]) });
+          const result = await ctx.tools.execute({ callId, name, arguments: args, agent, signal: callSignal });
           emit(run, { type: 'tool_result', id: callId, result: result.content, isError: result.isError, sessionId, name, arguments: args, structuredContent: result.value, error: result.error, ...run.receipt });
           await run.events;
           return { ...result, ...(run.receipt?.mcpResult ? { mcpResult: run.receipt.mcpResult } : {}),
@@ -1478,16 +1504,7 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async contextUsage(sessionId) { return contextUsage((await resolveAgent(sessionId)).session); },
     async compact(sessionId, { signal = new AbortController().signal, onEvent } = {}) {
-      let agent;
-      // Finish capability preparation before capturing its compaction scope.
-      // Recheck after resolving the agent: another configuration can queue there.
-      for (;;) {
-        signal.throwIfAborted();
-        const configuration = configurationQueues.get(sessionId);
-        await abortable(configuration, signal);
-        agent = await abortable(resolveAgent(sessionId), signal);
-        if (configuration === configurationQueues.get(sessionId)) break;
-      }
+      const agent = await resolveAgent(sessionId);
       const scope = sessionScopes.get(sessionId);
       if (!scope) throw new Error('Configure the session before compaction');
       if (runs.has(sessionId) || maintenanceRuns.has(sessionId)) throw new Error('Compaction requires an idle session');

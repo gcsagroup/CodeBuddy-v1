@@ -10,7 +10,6 @@ it('shows only menus, opens native entries and supports keyboard focus without t
     getWindowMenu: vi.fn().mockResolvedValue([
       { index: 0, label: '文件', enabled: true },
       { index: 1, label: '编辑', enabled: true },
-      { index: 2, label: 'Unavailable', enabled: false },
     ]),
     openWindowMenu: open,
     setTitlebarTheme: vi.fn().mockResolvedValue(undefined),
@@ -26,10 +25,6 @@ it('shows only menus, opens native entries and supports keyboard focus without t
   const input = screen.getByLabelText('Message');
   input.focus();
   fireEvent.keyDown(window, { key: 'F10' });
-  expect(file).toHaveFocus();
-  fireEvent.keyDown(file, { key: 'End' });
-  expect(screen.getByRole('menuitem', { name: '编辑' })).toHaveFocus();
-  fireEvent.keyDown(screen.getByRole('menuitem', { name: '编辑' }), { key: 'Home' });
   expect(file).toHaveFocus();
   fireEvent.keyDown(file, { key: 'ArrowRight' });
   expect(screen.getByRole('menuitem', { name: '编辑' })).toHaveFocus();

@@ -142,14 +142,12 @@ export function ImageLightbox({
 
 interface ImagePreviewProps {
   src: string;
-  variant?: 'inline' | 'attachment';
 }
 
-export default function ImagePreview({ src, variant = 'inline' }: ImagePreviewProps) {
+export default function ImagePreview({ src }: ImagePreviewProps) {
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState(false);
-  const attachment = variant === 'attachment';
 
   useEffect(() => {
     setError(false);
@@ -158,39 +156,25 @@ export default function ImagePreview({ src, variant = 'inline' }: ImagePreviewPr
 
   if (error) {
     return (
-      <div
-        className={
-          attachment
-            ? 'flex size-20 shrink-0 items-center justify-center rounded-2xl border border-border-primary bg-background-secondary p-2 text-center text-xs text-text-secondary'
-            : 'text-red-500 text-xs italic mt-1 mb-1'
-        }
-      >
+      <div className="text-red-500 text-xs italic mt-1 mb-1">
         {intl.formatMessage(i18n.unableToLoad)}
       </div>
     );
   }
 
   return (
-    <div className={attachment ? 'image-preview shrink-0' : 'image-preview mt-2 mb-2'}>
+    <div className={`image-preview mt-2 mb-2`}>
       <button
         type="button"
         aria-label={intl.formatMessage(i18n.clickToExpand)}
-        className={
-          attachment
-            ? 'block size-20 overflow-hidden rounded-2xl border border-border-primary bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2'
-            : 'block rounded focus-visible:outline focus-visible:outline-2'
-        }
+        className="block rounded focus-visible:outline focus-visible:outline-2"
         onClick={() => setIsExpanded(true)}
       >
         <img
           src={src}
           alt={intl.formatMessage(i18n.altText)}
           onError={() => setError(true)}
-          className={
-            attachment
-              ? 'size-full object-contain'
-              : 'max-h-40 max-w-40 rounded border border-border-primary object-contain'
-          }
+          className="max-h-40 max-w-40 rounded border border-border-primary object-contain"
         />
       </button>
       <ImageLightbox

@@ -1,10 +1,11 @@
 {
-  "runtime.sourceChanged": {
-    "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。"
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "后台连接中…"
-  },
+  "baseChat.mainWelcome": { "defaultMessage": "我是 CodeBuddy，一起把事情做好。" },
+  "baseChat.mainIntroduction": { "defaultMessage": "我可以帮你理解代码、处理文档和数据，把复杂任务一步步做完并检查结果。告诉我你想完成什么，我们一起开始。" },
+  "baseChat.mainCode": { "defaultMessage": "写代码与排错" },
+  "baseChat.mainData": { "defaultMessage": "整理文档与数据" },
+  "baseChat.mainTasks": { "defaultMessage": "规划、执行与验证" },
+  "runtime.sourceChanged": { "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。" },
+  "toolbox.sync.connecting": { "defaultMessage": "后台连接中…" },
   "modelsBottomBar.refresh": {
     "defaultMessage": "刷新模型"
   },
@@ -1539,7 +1540,7 @@
     "defaultMessage": "执行结果"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "工作计划"
+    "defaultMessage": "任务"
   },
   "codeProToolContent.planSummary": {
     "defaultMessage": "{completed} 已完成 · {active} 进行中 · {pending} 待处理"
@@ -3830,6 +3831,15 @@
   "headersSection.value": {
     "defaultMessage": "值"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "下午好"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "晚上好"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "早上好"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下载"
   },
@@ -5944,6 +5954,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "任务检查记录 {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "思考详情"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "工具记录 {count} 项"
@@ -9308,6 +9321,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "请先启用此工具"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "已添加 · 暂未发现可用工具"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "加载未完成。如任务正在运行，请先停止，再重试。"
   },
@@ -9316,6 +9332,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "当前对话未加载"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "已加载 · {count} 个工具可用"
   },
   "toolbox.session.return": {
     "defaultMessage": "返回对话"
@@ -9902,6 +9921,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "工作区切换器"
+  },
   "compaction.cancelled": {
     "defaultMessage": "上下文压缩已取消，原上下文已保留。"
   },
@@ -9925,6 +9947,9 @@
   },
   "loadingGoose.compactionWait": {
     "defaultMessage": "仍在等待模型返回。较长对话可能耗时较久，可停止后重试。"
+  },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "待授权"
   },
   "navigationPanel.pinned": {
     "defaultMessage": "置顶"
@@ -9967,8 +9992,5 @@
   },
   "toolbox.sync.retry": {
     "defaultMessage": "重试连接"
-  },
-  "common.cancel": {
-    "defaultMessage": "取消"
   }
 }

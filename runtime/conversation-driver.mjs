@@ -102,7 +102,7 @@ export function createConversationDriver(driver, store) {
     setPlanMode(id, options) { return driver.setPlanMode(nativeId(id), options); },
     cancel(id) { return driver.cancel(nativeId(id)); },
     upload(id, file, signal) { return driver.upload(nativeId(id), file, signal); },
-    listTools(id) { return driver.listTools?.(id === undefined ? id : nativeId(id)) ?? []; },
+    listTools(id, extensionName) { return driver.listTools?.(id === undefined ? id : nativeId(id), extensionName) ?? []; },
     listSkills(id) { return driver.listSkills(nativeId(id)); },
     listBuiltinSkills(cwd) { return driver.listBuiltinSkills?.(cwd) ?? []; },
     extensionStatus(id) { return driver.extensionStatus?.(nativeId(id)) ?? []; },

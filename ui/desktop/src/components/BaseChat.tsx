@@ -62,6 +62,11 @@ import './conversation-presentation.css';
 import { finishSessionLoadTiming, traceSessionLoad } from '../acp/sessionLoadTiming';
 
 const i18n = defineMessages({
+  mainWelcome: { id: 'baseChat.mainWelcome', defaultMessage: "I'm CodeBuddy. Let's work together." },
+  mainIntroduction: { id: 'baseChat.mainIntroduction', defaultMessage: 'I can help you understand code, work with documents and data, and carry a task through to checked results. Tell me what you want to get done.' },
+  mainCode: { id: 'baseChat.mainCode', defaultMessage: 'Write and debug code' },
+  mainData: { id: 'baseChat.mainData', defaultMessage: 'Organize documents and data' },
+  mainTasks: { id: 'baseChat.mainTasks', defaultMessage: 'Plan, execute and check' },
   readonlyHistory: {
     id: 'baseChat.readonlyHistory',
     defaultMessage: 'Imported history is read-only. Start a new task to continue working.',
@@ -111,63 +116,6 @@ interface BaseChatProps {
   noAutoSubmit?: boolean;
 }
 
-function ConversationViewport({
-  scrollRef,
-  showHistoryLoading,
-  showRunningIndicator,
-  onReturnToLatest,
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof ScrollArea> & {
-  scrollRef: React.RefObject<ScrollAreaHandle | null>;
-  showHistoryLoading: boolean;
-  showRunningIndicator: boolean;
-  onReturnToLatest: () => void;
-}) {
-  // Position-only updates must not rebuild BaseChat's message projection and children.
-  const [atLatest, setAtLatest] = useState(true);
-  const intl = useIntl();
-  return (
-    <>
-      <ScrollArea
-        {...props}
-        ref={scrollRef}
-        onBottomChange={setAtLatest}
-        data-more-below={!atLatest}
-      >
-        {children}
-      </ScrollArea>
-      {showHistoryLoading && <ConversationLoading />}
-      {!atLatest && !showHistoryLoading && (
-        <button
-          type="button"
-          aria-label={intl.formatMessage(i18n.latest)}
-          title={intl.formatMessage(i18n.latest)}
-          className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          onClick={onReturnToLatest}
-        >
-          <ArrowDown
-            className="size-[17px] translate-x-[0.5px]"
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
-        </button>
-      )}
-      {atLatest && showRunningIndicator && (
-        <div
-          data-testid="chat-running-indicator"
-          aria-hidden="true"
-          className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center gap-1 rounded-full border border-border-primary bg-background-primary text-text-secondary shadow-sm pointer-events-none"
-        >
-          <span className="chat-running-dot" />
-          <span className="chat-running-dot" />
-          <span className="chat-running-dot" />
-        </div>
-      )}
-    </>
-  );
-}
-
 export default function BaseChat({
   setChat,
   renderHeader,
@@ -184,10 +132,6 @@ export default function BaseChat({
   const scrollRef = useRef<ScrollAreaHandle>(null);
   const [navigationTarget, setNavigationTarget] = useState<{ sessionId: string; messageId: string; request: number }>();
   const navigationSequence = useRef(0);
-  const returnToLatest = useCallback(() => {
-    setNavigationTarget(undefined);
-    scrollRef.current?.scrollToBottom();
-  }, []);
   const navigateToTurn = useCallback((messageId: string) => {
     const scroller = scrollRef.current;
     // Stop tail following before older history is mounted.
@@ -202,6 +146,7 @@ export default function BaseChat({
       behavior: 'auto',
     });
   }, []);
+  const [atLatest, setAtLatest] = useState(true);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const disableAnimation = location.state?.disableAnimation || false;
   const [hasStartedUsingRecipe, setHasStartedUsingRecipe] = React.useState(false);
@@ -257,9 +202,6 @@ export default function BaseChat({
     onStreamFinish,
   });
   const sessionTitle = session?.name || 'CodeBuddy';
-  const titleCharacters = Array.from(sessionTitle);
-  const displayTitle =
-    titleCharacters.length > 28 ? `${titleCharacters.slice(0, 28).join('')}…` : sessionTitle;
   const readonlyHistory = session?.extension_data.readonlyHistory === true;
   const elicitationPresentation = useMemo(
     () =>
@@ -565,15 +507,13 @@ export default function BaseChat({
     setView('chat');
   };
 
-  // Track if this is the initial render for session resuming
-  const initialRenderRef = useRef(true);
   const [readyHistorySessionId, setReadyHistorySessionId] = useState<string>();
   const historyFrames = useRef<{ first?: number; second?: number }>({});
   const loadingHistory = chatState === ChatState.LoadingConversation || !!workspaceReconfirmation;
   const hasHistory = messages.length > 0;
 
   useLayoutEffect(() => {
-    if (loadingHistory) setReadyHistorySessionId(undefined);
+    if (!isActiveSession || loadingHistory) setReadyHistorySessionId(undefined);
     else if (!hasHistory) setReadyHistorySessionId(sessionId);
     return () => {
       if (historyFrames.current.first !== undefined)
@@ -582,11 +522,12 @@ export default function BaseChat({
         cancelAnimationFrame(historyFrames.current.second);
       historyFrames.current = {};
     };
-  }, [sessionId, loadingHistory, hasHistory]);
+  }, [sessionId, isActiveSession, loadingHistory, hasHistory]);
 
   const handleHistoryRendered = useCallback(
     (renderedSessionId: string) => {
       if (
+        !isActiveSession ||
         loadingHistory ||
         renderedSessionId !== sessionId ||
         readyHistorySessionId === sessionId ||
@@ -597,35 +538,30 @@ export default function BaseChat({
       // after the message list has committed the target conversation's DOM.
       traceSessionLoad(sessionId, 'history_dom_committed');
       historyFrames.current.first = requestAnimationFrame(() => {
+        scrollRef.current?.scrollToBottom();
         historyFrames.current.second = requestAnimationFrame(() => {
           historyFrames.current = {};
+          // Position the committed history before removing its loading cover.
+          // The second frame includes child layout changes from the first commit.
+          scrollRef.current?.scrollToBottom();
           setReadyHistorySessionId(sessionId);
         });
       });
     },
-    [sessionId, loadingHistory, readyHistorySessionId]
+    [sessionId, isActiveSession, loadingHistory, readyHistorySessionId]
   );
   const showHistoryLoading = loadingHistory || (hasHistory && readyHistorySessionId !== sessionId);
+
+  useLayoutEffect(() => {
+    // Cached conversations remain mounted under display:none. Their old scroll
+    // range cannot position the newly visible viewport; jump before its paint.
+    if (isActiveSession && !showHistoryLoading) scrollRef.current?.scrollToBottom();
+  }, [sessionId, isActiveSession, showHistoryLoading]);
 
   useLayoutEffect(() => {
     if (isActiveSession && sessionLoaded && !showHistoryLoading)
       finishSessionLoadTiming(sessionId, 'visible_commit', { messages: messages.length });
   }, [sessionId, sessionLoaded, showHistoryLoading, messages.length, isActiveSession]);
-
-  // Auto-scroll when messages are loaded (for session resuming)
-  const handleRenderingComplete = React.useCallback(() => {
-    // Only force scroll on the very first render
-    if (initialRenderRef.current && messages.length > 0) {
-      initialRenderRef.current = false;
-      if (scrollRef.current?.scrollToBottom) {
-        scrollRef.current.scrollToBottom();
-      }
-    } else if (scrollRef.current?.isFollowing) {
-      if (scrollRef.current?.scrollToBottom) {
-        scrollRef.current.scrollToBottom();
-      }
-    }
-  }, [messages.length]);
 
   // Listen for global scroll-to-bottom requests (e.g., from MCP App message actions)
   useEffect(() => {
@@ -776,7 +712,7 @@ export default function BaseChat({
               className="min-w-0 flex-1 truncate text-base font-medium text-text-primary"
               title={session?.name}
             >
-              {displayTitle}
+              {sessionTitle}
             </h1>
             <div
               ref={setSearchBarContainer}
@@ -812,29 +748,41 @@ export default function BaseChat({
             </div>
           )}
 
-          <ConversationViewport
-            scrollRef={scrollRef}
+          <ScrollArea
+            ref={scrollRef}
             className={`flex-1 min-h-0 relative ${conversationLayout ? 'pr-1 pb-2 pt-1' : contentClassName}`}
-            autoScroll
-            showHistoryLoading={showHistoryLoading}
-            onReturnToLatest={returnToLatest}
-            showRunningIndicator={
-              !showHistoryLoading &&
-              !readonlyHistory &&
-              !acpRecovering &&
-              !cancelling &&
-              (chatState === ChatState.Thinking ||
-                chatState === ChatState.Streaming ||
-                chatState === ChatState.Compacting ||
-                chatState === ChatState.RestartingAgent)
-            }
+            autoScroll={isActiveSession && !showHistoryLoading}
+            onBottomChange={setAtLatest}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             data-drop-zone="true"
             data-conversation-scroll=""
+            data-more-below={!atLatest}
             paddingX={6}
             paddingY={0}
           >
+            {session?.global_conversation && presentedHistory.length === 0 &&
+              !showHistoryLoading && chatState === ChatState.Idle && (
+                <section aria-label={intl.formatMessage(i18n.mainWelcome)}
+                  className="mx-auto flex min-h-[55vh] w-full max-w-2xl flex-col justify-center py-12">
+                  <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100/70 to-violet-100/50 text-text-primary dark:from-blue-950/60 dark:to-violet-950/40">
+                    <CodeBuddyMark className="size-8" />
+                  </div>
+                  <h2 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
+                    {intl.formatMessage(i18n.mainWelcome)}
+                  </h2>
+                  <p className="mt-3 max-w-xl text-base leading-7 text-text-secondary">
+                    {intl.formatMessage(i18n.mainIntroduction)}
+                  </p>
+                  <ul className="mt-7 flex flex-wrap gap-2 text-sm text-text-secondary">
+                    {[i18n.mainCode, i18n.mainData, i18n.mainTasks].map(message => (
+                      <li key={message.id} className="rounded-full border border-border-primary/70 bg-background-secondary/60 px-3 py-1.5">
+                        {intl.formatMessage(message)}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             {recipe?.title && (
               <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
                 <RecipeHeader title={recipe.title} />
@@ -890,7 +838,6 @@ export default function BaseChat({
                       }
                       activeToolCallIds={activeToolCallIds}
                       thinkingActivity={thinkingActivity}
-                      onRenderingComplete={handleRenderingComplete}
                       onHistoryRendered={handleHistoryRendered}
                       messageEditingDisabled={
                         readonlyHistory ||
@@ -912,11 +859,47 @@ export default function BaseChat({
                 <div className={conversationLayout ? 'block h-4' : 'block h-8'} />
               </>
             ) : null}
-          </ConversationViewport>
+          </ScrollArea>
 
           {!showHistoryLoading && <ConversationTimeline
             key={sessionId} messages={presentedHistory} scrollRef={scrollRef} onNavigate={navigateToTurn}
           />}
+          {showHistoryLoading && <ConversationLoading />}
+
+          {!atLatest && !showHistoryLoading && (
+            <button
+              type="button"
+              aria-label={intl.formatMessage(i18n.latest)}
+              title={intl.formatMessage(i18n.latest)}
+              className="absolute bottom-4 left-1/2 z-30 flex size-[34px] -translate-x-1/2 items-center justify-center rounded-full border border-border-primary bg-background-primary text-text-primary shadow-sm hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              onClick={() => { setNavigationTarget(undefined); scrollRef.current?.scrollToBottom(); }}
+            >
+              <ArrowDown
+                className="size-[17px] translate-x-[0.5px]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+          {atLatest &&
+            !showHistoryLoading &&
+            !readonlyHistory &&
+            !acpRecovering &&
+            !cancelling &&
+            (chatState === ChatState.Thinking ||
+              chatState === ChatState.Streaming ||
+              chatState === ChatState.Compacting ||
+              chatState === ChatState.RestartingAgent) && (
+              <div
+                data-testid="chat-running-indicator"
+                aria-hidden="true"
+                className="absolute bottom-4 left-1/2 z-30 flex size-10 -translate-x-1/2 items-center justify-center gap-1 rounded-full border border-border-primary bg-background-primary text-text-secondary shadow-sm pointer-events-none"
+              >
+                <span className="chat-running-dot" />
+                <span className="chat-running-dot" />
+                <span className="chat-running-dot" />
+              </div>
+            )}
 
           {!showHistoryLoading &&
             chatState !== ChatState.Idle &&
@@ -944,17 +927,10 @@ export default function BaseChat({
               !showHistoryLoading &&
               !cancelling &&
               chatState !== ChatState.Idle && (
-                <div
-                  className={cn(
-                    'mx-4',
-                    workStatus.source === 'question' &&
-                      elicitationPresentation.requests.some(
-                        (request) =>
-                          request.data.actionType === 'elicitation' && !request.data.continued
-                      ) &&
-                      'sr-only'
-                  )}
-                >
+                <div className={cn('mx-4', workStatus.source === 'question' &&
+                  elicitationPresentation.requests.some(
+                    (request) => request.data.actionType === 'elicitation' && !request.data.continued
+                  ) && 'sr-only')}>
                   <LoadingGoose
                     key={sessionId}
                     chatState={chatState}

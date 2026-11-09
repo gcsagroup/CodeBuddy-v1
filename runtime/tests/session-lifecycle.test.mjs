@@ -198,12 +198,12 @@ test('a new user prompt continues its ended desktop pause without a separate unl
 test('close and delete release real MCP processes and session leases; close permits a clean reopen', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
   await assert.rejects(f.pids(), /ENOENT/);
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const first = (await f.pids()).at(-1); process.kill(first, 0);
   assert.deepEqual(await f.request('session/close', { sessionId: id }), {});
   stopped(first);
   assert.ok(f.store.read().sessions.some(s => s.id === id));
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const second = (await f.pids()).at(-1); assert.notEqual(second, first); process.kill(second, 0);
   await f.request('session/delete', { sessionId: id }); stopped(second);
   assert.equal(f.store.read().sessions.some(s => s.id === id), false);
@@ -250,7 +250,7 @@ test('a direct file write waiting for approval blocks close/delete/truncate unti
 
 test('a first user turn waits for native tool maintenance, then streams through Harness', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create(false);
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   await writeFile(path.join(f.root, 'poll.txt'), 'isolated sidebar-equivalent read');
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   const polling = f.driver.callTool(id, 'read', { file_path: 'poll.txt' }, {
@@ -422,16 +422,17 @@ test('early cancellation reserves admission before workspace validation and neve
 test('an ordinary fork retains source MCP scope; a committed truncate retires only the replaced native scope', { timeout: process.platform === 'darwin' ? 90_000 : 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
   await f.request('session/prompt', { sessionId: id, prompt: [{ type: 'text', text: 'HISTORY_TO_EDIT' }] });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const first = (await f.pids()).at(-1), oldHistory = await f.native.history(id);
   const { sessionId: copied } = await f.request('session/fork', { sessionId: id }); process.kill(first, 0);
-  await f.request(ext('tools/list'), { sessionId: copied });
+  await f.request(ext('tools/list'), { sessionId: copied, extensionName: 'probe' });
   const copyPid = (await f.pids()).at(-1); assert.notEqual(copyPid, first);
   const session = f.store.read().sessions.find(s => s.id === id);
   const cutoff = session.updates.find(u => u.sessionUpdate === 'user_message_chunk')._meta.goose.created;
   await f.request(ext('session/conversation/truncate'), { sessionId: id, truncateFrom: cutoff });
   stopped(first); process.kill(copyPid, 0);
   assert.deepEqual((await f.native.history(id)).events, oldHistory.events);
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const replacementPid = (await f.pids()).at(-1); assert.notEqual(replacementPid, copyPid);
   await f.request('session/delete', { sessionId: id }); stopped(replacementPid); process.kill(copyPid, 0);
   await f.request('session/delete', { sessionId: copied }); stopped(copyPid);
@@ -439,7 +440,7 @@ test('an ordinary fork retains source MCP scope; a committed truncate retires on
 
 test('direct MCP resource requests also block release while they await permission outside the conversation lock', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const entered = Promise.withResolvers(), answer = Promise.withResolvers();
   const reading = f.driver.readResource(id, 'probe', 'ui://lifecycle/receipt', { onPermission: async () => { entered.resolve(); return answer.promise; } });
   await entered.promise; assert.equal(f.driver.isConversationBusy(id), false);
@@ -451,7 +452,7 @@ test('direct MCP resource requests also block release while they await permissio
 
 test('a session deleted during asynchronous capability preparation never recreates an orphan MCP scope', { timeout: 30_000 }, async t => {
   const f = await fixture(t), id = await f.create();
-  await f.request(ext('tools/list'), { sessionId: id });
+  await f.request(ext('tools/list'), { sessionId: id, extensionName: 'probe' });
   const before = await f.pids(), first = before.at(-1);
   const preparing = Promise.withResolvers(), proceed = Promise.withResolvers();
   const options = f.compat.sessionOptions.bind(f.compat);

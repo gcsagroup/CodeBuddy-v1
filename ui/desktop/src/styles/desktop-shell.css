@@ -23,7 +23,7 @@
   -webkit-app-region: drag;
   user-select: none;
 }
-.window-menu-controls {
+.window-menu-bar nav {
   display: flex;
   align-items: center;
   height: 100%;
@@ -31,12 +31,6 @@
   padding: 0 10px;
   margin-left: env(titlebar-area-x, 0px);
   width: env(titlebar-area-width, calc(100% - 140px));
-}
-.window-menu-bar nav {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  gap: 2px;
 }
 .window-menu-bar button {
   -webkit-app-region: no-drag;
@@ -130,11 +124,8 @@
   border-color: var(--shell-accent);
 }
 @media (max-width: 600px) {
-  .window-menu-controls {
-    padding: 0 5px;
-    gap: 0;
-  }
   .window-menu-bar nav {
+    padding: 0 5px;
     gap: 0;
   }
   .window-menu-bar button {

@@ -154,7 +154,10 @@ for (const invalidation of ['expiry', 'model-list refresh']) {
     const offered = JSON.parse(fields.find(field => field.key === `thinkingEffort:${model}`).value);
     assert.deepEqual(offered, { options: ['none', 'low', 'high', 'max'], value: 'low', toggle: false });
     if (invalidation === 'expiry') now += 5 * 60_000 + 1;
-    else await discover(provider, provider);
+    else {
+      models.push('newly-published-model');
+      await discover(provider, provider);
+    }
 
     const save = value => settings.request('providers/config/save', {
       providerId: provider.id, fields: [{ key: `thinkingEffort:${model}`, value }],
@@ -204,12 +207,12 @@ test('thinking metadata fetched for an old connection cannot validate a save to 
   assert.equal(store.read(['providers']).providers[0].thinkingEfforts, undefined);
 });
 
-test('model details survive a model-list refresh while the selected model lookup is pending', async t => {
+for (const changed of [false, true]) test(`model details survive a ${changed ? 'changed' : 'stable'} model-list refresh while the selected model lookup is pending`, async t => {
   const started = Promise.withResolvers(), finish = Promise.withResolvers();
   t.after(() => finish.resolve());
   const model = 'deepseek-v4.1-flash';
-  const provider = { id: 'read-refresh-race', engine: 'openai_compatible', apiUrl: 'https://ollama.com',
-    models: ['other-first-model', model], requiresAuth: false, headers: { 'x-fixture': 'read-refresh-race' } };
+  const provider = { id: `read-refresh-race-${changed}`, engine: 'openai_compatible', apiUrl: 'https://ollama.com',
+    models: ['other-first-model', model], requiresAuth: false, headers: { 'x-fixture': `read-refresh-race-${changed}` } };
   let reads = 0;
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     const url = new URL(input);
@@ -225,6 +228,7 @@ test('model details survive a model-list refresh while the selected model lookup
   });
   const pending = resolvedModelInfo(provider, model);
   await started.promise;
+  if (changed) provider.models.push('newly-published-model');
   await discover(provider, provider);
   finish.resolve();
   assert.deepEqual(await pending, { provider: provider.id, model, contextLimit: 1048576,
@@ -236,5 +240,5 @@ test('model details survive a model-list refresh while the selected model lookup
   assert.equal(read('contextWindow').contextSource, 'service');
   assert.equal(read('contextWindow').contextWindow, 1048576);
   await resolvedModelInfo(provider, model);
-  assert.equal(reads, 2, 'A superseded lookup retries once; warm reads keep the existing cache');
+  assert.equal(reads, changed ? 2 : 1, 'Only a changed inventory retries the pending lookup; stable and warm reads reuse it');
 });

@@ -15,10 +15,13 @@ export function restrictSessionTools(ctx, filter, inheritedScope, inheritedFilte
   if (!inheritedScope || filter.allow === undefined) return ctx.tools.restrict(filter);
   let previous, signature;
   const refresh = () => {
-    const inherited = ctx.tools.schemas(inheritedScope).filter(tool =>
-      ctx.tools.get(tool.name, inheritedScope) !== ctx.tools.get(tool.name) &&
-      (!inheritedFilter?.allow || inheritedFilter.allow.includes(tool.name)) &&
-      !inheritedFilter?.deny?.includes(tool.name)
+    // Most inherited tools have no global namesake. Avoid two complete native
+    // view traversals per tool; only overlapping names need identity checks.
+    const globalNames = new Set(ctx.tools.schemas().map(tool => tool.name));
+    const inherited = ctx.tools.schemas(inheritedScope).filter(({ name }) =>
+      (!inheritedFilter?.allow || inheritedFilter.allow.includes(name)) &&
+      !inheritedFilter?.deny?.includes(name) &&
+      (!globalNames.has(name) || ctx.tools.get(name, inheritedScope) !== ctx.tools.get(name))
     ).map(tool => tool.name);
     const next = JSON.stringify(inherited);
     if (next === signature) return;

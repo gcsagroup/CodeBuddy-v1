@@ -172,40 +172,44 @@ describe('ACP sessions', () => {
     await expect(acpForkSession('session-1')).rejects.toThrow('Session metadata unavailable');
     expect(client.unstable_forkSession).not.toHaveBeenCalled();
   });
-  it.each(['code_pro', undefined] as const)(
-    'does not send fork for unsupported or unknown type %s',
-    async (sessionType) => {
-      const client = {
-        goose: {
-          sessionInfo_unstable: vi.fn().mockResolvedValue({
-            session: sessionInfo({ _meta: sessionType ? { sessionType } : {} }),
-          }),
-        },
-        unstable_forkSession: vi.fn(),
-      };
-      vi.mocked(getAcpClient).mockResolvedValue(
-        client as unknown as Awaited<ReturnType<typeof getAcpClient>>
-      );
-      await expect(acpForkSession('session-1')).rejects.toThrow('cannot be forked');
-      expect(client.unstable_forkSession).not.toHaveBeenCalled();
-    }
-  );
-
-  it('forks a supported session with its actual cwd and requested history boundary', async () => {
+  it('does not send fork when the session type is missing', async () => {
     const client = {
-      goose: { sessionInfo_unstable: vi.fn().mockResolvedValue({ session: sessionInfo() }) },
-      unstable_forkSession: vi.fn().mockResolvedValue({ sessionId: 'new-session' }),
+      goose: {
+        sessionInfo_unstable: vi.fn().mockResolvedValue({
+          session: sessionInfo({ _meta: {} }),
+        }),
+      },
+      unstable_forkSession: vi.fn(),
     };
     vi.mocked(getAcpClient).mockResolvedValue(
       client as unknown as Awaited<ReturnType<typeof getAcpClient>>
     );
-    await expect(acpForkSession('session-1', 42)).resolves.toBe('new-session');
-    expect(client.unstable_forkSession).toHaveBeenCalledWith({
-      sessionId: 'session-1',
-      cwd: '/tmp',
-      _meta: { conversationBefore: 42 },
-    });
+    await expect(acpForkSession('session-1')).rejects.toThrow('cannot be forked');
+    expect(client.unstable_forkSession).not.toHaveBeenCalled();
   });
+
+  it.each(['scheduled', 'code_pro'] as const)(
+    'forks a %s session with its actual cwd and requested history boundary',
+    async (sessionType) => {
+      const client = {
+        goose: {
+          sessionInfo_unstable: vi.fn().mockResolvedValue({
+            session: sessionInfo({ _meta: { sessionType } }),
+          }),
+        },
+        unstable_forkSession: vi.fn().mockResolvedValue({ sessionId: 'new-session' }),
+      };
+      vi.mocked(getAcpClient).mockResolvedValue(
+        client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+      );
+      await expect(acpForkSession('session-1', 42)).resolves.toBe('new-session');
+      expect(client.unstable_forkSession).toHaveBeenCalledWith({
+        sessionId: 'session-1',
+        cwd: '/tmp',
+        _meta: { conversationBefore: 42 },
+      });
+    }
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();

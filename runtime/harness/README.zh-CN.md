@@ -8,7 +8,7 @@
 
 已由模型目录识别的 vLLM Chat Completions 在同一部署的聊天分词端点核算消息、工具和模板参数，再为输出预留空间。不支持的模板或计数失败时采用本地估算。服务端明确报告摘要超限时缩小到完整的工具调用分界；在同一次恢复中，只有服务端计数持续下降才继续分段。
 
-远程 MCP 通过官方 `agent-preset-registry` 的单服务器租约跨会话复用，可复用配置超过 64 项时，优先清理最久未使用且当前无人申请租约的配置。正在申请租约的配置可暂时超过阈值。修改单个服务仅更新其配置，现有租约可继续使用旧修订。会话通过原生 scope 投影自己的工具、资源与说明，stdio 保持会话/工作目录隔离。工具列表变化同步到各投影，执行仍逐会话审批。状态、失败重试和历史选择恢复见 [工具箱同步](../../docs/toolbox-runtime.zh-CN.md)。
+远程 MCP 通过官方 `agent-preset-registry` 的单服务器租约跨会话复用，最多保留 64 个完整配置；修改一项不重启无关连接，仍被租用的旧修订由 Harness 继续保留。会话通过原生 scope 投影自己的工具、资源与说明，stdio 保持会话/工作目录隔离。工具列表变化同步到各投影，执行仍逐会话审批。状态、失败重试和历史选择恢复见 [工具箱同步](../../docs/toolbox-runtime.zh-CN.md)。
 
 长目标由官方 `goal`、`goal-round-driver`、`tool-goal` 管理，包含目标 CAS、自动续轮、轮数上限和暂停。`prompt` 在原生目标 active + armed 时保持打开，等待官方续轮结束；普通无目标会话正常结束。返回值的 `goal` 为官方 GoalView。Stop 取消本次执行并 disarm；重启保持 disarmed，不自行重放工作。显式暂停目标的恢复使用结构化 `prompt(...,{resumeGoal:{goalId,revision}})`，先建立权限和事件承载再调用官方 resume。`getGoal` 只读；`controlGoal` 支持 pause，以及已承载执行中的 resume；空闲时直接 resume 被拒绝。
 
@@ -38,7 +38,6 @@ Responses 启用输出上限时最少需要 16 token（[官方约束](https://de
 - 自定义连接按模型列表的 `owned_by` 选择预览接口：vLLM 使用 `/v1/chat/completions/render`，SGLang 使用 `/v1/tokenize`，保留 API 基础路径和连接鉴权。预览仅渲染实际聊天模板，不生成回答；只有实际改变模板的档位才显示，等效档位合并，并保留服务默认值。结果复用现有能力缓存，刷新模型列表后重新验证。旧服务缺少预览、调用失败或参数被忽略时不推断强度，模型详情显示“尚未确认可用档位”；不以通用参数枚举或模型名称判断支持情况。依据：[vLLM reasoning controls](https://docs.vllm.ai/en/stable/features/reasoning_outputs/)、[SGLang tokenization](https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/entrypoints/openai/serving_tokenize.py)。
 - maxTurns 限制本次 prompt 主／子 Agent 的官方步骤数；到达后返回 max_turns，历史保留，不标记业务完成。
 - autoCompactThreshold（0 到 1）、autoCompact 使用官方 token-meter／compaction-basic；`compact(sessionId,{signal})` 手动压缩，原事件证据保留。
-- “模型与运行 → 上下文容量”可配置压缩模型，默认跟随当前对话。独立选择只保存在现有 `config.compactionModel` 的提供商/模型引用中；适配器注册后通过原生 `summarizationProvider` / `summarizationModel` 接入，不改变主对话模型。保存影响后续准备的请求和手动压缩；失效选择明确报错，不自动改用其他模型。
 - 压缩兼容层为同一路由补齐当前对话的思考档位，避免摘要请求切换聊天模板而失去前缀缓存；显式摘要档位、独立摘要模型或已变更的会话配置不覆盖。摘要保持官方原有指令与所选区间的完整输入，输出预算从 1,024 提升至 4,096 token，容纳思考和完整检查点；不是要求输出更多文字。锁版选区修复保留最新 `source.kind=user` 的原始事件，后续生成的 runtime-context／skill-catalog 不会取代它。遵守原有 tail 预算，在用户事件两侧选择工具配对完整、估价较大的连续区间，优先非单检查点区间；长任务仍能压缩后续工具历史，不复制或重排用户输入。只有旧检查点可选时保留超限恢复和手动压缩能力，普通压力路径仍略过它。后半区摘要可能无法复用完整前缀缓存。截断拒绝、取消及检查点事务仍归官方引擎；摘要本身不是任意任务无损的保证。升级 Harness 后复查此兼容层。
 - tools 为 `[{name,description,inputSchema,execute}]`。execute 接收 `(args,{sessionId,signal,callId})` 并返回 JSON 对象，仍经官方 registry、校验和审批。
 - mcpServers 使用官方 stdio／streamable-http 配置；工具名为 mcp__server__tool。独立服务并行连接，保留各项 ready／error 状态及配置顺序；失败连接释放，其他能力仍可用，重配重试。`extensionStatus(sessionId)` 返回状态；`testExtension(server)` 临时连接、发现、释放，失败直接报错。连接、工具发现、同步调用及每次 Tasks 请求默认 300 秒，显式 `toolCallTimeoutMs` 优先。扩展设置的 `timeout` 以秒计，测试和正式会话共用转换；保存后由既有会话重配置机制应用。版本协商可能有多个请求，因此该值不是全部服务的总启动期限。
@@ -89,3 +88,5 @@ node --test test/mcp-apps.test.mjs test/mcp-metadata.test.mjs test/mcp-startup.t
 
 
 输入框 `@` 按文件／对话分组，文件复用工作区面板目录与搜索，对话复用 ACP 列表。来源通过官方 `dsh-session-reference`（锁定版本、MIT）作为只读、不受信任背景捕获；最多 3 个来源，每来源预览 24 KiB。长引用会按官方策略截断并带省略提示，不能承诺全文无损；未配置 spill 时不提供全文回取。支持原生会话；不迁移旧的非原生历史。引用不恢复旧任务，也不继承旧授权。采用官方服务而非前端复制全文，避免第二套投影与持久化；无需新依赖。
+
+Gemma 响应兼容层对连续短行和较长段落采用相同的有界重复输出检查；异常属于模型响应错误，交现有原生有限重试恢复，不要求用户补发提醒。原生工具调用随附的正文在块校验通过后展示；工具调用期间、或已修复跨字段思考边界之后再次出现未引用的思考结束标记时，拒绝本次响应，不执行未确认工具，也不把模型自写内容当成真实回执。普通正文中的标记说明、代码引用及用户要求的重复正文仍保留。回归包含跨分片、完整块、HTTP 流提前关闭、重试耗尽/取消和工具只执行一次。协议依据为 [Gemma 官方格式](https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4)，沿用现有 Harness 重试，不增加解析执行路径或依赖。

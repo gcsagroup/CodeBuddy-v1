@@ -11,8 +11,6 @@ async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), 'mcp-background-'));
   let release;
   const gate = new Promise(resolve => { release = resolve; });
-  let releaseOther;
-  const otherGate = new Promise(resolve => { releaseOther = resolve; });
   const calls = [], requests = [], wire = [];
   const server = http.createServer(async (req, res) => {
     let raw = ''; for await (const part of req) raw += part;
@@ -21,7 +19,7 @@ async function fixture(t) {
     if (req.url.includes('/mcp')) {
       wire.push(body.method);
       if (!('id' in body)) { res.writeHead(202).end(); return; }
-      if (body.method === 'initialize') await (req.url === '/mcp-other' ? otherGate : gate);
+      if (body.method === 'initialize') await gate;
       if (body.method === 'tools/call') calls.push(body.params);
       const result = body.method === 'initialize'
         ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'slow', version: '1' } }
@@ -38,21 +36,18 @@ async function fixture(t) {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const driver = await createHarnessDriver({ dataDir: path.join(root, 'data'), cwd: root });
-  t.after(async () => { release(); releaseOther(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  t.after(async () => { release(); await driver.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
   const mcp = { serverName: 'slow', transport: 'streamable-http', url: `http://127.0.0.1:${server.address().port}/mcp` };
   const create = (options = {}) => driver.createSession({ cwd: root, provider: { id: 'fixture', baseUrl: `http://127.0.0.1:${server.address().port}/v1`, contextWindow: 65536 }, model: 'fixture', options: { backgroundMcp: true, mcpServers: [mcp], ...options } });
   return { root, driver, mcp, create, release, calls, requests, wire };
 }
 
 test('first reply bypasses a gated MCP; targeted discovery waits, cancellation and permissions remain authoritative', { timeout: 20000 }, async t => {
-  const f = await fixture(t);
-  const other = { ...f.mcp, serverName: 'other', url: f.mcp.url + '-other' };
-  const { sessionId: id } = await f.create({ mcpServers: [f.mcp, other] });
-  const statusOf = name => f.driver.extensionStatus(id).find(server => server.serverName === name)?.status;
-  assert.equal(statusOf('slow'), 'connecting');
+  const f = await fixture(t), { sessionId: id } = await f.create();
+  assert.equal(f.driver.extensionStatus(id)[0].status, 'connecting');
   await f.driver.prompt(id, 'Reply without external tools');
   assert.equal(f.requests.length, 1, 'model is dispatched before MCP initialize is released');
-  assert.equal(statusOf('slow'), 'connecting');
+  assert.equal(f.driver.extensionStatus(id)[0].status, 'connecting');
   const catalog = await f.driver.callTool(id, 'search_mcp_tools', {}, { onPermission: async () => true });
   assert.ok(JSON.stringify(catalog).includes('slow'));
   const abort = new AbortController();
@@ -65,8 +60,7 @@ test('first reply bypasses a gated MCP; targeted discovery waits, cancellation a
   await delay(50); assert.equal(settled, false);
   f.release();
   assert.ok(JSON.stringify(await selected).includes('mcp__slow__probe'));
-  assert.equal(statusOf('slow'), 'ready');
-  assert.equal(statusOf('other'), 'connecting', 'targeted discovery did not wait for the other server');
+  assert.equal(f.driver.extensionStatus(id)[0].status, 'ready');
   await f.driver.callTool(id, 'mcp__slow__probe', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: async () => false }).catch(() => {});
   assert.equal(f.calls.length, 0, 'discovery never grants execution');
   await f.driver.callTool(id, 'mcp__slow__probe', {}, { onToolPolicy: () => ({ kind: 'ask' }), onPermission: async () => true });
@@ -82,6 +76,23 @@ test('removed pending remote cannot reappear; other selected session retains its
   assert.equal((await f.driver.listTools(b.sessionId)).some(tool => tool.name === 'mcp__slow__probe'), true);
   assert.deepEqual(f.driver.extensionStatus(a.sessionId), []);
   assert.equal(f.wire.filter(method => method === 'initialize').length, 1);
+});
+
+test('late tool catalogs preserve each session allow and deny boundaries across multiple live scopes', { timeout: 20000 }, async t => {
+  const f = await fixture(t);
+  const allowed = await f.create({ toolFilter: { allow: ['read'] } });
+  const denied = await f.create({ mcpServers: [{ ...f.mcp, selectedTools: [] }], toolFilter: { allow: ['read'], deny: ['write'] } });
+  const isolated = await f.create({ mcpServers: [], toolFilter: { allow: ['read'] } });
+  f.release();
+  await f.driver.callTool(allowed.sessionId, 'search_mcp_tools', { servers: ['slow'] }, { onPermission: async () => true });
+  assert.ok((await f.driver.listTools(allowed.sessionId)).some(tool => tool.name === 'mcp__slow__probe'));
+  assert.equal((await f.driver.listTools(denied.sessionId)).some(tool => tool.name === 'mcp__slow__probe'), false);
+  assert.equal((await f.driver.listTools(denied.sessionId)).some(tool => tool.name === 'write'), false);
+  assert.equal((await f.driver.listTools(isolated.sessionId)).some(tool => tool.name === 'mcp__slow__probe'), false);
+  await f.driver.callTool(allowed.sessionId, 'mcp__slow__probe', {}, { onPermission: async () => true });
+  const rejected = await f.driver.callTool(denied.sessionId, 'mcp__slow__probe', {}, { onPermission: async () => true });
+  assert.equal(rejected.isError, true);
+  assert.equal(f.calls.length, 1);
 });
 
 test('pending stdio survives same-config refresh but removal closes it without publishing late tools', { timeout: 20000 }, async t => {

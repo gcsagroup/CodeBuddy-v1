@@ -1,5 +1,7 @@
 # Sidebar and thinking effort controls
 
+Sliders for the same model reflect local changes and successfully saved levels. A delayed settings read cannot restore an older level after a save. Display synchronization does not contact the model server.
+
 Workspaces precede Tasks. Conversation hover actions are Pin and Archive; right-click retains the full menu. Pins stay within their owning workspace or task group, with the latest pin first. Unpin restores activity ordering.
 
 Folders expose More and New conversation. More includes pin, rename and archive conversations. Archive confirms all matching conversations before calling the existing service; files are untouched and partial failures retain the remaining items for retry.

@@ -16,6 +16,26 @@ import { SafetyPolicy } from '../safety-policy.mjs';
 import { createCompatServer } from '../server.mjs';
 import { workspaceIdentity } from '../workspaces.mjs';
 
+// Respond to the native workflow interpreter using the catalog sent on this request.
+function modelResponse(body, res, delta, finish) {
+  res.writeHead(200, { 'content-type': 'text/event-stream' });
+  const chunk = { id: randomUUID(), object: 'chat.completion.chunk', model: body.model,
+    choices: [{ index: 0, delta, finish_reason: finish }] };
+  res.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+}
+
+function answerSelection(body, res) {
+  if (!body.tools?.some(tool => tool.function.name === 'select_workflow')) return false;
+  const content = body.messages.findLast(message => message.role === 'user').content;
+  const input = JSON.parse(typeof content === 'string' ? content : content[0].text);
+  const selected = input.workflows.find(workflow => workflow.compatible && workflow.dependencies_available);
+  assert.ok(selected);
+  const args = { workflow_id: selected.id, mode: selected.mode, reason: 'Compatible test workflow' };
+  modelResponse(body, res, { role: 'assistant', tool_calls: [{ index: 0, id: randomUUID(),
+    type: 'function', function: { name: 'select_workflow', arguments: JSON.stringify(args) } }] }, 'tool_calls');
+  return true;
+}
+
 async function fixture(t, kind = 'image', modern = false) {
   const toolName = kind === 'video' ? 'generate_video' : 'generate_image';
   const factory = kind === 'video' ? comfyuiVideoTool : comfyuiTool;
@@ -38,7 +58,19 @@ async function fixture(t, kind = 'image', modern = false) {
     store, settings: { extensions: async () => [] }, active: new Map(), safety: new SafetyPolicy(store),
     businessApprovalClients: new WeakMap(),
   });
-  const provider = { id: 'offline', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'unused' };
+  const model = createServer(async (req, res) => {
+    if (req.url.endsWith('/models')) {
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: 'offline' }] }));
+      return;
+    }
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    if (!answerSelection(body, res)) modelResponse(body, res, { role: 'assistant', content: 'Ready.' }, 'stop');
+  });
+  await new Promise(resolve => model.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { model.closeAllConnections(); await new Promise(resolve => model.close(resolve)); });
+  const provider = { id: 'offline', baseUrl: `http://127.0.0.1:${model.address().port}/v1`, apiKey: 'unused' };
   const sessionChoice = modern ? 'allow_business_session' : 'allow_always';
   const f = { root, store, host, questions, requests, calls, sessionChoice, choice: sessionChoice,
     tool: (s, baseUrl = 'http://image.fixture') => factory({ cwd: root, dataDir: root, sessionId: s.id, baseUrl, fetchImpl }),
@@ -47,6 +79,7 @@ async function fixture(t, kind = 'image', modern = false) {
       const s = { id: randomUUID(), ...(nativeSessionId ? { nativeSessionId } : {}), cwd: root, type: 'code_pro', workspaceBinding: 'writable_project' };
       await store.update(state => state.sessions.push(s));
       await driver.createSession({ sessionId: s.id, cwd: root, provider, model: 'offline', options: { tools: [f.tool(s)] } });
+      await driver.prompt(s.id, `Generate a fixture ${kind}.`);
       return s;
     },
     async restart(s) {
@@ -218,7 +251,10 @@ for (const modern of [false, true]) test(kind + ' real ACP ' + (modern ? 'busine
       const body = JSON.parse(raw);
       if (req.url === '/prompt') { submissions.push(body); return json({ prompt_id: body.prompt_id }); }
       if (!body.stream) return json({ choices: [{ message: { content: 'OK' } }] });
-      const user = body.messages.findLastIndex(message => message.role === 'user');
+      if (answerSelection(body, res)) return;
+      const user = body.messages.findLastIndex(message => message.role === 'user' &&
+        ['Run image permission fixture.', 'Run another subject and size.'].includes(message.content));
+      if (user < 0) { modelResponse(body, res, { role: 'assistant', content: 'Fixture title.' }, 'stop'); return; }
       const replies = body.messages.slice(user + 1).filter(message => message.role === 'tool');
       let tool;
       if (replies.length === 0) tool = { name: 'search_mcp_tools', args: { names: [toolName] } };

@@ -8,7 +8,11 @@ import BaseChat from './BaseChat';
 import type { Message } from '../types/message';
 import type { PromptActivity } from '../acp/chatSessionStore';
 
+const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
+
 const fixture = vi.hoisted(() => ({
+  title: 'Saved history',
+  global: false,
   readonly: true,
   loading: false,
   cancelling: false,
@@ -22,7 +26,6 @@ const fixture = vi.hoisted(() => ({
   pending: undefined as ((sessionId: string, message: Message | undefined) => void) | undefined,
   autoRender: true,
   historyRendered: undefined as (() => void) | undefined,
-  renderHistory: vi.fn(),
   workspace: undefined as { sessionId: string; workingDir: string } | undefined,
   reconfirm: vi.fn(),
 }));
@@ -30,7 +33,8 @@ vi.mock('../hooks/useChatSession', () => ({
   useChatSession: ({ sessionId }: { sessionId: string }) => ({
     session: {
       id: sessionId,
-      name: 'Saved history',
+      name: fixture.title,
+      global_conversation: fixture.global,
       session_type: 'code_pro',
       extension_data: { readonlyHistory: fixture.readonly },
     },
@@ -83,7 +87,6 @@ vi.mock('./ProgressiveMessageList', () => ({
     messages,
     chat,
     onHistoryRendered,
-    navigationTarget,
   }: {
     onMessageUpdate?: unknown;
     resubmitMessage?: unknown;
@@ -91,9 +94,7 @@ vi.mock('./ProgressiveMessageList', () => ({
     messages?: Message[];
     chat: { sessionId: string };
     onHistoryRendered?: (sessionId: string) => void;
-    navigationTarget?: { messageId: string };
   }) {
-    fixture.renderHistory();
     fixture.historyRendered = () => onHistoryRendered?.(chat.sessionId);
     useLayoutEffect(() => {
       if (fixture.autoRender) onHistoryRendered?.(chat.sessionId);
@@ -106,13 +107,15 @@ vi.mock('./ProgressiveMessageList', () => ({
         <output data-testid="history-order">
           {messages?.map((message) => message.id).join(',')}
         </output>
-        <output data-testid="navigation-target">{navigationTarget?.messageId}</output>
       </div>
     );
   },
 }));
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, writable: true, value: vi.fn() });
+  fixture.title = 'Saved history';
+  fixture.global = false;
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   fixture.activeToolCallIds = [];
   fixture.readonly = true;
@@ -127,14 +130,35 @@ beforeEach(() => {
   fixture.pending = undefined;
   fixture.autoRender = true;
   fixture.historyRendered = undefined;
-  fixture.renderHistory.mockClear();
   fixture.workspace = undefined;
   fixture.reconfirm.mockReset();
   vi.mocked(window.electron.on).mockClear();
   Object.assign(window.electron, { logInfo: vi.fn() });
 });
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  vi.useRealTimers(); vi.unstubAllGlobals();
+  if (originalScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo);
+  else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
+});
+
+it('keeps a long conversation heading intact instead of cutting it at 28 characters', () => {
+  fixture.title = '修复七项体验问题并验收 Windows 和 Mac 安装包，保留全部历史与证据';
+  show();
+  expect(screen.getByRole('heading', { name: fixture.title })).toHaveTextContent(fixture.title);
+});
+
+it('introduces the empty main conversation and removes the greeting once history exists', () => {
+  fixture.global = true;
+  fixture.readonly = false;
+  fixture.history = [];
+  const view = show({ startAgent: false });
+  expect(screen.getByRole('heading', { name: "I'm CodeBuddy. Let's work together." })).toBeVisible();
+  expect(fixture.submit).not.toHaveBeenCalled();
+  fixture.history = [{ id: 'hello', created: 1, role: 'user', content: [{ type: 'text', text: 'Hello' }], metadata: { userVisible: true, agentVisible: true } }];
+  view.rerender(<MemoryRouter><BaseChat sessionId="imported" isActiveSession suppressEmptyState setChat={vi.fn()} /></MemoryRouter>);
+  expect(screen.queryByRole('heading', { name: "I'm CodeBuddy. Let's work together." })).not.toBeInTheDocument();
+});
 
 it('moves the actual footer from A through model output to B and resets its action clock', () => {
   vi.useFakeTimers();
@@ -452,6 +476,55 @@ it('does not flash history loading when sending the first message in an already 
   expect(screen.getByTestId('history-order')).toHaveTextContent('first-input');
 });
 
+it('positions loaded history at the latest message before revealing it', () => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+  fixture.autoRender = false;
+  const { container } = show();
+  const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
+  Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 9000 });
+  const covered: boolean[] = [];
+  viewport.scrollTo = vi.fn(() => {
+    covered.push(!!screen.queryByTestId('conversation-loading'));
+    viewport.scrollTop = 8500;
+  });
+  act(() => fixture.historyRendered?.());
+  act(() => vi.advanceTimersToNextFrame());
+  expect(viewport.scrollTop).toBe(8500);
+  expect(covered[0]).toBe(true);
+  expect(screen.getByTestId('conversation-loading')).toBeVisible();
+  act(() => vi.advanceTimersToNextFrame());
+  expect(screen.queryByTestId('conversation-loading')).toBeNull();
+  expect(viewport.scrollTo).toHaveBeenCalledWith({ top: 9000, behavior: 'auto' });
+});
+
+it('opens a cached conversation at the tail without overriding subsequent manual reading', () => {
+  vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+  const view = show();
+  act(() => vi.advanceTimersToNextFrame());
+  act(() => vi.advanceTimersToNextFrame());
+  const viewport = view.container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
+  const tree = (active: boolean) => <MemoryRouter><BaseChat sessionId="imported" isActiveSession={active} suppressEmptyState setChat={vi.fn()} /></MemoryRouter>;
+  view.rerender(tree(false));
+  Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 12000 });
+  viewport.scrollTo = vi.fn(() => { viewport.scrollTop = 11500; });
+  viewport.scrollTop = 0;
+  view.rerender(tree(true));
+  expect(screen.getByTestId('conversation-loading')).toBeVisible();
+  act(() => vi.advanceTimersToNextFrame());
+  act(() => vi.advanceTimersToNextFrame());
+  expect(screen.queryByTestId('conversation-loading')).toBeNull();
+  expect(viewport.scrollTop).toBe(11500);
+  expect(viewport.scrollTo).toHaveBeenCalledWith({ top: 12000, behavior: 'auto' });
+  vi.mocked(viewport.scrollTo).mockClear();
+  fireEvent.wheel(viewport, { deltaY: -200 });
+  viewport.scrollTop = 7000;
+  fixture.history = [{ id: 'new', role: 'assistant', created: 2, content: [{ type: 'text', text: 'New output' }], metadata: { userVisible: true, agentVisible: true } }];
+  view.rerender(tree(true));
+  act(() => vi.advanceTimersToNextFrame());
+  expect(viewport.scrollTop).toBe(7000);
+  expect(viewport.scrollTo).not.toHaveBeenCalled();
+});
+
 it('retains normal conversation controls outside imported history', () => {
   fixture.readonly = false;
   show();
@@ -468,7 +541,6 @@ it('offers a way back only when the latest output is below the viewport', async 
   const bounds = vi.spyOn(end, 'getBoundingClientRect');
   const rect = end.getBoundingClientRect();
   viewport.scrollTo = vi.fn(() => bounds.mockReturnValue({ ...rect, bottom: 0 }));
-  const historyRenders = fixture.renderHistory.mock.calls.length;
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
   fireEvent.wheel(viewport, { deltaY: -100 });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
@@ -477,30 +549,6 @@ it('offers a way back only when the latest output is below the viewport', async 
   fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
   expect(viewport.scrollTo).toHaveBeenCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
-  expect(fixture.renderHistory).toHaveBeenCalledTimes(historyRenders);
-});
-
-it('clears a timeline jump when returning to latest without rebuilding history for scroll-only updates', async () => {
-  fixture.history = ['First request', 'Second request'].map((text, index) => ({
-    id: `turn-${index}`, role: 'user', created: index,
-    content: [{ type: 'text', text }], metadata: { userVisible: true, agentVisible: true },
-  }));
-  const { container } = show();
-  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
-  const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
-  const end = viewport.querySelector('div[style="height: 1px;"]')!;
-  const rect = end.getBoundingClientRect();
-  const bounds = vi.spyOn(end, 'getBoundingClientRect');
-  viewport.scrollTo = vi.fn();
-  fireEvent.click(screen.getByRole('button', { name: 'Go to turn 1: First request' }));
-  expect(screen.getByTestId('navigation-target')).toHaveTextContent('turn-0');
-  const renders = fixture.renderHistory.mock.calls.length;
-  bounds.mockReturnValue({ ...rect, bottom: 100 });
-  fireEvent.scroll(viewport);
-  expect(fixture.renderHistory).toHaveBeenCalledTimes(renders);
-  fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
-  expect(screen.getByTestId('navigation-target')).toBeEmptyDOMElement();
-  expect(viewport.scrollTo).toHaveBeenLastCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
 });
 
 it('shows running dots at the bottom, preserves the return control, and clears dots when waiting or idle', async () => {

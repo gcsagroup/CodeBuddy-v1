@@ -16,7 +16,6 @@
 
 import {
   Fragment,
-  memo,
   useCallback,
   useContext,
   useEffect,
@@ -28,11 +27,7 @@ import {
 } from 'react';
 import { Pencil } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
-import GooseMessage, {
-  codeProTerminalPresentation,
-  hasMissingFinalReply,
-  isRepeatedToolThinking,
-} from './GooseMessage';
+import GooseMessage, { codeProTerminalPresentation, hasMissingFinalReply } from './GooseMessage';
 import { resolveToolLoadingStatus } from './ToolCallWithResponse';
 import { parseToolAuditReceipt } from '../acp/adapter/toolAudit';
 import { computerToolOutcome } from './computerToolOutcome';
@@ -95,6 +90,8 @@ import { getResponsePhase } from '../types/responsePhase';
 import { parseSubagentLifecycle } from '../types/subagentLifecycle';
 import { CodeProConversationFiles } from './codepro/CodeProConversationFiles';
 import { collectConversationChanges } from './codepro/conversationChanges';
+import { AnswerFiles } from './remarkDeliveredFileLinks';
+import { AnswerWorkspaceLinks } from './AnswerWorkspaceLinks';
 import { useConversationChangeMessages } from '../workspace-panel/WorkspaceSubagents';
 import LoadingGoose from './LoadingGoose';
 import { useOrderedToolPresentation } from './useOrderedToolPresentation';
@@ -149,6 +146,10 @@ const i18n = defineMessages({
   stopped: { id: 'gooseMessage.turnStopped', defaultMessage: 'Stopped' },
   thinking: { id: 'thinkingContent.thinking', defaultMessage: 'Thinking' },
   thinkingLive: { id: 'thinkingContent.thinkingLive', defaultMessage: 'Thinking (updating)' },
+  thinkingDetails: {
+    id: 'progressiveMessageList.thinkingDetails',
+    defaultMessage: 'Reasoning details',
+  },
   turnProcessDuration: {
     id: 'progressiveMessageList.turnProcessDuration',
     defaultMessage: 'This turn: {minutes} min {seconds} sec',
@@ -221,10 +222,6 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
   }, [onLoad, following]);
   return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
 }
-
-// Following changes still update the history window and live presentation. Reuse
-// unchanged bodies while those consumers react to the viewport's reading mode.
-const StableMessageListContent = memo(ProgressiveMessageListContent);
 
 function OrderedMessageList(props: ProgressiveMessageListProps) {
   const navigationRoot = useRef<HTMLDivElement>(null);
@@ -413,7 +410,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           }}
         />
       )}
-      <StableMessageListContent
+      <ProgressiveMessageListContent
         {...props}
         messages={props.renderMessage ? props.messages : presentation.messages}
         sourceMessages={props.messages}
@@ -946,7 +943,6 @@ function ProgressiveMessageListContent({
       item: Message,
       showThinking = false,
       hiddenToolRequestIds?: ReadonlySet<string>,
-      activity?: ProgressiveMessageListProps['thinkingActivity'],
       range?: readonly [number, number]
     ) =>
       lifecycleNotification(item) ? (
@@ -981,7 +977,7 @@ function ProgressiveMessageListContent({
           append={append}
           toolCallNotifications={toolCallNotifications}
           activeToolCallIds={isStreamingMessage ? (activeToolCallIds ?? []) : []}
-          thinkingActivity={isStreamingMessage ? activity : undefined}
+          thinkingActivity={isStreamingMessage ? thinkingActivity : undefined}
           isStreaming={isStreamingMessage}
         />
       );
@@ -1181,12 +1177,6 @@ function ProgressiveMessageListContent({
         ) {
           const { group, settled, atPublicBoundary } = collectProcess(localIndex);
           const groupRequests = group.flatMap(getToolRequests);
-          // Disclosure can close at a public reply even when a finished tool
-          // failed. Its historical thought must not borrow later live activity.
-          const processClosed =
-            processSettled ||
-            settled ||
-            (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
           const groupMedia = [
             ...new Set(
               groupRequests.flatMap((request) => {
@@ -1198,19 +1188,6 @@ function ProgressiveMessageListContent({
           const onlyMedia =
             groupRequests.length > 0 && groupRequests.every((request) => mediaJobs.has(request.id));
           const mediaOnlyView = onlyMedia && groupMedia.length > 0;
-          const thinkingCount = suppressProviderThinking
-            ? 0
-            : group.reduce((count, item) => {
-                if (isRepeatedToolThinking(parts.get(item)?.message ?? item, sourceMessages))
-                  return count;
-                return (
-                  count +
-                  item.content.filter(
-                    (content, offset) =>
-                      content.type === 'thinking' && item.content[offset - 1]?.type !== 'thinking'
-                  ).length
-                );
-              }, 0);
           // A hidden poll can leave an empty transport shell, but cannot hide
           // original thinking, ordinary tools, lifecycle events or approvals.
           if (
@@ -1249,29 +1226,9 @@ function ProgressiveMessageListContent({
               )
               .map((request) => request.id)
           );
-          const renderGroupItem = (item: Message) =>
-            renderToolMessage(item, true, pendingIds, processClosed ? undefined : thinkingActivity);
           // A late reasoning block changes content, never the group's identity.
           const groupIdentity = message.id ?? requests[0]?.id ?? index;
           const identity = `${groupIdentity}:${part?.start ?? 0}`;
-          const hasVisibleTool = groupRequests.some((request) => {
-            const job = mediaJobs.get(request.id);
-            return !job || job.anchorId === request.id || approvals.has(request.id);
-          });
-          // A single thought already owns a disclosure. Keep that original
-          // renderer in place without adding two more thought-only headers.
-          if (thinkingCount === 1 && !hasVisibleTool && !group.some(lifecycleNotification)) {
-            return (
-              <div
-                key={`tools-${identity}`}
-                className="my-0.5 w-full max-w-[52rem]"
-                data-testid="message-container"
-                data-process-group=""
-              >
-                {group.map(renderGroupItem)}
-              </div>
-            );
-          }
           const attentionStates = group
             .flatMap(getToolRequests)
             .flatMap((request): ('failed' | 'unknown')[] => {
@@ -1309,8 +1266,8 @@ function ProgressiveMessageListContent({
             );
           const latestPart = group[group.length - 1];
           const thinkingNow =
-            !processClosed &&
             !activeRequest &&
+            !settled &&
             isStreamingMessage &&
             !!latestPart.id &&
             thinkingActivity?.messageId === latestPart.id &&
@@ -1343,6 +1300,12 @@ function ProgressiveMessageListContent({
                 )
               : lifecycleNotification(latestPart)?.msg ||
                 intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking);
+          // A closed history may contain unsuccessful receipts. Use the same
+          // display boundary as folding without treating those receipts as success.
+          const processClosed =
+            processSettled ||
+            settled ||
+            (atPublicBoundary && groupRequests.every((request) => responses.has(request.id)));
           const label =
             onlyMedia && !groupMedia.length
               ? intl.formatMessage(thinkingNow ? i18n.thinkingLive : i18n.thinking)
@@ -1365,7 +1328,8 @@ function ProgressiveMessageListContent({
                 compact
                 storageKey={`operations-${identity}`}
                 groupHeading
-                scrollable
+                scrollable={false}
+                contentClassName="codepro-process-details bg-transparent py-0.5"
                 label={label}
                 icon={
                   thinkingNow ? (
@@ -1410,7 +1374,7 @@ function ProgressiveMessageListContent({
                   role="region"
                   aria-label={intl.formatMessage(i18n.toolRecordsRegion)}
                 >
-                  {group.map(renderGroupItem)}
+                  {group.map((item) => renderToolMessage(item, true, pendingIds))}
                 </div>
               </ToolCallExpandable>
               {!renderRange && <MediaTaskCards jobs={groupMedia} sessionId={chat.sessionId} readOnly={readOnly} />}
@@ -1423,7 +1387,7 @@ function ProgressiveMessageListContent({
                       pendingIds.has(content.id) &&
                       offset >= (parts.get(item)?.start ?? 0) &&
                       offset < (parts.get(item)?.end ?? source.content.length)
-                        ? [renderToolMessage(item, false, undefined, undefined, [offset, offset + 1])]
+                        ? [renderToolMessage(item, false, undefined, [offset, offset + 1])]
                         : []
                     );
                   })}
@@ -1966,6 +1930,7 @@ function ProgressiveMessageListContent({
                   { hidden: settled || streaming || pending }
                 )}
               </TurnProcessHistory>
+              <AnswerFiles.Provider value={conversationChanges.find(change => change.id === turn[0]?.id)?.files ?? []}>
               {renderSlice(
                 turn,
                 answerFrom,
@@ -1977,6 +1942,14 @@ function ProgressiveMessageListContent({
                   ? [answerIndex, answerStart, turn[answerIndex].content.length]
                   : undefined,
                 { usage, created: completedAt, messageId: lastReplyId, hidden: continued && (streaming || pending) }
+              )}
+              </AnswerFiles.Provider>
+              {terminal?.status === 'completed' && !continued && turn[0]?.role === 'user' && turn.some(m => getToolRequests(m).length > 0) && (
+                <AnswerWorkspaceLinks
+                  sessionId={chat.sessionId}
+                  request={turn[0].content.flatMap(part => part.type === 'text' ? [part.text] : []).join('\n')}
+                  answer={turn[answerIndex]?.content.flatMap(part => part.type === 'text' ? [part.text] : []).join('\n') ?? ''}
+                />
               )}
               <MediaTaskCards jobs={turnMedia} sessionId={chat.sessionId} readOnly={readOnly} />
               {(hasTerminalBoundary || (hasAnswerBoundary && answerMessageId && !pending)) && (

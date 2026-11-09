@@ -38,6 +38,17 @@ describe('chat row archive button', () => {
 
   beforeEach(() => vi.clearAllMocks());
 
+  it('opens the owning chat by keyboard before the secondary actions', async () => {
+    const onClick = vi.fn();
+    render(<SessionRow session={session} active={false} status={undefined} onClick={onClick} onRenamed={vi.fn()} />);
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: session.name })).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(onClick).toHaveBeenCalledOnce();
+    await userEvent.tab();
+    expect(screen.getByRole('button', { name: 'Pin session' })).toHaveFocus();
+  });
+
   it('hides the legacy generated title avatar but preserves custom emoji titles', () => {
     const role = { id: 'role', name: 'My', avatar: '🤖', revision: 1 };
     const props = { active: false, status: undefined, onClick: () => {}, onRenamed: () => {} };
@@ -113,11 +124,12 @@ describe('chat row archive button', () => {
 });
 
 describe('NavigationHeaderSlot', () => {
-  it('opens a new chat from the brand without the retired workspace switcher', () => {
+  it.each([false, true])('opens a new chat from the brand with native-control inset %s', (needsTrafficLightInset) => {
     const onNewChat = vi.fn();
     render(
       <NavigationHeaderSlot
         onNewChat={onNewChat}
+        needsTrafficLightInset={needsTrafficLightInset}
       />
     );
 

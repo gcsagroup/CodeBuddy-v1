@@ -17,7 +17,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
 });
 describe('packaged Harness service', () => {
-  function fixture() {
+  function fixture(automaticReady = true) {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-service-')));
     roots.push(root);
     const stage = path.join(root, 'harness-distribution');
@@ -32,6 +32,7 @@ describe('packaged Harness service', () => {
       JSON.stringify({ engine: 'deepseek-harness', schemaVersion: 1, sourceDigest: 'fixture' })
     );
     const child = Object.assign(new EventEmitter(), {
+      pid: 123,
       stdout: new PassThrough(),
       stderr: new PassThrough(),
       connected: true,
@@ -39,7 +40,7 @@ describe('packaged Harness service', () => {
       kill: vi.fn(),
     });
     mock.spawn.mockImplementation(() => {
-      void Promise.resolve().then(() =>
+      if (automaticReady) void Promise.resolve().then(() =>
         child.emit('message', {
           type: 'ready',
           url: 'http://127.0.0.1:4567',
@@ -61,6 +62,33 @@ describe('packaged Harness service', () => {
       },
     };
   }
+  it('waits through a progressing cold start and requires the listener receipt', async () => {
+    const f = fixture(false);
+    vi.useFakeTimers();
+    const starting = startHarnessService(f.options);
+    let resolved = false;
+    void starting.then(() => { resolved = true; });
+    for (const phase of ['loading-runtime', 'opening-profile', 'binding-listener']) {
+      await vi.advanceTimersByTimeAsync(18000);
+      f.child.emit('message', { type: 'starting', phase, pid: 123 });
+    }
+    expect(resolved).toBe(false);
+    f.child.emit('message', { type: 'ready', url: 'http://127.0.0.1:4567', engine: 'deepseek-harness', pid: 123 });
+    const service = await starting;
+    vi.useRealTimers();
+    await service.close();
+  });
+  it('times out a stalled phase even if duplicate progress messages arrive', async () => {
+    const f = fixture(false);
+    vi.useFakeTimers();
+    const failed = expect(startHarnessService(f.options)).rejects.toThrow('during loading-runtime');
+    f.child.emit('message', { type: 'starting', phase: 'loading-runtime', pid: 123 });
+    await vi.advanceTimersByTimeAsync(22000);
+    f.child.emit('message', { type: 'starting', phase: 'loading-runtime', pid: 123 });
+    await vi.advanceTimersByTimeAsync(8100);
+    await failed;
+    expect(f.options.onUnexpectedExit).not.toHaveBeenCalled();
+  });
   it('launches packaged entry with isolated profile, reports no credential, and awaits owned shutdown', async () => {
     const f = fixture();
     const service = await startHarnessService(f.options);

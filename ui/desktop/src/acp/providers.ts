@@ -332,6 +332,7 @@ export async function acpSaveThinkingEffort(
   const value = effort === 'off' ? 'none' : effort;
   if (providerId && modelId) {
     await acpSaveProviderConfig(providerId, [{ key: `thinkingEffort:${modelId}`, value }]);
+    notifyThinkingEffort(providerId, modelId, readThinkingDraft(providerId, modelId) ?? effort);
     return;
   }
   await savePreferences([{ key: 'gooseThinkingEffort', value, isMutable: true }]);
@@ -341,11 +342,15 @@ export async function acpSaveThinkingEffort(
 // when a user submits a prompt, never while another turn is running.
 const thinkingDrafts = new Map<string, ThinkingEffort>();
 const thinkingDraftKey = (provider: string, model: string) => JSON.stringify([provider, model]);
+function notifyThinkingEffort(provider: string, model: string, effort: ThinkingEffort) {
+  window.dispatchEvent(new CustomEvent('codebuddy:thinking-effort-changed', { detail: { provider, model, effort } }));
+}
 export function readThinkingDraft(provider: string, model: string) {
   return thinkingDrafts.get(thinkingDraftKey(provider, model));
 }
 export function stageThinkingEffort(provider: string, model: string, effort: ThinkingEffort) {
   thinkingDrafts.set(thinkingDraftKey(provider, model), effort);
+  notifyThinkingEffort(provider, model, effort);
 }
 export async function applyThinkingDraft(provider: string, model: string) {
   const key = thinkingDraftKey(provider, model);

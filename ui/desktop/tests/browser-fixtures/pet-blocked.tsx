@@ -1,8 +1,5 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { petTaskFromSnapshot } from '../../src/pets/petTaskAdapter';
-import type { AcpChatSessionSnapshot } from '../../src/acp/chatSessionStore';
-import { ChatState } from '../../src/types/chatState';
 import DesktopPet from '../../src/pets/DesktopPet';
 import type { PetSnapshot, PetTaskState, PetRequest } from '../../src/pets/petTypes';
 import spriteUrl from '../../src/pets/assets/red-panda/sprites.png';
@@ -42,14 +39,6 @@ Object.assign(window, {
     off: (event: string) => callbacks.delete(event),
   },
 });
-function publishTitle(named: boolean) {
-  snapshot.task = petTaskFromSnapshot('fixture', {
-    session: { name: named ? '天气应用' : 'New Session', user_set_name: false },
-    messages: [{ id: 'u', role: 'user', content: [{ type: 'text', text: '帮我开发天气应用' }] }],
-    chatState: ChatState.Streaming,
-  } as unknown as AcpChatSessionSnapshot);
-  callbacks.get('pet-changed')?.({}, { ...snapshot });
-}
 function publish(state: PetTaskState) {
   snapshot.task = { ...snapshot.task!, state };
   callbacks.get('pet-changed')?.({}, { ...snapshot });
@@ -60,8 +49,6 @@ createRoot(document.getElementById('root')!).render(
     <nav style={{ position: 'fixed', left: 380, top: 20 }}>
       <button onClick={() => publish('blocked')}>blocked</button>
       <button onClick={() => publish('working')}>working</button>
-      <button onClick={() => publishTitle(false)}>New task</button>
-      <button onClick={() => publishTitle(true)}>Named task</button>
     </nav>
   </>
 );

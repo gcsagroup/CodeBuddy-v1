@@ -8,6 +8,7 @@ import {
   expireAcpPermissionRequestForTool,
   expireAcpPermissionRequestsForTurn,
   isAcpPermissionRequestPending,
+  sessionHasPendingPermission,
   subscribeAcpPermissionRequests,
   petPermissionRequest,
   resolvePetPermission,
@@ -41,6 +42,19 @@ it('pet decisions share the pending request and reject stale tokens and repeated
   expect(resolvePetPermission('pet', 'call', live.token, 'deny_once')).toBe(true);
   expect(resolvePetPermission('pet', 'call', live.token, 'allow_once')).toBe(false);
   await expect(second).resolves.toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } });
+});
+
+it('keeps the owning chat marked until its last live permission settles', async () => {
+  const first = requestAcpPermission(permissionRequest('image-owner', 'image'));
+  const second = requestAcpPermission(permissionRequest('image-owner', 'write'));
+  expect(sessionHasPendingPermission('other')).toBe(false);
+  expect(sessionHasPendingPermission('image-owner')).toBe(true);
+  resolveAcpPermissionRequest('image-owner', 'image', 'deny_once');
+  await first;
+  expect(sessionHasPendingPermission('image-owner')).toBe(true);
+  cancelAcpPermissionRequestsForSession('image-owner');
+  await second;
+  expect(sessionHasPendingPermission('image-owner')).toBe(false);
 });
 
 function permissionRequest(sessionId: string, toolCallId: string): RequestPermissionRequest {

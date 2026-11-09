@@ -43,7 +43,7 @@ const i18n = defineMessages({
   compactionWait: { id: 'loadingGoose.compactionWait', defaultMessage: 'Still waiting for the model. Large conversations may take longer; you can stop and retry.' },
   loadingConversation: {
     id: 'loadingGoose.loadingConversation',
-    defaultMessage: 'Loading conversation…',
+    defaultMessage: 'loading conversation...',
   },
   thinking: {
     id: 'loadingGoose.thinking',

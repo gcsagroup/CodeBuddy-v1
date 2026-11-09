@@ -16,7 +16,6 @@ import {
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { ProgressiveToolboxGrid } from './ProgressiveToolboxGrid';
 import { SessionToolAccess } from './SessionToolAccess';
-import { ToolboxSessionScope } from './ToolboxSessionScope';
 import { readToolboxSession, type ToolboxSessionState } from '../../acp/toolboxSession';
 import { loadToolbox, type ToolboxLoadResult } from '../../acp/toolbox';
 import { testConfigExtension } from '../../acp/extensions';
@@ -514,7 +513,7 @@ export default function ToolboxView() {
     return sectionItems
       .map((item) => ({ original: item, display: localizeToolboxItem(item, intl) }))
       .filter(({ original, display }) =>
-        `${original.id} ${original.repositoryMembers?.map((member) => `${member.id} ${member.name}`).join(' ') ?? ''} ${original.reference?.key ?? ''} ${original.reference?.value ?? ''} ${original.name} ${original.description} ${display.name} ${display.description}`
+        `${original.id} ${original.repositoryMembers?.map((member) => `${member.id} ${member.name}`).join(' ') ?? ''} ${original.reference?.key ?? ''} ${original.reference?.value ?? ''} ${original.name} ${original.description} ${display.name} ${display.description} ${original.id === 'builtin:qwen_computer' ? '电脑控制 電腦控制 Computer Use' : ''}`
           .toLocaleLowerCase()
           .includes(normalized)
       )
@@ -731,7 +730,7 @@ export default function ToolboxView() {
             </div>
           </div>
 
-          <ToolboxSessionScope sessionId={sessionId} state={sessionState} readError={sessionError} onChange={refreshSession} />
+          {sessionError && <p role="alert" className="mb-4 text-sm text-text-secondary">{sessionError}</p>}
           {(Object.values(result.errors).length > 0 || result.warnings.length > 0) && (
             <div className="mb-4 space-y-1 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
               {[...new Set([...Object.values(result.errors), ...result.warnings])].map(

@@ -42,6 +42,13 @@ export function isAcpPermissionRequestPending(sessionId: string, toolCallId: str
   return pendingRequests.has(permissionRequestKey(sessionId, toolCallId));
 }
 
+export function sessionHasPendingPermission(sessionId: string): boolean {
+  for (const pending of pendingRequests.values()) {
+    if (pending.request.sessionId === sessionId) return true;
+  }
+  return false;
+}
+
 export function subscribeAcpPermissionRequests(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);

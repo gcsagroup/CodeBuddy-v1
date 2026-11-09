@@ -225,3 +225,27 @@ test('timing observer failures cannot roll back a committed write or mask a stor
   assert.deepEqual(observations.map(item => item.committed), [true, false]);
   assert.equal(JSON.parse(await readFile(path.join(root, 'state.json'))).revision, 1);
 });
+
+test('queued session insertions preserve unrelated history, reject duplicates and publish only durable copies', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'codebuddy-session-insert-'));
+  let deny = false;
+  const store = await openStore(root, { replaceFile: async (from, to) => {
+    if (deny) throw Object.assign(Error('Disk full fixture'), { code: 'ENOSPC' });
+    return rename(from, to);
+  } });
+  const original = { id: 'original', updates: [{ text: 'Preserved history' }] };
+  await store.insertSession(() => original);
+  original.updates[0].text = 'Caller mutation';
+  const inserted = await Promise.all([1, 2].map(() => store.insertSession(() => {
+    const number = store.read(['sessions'], { sessionFields: ['id'] }).sessions.length;
+    return { id: `branch-${number}`, updates: [] };
+  })));
+  assert.deepEqual(inserted.map(s => s.id), ['branch-1', 'branch-2']);
+  await assert.rejects(store.insertSession(() => ({ id: 'branch-1' })), /unique identity/);
+  deny = true;
+  await assert.rejects(store.insertSession(() => ({ id: 'not-committed' })), { code: 'ENOSPC' });
+  const restored = await openStore(root);
+  assert.equal(restored.readSession('original').updates[0].text, 'Preserved history');
+  assert.equal(restored.readSession('not-committed'), undefined);
+  assert.deepEqual(restored.read(['sessions'], { sessionFields: ['id'] }).sessions.map(s => s.id), ['original', 'branch-1', 'branch-2']);
+});

@@ -2,13 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, Search } from 'lucide-react';
 import { AppEvents } from '../../constants/events';
 import {
-  agentUseTime,
-  getRecentAgents,
-  rememberRecentAgent,
-  RECENT_AGENTS_CHANGED,
-  RECENT_AGENTS_KEY,
-} from '../../utils/recentAgents';
-import {
   getNextChatAgent,
   NEXT_CHAT_AGENT_CHANGED,
   setNextChatAgent,
@@ -19,6 +12,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -51,19 +45,28 @@ export function AgentSelector({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const [recent, setRecent] = useState(getRecentAgents);
-  useEffect(() => {
-    const changed = (event: Event) => setRecent((event as CustomEvent<string[]>).detail);
-    const storageChanged = (event: StorageEvent) => {
-      if (event.key === RECENT_AGENTS_KEY || event.key === null) setRecent(getRecentAgents());
-    };
-    window.addEventListener(RECENT_AGENTS_CHANGED, changed);
-    window.addEventListener('storage', storageChanged);
-    return () => {
-      window.removeEventListener(RECENT_AGENTS_CHANGED, changed);
-      window.removeEventListener('storage', storageChanged);
-    };
-  }, []);
+  const [recent, setRecent] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem('codebuddy:recent-agents') ?? '[]');
+      return Array.isArray(saved)
+        ? saved.filter((id): id is string => typeof id === 'string').slice(0, 5)
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const remember = (id: string | null) => {
+    if (!id) return;
+    setRecent((previous) => {
+      const next = [id, ...previous.filter((item) => item !== id)].slice(0, 5);
+      try {
+        localStorage.setItem('codebuddy:recent-agents', JSON.stringify(next));
+      } catch {
+        /* The display preference must not block role selection. */
+      }
+      return next;
+    });
+  };
   useEffect(() => {
     if (!open) setQuery('');
   }, [open]);
@@ -138,10 +141,9 @@ export function AgentSelector({
     if (openRequest > 0) setOpen(true);
   }, [openRequest]);
   const choose = async (id: string | null, action: 'select' | 'convert' = 'select') => {
-    const usedAt = agentUseTime();
     if (!sessionId) {
       setNextChatAgent(id);
-      void rememberRecentAgent(id, usedAt);
+      remember(id);
       return;
     }
     const current = ++generation.current;
@@ -160,9 +162,9 @@ export function AgentSelector({
         ...(action === 'select' ? { id } : {}),
         expectedRevision: selection.revision,
       });
-      void rememberRecentAgent(result.selection.profile?.id, usedAt);
       if (current !== generation.current) return;
       setSelection(result.selection);
+      remember(result.selection.profile?.id ?? null);
       setUnavailable(result.unavailable ?? []);
     } catch (cause) {
       if (current === generation.current)
@@ -191,37 +193,26 @@ export function AgentSelector({
       ])
     ).values(),
   ];
-  const presetIds = new Set(presets.map((preset) => preset.profile.id));
-  const nameKey = (profile: AgentProfile) => profile.name.trim().toLowerCase();
-  const nameCounts = new Map<string, number>();
-  for (const profile of uniqueProfiles) {
-    const key = nameKey(profile);
-    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
-  }
-  const hasNameConflict = (profile: AgentProfile) => (nameCounts.get(nameKey(profile)) ?? 0) > 1;
-  const sourceLabel = (profile: AgentProfile) => (presetIds.has(profile.id) ? '内置' : '自定义');
-  const sourceDescription = (profile: AgentProfile) =>
-    presetIds.has(profile.id)
-      ? 'CodeBuddy 提供的默认模板'
-      : '你保存的独立智能体，配置与内置模板分开';
-  const accessibleLabel = (profile: AgentProfile) =>
-    hasNameConflict(profile) ? `${profile.name}，${sourceLabel(profile)}` : profile.name;
-  const recentOrder = new Map(recent.map((id, index) => [id, index]));
-  const visibleProfiles = [...uniqueProfiles]
-    .sort(
-      (a, b) =>
-        (recentOrder.get(a.id ?? '') ?? recent.length) -
-          (recentOrder.get(b.id ?? '') ?? recent.length) || a.name.localeCompare(b.name, 'zh-CN')
-    )
-    .filter((profile) =>
-      profile.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
-    );
+  const recentProfiles = recent
+    .map((id) => uniqueProfiles.find((profile) => profile.id === id))
+    .filter((profile): profile is AgentProfile => Boolean(profile));
+  const defaults = (presets.length ? presets.map((preset) => preset.profile) : entries).slice(0, 5);
+  const currentProfile = uniqueProfiles.find((profile) => profile.id === selectedId);
+  const recommended = [
+    ...new Map(
+      [...(currentProfile ? [currentProfile] : []), ...recentProfiles, ...defaults].map(
+        (profile) => [profile.id, profile]
+      )
+    ).values(),
+  ];
+  const visibleProfiles = query.trim()
+    ? uniqueProfiles.filter((profile) =>
+        profile.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+      )
+    : recommended;
   const selected = sessionId
     ? selection.profile
     : allProfiles.find((profile) => profile.id === draftId);
-  // Display metadata follows renames; execution still uses the selected revision.
-  const selectedDisplay =
-    selected && (uniqueProfiles.find((profile) => profile.id === selected.id) ?? selected);
   const missingDraft = !sessionId && draftId && loaded && !selected;
   const showSelection = Boolean(selected || missingDraft);
   const updateAvailable =
@@ -231,7 +222,7 @@ export function AgentSelector({
     allProfiles.some(
       (profile) => profile.id === selected.id && (profile.revision ?? 0) > (selected.revision ?? 0)
     );
-  const roleSummary = selectedDisplay?.name;
+  const roleSummary = selected?.name;
   return (
     <div className="relative flex min-w-0 max-w-40 items-center text-xs text-text-secondary">
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -239,11 +230,6 @@ export function AgentSelector({
           <button
             type="button"
             aria-label="自定义智能体"
-            aria-description={
-              selectedDisplay && hasNameConflict(selectedDisplay)
-                ? `${sourceLabel(selectedDisplay)}：${sourceDescription(selectedDisplay)}`
-                : undefined
-            }
             title={roleSummary}
             aria-hidden={!showSelection}
             tabIndex={showSelection ? 0 : -1}
@@ -254,11 +240,14 @@ export function AgentSelector({
                 : 'pointer-events-none absolute size-px opacity-0'
             }
           >
-            {selectedDisplay && (
+            {selected && (
               <>
-                <AgentAvatar avatar={selectedDisplay.avatar} className="size-4 shrink-0" />
-                <span className="min-w-0 max-w-28 truncate @max-[36rem]/composer:hidden">
-                  {selectedDisplay.name}
+                <AgentAvatar avatar={selected.avatar} className="size-4 shrink-0" />
+                <span
+                  className="min-w-0 max-w-28 truncate @max-[36rem]/composer:hidden"
+                  title={selected.name}
+                >
+                  {selected.name}
                 </span>
                 <ChevronDown size={12} className="shrink-0" />
               </>
@@ -313,8 +302,8 @@ export function AgentSelector({
           <DropdownMenuRadioGroup
             value={selectedId}
             onValueChange={(id) => void choose(id || null)}
-            className="min-h-0 overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:hidden"
-            style={{ maxHeight: '11.25rem', scrollbarWidth: 'none' }}
+            className="min-h-0 overflow-y-auto"
+            style={{ maxHeight: '18rem', scrollbarGutter: 'stable' }}
           >
             <DropdownMenuRadioItem
               indicator="none"
@@ -324,27 +313,23 @@ export function AgentSelector({
             >
               默认助手
             </DropdownMenuRadioItem>
+            <DropdownMenuLabel className="text-[11px] font-normal text-text-secondary">
+              {query.trim()
+                ? '搜索结果'
+                : recentProfiles.length
+                  ? '最近使用与默认模板'
+                  : '默认模板'}
+            </DropdownMenuLabel>
             {visibleProfiles.map((profile) => (
               <DropdownMenuRadioItem
                 indicator="none"
                 key={profile.id}
                 value={profile.id ?? ''}
-                aria-label={accessibleLabel(profile)}
-                title={profile.name}
                 disabled={saving || !loaded || selection.legacy}
-                className="group/agent-option h-9 gap-2 rounded-lg py-2 text-xs leading-5"
+                className="h-9 gap-2 rounded-lg py-2 text-xs leading-5"
               >
                 <AgentAvatar avatar={profile.avatar} className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">{profile.name}</span>
-                {hasNameConflict(profile) && (
-                  <span
-                    aria-hidden="true"
-                    className="invisible ml-auto shrink-0 text-[11px] text-text-secondary group-hover/agent-option:visible group-focus-visible/agent-option:visible"
-                    title={sourceDescription(profile)}
-                  >
-                    {sourceLabel(profile)}
-                  </span>
-                )}
               </DropdownMenuRadioItem>
             ))}
             {query.trim() && !visibleProfiles.length && (

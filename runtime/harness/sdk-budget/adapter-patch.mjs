@@ -21,6 +21,7 @@ export const adapterPatch = {
     };
     replace('import { homedir } from "node:os";', `import { homedir } from "node:os";
 import { countVllmInput, requestBudgetChannel } from ${JSON.stringify(new URL('./vllm-count.mjs', import.meta.url).href)};
+import { gemmaCallTransport } from ${JSON.stringify(new URL('../gemma-call-transport.mjs', import.meta.url).href)};
 import { gemmaToolResponseStop } from ${JSON.stringify(new URL('../gemma-response.mjs', import.meta.url).href)};
 import { randomUUID as requestFitId } from "node:crypto";
 import { normalizeContext as normalizeRequestFitContext } from "@earendil-works/pi-ai/utils/transcript";
@@ -111,10 +112,12 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\tif (options.signal?.aborted) throw new LlmError("pi-ai request aborted by caller", "ABORTED");
 \t\tif (prepared.fit.desiredMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError(\`pi-ai request maxTokens must be at least \${prepared.fit.minimumMaxTokens} for this protocol\`, "INVALID_OUTPUT_BUDGET", { requestId: prepared.fit.requestId });
 \t\tif (prepared.fit.available < prepared.fit.minimumMaxTokens || prepared.fit.effectiveMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError("pi-ai request cannot reserve the protocol's minimum output budget after context safety reservation", "LOCAL_OUTPUT_BUDGET_EXHAUSTED", { requestId: prepared.fit.requestId });`);
+    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE, ...(requestFit ? { requestId: requestFit.requestId } : {})\n');
     // Reasoning still resolves against the captured model/profile when streaming.
     replace('\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst apiKey', '\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst reasoning = resolveReasoningLevel(model, options.reasoningEffort ?? profile.reasoning);\n\t\t\tconst apiKey');
-    replace('\t\t\t\tconst iterator = toStreamChunks', '\t\t\t\tconst reportedOutput = { tokens: void 0 };\n\t\t\t\tconst iterator = toStreamChunks');
+    replace('\t\t\t\tconst iterator = toStreamChunks', '\t\t\t\tconst reportedOutput = { tokens: void 0 };\n\t\t\t\tconst recovery = gemmaCallTransport(this, model, options.sessionId);\n\t\t\t\tconst iterator = toStreamChunks');
     replace('\t\t\t\t\theaders: requestHeaders(profile.headers)\n', `\t\t\t\t\theaders: requestHeaders(profile.headers),
+\t\t\t\t\t...(recovery ? {fetch: recovery.fetch} : {}),
 \t\t\t\t\tonPayload: payload => {
 \t\t\t\t\t\tpayload = gemmaToolResponseStop(payload, model);
 \t\t\t\t\t\tif (fit.source !== "vllm-tokenizer") return payload;
@@ -128,6 +131,9 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\t\t\t\t\tawait options.onProviderStreamEvent?.(event, requestModel);
 \t\t\t\t\t}
 `);
+    replace('yield result.value;', `const block = result.value.type === "block-end" && result.value.block;
+                        if (recovery && block?.type === "tool-call" && (!block.id?.trim() || !block.name?.trim())) recovery.rejectIncompleteCall();
+                        yield result.value;`);
     replace('}), model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]();', '}), model.contextWindow, options.signal, model.id, fit, reportedOutput)[Symbol.asyncIterator]();');
     // Pi normalizes absent output usage to zero. Preserve presence only at its
     // public raw-event observer; final normalized usage cannot distinguish them.
@@ -150,9 +156,6 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 function mapStopReason(message, contextWindow, requestFit, reportedOutputTokens) {`);
     replace('\tconst piAiOverflow = isContextOverflow(message, contextWindow);', `\tconst hasReportedOutput = reportedOutputTokens !== void 0 && message.usage.output === reportedOutputTokens;
 \tconst piAiOverflow = (message.stopReason !== "length" || hasReportedOutput) && isContextOverflow(message, contextWindow);`);
-    // Keep the auxiliary failure tied to the exact prepared route/snapshot.
-    // Main-request overflow continues through the unchanged native handler.
-    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE,\n\t\t\t...requestFit?.purpose === "compaction" ? { requestId: requestFit.requestId } : {}\n');
     replace('\t\tcase "length": return { kind: "max-tokens" };', `\t\tcase "length":
 \t\t\tif (requestFit !== void 0 && requestFit.outputCapApplied !== false && hasReportedOutput && isRecoverableLength(message, requestFit.desiredMaxTokens)) return {
 \t\t\t\tkind: "error",

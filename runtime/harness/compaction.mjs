@@ -68,19 +68,15 @@ export function installCompactionRequestCompatibility(ctx, currentEffort = () =>
   return ctx.on('llm/stream', (options, next) => {
     if (options.purpose !== 'compaction' || options.reasoningEffort !== undefined) return next();
     const agent = ctx.agents.get(options.sessionId);
-    if (!agent) return next();
-    const pending = ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending;
-    const effort = currentEffort(agent);
-    if (pending) {
-      if (pending.provider !== options.provider || pending.model !== options.model) return next();
-      const selectedEffort = effort ?? pending.reasoningEffort;
-      return selectedEffort === undefined ? next() : ctx.llm.stream({ ...options, reasoningEffort: selectedEffort });
-    }
     const route = agent?.session.requestHeader()?.config;
     if (!route || route.reasoningEffort === undefined ||
         route.provider !== options.provider || route.model !== options.model) return next();
     // Session Controller owns live selection; AgentOptions are creation-time
     // defaults and need not match a routed request. Respect a pending switch.
+    const pending = ctx.sessionProjections.stateOf(agent.session, 'modelSelection')?.pending;
+    const effort = currentEffort(agent);
+    if (pending && (pending.provider !== route.provider || pending.model !== route.model ||
+        (effort ?? pending.reasoningEffort) !== route.reasoningEffort)) return next();
     if (effort !== undefined && effort !== route.reasoningEffort) return next();
     return ctx.llm.stream({ ...options, reasoningEffort: route.reasoningEffort });
   });
@@ -138,7 +134,6 @@ export default class CompactionEngine extends BasicCompactionEngine {
 
   async summarize(input, agent, signal) {
     signal?.throwIfAborted();
-    if (this.modelError) throw new Error(this.modelError);
     const first = input.messages[0]?.role === 'system' ? 1 : 0;
     const message = input.messages[first];
     // Local fit preparation may shrink a larger region to its old checkpoint.

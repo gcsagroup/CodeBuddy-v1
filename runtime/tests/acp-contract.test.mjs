@@ -994,18 +994,21 @@ test("frozen renderer receives the source user before first assistant delta and 
   await configure(client);
   const sessionId = await newSession(client, dataDir);
   const sourceId = "zz-source-user";
+  // Exercise equal-timestamp ordering deterministically, even if setup crosses
+  // a wall-clock second. Timers stay real so the live stream can settle.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   const prompt = client.request("session/prompt", {
     sessionId,
     prompt: [{ type: "text", text: "Question fixture" }],
     _meta: { "codeagentpro/source-message-id": sourceId },
   });
   try {
-    const deadline = Date.now() + 4000;
+    const deadline = performance.now() + 4000;
     while (
       !updates(client, sessionId).some(
         (update) => update.sessionUpdate === "agent_message_chunk",
       ) &&
-      Date.now() < deadline
+      performance.now() < deadline
     )
       await delay(5);
     const createAdapter = await originalRendererAdapter();

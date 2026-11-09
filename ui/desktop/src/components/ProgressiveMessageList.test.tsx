@@ -1,5 +1,4 @@
 import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
-import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { ActivityEvent } from '../types/activityEvent';
@@ -391,9 +390,7 @@ describe('work / answer presentation boundary', () => {
       const missingReply = screen.queryByText(/The model response ended without a final reply/);
       expect(missingReply !== null).toBe(notice);
       if (missingReply) expect(missingReply).toBeVisible();
-      expect(
-        screen.queryByText(/Private reasoning with/, { selector: '.codepro-assistant-prose *' })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Private reasoning with/)).not.toBeInTheDocument();
       expect(screen.queryByText('FAIL')).not.toBeInTheDocument();
       expect(screen.queryByText('PASS')).not.toBeInTheDocument();
       expect(JSON.stringify(trace)).toBe(original);
@@ -517,7 +514,9 @@ describe('work / answer presentation boundary', () => {
       ).not.toBeInTheDocument();
       expect(screen.queryByText('Completed 0 operations')).not.toBeInTheDocument();
       fireEvent.click(history);
-      expect(view.container.querySelector('.codepro-thinking-details')).toBeNull();
+      expect(
+        screen.queryByText('Consider the greeting without any tools.')
+      ).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: 'Thinking', expanded: false }));
       expect(screen.getByText('Consider the greeting without any tools.')).toBeVisible();
@@ -1185,9 +1184,13 @@ describe('CodePro ordinary tool message presentation', () => {
     openProcess();
     expect(screen.queryByText('Find available tools')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reasoning details' })).toBeNull();
-    for (const toggle of screen.getAllByRole('button', { name: /^Thinking(?: \(updating\))?$/ })) {
-      if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
-    }
+    expect(compactGroups()[0].querySelectorAll('button')).toHaveLength(1);
+    expect(
+      screen.getByRole('region', { name: 'Tool operation records' }).querySelector('button')
+    ).toBeNull();
+    expect(compactGroups()[0].querySelector('.codepro-operation-details')?.className).not.toMatch(
+      /max-h-|overflow-y-auto|overflow-y-scroll/
+    );
     for (const text of ['First thought.', 'Continued thought.', 'After discovery.'])
       expect(screen.getByText(text)).toBeVisible();
     expect(records).toEqual(original);
@@ -1721,41 +1724,6 @@ describe('ProgressiveMessageList retention window', () => {
     expect(compactGroups()).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
     expect(compactGroups()[0].querySelectorAll('.goose-message-tool')).toHaveLength(25);
-  });
-
-  it('keeps unchanged message bodies rendered when following changes, and presents new content', () => {
-    const messages = [message(1)];
-    const chat = { sessionId: 'scroll-render-boundary' };
-    const isUserMessage = () => false;
-    let changeFollowing: (following: boolean) => void = () => {};
-    let changeMessages: (history: Message[]) => void = () => {};
-    const renderMessage = vi.fn((item: Message) => (
-      <div>{item.content.map((part) => (part.type === 'text' ? part.text : '')).join('')}</div>
-    ));
-    function List() {
-      const [following, setFollowing] = useState(true);
-      const [history, setHistory] = useState(messages);
-      changeFollowing = setFollowing;
-      changeMessages = setHistory;
-      return (
-        <ScrollFollowingContext.Provider value={following}>
-          <ProgressiveMessageList
-            messages={history}
-            chat={chat}
-            isUserMessage={isUserMessage}
-            renderMessage={renderMessage}
-          />
-        </ScrollFollowingContext.Provider>
-      );
-    }
-    render(<List />, { wrapper: IntlTestWrapper });
-    const bodyRenders = renderMessage.mock.calls.length;
-    act(() => changeFollowing(false));
-    act(() => changeFollowing(true));
-    expect(renderMessage).toHaveBeenCalledTimes(bodyRenders);
-    act(() => changeMessages([message(2)]));
-    expect(screen.getByText('message 2')).toBeVisible();
-    expect(screen.queryByText('message 1')).toBeNull();
   });
 
   it('loads older history on scroll without a load-more button', () => {

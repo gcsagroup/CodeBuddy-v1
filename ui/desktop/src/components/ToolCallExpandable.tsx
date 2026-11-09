@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -79,32 +78,6 @@ export function ToolCallExpandable({
   const following = useRef(true);
   const chatFollowing = useContext(ScrollFollowingContext);
   const wasSettled = useRef(collapseOnSettle);
-  const updateScrollEdges = useCallback(() => {
-    const element = viewport.current;
-    if (!element || !compact || !groupHeading || !scrollable) return;
-    element.dataset.scrolled = String(element.scrollTop > 1);
-    element.dataset.moreBelow = String(
-      element.scrollHeight - element.clientHeight - element.scrollTop > 1
-    );
-  }, [compact, groupHeading, scrollable]);
-
-  useLayoutEffect(() => {
-    if (!expanded) return;
-    updateScrollEdges();
-    const element = viewport.current;
-    if (
-      !element ||
-      !compact ||
-      !groupHeading ||
-      !scrollable ||
-      typeof ResizeObserver === 'undefined'
-    )
-      return;
-    const observer = new ResizeObserver(updateScrollEdges);
-    observer.observe(element);
-    for (const child of Array.from(element.children)) observer.observe(child);
-    return () => observer.disconnect();
-  }, [expanded, compact, groupHeading, scrollable, updateScrollEdges]);
 
   useLayoutEffect(() => {
     if (
@@ -151,7 +124,6 @@ export function ToolCallExpandable({
   const updateReadingPosition = () => {
     const element = viewport.current;
     if (!element) return;
-    updateScrollEdges();
     const selection = window.getSelection();
     const selecting =
       selection?.isCollapsed === false &&
@@ -166,8 +138,7 @@ export function ToolCallExpandable({
     if (expanded && scrollable && (!collapsible || live) && following.current && viewport.current) {
       viewport.current.scrollTop = viewport.current.scrollHeight;
     }
-    if (expanded) updateScrollEdges();
-  }, [children, collapsible, scrollable, live, expanded, updateScrollEdges]);
+  }, [children, collapsible, scrollable, live, expanded]);
 
   useEffect(() => {
     if (isForceExpand) setExpanded(true);
@@ -269,12 +240,7 @@ export function ToolCallExpandable({
           )}
         </div>
       )}
-      <CollapsibleContent
-        className={cn(
-          hasOpened.current && 'codepro-disclosure-content',
-          compact && 'codepro-process-disclosure'
-        )}
-      >
+      <CollapsibleContent className={cn(hasOpened.current && 'codepro-disclosure-content')}>
         <div
           ref={viewport}
           tabIndex={compact && scrollable ? 0 : undefined}

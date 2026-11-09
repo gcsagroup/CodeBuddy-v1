@@ -112,7 +112,18 @@ export function ContextWindowIndicator({
             strokeWidth="3"
             className="opacity-20"
           />
-          {percentage !== undefined && fill > 0 && (
+          {percentage === undefined ? (
+            <circle
+              cx="10"
+              cy="10"
+              r="7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="2 4"
+              className="opacity-40"
+            />
+          ) : (
             <circle
               cx="10"
               cy="10"

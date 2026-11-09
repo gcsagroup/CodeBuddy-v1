@@ -3794,6 +3794,15 @@
   "headersSection.value": {
     "defaultMessage": "Giá trị"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "Chào buổi chiều"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "Chào buổi tối"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "Chào buổi sáng"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Tải xuống"
   },
@@ -5905,6 +5914,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Chi tiết suy luận"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
@@ -9269,6 +9281,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9277,6 +9292,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9863,6 +9881,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Chưa rõ trạng thái · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
+  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9887,6 +9908,9 @@
   "loadingGoose.compactionWait": {
     "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
   },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "Đang chờ phê duyệt"
+  },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
   },
@@ -9901,74 +9925,5 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
-  },
-  "common.cancel": {
-    "defaultMessage": "Hủy"
-  },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "Tải thêm"
-  },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "Làm mới mô hình"
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Không thể làm mới một số kết nối. Danh sách trước đó vẫn được hiển thị. Vui lòng thử lại."
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "Đã cập nhật danh sách mô hình."
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "Đang làm mới mô hình…"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "Lưu trữ các cuộc trò chuyện trong dự án"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "Lưu trữ {count} cuộc trò chuyện trong {name}? Các tệp dự án không thay đổi. Có thể khôi phục cuộc trò chuyện từ Lịch sử."
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "Cuộc trò chuyện mới trong dự án"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "Ghim dự án"
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "Thao tác dự án"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "Bỏ ghim dự án"
-  },
-  "runtime.sourceChanged": {
-    "defaultMessage": "Môi trường thực thi đã được cập nhật. Hoàn thành các tác vụ đang chạy, sau đó đóng và khởi động lại CodeBuddy để tải thay đổi."
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "Cuộc trò chuyện hiện tại đã được đồng bộ."
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "Đang kết nối trong nền…"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "Lựa chọn tùy chỉnh"
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "Cuộc trò chuyện mới sử dụng các chức năng được bật trong hộp công cụ. Cuộc trò chuyện tùy chỉnh hiện có giữ nguyên lựa chọn."
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "Kết nối thất bại"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "Theo hộp công cụ"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "Đã lưu · Thay đổi áp dụng trước lượt tiếp theo. Tác vụ hiện tại vẫn tiếp tục."
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "Đã kết nối"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "Lựa chọn do tác nhân xác định"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "Thử kết nối lại"
   }
 }

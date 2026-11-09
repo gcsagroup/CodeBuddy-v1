@@ -16,8 +16,8 @@ it('replaces old readiness with pending, failure and removal from the same autho
   const { rerender } = render(view(state));
   expect(screen.getByRole('status')).toHaveTextContent('Connected');
   rerender(view({ ...state, pending: true, running: true }));
-  expect(screen.getByRole('status')).toHaveTextContent('changes apply before the next turn');
-  expect(screen.getByRole('button')).toBeDisabled();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
   rerender(view({ ...state, statuses: [{ serverName: 'remote', status: 'error' }] }));
   expect(screen.getByRole('status')).toHaveTextContent('Connection failed');
   rerender(view({ ...state, selected: [], statuses: [] }));

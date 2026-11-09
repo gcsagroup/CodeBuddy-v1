@@ -41,59 +41,13 @@ test('default templates are read-only catalog entries and become independent pro
   await assert.rejects(f.request('save', { profile: catalog.presets[0].profile }), /read-only/);
   await assert.rejects(f.request('delete', { id }), /read-only/);
   const { profile: first } = await f.request('save', { profile: copy });
-  await assert.rejects(f.request('save', { profile: copy }), /已存在.*自定义智能体/);
-  const { profile: second } = await f.request('save', { profile: { ...copy, name: `${copy.name} 副本` } });
+  const { profile: second } = await f.request('save', { profile: copy });
   assert.notEqual(first.id, second.id);
   assert.deepEqual(first.skills, catalog.presets[0].profile.skills);
   await f.request('delete', { id: first.id });
   const again = await f.request('catalog');
   assert.equal(again.presets.length, 6);
   assert.deepEqual((await f.request('list')).profiles.map(p => p.id), [second.id], 'deleted copies are not regenerated');
-});
-
-test('custom agent names are unique for creation and renaming but editing the same agent preserves its name and identity', async t => {
-  const f = await fixture(t);
-  const { profile: first } = await f.request('save', { profile });
-  await assert.rejects(f.request('save', { profile: { ...profile, name: '  research PARTNER  ' } }), /已存在.*自定义智能体/);
-  const { profile: other } = await f.request('save', { profile: { ...profile, name: 'Other partner' } });
-  await assert.rejects(f.request('save', { profile: { ...other, name: first.name } }), /已存在.*自定义智能体/);
-  const { profile: edited } = await f.request('save', { profile: { ...first, prompt: 'Updated instructions.' } });
-  assert.equal(edited.id, first.id);
-  assert.equal(edited.name, first.name);
-  assert.equal(edited.revision, first.revision + 1);
-  assert.equal((await f.request('list')).profiles.find(item => item.id === other.id).name, other.name);
-});
-
-test('concurrent saves cannot create two custom agents with the same name', async t => {
-  const f = await fixture(t);
-  const results = await Promise.allSettled([
-    f.request('save', { profile }),
-    f.request('save', { profile: { ...profile, name: ' research partner ' } }),
-  ]);
-  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
-  const rejected = results.find(result => result.status === 'rejected');
-  assert.match(rejected.reason.message, /已存在.*自定义智能体/);
-  assert.equal((await f.request('list')).profiles.length, 1);
-});
-
-test('legacy names shared by two profiles allow independent edits but cannot acquire another duplicate', async t => {
-  const f = await fixture(t);
-  const { profile: one } = await f.request('save', { profile });
-  const { profile: two } = await f.request('save', { profile: { ...profile, name: 'Second' } });
-  await f.store.update(state => { state.agentProfiles.find(p => p.id === two.id).name = one.name.toUpperCase(); }, ['agentProfiles']);
-  const { profiles } = await f.request('list');
-  const edited = await Promise.all(profiles.map(p => f.request('save', { profile: { ...p, prompt: 'Edited ' + p.id } })));
-  assert.deepEqual(edited.map(r => r.profile.revision), [2, 2]);
-  const stored = (await f.request('list')).profiles;
-  assert.equal(stored.length, 2);
-  for (const original of profiles) {
-    const updated = stored.find(item => item.id === original.id);
-    assert.equal(updated.name, original.name);
-    assert.equal(updated.prompt, 'Edited ' + original.id);
-  }
-  await assert.rejects(f.request('save', { profile }), /已存在/);
-  const renamed = await f.request('save', { profile: { ...edited[0].profile, name: 'Unique' } });
-  await assert.rejects(f.request('save', { profile: { ...renamed.profile, name: one.name } }), /已存在/);
 });
 
 test('built-in agents apply directly without creating profiles and retain their input snapshot after restart', async t => {

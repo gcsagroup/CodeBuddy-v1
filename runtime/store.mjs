@@ -90,7 +90,7 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     if (elapsed >= 50) report({ operation: 'read', at_ms: Date.now(), elapsed_ms: elapsed, roots: keys ?? null });
     return result;
   };
-  const update = (fn, keys, sessionId) => {
+  const update = (fn, keys, sessionId, insertingSession = false) => {
     const queuedAt = Date.now(), queued = performance.now();
     // A scoped draft never exposes unchanged history to its writer. All
     // updates still share the same queue and atomically replace one snapshot.
@@ -108,12 +108,16 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
       try {
         const index = sessionId === undefined ? -1 : state.sessions.findIndex(session => session.id === sessionId);
         if (sessionId !== undefined && index === -1) throw new Error(`Transcript session is missing: ${sessionId}`);
-        const draft = structuredClone(sessionId !== undefined ? state.sessions[index]
+        const draft = insertingSession ? undefined : structuredClone(sessionId !== undefined ? state.sessions[index]
           : roots === undefined ? state : Object.fromEntries(roots.map(key => [key, state[key]])));
         measure('clone_ms');
         const value = await fn(draft);
         const next = roots === undefined ? draft : { ...state };
-        if (sessionId !== undefined) {
+        if (insertingSession) {
+          if (typeof value?.id !== 'string' || !value.id || state.sessions.some(session => session.id === value.id))
+            throw new TypeError('New session must have a unique identity');
+          next.sessions = [...state.sessions, structuredClone(value)];
+        } else if (sessionId !== undefined) {
           if (draft.id !== sessionId) throw new TypeError('Store session update changed its identity');
           // The writer may retain its draft or return a nested value. Neither
           // reference may mutate the committed session behind the byte cache.
@@ -245,6 +249,11 @@ export async function openStore(dataDir, { replaceFile = rename, defaultModel, o
     updateSession(id, fn, _options = {}) {
       if (typeof id !== 'string' || !id.length) return Promise.reject(new TypeError('Session id is required'));
       return update(fn, ['sessions'], id);
+    },
+    // The factory runs in the same durable commit queue. It can read current
+    // metadata for uniqueness checks without copying unrelated transcripts.
+    insertSession(create) {
+      return update(create, ['sessions'], undefined, true);
     },
     flush: () => tail,
   };

@@ -104,6 +104,8 @@ export function SessionToolAccess({
       setBusy(false);
     }
   };
+  if (selected && state?.pending && !busy && !failed) return null;
+
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-2 border-t border-border-secondary px-4 py-2.5 text-xs"

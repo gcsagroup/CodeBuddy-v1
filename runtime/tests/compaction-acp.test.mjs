@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { setTimeout as wait } from 'node:timers/promises';
 import { build } from '../../ui/node_modules/esbuild/lib/main.js';
 import { createCompatServer } from '../server.mjs';
 import { unfinishedCompactions, recoveredCompactionUpdates } from '../context-updates.mjs';
@@ -174,6 +175,17 @@ test('a process killed during compaction restarts without a stale renderer spinn
   const persisted = await Promise.all(logs.map(file => readFile(path.join(persistedRoot, file), 'utf8')));
   assert.ok(persisted.some(content => content.includes('shipping is never taxed')), 'completed response must have durable original facts before compaction begins');
   slow = true; const running = prompt('/compact').catch(error => error); await started.promise;
+  // Kill an actually persisted maintenance operation. The HTTP request can
+  // precede the native journal writer's batch flush on a busy host.
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    const journals = await Promise.all(logs.map(file => readFile(path.join(persistedRoot, file), 'utf8')));
+    if (journals.some(content => content.split('\n').some(line => {
+      try { return JSON.parse(line).type === 'compaction/start'; } catch { return false; }
+    }))) break;
+    assert.ok(Date.now() < deadline, 'compaction start must become durable before the crash fixture');
+    await wait(20);
+  }
   await kill(); assert.match((await running).message, /disconnected/);
   slow = false; await connect(); notifications.length = 0;
   await rpc('session/load', { sessionId, cwd: root, mcpServers: [] });

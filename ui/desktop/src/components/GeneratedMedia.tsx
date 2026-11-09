@@ -8,6 +8,9 @@ import { openWorkspaceFile } from '../workspace-panel/workspaceFilePanel';
 import { useMediaJobs, resolveMediaOutput } from '../workspace-panel/WorkspaceGeneration';
 
 const DeliveredMediaContext = createContext<ReadonlySet<string>>(new Set());
+export function useHasDeliveredMedia() {
+  return useContext(DeliveredMediaContext).size > 0;
+}
 export function DeliveredMediaScope({ paths, children }: { paths: string[]; children: ReactNode }) {
   const key = JSON.stringify(paths.map((path) => path.replace(/\\/g, '/')));
   const value = useMemo(() => new Set<string>(JSON.parse(key)), [key]);
@@ -54,7 +57,7 @@ export function mediaOutputPaths(receipt?: Record<string, unknown>): string[] {
   const entries = 'images' in receipt ? receipt.images : 'videos' in receipt ? receipt.videos : [];
   if (!Array.isArray(entries)) return [];
   return entries
-    .flatMap((item) => (item && typeof item.path === 'string' ? [item.path] : []))
+    .flatMap((item) => (item && typeof item.path === 'string' && item.path.trim() ? [item.path] : []))
     .slice(0, 8);
 }
 

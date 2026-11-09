@@ -1,5 +1,7 @@
 # Toolbox and installation model defaults
 
+When editing an existing model connection, selecting a discovered model and choosing **Verify and save** also makes it the default for new conversations after successful validation. Failed validation preserves the default; existing conversations retain their model selection. Initial validation or an explicit refresh may probe supported thinking levels, and unsupported levels can return HTTP 400. Repeated model-list reads reuse these probes while the cache remains valid and model capabilities are unchanged. A changing server `created` timestamp does not count as a capability change.
+
 Fresh installations include **CodeBuddy LAN (Gemma-4)**, selected by default, and **CodeBuddy LAN · Qwen**. The Ollama Cloud distribution preset and shared-key import have been removed. Packaging explicitly excludes the legacy `runtime/distribution-credentials.json`, even if it remains in a local build checkout. Existing user-configured connections and credentials are preserved. Users can still add providers and enter their own credentials in Settings.
 
 On 2026-11-06, `Qwen3.8-27B-FP4` and `Qwen3.8-27B-CyberSecurity` at `http://192.168.9.120:8001` were added. Both are available alongside Gemma-4 in the model picker on first launch without entering credentials. The default main and image-recognition model remain Gemma-4. Both Qwen models passed basic requests against the real service and actual conversations in the isolated desktop; this does not establish image or tool-calling support.

@@ -88,7 +88,7 @@ async function fixtureServer(root) {
       res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] }));
       return;
     }
-    const lastUser = request.messages.findLastIndex(message => message.role === 'user' && JSON.stringify(message.content).includes('bridge_fixture_'));
+    const lastUser = request.messages.findLastIndex(message => message.role === 'user' && typeof message.content === 'string' && message.content.startsWith('bridge_fixture_'));
     const prompt = JSON.stringify(request.messages[lastUser]?.content) ?? '';
     if (prompt.includes('bridge_fixture_error')) {
       res.writeHead(400, { 'content-type': 'application/json' });

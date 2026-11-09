@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { RuntimeSettings } from '../settings.mjs';
 import { LibraryService } from '../library.mjs';
 import { openStore } from '../store.mjs';
@@ -56,7 +56,7 @@ test('only an unambiguous installed CLI with publisher-fixed arguments reaches d
 });
 
 test('chat installation uses one-shot consent, verified settings, and conflict-checked skill publication', async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'cb-chat-install-'));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'cb-chat-install-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = await openStore(path.join(root, 'profile'));
   const session = { id: 'chat', cwd: path.join(root, 'project'), extensions: ['developer'] };

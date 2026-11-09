@@ -240,6 +240,24 @@ test('explicit plan selection is validated and forwarded to the native owner', a
   await assert.rejects(f.request('session/prompt', { sessionId: f.sessionId, prompt: [{ type: 'text', text: 'Bad mode' }], _meta: { 'codebuddy/plan': 'yes' } }), /boolean/);
 });
 
+test('opening plan and goal state does not prepare execution tools; the next prompt still does', async t => {
+  const f = await fixture(t);
+  const goal = { id: 'native-restored-goal', revision: 3, phase: 'paused', objective: 'Keep historical goal' };
+  f.driver.getGoal = async id => { assert.equal(id, f.sessionId); return goal; };
+  f.driver.getPlanMode = async id => { assert.equal(id, f.sessionId); return { active: true }; };
+  assert.equal(f.sessions.length, 0);
+  for (let i = 0; i < 3; i++) {
+    assert.deepEqual(await f.request('_goose/unstable/session/plan/get', { sessionId: f.sessionId }), { plan: { active: true } });
+    assert.deepEqual(await f.request('_goose/unstable/session/goal/get', { sessionId: f.sessionId }), { goal });
+  }
+  assert.equal(f.sessions.length, 0, 'Read-only toolbar queries must not initialize MCP connections');
+  f.scripts.push(async () => {
+    assert.equal(f.sessions.length, 1, 'Execution still prepares the selected session capabilities');
+    return { stopReason: 'end_turn', reason: { kind: 'completed' } };
+  });
+  await f.prompt('Execute the next real task');
+});
+
 test('saved connection cards read locally without waiting for model metadata; the model picker filters live capabilities', { timeout: 3000 }, async t => {
   const f = await fixture(t);
   await f.store.update(state => {

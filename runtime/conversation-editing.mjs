@@ -5,6 +5,25 @@ const metaId = update => update.messageId ?? update._meta?.goose?.messageId;
 const digest = session => createHash('sha256').update(JSON.stringify([session.nativeSessionId ?? session.id, session.updates ?? [], session.usageUpdates ?? [], session.agentSelection, session.agentInputs, session.agentProfile])).digest('hex');
 const countMessages = updates => new Set(updates.filter(u => ['user_message_chunk', 'agent_message_chunk', 'agent_thought_chunk', 'tool_call', 'tool_call_update'].includes(u.sessionUpdate)).map(metaId).filter(Boolean)).size;
 
+function forkTitle(source, sessions) {
+  const byId = new Map(sessions.map(session => [session.id, session]));
+  const root = session => {
+    const seen = new Set();
+    while (!session.userSetName && session.forkedFrom && !seen.has(session.id)) {
+      seen.add(session.id);
+      const parent = byId.get(session.forkedFrom.sessionId);
+      if (!parent) break;
+      session = parent;
+    }
+    return session;
+  };
+  const original = root(byId.get(source.id));
+  const titles = new Set(sessions.map(session => session.title));
+  let number = Math.max(1, sessions.filter(session => root(session).id === original.id).length);
+  while (titles.has(`${original.title} (${number})`)) number++;
+  return `${original.title} (${number})`;
+}
+
 function prefixBeforeMessage(session, id) {
   if (typeof id !== 'string' || !id) throw invalid('Conversation boundary must be a user message id');
   const updates = session.updates ?? [];
@@ -37,7 +56,7 @@ export class ConversationEditing {
     if (!this.handles(method)) throw Object.assign(new Error(`Unsupported conversation operation: ${method}`), { code: -32601 });
     if (typeof params.sessionId !== 'string' || !params.sessionId) throw invalid('Session id is required');
     return this.driver.withConversationLock(params.sessionId, async () => {
-      const source = this.store.read().sessions.find(s => s.id === params.sessionId);
+      const source = this.store.readSession(params.sessionId);
       if (!source) throw invalid('Session not found');
       if (source.readonlyHistory) throw invalid('Imported history is read-only; start a new task');
       if (source.archivedAt) throw invalid('Unarchive this session before editing or copying it');
@@ -72,27 +91,33 @@ export class ConversationEditing {
       if (isTruncate) await this.beforeTruncate?.(source);
       const now = new Date().toISOString();
       let result;
-      await this.store.update(state => {
-        const live = state.sessions.find(s => s.id === source.id);
+      const validate = live => {
         if (!live || digest(live) !== snapshot || this.isActive(source.id)) throw invalid('Conversation changed while the fork was being prepared; retry');
-        if (isTruncate) {
+      };
+      if (isTruncate) {
+        await this.store.updateSession(source.id, live => {
+          validate(live);
           live.nativeSessionId = forked.sessionId;
           live.updates = prefix.updates; live.usageUpdates = prefix.usageUpdates;
           live.messageCount = countMessages(prefix.updates); live.updatedAt = now;
           live.conversationEdits ??= [];
           live.conversationEdits.push({ id: randomUUID(), createdAt: now, previousNativeSessionId: nativeSourceId, nativeSessionId: forked.sessionId, ...(isClear ? { cleared: true } : { truncateFrom: cutoff, beforeRequestId: prefix.requestId }), workspaceEffectsRetained: true });
           result = {};
-        } else {
+        });
+      } else {
+        await this.store.insertSession(() => {
+          validate(this.store.readSession(source.id));
+          const sessions = this.store.read(['sessions'], { sessionFields: ['id', 'title', 'forkedFrom', 'userSetName'] }).sessions;
           const id = randomUUID();
-          const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: `${source.title} (fork)`, createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }), ...(boundaryId === undefined ? {} : { conversationBeforeMessageId: boundaryId }) } };
+          const copy = { id, nativeSessionId: forked.sessionId, type: 'user', title: forkTitle(source, sessions), createdAt: now, updatedAt: now, updates: prefix.updates, usageUpdates: prefix.usageUpdates, messageCount: countMessages(prefix.updates), forkedFrom: { sessionId: source.id, nativeSessionId: nativeSourceId, ...(cutoff === undefined ? {} : { conversationBefore: cutoff }), ...(boundaryId === undefined ? {} : { conversationBeforeMessageId: boundaryId }) } };
           for (const key of ['cwd', 'providerId', 'modelId', 'mode', 'workspaceBinding', 'workspaceOrigin', 'projectId', 'extensions', 'extensionDefinitions', 'protectedMcpServers', 'mcpServers', 'recipe', 'userRecipeValues', 'temperature']) if (source[key] !== undefined) copy[key] = source[key];
           // The native prefix still refers to its original input identities.
           // Copy configuration snapshots, never resolve old turns from today's template.
           for (const key of ['agentProfile', 'agentSelection', 'agentInputs']) if (source[key] !== undefined) copy[key] = structuredClone(source[key]);
-          state.sessions.push(copy);
           result = { sessionId: id };
-        }
-      });
+          return copy;
+        });
+      }
       await this.onChanged(isTruncate ? source.id : result.sessionId);
       if (isTruncate) {
         try { await this.driver.releaseNativeSessionCapabilities?.(nativeSourceId); }

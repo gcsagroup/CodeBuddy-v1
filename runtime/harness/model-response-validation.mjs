@@ -1,10 +1,11 @@
 import { chunkHasVisibleText, EMPTY_RESPONSE_CODE, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { normalizeGemmaResponse } from './gemma-response.mjs';
+import { validateCommandReport } from './command-evidence.mjs';
 
 // The pinned pi-ai adapter counts reasoning as nonempty content. Validate the
 // response at its public seam; native llm-retry retains all recovery authority.
 // Remove when the upstream adapter classifies reasoning-only stops itself.
-export function installModelResponseValidation(ctx) {
+export function installModelResponseValidation(ctx, evidenceFor = () => undefined) {
   return ctx.on('llm/stream', (options, next) => {
     if (!isAgentLoopRequest(options)) return next();
     const stream = () => /^gemma-?4(?:[-:]|$)/i.test(options.model?.split('/').at(-1) ?? '')
@@ -21,7 +22,7 @@ export function installModelResponseValidation(ctx) {
     if (!agent || agent.session.header.origin === 'subagent' || input?.source?.kind !== 'user') return stream();
     return (async function* () {
       let productive = false;
-      for await (const chunk of stream()) {
+      for await (const chunk of validateCommandReport(ctx, options, stream(), evidenceFor(agent))) {
         // Content blocks are merge-extensible. Leave other completed block
         // kinds to Harness instead of declaring future media/tool updates empty.
         productive ||= chunkHasVisibleText(chunk) ||

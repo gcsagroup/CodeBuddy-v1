@@ -29,7 +29,6 @@ test.beforeAll(async () => {
           : undefined,
   });
   page = await browser.newPage({ viewport: { width: 1000, height: 760 } });
-  page.on('pageerror', error => console.error('Browser error:', error.message));
 });
 
 test.afterAll(async () => {
@@ -241,272 +240,12 @@ async function settle() {
   await page.waitForTimeout(400);
 }
 
-test('only the active single thought animates its Atom while the turn is streaming', async () => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?process-icons&single-thought`);
-  const groups = page.locator('[data-process-group]');
-  await expect(groups).toHaveCount(2);
-  await groups.first().getByRole('button').first().click();
-  const past = groups.first().locator('svg.lucide-atom');
-  const current = groups.last().locator('svg.lucide-atom');
-  const animating = (icon: Locator) => icon.evaluate(el => el.getAnimations().some(animation => animation.playState === 'running'));
-  await expect(past).toBeVisible();
-  await expect.poll(() => animating(current)).toBe(true);
-  expect(await animating(past)).toBe(false);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect.poll(() => animating(current)).toBe(false);
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect.poll(() => animating(current)).toBe(true);
-  await page.getByRole('button', { name: 'End thinking' }).click();
-  await expect(current).toBeVisible();
-  await expect.poll(() => animating(current)).toBe(false);
-});
-
-test('completed history with a failed receipt keeps its icon still while current work animates', async () => {
-  const errors: string[] = [];
-  const onError = (error: Error) => errors.push(error.message);
-  page.on('pageerror', onError);
-  await page.goto(
-    `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?process-icons`
-  );
-  const groups = page.locator('[data-process-group]');
-  await expect(groups).toHaveCount(2);
-  const past = groups.nth(0).locator('.codepro-record-icon').first();
-  const current = groups.nth(1).locator('.codepro-record-icon').first();
-  const before = await past.innerHTML();
-  const liveBefore = await current.innerHTML();
-  await expect.poll(() => current.innerHTML()).not.toBe(liveBefore);
-  expect(await past.innerHTML()).toBe(before);
-  await groups.nth(0).getByRole('button').first().click();
-  await expect(groups.nth(0).locator('[data-tool-call-id="past-failed"]')).toHaveAttribute(
-    'data-tool-phase',
-    'error'
-  );
-  await expect(groups.nth(0).locator('[data-tool-call-id="past-success"]')).toHaveAttribute(
-    'data-tool-phase',
-    'success'
-  );
-  expect(await past.innerHTML()).toBe(before);
-  expect(errors).toEqual([]);
-  page.off('pageerror', onError);
-  await page.screenshot({ path: resolve(historyCacheRoot, 'completed-history-static-icon.png') });
-});
-
-for (const grouped of [false, true]) {
-  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-    test(`thoughts resume the same passage in ${grouped ? 'process' : 'chat'} scrolling (${reducedMotion})`, async () => {
-      await page.close();
-      page = await browser.newPage({ viewport: { width: grouped ? 480 : 1000, height: 760 } });
-      await page.emulateMedia({ reducedMotion });
-      await page.goto(
-        `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?thinking-reading${grouped ? '&grouped' : ''}${reducedMotion === 'reduce' ? '&dark' : ''}`
-      );
-      const mainViewport = page.locator('[data-radix-scroll-area-viewport]');
-      const viewport = grouped ? page.locator('.codepro-process-details') : mainViewport;
-      const header = page.locator('.codepro-thinking-header').first();
-      await header.click();
-      const body = page.locator('.codepro-thinking-details').first();
-      await expect(body).toBeVisible();
-      expect(await body.evaluate((el) => getComputedStyle(el).overflowY)).toBe('visible');
-      expect(await header.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
-        'rgba(0, 0, 0, 0)'
-      );
-      expect(await body.evaluate((el) => el.clientHeight)).toBeGreaterThan(1000);
-      expect(await viewport.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(
-        1
-      );
-      expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-      if (grouped)
-        expect(await viewport.evaluate((el) => getComputedStyle(el).scrollbarWidth)).not.toBe(
-          'none'
-        );
-      if (grouped) {
-        const edges = await viewport.evaluate((el) => {
-          const parent = el.parentElement!;
-          const before = getComputedStyle(parent, '::before');
-          const after = getComputedStyle(parent, '::after');
-          return {
-            top:
-              parent.getBoundingClientRect().top +
-              parseFloat(before.top) -
-              el.getBoundingClientRect().top,
-            bottom:
-              parent.getBoundingClientRect().bottom -
-              parseFloat(after.bottom) -
-              el.getBoundingClientRect().bottom,
-          };
-        });
-        expect(edges).toEqual({ top: 0, bottom: 0 });
-        const fade = (edge: 'before' | 'after') =>
-          viewport.evaluate(
-            (el, edge) => getComputedStyle(el.parentElement!, `::${edge}`).opacity,
-            edge
-          );
-        await viewport.evaluate((el) => {
-          el.scrollTop = 0;
-          el.dispatchEvent(new Event('scroll'));
-        });
-        await expect.poll(() => fade('before')).toBe('0');
-        await expect.poll(() => fade('after')).toBe('1');
-        await viewport.evaluate((el) => {
-          el.scrollTop = 100;
-          el.dispatchEvent(new Event('scroll'));
-        });
-        await expect.poll(() => fade('before')).toBe('1');
-        await viewport.evaluate((el) => {
-          el.scrollTop = el.scrollHeight;
-          el.dispatchEvent(new Event('scroll'));
-        });
-        await expect.poll(() => fade('after')).toBe('0');
-        expect(
-          await viewport.evaluate(
-            (el) => getComputedStyle(el.parentElement!, '::before').pointerEvents
-          )
-        ).toBe('none');
-        await viewport.evaluate((el) => {
-          el.scrollTop = 0;
-          el.dispatchEvent(new Event('scroll'));
-        });
-      }
-      const passage = page.getByText(/^Reading paragraph 40\./);
-      await viewport.hover();
-      await page.mouse.wheel(0, -1);
-      await settle();
-      await viewport.evaluate((el) => {
-        const passage = Array.from(el.querySelectorAll('p')).find((p) =>
-          p.textContent?.startsWith('Reading paragraph 40.')
-        )!;
-        const header = el.querySelector('.codepro-thinking-header')!;
-        el.scrollTop +=
-          passage.getBoundingClientRect().top -
-          el.getBoundingClientRect().top -
-          header.getBoundingClientRect().height -
-          12;
-        el.dispatchEvent(new Event('scroll'));
-      });
-      await settle();
-      const before = (await passage.boundingBox())!.y;
-      const bounds = (await viewport.boundingBox())!;
-      expect(Math.abs((await header.boundingBox())!.y - bounds.y)).toBeLessThanOrEqual(3);
-      await header.click();
-      await settle();
-      const folded = (await header.boundingBox())!;
-      expect(folded.y).toBeGreaterThanOrEqual((await viewport.boundingBox())!.y - 2);
-      await header.click();
-      await settle();
-      await expect
-        .poll(async () => Math.abs((await passage.boundingBox())!.y - before))
-        .toBeLessThanOrEqual(2);
-      await page.getByRole('button', { name: 'Append reasoning', exact: true }).click();
-      await settle();
-      expect(Math.abs((await passage.boundingBox())!.y - before)).toBeLessThanOrEqual(2);
-      await expect(page.locator('.codepro-thinking-header').nth(1)).toHaveAttribute(
-        'aria-expanded',
-        'false'
-      );
-      if (grouped) {
-        await header.click();
-        await settle();
-        const group = page.getByRole('button', { name: 'Thought work', exact: true });
-        await group.click();
-        await settle();
-        await group.click();
-        await settle();
-        await header.click();
-        await settle();
-        await expect
-          .poll(async () => Math.abs((await passage.boundingBox())!.y - before))
-          .toBeLessThanOrEqual(2);
-      }
-      // A code block and its copy control must scroll beneath the opaque header.
-      await viewport.evaluate((el) => {
-        const code = el.querySelector('pre')!;
-        el.scrollTop += code.getBoundingClientRect().top - el.getBoundingClientRect().top - 6;
-        el.dispatchEvent(new Event('scroll'));
-      });
-      await settle();
-      const headerBounds = (await header.boundingBox())!;
-      await page.mouse.move(
-        headerBounds.x + headerBounds.width - 12,
-        headerBounds.y + headerBounds.height + 12
-      );
-      expect(
-        await header.evaluate((el) => {
-          const bounds = el.getBoundingClientRect();
-          return [2, bounds.width / 2, bounds.width - 2].every((x) =>
-            [2, bounds.height / 2, bounds.height - 2].every((y) =>
-              el.contains(document.elementFromPoint(bounds.left + x, bounds.top + y))
-            )
-          );
-        })
-      ).toBe(true);
-      expect(await header.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('0px');
-      await viewport.evaluate((el) => {
-        const copy = el.querySelector('pre button')!;
-        el.scrollTop += copy.getBoundingClientRect().top - el.getBoundingClientRect().top - 8;
-        el.dispatchEvent(new Event('scroll'));
-      });
-      await settle();
-      expect(
-        await header.evaluate((el) => {
-          const bounds = el.getBoundingClientRect();
-          return el.contains(
-            document.elementFromPoint(bounds.right - 12, bounds.top + bounds.height / 2)
-          );
-        })
-      ).toBe(true);
-      await page.screenshot({
-        path: resolve(
-          historyCacheRoot,
-          `thought-reading-${grouped ? 'process' : 'chat'}-${reducedMotion}.png`
-        ),
-      });
-    });
-  }
-}
-
 async function openFixture() {
   await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html`);
   await page.getByText('Earlier conversation', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Latest', exact: true }).click();
   await settle();
 }
-
-test('process edge fades meet the clipping boundary without a trailing opaque strip', async () => {
-  for (const theme of ['light', 'dark']) {
-    await page.close();
-    page = await browser.newPage({ viewport: { width: 800, height: 760 } });
-    await page.goto(
-      `${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?thinking-reading&grouped&edge-list${theme === 'dark' ? '&dark' : ''}`
-    );
-    const viewport = page.locator('.codepro-process-details');
-    await viewport.evaluate((el) => {
-      el.scrollTop = 137;
-      el.dispatchEvent(new Event('scroll'));
-    });
-    await expect(viewport).toHaveAttribute('data-scrolled', 'true');
-    await expect(viewport).toHaveAttribute('data-more-below', 'true');
-    expect(
-      await viewport.evaluate((el) => {
-        const parent = el.parentElement!;
-        const before = getComputedStyle(parent, '::before');
-        const after = getComputedStyle(parent, '::after');
-        return {
-          top:
-            parent.getBoundingClientRect().top +
-            parseFloat(before.top) -
-            el.getBoundingClientRect().top,
-          bottom:
-            parent.getBoundingClientRect().bottom -
-            parseFloat(after.bottom) -
-            el.getBoundingClientRect().bottom,
-          fadeHeight: after.height,
-        };
-      })
-    ).toEqual({ top: 0, bottom: 0, fadeHeight: '24px' });
-    await page.screenshot({ path: resolve(historyCacheRoot, `process-edge-fade-${theme}.png`) });
-  }
-});
 
 async function openActivityFixture() {
   await page.goto(
@@ -564,33 +303,28 @@ test('sidebar project and Tasks disclosures animate both ways without shifting t
 
   const projectToggle = page.getByRole('button', { name: 'timeout', exact: true });
   const projectActions = page.getByRole('button', { name: 'Project actions', exact: true });
-  const chatPin = page.getByRole('button', { name: 'Pin session', exact: true });
+  const chatArchive = page.getByRole('button', { name: 'Archive session', exact: true });
   await page.getByTestId('chat-canvas').hover();
   await expect(projectActions).toHaveCSS('opacity', '0');
-  await expect(chatPin.first()).toHaveCSS('opacity', '0');
+  await expect(chatArchive.first()).toHaveCSS('opacity', '0');
   await projectToggle.hover();
   await expect(projectActions).toHaveCSS('opacity', '1');
-  await expect(chatPin.first()).toHaveCSS('opacity', '0');
+  await expect(chatArchive.first()).toHaveCSS('opacity', '0');
   await page.getByText('Chat 1', { exact: true }).hover();
-  await expect(chatPin.first()).toHaveCSS('opacity', '1');
-  await expect(chatPin.nth(1)).toHaveCSS('opacity', '0');
+  await expect(chatArchive.first()).toHaveCSS('opacity', '1');
+  await expect(chatArchive.nth(1)).toHaveCSS('opacity', '0');
   await expect(projectActions).toHaveCSS('opacity', '0');
-  await page.getByText('Chat 1', { exact: true }).click({ button: 'right' });
-  await page.getByRole('menuitem', { name: 'Rename session', exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('textbox')).toHaveValue('Chat 1');
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
 
   // The title and trailing blank area both toggle; editing must not toggle.
   const projectTitle = (await page.getByText('timeout', { exact: true }).boundingBox())!;
   await page.mouse.click(projectTitle.x + 10, projectTitle.y + projectTitle.height / 2);
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
   await settle();
-  await page.mouse.click(projectTitle.x + projectTitle.width - 8, projectTitle.y + projectTitle.height / 2);
+  await projectToggle.click({ position: { x: (await projectToggle.boundingBox())!.width - 4, y: folder.height / 2 } });
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
   await settle();
   await projectActions.click();
-  await page.getByRole('menuitem', { name: 'Rename project', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Rename project' }).click();
   const projectInput = page.getByRole('textbox', { name: 'Project name' });
   await projectInput.click();
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
@@ -694,19 +428,13 @@ test('conversation presentation contains rounded disclosure backgrounds and pres
   for (const trigger of [duration, thinking, files]) {
     const label = trigger.locator(':scope > span:not([aria-hidden])').first();
     const text = (await label.boundingBox())!;
-    const arrow = (await trigger
-      .locator('.lucide-chevron-right, .lucide-chevron-up')
-      .boundingBox())!;
-    expect(Math.abs(text.x - left - (trigger === duration ? 0 : 24))).toBeLessThanOrEqual(1);
+    const arrow = (await trigger.locator(':scope > svg').boundingBox())!;
+    expect(Math.abs(text.x - left - (trigger === files ? 24 : 0))).toBeLessThanOrEqual(1);
     expect(arrow.x - text.x - text.width).toBeGreaterThanOrEqual(4);
     expect(arrow.x - text.x - text.width).toBeLessThanOrEqual(10);
-    await expect(label).toHaveCSS('font-size', trigger === duration ? '13.5px' : '12.5px');
+    await expect(label).toHaveCSS('font-size', '12.5px');
     await expect(trigger).toHaveCSS('border-radius', '10px');
   }
-  await expect(duration.locator('..')).toHaveCSS('border-bottom-width', '1px');
-  expect(
-    await duration.locator('..').evaluate((el) => getComputedStyle(el).borderBottomStyle)
-  ).toBe('solid');
   expect(
     Math.abs(left - (await page.locator('.codepro-chat-history').boundingBox())!.x)
   ).toBeLessThanOrEqual(1);
@@ -795,7 +523,7 @@ test('conversation font family and fractional layout match in main and subagent 
         .slice(0, 2)
         .map((part) => part.trim().replaceAll('"', ''))
     ).toEqual(['Noto Sans SC', 'Noto Sans CJK SC']);
-    expect(family).toContain('sans-serif');
+    expect(family).toContain('system-ui');
     const content = page.locator('.codepro-assistant-prose').first();
     for (const node of await content.locator('p, h2, ul, li').all()) {
       await expect(node).toHaveCSS('font-family', family);
@@ -856,24 +584,18 @@ test('conversation font family and fractional layout match in main and subagent 
   });
 });
 
-test('successful extension results stay silent and a new failure pauses for reading then expires without focus', async () => {
+test('healthy extension startup stays quiet while a new failure remains actionable', async () => {
   await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?toast`);
   await page.getByRole('button', { name: 'Finish extensions' }).click();
   const notification = page.getByRole('alert');
   await expect(notification).toHaveCount(0);
   await page.getByRole('button', { name: 'Fail extension' }).click();
   await expect(notification).toContainText('1 extension failed to load');
-  expect(
-    parseFloat(await notification.evaluate((el) => window.getComputedStyle(el).animationDuration))
-  ).toBeGreaterThanOrEqual(0.3);
   await notification.hover();
-  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await page.waitForTimeout(5400);
+  await page.waitForTimeout(5200);
   await expect(notification).toBeVisible();
   await page.getByRole('button', { name: 'Finish extensions' }).hover();
   await expect(notification).toHaveCount(0, { timeout: 6500 });
-  await page.getByRole('button', { name: 'Fail extension' }).click();
-  await expect(notification).toHaveCount(0);
 });
 
 test('extension loading remains truthful until settled and an updated failure also expires', async () => {
@@ -912,15 +634,14 @@ test('technical text keeps a three-line preview and animates to the full origina
   expect((await body.boundingBox())!.height).toBe(before);
 });
 
-test('compact work plan opens below its trigger and hides on collapse', async () => {
+test('compact work plan remains visible above its trigger and fades during closing', async () => {
   await openActivityFixture();
   const heading = page.locator('[data-testid="work-plan"] summary');
   await heading.click();
   await settle();
   const plan = page.getByText('First step', { exact: true });
   await expect(plan).toBeVisible();
-  const headerBox = (await heading.boundingBox())!;
-  expect((await plan.boundingBox())!.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+  expect((await plan.boundingBox())!.y).toBeLessThan((await heading.boundingBox())!.y);
   await heading.click();
   await settle();
   await expect(plan).toBeHidden();
@@ -975,10 +696,6 @@ test('React disclosure stays anchored for keyboard toggles and respects reduced 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   try {
     await openFixture();
-    // Enter history reading through a real navigation key. Programmatic
-    // scrollIntoView alone intentionally does not turn off output following.
-    await page.locator('[data-radix-scroll-area-viewport]').press('Home');
-    await expect(page.getByRole('status')).toHaveText('Reading history');
     const heading = page.getByRole('button', { name: 'Work history', exact: true });
     await heading.scrollIntoViewIfNeeded();
     await heading.focus();
@@ -1118,45 +835,4 @@ test('file-card disclosures preserve counts and motion while opening saved diffs
     path: test.info().outputPath('file-card-workspace-saved-diff.png'),
     fullPage: true,
   });
-});
-
-
-test('standalone reasoning grows in page flow and retains manual collapse', async () => {
-  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?bounded-details`);
-  const viewport = page.locator('.codepro-thinking-details');
-  const height = () => viewport.evaluate(element => element.clientHeight);
-  await expect.poll(height).toBeGreaterThan(288);
-  const before = await height();
-  await page.getByRole('button', { name: 'Append reasoning' }).click();
-  await expect(viewport.getByText('Reasoning line 84:', { exact: false })).toBeVisible();
-  await expect.poll(height).toBeGreaterThan(before);
-  expect(await viewport.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-  const toggle = page.getByRole('button', { name: 'Thinking', exact: true });
-  await toggle.click();
-  await page.getByRole('button', { name: 'Append reasoning' }).click();
-  await expect(viewport).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByRole('button', { name: 'Thinking', exact: true })).toHaveAttribute('data-state', 'closed');
-});
-
-test('expanded execution records stay bounded and reasoning remains independently folded', async () => {
-  await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?bounded-details&grouped`);
-  const group = page.locator('[data-process-group]').first();
-  await group.getByRole('button', { expanded: false }).first().click();
-  const details = group.locator('.codepro-process-details');
-  await expect(details).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText('Reasoning line 0:', { exact: false })).toHaveCount(0);
-  const metrics = await details.evaluate(element => ({ height: element.clientHeight, total: element.scrollHeight }));
-  expect(metrics.height).toBeLessThanOrEqual(288);
-  expect(metrics.total).toBeGreaterThan(metrics.height);
-  await expect(group.getByRole('button', { name: 'Reasoning details' })).toHaveCount(0);
-  const thought = group.getByRole('button', { name: 'Thinking', exact: true }).first();
-  await thought.click();
-  const thinking = group.locator('.codepro-thinking-details').first();
-  await expect(thinking).toBeVisible();
-  expect(await thinking.evaluate(element => element.clientHeight)).toBeGreaterThan(metrics.height);
-  expect(await thinking.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-  await page.screenshot({ path: '../../.local/restoration-review/thinking-and-records.png' });
-  await thought.click();
-  await expect(thinking).toHaveCount(0);
 });

@@ -3794,6 +3794,15 @@
   "headersSection.value": {
     "defaultMessage": "Wert"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "Guten Tag"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "Guten Abend"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "Guten Morgen"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Herunterladen"
   },
@@ -5905,6 +5914,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Details zum Denkprozess"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
@@ -9269,6 +9281,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9277,6 +9292,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9863,6 +9881,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status unbekannt · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
+  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9887,6 +9908,9 @@
   "loadingGoose.compactionWait": {
     "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
   },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "Freigabe ausstehend"
+  },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
   },
@@ -9901,74 +9925,5 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
-  },
-  "common.cancel": {
-    "defaultMessage": "Abbrechen"
-  },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "Mehr laden"
-  },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "Modelle aktualisieren"
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Einige Verbindungen konnten nicht aktualisiert werden. Ihre bisherigen Listen werden weiterhin angezeigt. Versuchen Sie es erneut."
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "Modellliste aktualisiert."
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "Modelle werden aktualisiert…"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "Unterhaltungen im Projekt archivieren"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "{count} Unterhaltungen in {name} archivieren? Projektdateien bleiben unverändert. Unterhaltungen können im Verlauf wiederhergestellt werden."
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "Neue Unterhaltung im Projekt"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "Projekt anheften"
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "Projektaktionen"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "Projekt lösen"
-  },
-  "runtime.sourceChanged": {
-    "defaultMessage": "Die Laufzeit wurde aktualisiert. Beenden Sie aktive Aufgaben und starten Sie CodeBuddy neu, um die Änderungen zu laden."
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "Die aktuelle Unterhaltung ist synchronisiert."
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "Verbindung wird im Hintergrund hergestellt…"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "Benutzerdefinierte Auswahl"
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "Neue Unterhaltungen übernehmen aktivierte Toolbox-Funktionen. Bestehende Unterhaltungen mit eigener Auswahl behalten diese bei."
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "Verbindung fehlgeschlagen"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "Toolbox folgen"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "Gespeichert · Änderungen gelten ab der nächsten Runde. Die aktuelle Aufgabe läuft weiter."
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "Verbunden"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "Vom Agenten festgelegte Auswahl"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "Verbindungen erneut versuchen"
   }
 }

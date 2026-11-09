@@ -1,7 +1,9 @@
 // Some Gemma 4 chat-template servers send an empty thought envelope as ordinary
 // content, even when they also supply native reasoning and tool-call blocks.
-const emptyThought = '<|channel>thought\n<channel|>';
+const opening = '<|channel>thought';
 const close = '<channel|>';
+const emptyThought = opening + '\n' + close;
+const toolSeparator = '<|"|>\n<|channel>thought\n';
 
 // Gemma's tool-response boundary belongs to the host. Without the documented
 // inference stop, a server can generate fictitious receipts and dependent calls
@@ -13,19 +15,22 @@ export function gemmaToolResponseStop(payload, model) {
   return { ...payload, stop: [...new Set([...stop, '<|tool_response>'])] };
 }
 
-function visibleBlock(text) {
-  if (text.startsWith(emptyThought)) text = text.slice(emptyThought.length);
+function visibleBlock(text, reasoning = false) {
+  const prefix = reasoning ? opening : emptyThought;
+  if (reasoning && text.startsWith('<|') && opening.startsWith(text)) return '';
+  if (text.startsWith(prefix)) text = text.slice(prefix.length);
   return text.endsWith(close) ? text.slice(0, -close.length) : text;
 }
 
 // Only hold an ambiguous boundary, so plain text still streams immediately.
-function visibleDelta(state, text) {
+function visibleDelta(state, text, reasoning) {
   const pending = state.pending + text;
-  if (state.start && emptyThought.startsWith(pending) && pending !== emptyThought) {
+  const prefix = reasoning ? opening : emptyThought;
+  if (state.start && prefix.startsWith(pending) && pending !== prefix) {
     state.pending = pending;
     return '';
   }
-  const value = state.start && pending.startsWith(emptyThought) ? pending.slice(emptyThought.length) : pending;
+  const value = state.start && pending.startsWith(prefix) ? pending.slice(prefix.length) : pending;
   state.start = false;
   let keep = Math.min(close.length, value.length);
   while (keep && !value.endsWith(close.slice(0, keep))) keep--;
@@ -36,6 +41,32 @@ function visibleDelta(state, text) {
 // Check reasoning and tool-producing generation. A normal final answer can
 // legitimately contain repetition requested by the user.
 function repeatedParagraph(state, text) {
+  // The installed Gemma stream also degenerated into a single endless line
+  // (for example " l, l, l, ..."). Track short periods across transport chunks;
+  // paragraph boundaries alone never see this case. Tool arguments and ordinary
+  // final answers do not pass through this repetition guard.
+  state.periods ??= new Uint16Array(32);
+  state.characters ??= '';
+  for (const character of text) {
+    for (let period = 1; period <= state.periods.length; period++) {
+      state.periods[period - 1] = state.characters.at(-period) === character
+        ? state.periods[period - 1] + 1 : 0;
+      if (state.periods[period - 1] >= Math.max(512, period * 16)) return true;
+    }
+    state.characters = (state.characters + character).slice(-32);
+  }
+  state.lines ??= { tail: '', count: 0 };
+  const lines = (state.lines.tail + text).split('\n');
+  const unfinished = lines.pop();
+  for (const line of lines) {
+    const complete = !state.lines.truncated && line.length <= 1024 ? line : '';
+    state.lines.count = complete === state.lines.previous ? state.lines.count + 1 : 1;
+    state.lines.previous = complete;
+    state.lines.truncated = false;
+    if (complete.length >= 8 && state.lines.count >= 16 && complete.length * state.lines.count >= 512) return true;
+  }
+  state.lines.truncated ||= unfinished.length > 1024;
+  state.lines.tail = unfinished.slice(-1024);
   const parts = (state.tail + text).split('\n\n');
   const remainder = parts.pop();
   for (const part of parts) {
@@ -51,7 +82,7 @@ function repeatedParagraph(state, text) {
   return false;
 }
 
-async function* cleanGemmaResponse(stream) {
+async function* cleanGemmaResponse(stream, repairedBoundaries) {
   const blocks = new Map();
   let toolProposed = false;
   for await (const chunk of stream) {
@@ -61,20 +92,55 @@ async function* cleanGemmaResponse(stream) {
       blocks.set(chunk.index, state);
       if ((toolProposed || chunk.type === 'reasoning-delta') && repeatedParagraph(state, chunk.text)) {
         yield { type: 'finish', reason: { kind: 'error', failure: {
-          code: 'REPETITIVE_MODEL_OUTPUT', message: '模型连续生成相同段落，本次生成已停止。请查看已有工具回执后重试。',
+          code: 'SERVER', message: 'Gemma returned repetitive output instead of completing its response.',
         } } };
         return;
       }
-      if (chunk.type === 'reasoning-delta') yield chunk;
-      else {
-        const text = visibleDelta(state, chunk.text);
-        if (text) yield { ...chunk, text };
+      const text = visibleDelta(state, chunk.text, chunk.type === 'reasoning-delta');
+      if (chunk.type === 'text-delta') {
+        state.answerHead = ((state.answerHead ?? '') + text).slice(0, toolSeparator.length + 1);
+        if (state.answerHead.startsWith('<|') && !(toolProposed && toolSeparator.startsWith(state.answerHead))) {
+          yield { type: 'finish', reason: { kind: 'error', failure: {
+            code: 'SERVER', message: 'Gemma returned an unparsed native envelope in answer content.',
+          } } };
+          return;
+        }
       }
-    } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
+      if (chunk.type === 'text-delta' && (toolProposed || repairedBoundaries.has(chunk.index))) {
+        state.cursor ??= { width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 };
+        if (scanThought(state.cursor, text)) {
+          yield { type: 'finish', reason: { kind: 'error', failure: {
+            code: 'SERVER', message: 'Gemma returned an unparsed thought boundary in answer content.',
+          } } };
+          return;
+        }
+      }
+      if (chunk.type === 'text-delta' && toolProposed) {
+        // A native call is not executable until the whole response is valid.
+        // Likewise, publish its accompanying prose only after block validation;
+        // otherwise a broken parser can expose invented receipts before retry.
+        state.deferred = true;
+      } else if (text) yield { ...chunk, text };
+    } else if (chunk.type === 'block-end' && ['text', 'reasoning'].includes(chunk.block.type)) {
       const state = blocks.get(chunk.index);
-      if (state?.pending && state.pending !== close) yield { type: 'text-delta', index: chunk.index, text: state.pending };
+      const reasoning = chunk.block.type === 'reasoning';
+      const visible = visibleBlock(chunk.block.text, reasoning);
+      if (!reasoning && (toolProposed || repairedBoundaries.has(chunk.index)) &&
+          scanThought({ width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 }, visible)) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned an unparsed thought boundary in answer content.',
+        } } };
+        return;
+      }
+      if (state?.deferred) {
+        if (visible) yield { type: 'text-delta', index: chunk.index, text: visible };
+      } else if (state?.pending && state.pending !== close &&
+          !(reasoning && state.start && state.pending.startsWith('<|') && opening.startsWith(state.pending))) {
+        yield { type: reasoning ? 'reasoning-delta' : 'text-delta', index: chunk.index, text: state.pending };
+      }
       blocks.delete(chunk.index);
-      yield { ...chunk, block: { ...chunk.block, text: visibleBlock(chunk.block.text) } };
+      repairedBoundaries.delete(chunk.index);
+      yield { ...chunk, block: { ...chunk.block, text: visible } };
     } else {
       if (chunk.type === 'block-end') blocks.delete(chunk.index);
       yield chunk;
@@ -82,32 +148,90 @@ async function* cleanGemmaResponse(stream) {
   }
 }
 
+// Backtick runs can straddle both transport chunks and the reasoning/text split.
+// A protocol token inside a paired code span is literal. An unpaired run in a
+// truncated filename does not quote a token through the end of the text block.
+function scanThought(state, text, detectBoundary = true) {
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '`') {
+      state.ticks++;
+      state.matched = 0;
+      continue;
+    }
+    if (state.ticks) {
+      if (!state.width) state.width = state.ticks;
+      else if (state.width === state.ticks) state.width = 0;
+      state.ticks = 0;
+    }
+    if (!detectBoundary) continue;
+    state.matched = char === close[state.matched] ? state.matched + 1 : Number(char === close[0]);
+    if (state.matched === close.length) {
+      state.matched = 0;
+      if (!state.width) return state.offset + i + 1;
+      state.quotedEnd ||= state.offset + i + 1;
+    }
+  }
+  state.offset += text.length;
+  return 0;
+}
+
+function closedCodeSpans(text, initial) {
+  const state = { width: 0, ticks: 0, offset: 0, ...initial };
+  scanThought(state, text, false);
+  return state.ticks === state.width;
+}
+
 // Some Gemma parsers split the end of a raw thought envelope across native
 // reasoning and content fields (e.g. reasoning="<|c", content="ught\n<channel|>...").
 // Only reconcile a matching native opener/closer, never classify prose by words.
-async function* cleanThoughtBoundary(stream) {
+async function* cleanThoughtBoundary(stream, repairedBoundaries) {
   const opening = '<|channel>thought\n';
-  let reasoningIndex, head = '', tail = '', closed = false, open = false;
+  let reasoningIndex, head, cursor, closed = false, open = false;
   const texts = new Map();
   for await (const chunk of stream) {
     if (chunk.type === 'reasoning-delta') {
-      if (reasoningIndex !== chunk.index) { reasoningIndex = chunk.index; head = ''; tail = ''; closed = false; }
+      if (!cursor || reasoningIndex !== chunk.index) {
+        reasoningIndex = chunk.index;
+        head = '';
+        closed = false;
+        cursor = { width: 0, ticks: 0, matched: 0, offset: 0, quotedEnd: 0 };
+      }
       head = (head + chunk.text).slice(0, opening.length);
-      closed ||= (tail + chunk.text).includes(close);
-      tail = (tail + chunk.text).slice(-close.length);
+      if (head.startsWith('<|') && !opening.startsWith(head) && !head.startsWith(opening)) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned a malformed native thought opener.',
+        } } };
+        return;
+      }
+      closed ||= Boolean(scanThought(cursor, chunk.text));
       open = !closed && head.length > 0 && (opening.startsWith(head) || head.startsWith(opening));
     }
     if (chunk.type === 'text-delta') {
       let state = texts.get(chunk.index);
-      if (!state) { state = { pending: '', checking: open, dropped: 0 }; texts.set(chunk.index, state); open = false; }
+      if (!state) {
+        const initial = { ...cursor, offset: 0, quotedEnd: 0 };
+        state = { pending: '', checking: open, dropped: 0, initial, cursor: { ...initial } };
+        texts.set(chunk.index, state);
+        open = false;
+      }
+      if (state.deferred) continue;
       if (state.checking) {
+        const held = state.pending.length;
+        const end = scanThought(state.cursor, chunk.text.slice(0, 1024 - held));
+        // An incomplete code span in native reasoning can appear to quote
+        // the boundary. Later backticks may belong entirely to the answer.
+        // Resolve this ambiguity on the provider's complete block, without
+        // emitting the prefix or retaining a second copy of a long answer.
+        if (state.cursor.quotedEnd) {
+          state.deferred = true;
+          state.pending = '';
+          continue;
+        }
         state.pending += chunk.text;
-        const end = state.pending.indexOf(close);
-        // Backticked protocol examples are literal text, not a boundary.
-        if (end >= 0 && !state.pending.slice(0, end).includes('`')) {
-          state.dropped = end + close.length;
-          state.pending = state.pending.slice(state.dropped);
-        } else if (end < 0 && state.pending.length <= 1024 && !state.pending.includes('`')) continue;
+        if (end) { state.dropped = end; repairedBoundaries.add(chunk.index); }
+        else if (state.pending.length <= 1024) continue;
+        state.pending = state.pending.slice(state.dropped);
         state.checking = false;
         if (state.pending) yield { ...chunk, text: state.pending };
         state.pending = '';
@@ -115,7 +239,17 @@ async function* cleanThoughtBoundary(stream) {
       }
     } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
       const state = texts.get(chunk.index);
-      if (state?.pending) yield { type: 'text-delta', index: chunk.index, text: state.pending };
+      if (state?.deferred) {
+        const raw = chunk.block.text;
+        const candidate = state.cursor.quotedEnd;
+        const tail = raw.slice(candidate);
+        state.dropped = !closedCodeSpans(raw, state.initial) && closedCodeSpans(tail)
+          ? candidate : scanThought({ ...state.initial }, raw);
+        if (state.dropped) repairedBoundaries.add(chunk.index);
+        state.pending = raw;
+      }
+      const visible = state?.pending.slice(state.dropped);
+      if (visible) yield { type: 'text-delta', index: chunk.index, text: visible };
       texts.delete(chunk.index);
       yield { ...chunk, block: { ...chunk.block, text: chunk.block.text.slice(state?.dropped ?? 0) } };
       continue;
@@ -132,11 +266,33 @@ async function* cleanThoughtBoundary(stream) {
 export async function* normalizeGemmaResponse(stream) {
   const pending = new Map();
   const ordinary = new Set();
-  const prefixes = ['call:', '<|tool_call>call:'];
-  for await (const chunk of cleanGemmaResponse(cleanThoughtBoundary(stream))) {
+  const prefixes = ['call:', '<|'];
+  // Per-response parser facts, not inferred intent: only text whose native
+  // thought boundary was repaired needs the extra framing check without a call.
+  const repairedBoundaries = new Set();
+  let inToolResponse = false;
+  for await (const chunk of cleanGemmaResponse(cleanThoughtBoundary(stream, repairedBoundaries), repairedBoundaries)) {
+    if (chunk.type === 'block-start' && chunk.blockType === 'tool-call') inToolResponse = true;
+    // Identity may arrive after the first delta. Only a completed block can
+    // become a journal source or an approval request. Let native retry discard
+    // this entire attempt, including any sibling calls that preceded it.
+    if (chunk.type === 'block-end' && chunk.block.type === 'tool-call' &&
+        (!chunk.block.id?.trim() || !chunk.block.name?.trim())) {
+      yield { type: 'finish', reason: { kind: 'error', failure: {
+        code: 'SERVER', message: 'Gemma returned a tool call without a call ID or tool name.',
+      } } };
+      return;
+    }
     if (chunk.type === 'text-delta' && !ordinary.has(chunk.index)) {
       const text = (pending.get(chunk.index) ?? '') + chunk.text;
-      if (prefixes.some(prefix => prefix.startsWith(text) || text.startsWith(prefix))) {
+      if (text.startsWith('<|') && !(inToolResponse && toolSeparator.startsWith(text))) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned an unparsed native envelope in answer content.',
+        } } };
+        return;
+      }
+      if ((inToolResponse && toolSeparator.startsWith(text)) ||
+          prefixes.some(prefix => prefix.startsWith(text) || text.startsWith(prefix))) {
         pending.set(chunk.index, text);
         continue;
       }
@@ -144,6 +300,17 @@ export async function* normalizeGemmaResponse(stream) {
       ordinary.add(chunk.index);
       yield { ...chunk, text };
     } else if (chunk.type === 'block-end' && chunk.block.type === 'text') {
+      if (inToolResponse && chunk.block.text.trimEnd() === toolSeparator.trimEnd()) {
+        pending.delete(chunk.index);
+        yield { ...chunk, block: { ...chunk.block, text: '' } };
+        continue;
+      }
+      if (chunk.block.text.startsWith('<|')) {
+        yield { type: 'finish', reason: { kind: 'error', failure: {
+          code: 'SERVER', message: 'Gemma returned an unparsed native envelope in answer content.',
+        } } };
+        return;
+      }
       if (/^(?:<\|tool_call>)?call:[A-Za-z_][\w.-]*\{[\s\S]*?\}<tool_call\|>/.test(chunk.block.text.trim())) {
         yield { type: 'finish', reason: { kind: 'error', failure: {
           code: 'SERVER', message: 'Gemma provider returned an unparsed tool-call envelope as text instead of a structured tool call.',

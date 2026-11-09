@@ -1,4 +1,5 @@
 import { NativeScheduleCards } from './schedule/NativeScheduleCards';
+import { useHasDeliveredMedia } from './GeneratedMedia';
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import ImagePreview from './ImagePreview';
 import { formatMessageTimestamp } from '../utils/timeUtils';
@@ -386,6 +387,7 @@ export default function GooseMessage({
   submitElicitationResponse,
 }: GooseMessageProps) {
   const intl = useIntl();
+  const hasDeliveredMedia = useHasDeliveredMedia();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const plainTextCopyRef = useRef<HTMLDivElement | null>(null);
   const continuationRequested = useRef(false);
@@ -700,13 +702,12 @@ export default function GooseMessage({
             if (providerThinkingSuppressed) return null;
             if (groupedProcess) {
               return showGroupedThinking ? (
-                <ThinkingContent
-                  key={key}
-                  content={getThinkingContent({ ...message, content: block.content }) ?? ''}
-                  isExpanded={false}
-                  isStreaming={thinkingActive && index === contentBlocks.length - 1}
-                  storageKey={message.id ? `provider-${message.id}-${block.start}` : undefined}
-                />
+                <div key={key} className="codepro-thinking-details my-2 text-sm text-text-secondary">
+                  <MarkdownContent
+                    content={getThinkingContent({ ...message, content: block.content }) ?? ''}
+                    className="!text-text-secondary prose-headings:text-text-secondary prose-strong:text-text-secondary prose-a:text-text-secondary"
+                  />
+                </div>
               ) : null;
             }
             const active = thinkingActive && index === contentBlocks.length - 1;
@@ -847,7 +848,7 @@ export default function GooseMessage({
         {turnTerminal &&
           !outputLimited &&
           !contextLimited &&
-          hasMissingFinalReply(turnTerminal) && (
+          !hasDeliveredMedia && hasMissingFinalReply(turnTerminal) && (
             <div role="status" className="mt-2 text-sm text-text-secondary">
               {intl.formatMessage(i18n.missingFinalReply)}
             </div>

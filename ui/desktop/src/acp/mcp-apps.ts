@@ -107,7 +107,7 @@ export async function listMcpAppTools(
   extensionName?: string
 ): Promise<McpAppTool[]> {
   const client = await getAcpClient();
-  const response = await client.goose.toolsList_unstable({ sessionId });
+  const response = await client.goose.toolsList_unstable({ sessionId, extensionName: extensionName ?? null });
   const tools = response.tools;
   if (!extensionName) return tools;
 

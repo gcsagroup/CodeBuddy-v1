@@ -7,6 +7,7 @@ import { acpChatSessionController } from '../acp/chatSessionController';
 import { acpChatSessionActions, acpChatSessionStore } from '../acp/chatSessionStore';
 import { createUserMessage } from '../types/message';
 import type { Session } from '../types/session';
+import type { ModelDisplaySettings } from '../acp/providers';
 
 const transport = vi.hoisted(() => ({ save: vi.fn(), prompt: vi.fn() }));
 vi.mock('../acp/acpConnection', () => ({
@@ -70,4 +71,24 @@ it('retains a failed save and a newer draft arriving during a save, isolated by 
   expect(readThinkingDraft('retry-provider', 'm')).toBe('high');
   await applyThinkingDraft('retry-provider', 'm');
   expect(readThinkingDraft('retry-provider', 'm')).toBeUndefined();
+});
+
+it('keeps every mounted composer on the saved effort even when an older settings read finishes later', async () => {
+  const settings: ModelDisplaySettings = { thinking: { options: ['low', 'medium', 'high'], value: 'medium', toggle: false }, contextWindow: 32000, contextSource: 'catalog' };
+  let finishRead!: (settings: ModelDisplaySettings) => void;
+  const read = vi.fn(() => new Promise<ModelDisplaySettings>(resolve => { finishRead = resolve; }));
+  render(<>
+    <ModelThinkingMenu provider="display-provider" model="m" presentation="slider" deferUntilSubmit initialSettings={settings} />
+    <ModelThinkingMenu provider="display-provider" model="m" presentation="slider" deferUntilSubmit readSettings={read} />
+  </>, { wrapper: IntlTestWrapper });
+  await act(async () => {
+    stageThinkingEffort('display-provider', 'm', 'low');
+    await applyThinkingDraft('display-provider', 'm');
+    finishRead(settings);
+  });
+  expect(readThinkingDraft('display-provider', 'm')).toBeUndefined();
+  expect(screen.getAllByRole('button', { name: 'Thinking effort: Low' })).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: 'Thinking effort: Medium' })).toBeNull();
+  expect(transport.save).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledTimes(1);
 });

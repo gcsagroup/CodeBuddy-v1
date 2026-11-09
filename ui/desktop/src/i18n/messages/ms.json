@@ -3794,6 +3794,15 @@
   "headersSection.value": {
     "defaultMessage": "Nilai"
   },
+  "hub.goodAfternoon": {
+    "defaultMessage": "Selamat tengah hari"
+  },
+  "hub.goodEvening": {
+    "defaultMessage": "Selamat petang"
+  },
+  "hub.goodMorning": {
+    "defaultMessage": "Selamat pagi"
+  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Muat Turun"
   },
@@ -5905,6 +5914,9 @@
   },
   "progressiveMessageList.taskCheckRecords": {
     "defaultMessage": "Task check records {count}"
+  },
+  "progressiveMessageList.thinkingDetails": {
+    "defaultMessage": "Butiran penaakulan"
   },
   "progressiveMessageList.toolRecords": {
     "defaultMessage": "Tool records {count}"
@@ -9269,6 +9281,9 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
+  "toolbox.session.empty": {
+    "defaultMessage": "Added · no tools discovered yet"
+  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9277,6 +9292,9 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
+  },
+  "toolbox.session.ready": {
+    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9863,6 +9881,9 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status tidak diketahui · {count}"
   },
+  "workspaceSwitcher.workspaceSwitcher": {
+    "defaultMessage": "Workspace switcher"
+  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9887,6 +9908,9 @@
   "loadingGoose.compactionWait": {
     "defaultMessage": "Still waiting for the model. Large conversations may take longer; you can stop and retry."
   },
+  "navigationPanel.pendingPermission": {
+    "defaultMessage": "Menunggu kelulusan"
+  },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
   },
@@ -9901,74 +9925,5 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
-  },
-  "common.cancel": {
-    "defaultMessage": "Batal"
-  },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "Muatkan lagi"
-  },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "Segarkan model"
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Sesetengah sambungan tidak dapat disegarkan. Senarai sebelumnya masih dipaparkan. Cuba lagi."
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "Senarai model dikemas kini."
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "Menyegarkan model…"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "Arkibkan perbualan dalam projek"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "Arkibkan {count} perbualan dalam {name}? Fail projek kekal tidak berubah. Perbualan boleh dipulihkan daripada Sejarah."
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "Perbualan baharu dalam projek"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "Sematkan projek"
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "Tindakan projek"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "Nyahsemat projek"
-  },
-  "runtime.sourceChanged": {
-    "defaultMessage": "Runtime telah dikemas kini. Selesaikan tugas aktif, kemudian tutup dan mulakan semula CodeBuddy untuk memuatkan perubahan."
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "Perbualan semasa telah disegerakkan."
-  },
-  "toolbox.sync.connecting": {
-    "defaultMessage": "Menyambung di latar belakang…"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "Pilihan tersuai"
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "Perbualan baharu mengikut keupayaan kotak alat yang didayakan. Perbualan tersuai sedia ada mengekalkan pilihannya."
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "Sambungan gagal"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "Ikut kotak alat"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "Disimpan · Perubahan digunakan sebelum giliran seterusnya. Tugas semasa diteruskan."
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "Disambungkan"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "Pilihan ditetapkan oleh ejen"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "Cuba semula sambungan"
   }
 }

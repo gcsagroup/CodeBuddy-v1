@@ -509,12 +509,6 @@ describe('bundled pet registry and saved selection', () => {
         images: [{ mimeType: 'text/html', data: 'eA==' }],
       })
     ).rejects.toThrow();
-    host.sender.send.mockImplementationOnce((_channel, { deliveryId }) => {
-      const receive = host.signals.get('pet-message-result')!;
-      receive({ sender: floating.webContents }, { deliveryId, error: 'wrong window' });
-      receive({ sender: host.sender }, { deliveryId: deliveryId + '-old', error: 'wrong delivery' });
-      receive({ sender: host.sender }, { deliveryId });
-    });
     await host.handlers.get('desktop-pet')!(event, { action: 'open-composer', composerAction: 'add', message: '' });
     expect(host.sender.send).toHaveBeenCalledWith('pet-send-message', { msg: '', images: [], composerAction: 'add', deliveryId: expect.any(String) });
     await expect(host.handlers.get('desktop-pet')!(event, { action: 'open-composer', composerAction: 'send', message: 'draft' })).rejects.toThrow();

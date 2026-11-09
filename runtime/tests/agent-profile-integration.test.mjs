@@ -52,8 +52,6 @@ test('role workspace survives a complete Compat and Harness restart with its ori
     const body = JSON.parse(raw);
     if (answerTitleRequest(body, res)) return;
     requests.push(body);
-    assert.equal(notifications.filter(n => n.params.update?._meta?.['codebuddy/agent-input']).length, requests.length,
-      'the client receives native admission before model output, including after restart');
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     for (const [delta, finish_reason] of [[{ role: 'assistant', content: 'ROLE_INTEGRATION_OK' }, null], [{}, 'stop']]) {
       res.write(`data: ${JSON.stringify({ id: 'role-integration', object: 'chat.completion.chunk', model: body.model, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
@@ -90,7 +88,18 @@ test('role workspace survives a complete Compat and Harness restart with its ori
   } });
   const { sessionId } = await request('_codebuddy/agents/create-workspace', { id: profile.id });
   const cwd = store.readSession(sessionId).cwd;
-  const prompt = () => request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Reply briefly.' }] });
+  const prompt = async () => {
+    const before = notifications.length;
+    const result = await request('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'Reply briefly.' }] });
+    // Provider I/O is concurrent with notification delivery. Verify ordering
+    // on the client's live turn, excluding the replay from session/load.
+    const updates = notifications.slice(before).filter(n => n.params.sessionId === sessionId).map(n => n.params.update);
+    const admissions = updates.filter(update => update._meta?.['codebuddy/agent-input']);
+    assert.equal(admissions.length, 1);
+    const output = updates.findIndex(update => update.sessionUpdate === 'agent_message_chunk' && update.content?.text);
+    assert.ok(output > updates.indexOf(admissions[0]), 'the client sees admission before model output');
+    return result;
+  };
   assert.equal((await prompt()).stopReason, 'end_turn');
   await request('_codebuddy/agents/save', { profile: { ...profile, prompt: 'REPLACEMENT_ROLE_SENTINEL', modelId: 'other' } });
   await request('_codebuddy/agents/delete', { id: profile.id });

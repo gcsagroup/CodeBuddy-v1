@@ -259,6 +259,48 @@ test('a delayed connection probe cannot overwrite a separately committed output 
   assert.deepEqual(store.read().providers[0].outputBudgets, { 'fixture-model': 1024 });
 });
 
+test('editing the active connection selection updates new-chat defaults atomically', async t => {
+  const api = await endpoint(t);
+  const store = memoryStore();
+  const provider = { ...input(api.url), id: 'selected-provider', models: ['fixture-model', 'other-model'] };
+  await store.update(state => {
+    state.providers = [provider];
+    state.defaults = { providerId: provider.id, modelId: 'fixture-model' };
+    state.sessions = [{ id: 'existing-chat', providerId: provider.id, modelId: 'fixture-model' }];
+  });
+  await saveProvider(store, { ...provider, providerId: provider.id, models: ['other-model', 'fixture-model'] }, true);
+  assert.deepEqual(store.read().defaults, { providerId: provider.id, modelId: 'other-model' });
+  assert.equal(store.read().sessions[0].modelId, 'fixture-model');
+  await assert.rejects(saveProvider(store, { ...provider, providerId: provider.id, models: ['missing-model'] }, true));
+  assert.equal(store.read().defaults.modelId, 'other-model');
+  await store.update(state => { state.defaults = { providerId: 'another-provider', modelId: 'another-model' }; });
+  await saveProvider(store, { ...provider, providerId: provider.id }, true);
+  assert.deepEqual(store.read().defaults, { providerId: 'another-provider', modelId: 'another-model' });
+});
+
+test('a connection verification finishing late preserves a newer default selection', async t => {
+  const probing = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const api = await endpoint(t, async (req, res) => {
+    if (req.url.endsWith('/models')) return res.end(JSON.stringify({ data: [{ id: 'fixture-model' }, { id: 'other-model' }] }));
+    probing.resolve();
+    await release.promise;
+    res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'OK' } }] }));
+  });
+  const store = memoryStore();
+  const provider = { ...input(api.url), id: 'selection-race' };
+  await store.update(state => {
+    state.providers = [provider];
+    state.defaults = { providerId: provider.id, modelId: 'fixture-model' };
+  });
+  const saving = saveProvider(store, { ...provider, providerId: provider.id, models: ['other-model', 'fixture-model'] }, true);
+  await probing.promise;
+  await store.update(state => { state.defaults = { providerId: 'new-selection', modelId: 'new-model' }; });
+  release.resolve();
+  await saving;
+  assert.deepEqual(store.read().defaults, { providerId: 'new-selection', modelId: 'new-model' });
+});
+
 function input(apiUrl, overrides = {}) {
   return {
     engine: "openai_compatible",

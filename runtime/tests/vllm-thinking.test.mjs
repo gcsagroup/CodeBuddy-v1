@@ -21,7 +21,7 @@ test(`custom ${backend} names discover real template modes, preserve defaults an
   t.mock.method(globalThis, 'fetch', async (input, options) => {
     const url = new URL(input);
     calls.push(url.pathname);
-    if (url.pathname === '/v1/models') return Response.json({ data: [{ id: model, owned_by: backend, max_model_len: 131072 }] });
+    if (url.pathname === '/v1/models') return Response.json({ data: [{ id: model, owned_by: backend, max_model_len: 131072, created: calls.length }] });
     assert.equal(url.pathname, previewPath, 'Discovery must never generate a completion');
     assert.equal(new Headers(options.headers).get('content-type'), 'application/json');
     const body = JSON.parse(options.body);
@@ -49,7 +49,10 @@ test(`custom ${backend} names discover real template modes, preserve defaults an
   assert.equal(selected.provider.reasoningEfforts[selected.thinkingEffort], 'low');
   await discover(provider, provider);
   await resolvedModelInfo(provider, model);
-  assert.ok(calls.length > count, 'Refreshing metadata invalidates the template probe');
+  assert.equal(calls.length, count + 1, 'Volatile creation timestamps must not invalidate the template probe');
+  await discover(provider, provider, { refreshMetadata: true });
+  await resolvedModelInfo(provider, model);
+  assert.equal(calls.length, count + 10, 'Explicit refresh renews the model list and eight template probes');
 });
 
 for (const mode of ['ignored', 'missing', 'malformed', 'ordinary', 'off-default', 'unauthorized', 'network-failure', 'nested-tokens']) {

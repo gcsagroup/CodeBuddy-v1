@@ -37,7 +37,6 @@ import { WorkspaceService } from "./workspaces.mjs";
 import { CodeProRuns } from "./codepro.mjs";
 import { SUBAGENT_TEMPLATES_KEY, validateSubagentTemplates, resolveSubagentModels, resolveCustomSubagentTemplates } from './subagent-templates.mjs';
 import { SUBAGENT_LIMITS_KEY, DEFAULT_SUBAGENT_LIMITS, validateSubagentLimits } from './subagent-limits.mjs';
-import { COMPACTION_MODEL_KEY, validateCompactionModel, resolveCompactionModel } from './compaction-model.mjs';
 import { codeproInstructions } from "./task-tools.mjs";
 import { openTranscriptJournal } from "./transcripts.mjs";
 import { ProjectMemory } from "./memory.mjs";
@@ -748,8 +747,7 @@ export class Compat {
       const route = this.routing.get(sessionId);
       if (
         this.session(sessionId).providerId === id ||
-        route?.main?.provider?.id === id ||
-        route?.compaction?.provider?.id === id
+        route?.main?.provider?.id === id
       )
         throw invalid(
           "Stop active sessions before editing or removing their model provider",
@@ -923,8 +921,6 @@ export class Compat {
       ...(preferences.autoCompactThreshold != null
         ? { autoCompactThreshold: preferences.autoCompactThreshold }
         : {}),
-      compactionModel: await resolveCompactionModel(state.config, state.providers,
-        choice => this.settings.request('model-capabilities/resolve', choice)),
       mcpServers,
       backgroundMcp: true,
       mcpApprovalScopes: mcpServers.map(mcpSessionApprovalScope).filter(Boolean),
@@ -1386,7 +1382,6 @@ export class Compat {
       if (capability.imageInput === "supported")
         provider.inputModalities = ["text", "image"];
       const options = await measure('optionsMs', () => this.sessionOptions(s, { extensions, tools }));
-      this.routing.set(s.id, { ...this.routing.get(s.id), compaction: options.compactionModel });
       const current = unpublished ? s : this.assertSessionAvailable(s.id);
       if (
         (current.nativeSessionId ?? current.id) !==
@@ -2268,9 +2263,10 @@ export class Compat {
         return {};
       }
       case "session/plan/get": {
-        const s = this.session(p.sessionId);
+        const s = this.session(p.sessionId, { fields: ['id', 'readonlyHistory'] });
         if (s.readonlyHistory) return { plan: { active: false } };
-        await this.ensureSession(s);
+        // Native state reads can resume history without installing execution
+        // capabilities. Opening a conversation must not start every MCP server.
         return { plan: await this.driver.getPlanMode(s.id) };
       }
       case "session/plan/set": {
@@ -2281,9 +2277,8 @@ export class Compat {
         return { plan: await this.driver.setPlanMode(s.id, p.active) };
       }
       case "session/goal/get": {
-        const s = this.session(p.sessionId);
+        const s = this.session(p.sessionId, { fields: ['id', 'readonlyHistory'] });
         if (s.readonlyHistory) return { goal: null };
-        await this.ensureSession(s);
         return { goal: await this.driver.getGoal(s.id) ?? null };
       }
       case "session/goal/edit":
@@ -2315,7 +2310,7 @@ export class Compat {
         const available = await this.readCurrentExtensions(p.sessionId, async (s, resolvedExtensions) => {
           await this.ensureSession(s);
           const tools = [];
-          for (const t of await this.driver.listTools(s.id))
+          for (const t of await this.driver.listTools(s.id, p.extensionName))
             if (await toolEnabled(s, this.settings, t.name, resolvedExtensions)) tools.push(t);
           return tools;
         });
@@ -2508,12 +2503,11 @@ export class Compat {
       case "session/rename":
       case "session/archive":
       case "session/unarchive": {
-        this.session(p.sessionId);
+        this.session(p.sessionId, { fields: ['id'] });
         if (name === "session/rename") requireString(p.title, "title");
         if (name === "session/archive" && this.active.has(p.sessionId))
           throw invalid("Stop the active turn before archiving");
-        await this.store.update((state) => {
-          const s = state.sessions.find((s) => s.id === p.sessionId);
+        await this.store.updateSession(p.sessionId, (s) => {
           if (name === "session/rename") {
             s.title = p.title.trim();
             s.userSetName = true;
@@ -2607,7 +2601,7 @@ export class Compat {
             skipped.push({ providerId: id, reason: "unknown_provider" });
             continue;
           }
-          const models = await discover(provider, provider);
+          const models = await discover(provider, provider, { refreshMetadata: true });
           await this.store.update((state) => {
             const saved = state.providers.find((x) => x.id === id);
             if (saved) saved.models = models;
@@ -2672,14 +2666,6 @@ export class Compat {
       }
       case "config/upsert": {
         requireString(p.key, "key");
-        if (p.key === COMPACTION_MODEL_KEY) {
-          await this.store.update(state => {
-            state.config[p.key] = { value: validateCompactionModel(p.value, state.providers, p.isSecret) };
-          });
-          this.configurationRevision += 1;
-          this.initialized.clear();
-          return {};
-        }
         if (p.key === COMMON_QUERY_KEY) validateQuerySettings(p.value, p.isSecret);
         if (p.key === SUBAGENT_TEMPLATES_KEY) p.value = validateSubagentTemplates(p.value, this.store.read(["providers"]).providers, p.isSecret);
         if (p.key === SUBAGENT_LIMITS_KEY) p.value = validateSubagentLimits(p.value, p.isSecret);
@@ -2693,7 +2679,6 @@ export class Compat {
       }
       case "config/remove":
         await this.store.update((s) => delete s.config[p.key]);
-        if (p.key === COMPACTION_MODEL_KEY) this.configurationRevision += 1;
         if (p.key !== COMMON_QUERY_KEY) this.initialized.clear();
         return {};
       case "config/extensions/list":

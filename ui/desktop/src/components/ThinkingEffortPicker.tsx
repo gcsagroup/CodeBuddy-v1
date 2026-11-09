@@ -526,16 +526,30 @@ export function ModelThinkingMenu({
     setError(false);
     setReadFailed(false);
     let active = true;
+    let latestEffort: ThinkingEffort | undefined;
+    const onEffortChanged = (event: Event) => {
+      const changed = (event as CustomEvent<{ provider: string; model: string; effort: ThinkingEffort }>).detail;
+      if (changed.provider !== provider || changed.model !== model) return;
+      const effort = changed.effort;
+      latestEffort = effort;
+      setLoaded(previous => previous?.identity === identity
+        ? { identity, details: { ...previous.details, thinking: { ...previous.details.thinking, value: effort } } }
+        : previous);
+    };
+    window.addEventListener('codebuddy:thinking-effort-changed', onEffortChanged);
     if (provider && model && !initialSettings)
       void readSettings(provider, model)
         .then((value) => {
-          if (active) setLoaded({ identity, details: value });
+          // A settings read started before a save must not restore the old slider value.
+          if (active) setLoaded({ identity, details: latestEffort
+            ? { ...value, thinking: { ...value.thinking, value: latestEffort } } : value });
         })
         .catch(() => {
           if (active) setReadFailed(true);
         });
     return () => {
       active = false;
+      window.removeEventListener('codebuddy:thinking-effort-changed', onEffortChanged);
       if (current.current === identity) current.current = '';
     };
   }, [provider, model, identity, initialSettings, readSettings]);

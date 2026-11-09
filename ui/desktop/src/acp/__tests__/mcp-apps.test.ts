@@ -148,7 +148,7 @@ describe('ACP MCP app helpers', () => {
 
     const tools = await listMcpAppTools('session-1', 'weather');
 
-    expect(client.goose.toolsList_unstable).toHaveBeenCalledWith({ sessionId: 'session-1' });
+    expect(client.goose.toolsList_unstable).toHaveBeenCalledWith({ sessionId: 'session-1', extensionName: 'weather' });
     expect(tools).toEqual([
       {
         name: 'weather__refresh',

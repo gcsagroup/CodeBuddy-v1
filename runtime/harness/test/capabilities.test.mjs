@@ -911,7 +911,9 @@ test('tool schema pressure preserves explicit output budget with the actual mode
 
 test('output capability preserves native dynamic fitting on small windows without inventing a call default', async () => {
   const nativeBudget = PiAiConfig.dict.providers.inner.dict.defaultMaxTokens.meta.default;
-  const { maxTokens: _fixtureBudget, ...route } = { ...provider, contextWindow: nativeBudget / 4, outputTokenCapacity: nativeBudget / 4 };
+  // Keep this below the native default while leaving room for the fixed host
+  // instructions and safety reservation; an 8K window cannot fit that input.
+  const { maxTokens: _fixtureBudget, ...route } = { ...provider, contextWindow: nativeBudget / 2, outputTokenCapacity: nativeBudget / 2 };
   const created = await driver.createSession({ cwd: root, provider: route, model: 'fixture-small-capability' });
   for (let n = 0; n < 2; n++) {
     const result = await driver.prompt(created.sessionId, `fixture_settings small-window ${n}`);

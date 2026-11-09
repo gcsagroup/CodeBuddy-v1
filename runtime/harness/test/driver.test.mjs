@@ -30,7 +30,28 @@ before(async () => {
     }
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const emit = (delta, finish_reason = null, usage) => res.write(`data: ${JSON.stringify({ id: 'fixture-completion', object: 'chat.completion.chunk', created: 1, model: request.model, choices: [{ index: 0, delta, finish_reason }], ...(usage ? { usage } : {}) })}\n\n`);
-    if (prompt.includes('fixture_literal_tool_protocol')) {
+    if (request.tools?.some(tool => tool.function.name === 'check_execution_claims')) {
+      const audit = JSON.parse(request.messages.at(-1).content);
+      const success = audit.draft.includes('fabricated') ? 'failed-run' : 'successful-run';
+      emit({ tool_calls: [{ index: 0, id: 'review', type: 'function', function: {
+        name: 'check_execution_claims', arguments: JSON.stringify({ changes: [], successes: [success] }),
+      } }] });
+      emit({}, 'tool_calls');
+    } else if (prompt.includes('fixture_grounding')) {
+      const results = request.messages.slice(lastUserIndex + 1).filter(message => message.role === 'tool');
+      const correctiveRetry = JSON.stringify(request.messages).includes('previous draft claimed results without supporting receipts');
+      if (!results.length || (results.length === 1 && correctiveRetry)) {
+        const failed = !results.length;
+        emit({ tool_calls: [{ index: 0, id: failed ? 'failed-run' : 'successful-run', type: 'function', function: {
+          name: process.platform === 'win32' ? 'pwsh' : 'bash',
+          arguments: JSON.stringify({ command: failed ? 'exit 1' : 'exit 0', description: 'Run the isolated check' }),
+        } }] });
+        emit({}, 'tool_calls');
+      } else {
+        emit({ content: results.length > 1 ? 'Verified rerun passed.' : 'All tests passed (fabricated).' });
+        emit({}, 'stop');
+      }
+    } else if (prompt.includes('fixture_literal_tool_protocol')) {
       const text = bareToolTexts[prompt.includes('image') ? 'image' : 'subagent'];
       emit({ role: 'assistant', content: text.slice(0, 9) });
       emit({ content: text.slice(9, -6) });
@@ -39,13 +60,13 @@ before(async () => {
       res.end('data: [DONE]\n\n');
       return;
     }
-    if (prompt.includes('fixture_slow')) {
+    else if (prompt.includes('fixture_slow')) {
       emit({ role: 'assistant', content: 'started' });
       const timer = setTimeout(() => res.end('data: [DONE]\n\n'), 30000);
       res.on('close', () => clearTimeout(timer));
       return;
     }
-    if (prompt.includes('fixture_write_stream') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
+    else if (prompt.includes('fixture_write_stream') && !request.messages.slice(lastUserIndex + 1).some(message => message.role === 'tool')) {
       const latePath = prompt.includes('late_path');
       const file = join(root, latePath ? 'late-path.txt' : prompt.includes('cancel') ? 'cancel-preview.txt' : 'preview.txt');
       emit({ role: 'assistant', tool_calls: [{ index: 0, id: 'draft-write', type: 'function', function: { name: 'write', arguments: '{"content":"' + 'x'.repeat(1500) } }] });
@@ -262,6 +283,18 @@ test('official platform shell executes only after approval', async () => {
   assert.equal(outcome.structuredContent.timedOut, false);
   assert.equal(outcome.name, process.platform === 'win32' ? 'pwsh' : 'bash');
   assert.equal(typeof outcome.arguments.command, 'string');
+});
+
+test('a passing-test claim with only a nonzero command receipt is withheld and native recovery can execute the missing rerun', async () => {
+  const created = await session();
+  const events = [];
+  const result = await driver.prompt(created.sessionId, 'fixture_grounding', { onPermission: async () => true, onEvent: event => events.push(event) });
+  assert.equal(result.stopReason, 'end_turn');
+  assert.deepEqual(events.filter(e => e.type === 'tool_result').map(e => e.structuredContent.exitCode), [1, 0]);
+  assert.equal(events.filter(e => e.type === 'text_delta').map(e => e.text).join(''), 'Verified rerun passed.');
+  const { events: journal } = await driver.history(created.sessionId);
+  assert.ok(journal.some(e => e.type === 'llm/retry'));
+  assert.ok(!journal.some(e => e.type === 'assistant/message' && JSON.stringify(e.data.message.content).includes('fabricated')));
 });
 
 test('cold history and follow-up survive a clean runtime restart', async () => {

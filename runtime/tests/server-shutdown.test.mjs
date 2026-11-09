@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -55,7 +55,7 @@ test('shutdown rejects reconnects while native cleanup is still running', { time
 for (const realHarness of [false, true])
 test(`confirmed update cancels an active conversation and preserves partial history (native Harness: ${realHarness})`, { timeout: 30000 }, async t => {
   const entered = Promise.withResolvers(), cancelled = Promise.withResolvers(), saved = Promise.withResolvers();
-  const directory = await mkdtemp(path.join(tmpdir(), 'harness-active-update-'));
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'harness-active-update-')));
   const secret = 'isolated-active-update-fixture';
   const model = http.createServer(async (req, res) => {
     let raw = '';

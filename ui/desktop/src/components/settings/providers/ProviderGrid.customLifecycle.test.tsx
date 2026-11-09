@@ -13,6 +13,7 @@ const providerApi = vi.hoisted(() => ({
   remove: vi.fn(),
   create: vi.fn(),
   refreshDefaults: vi.fn(),
+  saveDefaults: vi.fn(),
 }));
 
 vi.mock('../../../acp/providers', () => ({
@@ -21,6 +22,7 @@ vi.mock('../../../acp/providers', () => ({
   acpUpdateCustomProviderFromRequest: providerApi.update,
   acpDeleteCustomProvider: providerApi.remove,
   acpCreateCustomProviderFromRequest: providerApi.create,
+  acpSaveDefaults: providerApi.saveDefaults,
 }));
 
 vi.mock('../../ModelAndProviderContext', () => ({
@@ -152,6 +154,7 @@ describe('ProviderGrid custom provider lifecycle', () => {
       })
     );
     expect(refreshProviders).toHaveBeenCalledTimes(1);
+    expect(providerApi.refreshDefaults).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Edit Provider')).toBeInTheDocument();
     await act(async () => finishRefresh());
     await waitFor(() => expect(screen.queryByText('Edit Provider')).not.toBeInTheDocument());
@@ -188,6 +191,19 @@ describe('ProviderGrid custom provider lifecycle', () => {
     expect(refreshProviders).toHaveBeenCalledOnce();
     expect(screen.queryByRole('button', { name: 'Verify and add' })).not.toBeInTheDocument();
     expect(screen.queryByText('Choose model for custom_new_gateway')).not.toBeInTheDocument();
+  });
+
+  it('uses the verified connection selection as the new conversation default', async () => {
+    providerApi.discover.mockResolvedValue(['qwen3:8b', 'cyber-model']);
+    const user = userEvent.setup();
+    render(<ProviderGrid providers={[customProvider]} isOnboarding={false} compactConnectionSetup />, { wrapper: IntlTestWrapper });
+    await user.click(screen.getByTestId('provider-card-custom_office_local'));
+    await user.click(screen.getByRole('button', { name: 'Load models' }));
+    await user.selectOptions(await screen.findByLabelText('Discovered models'), 'cyber-model');
+    await user.click(screen.getByRole('button', { name: 'Verify and save' }));
+    await waitFor(() => expect(providerApi.saveDefaults).toHaveBeenCalledWith(customProvider.name, 'cyber-model'));
+    expect(providerApi.update.mock.invocationCallOrder[0]).toBeLessThan(providerApi.saveDefaults.mock.invocationCallOrder[0]);
+    expect(providerApi.saveDefaults.mock.invocationCallOrder[0]).toBeLessThan(providerApi.refreshDefaults.mock.invocationCallOrder[0]);
   });
 
   it('numbers default names against all connections and preserves a user-entered name', async () => {

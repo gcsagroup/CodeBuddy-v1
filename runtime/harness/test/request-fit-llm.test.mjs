@@ -79,21 +79,6 @@ test('persistable failure correlates to a one-use fit and remeasures the origina
   assert.equal(f.observed.length, 2, 'cancelled recovery must not even prepare another adapter request');
 });
 
-test('prepared calls can measure the native projected request without dispatching or consuming it', async t => {
-  const f = await fixture(t, { success: true });
-  const options = f.options();
-  const prepared = await f.ctx.llm.prepareCall(options);
-  assert.equal(typeof prepared.measure, 'function');
-  const fit = await prepared.measure(options);
-  assert.equal(fit.model, 'old-model');
-  assert.equal(f.dispatched.length, 0);
-  const controller = new AbortController(); controller.abort();
-  await assert.rejects(prepared.measure({ ...options, signal: controller.signal }), { name: 'AbortError' });
-  await assert.rejects(prepared.measure({ ...options, model: 'different-model' }), { code: 'INVALID_PREPARED_CALL' });
-  await collect(prepared.stream(options));
-  assert.equal(f.dispatched.length, 1, 'measurement leaves the one-shot dispatch unused');
-});
-
 test('thrown local errors retain fit, while auxiliary calls and unrelated failures do not', async t => {
   const thrown = await fixture(t, { code: 'LOCAL_OUTPUT_BUDGET_EXHAUSTED', throws: true });
   const failure = failureOf(await collect(thrown.ctx.llm.stream(thrown.options())));
@@ -187,20 +172,4 @@ test('a dispatched summary truncation never acquires the local full-fit selectio
   assert.equal(f.dispatched.length, 1);
   assert.equal(failure.code, 'OUTPUT_TRUNCATED');
   assert.equal(f.ctx.llm.requestFitRecovery(failure, { purpose: 'compaction', sessionId: 'test-session' }), undefined);
-});
-
-test('provider-confirmed summary overflow retains only its own one-shot route continuation', async t => {
-  const f = await fixture(t, { code: 'CONTEXT_WINDOW_EXCEEDED', fitFor: () => ({ desiredMaxTokens: 4096, effectiveMaxTokens: 4096 }) });
-  const options = f.options({ purpose: 'compaction', maxTokens: 4096 });
-  const failure = failureOf(await collect(f.ctx.llm.stream(options)));
-  assert.equal(f.dispatched.length, 1);
-  assert.equal(f.ctx.llm.requestFitRecovery(failure), undefined);
-  assert.equal(f.ctx.llm.requestFitRecovery(failure, { purpose: 'compaction', sessionId: 'different-session' }), undefined);
-  const scope = { purpose: 'compaction', sessionId: options.sessionId };
-  const recovery = f.ctx.llm.requestFitRecovery(failure, scope);
-  assert.ok(recovery);
-  assert.equal(f.ctx.llm.requestFitRecovery(failure, scope), undefined);
-  const stopped = new AbortController(); stopped.abort();
-  assert.throws(() => recovery.stream({ ...options, signal: stopped.signal }), { name: 'AbortError' });
-  assert.equal(f.dispatched.length, 1);
 });

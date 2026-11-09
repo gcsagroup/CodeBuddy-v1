@@ -17,8 +17,6 @@ vi.mock('../../../i18n', () => ({
 vi.mock('../../../acp/providers', () => ({
   acpListProviderDetails: vi.fn(),
   acpListProviderModels: vi.fn().mockResolvedValue([]),
-  acpReadProviderConfig: vi.fn().mockResolvedValue([]),
-  acpSaveProviderConfig: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./ModelsSection', () => ({
@@ -100,30 +98,6 @@ describe('ModelsAndRuntimeSettings', () => {
       unfinishedCustomProvider,
       customProvider,
     ]);
-  });
-
-  it('keeps the compaction draft when returning to the settings menu and reports unsaved changes', async () => {
-    vi.mocked(acpListProviderDetails).mockResolvedValue([
-      {
-        ...customProvider,
-        metadata: {
-          ...customProvider.metadata,
-          known_models: [{ name: 'local-model', context_limit: 65536 }],
-        },
-      },
-    ]);
-    const dirty = vi.fn();
-    render(<ModelsAndRuntimeSettings setView={vi.fn()} onDirtyChange={dirty} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Context capacity' }));
-    const select = await screen.findByRole('combobox', { name: 'Compaction model' });
-    await waitFor(() => expect(select).toBeEnabled());
-    const value = JSON.stringify(['studio', 'local-model']);
-    fireEvent.change(select, { target: { value } });
-    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true));
-    fireEvent.click(screen.getByRole('button', { name: 'Back to menu' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Context capacity' }));
-    expect(screen.getByRole('combobox', { name: 'Compaction model' })).toHaveValue(value);
-    expect(acpUpsertConfig).not.toHaveBeenCalled();
   });
 
   it('shows only first-party and custom connection choices in the settings page', async () => {

@@ -563,28 +563,34 @@ test('sidebar project and Tasks disclosures animate both ways without shifting t
   expect(firstChat.y - folder.y - folder.height).toBeGreaterThanOrEqual(4);
 
   const projectToggle = page.getByRole('button', { name: 'timeout', exact: true });
-  const projectRename = page.getByRole('button', { name: 'Rename project', exact: true });
-  const chatRename = page.getByRole('button', { name: 'Rename session', exact: true });
+  const projectActions = page.getByRole('button', { name: 'Project actions', exact: true });
+  const chatPin = page.getByRole('button', { name: 'Pin session', exact: true });
   await page.getByTestId('chat-canvas').hover();
-  await expect(projectRename).toHaveCSS('opacity', '0');
-  await expect(chatRename.first()).toHaveCSS('opacity', '0');
+  await expect(projectActions).toHaveCSS('opacity', '0');
+  await expect(chatPin.first()).toHaveCSS('opacity', '0');
   await projectToggle.hover();
-  await expect(projectRename).toHaveCSS('opacity', '0.6');
-  await expect(chatRename.first()).toHaveCSS('opacity', '0');
+  await expect(projectActions).toHaveCSS('opacity', '1');
+  await expect(chatPin.first()).toHaveCSS('opacity', '0');
   await page.getByText('Chat 1', { exact: true }).hover();
-  await expect(chatRename.first()).toHaveCSS('opacity', '0.6');
-  await expect(chatRename.nth(1)).toHaveCSS('opacity', '0');
-  await expect(projectRename).toHaveCSS('opacity', '0');
+  await expect(chatPin.first()).toHaveCSS('opacity', '1');
+  await expect(chatPin.nth(1)).toHaveCSS('opacity', '0');
+  await expect(projectActions).toHaveCSS('opacity', '0');
+  await page.getByText('Chat 1', { exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename session', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('textbox')).toHaveValue('Chat 1');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
 
   // The title and trailing blank area both toggle; editing must not toggle.
   const projectTitle = (await page.getByText('timeout', { exact: true }).boundingBox())!;
   await page.mouse.click(projectTitle.x + 10, projectTitle.y + projectTitle.height / 2);
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'false');
   await settle();
-  await projectToggle.click({ position: { x: folder.width - 38, y: folder.height / 2 } });
+  await page.mouse.click(projectTitle.x + projectTitle.width - 8, projectTitle.y + projectTitle.height / 2);
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
   await settle();
-  await projectRename.click();
+  await projectActions.click();
+  await page.getByRole('menuitem', { name: 'Rename project', exact: true }).click();
   const projectInput = page.getByRole('textbox', { name: 'Project name' });
   await projectInput.click();
   await expect(projectToggle).toHaveAttribute('aria-expanded', 'true');
@@ -850,19 +856,24 @@ test('conversation font family and fractional layout match in main and subagent 
   });
 });
 
-test('completed extension toast enters softly and disappears after five seconds even while hovered and unfocused', async () => {
+test('successful extension results stay silent and a new failure pauses for reading then expires without focus', async () => {
   await page.goto(`${server.resolvedUrls!.local[0]}tests/browser-fixtures/scroll-area.html?toast`);
   await page.getByRole('button', { name: 'Finish extensions' }).click();
   const notification = page.getByRole('alert');
-  await expect(notification).toContainText('Successfully loaded 1 extension');
+  await expect(notification).toHaveCount(0);
+  await page.getByRole('button', { name: 'Fail extension' }).click();
+  await expect(notification).toContainText('1 extension failed to load');
   expect(
     parseFloat(await notification.evaluate((el) => window.getComputedStyle(el).animationDuration))
   ).toBeGreaterThanOrEqual(0.3);
   await notification.hover();
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await page.waitForTimeout(4400);
+  await page.waitForTimeout(5400);
   await expect(notification).toBeVisible();
-  await expect(notification).toHaveCount(0, { timeout: 2200 });
+  await page.getByRole('button', { name: 'Finish extensions' }).hover();
+  await expect(notification).toHaveCount(0, { timeout: 6500 });
+  await page.getByRole('button', { name: 'Fail extension' }).click();
+  await expect(notification).toHaveCount(0);
 });
 
 test('extension loading remains truthful until settled and an updated failure also expires', async () => {
@@ -964,6 +975,10 @@ test('React disclosure stays anchored for keyboard toggles and respects reduced 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   try {
     await openFixture();
+    // Enter history reading through a real navigation key. Programmatic
+    // scrollIntoView alone intentionally does not turn off output following.
+    await page.locator('[data-radix-scroll-area-viewport]').press('Home');
+    await expect(page.getByRole('status')).toHaveText('Reading history');
     const heading = page.getByRole('button', { name: 'Work history', exact: true });
     await heading.scrollIntoViewIfNeeded();
     await heading.focus();

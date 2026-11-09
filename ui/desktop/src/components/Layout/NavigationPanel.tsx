@@ -46,6 +46,10 @@ interface SessionStatus {
 }
 
 const i18n = defineMessages({
+  pinSession: { id: 'sessionActions.pin', defaultMessage: 'Pin session' },
+  unpinSession: { id: 'sessionActions.unpin', defaultMessage: 'Unpin session' },
+  pinProject: { id: 'navigationPanel.pinProject', defaultMessage: 'Pin project' },
+  unpinProject: { id: 'navigationPanel.unpinProject', defaultMessage: 'Unpin project' },
   pinned: { id: 'navigationPanel.pinned', defaultMessage: 'Pinned' },
   actions: { id: 'sessionActionsHeader.actionsLabel', defaultMessage: 'Session actions' },
   chats: {
@@ -193,7 +197,7 @@ export const SessionRow: React.FC<SessionRowProps> = ({
         </span>
         <button
           type="button"
-          aria-label={intl.formatMessage({ id: pinned ? 'sessionActions.unpin' : 'sessionActions.pin', defaultMessage: pinned ? 'Unpin session' : 'Pin session' })}
+          aria-label={intl.formatMessage(pinned ? i18n.unpinSession : i18n.pinSession)}
           aria-pressed={pinned}
           onClick={(event) => {
             event.stopPropagation();
@@ -379,7 +383,7 @@ export const ProjectSessionGroup: React.FC<ProjectSessionGroupProps> = ({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => {
                 try { setProjectPinned(group.path, !pinned); } catch (error) { toast.error(errorMessage(error)); }
-              }}><Pin className="size-4" />{intl.formatMessage({ id: pinned ? 'navigationPanel.unpinProject' : 'navigationPanel.pinProject', defaultMessage: pinned ? 'Unpin project' : 'Pin project' })}</DropdownMenuItem>
+              }}><Pin className="size-4" />{intl.formatMessage(pinned ? i18n.unpinProject : i18n.pinProject)}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { setDraftName(displayName); setIsEditing(true); }}>
                 <Pencil className="size-4" />{intl.formatMessage(i18n.renameProject)}
               </DropdownMenuItem>

@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "Nilai"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "Selamat siang"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "Selamat malam"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Selamat pagi"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Unduh"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status tidak diketahui · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "Batal"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Muat lebih banyak"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Perbarui model"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Beberapa koneksi tidak dapat diperbarui. Daftar sebelumnya tetap ditampilkan. Coba lagi."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Daftar model diperbarui."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Memperbarui model…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Arsipkan percakapan dalam proyek"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Arsipkan {count} percakapan di {name}? File proyek tidak berubah. Percakapan dapat dipulihkan dari Riwayat."
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "Percakapan baru dalam proyek"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Sematkan proyek"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Tindakan proyek"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Lepas sematan proyek"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "Runtime telah diperbarui. Selesaikan tugas aktif, lalu tutup dan mulai ulang CodeBuddy untuk memuat perubahan."
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Percakapan saat ini sudah disinkronkan."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Menghubungkan di latar belakang…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Pilihan khusus"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "Percakapan baru mengikuti kemampuan kotak alat yang diaktifkan. Percakapan khusus yang sudah ada mempertahankan pilihannya."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Koneksi gagal"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Ikuti kotak alat"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Disimpan · Perubahan diterapkan sebelum giliran berikutnya. Tugas saat ini tetap berjalan."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Terhubung"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Pilihan ditentukan agen"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Coba lagi koneksi"
   }
 }

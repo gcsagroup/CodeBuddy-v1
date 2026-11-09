@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "Valore"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "Buon pomeriggio"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "Buonasera"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Buongiorno"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Scarica"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Stato sconosciuto · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "Annulla"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Carica altro"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Aggiorna modelli"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Non è stato possibile aggiornare alcune connessioni. Vengono ancora mostrati gli elenchi precedenti. Riprova."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Elenco dei modelli aggiornato."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Aggiornamento dei modelli…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Archivia conversazioni del progetto"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Archiviare {count} conversazioni in {name}? I file del progetto rimangono invariati. Le conversazioni possono essere ripristinate dalla cronologia."
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "Nuova conversazione nel progetto"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Fissa progetto"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Azioni del progetto"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Rimuovi progetto dai fissati"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "Il runtime è stato aggiornato. Completa le attività in corso, poi chiudi e riavvia CodeBuddy per caricare le modifiche."
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "La conversazione attuale è sincronizzata."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Connessione in background…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Selezione personalizzata"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "Le nuove conversazioni usano le funzionalità abilitate della casella degli strumenti. Le conversazioni esistenti con selezione personalizzata la mantengono."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Connessione non riuscita"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Segui la casella degli strumenti"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Salvato · Le modifiche si applicano prima del prossimo turno. L’attività attuale continua."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Connesso"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Selezione definita dall’agente"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Riprova connessioni"
   }
 }

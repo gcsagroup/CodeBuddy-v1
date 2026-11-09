@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "मूल्य"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "शुभ दोपहर"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "शुभ संध्या"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "सुप्रभात"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "डाउनलोड करें"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "स्थिति अज्ञात · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "रद्द करें"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "और लोड करें"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "मॉडल रीफ़्रेश करें"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "कुछ कनेक्शन रीफ़्रेश नहीं हो सके। उनकी पिछली सूचियाँ अभी भी दिखाई जा रही हैं। फिर से प्रयास करें।"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "मॉडल सूची अपडेट हो गई।"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "मॉडल रीफ़्रेश हो रहे हैं…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "प्रोजेक्ट की बातचीत संग्रहित करें"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "{name} में {count} बातचीत संग्रहित करें? प्रोजेक्ट की फ़ाइलें नहीं बदलेंगी। बातचीत को इतिहास से बहाल किया जा सकता है।"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "प्रोजेक्ट में नई बातचीत"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "प्रोजेक्ट पिन करें"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "प्रोजेक्ट कार्रवाइयाँ"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "प्रोजेक्ट अनपिन करें"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "रनटाइम अपडेट हो गया है। सक्रिय कार्य पूरे करें, फिर बदलाव लोड करने के लिए CodeBuddy बंद करके दोबारा शुरू करें।"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "वर्तमान बातचीत सिंक्रनाइज़ है।"
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "बैकग्राउंड में कनेक्ट हो रहा है…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "कस्टम चयन"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "नई बातचीत टूलबॉक्स की सक्षम क्षमताओं का उपयोग करती है। मौजूदा कस्टम बातचीत अपना चयन बनाए रखती है।"
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "कनेक्शन विफल"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "टूलबॉक्स का अनुसरण करें"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "सहेजा गया · बदलाव अगले चरण से पहले लागू होंगे। वर्तमान कार्य जारी रहेगा।"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "कनेक्ट हो गया"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "एजेंट द्वारा निर्धारित चयन"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "कनेक्शन दोबारा आज़माएँ"
   }
 }

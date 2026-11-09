@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "値"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "こんにちは"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "こんばんは"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "おはようございます"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "ダウンロード"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状態不明 · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "キャンセル"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "さらに読み込む"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "モデルを更新"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "一部の接続を更新できませんでした。以前の一覧を引き続き表示しています。もう一度お試しください。"
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "モデル一覧を更新しました。"
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "モデルを更新中…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "プロジェクト内の会話をアーカイブ"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "{name} の会話 {count} 件をアーカイブしますか？プロジェクトのファイルは変更されません。会話は履歴から復元できます。"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "プロジェクトで新しい会話"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "プロジェクトを固定"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "プロジェクトの操作"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "プロジェクトの固定を解除"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "ランタイムが更新されました。実行中のタスクを完了し、CodeBuddy を終了して再起動すると変更が反映されます。"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "現在の会話は同期済みです。"
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "バックグラウンドで接続中…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "カスタム選択"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "新しい会話にはツールボックスで有効な機能が適用されます。個別に設定した既存の会話は、その選択を維持します。"
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "接続に失敗しました"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "ツールボックスに従う"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "保存済み · 変更は次のターンの前に適用されます。現在のタスクは続行します。"
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "接続済み"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "エージェントによる選択"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "接続を再試行"
   }
 }

@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "Значение"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "Добрый день"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "Добрый вечер"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Доброе утро"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Скачать"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Статус неизвестен · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Загрузить ещё"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Обновить модели"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Не удалось обновить некоторые подключения. По-прежнему отображаются их предыдущие списки. Повторите попытку."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Список моделей обновлён."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Обновление моделей…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Архивировать диалоги проекта"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Архивировать диалоги ({count}) в проекте {name}? Файлы проекта не изменятся. Диалоги можно восстановить из истории."
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "Новый диалог в проекте"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Закрепить проект"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Действия проекта"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Открепить проект"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "Среда выполнения обновлена. Завершите активные задачи, затем закройте и перезапустите CodeBuddy, чтобы загрузить изменения."
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Текущий диалог синхронизирован."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Подключение в фоновом режиме…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Свой набор"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "Новые диалоги используют включённые возможности панели инструментов. Существующие диалоги со своим набором сохраняют его."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Ошибка подключения"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Следовать панели инструментов"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Сохранено · Изменения вступят в силу перед следующим ходом. Текущая задача продолжается."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Подключено"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Набор, заданный агентом"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Повторить подключения"
   }
 }

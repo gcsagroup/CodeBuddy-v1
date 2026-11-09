@@ -1,36 +1,4 @@
 {
-  "runtime.sourceChanged": { "defaultMessage": "The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes." },
-  "toolbox.sync.connecting": { "defaultMessage": "Connecting in background…" },
-  "modelsBottomBar.refresh": {
-    "defaultMessage": "Refresh models"
-  },
-  "modelsBottomBar.refreshing": {
-    "defaultMessage": "Refreshing models…"
-  },
-  "modelsBottomBar.refreshed": {
-    "defaultMessage": "Model list updated."
-  },
-  "modelsBottomBar.refreshFailed": {
-    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
-  },
-  "navigationPanel.projectActions": {
-    "defaultMessage": "Project actions"
-  },
-  "navigationPanel.pinProject": {
-    "defaultMessage": "Pin project"
-  },
-  "navigationPanel.unpinProject": {
-    "defaultMessage": "Unpin project"
-  },
-  "navigationPanel.newProjectChat": {
-    "defaultMessage": "New conversation in project"
-  },
-  "navigationPanel.archiveProjectChats": {
-    "defaultMessage": "Archive conversations in project"
-  },
-  "navigationPanel.archiveProjectConfirm": {
-    "defaultMessage": "Archive {count} conversations in {name}? Project files stay unchanged. Conversations can be restored from History."
-  },
   "alertBox.compactNow": {
     "defaultMessage": "Compact now"
   },
@@ -1535,7 +1503,7 @@
     "defaultMessage": "Execution result"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "Tasks"
+    "defaultMessage": "Work plan"
   },
   "codeProToolContent.planSummary": {
     "defaultMessage": "{completed} done · {active} in progress · {pending} pending"
@@ -1554,6 +1522,9 @@
   },
   "codeProToolContent.timeout": {
     "defaultMessage": "Timed out — subsequent effects may need checking"
+  },
+  "common.cancel": {
+    "defaultMessage": "Cancel"
   },
   "commonQueries.city": {
     "defaultMessage": "Default query city (optional)"
@@ -3844,15 +3815,6 @@
   "headersSection.value": {
     "defaultMessage": "Value"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "Good afternoon"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "Good evening"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Good morning"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "Download"
   },
@@ -4238,7 +4200,7 @@
     "defaultMessage": "CodeBuddy is working on it…"
   },
   "loadingGoose.loadingConversation": {
-    "defaultMessage": "loading conversation..."
+    "defaultMessage": "Loading conversation…"
   },
   "loadingGoose.restartingAgent": {
     "defaultMessage": "restarting session..."
@@ -4531,9 +4493,6 @@
   "mentionPopover.addGroup": {
     "defaultMessage": "Add"
   },
-  "mentionPopover.loadMore": {
-    "defaultMessage": "Load more"
-  },
   "mentionPopover.agents": {
     "defaultMessage": "Agents"
   },
@@ -4569,6 +4528,9 @@
   },
   "mentionPopover.keys": {
     "defaultMessage": "↑ ↓ Select · Enter Insert · Esc Close"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Load more"
   },
   "mentionPopover.loading": {
     "defaultMessage": "Searching…"
@@ -5167,6 +5129,18 @@
   "modelsBottomBar.noMatches": {
     "defaultMessage": "No matching models"
   },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Refresh models"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Some connections could not refresh. Their previous lists are still shown. Try again."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Model list updated."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Refreshing models…"
+  },
   "modelsBottomBar.retry": {
     "defaultMessage": "Retry"
   },
@@ -5431,14 +5405,29 @@
   "navigation.itemToolbox": {
     "defaultMessage": "Toolbox"
   },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Archive conversations in project"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "Archive {count} conversations in {name}? Project files stay unchanged. Conversations can be restored from History."
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Tasks"
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "New conversation in project"
   },
   "navigationPanel.noChats": {
     "defaultMessage": "No recent tasks"
   },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Pin project"
+  },
   "navigationPanel.pinned": {
     "defaultMessage": "Pinned"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Project actions"
   },
   "navigationPanel.projectName": {
     "defaultMessage": "Project name"
@@ -5448,6 +5437,9 @@
   },
   "navigationPanel.resetProjectNameHint": {
     "defaultMessage": "Clear the name to restore the folder name"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Unpin project"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
@@ -6888,6 +6880,9 @@
   },
   "rootCleanup.selectAndAudit": {
     "defaultMessage": "Select exact target and audit"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "The runtime has been updated. Finish active tasks, then close and restart CodeBuddy to load the changes."
   },
   "scheduleChat.choose": {
     "defaultMessage": "Choose a chat"
@@ -9352,9 +9347,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9363,9 +9355,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9405,6 +9394,36 @@
   },
   "toolbox.statusStopping": {
     "defaultMessage": "Stopping…"
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Current conversation is synchronized."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Connecting in background…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Custom selection"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "New conversations follow enabled toolbox capabilities. Existing custom conversations keep their selection."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Connection failed"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Follow toolbox"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Saved · changes apply before the next turn. The current task continues."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Connected"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Agent-defined selection"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Retry connections"
   },
   "toolbox.title": {
     "defaultMessage": "Toolbox"
@@ -9951,35 +9970,5 @@
   },
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Status unknown · {count}"
-  },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
-  "toolbox.sync.follow": {
-    "defaultMessage": "Follow toolbox"
-  },
-  "toolbox.sync.custom": {
-    "defaultMessage": "Custom selection"
-  },
-  "toolbox.sync.restricted": {
-    "defaultMessage": "Agent-defined selection"
-  },
-  "toolbox.sync.pending": {
-    "defaultMessage": "Saved · changes apply before the next turn. The current task continues."
-  },
-  "toolbox.sync.applied": {
-    "defaultMessage": "Current conversation is synchronized."
-  },
-  "toolbox.sync.defaults": {
-    "defaultMessage": "New conversations follow enabled toolbox capabilities. Existing custom conversations keep their selection."
-  },
-  "toolbox.sync.failed": {
-    "defaultMessage": "Connection failed"
-  },
-  "toolbox.sync.ready": {
-    "defaultMessage": "Connected"
-  },
-  "toolbox.sync.retry": {
-    "defaultMessage": "Retry connections"
   }
 }

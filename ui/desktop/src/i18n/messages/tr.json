@@ -3794,15 +3794,6 @@
   "headersSection.value": {
     "defaultMessage": "Değer"
   },
-  "hub.goodAfternoon": {
-    "defaultMessage": "İyi günler"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "İyi akşamlar"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "Günaydın"
-  },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "İndir"
   },
@@ -9278,9 +9269,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "Enable this tool first"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "Added · no tools discovered yet"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "Load failed. If a turn is running, stop it first, then retry."
   },
@@ -9289,9 +9277,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "Not loaded in this conversation"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "Loaded · {count} tools available"
   },
   "toolbox.session.return": {
     "defaultMessage": "Return to conversation"
@@ -9878,9 +9863,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "Durum bilinmiyor · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "Workspace switcher"
-  },
   "compaction.cancelled": {
     "defaultMessage": "Context compaction cancelled. The previous context is preserved."
   },
@@ -9919,5 +9901,74 @@
   },
   "sessionActions.unpin": {
     "defaultMessage": "Unpin session"
+  },
+  "common.cancel": {
+    "defaultMessage": "İptal"
+  },
+  "mentionPopover.loadMore": {
+    "defaultMessage": "Daha fazla yükle"
+  },
+  "modelsBottomBar.refresh": {
+    "defaultMessage": "Modelleri yenile"
+  },
+  "modelsBottomBar.refreshFailed": {
+    "defaultMessage": "Bazı bağlantılar yenilenemedi. Önceki listeleri gösterilmeye devam ediyor. Tekrar deneyin."
+  },
+  "modelsBottomBar.refreshed": {
+    "defaultMessage": "Model listesi güncellendi."
+  },
+  "modelsBottomBar.refreshing": {
+    "defaultMessage": "Modeller yenileniyor…"
+  },
+  "navigationPanel.archiveProjectChats": {
+    "defaultMessage": "Projedeki konuşmaları arşivle"
+  },
+  "navigationPanel.archiveProjectConfirm": {
+    "defaultMessage": "{name} içindeki {count} konuşma arşivlensin mi? Proje dosyaları değişmez. Konuşmalar Geçmiş bölümünden geri yüklenebilir."
+  },
+  "navigationPanel.newProjectChat": {
+    "defaultMessage": "Projede yeni konuşma"
+  },
+  "navigationPanel.pinProject": {
+    "defaultMessage": "Projeyi sabitle"
+  },
+  "navigationPanel.projectActions": {
+    "defaultMessage": "Proje işlemleri"
+  },
+  "navigationPanel.unpinProject": {
+    "defaultMessage": "Projenin sabitlemesini kaldır"
+  },
+  "runtime.sourceChanged": {
+    "defaultMessage": "Çalışma zamanı güncellendi. Etkin görevleri tamamlayın, ardından değişiklikleri yüklemek için CodeBuddy uygulamasını kapatıp yeniden başlatın."
+  },
+  "toolbox.sync.applied": {
+    "defaultMessage": "Geçerli konuşma eşitlendi."
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "Arka planda bağlanıyor…"
+  },
+  "toolbox.sync.custom": {
+    "defaultMessage": "Özel seçim"
+  },
+  "toolbox.sync.defaults": {
+    "defaultMessage": "Yeni konuşmalar araç kutusundaki etkin yetenekleri kullanır. Mevcut özel konuşmalar seçimlerini korur."
+  },
+  "toolbox.sync.failed": {
+    "defaultMessage": "Bağlantı başarısız"
+  },
+  "toolbox.sync.follow": {
+    "defaultMessage": "Araç kutusunu izle"
+  },
+  "toolbox.sync.pending": {
+    "defaultMessage": "Kaydedildi · Değişiklikler sonraki turdan önce uygulanır. Geçerli görev devam eder."
+  },
+  "toolbox.sync.ready": {
+    "defaultMessage": "Bağlandı"
+  },
+  "toolbox.sync.restricted": {
+    "defaultMessage": "Aracının belirlediği seçim"
+  },
+  "toolbox.sync.retry": {
+    "defaultMessage": "Bağlantıları yeniden dene"
   }
 }

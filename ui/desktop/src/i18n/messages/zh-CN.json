@@ -1,6 +1,10 @@
 {
-  "runtime.sourceChanged": { "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。" },
-  "toolbox.sync.connecting": { "defaultMessage": "后台连接中…" },
+  "runtime.sourceChanged": {
+    "defaultMessage": "后台代码已更新。请等待当前任务完成后，关闭并重新启动 CodeBuddy，让修改生效。"
+  },
+  "toolbox.sync.connecting": {
+    "defaultMessage": "后台连接中…"
+  },
   "modelsBottomBar.refresh": {
     "defaultMessage": "刷新模型"
   },
@@ -1535,7 +1539,7 @@
     "defaultMessage": "执行结果"
   },
   "codeProToolContent.plan": {
-    "defaultMessage": "任务"
+    "defaultMessage": "工作计划"
   },
   "codeProToolContent.planSummary": {
     "defaultMessage": "{completed} 已完成 · {active} 进行中 · {pending} 待处理"
@@ -3825,15 +3829,6 @@
   },
   "headersSection.value": {
     "defaultMessage": "值"
-  },
-  "hub.goodAfternoon": {
-    "defaultMessage": "下午好"
-  },
-  "hub.goodEvening": {
-    "defaultMessage": "晚上好"
-  },
-  "hub.goodMorning": {
-    "defaultMessage": "早上好"
   },
   "huggingFaceModelSearch.download": {
     "defaultMessage": "下载"
@@ -9313,9 +9308,6 @@
   "toolbox.session.disabled": {
     "defaultMessage": "请先启用此工具"
   },
-  "toolbox.session.empty": {
-    "defaultMessage": "已添加 · 暂未发现可用工具"
-  },
   "toolbox.session.failed": {
     "defaultMessage": "加载未完成。如任务正在运行，请先停止，再重试。"
   },
@@ -9324,9 +9316,6 @@
   },
   "toolbox.session.missing": {
     "defaultMessage": "当前对话未加载"
-  },
-  "toolbox.session.ready": {
-    "defaultMessage": "已加载 · {count} 个工具可用"
   },
   "toolbox.session.return": {
     "defaultMessage": "返回对话"
@@ -9913,9 +9902,6 @@
   "workspaceSubagents.unknownState": {
     "defaultMessage": "状态未知 · {count}"
   },
-  "workspaceSwitcher.workspaceSwitcher": {
-    "defaultMessage": "工作区切换器"
-  },
   "compaction.cancelled": {
     "defaultMessage": "上下文压缩已取消，原上下文已保留。"
   },
@@ -9981,5 +9967,8 @@
   },
   "toolbox.sync.retry": {
     "defaultMessage": "重试连接"
+  },
+  "common.cancel": {
+    "defaultMessage": "取消"
   }
 }

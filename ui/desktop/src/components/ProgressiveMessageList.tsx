@@ -16,6 +16,7 @@
 
 import {
   Fragment,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -221,6 +222,10 @@ function EarlierHistorySentinel({ onLoad }: { onLoad: (element: HTMLDivElement) 
   return <div ref={target} data-history-sentinel aria-hidden="true" className="h-px" />;
 }
 
+// Following changes still update the history window and live presentation. Reuse
+// unchanged bodies while those consumers react to the viewport's reading mode.
+const StableMessageListContent = memo(ProgressiveMessageListContent);
+
 function OrderedMessageList(props: ProgressiveMessageListProps) {
   const navigationRoot = useRef<HTMLDivElement>(null);
   const navigatedRequest = useRef<number | undefined>(undefined);
@@ -408,7 +413,7 @@ function OrderedMessageList(props: ProgressiveMessageListProps) {
           }}
         />
       )}
-      <ProgressiveMessageListContent
+      <StableMessageListContent
         {...props}
         messages={props.renderMessage ? props.messages : presentation.messages}
         sourceMessages={props.messages}

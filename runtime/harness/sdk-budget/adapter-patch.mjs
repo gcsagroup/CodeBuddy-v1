@@ -111,7 +111,6 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 \t\tif (options.signal?.aborted) throw new LlmError("pi-ai request aborted by caller", "ABORTED");
 \t\tif (prepared.fit.desiredMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError(\`pi-ai request maxTokens must be at least \${prepared.fit.minimumMaxTokens} for this protocol\`, "INVALID_OUTPUT_BUDGET", { requestId: prepared.fit.requestId });
 \t\tif (prepared.fit.available < prepared.fit.minimumMaxTokens || prepared.fit.effectiveMaxTokens < prepared.fit.minimumMaxTokens) throw new LlmError("pi-ai request cannot reserve the protocol's minimum output budget after context safety reservation", "LOCAL_OUTPUT_BUDGET_EXHAUSTED", { requestId: prepared.fit.requestId });`);
-    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE, ...(requestFit ? { requestId: requestFit.requestId } : {})\n');
     // Reasoning still resolves against the captured model/profile when streaming.
     replace('\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst apiKey', '\t\t\tconst model = this.modelOf(snapshot, options.provider, options.model);\n\t\t\tconst reasoning = resolveReasoningLevel(model, options.reasoningEffort ?? profile.reasoning);\n\t\t\tconst apiKey');
     replace('\t\t\t\tconst iterator = toStreamChunks', '\t\t\t\tconst reportedOutput = { tokens: void 0 };\n\t\t\t\tconst iterator = toStreamChunks');
@@ -151,6 +150,9 @@ ${setup.replaceAll('\t\t\t', '\t\t')}${projection.replaceAll('\t\t\t\t', '\t\t')
 function mapStopReason(message, contextWindow, requestFit, reportedOutputTokens) {`);
     replace('\tconst piAiOverflow = isContextOverflow(message, contextWindow);', `\tconst hasReportedOutput = reportedOutputTokens !== void 0 && message.usage.output === reportedOutputTokens;
 \tconst piAiOverflow = (message.stopReason !== "length" || hasReportedOutput) && isContextOverflow(message, contextWindow);`);
+    // Keep the auxiliary failure tied to the exact prepared route/snapshot.
+    // Main-request overflow continues through the unchanged native handler.
+    replace('code: CONTEXT_WINDOW_EXCEEDED_CODE\n', 'code: CONTEXT_WINDOW_EXCEEDED_CODE,\n\t\t\t...requestFit?.purpose === "compaction" ? { requestId: requestFit.requestId } : {}\n');
     replace('\t\tcase "length": return { kind: "max-tokens" };', `\t\tcase "length":
 \t\t\tif (requestFit !== void 0 && requestFit.outputCapApplied !== false && hasReportedOutput && isRecoverableLength(message, requestFit.desiredMaxTokens)) return {
 \t\t\t\tkind: "error",

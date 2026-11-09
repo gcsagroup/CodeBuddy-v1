@@ -16,7 +16,7 @@ test('public driver, metadata-first, and real server imports share the checked S
       import assert from 'node:assert/strict';
       import { readFileSync } from 'node:fs';
       import { createHash } from 'node:crypto';
-      const paths = ['@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai', '@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-llm-retry'];
+      const paths = ['@deepseek-ai/dsh-llm', '@deepseek-ai/dsh-llm-pi-ai', '@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-llm-retry', '@earendil-works/pi-ai/api/openai-completions'];
       const digest = name => createHash('sha256').update(readFileSync(new URL(import.meta.resolve(name)))).digest('hex');
       const before = paths.map(digest);
       await import(${JSON.stringify(entry)});
@@ -33,16 +33,18 @@ test('public driver, metadata-first, and real server imports share the checked S
 });
 
 test('late SDK loading fails explicitly instead of silently using an unpatched module', () => {
-  const child = run(`
-    await import('@deepseek-ai/dsh-llm');
-    await import('./sdk-budget-contract.mjs');
-  `);
-  assert.equal(child.status, 1, child.stderr);
-  assert.match(child.stderr, /Load the SDK request-fit contract before @deepseek-ai\/dsh-llm/);
+  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/openai-completions']) {
+    const child = run(`
+      await import(${JSON.stringify(name)});
+      await import('./sdk-budget-contract.mjs');
+    `);
+    assert.equal(child.status, 1, child.stderr);
+    assert.ok(child.stderr.includes(`Load the SDK request-fit contract before ${name}.`), child.stderr);
+  }
 });
 
 test('SDK and Pi helper byte drift are rejected before native loading without editing dependencies', () => {
-  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options']) {
+  for (const name of ['@deepseek-ai/dsh-llm', '@earendil-works/pi-ai/api/simple-options', '@earendil-works/pi-ai/api/openai-completions']) {
     const child = run(`
       import fs from 'node:fs';
       import { syncBuiltinESMExports } from 'node:module';

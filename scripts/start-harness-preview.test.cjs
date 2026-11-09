@@ -34,10 +34,10 @@ test('an older backend lease protects its receipt even without a launcher lease'
   } finally { lock.close(); }
 });
 
-function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codebuddy-harness-launcher-'));
+function fixture(t, parent = os.tmpdir()) {
+  const root = fs.mkdtempSync(path.join(parent, 'codebuddy-harness-launcher-'));
   t.after(() => {
-    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(path.resolve(root)), path.resolve(parent));
     assert.ok(path.basename(root).startsWith('codebuddy-harness-launcher-'));
     fs.rmSync(root, { recursive: true, force: true });
   });
@@ -137,6 +137,7 @@ test('preview uses the product data root, supports isolation and rejects legacy 
   assert.equal(isolated.CODEBUDDY_HOME, isolatedHome);
   assert.equal(isolated.CODEBUDDY_USER_DATA_DIR, path.join(isolatedHome, 'state', 'electron-app'));
   assert.equal(isolated.CODEBUDDY_WORKSPACE_ROOT, path.join(isolatedHome, 'workspaces'));
+  if (process.platform === 'win32') assert.notEqual(isolated.TEMP, env.TEMP);
   const configEnv = { APPDATA: isolatedConfig, XDG_CONFIG_HOME: isolatedConfig };
   const defaults = previewEnvironment(root, 12345, 'fixture-secret', configEnv);
   assert.equal(defaults.CODEBUDDY_HOME, path.join(os.homedir(), '.CodeBuddy'));
@@ -185,6 +186,53 @@ for (const configured of [false, true]) {
     assert.equal(receiptText.includes('?token='), false);
   });
 }
+
+for (const directory of ['.local', '.local/启动 对抗 空格']) test(`Windows preview shares workspace-local temp files with the native esbuild child (${directory})`, { skip: process.platform !== 'win32' }, async (t) => {
+  // The real native executable has the same workspace restrictions as the app.
+  const fixtureParent = path.resolve(__dirname, '..', directory);
+  fs.mkdirSync(fixtureParent, { recursive: true });
+  const { root, options } = fixture(t, fixtureParent);
+  const esbuildPath = require.resolve('esbuild', { paths: [path.join(__dirname, '../ui/desktop')] });
+  const inherited = { ...options.env, TEMP: os.tmpdir(), TMP: os.tmpdir(), Temp: os.tmpdir() };
+  const probe = path.join(root, 'large-transform.cjs');
+  fs.writeFileSync(probe, `
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const esbuild = require(${JSON.stringify(esbuildPath)});
+    esbuild.transform('/*' + 'x'.repeat(2 * 1024 * 1024) + '*/\\nexport const probe = 1;', { loader: 'js' })
+      .then(result => fs.writeFileSync(path.join(process.cwd(), 'transform-observed.json'), JSON.stringify({
+        temp: os.tmpdir(), code: result.code, exists: fs.statSync(os.tmpdir()).isDirectory(),
+      })))
+      .catch(error => { console.error(error); process.exitCode = 1; })
+      .finally(() => esbuild.stop());
+  `);
+  const code = await startPreview({ ...options, env: inherited,
+    commands: { prepare: [], desktop: { args: [probe], cwd: root } },
+  });
+  assert.equal(code, 0, code === 0 ? undefined : fs.readFileSync(path.join(options.dataDirectory, 'logs/preview/electron.log'), 'utf8'));
+  const observed = JSON.parse(fs.readFileSync(path.join(root, 'transform-observed.json'), 'utf8'));
+  const relative = path.relative(path.join(root, '.local', 'preview-temp'), observed.temp);
+  assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+  assert.equal(observed.exists, true);
+  assert.match(observed.code, /export const probe = 1/);
+  assert.equal(inherited.TEMP, os.tmpdir(), 'launching must not change its parent environment');
+  const receipt = JSON.parse(fs.readFileSync(path.join(options.dataDirectory, 'logs/preview/launch.json'), 'utf8'));
+  assert.equal(receipt.temporaryDirectory, observed.temp);
+});
+
+test('Windows preview refuses an unusable temp directory before starting backend or desktop', { skip: process.platform !== 'win32' }, async t => {
+  const { root, options } = fixture(t);
+  const env = previewEnvironment(root, 12345, 'fixture-secret', options.env, options.dataDirectory);
+  fs.mkdirSync(path.dirname(env.TEMP), { recursive: true });
+  fs.writeFileSync(env.TEMP, 'owned fixture: this is a file, not a directory');
+  const backendMarker = path.join(root, 'backend-started.txt');
+  fs.writeFileSync(options.serverPath, `require('node:fs').writeFileSync(${JSON.stringify(backendMarker)}, 'unexpected');` + fs.readFileSync(options.serverPath, 'utf8'));
+  await assert.rejects(startPreview(options), error => ['EEXIST', 'ENOTDIR'].includes(error.code));
+  assert.equal(fs.existsSync(backendMarker), false);
+  assert.equal(fs.existsSync(path.join(root, 'desktop-observed.json')), false);
+  assert.equal(fs.readFileSync(env.TEMP, 'utf8'), 'owned fixture: this is a file, not a directory');
+});
 
 test('failed bridge startup never launches desktop and records a failed receipt', async (t) => {
   const { root, options } = fixture(t);

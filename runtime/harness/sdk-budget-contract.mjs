@@ -5,6 +5,7 @@ import { llmPatch } from './sdk-budget/llm-patch.mjs';
 import { adapterPatch } from './sdk-budget/adapter-patch.mjs';
 import { compactionPatch } from './sdk-budget/compaction-patch.mjs';
 import { retryPatch } from './sdk-budget/retry-patch.mjs';
+import { piCompletionsPatch } from './sdk-budget/pi-completions-patch.mjs';
 
 // The adapter's estimator and 4096-token reservation belong to this exact Pi
 // release. Do not silently combine the shim with independently upgraded helpers.
@@ -25,11 +26,11 @@ if (piVersion !== '1.2.0') throw new Error('Review the SDK request-fit contract 
 
 // Register every seam before importing any SDK module: their dependencies share
 // native module identities. A loaded or upgraded module must fail explicitly.
-const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch => {
+const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch, piCompletionsPatch].map(patch => {
   const url = import.meta.resolve(patch.name);
   const source = readFileSync(new URL(url), 'utf8');
-  const version = JSON.parse(readFileSync(new URL('../package.json', url), 'utf8')).version;
-  if (version !== '0.2.1-alpha.2')
+  const version = JSON.parse(readFileSync(new URL(patch.packageJson ?? '../package.json', url), 'utf8')).version;
+  if (version !== (patch.version ?? '0.2.1-alpha.2'))
     throw new Error(`Review the pinned SDK version for ${patch.name}.`);
   if (createHash('sha256').update(source).digest('hex') !== patch.hash)
     throw new Error(`Review the pinned SDK request-fit contract for ${patch.name}.`);
@@ -37,10 +38,9 @@ const patches = [llmPatch, adapterPatch, compactionPatch, retryPatch].map(patch 
 });
 // Reuse the very same serializer and reasoning options for measurement and inference.
 const completionUrl = import.meta.resolve('@earendil-works/pi-ai/api/openai-completions');
-const completionSource = readFileSync(new URL(completionUrl), 'utf8');
-if (createHash('sha256').update(completionSource).digest('hex') !== '5a79cc5aa41dee180692695e65771720d1ea556e9a978649dc2040278be51753')
-  throw new Error('Review the pinned chat tokenizer projection.');
-const completionProjection = completionSource
+const completionPatch = patches.find(patch => patch.url === completionUrl);
+// Both changes target one native module; compose them before its only load.
+completionPatch.replacement = completionPatch.replacement
   .replace('export const streamSimple = (model, context, options) => {', 'const simpleOptions = (model, context, options) => {')
   .replace('return stream(model, context, {\n        ...base,', 'return {\n        ...base,')
   .replace('thinkingBudgets: options?.thinkingBudgets,\n    });\n};', `thinkingBudgets: options?.thinkingBudgets,
@@ -49,7 +49,6 @@ const completionProjection = completionSource
 export const streamSimple = (model, context, options) => stream(model, context, simpleOptions(model, context, options));
 export const countPayload = (model, context, options) => buildParams(model,
     resolveTranscript(context, getCompat(model).supportsMidConvoSystemMessages), simpleOptions(model, context, options));`);
-patches.unshift({ name: 'pi-ai chat serializer', url: completionUrl, source: completionSource, replacement: completionProjection, applied: false });
 const hook = registerHooks({
   load(url, context, nextLoad) {
     const loaded = nextLoad(url, context);

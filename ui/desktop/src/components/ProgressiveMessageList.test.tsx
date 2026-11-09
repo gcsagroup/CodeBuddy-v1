@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IntlTestWrapper } from '../i18n/test-utils';
 import type { ActivityEvent } from '../types/activityEvent';
@@ -1720,6 +1721,41 @@ describe('ProgressiveMessageList retention window', () => {
     expect(compactGroups()).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Read 1 file' }));
     expect(compactGroups()[0].querySelectorAll('.goose-message-tool')).toHaveLength(25);
+  });
+
+  it('keeps unchanged message bodies rendered when following changes, and presents new content', () => {
+    const messages = [message(1)];
+    const chat = { sessionId: 'scroll-render-boundary' };
+    const isUserMessage = () => false;
+    let changeFollowing: (following: boolean) => void = () => {};
+    let changeMessages: (history: Message[]) => void = () => {};
+    const renderMessage = vi.fn((item: Message) => (
+      <div>{item.content.map((part) => (part.type === 'text' ? part.text : '')).join('')}</div>
+    ));
+    function List() {
+      const [following, setFollowing] = useState(true);
+      const [history, setHistory] = useState(messages);
+      changeFollowing = setFollowing;
+      changeMessages = setHistory;
+      return (
+        <ScrollFollowingContext.Provider value={following}>
+          <ProgressiveMessageList
+            messages={history}
+            chat={chat}
+            isUserMessage={isUserMessage}
+            renderMessage={renderMessage}
+          />
+        </ScrollFollowingContext.Provider>
+      );
+    }
+    render(<List />, { wrapper: IntlTestWrapper });
+    const bodyRenders = renderMessage.mock.calls.length;
+    act(() => changeFollowing(false));
+    act(() => changeFollowing(true));
+    expect(renderMessage).toHaveBeenCalledTimes(bodyRenders);
+    act(() => changeMessages([message(2)]));
+    expect(screen.getByText('message 2')).toBeVisible();
+    expect(screen.queryByText('message 1')).toBeNull();
   });
 
   it('loads older history on scroll without a load-more button', () => {

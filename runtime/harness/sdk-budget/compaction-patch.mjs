@@ -2,12 +2,48 @@
 // to the original module URL; native service and error identities stay intact.
 const replacements = [
   [
-    '\tconst checkpointMessage = createUserMessage({\n\t\tcontent: frameSummary(summaryResult.summary),',
-    '\tconst baseCheckpoint = createUserMessage({\n\t\tcontent: frameSummary(summaryResult.summary),',
+    'function routedTarget(session) {',
+    `// Several independently committed regions may be needed after a window shrink.
+// Stay inside native maintenance/recovery; never dispatch the main request here.
+async function compactForRequestFit(engine, agent, compact, measure, before, signal) {
+\tlet result = null;
+\tlet fit = before;
+\tfor (let attempt = 0; attempt < 8; attempt += 1) {
+\t\tsignal?.throwIfAborted();
+\t\tconst generation = agent.session.surface.replaceGeneration;
+\t\tif (attempt > 0) engine.fitContinuations.add(agent);
+\t\tlet current;
+\t\ttry { current = await compact(); }
+\t\tfinally { engine.fitContinuations.delete(agent); }
+\t\tsignal?.throwIfAborted();
+\t\tif (current !== null) result = current;
+\t\tif (agent.session.surface.replaceGeneration <= generation || measure === void 0) break;
+\t\tconst after = await measure();
+\t\tsignal?.throwIfAborted();
+\t\tconst minimum = fit.minimumMaxTokens ?? 1;
+\t\tconst samePolicy = fit.provider === after.provider && fit.model === after.model
+\t\t\t&& fit.contextWindow === after.contextWindow && fit.safetyTokens === after.safetyTokens
+\t\t\t&& fit.desiredMaxTokens === after.desiredMaxTokens && minimum === (after.minimumMaxTokens ?? 1);
+\t\tconst progress = Number.isFinite(after.estimate.tokens) && after.estimate.tokens < fit.estimate.tokens
+\t\t\t&& Number.isFinite(after.available) && after.available > fit.available;
+\t\tif (!samePolicy) throw new LlmError("compaction request budget policy changed during recovery", "INVALID_PREPARED_CALL");
+\t\tfit = after;
+\t\tif (!progress || after.available >= minimum) break;
+\t}
+\treturn { result, fit };
+}
+function routedTarget(session) {`,
   ],
   [
-    '\tconst framedSummaryTokenCount = dependencies.meter.estimateMessage(checkpointMessage);',
-    '\tconst checkpointMessage = dependencies.includeFileReferences?.(baseCheckpoint, agent.session, prepared.shadowedSeqs, prepared.shadowedRouteTokenCount, dependencies.meter) ?? baseCheckpoint;\n\tconst framedSummaryTokenCount = dependencies.meter.estimateMessage(checkpointMessage);',
+    '\tconst latest = agent.session.requestHeader()?.config;',
+    '\tconst latest = input.compactionTarget ?? agent.session.requestHeader()?.config;',
+  ],
+  [
+    '\t\tconst target = conversationTarget(agent);',
+    `\t\tconst first = input.messages[0]?.role === "system" ? 1 : 0;
+\t\tif (this.fitContinuations.has(agent) && input.messages.length === first + 1 && input.messages[first]?.source?.kind === "compact-checkpoint")
+\t\t\tthrow new LlmError("remaining history cannot fit without repeatedly summarizing the same checkpoint", "COMPACTION_NO_PROGRESS");
+\t\tconst target = input.compactionTarget ?? conversationTarget(agent);`,
   ],
   [
     '\tfor await (const chunk of ctx.llm.stream(options)) assembler.push(chunk);',
@@ -32,7 +68,8 @@ const replacements = [
 \t\t\t\tfor (let index = current.startIdx; index < current.endIdx; index += 1)
 \t\t\t\t\tif (toolPairingBalancedAfter(agent.session, nodes[index])) ends.push(nodes[index]);
 \t\t\t\tif (ends.length === 0) throw error;
-\t\t\t\t// Geometric local preparation is bounded by the original balanced ends.
+\t\t\t\t// Both estimated and provider-confirmed overflow shrink the selected
+\t\t\t\t// span geometrically, bounded by its original balanced ends.
 \t\t\t\t// It favors a useful fitting prefix over finding the longest one.
 \t\t\t\tconst end = ends[Math.floor((ends.length - 1) / 2)];
 \t\t\t\tsignal?.throwIfAborted();
@@ -45,7 +82,7 @@ const replacements = [
   [
     '\t\t\tmeter: this.ctx.tokenMeter,\n\t\t\tsummarize:',
     `\t\t\tmeter: this.ctx.tokenMeter,
-\t\t\tfitRecovery: (error, agent) => error instanceof LlmError && (error.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED" || error.code === "CONTEXT_WINDOW_EXCEEDED")
+\t\t\tfitRecovery: (error, agent) => error instanceof LlmError && (error.code === "COMPACTION_OUTPUT_BUDGET_EXHAUSTED" || error.code === CONTEXT_WINDOW_EXCEEDED_CODE)
 \t\t\t\t? this.ctx.llm.requestFitRecovery?.(error.failure, { purpose: "compaction", sessionId: agent.session.id }) : void 0,
 \t\t\tsummarize:`,
   ],
@@ -100,7 +137,7 @@ const replacements = [
   ],
   [
     '\toverflowAgents = /* @__PURE__ */ new WeakMap();',
-    '\toverflowAgents = /* @__PURE__ */ new WeakMap();\n\trequestFitRetries = /* @__PURE__ */ new WeakMap();',
+    '\toverflowAgents = /* @__PURE__ */ new WeakMap();\n\trequestFitRetries = /* @__PURE__ */ new WeakMap();\n\tfitContinuations = /* @__PURE__ */ new WeakSet();',
   ],
   [
     '\t\t\tif (status === "idle") this.overflowRetries.delete(agent);',
@@ -120,32 +157,35 @@ const replacements = [
 \t\t\t// Deduplicate failed/no-op summaries within a native step. The host
 \t\t\t// recovery projection owns the shared generation allowance.
 \t\t\tthis.requestFitRetries.set(agent, { turn, step });
-\t\t\tlet before = recovery.fit;
+\t\t\tconst before = recovery.fit;
+\t\t\tconst generation = agent.session.surface.replaceGeneration;
 \t\t\tconst trigger = failure.code === "LOCAL_OUTPUT_BUDGET_EXHAUSTED" ? "local-budget" : "output-truncation";
-\t\t\t// One admitted recovery can need several balanced
-\t\t\t// summaries before even one target-model reply fits.
-\t\t\tconst rounds = trigger === "local-budget" ? 8 : 1;
 \t\t\ttry {
-\t\t\t\tfor (let round = 0; round < rounds; round++) {
-\t\t\t\t\tconst generation = agent.session.surface.replaceGeneration;
-\t\t\t\t\tconst result = await this.compactIfNeeded(agent, trigger, signal);
-\t\t\t\t\tif (signal.aborted || agent.session.surface.replaceGeneration <= generation) return next();
-\t\t\t\t\tconst after = await recovery.measure({ messages: agent.session.deriveMessages(), toolHistory: agent.session.toolHistory(), signal });
-\t\t\t\t\tconst minimum = before.minimumMaxTokens ?? 1;
-\t\t\t\t\tif (signal.aborted || before.provider !== after.provider || before.model !== after.model ||
-\t\t\t\t\t    before.source !== after.source || before.contextWindow !== after.contextWindow ||
-\t\t\t\t\t    before.safetyTokens !== after.safetyTokens || before.desiredMaxTokens !== after.desiredMaxTokens ||
-\t\t\t\t\t    minimum !== (after.minimumMaxTokens ?? 1) || !Number.isFinite(after.estimate.tokens) ||
-\t\t\t\t\t    !Number.isFinite(after.available) || !(after.estimate.tokens < before.estimate.tokens && after.available > before.available)) return next();
-\t\t\t\t\tif (result !== null) logResult(result, trigger + " recovery");
-\t\t\t\t\tif (after.available >= minimum && after.effectiveMaxTokens >= minimum) {
-\t\t\t\t\t\tconst admission = ctx.bail("codebuddy/output-recovery-started", { agent, turn, step, fit: before, strategy: "compact" });
-\t\t\t\t\t\tif (admission?.allowed === false || signal.aborted) return next();
-\t\t\t\t\t\treturn { kind: "retry" };
-\t\t\t\t\t}
-\t\t\t\t\tbefore = after;
+\t\t\t\tconst { result, fit: after } = await compactForRequestFit(this, agent,
+\t\t\t\t\t() => this.compactIfNeeded(agent, trigger, signal),
+\t\t\t\t\t() => recovery.measure({ messages: agent.session.deriveMessages(), toolHistory: agent.session.toolHistory(), signal }),
+\t\t\t\t\tbefore, signal);
+\t\t\t\tif (signal.aborted || agent.session.surface.replaceGeneration <= generation) return next();
+\t\t\t\tif (signal.aborted) return next();
+\t\t\t\t// Compare the same routed envelope and budget policy; a replacement marker
+\t\t\t\t// alone is not proof that the actual adapter projection became smaller.
+\t\t\t\tconst minimumMaxTokens = before.minimumMaxTokens ?? 1;
+\t\t\t\tconst improved = before.provider === after.provider && before.model === after.model
+\t\t\t\t\t&& before.contextWindow === after.contextWindow && before.safetyTokens === after.safetyTokens
+\t\t\t\t\t&& before.desiredMaxTokens === after.desiredMaxTokens
+\t\t\t\t\t&& minimumMaxTokens === (after.minimumMaxTokens ?? 1)
+\t\t\t\t\t&& Number.isFinite(before.estimate.tokens) && Number.isFinite(after.estimate.tokens)
+\t\t\t\t\t&& after.estimate.tokens < before.estimate.tokens
+\t\t\t\t\t&& Number.isFinite(before.available) && Number.isFinite(after.available)
+\t\t\t\t\t&& after.available > before.available && after.available >= minimumMaxTokens && after.effectiveMaxTokens >= minimumMaxTokens;
+\t\t\t\tif (!improved) {
+\t\t\t\t\tctx.logger.warn(trigger + " compaction did not improve the prepared request fit; preserving the original request error");
+\t\t\t\t\treturn next();
 \t\t\t\t}
-\t\t\t\treturn next();
+\t\t\t\tif (result !== null) logResult(result, trigger + " recovery");
+\t\t\t\tconst admission = ctx.bail("codebuddy/output-recovery-started", { agent, turn, step, fit: before, strategy: "compact" });
+\t\t\t\tif (admission?.allowed === false || signal.aborted) return next();
+\t\t\t\treturn { kind: "retry" };
 \t\t\t} catch (recoveryError) {
 \t\t\t\tconst message = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
 \t\t\t\tctx.logger.warn(trigger + " compaction failed: " + message + "; " + (signal.aborted ? "cancellation prevents retry" : "preserving the original request error"));
@@ -161,6 +201,38 @@ const replacements = [
   [
     '\t\tif (trigger === "context-overflow") {',
     '\t\tif (trigger === "context-overflow" || trigger === "local-budget" || trigger === "output-truncation") {',
+  ],
+  [
+    '\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);\n\t\t\t\t\tif (range === null) return null;\n\t\t\t\t\treturn await compactSurfaceRegion(this.regionDependencies(), agent.session, range.start, range.end, agent, {',
+    `\t\t\t\t\tif (selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0) === null) return null;
+\t\t\t\t\tconst pending = this.ctx.sessionProjections?.stateOf(agent.session, "modelSelection")?.pending;
+\t\t\t\t\tconst target = Object.freeze({ ...(pending ?? agent.session.requestHeader()?.config ?? agent.options) });
+\t\t\t\t\tconst call = await this.ctx.llm.prepareCall?.(target, operationSignal);
+\t\t\t\t\tconst measure = call?.measure === void 0 ? void 0 : () => call.measure({
+\t\t\t\t\t\t...call.config, sessionId: agent.session.id, messages: agent.session.deriveMessages(),
+\t\t\t\t\t\ttools: agent.session.requestHeader()?.tools, toolHistory: agent.session.toolHistory(), signal: operationSignal,
+\t\t\t\t\t});
+\t\t\t\t\tconst before = await measure?.();
+\t\t\t\t\tconst dependencies = { ...this.regionDependencies(),
+\t\t\t\t\t\tsummarize: (input, owner, abort) => this.summarize({ ...input, compactionTarget: target }, owner, abort),
+\t\t\t\t\t};
+\t\t\t\t\tconst { result, fit } = await compactForRequestFit(this, agent, async () => {
+\t\t\t\t\tconst range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);
+\t\t\t\t\tif (range === null) return null;
+\t\t\t\t\treturn await compactSurfaceRegion(dependencies, agent.session, range.start, range.end, agent, {`,
+  ],
+  [
+    '\t\t\t\t\t}, operationSignal);\n\t\t\t\t} catch (error) {',
+    `\t\t\t\t\t}, operationSignal);
+\t\t\t\t\t}, measure, before, operationSignal);
+\t\t\t\t\tif (fit !== void 0 && (fit.available < (fit.minimumMaxTokens ?? 1) || fit.effectiveMaxTokens < (fit.minimumMaxTokens ?? 1)))
+\t\t\t\t\t\tthrow new ManualCompactionError("summary", "manual compaction could not fit the selected model's context window within safe bounded recovery; uncompressed history was retained");
+\t\t\t\t\treturn result;
+\t\t\t\t} catch (error) {`,
+  ],
+  [
+    '"manual compaction could not produce a smaller summary", { cause: failure.error }',
+    '`manual compaction failed: ${errorChain(failure.error)}`, { cause: failure.error }',
   ],
 ];
 

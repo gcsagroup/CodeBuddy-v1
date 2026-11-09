@@ -62,7 +62,8 @@ function fixture({ before = exhaustedFit, after = improvedFit, shrink = true, co
     failures.set(value, { fit: before, async measure(options) {
       measurements.push(options);
       if (measureError) throw measureError;
-      return Array.isArray(after) ? after[Math.min(measurements.length - 1, after.length - 1)] : after;
+      return typeof after === 'function' ? after(measurements.length)
+        : Array.isArray(after) ? after[Math.min(measurements.length - 1, after.length - 1)] : after;
     } });
     return value;
   }
@@ -97,6 +98,24 @@ test('local compaction attempts are shared by both codes within a step and survi
   assert.deepEqual(await f.recover(f.failure(), 'turn-2'), { kind: 'retry' });
 });
 
+test('one native recovery can commit several improving regions but admits only one generation retry', async () => {
+  const f = fixture({ after: count => count < 3
+    ? { ...exhaustedFit, available: -20 + count * 5, estimate: { tokens: 9920 - count * 5 } }
+    : improvedFit });
+  assert.deepEqual(await f.recover(), { kind: 'retry' });
+  assert.equal(f.compactions.length, 3);
+  assert.strictEqual(await f.recover(), f.next);
+  assert.equal(f.compactions.length, 3, 'multiple regions do not renew the same-step recovery allowance');
+});
+
+test('insufficient recovery is bounded even when every replacement makes a small improvement', async () => {
+  const f = fixture({ after: count => ({ ...exhaustedFit, available: -20 + count, estimate: { tokens: 9920 - count } }) });
+  assert.strictEqual(await f.recover(), f.next);
+  assert.equal(f.compactions.length, 8);
+  assert.strictEqual(await f.recover(), f.next);
+  assert.equal(f.compactions.length, 8);
+});
+
 test('the shared host allowance can deny compaction before summarization or retry admission', async () => {
   const denied = fixture();
   denied.handlers.set('codebuddy/output-recovery-available', [() => ({ allowed: false })]);
@@ -123,8 +142,7 @@ test('no surface replacement, insufficient fit, and summary failures cannot auth
     const f = fixture(options);
     assert.strictEqual(await f.recover(), f.next);
     assert.strictEqual(await f.recover(), f.next, 'a failed/no-op attempt cannot repeatedly summarize within the turn');
-    const improvedButInsufficient = options.after?.estimate?.tokens < exhaustedFit.estimate.tokens && options.after?.available > exhaustedFit.available && (options.after.available < 1 || options.after.effectiveMaxTokens < 1);
-    assert.equal(f.compactions.length, improvedButInsufficient ? 2 : 1, 'an improving segment may continue once, but unchanged fit stops the next segment');
+    assert.equal(f.compactions.length, options.after?.available === -1 ? 2 : 1);
   }
 });
 

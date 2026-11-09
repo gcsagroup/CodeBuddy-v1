@@ -22,6 +22,7 @@ const fixture = vi.hoisted(() => ({
   pending: undefined as ((sessionId: string, message: Message | undefined) => void) | undefined,
   autoRender: true,
   historyRendered: undefined as (() => void) | undefined,
+  renderHistory: vi.fn(),
   workspace: undefined as { sessionId: string; workingDir: string } | undefined,
   reconfirm: vi.fn(),
 }));
@@ -82,6 +83,7 @@ vi.mock('./ProgressiveMessageList', () => ({
     messages,
     chat,
     onHistoryRendered,
+    navigationTarget,
   }: {
     onMessageUpdate?: unknown;
     resubmitMessage?: unknown;
@@ -89,7 +91,9 @@ vi.mock('./ProgressiveMessageList', () => ({
     messages?: Message[];
     chat: { sessionId: string };
     onHistoryRendered?: (sessionId: string) => void;
+    navigationTarget?: { messageId: string };
   }) {
+    fixture.renderHistory();
     fixture.historyRendered = () => onHistoryRendered?.(chat.sessionId);
     useLayoutEffect(() => {
       if (fixture.autoRender) onHistoryRendered?.(chat.sessionId);
@@ -102,6 +106,7 @@ vi.mock('./ProgressiveMessageList', () => ({
         <output data-testid="history-order">
           {messages?.map((message) => message.id).join(',')}
         </output>
+        <output data-testid="navigation-target">{navigationTarget?.messageId}</output>
       </div>
     );
   },
@@ -122,6 +127,7 @@ beforeEach(() => {
   fixture.pending = undefined;
   fixture.autoRender = true;
   fixture.historyRendered = undefined;
+  fixture.renderHistory.mockClear();
   fixture.workspace = undefined;
   fixture.reconfirm.mockReset();
   vi.mocked(window.electron.on).mockClear();
@@ -462,6 +468,7 @@ it('offers a way back only when the latest output is below the viewport', async 
   const bounds = vi.spyOn(end, 'getBoundingClientRect');
   const rect = end.getBoundingClientRect();
   viewport.scrollTo = vi.fn(() => bounds.mockReturnValue({ ...rect, bottom: 0 }));
+  const historyRenders = fixture.renderHistory.mock.calls.length;
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
   fireEvent.wheel(viewport, { deltaY: -100 });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
@@ -470,6 +477,30 @@ it('offers a way back only when the latest output is below the viewport', async 
   fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
   expect(viewport.scrollTo).toHaveBeenCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
   expect(screen.queryByRole('button', { name: 'Back to latest' })).toBeNull();
+  expect(fixture.renderHistory).toHaveBeenCalledTimes(historyRenders);
+});
+
+it('clears a timeline jump when returning to latest without rebuilding history for scroll-only updates', async () => {
+  fixture.history = ['First request', 'Second request'].map((text, index) => ({
+    id: `turn-${index}`, role: 'user', created: index,
+    content: [{ type: 'text', text }], metadata: { userVisible: true, agentVisible: true },
+  }));
+  const { container } = show();
+  await waitFor(() => expect(screen.queryByTestId('conversation-loading')).toBeNull());
+  const viewport = container.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]')!;
+  const end = viewport.querySelector('div[style="height: 1px;"]')!;
+  const rect = end.getBoundingClientRect();
+  const bounds = vi.spyOn(end, 'getBoundingClientRect');
+  viewport.scrollTo = vi.fn();
+  fireEvent.click(screen.getByRole('button', { name: 'Go to turn 1: First request' }));
+  expect(screen.getByTestId('navigation-target')).toHaveTextContent('turn-0');
+  const renders = fixture.renderHistory.mock.calls.length;
+  bounds.mockReturnValue({ ...rect, bottom: 100 });
+  fireEvent.scroll(viewport);
+  expect(fixture.renderHistory).toHaveBeenCalledTimes(renders);
+  fireEvent.click(screen.getByRole('button', { name: 'Back to latest' }));
+  expect(screen.getByTestId('navigation-target')).toBeEmptyDOMElement();
+  expect(viewport.scrollTo).toHaveBeenLastCalledWith({ top: viewport.scrollHeight, behavior: 'auto' });
 });
 
 it('shows running dots at the bottom, preserves the return control, and clears dots when waiting or idle', async () => {

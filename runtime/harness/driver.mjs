@@ -924,7 +924,8 @@ Keep progress updates brief, meaningful, and outcome-based.
   }
   async function applySessionOptions(sessionId, options, createdAgent) {
     const agent = createdAgent ?? await resolveAgent(sessionId);
-    if (agent.status !== 'idle' || runs.has(sessionId)) throw new Error('Session settings can only change while idle');
+    // DSH exposes idle during maintenance; its live summarizer must stay bound.
+    if (agent.status !== 'idle' || runs.has(sessionId) || maintenanceRuns.has(sessionId)) throw new Error('Session settings can only change while idle');
     const capabilities = capabilitiesFor(agent);
     const capabilityCtx = capabilities.ctx;
     const previous = sessionSettings.get(sessionId) ?? {};
@@ -970,6 +971,9 @@ Keep progress updates brief, meaningful, and outcome-based.
         ? previousBinding : { scope, identity: Object.freeze({}) });
     }
     const subagentModels = {};
+    const compactionModel = settings.compactionModel;
+    const summaryRoute = compactionModel && !compactionModel.error
+      ? await configureProvider(compactionModel.provider, compactionModel.model) : null;
     for (const [role, configured] of Object.entries(settings.subagentModels ?? {})) {
       if (!['explorer', 'browser', 'generic'].includes(role)) throw new TypeError('Unknown subagent model role');
       subagentModels[role] = configured.error ? { error: configured.error } : await configureProvider(configured.provider, configured.model);
@@ -1095,9 +1099,12 @@ Keep progress updates brief, meaningful, and outcome-based.
           // reuse, so its cap must fit both thinking and the complete checkpoint.
           headroomTokens: 1024, maxTokens: 4096, retainRatio: Math.min(0.16, (settings.autoCompactThreshold ?? 0.8) / 2),
           auto: settings.autoCompact !== false,
+          summarizationProvider: summaryRoute?.provider ?? '',
+          summarizationModel: summaryRoute?.model ?? '',
         });
         await compactFiber;
         if (compactFiber.state !== 2) throw new Error('Harness compaction did not activate');
+        scoped.get('compaction').modelError = compactionModel?.error;
         // Both transports are independent. Harness still owns remote preset
         // leases and session-scoped stdio processes. Background mode admits the
         // loop after scopes exist; the bridge publishes actual readiness later.
@@ -1471,7 +1478,16 @@ Keep progress updates brief, meaningful, and outcome-based.
     },
     async contextUsage(sessionId) { return contextUsage((await resolveAgent(sessionId)).session); },
     async compact(sessionId, { signal = new AbortController().signal, onEvent } = {}) {
-      const agent = await resolveAgent(sessionId);
+      let agent;
+      // Finish capability preparation before capturing its compaction scope.
+      // Recheck after resolving the agent: another configuration can queue there.
+      for (;;) {
+        signal.throwIfAborted();
+        const configuration = configurationQueues.get(sessionId);
+        await abortable(configuration, signal);
+        agent = await abortable(resolveAgent(sessionId), signal);
+        if (configuration === configurationQueues.get(sessionId)) break;
+      }
       const scope = sessionScopes.get(sessionId);
       if (!scope) throw new Error('Configure the session before compaction');
       if (runs.has(sessionId) || maintenanceRuns.has(sessionId)) throw new Error('Compaction requires an idle session');

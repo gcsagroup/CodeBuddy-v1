@@ -307,6 +307,19 @@ test('server context overflow keeps its provider classification', async t => {
   assert.equal(finish(chunks).reason.failure.code, 'CONTEXT_WINDOW_EXCEEDED');
 });
 
+test('only auxiliary provider overflow receives the prepared summary identity', async t => {
+  const f = fixture(t, { handleFetch: () => new Response(JSON.stringify({
+    error: { message: 'maximum context length exceeded', code: 'context_length_exceeded' },
+  }), { status: 400, headers: { 'content-type': 'application/json' } }) });
+  const call = await f.adapter.prepareCall('fixture', 'fixture');
+  for (const purpose of [undefined, 'compaction']) {
+    const request = await call.prepareRequest(f.options({ ...(purpose ? { purpose } : {}) }));
+    const failure = finish(await collect(request.stream())).reason.failure;
+    assert.equal(failure.code, 'CONTEXT_WINDOW_EXCEEDED');
+    assert.equal(failure.requestId, purpose ? request.fit.requestId : undefined);
+  }
+});
+
 test('Responses minimum output budget is checked before its native wire floor can enlarge the cap', async t => {
   for (const [name, cap, available, expectedCap, code] of [
     ['explicit cap one', 1, undefined, undefined, 'INVALID_OUTPUT_BUDGET'],
